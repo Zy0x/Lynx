@@ -14,5 +14,4 @@ Thanks to:
 - Niko Schwickert
 - Matt Yang
 
-Special Thanks for *Kanon.Ify* for base script
-And all my friends who contributed to the development of the project.
+Special Thanks for *Kanon.Ify* for base script and all my friends who contributed to the development of the project.
