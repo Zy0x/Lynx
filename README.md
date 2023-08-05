@@ -20,8 +20,4 @@ Lynx is an AIO module with integrated AI according to the desired application! A
 13. Anti-Aliasing
 
 *notes:
-Add the application package name in 
-
-/sdcard/lynx/applist_perf.txt 
-
-for applications that are set to performance mode!
+Add the application package name in  /sdcard/lynx/applist_perf.txt  for applications that are set to performance mode!
