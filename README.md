@@ -4,7 +4,7 @@ Important!
 - Only For Snapdragon
 - Android 10 and above
 
-Lynx is an AIO module with integrated AI according to the desired application! Among them:
+Lynx is an AIO module with integrated AI according to the desired application! list option:
 1. More Balance Mode Options
 2. Disable thermal engine
 3. Dex2oat optimizer
@@ -18,6 +18,7 @@ Lynx is an AIO module with integrated AI according to the desired application! A
 11. GMS Doze
 12.GPU rendering
 13. Anti-Aliasing
+14. etc (will be different for each version)
 
-*notes:
-Add the application package name in  /sdcard/lynx/applist_perf.txt  for applications that are set to performance mode!
+*Notes*:
+- Add the application package name in  /sdcard/lynx/applist_perf.txt  for applications that are set to performance mode!
