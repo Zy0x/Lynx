@@ -12,7 +12,7 @@ Lynx is an AIO module with integrated AI according to the desired application! l
 5. Swap RAM sizes
 6. Deep sleep enhance mode
 7. Unity Big. Little trick
-8. Wifi bonding
+8. Wi-Fi bonding
 9. Touch optimization
 10.Built-in magisk busybox
 11. GMS Doze
