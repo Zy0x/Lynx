@@ -18,7 +18,8 @@ Lynx is an AIO module with integrated AI according to the desired application! l
 11. GMS Doze
 12.GPU rendering
 13. Anti-Aliasing
-14. etc (will be different for each version)
+14. Some animation scale
+15. etc (will be different for each version)
 
 *Notes*:
 - Add the application package name in  /sdcard/lynx/applist_perf.txt  for applications that are set to performance mode!
