@@ -17,3 +17,31 @@ Important!
 - [Trakteer] (https://trakteer.id/zy0x/tip)
 
 ## About Module
+### 1. More Balance Mode Options
+This tweak functions to adjust the CPU frequency during Balance Mode, to balance battery and performance.
+##### - Default
+set the CPU frequency as the original setting.
+##### - Downclock CPU Freq
+reduces the CPU frequency (4, 5, 6, 7) to the 7th level from the highest.
+##### - Disable 2 CPU Cores
+disable CPU 3 and 6
+##### - Powersave Governor CPU 4 - 7
+change CPU governor 4 - 7 to "powersave"
+### 2. Disable Thermal Engine
+The script will look for several thermal configs and disable them completely in performance mode, and restore them again when in balance mode.
+### 3. Deepsleep Enhancer
+Set the sleep time speed of an Android, this affects how quickly the Android enters power saving mode for temperature stability and increased battery life. (affects notification delays)
+### 4. Zram
+Set the required zram size for an android. (available up to 6GB)
+### 5. Swap
+Managing swap requirements from internal memory, may be slower than ZRAM. (available up to 6GB)
+### 6. GMS Doze
+Functions to manage Google services, to improve performance and battery life. (affects delay notifications)
+### 7. Wi-Fi Bonding
+Uses both wifi bands (2.4GHz & 5GHz) simultaneously for low latency and high stability, but not recommended for Wi-Fi that only uses 2.4GHz.
+### 8. Touch Optimizer
+Optimizes touch movement speed and touchscreen sensitivity, as well as smooths scroll movement.
+### 9. Dex2oat Optimizer
+Compile dex files for each application to speed up opening or closing an application. (booting app)
+### 10. 
+   
