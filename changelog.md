@@ -1,3 +1,4 @@
+# Quiet 1.9
 ## Last Version of Quiet
 ### New
 - Add some thermal management
