@@ -43,5 +43,23 @@ Uses both wifi bands (2.4GHz & 5GHz) simultaneously for low latency and high sta
 Optimizes touch movement speed and touchscreen sensitivity, as well as smooths scroll movement.
 ### 9. Dex2oat Optimizer
 Compile dex files for each application to speed up opening or closing an application. (booting app)
-### 10. 
-   
+### 10. Built-in Magisk BusyBox
+BusyBox is integrated in magisk, for convenience and without additional busybox from outside. (optional)
+### 11. Unity Big.Little Force
+Serves to increase the efficiency of the CPU core for Unity applications.
+### 12. Setting Renderer
+Choose a renderer to use for the entire system such as OpenGL or Vulkan.
+### 13. Window Animation Scale
+Functions to reduce or turn off window animations. (like animation on open or close app)
+### 14. Transition Animation Scale
+Functions to reduce or turn off transition animations. (like transition app)
+### 15. Animator Duration Scale
+functions to reduce or turn off the duration of the animator. (like loading animation)
+### 16. Internet Tweak
+Increase internet speed and reduce latency by using improved scripts.
+### 17. DNS Changer
+Change the default DNS to custom DNS.
+### 18. Game Unlocker (BETA)
+Functions to open locked game settings for several devices, but this is still in the development and testing phase and each game update will experience changes. Please try with DWYOR.
+### 19. Force Fast Charging
+Force and increase the charging speed to the maximum level that the device has, but this does not change the kernel but only provides a forced script with some security for charging.
