@@ -13,5 +13,6 @@ Thanks to:
 - lybxlpsv
 - Niko Schwickert
 - Matt Yang
+- ModulOStk
 
 Special Thanks for *Kanon.Ify* for base script and all my friends who contributed to the development of the project.
