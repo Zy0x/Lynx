@@ -10,7 +10,7 @@ Important!
 - Android 10 and above (SDK29+)
 
 *Notes*:
-- Add the application package name in  /InternalStorage/lynx/applist_perf.txt for applications that are set to performance mode and reboot!
+- Add the application package name in  /InternalStorage/lynx/applist_perf.txt for applications that are set to performance mode and run the app!
 
 ## Donations
 - [Ko-Fi] (https://ko-fi.com/zy0x_noir)
