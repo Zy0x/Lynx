@@ -43,8 +43,8 @@ Uses both wifi bands (2.4GHz & 5GHz) simultaneously for low latency and high sta
 Optimizes touch movement speed and touchscreen sensitivity, as well as smooths scroll movement.
 ### 9. Dex2oat Optimizer
 Compile dex files for each application to speed up opening or closing an application. (booting app)
-### 10. Built-in Magisk BusyBox
-BusyBox is integrated in magisk, for convenience and without additional busybox from outside. (optional)
+### 10. Built-in BusyBox
+BusyBox is integrated in magisk or kernelsu, for convenience and without additional busybox from outside. (optional)
 ### 11. Unity Big.Little Force
 Serves to increase the efficiency of the CPU core for Unity applications.
 ### 12. Setting Renderer
