@@ -1,20 +1,20 @@
 # Velocity 2.3
 ### New
-- New UI Notification & Toast
-- Nothing Special:v
+- Fully Supported Magisk v27+
+- Supports some MediaTek processors (BETA)
+- Added some built-in disable thermal engine files
+- Limits charging speed in performance mode (to 1500mA) for temperature stability and gaming performance (battery will remain charged)
+- Added some system.prop code for GPU optimization
+- Added several Ram Cleaner scripts 
 
 ### Fixes & Improvements
-- Rename Fast Charge script to Charging Control
-- Remake script Charging Control for Fast Charge (Tested on Sony XZ3, Xperia 5, Redmi Note 7, Redmi Note 8)
-- Improved built-in BusyBox
-- Reduce commands that don't have a big impact (in service.sh)
-- Added some Charging Control option (1500mA & 2000mA)
-- Removes scripts that cause mobile network internet not to work (bug on previous version)
-- Removed duplicate scripts for efficiency
-- Deleted the Charging Control pid file (not working properly)
-- Changed the entire GPU script to performance and balance mode (reduce gap GPU)
-- Restores some schedtune boost settings in background processes (reduces lag on A12+ with 4GB RAM and below)  *need tested*
-
+- Optimized the performance mode script to speed up entering the mode
+- Reduced the distance of GPU rendered objects in one run 
+- Optimize the priority CPU cores used in Performance Mode (requires a lot of battery power)
+- Removed "Supercell" game from performance mode 
+- Optimizes ZRAM/SWAP for background processes
+- Migrating set CPU for audio processing (synchronize audio and reduce lag)
+-----
 ### Bugs
-If u faced display crash on A12+ (especially A13 & A14) then reboot device or clear cache launcher.
+If u faced display crash on A12+ (especially A13 & A14) then reboot device or clear cache launcher. 
 *Recommended to clean all cache with SD-Maid or other apps*
