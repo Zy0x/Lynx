@@ -1,4 +1,4 @@
-# Velocity 2.3
+# Velocity 2.4
 ### New
 - Fully Supported Magisk v27+
 - Supports some MediaTek processors (BETA)
