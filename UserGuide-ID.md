@@ -48,12 +48,12 @@ contoh:
 - untuk kecepatan 1700 mA
   
   ```bash
-  su -c setprop lynx.fcc 1.7
+  su -c setprop lynx.lcc 1.7
   ```
 - untuk kecepatan 2000 mA
   
   ```bash
-  su -c setprop lynx.fcc 2
+  su -c setprop lynx.lcc 2
   ```
 
 Jika tidak ingin membatasi kecepatan pengisian daya pada saat mode performa gunakan perintah berikut tanpa melakukan restart sistem:
