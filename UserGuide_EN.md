@@ -104,3 +104,4 @@ First, activate FLOW according to the previous instructions, then change the fol
 - For HIGH mode, change the value of ```flow_mode``` to ```flow_mode=3```
 - For EXTREME mode, change the value of ```flow_mode``` to ```flow_mode=5```
 
+------------ ENGLISH ------------
