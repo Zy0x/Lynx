@@ -49,12 +49,12 @@ example:
 - for 1700 mA speed
   
   ```bash
-  su -c setprop lynx.fcc 1.7
+  su -c setprop lynx.lcc 1.7
   ```
 - for 2000 mA speed
   
   ```bash
-  su -c setprop lynx.fcc 2
+  su -c setprop lynx.lcc 2
   ```
 
 If you don't want to limit the charging speed in performance mode, use the following command without restarting the system:
