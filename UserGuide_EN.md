@@ -3,6 +3,7 @@
 # USER GUIDE
 
 ## CHARGING CONTROL
+---
 ### Charging Control Activation
 Use the following commands without restarting the system:
 - Enable Charging Control
@@ -96,7 +97,7 @@ _<sub>Note: If you want to exclude some applications, add the _`application pack
 - Disable Flow
   
   Open the file _```/InternalStorage/Lynx/mode```_ and change the value of ```flow``` to ```flow=0```
-
+---
 ### Changing Flow Mode
 First, activate FLOW according to the previous instructions, then change the following values in the file _```/InternalStorage/Lynx/mode```_
 - For BASIC mode, change the value of ```flow_mode``` to ```flow_mode=1```
