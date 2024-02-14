@@ -1,9 +1,7 @@
 ------------ INDONESIA ------------
 
 # PETUNJUK PENGGUNAAN
-
 ---
-
 ## CHARGING CONTROL
 ### Aktivasi Charging Control
 Gunakan perintah berikut tanpa melakukan restart sistem:
@@ -98,7 +96,7 @@ _<sub>Catatan: Apabila ingin mengecualikan beberapa aplikasi, tambahkan _`nama p
 - Menonaktifkan Flow
   
   Buka file _```/InternalStorage/Lynx/mode```_ dan ubah nilai ```flow``` menjadi ```flow=0```
-
+---
 ### Mengubah Mode Flow
 Aktifkan terlebih dahulu FLOW sesuai petunjuk sebelumnya, lalu ganti nilai berikut pada file  _```/InternalStorage/Lynx/mode```_
 - Untuk mode BASIC, ganti nilai ```flow_mode``` menjadi ```flow_mode=1```
