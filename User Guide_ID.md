@@ -105,3 +105,5 @@ Aktifkan terlebih dahulu FLOW sesuai petunjuk sebelumnya, lalu ganti nilai berik
 - Untuk mode ADVANCE, ganti nilai```flow_mode``` menjadi ```flow_mode=2```
 - Untuk mode HIGH, ganti nilai ```flow_mode``` menjadi ```flow_mode=3```
 - Untuk mode EXTREME, ganti nilai ```flow_mode``` menjadi ```flow_mode=5```
+
+------------ INDONESIA ------------
