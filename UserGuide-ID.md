@@ -3,6 +3,10 @@
 # PETUNJUK PENGGUNAAN
 ---
 ## CHARGING CONTROL
+Mengatur kecepatan pengisian daya, dan memberikan batas pengisian yang dapat disesuaikan manual secara fleksibel.
+
+<sub>_```*Direkomendasikan untuk melepas dan memasang kembali kabel pengisian daya```_</sub>
+
 ### Aktivasi Charging Control
 Gunakan perintah berikut tanpa melakukan restart sistem:
 - Mengaktifkan Charging Control
