@@ -2,6 +2,13 @@
 
 # PETUNJUK PENGGUNAAN
 ---
+
+## AI MODE
+Mengatur mode lynx (Performa atau Seimbang) pada aplikasi tertentu. Tuliskan _``nama paket aplikasi``_ yang ingin diatur menjadi Mode Performa pada file ``` /InternalStorage/Lynx/applist_perf.txt  ```
+
+<sub>Contoh: Untuk aplikasi *Genshin Impact* tuliskan ```com.miHoYo.GenshinImpact``` pada ```/InternalStorage/Lynx/applist_perf.txt``` dan simpan </sub>
+
+---
 ## CHARGING CONTROL
 Mengatur kecepatan pengisian daya, dan memberikan batas pengisian yang dapat disesuaikan manual secara fleksibel.
 
@@ -20,7 +27,7 @@ Gunakan perintah berikut tanpa melakukan restart sistem:
   ```
 
   <sub>_Catatan: Apabila ingin menggunakannya secara permanen, buka file  ``` /data/adb/modules/Lynx/system.prop  ``` dan ubah nilai ```lynx.cc``` menjadi ```lynx.cc=1``` (untuk mengaktifkan) atau ```lynx.cc=0``` (untuk menonaktifkan), lalu restart sistem._</sub>
----
+
 ### Mengatur Kecepatan Pengisian Daya
 Gunakan perintah berikut tanpa melakukan restart sistem:
 
@@ -40,7 +47,7 @@ contoh:
   ```
 
     <sub>_Catatan: Apabila ingin mengaturnya secara permanen, buka file  ``` /data/adb/modules/Lynx/system.prop  ``` dan ubah nilai ```lynx.fcc``` menjadi ```lynx.cc={nilai kecepatan}```, lalu restart sistem._</sub>
----
+
 ### Mengatur Batas Kecepatan Pengisian Daya Saat Mode Performa
 Gunakan perintah berikut tanpa melakukan restart sistem:
 
@@ -67,6 +74,32 @@ Jika tidak ingin membatasi kecepatan pengisian daya pada saat mode performa guna
   ```
 
    <sub>_Catatan: Apabila ingin mengaturnya secara permanen, buka file  ``` /data/adb/modules/Lynx/system.prop  ``` dan ubah nilai ```lynx.lcc``` menjadi ```lynx.lcc={nilai kecepatan}```, lalu restart sistem._</sub>
+
+
+### AutoCut Charging
+Berfungsi untuk memotong daya yang masuk saat persentase baterai di batas tertentu. _(Default, diatur ke 100)_
+  - Untuk membatasi persentase baterai minimal, buka terminal dan jalankan perintah berikut:
+    
+    ```bash
+    setprop lynx.min.ac {persentase baterai}
+    ```
+  - Untuk membatasi persentase baterai maksimal, buka terminal dan jalankan perintah berikut:
+    
+    ```bash
+    setprop lynx.max.ac {persentase baterai}
+    ```
+_<sub>*Direkomendasikan untuk melepas dan memasang kembali kabel pengisian daya setelah mengatur nilai AutoCut.</sub>_
+
+contoh:
+batas maksimal 95% dan batas minimal 85%, maka jalankan perintah berikut:
+ 
+```bash
+setprop lynx.min.ac 85
+setprop lynx.max.ac 95
+```
+dengan begitu, pengisian daya akan berhenti saat persentase baterai mencapai 95% (atau lebih) dan akan melanjutkan pengisian kembali saat persentase baterai turun menjadi 85% (atau dibawah 95%).
+
+<sub>_Catatan: Apabila ingin mengaturnya secara permanen, buka file  ``` /data/adb/modules/Lynx/system.prop  ``` dan ubah nilai ```lynx.min.ac``` atau ```lynx.max.ac``` menjadi ```lynx.max.ac={persentase baterai}``` atau ```lynx.min.ac={persentase baterai}``` , lalu restart sistem._</sub>
 
 ---
 
