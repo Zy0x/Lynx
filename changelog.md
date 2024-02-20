@@ -1,19 +1,22 @@
-# Velocity 2.4
+# Velocity 2.5
 ### New
-- Fully Supported Magisk v27+
-- Supports some MediaTek processors (BETA)
-- Added some built-in disable thermal engine files
-- Limits charging speed in performance mode (to 1500mA) for temperature stability and gaming performance (battery will remain charged)
-- Added some system.prop code for GPU optimization
-- Added several Ram Cleaner scripts 
+- New AI Controller (Very Faster)
+- Added new feature AutoCut Charger (based on the minimum and maximum battery percentages)
+- New Charging Control for true Fast Charging (close to the actual value)
+- New props for GPU optimization
+- New props for AI Controller
+- Added UserGuide.html (IN/ENG) file in /InternalStorage/Lynx/ for read long user guide, open with browser
+- Added README.md file in /InternalStorage/Lynx/ for read short user guide, open with text editor or viewer
 
 ### Fixes & Improvements
-- Optimized the performance mode script to speed up entering the mode
-- Reduced the distance of GPU rendered objects in one run 
-- Optimize the priority CPU cores used in Performance Mode (requires a lot of battery power)
-- Removed "Supercell" game from performance mode 
-- Optimizes ZRAM/SWAP for background processes
-- Migrating set CPU for audio processing (synchronize audio and reduce lag)
+- Optimized the AI Controller to run faster when changing modes
+- Optimize the Charging Controller so that the charging speed matches the set value
+- True Fast Charging
+- Optimized graphics cache size and rendering
+- Make several optimal settings for the AutoCut Charger feature according to the set minimum and maximum battery percentages
+- Making the module as a whole more flexible for user customization
+
+*Before installing the module, please read README.md or open UserGuide-(ENG/IN).html to understand how to use the module*
 -----
 ### Bugs
 If u faced display crash on A12+ (especially A13 & A14) then reboot device or clear cache launcher. 
