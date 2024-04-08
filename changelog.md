@@ -1,14 +1,19 @@
-# Velocity 2.6
+# Velocity 2.7
 ### New
-- New User Experience!
-- Added custom programs for a simpler and more accessible user experience, use this command ( su -c lynx ) in termux only!
-- Added app compiler module
+- Added Misc. menu
+- Added some tweak in misc. menu
+- New sqlite3 version
 
 ### Fixes & Improvements
-- Improve GPU latency
-- Improve flush rate rendering
-- Maintains device performance even if device is overheating (BETA)
-- Improve dex2oat thread
+- Limit background service & app
+- Improve some tweak for disable thermal
+- Improve charging control thermal
+- Improve surfaceflinger 
+- Improve some gpuservice
+- Removed app compiler scripts at boot time. Can be activated manually via Termux (BETA)
+- Fixed several issues that could cause lag in previous versions
+- Improves device looping block
+- Other
 
 ### Run Programs
 Open termux, and write:
