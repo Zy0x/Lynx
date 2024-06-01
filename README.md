@@ -6,7 +6,7 @@ To use this module you must have one of the following:
 - BusyBox Latest (Brutal or Normal), or use busybox which is provided in the module
 
 Important!
-- Only For Snapdragon
+- Only For SNAPDRAGON Device
 - Android 10 and above (SDK29+)
 
 *Notes*:
