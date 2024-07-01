@@ -1,19 +1,24 @@
-# Velocity 2.7
+# Velocity 2.8
 ### New
-- Added Misc. menu
-- Added some tweak in misc. menu
-- New sqlite3 version
+- Added new scheduler "kyber" for looping
+- Added new tcp congestion control (if supported)
+- Added new game (WhuteringWaves)
+- Added new zram algorithm
+- Added notification when a module requires lock screen access
+- Disable Log and Traced
 
 ### Fixes & Improvements
-- Limit background service & app
-- Improve some tweak for disable thermal
-- Improve charging control thermal
-- Improve surfaceflinger 
-- Improve some gpuservice
-- Removed app compiler scripts at boot time. Can be activated manually via Termux (BETA)
-- Fixed several issues that could cause lag in previous versions
-- Improves device looping block
-- Other
+- Increase CPU time max percent
+- Limit restricted CPU
+- Disable sched boost
+- Disable core control in mode performance
+- remove some system properties
+- Changed some directories for Internet Tweak
+- Changed UFS power mode
+- Increase limit thermal in mode performance
+
+### Bug
+Tell me if u found some bug!
 
 ### Run Programs
 Open termux, and write:
