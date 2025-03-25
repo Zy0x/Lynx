@@ -89,8 +89,8 @@ Fine-tune CPU frequency to optimize performance and battery life.
 - 🎁 [Trakteer](https://trakteer.id/zy0x/tip)
 
 ## 📜 Thanks & Source
-- 🎭 [Magisk Modules Repository](https://github.com/topjohnwu/Magisk)
-- ♜ [KernelSU Project](https://github.com/tiann/KernelSU)
+- 🎭 [Magisk Stable](https://github.com/topjohnwu/Magisk) & [Magisk Delta](https://github.com/HuskyDG/magisk-files)
+- ♜ [KernelSU](https://github.com/tiann/KernelSU)
 - ⚙️ [Kanonify](https://github.com/Kanonify-01) (Base Tree)
 
 ‎
