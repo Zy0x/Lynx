@@ -1,65 +1,98 @@
-# Lynx
-Lynx is an AIO module with integrated AI according to the desired application! This module focuses on speed and user experience, it includes various tweaks that can increase and open the maximum limits of a processor or android itself.
+<h1 align="center">📌 Lynx - AIO Performance & AI Module</h1>
 
-To use this module you must have one of the following:
-- Installed Magisk or KernelSU
-- BusyBox Latest (Brutal or Normal), or use busybox which is provided in the module
+<p align="center">
+  <b>🚀 Unlock Your Device's Full Potential with Lynx! 🚀</b>
+</p>
+‎
 
-Important!
-- Only For SNAPDRAGON Device
-- Android 10 and above (SDK29+)
+## 🔥 About Lynx
+Lynx is an **All-in-One (AIO) module** designed to enhance **speed**, **performance**, and **user experience** on Snapdragon devices. It integrates AI-driven optimizations and powerful tweaks to push your Android to the next level. Whether you prioritize **performance**, **battery life**, or **gaming**, Lynx gives you full control!
 
-*Notes*:
-- Add the application package name in  /InternalStorage/lynx/applist_perf.txt for applications that are set to performance mode and run the app!
+### 🔑 Requirements
+To use this module, you must have:
+- **Magisk** or **KernelSU** installed ✅
+- **BusyBox** (Latest Brutal/Normal) or use the built-in BusyBox in the module ✅
 
-## Donations
-- [Ko-Fi] (https://ko-fi.com/zy0x_noir)
-- [Trakteer] (https://trakteer.id/zy0x/tip)
+‎
+🚨 **Important!**
+- ❗ **Only for Snapdragon devices**
+- ❗ **Android 10 and above (SDK 29+)**
 
-## About Module
-### 1. More Balance Mode Options
-This tweak functions to adjust the CPU frequency during Balance Mode, to balance battery and performance.
-##### - Default
-set the CPU frequency as the original setting.
-##### - Downclock CPU Freq
-reduces the CPU frequency (4, 5, 6, 7) to the 7th level from the highest.
-##### - Disable 2 CPU Cores
-disable CPU 3 and 6
-##### - Powersave Governor CPU 4 - 7
-change CPU governor 4 - 7 to "powersave"
-### 2. Disable Thermal Engine
-The script will look for several thermal configs and disable them completely in performance mode, and restore them again when in balance mode.
-### 3. Deepsleep Enhancer
-Set the sleep time speed of an Android, this affects how quickly the Android enters power saving mode for temperature stability and increased battery life. (affects notification delays)
-### 4. Zram
-Set the required zram size for an android. (available up to 6GB)
-### 5. Swap
-Managing swap requirements from internal memory, may be slower than ZRAM. (available up to 6GB)
-### 6. GMS Doze
-Functions to manage Google services, to improve performance and battery life. (affects delay notifications)
-### 7. Wi-Fi Bonding
-Uses both wifi bands (2.4GHz & 5GHz) simultaneously for low latency and high stability, but not recommended for Wi-Fi that only uses 2.4GHz.
-### 8. Touch Optimizer
-Optimizes touch movement speed and touchscreen sensitivity, as well as smooths scroll movement.
-### 9. Dex2oat Optimizer
-Compile dex files for each application to speed up opening or closing an application. (booting app)
-### 10. Built-in BusyBox
-BusyBox is integrated in magisk or kernelsu, for convenience and without additional busybox from outside. (optional)
-### 11. Unity Big.Little Force
-Serves to increase the efficiency of the CPU core for Unity applications.
-### 12. Setting Renderer
-Choose a renderer to use for the entire system such as OpenGL or Vulkan.
-### 13. Window Animation Scale
-Functions to reduce or turn off window animations. (like animation on open or close app)
-### 14. Transition Animation Scale
-Functions to reduce or turn off transition animations. (like transition app)
-### 15. Animator Duration Scale
-functions to reduce or turn off the duration of the animator. (like loading animation)
-### 16. Internet Tweak
-Increase internet speed and reduce latency by using improved scripts.
-### 17. DNS Changer
-Change the default DNS to custom DNS.
-### 18. Game Unlocker (BETA)
-Functions to open locked game settings for several devices, but this is still in the development and testing phase and each game update will experience changes. Please try with DWYOR.
-### 19. Force Fast Charging
-Force and increase the charging speed to the maximum level that the device has, but this does not change the kernel but only provides a forced script with some security for charging.
+---
+
+## 🔧 Features & Optimizations
+### ⚖️ **Balance Mode Options**
+Fine-tune CPU frequency to optimize performance and battery life.
+- **Default:** Uses original CPU frequency.
+- **Downclock CPU Freq:** Reduces CPU frequency for power efficiency.
+- **Disable 2 CPU Cores:** Disables CPU cores **3 & 6** for better thermal management.
+- **Powersave Governor:** Limits CPU 4-7 to **"powersave" mode**.
+
+### ❄️ **Disable Thermal Engine**
+- Disables thermal limits in **Performance Mode**.
+- Automatically restores settings in **Balance Mode**.
+
+### 💤 **Deepsleep Enhancer**
+- Reduces background activity for improved battery life.
+- (⚠️ May cause slight notification delays.)
+
+### 🛠 **ZRAM & Swap Management**
+- Adjust **ZRAM size** (up to **6GB**) to optimize memory usage.
+- Manage **swap storage** from internal memory for enhanced performance.
+
+### 🔋 **GMS Doze**
+- Optimizes **Google Services** to reduce background power drain.
+- (⚠️ May cause minor notification delays.)
+
+### 📡 **Wi-Fi Bonding**
+- Uses **2.4GHz & 5GHz Wi-Fi bands simultaneously** for **lower latency**.
+- (⚠️ Not recommended for 2.4GHz-only networks.)
+
+### 🎮 **Game & Touch Optimizations**
+- **Touch Optimizer:** Increases touch sensitivity & smooth scrolling.
+
+### 🚀 **Performance Boosters**
+- **Dex2oat Optimizer:** Compiles app files for faster launch speeds.
+- **Big.Little CPU Optimization:** Enhances CPU efficiency for Unity-based apps.
+- **Force Fast Charging:** Boosts charging speed while maintaining safety.
+
+### 🎨 **UI & Animation Enhancements**
+- **Set Renderer:** Choose between **OpenGL** or **Vulkan** for rendering.
+- **Window Animation Scale:** Adjusts app opening/closing animations.
+- **Transition Animation Scale:** Controls transition animations.
+- **Animator Duration Scale:** Tweaks loading animation speeds.
+
+### 🌐 **Internet & Network Enhancements**
+- **Internet Tweak:** Reduces latency & improves speed.
+- **DNS Changer:** Use custom DNS for improved connectivity.
+
+---
+
+## 📥 Installation Guide
+1. **Download** the module (**Root Version**).
+2. **Flash it** via **Magisk**, **KernelSU**, or **Apatch**.
+3. **Reboot your device**.
+4. 🎉 Enjoy the performance boost!
+
+
+
+> [!NOTE]
+> To force an app into **Performance Mode**, add its package name to:
+> `/InternalStorage/lynx/applist_perf.txt`, then open the app!
+
+---
+
+## 💖 Support & Donations
+‎ If you enjoy Lynx and want to support future updates, consider donating:
+
+- ☕ [Ko-Fi](https://ko-fi.com/zy0x_noir)
+- 🎁 [Trakteer](https://trakteer.id/zy0x/tip)
+
+## 📜 Thanks & Source
+- 🎭 [Magisk Modules Repository](https://github.com/topjohnwu/Magisk)
+- ♜ [KernelSU Project](https://github.com/tiann/KernelSU)
+- ⚙️ [Kanonify](https://github.com/Kanonify-01) (Base Tree)
+
+‎
+
+🚀 **Unleash the full power of your Snapdragon device with Lynx!**
