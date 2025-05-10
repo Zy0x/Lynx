@@ -7,7 +7,7 @@ permissions:
 on:
   workflow_dispatch:
   release:
-    types: [published]
+    types: [published, prereleased]
 
 jobs:
   update-json:
