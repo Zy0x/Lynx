@@ -63,8 +63,6 @@ Additional Logic
 ````bash
 su -c Lxcore
 ````
-a
 ‎ 
 ‎ 
 ‎ 
-
