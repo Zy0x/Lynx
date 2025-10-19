@@ -1,2 +1,0 @@
-allow untrusted_app proc_net_tcp_udp file {read write open getattr}
-allow untrusted_app app_data_file file {read write open getattr execute execute_no_trans}
