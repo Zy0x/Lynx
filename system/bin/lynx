@@ -1,0 +1,1952 @@
+# Break Menu
+stop_menu_flow=false
+
+# UI Color
+BRIGHT_CYAN="\e[96m"
+BRIGHT_RED="\e[91m"
+RESET="\e[0m"
+DIM="\e[2m"
+
+# MAIN MENU
+## TINGKAT PERTAMA
+## Opsi Menu
+options=("Charging Control" "Flow" "Eterna" "List App Performance" "List App Flow & Eterna" "Misc" "Current Settings" "Support" "Exit")
+num_options=${#options[@]}
+selected=0
+## Charging Control 
+charging_control_options=("Enable" "Disable" "Set Value" "Set Limit (in Perf.)" "AutoCut Charging" "Return")
+num_cc_options=${#charging_control_options[@]}
+cc_selected=0
+## Flow 
+flow_options=("Enable" "Disable" "Flow Mode" "Return")
+num_flow_options=${#flow_options[@]}
+flow_selected=0
+## Eterna 
+eterna_options=("Enable" "Disable" "Return")
+num_eterna_options=${#eterna_options[@]}
+eterna_selected=0
+## List App Performance
+perf_options=("Current Active App " "Add an App" "Delete App" "Return")
+num_perf_options=${#perf_options[@]}
+perf_selected=0
+## List App Flow dan Eterna 
+flet_options=("Current Active App " "Add an App" "Delete App" "Return")
+num_flet_options=${#flet_options[@]}
+flet_selected=0
+
+### TINGKAT KEDUA
+### Charging Control 
+autocut_options=("Enable" "Disable" "Set Min" "Set Max" "Return")
+num_ac_options=${#autocut_options[@]}
+ac_selected=0
+### Flow Mode
+fm_options=("Basic" "Advance" "High" "Extreme" "Return")
+num_fm_options=${#fm_options[@]}
+fm_selected=0
+### Misc
+misc_options=("GPU Cache Cleaner" "Google Logout Fixer" "Tweak Genshin Impact" "Clear Ram (Experiental)" "DexOptimization" "Return" )
+num_misc_options=${#misc_options[@]}
+misc_selected=0
+### GI
+gi_options=("OpenGL" "Vulkan" "Return")
+num_gi_options=${#gi_options[@]}
+gi_selected=0
+
+# Fungsi menu
+show_menu() {
+    clear
+    echo -e "\033[1;30;94m 𝙲𝚛𝚎𝚍𝚒𝚝: 𝙽𝚘𝚒𝚛 \033[0m"
+    echo ""
+    echo "----------------------------------"
+    echo -e "\033[33m\"           Lynx Option          \"\033[0m"
+    echo "----------------------------------"
+    echo -e " ${DIM}${BRIGHT_CYAN}(↑↓←→) ${BRIGHT_RED}| ${BRIGHT_CYAN}(↵) ${BRIGHT_RED}| ${BRIGHT_CYAN}BKSP ${BRIGHT_RED}| ${BRIGHT_CYAN}END ${BRIGHT_RED}| ${BRIGHT_CYAN}HOME${RESET}"
+    echo ""
+    i=0
+    while [ $i -lt $num_options ]; do
+        if [ $i -eq $selected ]; then
+            if [ "$i" -eq $(($num_options - 1)) ]; then
+                echo -e "\e[0;35m ${options[i]}\e[0m"  # Jika dipilih, warna ungu untuk opsi terakhir
+            elif [ "$i" -eq $(($num_options - 2)) ]; then
+                echo -e "\n\e[0;35m ${options[i]}\e[0m"  # Jika dipilih, warna biru gelap untuk opsi kedua dari terakhir
+            else
+                echo -e "-> \e[0;35m${options[i]}\e[0m"  # Jika dipilih, warna ungu
+            fi
+        elif [ $i -eq $(($num_options - 1)) ]; then
+            echo -e "\e[0;33m ${options[i]}\e[0m"      # Jika opsi terakhir dan tidak dipilih, warna kuning
+        elif [ $i -eq $(($num_options - 2)) ]; then
+            echo -e "\n\e[0;34m ${options[i]}\e[0m" # Jika opsi kedua dari terakhir dan tidak dipilih, warna biru gelap
+        else
+            echo "   ${options[i]}"
+        fi
+        i=$((i + 1))
+    done
+    
+}
+
+# Fungsi Charging Control
+show_cc_menu() {
+    clear
+    echo -e "\033[1;30;94m 𝙲𝚛𝚎𝚍𝚒𝚝: 𝙽𝚘𝚒𝚛 \033[0m"
+    echo ""
+    echo "----------------------------------"
+    echo -e "\033[33m\"        Charging Control        \"\033[0m"
+    echo "----------------------------------"
+    echo -e " ${DIM}${BRIGHT_CYAN}(↑↓←→) ${BRIGHT_RED}| ${BRIGHT_CYAN}(↵) ${BRIGHT_RED}| ${BRIGHT_CYAN}BKSP ${BRIGHT_RED}| ${BRIGHT_CYAN}END ${BRIGHT_RED}| ${BRIGHT_CYAN}HOME${RESET}"
+    echo ""
+    echo ""
+    i=0
+    while [ $i -lt $num_cc_options ]; do
+        if [ $i -eq $cc_selected ]; then
+            if [ "$i" -eq "$(($num_cc_options - 1))" ]; then
+                echo -e "-> \e[0;35m${charging_control_options[i]}\e[0m"
+            else
+                echo "-> \e[0;35m${charging_control_options[i]}\e[0m"
+            fi
+        else
+            if [ "$i" -eq "$(($num_cc_options - 1))" ]; then
+                echo -e "   \e[0;33m${charging_control_options[i]}\e[0m"
+            else
+                echo "   ${charging_control_options[i]}"
+            fi
+        fi
+        i=$((i + 1))
+    done
+}
+
+# Fungsi Flow
+show_flow_menu() {
+    clear
+    echo -e "\033[1;30;94m 𝙲𝚛𝚎𝚍𝚒𝚝: 𝙽𝚘𝚒𝚛 \033[0m"
+    echo ""
+    echo "----------------------------------"
+    echo -e "\033[33m\"              Flow              \"\033[0m"
+    echo "----------------------------------"
+    echo -e " ${DIM}${BRIGHT_CYAN}(↑↓←→) ${BRIGHT_RED}| ${BRIGHT_CYAN}(↵) ${BRIGHT_RED}| ${BRIGHT_CYAN}BKSP ${BRIGHT_RED}| ${BRIGHT_CYAN}END ${BRIGHT_RED}| ${BRIGHT_CYAN}HOME${RESET}"
+    echo ""
+    i=0
+    while [ $i -lt $num_flow_options ]; do
+        if [ $i -eq $flow_selected ]; then
+            if [ "$i" -eq "$(($num_flow_options - 1))" ]; then
+                echo -e "-> \e[0;35m${flow_options[i]}\e[0m"
+            else
+                echo -e "-> \e[0;35m${flow_options[i]}\e[0m"
+            fi
+        else
+            if [ "$i" -eq "$(($num_flow_options - 1))" ]; then
+                echo -e "   \e[0;33m${flow_options[i]}\e[0m"
+            else
+                echo "   ${flow_options[i]}"
+            fi
+        fi
+        i=$((i + 1))
+    done
+}
+
+# Fungsi Eterna
+show_eterna_menu() {
+    clear
+    echo -e "\033[1;30;94m 𝙲𝚛𝚎𝚍𝚒𝚝: 𝙽𝚘𝚒𝚛 \033[0m"
+    echo ""
+    echo "----------------------------------"
+    echo -e "\033[33m\"             Eterna             \"\033[0m"
+    echo "----------------------------------"
+    echo -e " ${DIM}${BRIGHT_CYAN}(↑↓←→) ${BRIGHT_RED}| ${BRIGHT_CYAN}(↵) ${BRIGHT_RED}| ${BRIGHT_CYAN}BKSP ${BRIGHT_RED}| ${BRIGHT_CYAN}END ${BRIGHT_RED}| ${BRIGHT_CYAN}HOME${RESET}"
+    echo ""
+    i=0
+    while [ $i -lt $num_eterna_options ]; do
+        if [ $i -eq $eterna_selected ]; then
+            if [ "$i" -eq "$(($num_eterna_options - 1))" ]; then
+                echo -e "-> \e[0;35m${eterna_options[i]}\e[0m"
+            else
+                echo -e "-> \e[0;35m${eterna_options[i]}\e[0m"
+            fi
+        else
+            if [ "$i" -eq "$(($num_eterna_options - 1))" ]; then
+                echo -e "   \e[0;33m${eterna_options[i]}\e[0m"
+            else
+                echo "   ${eterna_options[i]}"
+            fi
+        fi
+        i=$((i + 1))
+    done
+}
+
+# Fungsi List App Performance
+show_perf_menu() {
+    clear
+    echo -e "\033[1;30;94m 𝙲𝚛𝚎𝚍𝚒𝚝: 𝙽𝚘𝚒𝚛 \033[0m"
+    echo ""
+    echo "----------------------------------"
+    echo -e "\033[33m\"      List App Performance      \"\033[0m"
+    echo "----------------------------------"
+    echo -e " ${DIM}${BRIGHT_CYAN}(↑↓←→) ${BRIGHT_RED}| ${BRIGHT_CYAN}(↵) ${BRIGHT_RED}| ${BRIGHT_CYAN}BKSP ${BRIGHT_RED}| ${BRIGHT_CYAN}END ${BRIGHT_RED}| ${BRIGHT_CYAN}HOME${RESET}"
+    echo ""
+    echo ""
+    i=0
+    while [ $i -lt $num_perf_options ]; do
+        if [ $i -eq $perf_selected ]; then
+            if [ "$i" -eq "$(($num_perf_options - 1))" ]; then
+                echo -e "-> \e[0;35m${perf_options[i]}\e[0m"
+            else
+                echo -e "-> \e[0;35m${perf_options[i]}\e[0m"
+            fi
+        else
+            if [ "$i" -eq "$(($num_perf_options - 1))" ]; then
+                echo -e "   \e[0;33m${perf_options[i]}\e[0m"
+            else
+                echo "   ${perf_options[i]}"
+            fi
+        fi
+        i=$((i + 1))
+    done
+}
+
+# Fungsi List App Flow dan Eterna
+show_flet_menu() {
+    clear
+    echo -e "\033[1;30;94m 𝙲𝚛𝚎𝚍𝚒𝚝: 𝙽𝚘𝚒𝚛 \033[0m"
+    echo ""
+    echo "----------------------------------"
+    echo -e "\033[33m\"     List App Flow & Eterna     \"\033[0m"
+    echo "----------------------------------"
+    echo -e " ${DIM}${BRIGHT_CYAN}(↑↓←→) ${BRIGHT_RED}| ${BRIGHT_CYAN}(↵) ${BRIGHT_RED}| ${BRIGHT_CYAN}BKSP ${BRIGHT_RED}| ${BRIGHT_CYAN}END ${BRIGHT_RED}| ${BRIGHT_CYAN}HOME${RESET}"
+    echo ""
+    echo ""
+    i=0
+    while [ $i -lt $num_flet_options ]; do
+        if [ $i -eq $flet_selected ]; then
+            if [ "$i" -eq "$(($num_flet_options - 1))" ]; then
+                echo -e "-> \e[0;35m${flet_options[i]}\e[0m"
+            else
+                echo -e "-> \e[0;35m${flet_options[i]}\e[0m"
+            fi
+        else
+            if [ "$i" -eq "$(($num_flet_options - 1))" ]; then
+                echo -e "   \e[0;33m${flet_options[i]}\e[0m"
+            else
+                echo "   ${flet_options[i]}"
+            fi
+        fi
+        i=$((i + 1))
+    done
+}
+
+# Fungsi AutoCut Charging
+show_ac_menu() {
+    clear
+    echo -e "\033[1;30;94m 𝙲𝚛𝚎𝚍𝚒𝚝: 𝙽𝚘𝚒𝚛 \033[0m"
+    echo ""
+    echo "----------------------------------"
+    echo -e "\033[33m\"       Auto Cut  Charging       \"\033[0m"
+    echo "----------------------------------"
+    echo -e " ${DIM}${BRIGHT_CYAN}(↑↓←→) ${BRIGHT_RED}| ${BRIGHT_CYAN}(↵) ${BRIGHT_RED}| ${BRIGHT_CYAN}BKSP ${BRIGHT_RED}| ${BRIGHT_CYAN}END ${BRIGHT_RED}| ${BRIGHT_CYAN}HOME${RESET}"
+    echo ""
+    i=0
+    while [ $i -lt $num_ac_options ]; do
+        if [ $i -eq $ac_selected ]; then
+            if [ "$i" -eq "$(($num_ac_options - 1))" ]; then
+                echo -e "-> \e[0;35m${autocut_options[i]}\e[0m"
+            else
+                echo -e "-> \e[0;35m${autocut_options[i]}\e[0m"
+            fi
+        else
+            if [ "$i" -eq "$(($num_ac_options - 1))" ]; then
+                echo -e "   \e[0;33m${autocut_options[i]}\e[0m"
+            else
+                echo "   ${autocut_options[i]}"
+            fi
+        fi
+        i=$((i + 1))
+    done
+}
+
+# Fungsi Flow Mode
+show_fm_menu() {
+    clear
+    echo -e "\033[1;30;94m 𝙲𝚛𝚎𝚍𝚒𝚝: 𝙽𝚘𝚒𝚛 \033[0m"
+    echo ""
+    echo "----------------------------------"
+    echo -e "\033[33m\"            Flow Mode           \"\033[0m"
+    echo "----------------------------------"
+    echo -e " ${DIM}${BRIGHT_CYAN}(↑↓←→) ${BRIGHT_RED}| ${BRIGHT_CYAN}(↵) ${BRIGHT_RED}| ${BRIGHT_CYAN}BKSP ${BRIGHT_RED}| ${BRIGHT_CYAN}END ${BRIGHT_RED}| ${BRIGHT_CYAN}HOME${RESET}"
+    echo ""
+    i=0
+    while [ $i -lt $num_fm_options ]; do
+        if [ $i -eq $fm_selected ]; then
+            if [ "$i" -eq "$(($num_fm_options - 1))" ]; then
+                echo -e "-> \e[0;35m${fm_options[i]}\e[0m"
+            else
+                echo -e "-> \e[0;35m${fm_options[i]}\e[0m"
+            fi
+        else
+            if [ "$i" -eq "$(($num_fm_options - 1))" ]; then
+                echo -e "   \e[0;33m${fm_options[i]}\e[0m"
+            else
+                echo "   ${fm_options[i]}"
+            fi
+        fi
+        i=$((i + 1))
+    done
+}
+
+# Fungsi Current Settings
+show_info() {
+    MODPROP="/data/adb/modules/Lynx/module.prop"
+    name=$(grep '^name=' "$MODPROP" | sed 's/^name=\(.*\) -.*/\1/')
+    codename=$(grep '^name=' "$MODPROP" | awk -F'=' '{print $2}' | awk '{print $3}')
+    owner=$(grep '^author=' "$MODPROP" | cut -d'=' -f2)
+    version=$(grep '^version=' "$MODPROP" | cut -d'=' -f2)
+    versionCode=$(grep '^versionCode=' "$MODPROP" | cut -d'=' -f2)
+    date=$(echo "$versionCode" | sed 's/\(....\)\(..\)\(..\)/\3-\2-\1/')
+    clear
+    echo -e "\033[1;30;94m 𝙲𝚛𝚎𝚍𝚒𝚝: 𝙽𝚘𝚒𝚛 \033[0m"
+    echo ""
+    echo "--------------------------"
+    echo -e "\033[33m\"        Lynx Info       \"\033[0m"
+    echo "--------------------------"
+    echo ""
+    echo " • Name            : $name "
+    echo " • Codename        : $codename "
+    echo " • Version         : $version "
+    echo " • Owner           : $owner "
+    echo " • Release Date    : $date "
+    echo " "
+    echo " Device info:"
+    echo " • Brand           : $(getprop ro.product.system.brand) "
+    echo " • Device          : $(getprop ro.product.system.model) "
+    echo " • Processor       : $(getprop ro.product.board) "
+    echo " • Android Version : $(getprop ro.system.build.version.release) "
+    echo " • SDK Version     : $(getprop ro.build.version.sdk) "
+    echo " • Architecture    : $(getprop ro.product.cpu.abi) "
+    echo " • Kernel Version  : $(uname -r) "
+    echo ""
+}
+
+# Fungsi Misc menu
+show_misc_menu() {
+    clear
+    echo -e "\033[1;30;94m 𝙲𝚛𝚎𝚍𝚒𝚝: 𝙽𝚘𝚒𝚛 \033[0m"
+    echo ""
+    echo "----------------------------------"
+    echo -e "\033[33m\"          Miscellaneous         \"\033[0m"
+    echo "----------------------------------"
+    echo -e " ${DIM}${BRIGHT_CYAN}(↑↓←→) ${BRIGHT_RED}| ${BRIGHT_CYAN}(↵) ${BRIGHT_RED}| ${BRIGHT_CYAN}BKSP ${BRIGHT_RED}| ${BRIGHT_CYAN}END ${BRIGHT_RED}| ${BRIGHT_CYAN}HOME${RESET}"
+    echo ""
+    echo ""
+    i=0
+    while [ $i -lt $num_misc_options ]; do
+        if [ $i -eq $misc_selected ]; then
+            if [ "$i" -eq "$(($num_misc_options - 1))" ]; then
+                echo -e "-> \e[0;35m${misc_options[i]}\e[0m"
+            else
+                echo -e "-> \e[0;35m${misc_options[i]}\e[0m"
+            fi
+        else
+            if [ "$i" -eq "$(($num_misc_options - 1))" ]; then
+                echo -e "   \e[0;33m${misc_options[i]}\e[0m"
+            else
+                echo "   ${misc_options[i]}"
+            fi
+        fi
+        i=$((i + 1))
+    done
+}
+
+# Fungsi AutoCut Charging
+show_gi_menu() {
+    clear
+    echo -e "\033[1;30;94m 𝙲𝚛𝚎𝚍𝚒𝚝: 𝙽𝚘𝚒𝚛 \033[0m"
+    echo ""
+    echo "----------------------------------"
+    echo -e "\033[33m\"      Tweak Genshin Impact      \"\033[0m"
+    echo "----------------------------------"
+    echo -e " ${DIM}${BRIGHT_CYAN}(↑↓←→) ${BRIGHT_RED}| ${BRIGHT_CYAN}(↵) ${BRIGHT_RED}| ${BRIGHT_CYAN}BKSP ${BRIGHT_RED}| ${BRIGHT_CYAN}END ${BRIGHT_RED}| ${BRIGHT_CYAN}HOME${RESET}"
+    echo ""
+    i=0
+    while [ $i -lt $num_gi_options ]; do
+        if [ $i -eq $gi_selected ]; then
+            if [ "$i" -eq "$(($num_gi_options - 1))" ]; then
+                echo -e "-> \e[0;35m${gi_options[i]}\e[0m"
+            else
+                echo -e "-> \e[0;35m${gi_options[i]}\e[0m"
+            fi
+        else
+            if [ "$i" -eq "$(($num_gi_options - 1))" ]; then
+                echo -e "   \e[0;33m${gi_options[i]}\e[0m"
+            else
+                echo "   ${gi_options[i]}"
+            fi
+        fi
+        i=$((i + 1))
+    done
+}
+ 
+# Menampilkan menu awal
+show_menu
+
+# Membaca input dari pengguna
+while true; do
+    read -rsn1 input
+
+    case $input in
+        A) # Panah atas
+            if [ $selected -gt 0 ]; then
+                selected=$((selected - 1))
+            else
+                selected=$((num_options - 1))
+            fi
+            show_menu
+            ;;
+        B) # Panah bawah
+            if [ $selected -lt $((num_options - 1)) ]; then
+                selected=$((selected + 1))
+            else
+                selected=0
+            fi
+            show_menu
+            ;;
+        C) # Panah Kanan
+            if [ $selected -lt $((num_options - 1)) ]; then
+                selected=$((selected + 1))
+            else
+                selected=0
+            fi
+            show_menu
+            ;;
+        D) # Panah Kiri
+            if [ $selected -gt 0 ]; then
+                selected=$((selected - 1))
+            else
+                selected=$((num_options - 1))
+            fi
+            show_menu
+            ;;
+        H) # Tombol Home
+            selected=0
+            show_menu
+            ;;
+        F) # Tombol End
+            echo -e "\033[1A" # Pindah ke baris sebelumnya
+            echo -e "\033[K"  # Hapus seluruh baris
+            echo -e "\033[31mExit Lynx!\033[0m"
+            sleep 1.25
+            clear
+            pkill -9 termux && break || exit
+            ;;
+        $'\x7f') # Tombol backspace (hapus)
+            if [ $selected -eq 0 ]; then
+                echo -e "\033[1A" # Pindah ke baris sebelumnya
+                echo -e "\033[K"  # Hapus seluruh baris
+                echo -e "\033[31mExit Lynx!\033[0m"
+                sleep 1.25
+                clear
+                exit
+            else
+                selected=0
+                show_menu
+            fi
+            ;;
+        "") # Enter
+            if [ $selected -eq 0 ]; then
+                show_cc_menu
+                # Membaca input untuk submenu Charging Control
+                while true; do
+                    read -rsn1 cc_input
+                    case $cc_input in
+                        A) # Panah atas
+                            if [ $cc_selected -gt 0 ]; then
+                                cc_selected=$((cc_selected - 1))
+                            else
+                                cc_selected=$((num_cc_options - 1))
+                            fi
+                            show_cc_menu
+                            ;;
+                        B) # Panah bawah
+                            if [ $cc_selected -lt $((num_cc_options - 1)) ]; then
+                                cc_selected=$((cc_selected + 1))
+                            else
+                                cc_selected=0
+                            fi
+                            show_cc_menu
+                            ;;
+                        C) # Panah Kanan
+                            if [ $cc_selected -lt $((num_cc_options - 1)) ]; then
+                                cc_selected=$((cc_selected + 1))
+                            else
+                                cc_selected=0
+                            fi
+                            show_cc_menu
+                            ;;
+                        D) # Panah Kiri
+                            if [ $cc_selected -gt 0 ]; then
+                                cc_selected=$((cc_selected - 1))
+                            else
+                                cc_selected=$((num_cc_options - 1))
+                            fi
+                            show_cc_menu
+                            ;;
+                        H) # Tombol Home
+                            cc_selected=0
+                            selected=0
+                            show_menu
+                            break
+                            ;;
+                        F) # Tombol End
+                            echo -e "\033[1A" # Pindah ke baris sebelumnya
+                            echo -e "\033[K"  # Hapus seluruh baris
+                            echo -e "\033[31mExit Lynx!\033[0m"
+                            sleep 1.25
+                            clear
+                            exit
+                            ;;
+                        $'\x7f') # Tombol backspace (hapus)
+                            if [ $cc_selected -eq 0 ]; then
+                                show_menu
+                                break
+                            else
+                                cc_selected=0
+                                show_cc_menu
+                            fi
+                            ;;
+                        "") # Enter
+                            if [ $cc_selected -eq 0 ]; then
+                                setprop lynx.cc 1
+                                sed -i 's/lynx.cc=.*/lynx.cc=1/' /data/adb/modules/lynx/system.prop
+                                echo -e "\e[32mCharging Control Enabled\e[0m"
+                                sleep 1.25
+                                cc_selected=0
+                                clear
+                                show_cc_menu
+                            elif [ $cc_selected -eq 1 ]; then
+                                setprop lynx.cc 0
+                                sed -i 's/lynx.cc=.*/lynx.cc=0/' /data/adb/modules/lynx/system.prop
+                                echo -e "\e[32mCharging Control Disabled\e[0m"
+                                sleep 1.25
+                                cc_selected=0
+                                clear
+                                show_cc_menu
+                            elif [ $cc_selected -eq 2 ]; then
+                                echo ""
+                                echo " Example: "
+                                echo " for 2400mA, write 2.4"
+                                echo -ne "\e[36mInput Value: \e[0m"
+                                read input
+                                if echo "$input" | grep -E -q '^[0-9]+(\.[0-9]+)?$'; then
+                                    result=$(echo "$input * 1000" | bc)
+                                    result=$(echo $result | sed 's/\.0*$//')
+                                    setprop lynx.fcc $input
+                                    sed -i "s/lynx.fcc=.*/lynx.fcc=$input/" /data/adb/modules/lynx/system.prop
+                                    echo -e "\e[32mSet to $result mA\e[0m"
+                                    sleep 1.25
+                                    cc_selected=0
+                                    clear
+                                    show_cc_menu
+                                else
+                                    echo -e '\e[31mInvalid input. Enter a decimal or whole number!\e[0m'
+                                    sleep 1.25
+                                    cc_selected=0
+                                    clear
+                                    show_cc_menu
+                                fi
+                            elif [ $cc_selected -eq 3 ]; then
+                                echo ""
+                                echo " Example: "
+                                echo " for 1600mA, write 1.6"
+                                echo -ne "\e[36mInput Value: \e[0m"
+                                read input
+                                if echo "$input" | grep -E -q '^[0-9]+(\.[0-9]+)?$'; then
+                                    result=$(echo "$input * 1000" | bc)
+                                    result=$(echo $result | sed 's/\.0*$//')
+                                    setprop lynx.lcc $input
+                                    sed -i "s/lynx.lcc=.*/lynx.lcc=$input/" /data/adb/modules/lynx/system.prop
+                                    echo -e "\e[32mSet to $result mA\e[0m"
+                                    sleep 1.25
+                                    cc_selected=0
+                                    clear
+                                    show_cc_menu
+                                else
+                                    echo -e '\e[31mInvalid input. Enter a decimal or whole number!\e[0m'
+                                    sleep 1.75
+                                    cc_selected=0
+                                    clear
+                                    show_cc_menu
+                                fi
+                            elif [ $cc_selected -eq 4 ]; then
+                                clear
+                                show_ac_menu
+                                # Membaca input untuk submenu AutoCut Charging
+                                while true; do
+                                read -rsn1 ac_input
+                                case $ac_input in
+                                    A) # Panah atas
+                                        if [ $ac_selected -gt 0 ]; then
+                                            ac_selected=$((ac_selected - 1))
+                                        else
+                                            ac_selected=$((num_ac_options - 1))
+                                        fi
+                                        show_ac_menu
+                                        ;;
+                                    B) # Panah bawah
+                                        if [ $ac_selected -lt $((num_ac_options - 1)) ]; then
+                                            ac_selected=$((ac_selected + 1))
+                                        else
+                                            ac_selected=0
+                                        fi
+                                        show_ac_menu
+                                        ;;
+                                    C) # Panah Kanan
+                                        if [ $ac_selected -lt $((num_ac_options - 1)) ]; then
+                                            ac_selected=$((ac_selected + 1))
+                                        else
+                                            ac_selected=0
+                                        fi
+                                        show_ac_menu
+                                        ;;
+                                    D) # Panah Kiri
+                                        if [ $ac_selected -gt 0 ]; then
+                                            ac_selected=$((ac_selected - 1))
+                                        else
+                                            ac_selected=$((num_ac_options - 1))
+                                        fi
+                                        show_ac_menu
+                                        ;;
+                                    H) # Tombol Home
+                                        ac_selected=0
+                                        show_menu
+                                        break
+                                        ;;
+                                    F) # Tombol End
+                                        echo -e "\033[1A" # Pindah ke baris sebelumnya
+                                        echo -e "\033[K"  # Hapus seluruh baris
+                                        echo -e "\033[31mExit Lynx!\033[0m"
+                                        sleep 1.25
+                                        clear
+                                        exit
+                                        ;;
+                                    $'\x7f') # Tombol backspace (hapus)
+                                        if [ $ac_selected -eq 0 ]; then
+                                            cc_selected=0
+                                            show_cc_menu
+                                            break
+                                        else
+                                            ac_selected=0
+                                            show_ac_menu
+                                        fi
+                                        ;;
+                                    "") # Enter
+                                        if [ $ac_selected -eq 0 ]; then
+                                            setprop lynx.ac 1
+                                            sed -i 's/lynx.ac=.*/lynx.ac=1/' /data/adb/modules/lynx/system.prop
+                                            echo -e "\e[32mAutoCut Charging Enabled\e[0m"
+                                            sleep 1.25
+                                            ac_selected=0
+                                            show_ac_menu
+                                        elif [ $ac_selected -eq 1 ]; then
+                                            setprop lynx.ac 0
+                                            sed -i 's/lynx.ac=.*/lynx.ac=0/' /data/adb/modules/lynx/system.prop
+                                            echo -e "\e[32mAutoCut Charging Disabled\e[0m"
+                                            sleep 1.25
+                                            ac_selected=0
+                                            show_ac_menu
+                                        elif [ $ac_selected -eq 2 ]; then
+                                            echo ""
+                                            echo " Example: "
+                                            echo " for lower limit 80%, write 80"
+                                            echo -ne "\e[36mInput Value: \e[0m"
+                                            read input_text
+                                            if echo "$input_text" | grep -E -q '^[0-9]+$' && [ "$input_text" -ge 0 ] && [ "$input_text" -le 100 ]; then
+                                                setprop lynx.min.ac $input_text
+                                                sed -i "s/lynx.min.ac=.*/lynx.min.ac=$input_text/" /data/adb/modules/lynx/system.prop
+                                                echo -e "\e[32mSet to $input_text %\e[0m"
+                                                sleep 1.25
+                                                ac_selected=0
+                                                show_ac_menu
+                                            else
+                                                echo -e '\e[31mInvalid input. Enter only whole number! (0-100) \e[0m'
+                                                sleep 1.75
+                                                ac_selected=0
+                                                show_ac_menu
+                                            fi
+                                        elif [ $ac_selected -eq 3 ]; then
+                                            echo ""
+                                            echo " Example: "
+                                            echo " for upper limit 98%, write 98"
+                                            echo -ne "\e[36mInput Value: \e[0m"
+                                            read input_text
+                                            if echo "$input_text" | grep -E -q '^[0-9]+$' && [ "$input_text" -ge 0 ] && [ "$input_text" -le 100 ]; then
+                                                setprop lynx.max.ac $input_text
+                                                sed -i "s/lynx.max.ac=.*/lynx.max.ac=$input_text/" /data/adb/modules/lynx/system.prop
+                                                echo -e "\e[32mSet to $input_text %\e[0m"
+                                                sleep 1.25
+                                                ac_selected=0
+                                                show_ac_menu
+                                            else
+                                                echo -e '\e[31mInvalid input. Enter only whole number! (0-100) \e[0m'
+                                                sleep 1.75
+                                                ac_selected=0
+                                                show_ac_menu
+                                            fi
+                                        elif [ $ac_selected -eq $((num_ac_options - 1)) ]; then
+                                            clear
+                                            cc_selected=0
+                                            ac_selected=0
+                                            show_cc_menu
+                                            break
+                                        fi
+                                    esac
+                                done
+                            elif [ $cc_selected -eq $((num_cc_options - 1)) ]; then
+                                clear
+                                show_menu
+                                break
+                            fi
+                            ;;
+                    esac
+                done
+            elif [ $selected -eq 1 ]; then
+                show_flow_menu
+                # Membaca input untuk submenu Flow
+                while true; do
+                    read -rsn1 flow_input
+                    case $flow_input in
+                        A) # Panah atas
+                            if [ $flow_selected -gt 0 ]; then
+                                flow_selected=$((flow_selected - 1))
+                            elif [ $flow_selected -gt $num_flow_options ]; then
+                                flow_selected=0
+                                show_menu
+                                break
+                            else
+                                flow_selected=$((num_flow_options - 1))
+                            fi
+                            show_flow_menu
+                            ;;
+                        B) # Panah bawah
+                            if [ $flow_selected -lt $((num_flow_options - 1)) ]; then
+                                flow_selected=$((flow_selected + 1))
+                            elif [ $flow_selected -gt $num_flow_options ]; then
+                                flow_selected=0
+                                show_menu
+                                break
+                            else
+                                flow_selected=0
+                            fi
+                            show_flow_menu
+                            ;;
+                        C) # Panah Kanan
+                            if [ $flow_selected -lt $((num_flow_options - 1)) ]; then
+                                flow_selected=$((flow_selected + 1))
+                            elif [ $flow_selected -gt $num_flow_options ]; then
+                                flow_selected=0
+                                show_menu
+                                break
+                            else
+                                flow_selected=0
+                            fi
+                            show_flow_menu
+                            ;;
+                        D) # Panah Kiri
+                            if [ $flow_selected -gt 0 ]; then
+                                flow_selected=$((flow_selected - 1))
+                            elif [ $flow_selected -gt $num_flow_options ]; then
+                                flow_selected=0
+                                show_menu
+                                break
+                            else
+                                flow_selected=$((num_flow_options - 1))
+                            fi
+                            show_flow_menu
+                            ;;
+                        H) # Tombol Home
+                            flow_selected=0
+                            selected=0
+                            show_menu
+                            break
+                            ;;
+                        F) # Tombol End
+                            echo -e "\033[1A" # Pindah ke baris sebelumnya
+                            echo -e "\033[K"  # Hapus seluruh baris
+                            echo -e "\033[31mExit Lynx!\033[0m"
+                            sleep 1.25
+                            clear
+                            exit
+                            ;;
+                        $'\x7f') # Tombol backspace (hapus)
+                            if [ $flow_selected -eq 0 ]; then
+                                selected=0
+                                show_menu
+                                break
+                            else
+                                flow_selected=0
+                                show_flow_menu
+                            fi
+                            ;;
+                        "") # Enter
+                            if [ $flow_selected -eq 0 ]; then
+                                if [ -f "/storage/emulated/0/Lynx/mode" ]; then
+                                    sed -i 's/flow=.*/flow=1/' /storage/emulated/0/Lynx/mode
+                                    echo -e "\e[32mFlow Enabled\e[0m"
+                                    sleep 1.25
+                                    flow_selected=0
+                                    show_flow_menu
+                                else
+                                    echo -e "\e[31mFile not found! Please reinstall module.\e[0m"
+                                    sleep 2
+                                    flow_selected=0
+                                    selected=0
+                                    show_menu
+                                    break
+                                fi
+                            elif [ $flow_selected -eq 1 ]; then
+                                if [ -f "/storage/emulated/0/Lynx/mode" ]; then
+                                    sed -i 's/flow=.*/flow=0/' /storage/emulated/0/Lynx/mode
+                                    echo -e "\e[32mFlow Disabled\e[0m"
+                                    sleep 1.25
+                                    flow_selected=0
+                                    show_flow_menu
+                                else
+                                    echo -e "\e[31mFile not found! Please reinstall module.\e[0m"
+                                    sleep 2
+                                    flow_selected=0
+                                    selected=0
+                                    show_menu
+                                    break
+                                fi
+                            elif [ $flow_selected -eq 2 ]; then
+                                if [ -f "/storage/emulated/0/Lynx/mode" ]; then
+                                    show_fm_menu
+                                    # Membaca input untuk submenu Flow Mode
+                                    while true; do
+                                    read -rsn1 fm_input
+                                    case $fm_input in
+                                        A) # Panah atas
+                                            if [ $fm_selected -gt 0 ]; then
+                                                fm_selected=$((fm_selected - 1))
+                                            elif [ $fm_selected -gt $num_fm_options ]; then
+                                                fm_selected=0
+                                                show_menu
+                                                break
+                                            else
+                                                fm_selected=$((num_fm_options - 1))
+                                            fi
+                                            show_fm_menu
+                                            ;;
+                                        B) # Panah bawah
+                                            if [ $fm_selected -lt $((num_fm_options - 1)) ]; then
+                                                fm_selected=$((fm_selected + 1))
+                                            elif [ $fm_selected -gt $num_fm_options ]; then
+                                                fm_selected=0
+                                                show_menu
+                                                break
+                                            else
+                                                fm_selected=0
+                                            fi
+                                            show_fm_menu
+                                            ;;
+                                        C) # Panah Kanan
+                                            if [ $fm_selected -lt $((num_fm_options - 1)) ]; then
+                                                fm_selected=$((fm_selected + 1))
+                                            elif [ $fm_selected -gt $num_fm_options ]; then
+                                                fm_selected=0
+                                                show_menu
+                                                break
+                                            else
+                                                fm_selected=0
+                                            fi
+                                            show_fm_menu
+                                            ;;
+                                        D) # Panah Kiri
+                                            if [ $fm_selected -gt 0 ]; then
+                                                fm_selected=$((fm_selected - 1))
+                                            elif [ $fm_selected -gt $num_fm_options ]; then
+                                                fm_selected=0
+                                                show_menu
+                                                break
+                                            else
+                                                fm_selected=$((num_fm_options - 1))
+                                            fi
+                                            show_fm_menu
+                                            ;;
+                                        H) # Tombol Home
+                                            flow_selected=$((num_flow_options + 1))
+                                            fm_selected=0
+                                            selected=0
+                                            show_menu
+                                            break
+                                            ;;
+                                        F) # Tombol End
+                                            echo -e "\033[1A" # Pindah ke baris sebelumnya
+                                            echo -e "\033[K"  # Hapus seluruh baris
+                                            echo -e "\033[31mExit Lynx!\033[0m"
+                                            sleep 1.25
+                                            clear
+                                            exit
+                                            ;;
+                                        $'\x7f') # Tombol backspace (hapus)
+                                            if [ $fm_selected -eq 0 ]; then
+                                                flow_selected=0
+                                                show_flow_menu
+                                                break
+                                            else
+                                                fm_selected=0
+                                                show_fm_menu
+                                            fi
+                                            ;;
+                                        "") # Enter
+                                            if [ $fm_selected -eq 0 ]; then
+                                                if [ -f "/storage/emulated/0/Lynx/mode" ]; then
+                                                    sed -i 's/flow_mode=.*/flow.mode=1/' /storage/emulated/0/Lynx/mode
+                                                    echo -e "\e[32mFlow Mode BASIC\e[0m"
+                                                    sleep 1.25
+                                                    fm_selected=0
+                                                    flow_selected=0
+                                                    show_flow_menu
+                                                    break
+                                                else
+                                                    echo -e "\e[31mFile not found! Please reinstall module.\e[0m"
+                                                    sleep 2
+                                                    flow_selected=$((num_flow_options + 1))
+                                                    fm_selected=0
+                                                    selected=0
+                                                    show_menu
+                                                    break
+                                                fi
+                                            elif [ $fm_selected -eq 1 ]; then
+                                                if [ $fm_selected -eq 0 ]; then
+                                                    sed -i 's/flow_mode=.*/flow.mode=2/' /storage/emulated/0/Lynx/mode
+                                                    echo -e "\e[32mFlow Mode ADVANCE\e[0m"
+                                                    sleep 1.25
+                                                    fm_selected=0
+                                                    flow_selected=0
+                                                    show_flow_menu
+                                                    break
+                                                else
+                                                    echo -e "\e[31mFile not found! Please reinstall module.\e[0m"
+                                                    sleep 2
+                                                    flow_selected=$((num_flow_options + 1))
+                                                    fm_selected=0
+                                                    selected=0
+                                                    show_menu
+                                                    break
+                                                fi
+                                            elif [ $fm_selected -eq 2 ]; then
+                                                if [ $fm_selected -eq 0 ]; then
+                                                    sed -i 's/flow_mode=.*/flow.mode=3/' /storage/emulated/0/Lynx/mode
+                                                    echo -e "\e[32mFlow Mode HIGH\e[0m"
+                                                    sleep 1.25
+                                                    fm_selected=0
+                                                    flow_selected=0
+                                                    show_flow_menu
+                                                    break
+                                                else
+                                                    echo -e "\e[31mFile not found! Please reinstall module.\e[0m"
+                                                    sleep 2
+                                                    flow_selected=$((num_flow_options + 1))
+                                                    fm_selected=0
+                                                    selected=0
+                                                    show_menu
+                                                    break
+                                                fi
+                                            elif [ $fm_selected -eq 3 ]; then
+                                                if [ $fm_selected -eq 0 ]; then
+                                                    sed -i 's/flow_mode=.*/flow.mode=5/' /storage/emulated/0/Lynx/mode
+                                                    echo -e "\e[32mFlow Mode EXTREME\e[0m"
+                                                    sleep 1.25
+                                                    fm_selected=0
+                                                    flow_selected=0
+                                                    show_flow_menu
+                                                    break
+                                                else
+                                                    echo -e "\e[31mFile not found! Please reinstall module.\e[0m"
+                                                    sleep 2
+                                                    flow_selected=$((num_flow_options + 1))
+                                                    fm_selected=0
+                                                    selected=0
+                                                    show_menu
+                                                    break
+                                                fi
+                                            elif [ $fm_selected -eq $((num_fm_options - 1)) ]; then
+                                                clear
+                                                flow_selected=0
+                                                fm_selected=0
+                                                show_flow_menu
+                                                break
+                                            fi
+                                            ;;
+                                        esac
+                                    done
+                                else
+                                    echo -e "\e[31mFile not found! Please reinstall module.\e[0m"
+                                    sleep 2
+                                    flow_selected=0
+                                    selected=0
+                                    show_menu
+                                    break
+                                fi
+                            elif [ $flow_selected -eq $((num_flow_options - 1)) ]; then
+                                selected=0
+                                show_menu
+                                break
+                            fi
+                            ;;
+                    esac
+                done
+            elif [ $selected -eq 2 ]; then
+                show_eterna_menu
+                # Membaca input untuk submenu Eterna
+                while true; do
+                    read -rsn1 eterna_input
+                    case $eterna_input in
+                        A) # Panah atas
+                            if [ $eterna_selected -gt 0 ]; then
+                                eterna_selected=$((eterna_selected - 1))
+                            else
+                                eterna_selected=$((num_eterna_options - 1))
+                            fi
+                            show_eterna_menu
+                            ;;
+                        B) # Panah bawah
+                            if [ $eterna_selected -lt $((num_eterna_options - 1)) ]; then
+                                eterna_selected=$((eterna_selected + 1))
+                            else
+                                eterna_selected=0
+                            fi
+                            show_eterna_menu
+                            ;;
+                        C) # Panah Kanan
+                            if [ $eterna_selected -lt $((num_eterna_options - 1)) ]; then
+                                eterna_selected=$((eterna_selected + 1))
+                            else
+                                eterna_selected=0
+                            fi
+                            show_eterna_menu
+                            ;;
+                        D) # Panah Kiri
+                            if [ $eterna_selected -gt 0 ]; then
+                                eterna_selected=$((eterna_selected - 1))
+                            else
+                                eterna_selected=$((num_eterna_options - 1))
+                            fi
+                            show_eterna_menu
+                            ;;
+                        H) # Tombol Home
+                            eterna_selected=0
+                            show_menu
+                            break
+                            ;;
+                        F) # Tombol End
+                            echo -e "\033[1A" # Pindah ke baris sebelumnya
+                            echo -e "\033[K"  # Hapus seluruh baris
+                            echo -e "\033[31mExit Lynx!\033[0m"
+                            sleep 1.25
+                            clear
+                            exit
+                            ;;
+                        $'\x7f') # Tombol backspace (hapus)
+                            if [ $eterna_selected -eq 0 ]; then
+                                show_menu
+                                break
+                            else
+                                eterna_selected=0
+                                show_eterna_menu
+                            fi
+                            ;;
+                        "") # Enter
+                            if [ $eterna_selected -eq 0 ]; then
+                                if [ -f "/storage/emulated/0/Lynx/mode" ]; then
+                                    sed -i 's/eterna=.*/eterna=1/' /storage/emulated/0/Lynx/mode
+                                    echo -e "\e[32mEterna Enabled\e[0m"
+                                    sleep 1.25
+                                    eterna_selected=0
+                                    selected=0
+                                    show_menu
+                                    break
+                                else
+                                    echo -e "\e[31mFile not found! Please reinstall module.\e[0m"
+                                    sleep 2
+                                    eterna_selected=0
+                                    selected=0
+                                    show_menu
+                                    break
+                                fi
+                            elif [ $eterna_selected -eq 1 ]; then
+                                if [ -f "/storage/emulated/0/Lynx/mode" ]; then
+                                    sed -i 's/eterna=.*/eterna=0/' /storage/emulated/0/Lynx/mode
+                                    echo -e "\e[32mEterna Disabled\e[0m"
+                                    sleep 1.25
+                                    eterna_selected=0
+                                    selected=0
+                                    show_menu
+                                    break
+                                else
+                                    echo -e "\e[31mFile not found! Please reinstall module.\e[0m"
+                                    sleep 2
+                                    eterna_selected=0
+                                    selected=0
+                                    show_menu
+                                    break
+                                fi
+                            elif [ $eterna_selected -eq $((num_eterna_options - 1)) ]; then
+                                selected=0
+                                show_menu
+                                break
+                            fi
+                            ;;
+                    esac
+                done
+            elif [ $selected -eq 3 ]; then
+                show_perf_menu
+                # Membaca input untuk submenu List App Performance
+                while true; do
+                    read -rsn1 perf_input
+                    case $perf_input in
+                        A) # Panah atas
+                            if [ $perf_selected -gt 0 ]; then
+                                perf_selected=$((perf_selected - 1))
+                            else
+                                perf_selected=$((num_perf_options - 1))
+                            fi
+                            show_perf_menu
+                            ;;
+                        B) # Panah bawah
+                            if [ $perf_selected -lt $((num_perf_options - 1)) ]; then
+                                perf_selected=$((perf_selected + 1))
+                            else
+                                perf_selected=0
+                            fi
+                            show_perf_menu
+                            ;;
+                        C) # Panah Kanan
+                            if [ $perf_selected -lt $((num_perf_options - 1)) ]; then
+                                perf_selected=$((perf_selected + 1))
+                            else
+                                perf_selected=0
+                            fi
+                            show_perf_menu
+                            ;;
+                        D) # Panah Kiri
+                            if [ $perf_selected -gt 0 ]; then
+                                perf_selected=$((perf_selected - 1))
+                            else
+                                perf_selected=$((num_perf_options - 1))
+                            fi
+                            show_perf_menu
+                            ;;
+                        H) # Tombol Home
+                            perf_selected=0
+                            selected=0
+                            show_menu
+                            break
+                            ;;
+                        F) # Tombol End
+                            echo -e "\033[1A" # Pindah ke baris sebelumnya
+                            echo -e "\033[K"  # Hapus seluruh baris
+                            echo -e "\033[31mExit Lynx!\033[0m"
+                            sleep 1.25
+                            clear
+                            exit
+                            ;;
+                        $'\x7f') # Tombol backspace (hapus)
+                            if [ $perf_selected -eq 0 ]; then
+                                selected=0
+                                show_menu
+                                break
+                            else
+                                perf_selected=0
+                                show_perf_menu
+                            fi
+                            ;;
+                        "") # Enter
+                            if [ $perf_selected -eq 0 ]; then
+                                clear
+                                file_path="/storage/emulated/0/Lynx/applist_perf.txt"
+                                if [ -f "$file_path" ]; then
+                                    echo ""
+                                    echo "List App Performance: "
+                                    echo ""
+                                    awk 'NF && $0 !~ /^ *#/' "$file_path" |
+                                    sed 's/[^[:print:]]//g' |
+                                    LC_ALL=C sort -f |
+                                    awk '{print NR ". " $0}' |
+                                    sed 's/^/\e[34m/' |
+                                    sed 's/$/\e[0m/'
+                                    echo ""
+                                    echo -e "\e[36mDo you want to find an application? [yes/no] \e[0m"
+                                    while true; do
+                                        read input
+                                        input=$(echo "$input" | tr '[:upper:]' '[:lower:]')
+                                        if [ "$input" = "y" ] || [ "$input" = "yes" ]; then
+                                            echo -e "\e[36mEnter PACKAGE NAME APP to search: \e[0m"
+                                            read app_name
+                                            search_result=$(grep -iF "$app_name" "$file_path" | awk '{print $1}')
+                                            if [ -n "$search_result" ]; then
+                                                clear
+                                                echo -e "\e[32mSearch results for application '$app_name':\e[0m"
+                                                echo "$search_result"
+                                                echo ""
+                                                echo -e "\e[34m Press backspace to return! \e[0m"
+                                                # Baca Input
+                                                while true; do
+                                                    read -rsn1 list_input
+                                                    case $list_input in
+                                                        $'\x7f') # Tombol backspace (hapus)
+                                                            perf_selected=0
+                                                            show_perf_menu
+                                                            break
+                                                            ;;
+                                                        *)
+                                                            ;;
+                                                    esac
+                                                done
+                                            else
+                                                echo -e "\e[31mNo matching application found for '$app_name'.\e[0m"
+                                                perf_selected=0
+                                                sleep 1.75
+                                                show_perf_menu
+                                            fi
+                                            break
+                                        elif [ "$input" = "n" ] || [ "$input" = "no" ]; then
+                                            clear
+                                            perf_selected=0
+                                            show_perf_menu
+                                            break
+                                        else
+                                            echo "Invalid input. Please enter 'yes' or 'no'."
+                                            sleep 1.5
+                                            printf "\033[A\033[K\033[A\033[K"
+                                        fi
+                                    done
+                                else
+                                    echo -e "\e[31mFile can't read or not found!\e[0m"
+                                    echo -e "\e[31mPlease reinstall module or directly add the application.\e[0m"
+                                    sleep 2
+                                    perf_selected=0
+                                    selected=0
+                                    show_menu
+                                    break
+                                fi
+                            elif [ $perf_selected -eq 1 ]; then
+                                echo -e "\e[34m  Add Application \e[0m"
+                                echo "  (ex: com.miHoYo.GenshinImpact) "
+                                echo ""
+                                echo "  ~enter blank text to cancel~"
+                                echo -e "\e[36m  Package Name: \e[0m\c"
+                                read input
+                                if [ -z "$input" ]; then
+                                    clear
+                                    perf_selected=0
+                                    show_perf_menu
+                                else
+                                    file="/storage/emulated/0/Lynx/applist_perf.txt"
+                                    if [ ! -f "$file" ]; then
+                                        echo ""
+                                        echo -e "\e[31m  File not found. Creating a new file...\e[0m"
+                                        echo ""
+                                        sleep 2
+                                        touch "$file" 
+                                    fi
+                                    if ! grep -q "^$input$" /storage/emulated/0/Lynx/applist_perf.txt; then
+                                        echo "$input" >> /storage/emulated/0/Lynx/applist_perf.txt
+                                        echo -e "\e[32m  $input added successfully!\e[0m"
+                                    else
+                                        echo "  $input it's already on the list!."
+                                    fi
+                                    sleep 2
+                                    clear
+                                    perf_selected=0
+                                    show_perf_menu
+                                fi
+                            elif [ $perf_selected -eq 2 ]; then
+                                file_path="/storage/emulated/0/Lynx/applist_perf.txt"
+                                if [ -f "$file_path" ]; then
+                                    echo -e "\e[34m  Remove Application \e[0m"
+                                    echo "  (ex: com.miHoYo.GenshinImpact) "
+                                    echo ""
+                                    echo "  ~enter blank text to cancel~"
+                                    echo -e "\e[36m  Package Name: \e[0m\c"
+                                    read input
+                                    if [ -z "$input" ]; then
+                                        clear
+                                        perf_selected=0
+                                        show_perf_menu
+                                    else
+                                        file="/storage/emulated/0/Lynx/applist_perf.txt"
+                                        matches=$(grep -nix "$input" "$file" | cut -d ":" -f 1)
+                                        if [ -n "$matches" ]; then
+                                            sed -i "$(echo "${matches}" | sed 's/$/d/' | tr '\n' ',' | sed 's/,$//')" "$file"
+                                            echo -e "\e[32m  $input removed successfully!\e[0m"
+                                            sleep 1.25
+                                            clear
+                                            perf_selected=0
+                                            show_perf_menu
+                                        else
+                                            echo -e "\e[31m  No matches for '$input'\e[0m"
+                                            sleep 1.5
+                                            clear
+                                            perf_selected=0
+                                            show_perf_menu
+                                        fi
+                                    fi
+                                else
+                                    echo -e "\e[31mFile can't read or not found!\e[0m"
+                                    echo -e "\e[31mPlease reinstall module or directly add the application.\e[0m"
+                                    sleep 2
+                                    perf_selected=0
+                                    selected=0
+                                    show_menu
+                                    break
+                                fi
+                            elif [ $perf_selected -eq $((num_perf_options - 1)) ]; then
+                                selected=0
+                                perf_selected=0
+                                show_menu
+                                break
+                            fi
+                            ;;
+                    esac
+                done
+            elif [ $selected -eq 4 ]; then
+                show_flet_menu
+                # Membaca input untuk submenu List App Flow & Eterna
+                while true; do
+                    read -rsn1 flet_input
+                    case $flet_input in
+                        A) # Panah atas
+                            if [ $flet_selected -gt 0 ]; then
+                                flet_selected=$((flet_selected - 1))
+                            else
+                                flet_selected=$((num_flet_options - 1))
+                            fi
+                            show_flet_menu
+                            ;;
+                        B) # Panah bawah
+                            if [ $flet_selected -lt $((num_flet_options - 1)) ]; then
+                                flet_selected=$((flet_selected + 1))
+                            else
+                                flet_selected=0
+                            fi
+                            show_flet_menu
+                            ;;
+                        C) # Panah Kanan
+                            if [ $flet_selected -lt $((num_flet_options - 1)) ]; then
+                                flet_selected=$((flet_selected + 1))
+                            else
+                                flet_selected=0
+                            fi
+                            show_flet_menu
+                            ;;
+                        D) # Panah Kiri
+                            if [ $flet_selected -gt 0 ]; then
+                                flet_selected=$((flet_selected - 1))
+                            else
+                                flet_selected=$((num_flet_options - 1))
+                            fi
+                            show_flet_menu
+                            ;;
+                        H) # Tombol Home
+                            flet_selected=0
+                            selected=0
+                            show_menu
+                            break
+                            ;;
+                        F) # Tombol End
+                            echo -e "\033[1A" # Pindah ke baris sebelumnya
+                            echo -e "\033[K"  # Hapus seluruh baris
+                            echo -e "\033[31mExit Lynx!\033[0m"
+                            sleep 1.25
+                            clear
+                            exit
+                            ;;
+                        $'\x7f') # Tombol backspace (hapus)
+                            if [ $flet_selected -eq 0 ]; then
+                                selected=0
+                                show_menu
+                                break
+                            else
+                                flet_selected=0
+                                show_flet_menu
+                            fi
+                            ;;
+                        "") # Enter
+                            if [ $flet_selected -eq 0 ]; then
+                                clear
+                                file_path="/storage/emulated/0/Lynx/applist_flow.conf"
+                                if [ -f "$file_path" ]; then
+                                    echo ""
+                                    echo "List App Flow: "
+                                    echo ""
+                                    awk 'NF && $0 !~ /^ *#/' "$file_path" |
+                                    sed 's/[^[:print:]]//g' |
+                                    LC_ALL=C sort -f |
+                                    awk '{print NR ". " $0}' |
+                                    sed 's/^/\e[34m/' |
+                                    sed 's/$/\e[0m/'
+                                    echo ""
+                                    echo -e "\e[36mDo you want to find an application? [yes/no] \e[0m"
+                                    while true; do
+                                        read input
+                                        input=$(echo "$input" | tr '[:upper:]' '[:lower:]')
+                                        if [ "$input" = "y" ] || [ "$input" = "yes" ]; then
+                                            echo -e "\e[36mEnter PACKAGE NAME APP to search: \e[0m"
+                                            read app_name
+                                            search_result=$(grep -iF "$app_name" "$file_path" | awk '{print $1}')
+                                            if [ -n "$search_result" ]; then
+                                                clear
+                                                echo -e "\e[32mSearch results for application '$app_name':\e[0m"
+                                                echo "$search_result"
+                                                echo ""
+                                                echo -e "\e[34m Press backspace to return! \e[0m"
+                                                # Baca Input
+                                                while true; do
+                                                    read -rsn1 list_input
+                                                    case $list_input in
+                                                        $'\x7f') # Tombol backspace (hapus)
+                                                            flet_selected=0
+                                                            show_perf_menu
+                                                            break
+                                                            ;;
+                                                        *)
+                                                            ;;
+                                                    esac
+                                                done
+                                            else
+                                                echo -e "\e[31mNo matching application found for '$app_name'.\e[0m"
+                                                flet_selected=0
+                                                sleep 2
+                                                show_flet_menu
+                                            fi
+                                            break
+                                        elif [ "$input" = "n" ] || [ "$input" = "no" ]; then
+                                            clear
+                                            flet_selected=0
+                                            show_flet_menu
+                                            break
+                                        else
+                                            echo "Invalid input. Please enter 'yes' or 'no'."
+                                            sleep 1.5
+                                            printf "\033[A\033[K\033[A\033[K"
+                                        fi
+                                    done
+                                else
+                                    echo -e "\e[31mFile can't read or not found!\e[0m"
+                                    echo -e "\e[31mPlease reinstall module or directly add the application.\e[0m"
+                                    sleep 2
+                                    flet_selected=0
+                                    selected=0
+                                    show_menu
+                                    break
+                                fi
+                            elif [ $flet_selected -eq 1 ]; then
+                                echo -e "\e[34m  Add Application \e[0m"
+                                echo "  (ex: com.miHoYo.GenshinImpact) "
+                                echo ""
+                                echo "  ~enter blank text to cancel~"
+                                echo -e "\e[36m  Package Name: \e[0m\c"
+                                read input
+                                if [ -z "$input" ]; then
+                                    clear
+                                    flet_selected=0
+                                    show_flet_menu
+                                else
+                                    file="/storage/emulated/0/Lynx/applist_flow.conf"
+                                    if [ ! -f "$file" ]; then
+                                        echo ""
+                                        echo -e "\e[31m  File not found. Creating a new file...\e[0m"
+                                        echo ""
+                                        sleep 2
+                                        touch "$file" 
+                                    fi
+                                    if ! grep -q "^$input$" /storage/emulated/0/Lynx/applist_flow.conf; then
+                                        echo "$input" >> /storage/emulated/0/Lynx/applist_flow.conf
+                                        echo "  $input added successfully!"
+                                    else
+                                        echo "  $input it's already on the list!."
+                                    fi
+                                    sleep 1.5
+                                    clear
+                                    flet_selected=0
+                                    show_flet_menu
+                                fi
+                            elif [ $flet_selected -eq 2 ]; then
+                                file="/storage/emulated/0/Lynx/applist_flow.conf"
+                                if [ -f "$file_path" ]; then
+                                    echo -e "\e[34m  Remove Application \e[0m"
+                                    echo "  (ex: com.miHoYo.GenshinImpact) "
+                                    echo ""
+                                    echo "  ~enter blank text to cancel~"
+                                    echo -e "\e[36m  Package Name: \e[0m\c"
+                                    read input
+                                    if [ -z "$input" ]; then
+                                        clear
+                                        flet_selected=0
+                                        show_flet_menu
+                                    else
+                                        file="/storage/emulated/0/Lynx/applist_flow.conf"
+                                        matches=$(grep -nix "$input" "$file" | cut -d ":" -f 1)
+                                        if [ -n "$matches" ]; then
+                                            sed -i "$(echo "${matches}" | sed 's/$/d/' | tr '\n' ',' | sed 's/,$//')" "$file"
+                                            echo "  $input removed successfully!"
+                                            sleep 1.25
+                                            clear
+                                            flet_selected=0
+                                            show_flet_menu
+                                        else
+                                            echo "  No matches for: $input"
+                                            sleep 1.5
+                                            clear
+                                            flet_selected=0
+                                            show_flet_menu
+                                        fi
+                                    fi
+                                else
+                                    echo -e "\e[31mFile can't read or not found!\e[0m"
+                                    echo -e "\e[31mPlease reinstall module or directly add the application.\e[0m"
+                                    sleep 2
+                                    flet_selected=0
+                                    selected=0
+                                    show_menu
+                                    break
+                                fi
+                            elif [ $flet_selected -eq $((num_flet_options - 1)) ]; then
+                                selected=0
+                                flet_selected=0
+                                show_menu
+                                break
+                            fi
+                            ;;
+                    esac
+                done
+            elif [ $selected -eq 5 ]; then
+                show_misc_menu
+                # Membaca input untuk Misc
+                while true; do
+                    read -rsn1 misc_input
+                    case $misc_input in
+                        A) # Panah atas
+                            if [ $misc_selected -gt 0 ]; then
+                                misc_selected=$((misc_selected - 1))
+                            else
+                                misc_selected=$((num_misc_options - 1))
+                            fi
+                            show_misc_menu
+                            ;;
+                        B) # Panah bawah
+                            if [ $misc_selected -lt $((num_misc_options - 1)) ]; then
+                                misc_selected=$((misc_selected + 1))
+                            else
+                                misc_selected=0
+                            fi
+                            show_misc_menu
+                            ;;
+                        C) # Panah Kanan
+                            if [ $misc_selected -lt $((num_misc_options - 1)) ]; then
+                                misc_selected=$((misc_selected + 1))
+                            else
+                                misc_selected=0
+                            fi
+                            show_misc_menu
+                            ;;
+                        D) # Panah Kiri
+                            if [ $misc_selected -gt 0 ]; then
+                                misc_selected=$((misc_selected - 1))
+                            else
+                                misc_selected=$((num_misc_options - 1))
+                            fi
+                            show_misc_menu
+                            ;;
+                        H) # Tombol Home
+                            misc_selected=0
+                            selected=0
+                            show_menu
+                            break
+                            ;;
+                        F) # Tombol End
+                            echo -e "\033[1A" # Pindah ke baris sebelumnya
+                            echo -e "\033[K"  # Hapus seluruh baris
+                            echo -e "\033[31mExit Lynx!\033[0m"
+                            sleep 1.25
+                            clear
+                            exit
+                            ;;
+                        $'\x7f') # Tombol backspace (hapus)
+                            if [ $misc_selected -eq 0 ]; then
+                                selected=0
+                                show_menu
+                                break
+                            else
+                                misc_selected=0
+                                show_misc_menu
+                            fi
+                            ;;
+                        "") # Enter
+                            if [ $misc_selected -eq 0 ]; then
+                                clear
+                                gpu_cache="/data/adb/modules/Lynx/script/misc/gpu_cache_cleaner.sh"
+                                if [ -f "$gpu_cache" ]; then
+                                    echo "Please Wait..."
+                                    sleep 2
+                                    sh $gpu_cache
+                                    misc_selected=0
+                                    selected=0
+                                    pkill -9 termux && break || exit
+                                else
+                                    echo -e "\e[31mFile can't read or not found!\e[0m"
+                                    echo -e "\e[31mPlease reinstall module!\e[0m"
+                                    sleep 2
+                                    clear
+                                    misc_selected=0
+                                    selected=0
+                                    show_misc_menu
+                                fi
+                            elif [ $misc_selected -eq 1 ]; then
+                                clear
+                                g_fixer="/data/adb/modules/Lynx/script/misc/g_fixer.sh"
+                                if [ -f "$g_fixer" ]; then
+                                    echo "Please Wait..."
+                                    sleep 2
+                                    sh $g_fixer
+                                    misc_selected=0
+                                    selected=0
+                                    pkill -9 termux && break || exit
+                                else
+                                    echo -e "\e[31mFile can't read or not found!\e[0m"
+                                    echo -e "\e[31mPlease reinstall module or directly add the application.\e[0m"
+                                    sleep 2
+                                    clear
+                                    misc_selected=0
+                                    selected=0
+                                    show_misc_menu
+                                fi
+                            elif [ $misc_selected -eq 2 ]; then
+                                clear
+                                show_gi_menu
+                                # Membaca input untuk submenu AutoCut Charging
+                                while true; do
+                                read -rsn1 gi_input
+                                case $gi_input in
+                                    A) # Panah atas
+                                        if [ $gi_selected -gt 0 ]; then
+                                            gi_selected=$((gi_selected - 1))
+                                        else
+                                            gi_selected=$((num_gi_options - 1))
+                                        fi
+                                        show_gi_menu
+                                        ;;
+                                    B) # Panah bawah
+                                        if [ $gi_selected -lt $((num_gi_options - 1)) ]; then
+                                            gi_selected=$((gi_selected + 1))
+                                        else
+                                            gi_selected=0
+                                        fi
+                                        show_gi_menu
+                                        ;;
+                                    C) # Panah Kanan
+                                        if [ $gi_selected -lt $((num_gi_options - 1)) ]; then
+                                            gi_selected=$((gi_selected + 1))
+                                        else
+                                            gi_selected=0
+                                        fi
+                                        show_gi_menu
+                                        ;;
+                                    D) # Panah Kiri
+                                        if [ $gi_selected -gt 0 ]; then
+                                            gi_selected=$((gi_selected - 1))
+                                        else
+                                            gi_selected=$((num_gi_options - 1))
+                                        fi
+                                        show_gi_menu
+                                        ;;
+                                    H) # Tombol Home
+                                        gi_selected=0
+                                        show_menu
+                                        break
+                                        ;;
+                                    F) # Tombol End
+                                        echo -e "\033[1A" # Pindah ke baris sebelumnya
+                                        echo -e "\033[K"  # Hapus seluruh baris
+                                        echo -e "\033[31mExit Lynx!\033[0m"
+                                        sleep 1.25
+                                        clear
+                                        exit
+                                        ;;
+                                    $'\x7f') # Tombol backspace (hapus)
+                                        if [ $gi_selected -eq 0 ]; then
+                                            misc_selected=0
+                                            show_misc_menu
+                                            break
+                                        else
+                                            gi_selected=0
+                                            show_gi_menu
+                                        fi
+                                        ;;
+                                    "") # Enter
+                                        if [ $gi_selected -eq 0 ]; then
+                                            gl="/data/adb/modules/Lynx/script/misc/GI_GL.sh"
+                                            if [ -f $gl ]; then
+                                                echo "Please Wait..."
+                                                sleep 2
+                                                sh $gl
+                                                gi_selected=0
+                                                misc_selected=0
+                                                pkill -9 termux && break || exit
+                                            else
+                                                echo -e "\e[31mFile can't read or not found!\e[0m"
+                                                echo -e "\e[31mPlease reinstall module or directly add the application.\e[0m"
+                                                sleep 2
+                                                clear
+                                                misc_selected=0
+                                                gi_selected=0
+                                                selected=0
+                                                show_misc_menu
+                                                break
+                                            fi
+                                        elif [ $gi_selected -eq 1 ]; then
+                                            gl="/data/adb/modules/Lynx/script/misc/GI_VK.sh"
+                                            if [ -f $gl ]; then
+                                                echo "Please Wait..."
+                                                sleep 2
+                                                sh $gl
+                                                gi_selected=0
+                                                misc_selected=0
+                                                pkill -9 termux && break || exit
+                                            else
+                                                echo -e "\e[31mFile can't read or not found!\e[0m"
+                                                echo -e "\e[31mPlease reinstall module or directly add the application.\e[0m"
+                                                sleep 2
+                                                clear
+                                                misc_selected=0
+                                                gi_selected=0
+                                                selected=0
+                                                show_misc_menu
+                                                break
+                                            fi
+                                        elif [ $gi_selected -eq $((num_gi_options - 1)) ]; then
+                                            clear
+                                            misc_selected=0
+                                            gi_selected=0
+                                            show_misc_menu
+                                            break
+                                        fi
+                                    esac
+                                done
+                            elif [ $misc_selected -eq 3 ]; then
+                                clear
+                                clean="/data/adb/modules/Lynx/script/flow/flow5.sh"
+                                if [ -f "$clean" ]; then
+                                    echo "Please Wait..."
+                                    sleep 2
+                                    sh $clean
+                                    misc_selected=0
+                                    selected=0
+                                    pkill -9 termux && break || exit
+                                else
+                                    echo -e "\e[31mFile can't read or not found!\e[0m"
+                                    echo -e "\e[31mPlease reinstall module or directly add the application.\e[0m"
+                                    sleep 2
+                                    clear
+                                    misc_selected=0
+                                    selected=0
+                                    show_misc_menu
+                                fi
+                             elif [ $misc_selected -eq 4 ]; then
+                                clear
+                                dex="/data/adb/modules/Lynx/script/misc/Dexoptimizer.sh"
+                                if [ -f "$dex" ]; then
+                                    echo "Please Wait..."
+                                    sleep 2
+                                    sh $dex
+                                    misc_selected=0
+                                    selected=0
+                                    pkill -9 termux && break || exit
+                                else
+                                    echo -e "\e[31mFile can't read or not found!\e[0m"
+                                    echo -e "\e[31mPlease reinstall module or directly add the application.\e[0m"
+                                    sleep 2
+                                    clear
+                                    misc_selected=0
+                                    selected=0
+                                    show_misc_menu
+                                fi
+                            elif [ $misc_selected -eq $((num_misc_options - 1)) ]; then
+                                selected=0
+                                misc_selected=0
+                                clear
+                                show_menu
+                                break
+                            fi
+                            ;;
+                    esac
+                done
+            elif [ $selected -eq 6 ]; then
+                if [ -d "/data/adb/modules/Lynx/" ]; then
+                    show_info
+                    # missing property messages
+                    error_messages=""
+                    
+                    # Check Charging Control
+                    charging_control=$(su -c getprop lynx.cc 2>/dev/null)
+                    if [ -z "$charging_control" ]; then
+                        error_messages+="Charging Control           : Property not found\n"
+                    else
+                        if [ "$charging_control" -eq 1 ]; then
+                            echo -e "\e[32mCharging Control           : Active\e[0m"
+                        else
+                            echo -e "\e[31mCharging Control           : Inactive\e[0m"
+                            echo "All Charging Control functions are disabled"
+                            exit
+                        fi
+                    fi
+                    
+                    # Read Speed Limit Charging
+                    speed_limit=$(su -c getprop lynx.fcc 2>/dev/null)
+                    if [ -z "$speed_limit" ]; then
+                        error_messages+="Property Charging Speed is missing!\n"
+                    else
+                        speed_limit_mAh=$(bc <<< "$speed_limit * 1000 / 1")
+                        echo -e "\e[34mCharging Speed             : $speed_limit_mAh mAh\e[0m"
+                    fi
+                    
+                    # Read Perf. Mode Charging Limit
+                    performance_mode_speed_limit=$(su -c getprop lynx.lcc 2>/dev/null)
+                    if [ -z "$performance_mode_speed_limit" ]; then
+                        error_messages+="Property Perf. Mode Charging Limit is missing!\n"
+                    else
+                        performance_mode_speed_limit_mAh=$(bc <<< "$performance_mode_speed_limit * 1000 / 1")
+                        echo -e "\e[34mPerf. Mode Charging Limit  : $performance_mode_speed_limit_mAh mAh\e[0m"
+                    fi
+                    
+                    # Check AutoCut Charging
+                    auto_cut_charging=$(su -c getprop lynx.ac 2>/dev/null)
+                    if [ -z "$auto_cut_charging" ]; then
+                        error_messages+="Property AutoCut Charging is missing!\n"
+                    else
+                        if [ "$auto_cut_charging" -eq 1 ]; then
+                            echo -e "\e[32mAutoCut Charging           : Active\e[0m"
+                        else
+                            echo -e "\e[31mAutoCut Charging           : Inactive\e[0m"
+                        fi
+                    fi
+                    
+                    # Read Minimum Battery Percentage
+                    if [ "$auto_cut_charging" -eq 1 ]; then
+                        min_battery_percentage=$(su -c getprop lynx.min.ac 2>/dev/null)
+                        if [ -z "$min_battery_percentage" ]; then
+                            error_messages+="Property Min. Battery Percentage is missing!\n"
+                        else
+                            echo -e "\e[34mLower Charging Limit (%)   : $min_battery_percentage%\e[0m"
+                        fi
+                    fi
+                    
+                    # Read Maximum Battery Percentage
+                    if [ "$auto_cut_charging" -eq 1 ]; then
+                        max_battery_percentage=$(su -c getprop lynx.max.ac 2>/dev/null)
+                        if [ -z "$max_battery_percentage" ]; then
+                            error_messages+="Property Max. Battery Percentage is missing\n"
+                        else
+                            echo -e "\e[34mUpper Charging Limit (%)   : $max_battery_percentage%\e[0m"
+                        fi
+                    fi
+                    
+                    # Read mode file
+                    mode_file="/storage/emulated/0/Lynx/mode"
+                    if [ -e "$mode_file" ]; then
+                        # Check Eterna
+                        eterna=$(grep "^eterna=" "$mode_file" | cut -d "=" -f 2)
+                        if [ -z "$eterna" ]; then
+                            error_messages+="Eterna is missing!\n"
+                        else
+                            if [ "$eterna" -eq 1 ]; then
+                                echo -e "\e[32mEterna                     : Enabled\e[0m"
+                            else
+                                echo -e "\e[31mEterna                     : Disabled\e[0m"
+                            fi
+                        fi
+                        
+                        # Check Flow
+                        flow=$(grep "^flow=" "$mode_file" | cut -d "=" -f 2)
+                        if [ -z "$flow" ]; then
+                            error_messages+="Flow is missing!\n"
+                        else
+                            if [ "$flow" -eq 1 ]; then
+                                echo -e "\e[32mFlow                       : Enabled\e[0m"
+                                
+                                # Check Flow Mode
+                                flow_mode=$(grep "^flow_mode=" "$mode_file" | cut -d "=" -f 2)
+                                if [ -z "$flow_mode" ]; then
+                                    error_messages+="Flow Mode is missing\n"
+                                else
+                                    case "$flow_mode" in
+                                        1) echo -e "\e[34mFlow Mode                  : Basic\e[0m" ;;
+                                        2) echo -e "\e[34mFlow Mode                  : Advanced\e[0m" ;;
+                                        3) echo -e "\e[34mFlow Mode                  : High\e[0m" ;;
+                                        5) echo -e "\e[34mFlow Mode                  : Extreme\e[0m" ;;
+                                        *) echo -e "\e[31mFlow Mode                  : Unknown\e[0m" ;;
+                                    esac
+                                fi
+                            else
+                                echo -e "\e[31mFlow                       : Disabled\e[0m"
+                            fi
+                        fi
+                    else
+                        error_messages+="Mode file not found!\n"
+                    fi
+                    
+                    # Check applist_pef.txt
+                    if [ ! -e "/storage/emulated/0/Lynx/applist_perf.txt" ]; then
+                        error_messages+="File applist_perf.txt is missing!\n"
+                    fi
+                    
+                    # Check applist_flow.conf
+                    if [ ! -e "/storage/emulated/0/Lynx/applist_flow.conf" ]; then
+                        error_messages+="File applist_flow.conf is missing!\n"
+                    fi
+                    
+                    # missing property messages
+                    if [ -n "$error_messages" ]; then
+                        echo -e "\n\e[31mModule Error:\n$error_messages\e[0m"
+                    fi
+                else
+                    echo -e "\e[31m Module not properly installed, please reinstall!\e[0m"
+                    sleep 1.75
+                    selected=0
+                    show_menu
+                fi
+                echo ""
+                echo "Return (backspace) | Refresh (enter)"
+            elif [ $selected -eq $((num_options - 2)) ]; then
+                URL="https://taplink.cc/zy0x"
+                function show_progress() {
+                    local msg="Redirecting"
+                    local i=0
+                    while true; do
+                        printf "\r%s%s" "$msg" "$dots"
+                        sleep 1
+                        dots+="."
+                        let i+=1
+                        if [ $i -eq 4 ]; then
+                            break
+                        fi
+                    done
+                }
+                show_progress &
+                sleep 3
+                kill -SIGTERM $progress_pid >/dev/null 2>&1
+                am start -a android.intent.action.VIEW -d "$URL" > /dev/null
+                sleep 1.25
+                clear
+                pkill -9 termux && break
+            elif [ $selected -eq $((num_options - 1)) ]; then
+                echo -e "\033[31mExit Lynx!\033[0m"
+                sleep 1.25
+                clear
+                pkill -9 termux && break || exit
+            else
+                echo "COMMING SOON!"
+                sleep 1.5
+                clear
+                show_menu
+            fi
+            ;;
+    esac
+done

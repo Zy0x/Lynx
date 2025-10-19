@@ -1,0 +1,247 @@
+#!/bin/sh
+
+# Define the library directory
+MODPATH="/data/adb/modules/Lynx"
+MODPROP="$MODPATH/module.prop"
+SCRIPT="$MODPATH/script"
+DIR="$SCRIPT/lib"
+
+# Ensure the library directory exists
+if [ ! -d "$DIR" ]; then
+    echo "Error: Library directory not found at $DIR"
+    exit 1
+fi
+
+# Load common functions
+LOG_FILE="/storage/emulated/0/Lynx/Lynx.log"
+log_msg() {
+    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    echo "$msg" | tee -a "$LOG_FILE"
+}
+
+# Function to load a specific library
+load_lib() {
+    local lib_name="$1"
+    local lib_path="$DIR/$lib_name.sh"
+
+    if [ -f "$lib_path" ]; then
+        . "$lib_path"
+    else
+        log_msg "Error: Library $lib_name not found at $lib_path"
+        exit 1
+    fi
+}
+
+# Check if no arguments are provided
+if [ $# -eq 0 ]; then
+    # Automatically load and run the help library
+    load_lib "help"
+    help
+    exit 0
+fi
+
+# Main logic
+case "$1" in
+    -help)
+        load_lib "help"
+        help
+        ;;
+    -ram)
+        load_lib "ram"
+        if [ "$2" = "help" ]; then
+            help_ram
+        elif [ "$2" = "apply" ]; then
+            main_ramv2
+        else
+            echo "Invalid argument. Use 'Lxcore -ram help' for usage."
+            exit 1
+        fi
+        ;;
+    -gpu)
+        load_lib "gpu"
+        if [ "$2" = "help" ]; then
+            help_gpu
+        elif [ "$2" = "apply" ]; then
+            main_gpu
+        else
+            echo "Invalid argument. Use 'Lxcore -gpu help' for usage."
+            exit 1
+        fi
+        ;;
+    -cpu)
+        load_lib "cpu"
+        if [ "$2" = "help" ]; then
+            help_cpu
+        elif [ "$2" = "apply" ]; then
+            main_cpu
+        else
+            echo "Invalid argument. Use 'Lxcore -cpu help' for usage."
+            exit 1
+        fi
+        ;;
+    -system)
+        load_lib "system"
+        if [ "$2" = "help" ]; then
+            help_system
+        elif [ "$2" = "apply" ]; then
+            main_system
+        else
+            echo "Invalid argument. Use 'Lxcore -system help' for usage."
+            exit 1
+        fi
+        ;;
+    -cache)
+        load_lib "cache"
+        if [ "$2" = "help" ]; then
+            help_cache
+        elif [ "$2" = "apply" ]; then
+            main_cache
+        else
+            echo "Invalid argument. Use 'Lxcore -cache help' for usage."
+            exit 1
+        fi
+        ;;
+    -net)
+        load_lib "net"
+        main_net_command "$@"
+        ;;
+    -deepsleep)
+        load_lib "deepsleep"
+        if [ "$2" = "help" ]; then
+            help_deepsleep
+        else
+            main_deepsleep "$2"
+        fi
+        ;;
+    -gms)
+        load_lib "gms"
+        if [ "$2" = "help" ]; then
+            help_gms
+        else
+            main_gms "$@"
+        fi
+        ;;
+    -sqlite)
+        load_lib "sqlite"
+        if [ "$2" = "help" ]; then
+            help_sqlite
+        elif [ -z "$2" ]; then
+            help_sqlite
+        else
+            main_sqlite "$2"
+        fi
+        ;;
+    -task)
+        load_lib "task"
+        if [ "$2" = "help" ]; then
+            help_task
+        elif [ "$2" = "apply" ]; then
+            main_task
+        else
+            echo "Invalid argument. Use 'Lxcore -task help' for usage."
+            exit 1
+        fi
+        ;;
+    -unity)
+        load_lib "unity"
+        if [ "$2" = "help" ]; then
+            help_unity
+        elif [ "$2" = "apply" ]; then
+            main_unity
+        else
+            echo "Invalid argument. Use 'Lxcore -unity help' for usage."
+            exit 1
+        fi
+        ;;
+    -updater)
+        load_lib "updater"
+        if [ "$2" = "help" ]; then
+            help_updater
+        elif [ -n "$2" ]; then
+            help_updater
+        else
+            main_updater
+        fi
+        ;;
+    -zram)
+        load_lib "zram"
+        case "$2" in
+            set)
+                if [ "$3" = "help" ]; then
+                    help_zram
+                elif [[ "$3" == size=* || "$3" == algo=* ]]; then
+                    shift 2
+                    main_setzram "$@"
+                else
+                    help_zram
+                fi
+                ;;
+            disable)
+                main_disablezram
+                ;;
+            help)
+                help_zram
+                ;;
+            *)
+                echo "Unknown option. Use 'Lxcore -zram help' for usage."
+                exit 1
+                ;;
+        esac
+        ;;
+    -swap)
+        load_lib "swap"
+        case "$2" in
+            help)
+                help_swap
+                ;;
+            set)
+                if [[ "$3" == size=* ]]; then
+                    size="${3#*=}"
+                    main_setswap "$size"
+                else
+                    help_swap
+                fi
+                ;;
+            enable)
+                main_enableswap
+                ;;
+            disable)
+                main_disableswap
+                ;;
+            remove)
+                main_removeswap
+                ;;
+            *)
+                echo "Unknown option. Use 'Lxcore -swap help' for usage."
+                exit 1
+                ;;
+        esac
+        ;;
+    -dns)
+        load_lib "dns"
+        if [ "$2" = "help" ]; then
+            help_dns
+        else
+            main_dns $2
+        fi
+        ;;
+    -io)
+        load_lib "io"
+        main_io "$@"
+        ;;
+    -dex2oat)
+        load_lib "dex2oat"
+        if [ "$2" = "help" ]; then
+            help_dex2oat
+        elif [ "$2" = "apply" ]; then
+            dex2oat_opt_enable
+        else
+            echo "Invalid argument. Use 'Lxcore -dex2oat help' for usage."
+            exit 1
+        fi
+        ;;
+    *)
+        echo "Unknown command. Use 'Lxcore -help' for usage."
+        exit 1
+        ;;
+esac

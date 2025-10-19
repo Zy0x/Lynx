@@ -1,0 +1,1 @@
+59 23 * * * sh /data/adb/modules/Lynx/cron/CCleaner.sh
