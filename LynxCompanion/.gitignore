@@ -1,0 +1,21 @@
+# Android / Gradle build artifacts
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.class
+
+# Keystore files
+*.jks
+*.keystore
+
+# Google Services
+google-services.json

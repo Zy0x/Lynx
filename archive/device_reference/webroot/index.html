@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lynx Tools</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 16px;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: system-ui, sans-serif;
+        }
+        .card {
+            background: #1f1f1f;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h1 { 
+            color: #00ffaa; 
+            margin: 0 0 12px 0; 
+        }
+        .info {
+            margin: 12px 0;
+            padding: 10px 14px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+        button {
+            background: #0099ff;
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 17px;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .output {
+            background: #111;
+            padding: 14px;
+            border-radius: 8px;
+            margin-top: 12px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status { color: #66ff99; }
+        .error { color: #ff6666; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>🔧 Lynx Script Runner</h1>
+        
+        <div class="info" id="author-info">
+            <strong>Author:</strong> <span id="author">Memuat...</span>
+        </div>
+        
+        <p class="status">Script berada di folder <code>/data/adb/modules/Lynx/webroot/</code></p>
+    </div>
+
+    <div class="card">
+        <button onclick="runScript('script.sh')">▶ Jalankan script.sh</button>
+        <button onclick="runCustomCommand()">⚡ Jalankan Perintah Custom</button>
+
+        <div id="output" class="output">Output akan muncul di sini...</div>
+    </div>
+
+    <script>
+        const outputDiv = document.getElementById('output');
+        const authorSpan = document.getElementById('author');
+
+        async function print(text, isError = false) {
+            const line = document.createElement('div');
+            line.style.color = isError ? '#ff6666' : '#e0e0e0';
+            line.textContent = text;
+            outputDiv.appendChild(line);
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+
+        // Fungsi untuk mengambil author dari module.prop
+        async function loadAuthor() {
+            try {
+                if (typeof ksu === 'undefined' || !ksu.exec) {
+                    authorSpan.textContent = "ksu tidak tersedia";
+                    return;
+                }
+
+                const cmd = `grep '^author=' /data/adb/modules/Lynx/module.prop | cut -d'=' -f2-`;
+                const result = await ksu.exec(cmd);
+
+                if (result.stdout && result.stdout.trim()) {
+                    authorSpan.textContent = result.stdout.trim();
+                } else if (result.stderr) {
+                    authorSpan.textContent = "Tidak ditemukan";
+                    console.error(result.stderr);
+                } else {
+                    authorSpan.textContent = "Tidak ditemukan (kosong)";
+                }
+            } catch (err) {
+                authorSpan.textContent = "Gagal membaca module.prop";
+                console.error(err);
+            }
+        }
+
+        async function runScript(scriptName) {
+            outputDiv.innerHTML = '';
+            print(`Menjalankan ${scriptName}...`, false);
+
+            try {
+                if (typeof ksu === 'undefined' || !ksu.exec) {
+                    print("Error: ksu tidak tersedia di WebView ini", true);
+                    return;
+                }
+
+                const path = 'data/adb/modules/Lynx/webroot/';
+                const cmd = `sh /${path}/${scriptName}`;
+
+                const result = await ksu.exec(cmd);
+
+                if (result.stdout) print(result.stdout);
+                if (result.stderr) print("STDERR:\n" + result.stderr, true);
+                if (result.errno !== undefined) {
+                    print(`Exit code: ${result.errno}`, result.errno !== 0);
+                }
+
+                if (!result.stdout && !result.stderr) {
+                    print("(Script selesai tanpa output)", false);
+                }
+
+            } catch (err) {
+                print("Error menjalankan script: " + err, true);
+                console.error(err);
+            }
+        }
+
+        async function runCustomCommand() {
+            const cmd = prompt("Masukkan perintah shell yang ingin dijalankan:", "id");
+            if (!cmd) return;
+
+            outputDiv.innerHTML = '';
+            print(`Menjalankan: ${cmd}`, false);
+
+            try {
+                const result = await ksu.exec(cmd);
+
+                if (result.stdout) print(result.stdout);
+                if (result.stderr) print("STDERR:\n" + result.stderr, true);
+                if (result.errno !== undefined) print(`Exit code: ${result.errno}`, result.errno !== 0);
+
+            } catch (err) {
+                print("Error: " + err, true);
+            }
+        }
+
+        // Load saat halaman dibuka
+        window.onload = () => {
+            print("Lynx Script Runner siap.", false);
+            print("Script harus berada di folder webroot/", false);
+            loadAuthor();   // ← Tambahan: ambil author otomatis
+        };
+    </script>
+</body>
+</html>

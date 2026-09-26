@@ -1,0 +1,861 @@
+[
+{"path":"/sys/devices/system/cpu/cpufreq/policy0/scaling_governor","name":"policy0/scaling_governor","category":"CPU & Scheduler","value":"performance","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy6/scaling_governor","name":"policy6/scaling_governor","category":"CPU & Scheduler","value":"performance","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy0/stats/time_in_state","name":"stats/time_in_state","category":"CPU & Scheduler","value":"2000000 652670","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy0/stats/total_trans","name":"stats/total_trans","category":"CPU & Scheduler","value":"2670","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy0/stats/trans_table","name":"stats/trans_table","category":"CPU & Scheduler","value":"From  :    To","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy6/stats/time_in_state","name":"stats/time_in_state","category":"CPU & Scheduler","value":"2050000 653955","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy6/stats/total_trans","name":"stats/total_trans","category":"CPU & Scheduler","value":"2158","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy6/stats/trans_table","name":"stats/trans_table","category":"CPU & Scheduler","value":"From  :    To","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy0/scaling_driver","name":"policy0/scaling_driver","category":"CPU & Scheduler","value":"mt-cpufreq","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy0/scaling_governor","name":"policy0/scaling_governor","category":"CPU & Scheduler","value":"performance","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq","name":"policy0/scaling_max_freq","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq","name":"policy0/scaling_min_freq","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed","name":"policy0/scaling_setspeed","category":"CPU & Scheduler","value":"<unsupported>","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy6/scaling_driver","name":"policy6/scaling_driver","category":"CPU & Scheduler","value":"mt-cpufreq","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy6/scaling_governor","name":"policy6/scaling_governor","category":"CPU & Scheduler","value":"performance","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy6/scaling_max_freq","name":"policy6/scaling_max_freq","category":"CPU & Scheduler","value":"2050000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy6/scaling_min_freq","name":"policy6/scaling_min_freq","category":"CPU & Scheduler","value":"2050000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/cpufreq/policy6/scaling_setspeed","name":"policy6/scaling_setspeed","category":"CPU & Scheduler","value":"<unsupported>","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/sched/hint_info","name":"sched/hint_info","category":"CPU & Scheduler","value":"capacity total=0","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/sched/sched_boost","name":"sched/sched_boost","category":"CPU & Scheduler","value":"sched boost= no boost","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/sched/sched_isolation","name":"sched/sched_isolation","category":"CPU & Scheduler","value":"cpu_isolated_mask=0x0","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/devices/system/cpu/sched/walt_debug","name":"sched/walt_debug","category":"CPU & Scheduler","value":"0","writable":true,"type":"choice","options":["walt0","=","0","(powerHAL)"],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_big_task_rotation","name":"sched_big_task_rotation","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_child_runs_first","name":"sched_child_runs_first","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_cstate_aware","name":"sched_cstate_aware","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_isolation_hint","name":"sched_isolation_hint","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_latency_ns","name":"sched_latency_ns","category":"CPU & Scheduler","value":"5","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_migration_cost_ns","name":"sched_migration_cost_ns","category":"CPU & Scheduler","value":"5","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_min_granularity_ns","name":"sched_min_granularity_ns","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_nr_migrate","name":"sched_nr_migrate","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_rr_timeslice_ms","name":"sched_rr_timeslice_ms","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_rt_period_us","name":"sched_rt_period_us","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_rt_runtime_us","name":"sched_rt_runtime_us","category":"CPU & Scheduler","value":"9","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_schedstats","name":"sched_schedstats","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_stune_task_threshold","name":"sched_stune_task_threshold","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_time_avg_ms","name":"sched_time_avg_ms","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_tunable_scaling","name":"sched_tunable_scaling","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_uclamp_util_max","name":"sched_uclamp_util_max","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_uclamp_util_min","name":"sched_uclamp_util_min","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/sched_wakeup_granularity_ns","name":"sched_wakeup_granularity_ns","category":"CPU & Scheduler","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/cpufreq/cpufreq_cci_map_table","name":"cpufreq/cpufreq_cci_map_table","category":"CPU & Scheduler","value":"CCI MAP Normal Mode:","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/cpufreq/cpufreq_cci_mode","name":"cpufreq/cpufreq_cci_mode","category":"CPU & Scheduler","value":"cci_mode as Normal mode","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/cpufreq/cpufreq_debug","name":"cpufreq/cpufreq_debug","category":"CPU & Scheduler","value":"cpufreq debug (log level) = 0","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/cpufreq/cpufreq_dvfs_time_profile","name":"cpufreq/cpufreq_dvfs_time_profile","category":"CPU & Scheduler","value":"0","writable":true,"type":"choice","options":["max0","=","0","us"],"help":""}
+,
+{"path":"/proc/cpufreq/cpufreq_imax_enable","name":"cpufreq/cpufreq_imax_enable","category":"CPU & Scheduler","value":"IMAX MODE = 1, (DISABLE = 0, ENABLE = 1, MPMM = 2)","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/cpufreq/cpufreq_imax_reg_dump","name":"cpufreq/cpufreq_imax_reg_dump","category":"CPU & Scheduler","value":"IMAX addr 0xcd10 = 0x0","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/cpufreq/cpufreq_imax_thermal_protect","name":"cpufreq/cpufreq_imax_thermal_protect","category":"CPU & Scheduler","value":"IMAX THERMAL protect = 0, (DISABLE = 0, ENABLE = 1)","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/cpufreq/cpufreq_power_mode","name":"cpufreq/cpufreq_power_mode","category":"CPU & Scheduler","value":"Performance(Sports) mode","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/cpufreq/cpufreq_sched_disable","name":"cpufreq/cpufreq_sched_disable","category":"CPU & Scheduler","value":"cpufreq_sched_disable = 1","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/cpufreq/cpufreq_stress_test","name":"cpufreq/cpufreq_stress_test","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/boot_freq","name":"cpu_ctrl/boot_freq","category":"CPU & Scheduler","value":"cluster 0 min:-1 max:-1","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/cfp_curr_stat","name":"cpu_ctrl/cfp_curr_stat","category":"CPU & Scheduler","value":"enable	ceiled	loading	headroom_opp	up_time	down_time","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/cfp_down_loading","name":"cpu_ctrl/cfp_down_loading","category":"CPU & Scheduler","value":"80","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/cfp_down_opp","name":"cpu_ctrl/cfp_down_opp","category":"CPU & Scheduler","value":"15","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/cfp_down_time","name":"cpu_ctrl/cfp_down_time","category":"CPU & Scheduler","value":"16","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/cfp_enable","name":"cpu_ctrl/cfp_enable","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/cfp_polling_ms","name":"cpu_ctrl/cfp_polling_ms","category":"CPU & Scheduler","value":"64","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/cfp_up_loading","name":"cpu_ctrl/cfp_up_loading","category":"CPU & Scheduler","value":"90","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/cfp_up_opp","name":"cpu_ctrl/cfp_up_opp","category":"CPU & Scheduler","value":"15","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/cfp_up_time","name":"cpu_ctrl/cfp_up_time","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/current_freq","name":"cpu_ctrl/current_freq","category":"CPU & Scheduler","value":"cluster 0 min:-1 max:-1","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/perfmgr_log","name":"cpu_ctrl/perfmgr_log","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/cpu_ctrl/perfserv_freq","name":"cpu_ctrl/perfserv_freq","category":"CPU & Scheduler","value":"cluster 0 min:-1 max:-1","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/dram_ctrl/ddr","name":"dram_ctrl/ddr","category":"General","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/dram_ctrl/dram","name":"dram_ctrl/dram","category":"General","value":"DDR_TYPE: 0","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/boot_boost","name":"eas_ctrl/boot_boost","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/current_bg_boost","name":"eas_ctrl/current_bg_boost","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/current_bg_uclamp_min","name":"eas_ctrl/current_bg_uclamp_min","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/current_fg_boost","name":"eas_ctrl/current_fg_boost","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/current_fg_uclamp_min","name":"eas_ctrl/current_fg_uclamp_min","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/current_prefer_idle","name":"eas_ctrl/current_prefer_idle","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/current_ta_boost","name":"eas_ctrl/current_ta_boost","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/current_ta_uclamp_min","name":"eas_ctrl/current_ta_uclamp_min","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/current_uclamp_min","name":"eas_ctrl/current_uclamp_min","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/debug_bg_boost","name":"eas_ctrl/debug_bg_boost","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/debug_bg_uclamp_min","name":"eas_ctrl/debug_bg_uclamp_min","category":"General","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/debug_fg_boost","name":"eas_ctrl/debug_fg_boost","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/debug_fg_uclamp_min","name":"eas_ctrl/debug_fg_uclamp_min","category":"General","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/debug_prefer_idle","name":"eas_ctrl/debug_prefer_idle","category":"General","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/debug_schedplus_down_throttle","name":"eas_ctrl/debug_schedplus_down_throttle","category":"CPU & Scheduler","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/debug_schedplus_sync_flag","name":"eas_ctrl/debug_schedplus_sync_flag","category":"CPU & Scheduler","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/debug_schedplus_up_throttle","name":"eas_ctrl/debug_schedplus_up_throttle","category":"CPU & Scheduler","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/debug_ta_boost","name":"eas_ctrl/debug_ta_boost","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/debug_ta_uclamp_min","name":"eas_ctrl/debug_ta_uclamp_min","category":"General","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/debug_uclamp_min","name":"eas_ctrl/debug_uclamp_min","category":"General","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/m_sched_migrate_cost_n","name":"eas_ctrl/m_sched_migrate_cost_n","category":"CPU & Scheduler","value":"500000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfmgr_log","name":"eas_ctrl/perfmgr_log","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_bg_boost","name":"eas_ctrl/perfserv_bg_boost","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_bg_uclamp_min","name":"eas_ctrl/perfserv_bg_uclamp_min","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ext_launch_mon","name":"eas_ctrl/perfserv_ext_launch_mon","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost","name":"eas_ctrl/perfserv_fg_boost","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min","name":"eas_ctrl/perfserv_fg_uclamp_min","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle","name":"eas_ctrl/perfserv_prefer_idle","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle","name":"eas_ctrl/perfserv_schedplus_down_throttle","category":"CPU & Scheduler","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_sync_flag","name":"eas_ctrl/perfserv_schedplus_sync_flag","category":"CPU & Scheduler","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle","name":"eas_ctrl/perfserv_schedplus_up_throttle","category":"CPU & Scheduler","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost","name":"eas_ctrl/perfserv_ta_boost","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min","name":"eas_ctrl/perfserv_ta_uclamp_min","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min","name":"eas_ctrl/perfserv_uclamp_min","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation","name":"eas_ctrl/sched_big_task_rotation","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/eas_ctrl/sched_stune_task_thresh","name":"eas_ctrl/sched_stune_task_thresh","category":"CPU & Scheduler","value":"-1","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/topo_ctrl/cpus_per_cluster","name":"topo_ctrl/cpus_per_cluster","category":"CPU & Scheduler","value":"cluster0: f","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/topo_ctrl/glb_info","name":"topo_ctrl/glb_info","category":"General","value":"perfmgr_clusters : 2","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/topo_ctrl/is_big_little","name":"topo_ctrl/is_big_little","category":"General","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/topo_ctrl/nr_clusters","name":"topo_ctrl/nr_clusters","category":"General","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/perfmgr/boost_ctrl/topo_ctrl/topo_ctrl","name":"topo_ctrl/topo_ctrl","category":"General","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/ap_self_frc_detection_rate","name":"ap_self_frc_detection_rate","category":"GPU & Graphics","value":"20","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/boost_amp","name":"boost_amp","category":"GPU & Graphics","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/boost_extra","name":"boost_extra","category":"GPU & Graphics","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/boost_gpu_enable","name":"boost_gpu_enable","category":"GPU & Graphics","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/boost_upper_bound","name":"boost_upper_bound","category":"GPU & Graphics","value":"100","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/cpu_boost_policy","name":"cpu_boost_policy","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/deboost_reduce","name":"deboost_reduce","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/enable_cpu_boost","name":"enable_cpu_boost","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/enable_game_self_frc_detect","name":"enable_game_self_frc_detect","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/enable_gpu_boost","name":"enable_gpu_boost","category":"GPU & Graphics","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/g_fb_dvfs_threshold","name":"g_fb_dvfs_threshold","category":"GPU & Graphics","value":"100","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/g_gpu_timer_based_emu","name":"g_gpu_timer_based_emu","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/ged_boost_enable","name":"ged_boost_enable","category":"GPU & Graphics","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/ged_force_mdp_enable","name":"ged_force_mdp_enable","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/ged_log_perf_trace_enable","name":"ged_log_perf_trace_enable","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/ged_log_trace_enable","name":"ged_log_trace_enable","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/ged_monitor_3D_fence_debug","name":"ged_monitor_3D_fence_debug","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/ged_monitor_3D_fence_disable","name":"ged_monitor_3D_fence_disable","category":"GPU & Graphics","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/ged_monitor_3D_fence_systrace","name":"ged_monitor_3D_fence_systrace","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/ged_smart_boost","name":"ged_smart_boost","category":"GPU & Graphics","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gpu_block","name":"gpu_block","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gpu_bottom_freq","name":"gpu_bottom_freq","category":"GPU & Graphics","value":"300000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gpu_bw_err_debug","name":"gpu_bw_err_debug","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gpu_cust_boost_freq","name":"gpu_cust_boost_freq","category":"GPU & Graphics","value":"950000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gpu_cust_upbound_freq","name":"gpu_cust_upbound_freq","category":"GPU & Graphics","value":"300000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gpu_debug_enable","name":"gpu_debug_enable","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gpu_dvfs_enable","name":"gpu_dvfs_enable","category":"GPU & Graphics","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gpu_idle","name":"gpu_idle","category":"GPU & Graphics","value":"100","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gpu_loading","name":"gpu_loading","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gx_boost_on","name":"gx_boost_on","category":"GPU & Graphics","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gx_dfps","name":"gx_dfps","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gx_fb_dvfs_margin","name":"gx_fb_dvfs_margin","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gx_force_cpu_boost","name":"gx_force_cpu_boost","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gx_frc_mode","name":"gx_frc_mode","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gx_game_mode","name":"gx_game_mode","category":"GPU & Graphics","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/gx_top_app_pid","name":"gx_top_app_pid","category":"GPU & Graphics","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/is_GED_KPI_enabled","name":"is_GED_KPI_enabled","category":"GPU & Graphics","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/ged/parameters/target_t_cpu_remained","name":"target_t_cpu_remained","category":"CPU & Scheduler","value":"16000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/adjust_loading","name":"adjust_loading","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/bhr","name":"bhr","category":"CPU & Scheduler","value":"5","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/bhr_opp","name":"bhr_opp","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/bhr_opp_l","name":"bhr_opp_l","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/boost_affinity","name":"boost_affinity","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/boost_affinity_120","name":"boost_affinity_120","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/boost_affinity_90","name":"boost_affinity_90","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/check_running","name":"check_running","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/cm_big_cap","name":"cm_big_cap","category":"CPU & Scheduler","value":"95","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/cm_big_cap_120","name":"cm_big_cap_120","category":"CPU & Scheduler","value":"95","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/cm_big_cap_90","name":"cm_big_cap_90","category":"CPU & Scheduler","value":"95","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/cm_tdiff","name":"cm_tdiff","category":"CPU & Scheduler","value":"1000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/cm_tdiff_120","name":"cm_tdiff_120","category":"CPU & Scheduler","value":"1000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/cm_tdiff_90","name":"cm_tdiff_90","category":"CPU & Scheduler","value":"1000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/deqtime_bound","name":"deqtime_bound","category":"CPU & Scheduler","value":"3000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/floor_bound","name":"floor_bound","category":"CPU & Scheduler","value":"3","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/floor_opp","name":"floor_opp","category":"CPU & Scheduler","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/fps_level_range","name":"fps_level_range","category":"CPU & Scheduler","value":"10","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_check_under_boost","name":"gcc_check_under_boost","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_cpu_unknown_sleep","name":"gcc_cpu_unknown_sleep","category":"CPU & Scheduler","value":"80","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_deq_bound_quota","name":"gcc_deq_bound_quota","category":"CPU & Scheduler","value":"6","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_deq_bound_thrs","name":"gcc_deq_bound_thrs","category":"CPU & Scheduler","value":"20","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_down_sec_pct","name":"gcc_down_sec_pct","category":"CPU & Scheduler","value":"100","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_down_step","name":"gcc_down_step","category":"CPU & Scheduler","value":"10","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_enable","name":"gcc_enable","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_enq_bound_quota","name":"gcc_enq_bound_quota","category":"CPU & Scheduler","value":"6","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_enq_bound_thrs","name":"gcc_enq_bound_thrs","category":"CPU & Scheduler","value":"20","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_fps_margin","name":"gcc_fps_margin","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_gpu_bound_loading","name":"gcc_gpu_bound_loading","category":"CPU & Scheduler","value":"80","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_gpu_bound_time","name":"gcc_gpu_bound_time","category":"CPU & Scheduler","value":"90","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_reserved_down_quota_pct","name":"gcc_reserved_down_quota_pct","category":"CPU & Scheduler","value":"5","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_reserved_up_quota_pct","name":"gcc_reserved_up_quota_pct","category":"CPU & Scheduler","value":"100","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_std_filter","name":"gcc_std_filter","category":"CPU & Scheduler","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_up_sec_pct","name":"gcc_up_sec_pct","category":"CPU & Scheduler","value":"25","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_up_step","name":"gcc_up_step","category":"CPU & Scheduler","value":"5","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_upper_clamp","name":"gcc_upper_clamp","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/gcc_window_size","name":"gcc_window_size","category":"CPU & Scheduler","value":"60","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/kmin","name":"kmin","category":"CPU & Scheduler","value":"10","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/loading_adj_cnt","name":"loading_adj_cnt","category":"CPU & Scheduler","value":"30","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/loading_debnc_cnt","name":"loading_debnc_cnt","category":"CPU & Scheduler","value":"30","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/loading_th","name":"loading_th","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/loading_time_diff","name":"loading_time_diff","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/min_rescue_percent","name":"min_rescue_percent","category":"CPU & Scheduler","value":"10","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_debug","name":"qr_debug","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_enable","name":"qr_enable","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_filter_outlier","name":"qr_filter_outlier","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_hwui_hint","name":"qr_hwui_hint","category":"CPU & Scheduler","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_mod_frame","name":"qr_mod_frame","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_t2wnt_x","name":"qr_t2wnt_x","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_t2wnt_x_120","name":"qr_t2wnt_x_120","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_t2wnt_x_90","name":"qr_t2wnt_x_90","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_t2wnt_y_n","name":"qr_t2wnt_y_n","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_t2wnt_y_n_120","name":"qr_t2wnt_y_n_120","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_t2wnt_y_n_90","name":"qr_t2wnt_y_n_90","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_t2wnt_y_p","name":"qr_t2wnt_y_p","category":"CPU & Scheduler","value":"100","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_t2wnt_y_p_120","name":"qr_t2wnt_y_p_120","category":"CPU & Scheduler","value":"100","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/qr_t2wnt_y_p_90","name":"qr_t2wnt_y_p_90","category":"CPU & Scheduler","value":"100","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/rescue_enhance_f","name":"rescue_enhance_f","category":"CPU & Scheduler","value":"25","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/rescue_opp_c","name":"rescue_opp_c","category":"CPU & Scheduler","value":"15","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/rescue_opp_f","name":"rescue_opp_f","category":"CPU & Scheduler","value":"5","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/rescue_percent","name":"rescue_percent","category":"CPU & Scheduler","value":"33","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/rescue_percent_120","name":"rescue_percent_120","category":"CPU & Scheduler","value":"33","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/rescue_percent_90","name":"rescue_percent_90","category":"CPU & Scheduler","value":"33","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/rescue_second_enable","name":"rescue_second_enable","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/rescue_second_enhance_f","name":"rescue_second_enhance_f","category":"CPU & Scheduler","value":"100","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/rescue_second_group","name":"rescue_second_group","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/rescue_second_time","name":"rescue_second_time","category":"CPU & Scheduler","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/run_time_percent","name":"run_time_percent","category":"CPU & Scheduler","value":"50","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/sampling_period_MS","name":"sampling_period_MS","category":"CPU & Scheduler","value":"256","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/short_min_rescue_p","name":"short_min_rescue_p","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/short_rescue_ns","name":"short_rescue_ns","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/uboost_enhance_f","name":"uboost_enhance_f","category":"CPU & Scheduler","value":"25","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/module/fbt_cpu/parameters/variance","name":"variance","category":"CPU & Scheduler","value":"40","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/class/misc/mali0/device/power_policy","name":"device/power_policy","category":"GPU & Graphics","value":"always_on","writable":true,"type":"choice","options":["coarse_demand","always_on"],"help":""}
+,
+{"path":"/sys/class/misc/mali0/device/dvfs_period","name":"device/dvfs_period","category":"GPU & Graphics","value":"100","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/mali/dvfs_enable","name":"mali/dvfs_enable","category":"GPU & Graphics","value":"dvfs_enabled: 0","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/gpufreq/gpufreq_fixed_freq_volt","name":"gpufreq/gpufreq_fixed_freq_volt","category":"GPU & Graphics","value":"GPU-DVFS","writable":true,"type":"choice","options":["GPU-DVFS","fixed","freq","&","volt","is","disabled"],"help":""}
+,
+{"path":"/proc/sys/vm/admin_reserve_kbytes","name":"admin_reserve_kbytes","category":"Memory & VM","value":"8","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/block_dump","name":"block_dump","category":"Memory & VM","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/compact_unevictable_allowed","name":"compact_unevictable_allowed","category":"Memory & VM","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/dirty_background_bytes","name":"dirty_background_bytes","category":"Memory & VM","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/dirty_background_ratio","name":"dirty_background_ratio","category":"Memory & VM","value":"5","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/dirty_bytes","name":"dirty_bytes","category":"Memory & VM","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/dirty_expire_centisecs","name":"dirty_expire_centisecs","category":"Memory & VM","value":"5","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/dirty_ratio","name":"dirty_ratio","category":"Memory & VM","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/dirty_writeback_centisecs","name":"dirty_writeback_centisecs","category":"Memory & VM","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/dirtytime_expire_seconds","name":"dirtytime_expire_seconds","category":"Memory & VM","value":"4","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/extfrag_threshold","name":"extfrag_threshold","category":"Memory & VM","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/extra_free_kbytes","name":"extra_free_kbytes","category":"Memory & VM","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/laptop_mode","name":"laptop_mode","category":"Memory & VM","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/legacy_va_layout","name":"legacy_va_layout","category":"Memory & VM","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/lowmem_reserve_ratio","name":"lowmem_reserve_ratio","category":"Memory & VM","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/max_map_count","name":"max_map_count","category":"Memory & VM","value":"6","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/min_free_kbytes","name":"min_free_kbytes","category":"Memory & VM","value":"8","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/mmap_min_addr","name":"mmap_min_addr","category":"Memory & VM","value":"3","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/mmap_rnd_bits","name":"mmap_rnd_bits","category":"Memory & VM","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/mmap_rnd_compat_bits","name":"mmap_rnd_compat_bits","category":"Memory & VM","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/oom_dump_tasks","name":"oom_dump_tasks","category":"Memory & VM","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/oom_kill_allocating_task","name":"oom_kill_allocating_task","category":"Memory & VM","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/overcommit_kbytes","name":"overcommit_kbytes","category":"Memory & VM","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/overcommit_memory","name":"overcommit_memory","category":"Memory & VM","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/overcommit_ratio","name":"overcommit_ratio","category":"Memory & VM","value":"8","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/page-cluster","name":"page-cluster","category":"Memory & VM","value":"3","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/panic_on_oom","name":"panic_on_oom","category":"Memory & VM","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/percpu_pagelist_fraction","name":"percpu_pagelist_fraction","category":"CPU & Scheduler","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/speculative_page_fault","name":"speculative_page_fault","category":"Memory & VM","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/stat_interval","name":"stat_interval","category":"Memory & VM","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/swappiness","name":"swappiness","category":"Memory & VM","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/user_reserve_kbytes","name":"user_reserve_kbytes","category":"Memory & VM","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/vfs_cache_pressure","name":"vfs_cache_pressure","category":"Memory & VM","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/vm/watermark_scale_factor","name":"watermark_scale_factor","category":"Memory & VM","value":"3","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/kernel/mm/swap/vma_ra_enabled","name":"swap/vma_ra_enabled","category":"Memory & VM","value":"false","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/block/zram0/comp_algorithm","name":"zram0/comp_algorithm","category":"Memory & VM","value":"lz4","writable":true,"type":"choice","options":["lzo","lz4","deflate"],"help":""}
+,
+{"path":"/sys/block/zram1/comp_algorithm","name":"zram1/comp_algorithm","category":"Memory & VM","value":"lzo","writable":true,"type":"choice","options":["lzo","lz4","deflate"],"help":""}
+,
+{"path":"/sys/block/zram0/max_comp_streams","name":"zram0/max_comp_streams","category":"Memory & VM","value":"8","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/zram1/max_comp_streams","name":"zram1/max_comp_streams","category":"Memory & VM","value":"8","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/sda/queue/scheduler","name":"scheduler","category":"CPU & Scheduler","value":"noop","writable":true,"type":"choice","options":["noop","deadline","cfq"],"help":""}
+,
+{"path":"/sys/block/sdb/queue/scheduler","name":"scheduler","category":"CPU & Scheduler","value":"noop","writable":true,"type":"choice","options":["noop","deadline","cfq"],"help":""}
+,
+{"path":"/sys/block/sdc/queue/scheduler","name":"scheduler","category":"CPU & Scheduler","value":"noop","writable":true,"type":"choice","options":["noop","deadline","cfq"],"help":""}
+,
+{"path":"/sys/block/sda/queue/read_ahead_kb","name":"read_ahead_kb","category":"Storage & I/O","value":"512","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/sdb/queue/read_ahead_kb","name":"read_ahead_kb","category":"Storage & I/O","value":"512","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/sdc/queue/read_ahead_kb","name":"read_ahead_kb","category":"Storage & I/O","value":"512","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/sda/queue/nr_requests","name":"nr_requests","category":"Storage & I/O","value":"128","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/sdb/queue/nr_requests","name":"nr_requests","category":"Storage & I/O","value":"128","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/sdc/queue/nr_requests","name":"nr_requests","category":"Storage & I/O","value":"128","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/sda/queue/iostats","name":"iostats","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdb/queue/iostats","name":"iostats","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdc/queue/iostats","name":"iostats","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sda/queue/nomerges","name":"nomerges","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdb/queue/nomerges","name":"nomerges","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdc/queue/nomerges","name":"nomerges","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sda/queue/rq_affinity","name":"rq_affinity","category":"Storage & I/O","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/sdb/queue/rq_affinity","name":"rq_affinity","category":"Storage & I/O","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/sdc/queue/rq_affinity","name":"rq_affinity","category":"Storage & I/O","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/sda/queue/add_random","name":"add_random","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdb/queue/add_random","name":"add_random","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdc/queue/add_random","name":"add_random","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sda/queue/rotational","name":"rotational","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdb/queue/rotational","name":"rotational","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdc/queue/rotational","name":"rotational","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sda/queue/io_poll","name":"io_poll","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdb/queue/io_poll","name":"io_poll","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdc/queue/io_poll","name":"io_poll","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sda/queue/io_poll_delay","name":"io_poll_delay","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdb/queue/io_poll_delay","name":"io_poll_delay","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/sdc/queue/io_poll_delay","name":"io_poll_delay","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/mmcblk0/queue/scheduler","name":"scheduler","category":"CPU & Scheduler","value":"noop","writable":true,"type":"choice","options":["noop","deadline","cfq"],"help":""}
+,
+{"path":"/sys/block/mmcblk0/queue/read_ahead_kb","name":"read_ahead_kb","category":"Storage & I/O","value":"512","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/mmcblk0/queue/nr_requests","name":"nr_requests","category":"Storage & I/O","value":"128","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/mmcblk0/queue/iostats","name":"iostats","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/mmcblk0/queue/nomerges","name":"nomerges","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/mmcblk0/queue/rq_affinity","name":"rq_affinity","category":"Storage & I/O","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/mmcblk0/queue/add_random","name":"add_random","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/mmcblk0/queue/rotational","name":"rotational","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-0/queue/scheduler","name":"scheduler","category":"CPU & Scheduler","value":"none","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/block/dm-1/queue/scheduler","name":"scheduler","category":"CPU & Scheduler","value":"none","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/block/dm-2/queue/scheduler","name":"scheduler","category":"CPU & Scheduler","value":"none","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/block/dm-0/queue/read_ahead_kb","name":"read_ahead_kb","category":"Storage & I/O","value":"512","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/dm-1/queue/read_ahead_kb","name":"read_ahead_kb","category":"Storage & I/O","value":"512","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/dm-2/queue/read_ahead_kb","name":"read_ahead_kb","category":"Storage & I/O","value":"512","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/dm-0/queue/nr_requests","name":"nr_requests","category":"Storage & I/O","value":"128","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/dm-1/queue/nr_requests","name":"nr_requests","category":"Storage & I/O","value":"128","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/dm-2/queue/nr_requests","name":"nr_requests","category":"Storage & I/O","value":"128","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/dm-0/queue/iostats","name":"iostats","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-1/queue/iostats","name":"iostats","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-2/queue/iostats","name":"iostats","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-0/queue/nomerges","name":"nomerges","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-1/queue/nomerges","name":"nomerges","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-2/queue/nomerges","name":"nomerges","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-0/queue/rq_affinity","name":"rq_affinity","category":"Storage & I/O","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/dm-1/queue/rq_affinity","name":"rq_affinity","category":"Storage & I/O","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/dm-2/queue/rq_affinity","name":"rq_affinity","category":"Storage & I/O","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/dm-0/queue/add_random","name":"add_random","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-1/queue/add_random","name":"add_random","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-2/queue/add_random","name":"add_random","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-0/queue/rotational","name":"rotational","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-1/queue/rotational","name":"rotational","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/dm-2/queue/rotational","name":"rotational","category":"Storage & I/O","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/block/loop0/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop0/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop1/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop1/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop10/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop10/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop11/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop11/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop12/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop12/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop13/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop13/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop14/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop14/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop15/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop15/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop2/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop2/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop3/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop3/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop4/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop4/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop5/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop5/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop6/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop6/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop7/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop7/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop8/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop8/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop9/queue/iosched/read_lat_nsec","name":"iosched/read_lat_nsec","category":"CPU & Scheduler","value":"2000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/block/loop9/queue/iosched/write_lat_nsec","name":"iosched/write_lat_nsec","category":"CPU & Scheduler","value":"10000000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/platform/charger/enable_sc","name":"charger/enable_sc","category":"Power & Thermal","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/devices/platform/charger/input_current","name":"charger/input_current","category":"Power & Thermal","value":"4294967295","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/platform/charger/chg1_current","name":"charger/chg1_current","category":"Power & Thermal","value":"4294967295","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/platform/charger/chg2_current","name":"charger/chg2_current","category":"Power & Thermal","value":"4294967295","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/platform/charger/pdc_max_watt","name":"charger/pdc_max_watt","category":"Power & Thermal","value":"12003000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/platform/charger/sc_ibat_limit","name":"charger/sc_ibat_limit","category":"Power & Thermal","value":"2000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/devices/platform/charger/sw_jeita","name":"charger/sw_jeita","category":"Power & Thermal","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/devices/platform/charger/Pump_Express","name":"charger/Pump_Express","category":"Power & Thermal","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/power_supply/usb/current_max","name":"usb/current_max","category":"Power & Thermal","value":"500000","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone0/mode","name":"thermal_zone0/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone1/mode","name":"thermal_zone1/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone10/mode","name":"thermal_zone10/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone11/mode","name":"thermal_zone11/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone12/mode","name":"thermal_zone12/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone13/mode","name":"thermal_zone13/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone14/mode","name":"thermal_zone14/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone15/mode","name":"thermal_zone15/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone16/mode","name":"thermal_zone16/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone17/mode","name":"thermal_zone17/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone18/mode","name":"thermal_zone18/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone19/mode","name":"thermal_zone19/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone2/mode","name":"thermal_zone2/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone21/mode","name":"thermal_zone21/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone3/mode","name":"thermal_zone3/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone4/mode","name":"thermal_zone4/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone5/mode","name":"thermal_zone5/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone6/mode","name":"thermal_zone6/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone7/mode","name":"thermal_zone7/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone8/mode","name":"thermal_zone8/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone9/mode","name":"thermal_zone9/mode","category":"Power & Thermal","value":"disabled","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone0/policy","name":"thermal_zone0/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone1/policy","name":"thermal_zone1/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone10/policy","name":"thermal_zone10/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone11/policy","name":"thermal_zone11/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone12/policy","name":"thermal_zone12/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone13/policy","name":"thermal_zone13/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone14/policy","name":"thermal_zone14/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone15/policy","name":"thermal_zone15/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone16/policy","name":"thermal_zone16/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone17/policy","name":"thermal_zone17/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone18/policy","name":"thermal_zone18/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone19/policy","name":"thermal_zone19/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone2/policy","name":"thermal_zone2/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone20/policy","name":"thermal_zone20/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone21/policy","name":"thermal_zone21/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone3/policy","name":"thermal_zone3/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone4/policy","name":"thermal_zone4/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone5/policy","name":"thermal_zone5/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone6/policy","name":"thermal_zone6/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone7/policy","name":"thermal_zone7/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone8/policy","name":"thermal_zone8/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/class/thermal/thermal_zone9/policy","name":"thermal_zone9/policy","category":"Power & Thermal","value":"backward_compatible","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_congestion_control","name":"tcp_congestion_control","category":"Network & Ping","value":"cubic","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_fastopen","name":"tcp_fastopen","category":"Network & Ping","value":"3","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_ecn","name":"tcp_ecn","category":"Network & Ping","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_sack","name":"tcp_sack","category":"Network & Ping","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_tw_reuse","name":"tcp_tw_reuse","category":"Network & Ping","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_low_latency","name":"tcp_low_latency","category":"Network & Ping","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_fin_timeout","name":"tcp_fin_timeout","category":"Network & Ping","value":"7","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_window_scaling","name":"tcp_window_scaling","category":"Network & Ping","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_timestamps","name":"tcp_timestamps","category":"Network & Ping","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_syncookies","name":"tcp_syncookies","category":"Network & Ping","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_autocorking","name":"tcp_autocorking","category":"Network & Ping","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_max_syn_backlog","name":"tcp_max_syn_backlog","category":"Network & Ping","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_keepalive_time","name":"tcp_keepalive_time","category":"Network & Ping","value":"3","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_keepalive_intvl","name":"tcp_keepalive_intvl","category":"Network & Ping","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/net/ipv4/tcp_keepalive_probes","name":"tcp_keepalive_probes","category":"Network & Ping","value":"5","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/net/core/default_qdisc","name":"core/default_qdisc","category":"Network & Ping","value":"pfifo_fast","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/proc/sys/net/core/netdev_max_backlog","name":"core/netdev_max_backlog","category":"Network & Ping","value":"6","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/net/core/rmem_max","name":"core/rmem_max","category":"Network & Ping","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/net/core/wmem_max","name":"core/wmem_max","category":"Network & Ping","value":"1","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/random/read_wakeup_threshold","name":"random/read_wakeup_threshold","category":"General","value":"5","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/random/write_wakeup_threshold","name":"random/write_wakeup_threshold","category":"General","value":"2","writable":true,"type":"int","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/printk","name":"printk","category":"General","value":"0","writable":true,"type":"bool","options":[],"help":""}
+,
+{"path":"/proc/sys/kernel/printk_devkmsg","name":"printk_devkmsg","category":"General","value":"off","writable":true,"type":"text","options":[],"help":""}
+,
+{"path":"/sys/module/workqueue/parameters/power_efficient","name":"power_efficient","category":"Storage & I/O","value":"Y","writable":true,"type":"bool","options":[],"help":""}
+]

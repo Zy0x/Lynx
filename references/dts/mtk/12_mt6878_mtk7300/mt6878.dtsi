@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MediaTek Inc. MT6878 (Dimensity 7300 / 7300-Energy / 7350 Pro, TSMC 4nm)
+ * Reference: CMF Phone 1 / Nothing Phone (2a) Plus / Realme P1 Speed 5G
+ * Source: MediaTek Open Source Kernel Architecture (mt6878)
+ */
+
+/ {
+	compatible = "mediatek,mt6878", "mediatek,mt6877";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Silver / Little Cluster: 4x Cortex-A55 up to 2.0 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x0>;
+			enable-method = "psci";
+			operating-points-v2 = <&cluster0_opp>;
+		};
+		cpu1: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x100>;
+			operating-points-v2 = <&cluster0_opp>;
+		};
+		cpu2: cpu@200 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x200>;
+			operating-points-v2 = <&cluster0_opp>;
+		};
+		cpu3: cpu@300 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x300>;
+			operating-points-v2 = <&cluster0_opp>;
+		};
+
+		/* Gold / Performance Cluster: 4x Cortex-A78 up to 2.50 GHz */
+		cpu4: cpu@400 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x400>;
+			enable-method = "psci";
+			operating-points-v2 = <&cluster1_opp>;
+		};
+		cpu5: cpu@500 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x500>;
+			operating-points-v2 = <&cluster1_opp>;
+		};
+		cpu6: cpu@600 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x600>;
+			operating-points-v2 = <&cluster1_opp>;
+		};
+		cpu7: cpu@700 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x700>;
+			operating-points-v2 = <&cluster1_opp>;
+		};
+	};
+
+	cluster0_opp: opp-table-cluster0 {
+		compatible = "operating-points-v2";
+		opp-500000000  { opp-hz = /bits/ 64 <500000000>;  opp-microvolt = <580000>; };
+		opp-900000000  { opp-hz = /bits/ 64 <900000000>;  opp-microvolt = <640000>; };
+		opp-1350000000 { opp-hz = /bits/ 64 <1350000000>; opp-microvolt = <720000>; };
+		opp-1700000000 { opp-hz = /bits/ 64 <1700000000>; opp-microvolt = <810000>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <900000>; };
+	};
+
+	cluster1_opp: opp-table-cluster1 {
+		compatible = "operating-points-v2";
+		opp-800000000  { opp-hz = /bits/ 64 <800000000>;  opp-microvolt = <620000>; };
+		opp-1350000000 { opp-hz = /bits/ 64 <1350000000>; opp-microvolt = <700000>; };
+		opp-1850000000 { opp-hz = /bits/ 64 <1850000000>; opp-microvolt = <790000>; };
+		opp-2250000000 { opp-hz = /bits/ 64 <2250000000>; opp-microvolt = <890000>; };
+		opp-2500000000 { opp-hz = /bits/ 64 <2500000000>; opp-microvolt = <980000>; };
+	};
+
+	soc: soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		/* ARM Mali-G615 MC2 GPU */
+		mali: gpu@13000000 {
+			compatible = "arm,mali-valhall", "mediatek,mt6878-mali";
+			reg = <0x0 0x13000000 0x0 0x40000>;
+			interrupts = <0 270 4>;
+		};
+
+		/* MediaTek DVFSRC */
+		dvfsrc: dvfsrc@10012000 {
+			compatible = "mediatek,mt6878-dvfsrc", "syscon";
+			reg = <0x0 0x10012000 0x0 0x1000>;
+		};
+	};
+};

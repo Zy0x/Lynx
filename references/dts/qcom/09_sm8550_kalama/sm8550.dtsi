@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Qualcomm SM8550 (Snapdragon 8 Gen 2) Device Tree Source
+ * Reference: Xiaomi 13 / 13 Pro / 13 Ultra (Fuxi / Nuwa / Ishtar)
+ * TSMC 4nm 1+4+3 Cluster & Adreno 740 Architecture
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (ishtar-t-oss)
+ */
+
+/ {
+	compatible = "qcom,sm8550", "qcom,kalama";
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		/* Silver: 3x Cortex-A510 @ 2.00 GHz Cores 0-2 */
+		CPU0: cpu@0 { device_type = "cpu"; compatible = "arm,cortex-a510"; reg = <0 0>; operating-points-v2 = <&silver_opp_table>; };
+		CPU1: cpu@100 { device_type = "cpu"; compatible = "arm,cortex-a510"; reg = <0 0x100>; operating-points-v2 = <&silver_opp_table>; };
+		CPU2: cpu@200 { device_type = "cpu"; compatible = "arm,cortex-a510"; reg = <0 0x200>; operating-points-v2 = <&silver_opp_table>; };
+
+		/* Gold: 4x Cortex-A715/A710 @ 2.80 GHz Cores 3-6 */
+		CPU3: cpu@300 { device_type = "cpu"; compatible = "arm,cortex-a715"; reg = <0 0x300>; operating-points-v2 = <&gold_opp_table>; };
+		CPU4: cpu@400 { device_type = "cpu"; compatible = "arm,cortex-a715"; reg = <0 0x400>; operating-points-v2 = <&gold_opp_table>; };
+		CPU5: cpu@500 { device_type = "cpu"; compatible = "arm,cortex-a710"; reg = <0 0x500>; operating-points-v2 = <&gold_opp_table>; };
+		CPU6: cpu@600 { device_type = "cpu"; compatible = "arm,cortex-a710"; reg = <0 0x600>; operating-points-v2 = <&gold_opp_table>; };
+
+		/* Prime: 1x Cortex-X3 @ 3.19 GHz (3.36 GHz for Galaxy) Core 7 */
+		CPU7: cpu@700 { device_type = "cpu"; compatible = "arm,cortex-x3"; reg = <0 0x700>; operating-points-v2 = <&prime_opp_table>; };
+	};
+
+	prime_opp_table: opp-table-prime {
+		compatible = "operating-points-v2";
+		opp-960000000  { opp-hz = /bits/ 64 <960000000>;  opp-microvolt = <675000>; };
+		opp-2016000000 { opp-hz = /bits/ 64 <2016000000>; opp-microvolt = <785000>; };
+		opp-2803200000 { opp-hz = /bits/ 64 <2803200000>; opp-microvolt = <920000>; };
+		opp-3187200000 { opp-hz = /bits/ 64 <3187200000>; opp-microvolt = <1050000>; };
+	};
+
+	/* Adreno 740 GPU */
+	kgsl_3d0: qcom,kgsl-3d0@3d00000 {
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0 0x3d00000 0 0x40000>;
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 { reg = <0>; qcom,gpu-freq = <680000000>; qcom,bus-freq = <4224000000>; };
+			qcom,gpu-pwrlevel@1 { reg = <1>; qcom,gpu-freq = <550000000>; qcom,bus-freq = <3200000000>; };
+			qcom,gpu-pwrlevel@2 { reg = <2>; qcom,gpu-freq = <400000000>; qcom,bus-freq = <2092000000>; };
+			qcom,gpu-pwrlevel@3 { reg = <3>; qcom,gpu-freq = <220000000>; qcom,bus-freq = <400000000>; };
+		};
+	};
+};

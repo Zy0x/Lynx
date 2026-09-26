@@ -1,98 +1,84 @@
-<h1 align="center">📌 Lynx - AIO Performance & AI Module</h1>
-
-<p align="center">
-  <b>🚀 Unlock Your Device's Full Potential with Lynx! 🚀</b>
-</p>
-‎
-
-## 🔥 About Lynx
-Lynx is an **All-in-One (AIO) module** designed to enhance **speed**, **performance**, and **user experience** on Snapdragon devices. It integrates AI-driven optimizations and powerful tweaks to push your Android to the next level. Whether you prioritize **performance**, **battery life**, or **gaming**, Lynx gives you full control!
-
-### 🔑 Requirements
-To use this module, you must have:
-- **Magisk** or **KernelSU** installed ✅
-- **BusyBox** (Latest Brutal/Normal) or use the built-in BusyBox in the module ✅
-
-‎
-🚨 **Important!**
-- ❗ **Only for Snapdragon devices**
-- ❗ **Android 10 and above (SDK 29+)**
+# ⚡ LYNX [Codename: Deity] — Universal Hybrid Root Optimizer
+> **Versi**: 3.0.0 | **Author**: ɴᴏɪʀ | **Platform**: Android (KernelSU / APatch / Magisk)
 
 ---
 
-## 🔧 Features & Optimizations
-### ⚖️ **Balance Mode Options**
-Fine-tune CPU frequency to optimize performance and battery life.
-- **Default:** Uses original CPU frequency.
-- **Downclock CPU Freq:** Reduces CPU frequency for power efficiency.
-- **Disable 2 CPU Cores:** Disables CPU cores **3 & 6** for better thermal management.
-- **Powersave Governor:** Limits CPU 4-7 to **"powersave" mode**.
-
-### ❄️ **Disable Thermal Engine**
-- Disables thermal limits in **Performance Mode**.
-- Automatically restores settings in **Balance Mode**.
-
-### 💤 **Deepsleep Enhancer**
-- Reduces background activity for improved battery life.
-- (⚠️ May cause slight notification delays.)
-
-### 🛠 **ZRAM & Swap Management**
-- Adjust **ZRAM size** (up to **6GB**) to optimize memory usage.
-- Manage **swap storage** from internal memory for enhanced performance.
-
-### 🔋 **GMS Doze**
-- Optimizes **Google Services** to reduce background power drain.
-- (⚠️ May cause minor notification delays.)
-
-### 📡 **Wi-Fi Bonding**
-- Uses **2.4GHz & 5GHz Wi-Fi bands simultaneously** for **lower latency**.
-- (⚠️ Not recommended for 2.4GHz-only networks.)
-
-### 🎮 **Game & Touch Optimizations**
-- **Touch Optimizer:** Increases touch sensitivity & smooth scrolling.
-
-### 🚀 **Performance Boosters**
-- **Dex2oat Optimizer:** Compiles app files for faster launch speeds.
-- **Big.Little CPU Optimization:** Enhances CPU efficiency for Unity-based apps.
-- **Force Fast Charging:** Boosts charging speed while maintaining safety.
-
-### 🎨 **UI & Animation Enhancements**
-- **Set Renderer:** Choose between **OpenGL** or **Vulkan** for rendering.
-- **Window Animation Scale:** Adjusts app opening/closing animations.
-- **Transition Animation Scale:** Controls transition animations.
-- **Animator Duration Scale:** Tweaks loading animation speeds.
-
-### 🌐 **Internet & Network Enhancements**
-- **Internet Tweak:** Reduces latency & improves speed.
-- **DNS Changer:** Use custom DNS for improved connectivity.
+## 📌 Ringkasan Proyek
+**Lynx Universal** adalah modul optimasi kernel hibrida tingkat lanjut yang menggabungkan kapabilitas Qualcomm Snapdragon dan MediaTek (Dimensity & Helio) dalam satu paket terpadu. Dilengkapi dengan deteksi chipset anti-spoofing otomatis, mesin adaptif AI (*Smart-AI Core*), WebUI modern berbasis touch-first, dan Aplikasi Native Android Companion (Kotlin + Jetpack Compose) dengan sinkronisasi 2 arah *real-time*.
 
 ---
 
-## 📥 Installation Guide
-1. **Download** the module (**Root Version**).
-2. **Flash it** via **Magisk**, **KernelSU**, or **Apatch**.
-3. **Reboot your device**.
-4. 🎉 Enjoy the performance boost!
+## ⚡ Spektrum Profil Performa (5 Mode)
 
+| Profil | Deskripsi & Target Penggunaan | Karakteristik CPU / GPU | Batas Termal | Pengisian Daya (Charging) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Auto (AI)** | Mode adaptif cerdas (default harian) | Otomatis beralih ke *Performance* saat game terbuka (0ms latency, 3s cooldown buffer) | Proteksi OEM aktif | Standar Dinamis |
+| **Balance** | Efisiensi baterai & stabilitas harian | EAS Schedutil / PPM seimbang, *idle downclock* aktif | Proteksi OEM aktif | Standar OEM |
+| **Performance** | Gaming kompetitif & beban kerja berat | Kunci frekuensi menengah-atas, prioritas *SurfaceFlinger*, rate limits agresif | Pembatasan moderat | Kontrol termal (1500–2000mA) |
+| **Extreme** 🔥 | Sesi gaming tanpa kompromi & benchmark | Kunci clock CPU & GPU maksimum, uclamp 100%, devfreq latency 0 | **Bypass Penuh** (Zone disable, override 150°C) | **Bypass Charging** / Unrestricted |
+| **Powersave** 🔋 | Daya tahan baterai maksimum | Skala frekuensi minimum, efisiensi kerja latar belakang | Proteksi OEM aktif | Pengisian hemat daya |
 
-
-> [!NOTE]
-> To force an app into **Performance Mode**, add its package name to:
-> `/InternalStorage/lynx/applist_perf.txt`, then open the app!
+> [!WARNING]
+> Mode **Extreme** menonaktifkan seluruh perlindungan termal OEM. **Sangat disarankan menggunakan pendingin eksternal (phone cooler)** guna menjaga kestabilan perangkat dan kesehatan baterai.
 
 ---
 
-## 💖 Support & Donations
-‎ If you enjoy Lynx and want to support future updates, consider donating:
+## 🏛️ Arsitektur & Keunggulan Utama
 
-- ☕ [Ko-Fi](https://ko-fi.com/zy0x_noir)
-- 🎁 [Trakteer](https://trakteer.id/zy0x/tip)
+1. **Hardware Abstraction Layer (HAL)**:
+   - `platforms/qcom/`: Optimalisasi Adreno KGSL, CPU-boost input boost suppression, WALT fast ramp, and DRM perf mode.
+   - `platforms/mtk/`: Penonaktifan logging modem CCCI, penekanan GED KPI, penonaktifan pembatasan MediaTek Syslimiter, dan Perf PMU.
+   - `platforms/generic/`: Fallback CPUFreq standar Linux tanpa intervensi vendor berisiko.
+2. **Universal Kernel Subsystems (`core/lib/`)**:
+   - `sched_features.sh`: Low-latency scheduler flags (`NO_GENTLE_FAIR_SLEEPERS`, `START_DEBIT`) dan prioritas otomatis untuk 23 mesin game ternama.
+   - `network.sh`: Dynamic TCP discovery (`bbr` / `cubic`), FQ-CoDel queue discipline, dan Wi-Fi low latency gaming lock.
+   - `uclamp.sh`, `ram.sh`, `display_touch.sh`, `audio_latency.sh`, `oem_neutralizer.sh`.
+3. **State Engine Terpusat Berbasis JSON (`config.json`)**:
+   - WebUI, Native Companion App, CLI (`Lxcore`), dan daemon latar belakang berkomunikasi melalui `config.json` yang sinkron secara real-time via `inotify`.
+4. **Keamanan Tanpa Kompromi**:
+   - Bebas dari operasi penghapusan `dalvik-cache` berbahaya di runtime.
+   - Semua operasi penulisan dilindungi wrapper validasi node `write_node()` yang mencegah kernel panic.
 
-## 📜 Thanks & Source
-- 🎭 [Magisk Stable](https://github.com/topjohnwu/Magisk) & [Magisk Delta](https://github.com/HuskyDG/magisk-files)
-- ♜ [KernelSU](https://github.com/tiann/KernelSU)
-- ⚙️ [Kanonify](https://github.com/Kanonify-01) (Base Tree)
+---
 
-‎
+## 📱 Cara Penggunaan & Kontrol Modul
 
-🚀 **Unleash the full power of your Snapdragon device with Lynx!**
+### 1. Antarmuka Web (WebUI)
+- Pengguna **KernelSU** & **APatch**: Buka WebUI langsung melalui tombol antarmuka web pada manajer modul.
+- Pengguna **Magisk**: Akses melalui browser lokal atau jalankan micro-daemon lokal yang disediakan.
+
+### 2. Aplikasi Native Android Companion (`LynxCompanion`)
+- Pasang berkas `Lynx-3.0.0.apk` yang tersedia di direktori rilis atau flashable ZIP.
+- Menyediakan kendali penuh seluruh subsistem dengan tampilan Cyberpunk OLED Dark dan responsivitas sentuhan haptic.
+
+### 3. Command Line Interface (CLI) via Termux / Root Shell
+```bash
+# Menampilkan ringkasan status modul dan profil aktif
+su -c Lxcore status
+
+# Beralih profil performa (auto | balance | performance | extreme | powersave)
+su -c Lxcore profile auto
+su -c Lxcore profile extreme
+
+# Mengatur konfigurasi state secara spesifik
+su -c Lxcore state set uclamp.game_min_ratio 85 val
+su -c Lxcore state set network.wifi_ping_stabilizer true bool
+
+# Menjalankan pemeliharaan memori dan cache (CCleaner)
+su -c Lxcore ccleaner
+
+# Menjalankan pemeliharaan database SQLite & storage FSTRIM
+su -c Lxcore maintenance
+
+# Mengekspor berkas diagnostik lengkap 1-klik (.zip di /sdcard/Lynx/)
+su -c Lxcore log export
+
+# Menu TUI Interaktif Terminal
+su -c lynx
+```
+
+---
+
+## 🛡️ Lisensi & Hak Cipta
+Dikembangkan oleh **ɴᴏɪʀ** dengan kontribusi komunitas performa Android.
+Dilarang keras menyalin atau mengemas ulang modul ini tanpa atribusi resmi.

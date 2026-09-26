@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MediaTek Inc. MT6897 (Dimensity 8300-Ultra / 8300)
+ * Reference: POCO X6 Pro / Redmi K70E (Duchamp)
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (duchamp-u-oss)
+ */
+
+/ {
+	compatible = "mediatek,mt6897", "mediatek,mt6895";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Silver / Little Cluster: 4x Cortex-A510 up to 2.20 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x0>;
+			enable-method = "psci";
+			operating-points-v2 = <&cluster0_opp>;
+		};
+		cpu1: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x100>;
+			operating-points-v2 = <&cluster0_opp>;
+		};
+		cpu2: cpu@200 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x200>;
+			operating-points-v2 = <&cluster0_opp>;
+		};
+		cpu3: cpu@300 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x300>;
+			operating-points-v2 = <&cluster0_opp>;
+		};
+
+		/* Gold / Performance Cluster: 3x Cortex-A715 up to 3.20 GHz */
+		cpu4: cpu@400 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a715";
+			reg = <0x400>;
+			enable-method = "psci";
+			operating-points-v2 = <&cluster1_opp>;
+		};
+		cpu5: cpu@500 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a715";
+			reg = <0x500>;
+			operating-points-v2 = <&cluster1_opp>;
+		};
+		cpu6: cpu@600 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a715";
+			reg = <0x600>;
+			operating-points-v2 = <&cluster1_opp>;
+		};
+
+		/* Prime / Apex Cluster: 1x Cortex-A715 up to 3.35 GHz */
+		cpu7: cpu@700 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a715";
+			reg = <0x700>;
+			enable-method = "psci";
+			operating-points-v2 = <&cluster2_opp>;
+		};
+	};
+
+	cluster0_opp: opp-table-cluster0 {
+		compatible = "operating-points-v2";
+		opp-550000000  { opp-hz = /bits/ 64 <550000000>;  opp-microvolt = <580000>; };
+		opp-1000000000 { opp-hz = /bits/ 64 <1000000000>; opp-microvolt = <650000>; };
+		opp-1500000000 { opp-hz = /bits/ 64 <1500000000>; opp-microvolt = <740000>; };
+		opp-1800000000 { opp-hz = /bits/ 64 <1800000000>; opp-microvolt = <820000>; };
+		opp-2200000000 { opp-hz = /bits/ 64 <2200000000>; opp-microvolt = <920000>; };
+	};
+
+	cluster1_opp: opp-table-cluster1 {
+		compatible = "operating-points-v2";
+		opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-microvolt = <620000>; };
+		opp-1500000000 { opp-hz = /bits/ 64 <1500000000>; opp-microvolt = <700000>; };
+		opp-2200000000 { opp-hz = /bits/ 64 <2200000000>; opp-microvolt = <800000>; };
+		opp-2800000000 { opp-hz = /bits/ 64 <2800000000>; opp-microvolt = <900000>; };
+		opp-3200000000 { opp-hz = /bits/ 64 <3200000000>; opp-microvolt = <1000000>; };
+	};
+
+	cluster2_opp: opp-table-cluster2 {
+		compatible = "operating-points-v2";
+		opp-950000000  { opp-hz = /bits/ 64 <950000000>;  opp-microvolt = <640000>; };
+		opp-1800000000 { opp-hz = /bits/ 64 <1800000000>; opp-microvolt = <740000>; };
+		opp-2500000000 { opp-hz = /bits/ 64 <2500000000>; opp-microvolt = <850000>; };
+		opp-3000000000 { opp-hz = /bits/ 64 <3000000000>; opp-microvolt = <950000>; };
+		opp-3350000000 { opp-hz = /bits/ 64 <3350000000>; opp-microvolt = <1050000>; };
+	};
+
+	soc: soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		/* ARM Mali-G615 MC6 GPU */
+		mali: gpu@13000000 {
+			compatible = "arm,mali-valhall", "mediatek,mt6897-mali";
+			reg = <0x0 0x13000000 0x0 0x40000>;
+			interrupts = <0 280 4>;
+		};
+
+		/* MediaTek DVFSRC */
+		dvfsrc: dvfsrc@10012000 {
+			compatible = "mediatek,mt6897-dvfsrc", "syscon";
+			reg = <0x0 0x10012000 0x0 0x1000>;
+		};
+	};
+};

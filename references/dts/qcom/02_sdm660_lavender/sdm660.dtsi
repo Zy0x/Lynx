@@ -1,0 +1,150 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Qualcomm SDM660 Device Tree Source
+ * Reference: Xiaomi Redmi Note 7 (Lavender) / Mi A2 / Asus Zenfone Max Pro M2
+ * User Target Device Architecture
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (lavender-q-oss)
+ */
+
+/ {
+	compatible = "qcom,sdm660", "qcom,msm8976-v1.1";
+	qcom,msm-id = <317 0x0>, <324 0x0>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Silver Cluster: 4x Kryo 260 Silver (Cortex-A53) */
+		CPU0: cpu@0 {
+			device_type = "cpu";
+			compatible = "qcom,kryo260";
+			reg = <0x0>;
+			enable-method = "psci";
+			operating-points-v2 = <&silver_opp_table>;
+		};
+		CPU1: cpu@1 {
+			device_type = "cpu";
+			compatible = "qcom,kryo260";
+			reg = <0x1>;
+			operating-points-v2 = <&silver_opp_table>;
+		};
+		CPU2: cpu@2 {
+			device_type = "cpu";
+			compatible = "qcom,kryo260";
+			reg = <0x2>;
+			operating-points-v2 = <&silver_opp_table>;
+		};
+		CPU3: cpu@3 {
+			device_type = "cpu";
+			compatible = "qcom,kryo260";
+			reg = <0x3>;
+			operating-points-v2 = <&silver_opp_table>;
+		};
+
+		/* Gold Cluster: 4x Kryo 260 Gold (Cortex-A73) */
+		CPU4: cpu@100 {
+			device_type = "cpu";
+			compatible = "qcom,kryo260";
+			reg = <0x100>;
+			enable-method = "psci";
+			operating-points-v2 = <&gold_opp_table>;
+		};
+		CPU5: cpu@101 {
+			device_type = "cpu";
+			compatible = "qcom,kryo260";
+			reg = <0x101>;
+			operating-points-v2 = <&gold_opp_table>;
+		};
+		CPU6: cpu@102 {
+			device_type = "cpu";
+			compatible = "qcom,kryo260";
+			reg = <0x102>;
+			operating-points-v2 = <&gold_opp_table>;
+		};
+		CPU7: cpu@103 {
+			device_type = "cpu";
+			compatible = "qcom,kryo260";
+			reg = <0x103>;
+			operating-points-v2 = <&gold_opp_table>;
+		};
+	};
+
+	silver_opp_table: opp-table-silver {
+		compatible = "operating-points-v2";
+		opp-633600000  { opp-hz = /bits/ 64 <633600000>;  opp-microvolt = <650000>; };
+		opp-902400000  { opp-hz = /bits/ 64 <902400000>;  opp-microvolt = <680000>; };
+		opp-1113600000 { opp-hz = /bits/ 64 <1113600000>; opp-microvolt = <715000>; };
+		opp-1401600000 { opp-hz = /bits/ 64 <1401600000>; opp-microvolt = <785000>; };
+		opp-1536000000 { opp-hz = /bits/ 64 <1536000000>; opp-microvolt = <830000>; };
+		opp-1747200000 { opp-hz = /bits/ 64 <1747200000>; opp-microvolt = <895000>; };
+		opp-1843200000 { opp-hz = /bits/ 64 <1843200000>; opp-microvolt = <940000>; };
+	};
+
+	gold_opp_table: opp-table-gold {
+		compatible = "operating-points-v2";
+		opp-633600000  { opp-hz = /bits/ 64 <633600000>;  opp-microvolt = <655000>; };
+		opp-1113600000 { opp-hz = /bits/ 64 <1113600000>; opp-microvolt = <715000>; };
+		opp-1401600000 { opp-hz = /bits/ 64 <1401600000>; opp-microvolt = <785000>; };
+		opp-1747200000 { opp-hz = /bits/ 64 <1747200000>; opp-microvolt = <865000>; };
+		opp-1958400000 { opp-hz = /bits/ 64 <1958400000>; opp-microvolt = <945000>; };
+		opp-2208000000 { opp-hz = /bits/ 64 <2208000000>; opp-microvolt = <1025000>; };
+	};
+
+	/* Adreno 512 GPU Node */
+	kgsl_3d0: qcom,kgsl-3d0@5000000 {
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0x5000000 0x40000>;
+		interrupts = <0 300 0>;
+		qcom,idle-timeout = <80>;
+		qcom,strtstp-sleepgateway;
+
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <650000000>;
+				qcom,bus-freq = <1333000000>;
+			};
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <588000000>;
+				qcom,bus-freq = <1017000000>;
+			};
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <465000000>;
+				qcom,bus-freq = <768000000>;
+			};
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <370000000>;
+				qcom,bus-freq = <547000000>;
+			};
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <266000000>;
+				qcom,bus-freq = <400000000>;
+			};
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <160000000>;
+				qcom,bus-freq = <200000000>;
+			};
+		};
+	};
+
+	/* Qualcomm Memory Bus Devfreq */
+	cpubw: qcom,cpubw {
+		compatible = "qcom,soc-cpubw";
+		governor = "bw_hwmon";
+		qcom,target-dev = <&cpubw>;
+	};
+
+	gpubw: qcom,gpubw {
+		compatible = "qcom,soc-gpubw";
+		governor = "bw_vbif";
+	};
+};

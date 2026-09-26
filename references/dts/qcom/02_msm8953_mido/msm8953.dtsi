@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Qualcomm MSM8953 (Snapdragon 625) Device Tree Source
+ * Reference: Xiaomi Redmi Note 4X / Xiaomi Mi A1 (Mido / Tissot)
+ * Benchmark 14nm FinFET High-Efficiency Octa-Core Architecture
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (mido-m-oss)
+ */
+
+/ {
+	compatible = "qcom,msm8953";
+	qcom,msm-id = <293 0x0>, <304 0x0>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Octa-Core Cortex-A53 up to 2.0 GHz */
+		CPU0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x0>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu_opp_table>;
+		};
+		CPU1: cpu@1 { device_type = "cpu"; compatible = "arm,cortex-a53"; reg = <0x1>; operating-points-v2 = <&cpu_opp_table>; };
+		CPU2: cpu@2 { device_type = "cpu"; compatible = "arm,cortex-a53"; reg = <0x2>; operating-points-v2 = <&cpu_opp_table>; };
+		CPU3: cpu@3 { device_type = "cpu"; compatible = "arm,cortex-a53"; reg = <0x3>; operating-points-v2 = <&cpu_opp_table>; };
+		CPU4: cpu@100 { device_type = "cpu"; compatible = "arm,cortex-a53"; reg = <0x100>; operating-points-v2 = <&cpu_opp_table>; };
+		CPU5: cpu@101 { device_type = "cpu"; compatible = "arm,cortex-a53"; reg = <0x101>; operating-points-v2 = <&cpu_opp_table>; };
+		CPU6: cpu@102 { device_type = "cpu"; compatible = "arm,cortex-a53"; reg = <0x102>; operating-points-v2 = <&cpu_opp_table>; };
+		CPU7: cpu@103 { device_type = "cpu"; compatible = "arm,cortex-a53"; reg = <0x103>; operating-points-v2 = <&cpu_opp_table>; };
+	};
+
+	cpu_opp_table: cpu-opp-table {
+		compatible = "operating-points-v2";
+		opp-652800000  { opp-hz = /bits/ 64 <652800000>;  opp-microvolt = <680000>; };
+		opp-1036800000 { opp-hz = /bits/ 64 <1036800000>; opp-microvolt = <740000>; };
+		opp-1401600000 { opp-hz = /bits/ 64 <1401600000>; opp-microvolt = <812000>; };
+		opp-1689600000 { opp-hz = /bits/ 64 <1689600000>; opp-microvolt = <890000>; };
+		opp-2016000000 { opp-hz = /bits/ 64 <2016000000>; opp-microvolt = <980000>; };
+	};
+
+	/* Adreno 506 GPU */
+	kgsl_3d0: qcom,kgsl-3d0@1c00000 {
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0x1c00000 0x10000>;
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 { reg = <0>; qcom,gpu-freq = <650000000>; qcom,bus-freq = <933000000>; };
+			qcom,gpu-pwrlevel@1 { reg = <1>; qcom,gpu-freq = <560000000>; qcom,bus-freq = <768000000>; };
+			qcom,gpu-pwrlevel@2 { reg = <2>; qcom,gpu-freq = <400000000>; qcom,bus-freq = <547000000>; };
+			qcom,gpu-pwrlevel@3 { reg = <3>; qcom,gpu-freq = <216000000>; qcom,bus-freq = <200000000>; };
+		};
+	};
+};

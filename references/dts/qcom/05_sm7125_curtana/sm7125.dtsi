@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Qualcomm SM7125 (Snapdragon 720G) Device Tree Source
+ * Reference: Redmi Note 9S / 9 Pro (Curtana / Joyeuse)
+ * 8nm LPP Kryo 465 Architecture
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (curtana-q-oss)
+ */
+
+/ {
+	compatible = "qcom,sm7125";
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		/* Silver: 6x Kryo 465 Silver (Cortex-A55 @ 1.80 GHz) */
+		CPU0: cpu@0 { device_type = "cpu"; compatible = "qcom,kryo465"; reg = <0 0>; operating-points-v2 = <&silver_opp_table>; };
+		CPU1: cpu@100 { device_type = "cpu"; compatible = "qcom,kryo465"; reg = <0 0x100>; operating-points-v2 = <&silver_opp_table>; };
+		CPU2: cpu@200 { device_type = "cpu"; compatible = "qcom,kryo465"; reg = <0 0x200>; operating-points-v2 = <&silver_opp_table>; };
+		CPU3: cpu@300 { device_type = "cpu"; compatible = "qcom,kryo465"; reg = <0 0x300>; operating-points-v2 = <&silver_opp_table>; };
+		CPU4: cpu@400 { device_type = "cpu"; compatible = "qcom,kryo465"; reg = <0 0x400>; operating-points-v2 = <&silver_opp_table>; };
+		CPU5: cpu@500 { device_type = "cpu"; compatible = "qcom,kryo465"; reg = <0 0x500>; operating-points-v2 = <&silver_opp_table>; };
+
+		/* Gold: 2x Kryo 465 Gold (Cortex-A76 @ 2.32 GHz) */
+		CPU6: cpu@600 { device_type = "cpu"; compatible = "qcom,kryo465"; reg = <0 0x600>; operating-points-v2 = <&gold_opp_table>; };
+		CPU7: cpu@700 { device_type = "cpu"; compatible = "qcom,kryo465"; reg = <0 0x700>; operating-points-v2 = <&gold_opp_table>; };
+	};
+
+	gold_opp_table: opp-table-gold {
+		compatible = "operating-points-v2";
+		opp-768000000  { opp-hz = /bits/ 64 <768000000>;  opp-microvolt = <680000>; };
+		opp-1324800000 { opp-hz = /bits/ 64 <1324800000>; opp-microvolt = <760000>; };
+		opp-1804800000 { opp-hz = /bits/ 64 <1804800000>; opp-microvolt = <840000>; };
+		opp-2150400000 { opp-hz = /bits/ 64 <2150400000>; opp-microvolt = <930000>; };
+		opp-2323200000 { opp-hz = /bits/ 64 <2323200000>; opp-microvolt = <1000000>; };
+	};
+
+	/* Adreno 618 GPU */
+	kgsl_3d0: qcom,kgsl-3d0@5000000 {
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0 0x5000000 0 0x40000>;
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 { reg = <0>; qcom,gpu-freq = <750000000>; qcom,bus-freq = <1804000000>; };
+			qcom,gpu-pwrlevel@1 { reg = <1>; qcom,gpu-freq = <610000000>; qcom,bus-freq = <1500000000>; };
+			qcom,gpu-pwrlevel@2 { reg = <2>; qcom,gpu-freq = <500000000>; qcom,bus-freq = <1017000000>; };
+			qcom,gpu-pwrlevel@3 { reg = <3>; qcom,gpu-freq = <260000000>; qcom,bus-freq = <400000000>; };
+		};
+	};
+};

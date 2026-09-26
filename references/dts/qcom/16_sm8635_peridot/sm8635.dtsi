@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Qualcomm Technologies, Inc. SM8635 (Snapdragon 8s Gen 3, TSMC 4nm)
+ * Reference: POCO F6 / Redmi Turbo 3 / Xiaomi Civi 4 Pro (Peridot / Chenfeng)
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (peridot-u-oss)
+ */
+
+/ {
+	compatible = "qcom,sm8635", "qcom,sm8650";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Silver / Little Cluster: 3x Cortex-A520 up to 2.0 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a520";
+			reg = <0x0>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a520";
+			reg = <0x100>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@200 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a520";
+			reg = <0x200>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+
+		/* Gold / Performance Cluster: 4x Cortex-A720 up to 2.8 GHz */
+		cpu3: cpu@300 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a720";
+			reg = <0x300>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu3_opp_table>;
+		};
+		cpu4: cpu@400 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a720";
+			reg = <0x400>;
+			operating-points-v2 = <&cpu3_opp_table>;
+		};
+		cpu5: cpu@500 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a720";
+			reg = <0x500>;
+			operating-points-v2 = <&cpu3_opp_table>;
+		};
+		cpu6: cpu@600 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a720";
+			reg = <0x600>;
+			operating-points-v2 = <&cpu3_opp_table>;
+		};
+
+		/* Prime / Apex Cluster: 1x Cortex-X4 up to 3.0 GHz */
+		cpu7: cpu@700 {
+			device_type = "cpu";
+			compatible = "arm,cortex-X4";
+			reg = <0x700>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu7_opp_table>;
+		};
+	};
+
+	cpu0_opp_table: cpu0-opp-table {
+		compatible = "operating-points-v2";
+		opp-614400000  { opp-hz = /bits/ 64 <614400000>;  opp-microvolt = <580000>; };
+		opp-1056000000 { opp-hz = /bits/ 64 <1056000000>; opp-microvolt = <650000>; };
+		opp-1497600000 { opp-hz = /bits/ 64 <1497600000>; opp-microvolt = <740000>; };
+		opp-1804800000 { opp-hz = /bits/ 64 <1804800000>; opp-microvolt = <820000>; };
+		opp-2016000000 { opp-hz = /bits/ 64 <2016000000>; opp-microvolt = <890000>; };
+	};
+
+	cpu3_opp_table: cpu3-opp-table {
+		compatible = "operating-points-v2";
+		opp-787200000  { opp-hz = /bits/ 64 <787200000>;  opp-microvolt = <600000>; };
+		opp-1363200000 { opp-hz = /bits/ 64 <1363200000>; opp-microvolt = <680000>; };
+		opp-1977600000 { opp-hz = /bits/ 64 <1977600000>; opp-microvolt = <760000>; };
+		opp-2457600000 { opp-hz = /bits/ 64 <2457600000>; opp-microvolt = <860000>; };
+		opp-2803200000 { opp-hz = /bits/ 64 <2803200000>; opp-microvolt = <950000>; };
+	};
+
+	cpu7_opp_table: cpu7-opp-table {
+		compatible = "operating-points-v2";
+		opp-960000000  { opp-hz = /bits/ 64 <960000000>;  opp-microvolt = <620000>; };
+		opp-1612800000 { opp-hz = /bits/ 64 <1612800000>; opp-microvolt = <710000>; };
+		opp-2265600000 { opp-hz = /bits/ 64 <2265600000>; opp-microvolt = <810000>; };
+		opp-2688000000 { opp-hz = /bits/ 64 <2688000000>; opp-microvolt = <900000>; };
+		opp-3014400000 { opp-hz = /bits/ 64 <3014400000>; opp-microvolt = <1000000>; };
+	};
+
+	soc: soc@0 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		/* Adreno 735 GPU with GMU v3 */
+		gpu: gpu@3d00000 {
+			compatible = "qcom,adreno-735.0", "qcom,adreno";
+			reg = <0x0 0x03d00000 0x0 0x40000>;
+			clocks = <&gpucc 0>;
+			operating-points-v2 = <&gpu_opp_table>;
+
+			/* GMU Subsystem */
+			gmu: gmu@3d6a000 {
+				compatible = "qcom,adreno-gmu-735.0", "qcom,adreno-gmu";
+				reg = <0x0 0x03d6a000 0x0 0x30000>;
+			};
+		};
+
+		gpu_opp_table: gpu-opp-table {
+			compatible = "operating-points-v2";
+			opp-340000000  { opp-hz = /bits/ 64 <340000000>;  opp-level = <1>; };
+			opp-550000000  { opp-hz = /bits/ 64 <550000000>;  opp-level = <2>; };
+			opp-720000000  { opp-hz = /bits/ 64 <720000000>;  opp-level = <3>; };
+			opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-level = <4>; };
+			opp-1100000000 { opp-hz = /bits/ 64 <1100000000>; opp-level = <5>; };
+		};
+
+		/* UFS 4.0 Storage Controller */
+		ufs: ufs@1d84000 {
+			compatible = "qcom,sm8635-ufshc", "qcom,ufshc";
+			reg = <0x0 0x01d84000 0x0 0x3000>;
+		};
+	};
+};

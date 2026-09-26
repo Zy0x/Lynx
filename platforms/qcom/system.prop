@@ -1,0 +1,21 @@
+# Qualcomm Snapdragon Specific System Properties
+debug.qc.hardware=true
+com.qc.hardware=true
+ro.vendor.qti.sys.fw.bg_apps_limit=50
+ro.vendor.qti.sys.fw.bservice_enable=true
+ro.vendor.qti.sys.fw.bservice_limit=50
+persist.vendor.qti.games.gt.prof=1
+sys.games.gt.prof=1
+persist.vendor.qti.inputopts.enable=true
+persist.vendor.qti.inputopts.touchboost=true
+persist.vendor.qti.inputopts.movetouchslop=0.1
+vendor.perf.gestureflingboost.enable=true
+ro.vendor.perf.scroll_opt=true
+ro.vendor.perf.low_power_mode=0
+debug.qctwa.preservebuf=1
+debug.qctwa.statusbar=1
+sdm.debug.disable_skip_validate=1
+vendor.display.disable_skip_validate=1
+vendor.display.enable_optimize_refresh=1
+vendor.gralloc.enable_fb_ubwc=1
+persist.hwc.mdpcomp.enable=true

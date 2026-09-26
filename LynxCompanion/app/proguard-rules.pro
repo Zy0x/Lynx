@@ -1,0 +1,6 @@
+-keepattributes *Annotation*
+-keep class com.topjohnwu.superuser.** { *; }
+-keep class com.noir.lynx.data.** { *; }
+-keepclassmembers class com.noir.lynx.data.** { *; }
+-dontwarn com.topjohnwu.superuser.**
+-dontwarn kotlinx.serialization.**

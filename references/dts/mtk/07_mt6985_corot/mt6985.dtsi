@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MediaTek MT6985 (Dimensity 9200 / 9200+) Device Tree Source
+ * Reference: Xiaomi 13T Pro / Redmi K60 Ultra (Corot)
+ * All-Big-Core & Immortalis Flagship Architecture
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (corot-t-oss)
+ */
+
+/ {
+	compatible = "mediatek,mt6985";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Silver Cores: 4x Cortex-A510 @ 1.8 GHz (Cores 0-3) */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x000>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x001>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x002>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x003>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+
+		/* Gold Cores: 3x Cortex-A715 @ 2.85 GHz (Cores 4-6) */
+		cpu4: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a715";
+			reg = <0x100>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu5: cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a715";
+			reg = <0x101>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu6: cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a715";
+			reg = <0x102>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+
+		/* Prime Core: 1x Cortex-X3 @ 3.05 GHz (3.35 GHz on 9200+) (Core 7) */
+		cpu7: cpu@200 {
+			device_type = "cpu";
+			compatible = "arm,cortex-x3";
+			reg = <0x200>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu7_opp_table>;
+		};
+	};
+
+	/* ARM Immortalis-G715 MC11 GPU (Hardware Ray Tracing Engine) */
+	mali: gpu@13000000 {
+		compatible = "arm,mali-valhall", "mediatek,mt6985-gpu";
+		reg = <0 0x13000000 0 0x100000>;
+		interrupts = <0 312 4>;
+		clocks = <&topckgen 72>;
+		clock-names = "clk_mali";
+	};
+
+	/* Advanced MediaTek DVFSRC Framework */
+	dvfsrc: dvfsrc@10012000 {
+		compatible = "mediatek,mt6985-dvfsrc";
+		reg = <0 0x10012000 0 0x1000>;
+	};
+};

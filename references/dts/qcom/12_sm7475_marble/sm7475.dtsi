@@ -1,0 +1,104 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Qualcomm Technologies, Inc. SM7475 (Snapdragon 7+ Gen 2)
+ * Reference: Poco F5 / Redmi Note 12 Turbo (Marble)
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (marble-t-oss)
+ */
+
+/ {
+	compatible = "qcom,sm7475";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		/* Silver: 4x Cortex-A510 up to 1.8 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x0 0x0>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x0 0x100>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@200 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x0 0x200>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu3: cpu@300 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a510";
+			reg = <0x0 0x300>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+
+		/* Gold: 3x Cortex-A710 up to 2.49 GHz */
+		cpu4: cpu@400 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a710";
+			reg = <0x0 0x400>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu5: cpu@500 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a710";
+			reg = <0x0 0x500>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu6: cpu@600 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a710";
+			reg = <0x0 0x600>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+
+		/* Prime: 1x Cortex-X2 up to 2.91 GHz */
+		cpu7: cpu@700 {
+			device_type = "cpu";
+			compatible = "arm,cortex-x2";
+			reg = <0x0 0x700>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu7_opp_table>;
+		};
+	};
+
+	cpu0_opp_table: opp-table-cpu0 {
+		compatible = "operating-points-v2";
+		opp-748800000  { opp-hz = /bits/ 64 <748800000>;  opp-microvolt = <650000>; };
+		opp-1228800000 { opp-hz = /bits/ 64 <1228800000>; opp-microvolt = <720000>; };
+		opp-1804800000 { opp-hz = /bits/ 64 <1804800000>; opp-microvolt = <850000>; };
+	};
+
+	cpu4_opp_table: opp-table-cpu4 {
+		compatible = "operating-points-v2";
+		opp-902400000  { opp-hz = /bits/ 64 <902400000>;  opp-microvolt = <680000>; };
+		opp-1593600000 { opp-hz = /bits/ 64 <1593600000>; opp-microvolt = <780000>; };
+		opp-2496000000 { opp-hz = /bits/ 64 <2496000000>; opp-microvolt = <980000>; };
+	};
+
+	cpu7_opp_table: opp-table-cpu7 {
+		compatible = "operating-points-v2";
+		opp-1036800000 { opp-hz = /bits/ 64 <1036800000>; opp-microvolt = <700000>; };
+		opp-1900800000 { opp-hz = /bits/ 64 <1900800000>; opp-microvolt = <850000>; };
+		opp-2918400000 { opp-hz = /bits/ 64 <2918400000>; opp-microvolt = <1075000>; };
+	};
+
+	/* Adreno 725 GPU */
+	gpu: qcom,kgsl-3d0@3d00000 {
+		compatible = "qcom,kgsl-3d0", "qcom,adreno-725";
+		reg = <0 0x03d00000 0 0x40000>;
+		interrupts = <0 300 4>;
+		clocks = <&gpucc 1>;
+		clock-names = "core_clk";
+	};
+};

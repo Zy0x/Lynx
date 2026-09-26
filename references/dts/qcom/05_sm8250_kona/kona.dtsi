@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Qualcomm SM8250 (Snapdragon 865 / 870) Device Tree Source
+ * Reference: Xiaomi Mi 10 / POCO F3 (Kona)
+ * Tri-Cluster Flagship Architecture
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (umi-r-oss)
+ */
+
+/ {
+	compatible = "qcom,sm8250", "qcom,kona";
+	qcom,msm-id = <356 0x0>, <400 0x0>;
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		/* Silver Cluster (Cores 0-3): 4x Cortex-A55 @ 1.8 GHz */
+		CPU0: cpu@0 {
+			device_type = "cpu";
+			compatible = "qcom,kryo585";
+			reg = <0x0 0x0>;
+			enable-method = "psci";
+			operating-points-v2 = <&silver_opp_table>;
+		};
+		CPU1: cpu@100 {
+			device_type = "cpu";
+			compatible = "qcom,kryo585";
+			reg = <0x0 0x100>;
+			operating-points-v2 = <&silver_opp_table>;
+		};
+		CPU2: cpu@200 {
+			device_type = "cpu";
+			compatible = "qcom,kryo585";
+			reg = <0x0 0x200>;
+			operating-points-v2 = <&silver_opp_table>;
+		};
+		CPU3: cpu@300 {
+			device_type = "cpu";
+			compatible = "qcom,kryo585";
+			reg = <0x0 0x300>;
+			operating-points-v2 = <&silver_opp_table>;
+		};
+
+		/* Gold Cluster (Cores 4-6): 3x Cortex-A77 @ 2.42 GHz */
+		CPU4: cpu@400 {
+			device_type = "cpu";
+			compatible = "qcom,kryo585";
+			reg = <0x0 0x400>;
+			enable-method = "psci";
+			operating-points-v2 = <&gold_opp_table>;
+		};
+		CPU5: cpu@500 {
+			device_type = "cpu";
+			compatible = "qcom,kryo585";
+			reg = <0x0 0x500>;
+			operating-points-v2 = <&gold_opp_table>;
+		};
+		CPU6: cpu@600 {
+			device_type = "cpu";
+			compatible = "qcom,kryo585";
+			reg = <0x0 0x600>;
+			operating-points-v2 = <&gold_opp_table>;
+		};
+
+		/* Prime Core (Core 7): 1x Cortex-A77 @ 2.84 GHz (SD865) / 3.2 GHz (SD870) */
+		CPU7: cpu@700 {
+			device_type = "cpu";
+			compatible = "qcom,kryo585";
+			reg = <0x0 0x700>;
+			enable-method = "psci";
+			operating-points-v2 = <&prime_opp_table>;
+		};
+	};
+
+	/* Adreno 650 GPU with Hardware GMU */
+	gmu: qcom,gmu@506a000 {
+		compatible = "qcom,adreno-gmu", "qcom,gmu";
+		reg = <0x0 0x506a000 0x0 0x32000>;
+		reg-names = "gmu";
+		interrupts = <0 304 0>;
+	};
+
+	kgsl_3d0: qcom,kgsl-3d0@5000000 {
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0x0 0x5000000 0x0 0x40000>;
+		qcom,gmu = <&gmu>;
+
+		/* Frequency Range: 250 MHz to 670 MHz (SD865) / 720 MHz (SD870) */
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <670000000>;
+				qcom,bus-freq = <2750000000>;
+			};
+		};
+	};
+
+	/* Last Level Cache Controller (LLCC) Devfreq */
+	llccbw: qcom,llccbw {
+		compatible = "qcom,soc-llccbw";
+		governor = "bw_hwmon";
+	};
+};

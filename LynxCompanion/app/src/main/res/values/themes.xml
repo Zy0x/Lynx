@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Required by Android, Compose overrides actual theme visually -->
+    <style name="Theme.LynxDeity" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg_deep_oled</item>
+        <item name="android:statusBarColor">@color/bg_deep_oled</item>
+        <item name="android:navigationBarColor">@color/bg_deep_oled</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:colorPrimary">@color/accent_cyan</item>
+    </style>
+</resources>

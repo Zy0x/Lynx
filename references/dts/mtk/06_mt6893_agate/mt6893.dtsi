@@ -1,0 +1,119 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MediaTek MT6893 (Dimensity 1200 / 1300) Device Tree Source
+ * Reference: Xiaomi 11T / OnePlus Nord 2 (Agate / Denniz)
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (agate-r-oss)
+ */
+
+/ {
+	compatible = "mediatek,mt6893";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Little Cluster (Cores 0-3): 4x Cortex-A55 up to 2.0 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x000>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x001>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x002>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x003>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+
+		/* Middle Cluster (Cores 4-6): 3x Cortex-A78 up to 2.6 GHz */
+		cpu4: cpu@400 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x400>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu5: cpu@500 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x500>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu6: cpu@600 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x600>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+
+		/* Prime Core (Core 7): 1x Cortex-A78 up to 3.0 GHz */
+		cpu7: cpu@700 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x700>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu7_opp_table>;
+		};
+	};
+
+	cpu0_opp_table: opp-table-cpu0 {
+		compatible = "operating-points-v2";
+		opp-500000000  { opp-hz = /bits/ 64 <500000000>;  opp-microvolt = <650000>; };
+		opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-microvolt = <675000>; };
+		opp-1200000000 { opp-hz = /bits/ 64 <1200000000>; opp-microvolt = <725000>; };
+		opp-1500000000 { opp-hz = /bits/ 64 <1500000000>; opp-microvolt = <775000>; };
+		opp-1800000000 { opp-hz = /bits/ 64 <1800000000>; opp-microvolt = <850000>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <925000>; };
+	};
+
+	cpu4_opp_table: opp-table-cpu4 {
+		compatible = "operating-points-v2";
+		opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-microvolt = <675000>; };
+		opp-1250000000 { opp-hz = /bits/ 64 <1250000000>; opp-microvolt = <725000>; };
+		opp-1600000000 { opp-hz = /bits/ 64 <1600000000>; opp-microvolt = <775000>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <850000>; };
+		opp-2350000000 { opp-hz = /bits/ 64 <2350000000>; opp-microvolt = <925000>; };
+		opp-2600000000 { opp-hz = /bits/ 64 <2600000000>; opp-microvolt = <1000000>; };
+	};
+
+	cpu7_opp_table: opp-table-cpu7 {
+		compatible = "operating-points-v2";
+		opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-microvolt = <675000>; };
+		opp-1400000000 { opp-hz = /bits/ 64 <1400000000>; opp-microvolt = <750000>; };
+		opp-1900000000 { opp-hz = /bits/ 64 <1900000000>; opp-microvolt = <825000>; };
+		opp-2400000000 { opp-hz = /bits/ 64 <2400000000>; opp-microvolt = <925000>; };
+		opp-2800000000 { opp-hz = /bits/ 64 <2800000000>; opp-microvolt = <1000000>; };
+		opp-3000000000 { opp-hz = /bits/ 64 <3000000000>; opp-microvolt = <1075000>; };
+	};
+
+	/* ARM Mali-G77 MC9 (Valhall v1) up to 866 MHz */
+	mali: gpu@13000000 {
+		compatible = "arm,mali-valhall", "arm,mali-g77";
+		reg = <0 0x13000000 0 0x100000>;
+		interrupts = <0 220 4>;
+		clocks = <&topckgen 65>;
+		clock-names = "mali_core";
+	};
+
+	/* MediaTek PPM Tri-Cluster DVFS Policy Table */
+	ppm: mediatek,ppm {
+		compatible = "mediatek,ppm";
+		interrupts = <0 185 4>;
+	};
+};

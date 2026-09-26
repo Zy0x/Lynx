@@ -1,0 +1,113 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MediaTek MT6877 (Dimensity 920 / 900 / 1080) Device Tree Source
+ * Reference: Infinix Zero 5G (Infinix X698) - Live Testbed Device
+ * User Hardware Platform (TSMC 6nm Architecture)
+ * Source: Transsion MT6877 Kernel Tree & Live Device Sysfs Verification
+ */
+
+/ {
+	compatible = "infinix,x698", "mediatek,mt6877";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Little Cluster: 6x Cortex-A55 Cores (Cores 0-5) */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x000>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x001>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x002>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x003>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu4: cpu@4 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x004>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu5: cpu@5 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x005>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+
+		/* Big Cluster: 2x Cortex-A78 Cores (Cores 6-7) */
+		cpu6: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x100>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu6_opp_table>;
+		};
+		cpu7: cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x101>;
+			operating-points-v2 = <&cpu6_opp_table>;
+		};
+	};
+
+	/* Cluster 0 (Policy 0) Frequency Table */
+	cpu0_opp_table: opp-table-cpu0 {
+		compatible = "operating-points-v2";
+		opp-500000000  { opp-hz = /bits/ 64 <500000000>;  opp-microvolt = <650000>; };
+		opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-microvolt = <675000>; };
+		opp-1200000000 { opp-hz = /bits/ 64 <1200000000>; opp-microvolt = <712500>; };
+		opp-1500000000 { opp-hz = /bits/ 64 <1500000000>; opp-microvolt = <762500>; };
+		opp-1800000000 { opp-hz = /bits/ 64 <1800000000>; opp-microvolt = <825000>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <900000>; };
+	};
+
+	/* Cluster 1 (Policy 6) Frequency Table (Dimensity 920 2.5 GHz Peak) */
+	cpu6_opp_table: opp-table-cpu6 {
+		compatible = "operating-points-v2";
+		opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-microvolt = <675000>; };
+		opp-1250000000 { opp-hz = /bits/ 64 <1250000000>; opp-microvolt = <725000>; };
+		opp-1650000000 { opp-hz = /bits/ 64 <1650000000>; opp-microvolt = <787500>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <850000>; };
+		opp-2200000000 { opp-hz = /bits/ 64 <2200000000>; opp-microvolt = <912500>; };
+		opp-2500000000 { opp-hz = /bits/ 64 <2500000000>; opp-microvolt = <987500>; };
+	};
+
+	/* ARM Mali-G68 MC4 GPU (Valhall 2nd Generation) */
+	mali: gpu@13000000 {
+		compatible = "arm,mali-valhall", "mediatek,mt6877-gpu";
+		reg = <0 0x13000000 0 0x100000>;
+		interrupts = <0 252 4>;
+		clocks = <&topckgen 60>;
+		clock-names = "clk_mali";
+	};
+
+	/* MediaTek GED & DVFSRC Framework */
+	dvfsrc: dvfsrc@10012000 {
+		compatible = "mediatek,mt6877-dvfsrc";
+		reg = <0 0x10012000 0 0x1000>;
+	};
+
+	ppm: mediatek,ppm {
+		compatible = "mediatek,ppm";
+	};
+};

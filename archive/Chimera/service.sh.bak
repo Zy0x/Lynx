@@ -1,0 +1,433 @@
+#!/system/bin/sh
+#by Noir
+
+# Waiting for boot completed
+while [ "$(getprop sys.boot_completed | tr -d '\r')" != "1" ]; do sleep 3; done
+
+# Detect temproot
+if [ -e /data/local/tmp/magisk ]; then
+  sleep 30
+else
+  sleep 3
+fi
+
+# Path
+MODDIR=${0%/*}
+MODPROP="$MODDIR/module.prop"
+SCRIPT="$MODDIR/script"
+MAIN="$MODDIR/script/main"
+
+# Variables
+ZRAMSIZE=2049M
+SWAPSIZE=0
+
+# Source File
+source $MAIN/zram.sh
+source $MAIN/swap.sh
+source $MAIN/dns.sh
+source $MAIN/unity.sh
+source $MAIN/deepsleep.sh
+source $MAIN/gms.sh
+source $MAIN/dex2oat.sh
+
+# Device online functions
+wait_until_login()
+{
+    # whether in lock screen, tested on Android 7.1 & 10.0
+    # in case of other magisk module remounting /data as RW
+    while [ "$(dumpsys window policy | grep mInputRestricted=true)" != "" ]; do
+        sleep 2
+    done
+    # we doesn't have the permission to rw "/sdcard" before the user unlocks the screen
+    while [ ! -d "/sdcard/Android" ]; do
+        sleep 2
+    done
+}
+
+# Unlock Screen fullroot
+screen_unlock()
+{
+su -lp 2000 -c "cmd notification post -S bigtext -t 'Chimera' 'Chimera' '⚠️ 𝘗𝘭𝘦𝘢𝘴𝘦 𝘶𝘯𝘭𝘰𝘤𝘬 𝘺𝘰𝘶𝘳 𝘭𝘰𝘤𝘬𝘴𝘤𝘳𝘦𝘦𝘯!'" >/dev/null 2>&1
+}
+
+# Device online
+#wait_login_temproot
+
+# Sync to data in the rare case a device crashes
+sync
+
+# Change zram
+change_zram
+
+# Swap ram
+#change_swap
+
+# Device online
+screen_unlock
+wait_until_login
+
+# Enable all tweak
+sed -Ei "s/^description=\[.*\]/description=[ ⚙️ Aᴘᴘʟʏ ᴛᴡᴇᴀᴋꜱ ᴘʟᴇᴀꜱᴇ ᴡᴀɪᴛ... ]/" "$MODPROP"
+su -lp 2000 -c "cmd notification post -S bigtext -t 'Chimera' 'Chimera' '⚙️ Aᴘᴘʟʏ ᴛᴡᴇᴀᴋꜱ ᴘʟᴇᴀꜱᴇ ᴡᴀɪᴛ...'" >/dev/null 2>&1
+
+# Color management
+service call SurfaceFlinger 1023 i32 1
+
+# Increase Display Saturation
+service call SurfaceFlinger 1022 f 1.05
+
+# Disable Vsync
+service call SurfaceFlinger 1036 i32 0
+
+# HDR Display (maybe Gimmick)
+settings put system hdr_mode 1
+settings put system boost_brightness_hdr 1
+settings put system boost_brightness_normal 1
+
+# stop service
+stop perfd
+
+resetprop service.adb.tcp.port 5555
+stop adbd
+start adbd
+
+# PowerHall Game
+echo -e "com.mobile.legends\ncom.tencent.ig\ncom.miHoYo.GenshinImpact\ncom.tencent.tmgp.pubgmhd\ncom.dts.freefireth\ncom.dts.freefiremax\njp.konami.pesam\ncom.pubg.newstate\ncom.garena.game.codm\ncom.pubg.imobile\ncom.ea.gp.apexlegendsmobilefps\ncom.riotgames.league.wildrift\ncom.kurogame.wutheringwaves.global\n" > /data/vendor/powerhal/smart
+
+# DNS Routing
+DNS_OpenDNS
+
+# Task scheduler
+echo "0" > /proc/sys/kernel/sched_tunable_scaling
+echo "0" > /proc/sys/kernel/sched_child_runs_first
+echo "0" > /proc/sys/kernel/timer_migration
+echo "1" > /proc/sys/kernel/sched_autogroup_enabled
+echo "15" > /proc/sys/kernel/sched_min_task_util_for_boost
+echo "0" > /proc/sys/kernel/sched_min_task_util_for_colocation
+echo "950000" > /proc/sys/kernel/sched_rt_runtime_us
+echo "1000000" > /proc/sys/kernel/sched_rt_period_us
+echo "500000" > /proc/sys/kernel/sched_migration_cost_ns
+echo "1" > /sys/kernel/rcu_expedited
+
+# Disable kernel tracking
+echo "0" > /proc/sys/kernel/tracing/tracing_on
+
+# Timeslice process
+echo "10" > /proc/sys/kernel/sched_rr_timeslice_ms
+
+# Enable dynamic ravg window
+echo "1" > /proc/sys/kernel/sched_dynamic_ravg_window_enable
+echo "4" > /proc/sys/kernel/sched_ravg_window_nr_ticks
+
+# Enable kernel fsync
+echo "1" > /sys/kernel/dyn_fsync/Dyn_fsync_active
+
+# Enable scroll acceleration
+echo "Y" > /sys/module/hid_magicmouse/parameters/scroll_acceleration
+echo "N" > /sys/module/hid_magicmouse/parameters/emulate_3button
+echo "N" > /sys/module/hid_magicmouse/parameters/emulate_scroll_wheel
+echo "0" > /sys/module/hid_magicmouse/parameters/scroll_speed
+
+# Disable spi CRC
+echo "0" > /sys/module/mmc_core/parameters/use_spi_crc
+echo "0" > /sys/module/mmc_core/parameters/removable
+echo "0" > /sys/module/mmc_core/parameters/crc
+
+# Mglru
+echo "5000" > /sys/kernel/mm/lru_gen/min_ttl_ms
+
+# LPM (Low Power Mode)
+echo "1" > /sys/module/lpm_levels/parameters/lpm_prediction
+echo "0" > /sys/module/lpm_levels/parameters/sleep_disabled
+
+# Disable printk
+echo "0 0 0 0" > /proc/sys/kernel/printk
+echo "off" > /proc/sys/kernel/printk_devkmsg
+
+# Disable kernel panic
+echo "0" > /proc/sys/kernel/panic
+echo "0" > /proc/sys/kernel/panic_on_oops
+echo "0" > /proc/sys/kernel/panic_on_warn
+echo "0" > /sys/module/kernel/parameters/panic
+echo "0" > /sys/module/kernel/parameters/panic_on_warn
+echo "0" > /sys/module/kernel/parameters/pause_on_oops
+
+# Cpu Efficient
+echo "Y" > /sys/module/workqueue/parameters/power_efficient
+
+# Enable fast socket open for receiver and sender
+echo "3" > /proc/sys/net/ipv4/tcp_fastopen
+
+# Disable cpu input boost
+echo "0" > /sys/module/cpu_boost/parameters/sched_boost_on_input
+echo "0" > /sys/module/cpu_boost/parameters/input_boost_ms
+echo "0:0" > /sys/module/cpu_boost/parameters/input_boost_freq
+echo "1:0" > /sys/module/cpu_boost/parameters/input_boost_freq
+echo "2:0" > /sys/module/cpu_boost/parameters/input_boost_freq
+echo "3:0" > /sys/module/cpu_boost/parameters/input_boost_freq
+echo "4:0" > /sys/module/cpu_boost/parameters/input_boost_freq
+echo "5:0" > /sys/module/cpu_boost/parameters/input_boost_freq
+echo "6:0" > /sys/module/cpu_boost/parameters/input_boost_freq
+echo "7:0" > /sys/module/cpu_boost/parameters/input_boost_freq
+
+# Disable Ramdumps
+if [ -d "/sys/module/subsystem_restart/parameters" ]
+then
+    echo "0" > /sys/module/subsystem_restart/parameters/enable_ramdumps
+    echo "0" > /sys/module/subsystem_restart/parameters/enable_mini_ramdumps
+fi
+
+# Virtual memory tweaks
+echo "10" > /proc/sys/vm/dirty_background_ratio
+echo "20" > /proc/sys/vm/dirty_ratio
+echo "500" > /proc/sys/vm/dirty_expire_centisecs
+echo "200" > /proc/sys/vm/dirty_writeback_centisecs
+echo "200" > /proc/sys/vm/extfrag_threshold
+echo "80" > /proc/sys/vm/swappiness
+echo "3" > /proc/sys/vm/page-cluster
+echo "0" > /proc/sys/vm/oom_kill_allocating_task
+echo "8192" > /proc/sys/vm/min_free_kbytes
+echo "0" > /proc/sys/kernel/sched_schedstats
+echo "29615" > /proc/sys/vm/extra_free_kbytes
+echo "8" > /sys/block/zram0/max_comp_streams
+echo "0" > /proc/sys/vm/oom_dump_tasks
+echo "80" > /proc/sys/vm/overcommit_ratio
+
+# Pressure VM
+echo "0" > /sys/module/vmpressure/parameters/allocstall_threshold
+echo "100" > /sys/module/vmpressure/parameters/vmpressure_scale_max
+
+# Disable all Log and Debug Mask
+for mask in $(find /sys/ -type f -name debug_mask -or -name debug_level -or -name enable_event_log)
+do
+  echo "0" > "$mask"
+done
+
+# LMK
+echo "1" > /sys/module/lowmemorykiller/parameters/enable_lmk
+echo "0" > /sys/module/lowmemorykiller/parameters/enable_adaptive_lmk
+chmod 666 /sys/module/lowmemorykiller/parameters/minfree
+chown root /sys/module/lowmemorykiller/parameters/minfree
+echo "12288,24576,36864,49152,61440,73728" > /sys/module/lowmemorykiller/parameters/minfree
+chmod 444 /sys/module/lowmemorykiller/parameters/minfree
+
+# Disable Reclaim Ram (BETA)
+for rec in /sys/module/process_reclaim/parameters/
+do
+    echo "0" > $rec/enable_process_reclaim
+    echo "70" > $rec/pressure_max
+    echo "50" > $rec/pressure_min
+    echo "512" > $rec/per_swap_size
+done
+
+# Lib Game
+lib_path="/proc/sys/kernel/sched_lib_name"
+apps_to_run="com.miHoYo., com.miHoYo.GenshinImpact, com.activision., com.epicgames, com.dts., UnityMain, libunity.so, libil2cpp.so, libmain.so, libcri_vip_unity.so, libopus.so, libxlua.so, libUE4.so, libAsphalt9.so, libnative-lib.so, libRiotGamesApi.so, libResources.so, libagame.so, libapp.so, libflutter.so, libMSDKCore.so, libFIFAMobileNeon.so, libUnreal.so, libEOSSDK.so, libcocos2dcpp.so, libfb.so"
+if [ -e "$lib_path" ]; then
+  echo "$apps_to_run" > "$lib_path"
+fi
+
+# Disable debuggers bluetooth
+for bl in /sys/module/bluetooth/parameters/disable_ertm /sys/module/bluetooth/parameters/disable_esco
+do
+  if [[ -e "$bl" ]]; then
+    echo "Y" > "$bl"
+  fi
+done
+
+# Reduce the maximum scheduling period for lower latency
+echo "500000" > /proc/sys/kernel/sched_latency_ns
+
+# Require preeptive tasks to surpass half of a sched period in vmruntime
+echo "25000" > /proc/sys/kernel/sched_wakeup_granularity_ns
+
+# Schedule this ratio of tasks in the guarenteed sched period
+echo "100000" > /proc/sys/kernel/sched_min_granularity_ns
+
+# Additional Script
+echo "2000" > /sys/power/pm_freeze_timeout
+echo "10" > /sys/class/devfreq/soc:qcom,gpubw/polling_interval
+echo "10" > /sys/class/devfreq/soc:qcom,l3-cdsp/polling_interval
+echo "0" > /sys/devices/system/edac/cpu/panic_on_ue
+echo "1" > /sys/devices/system/cpu/rq-stats/hotplug_disable
+echo "0" > /sys/module/msm_thermal/core_control/enabled
+echo "0" > /sys/devices/virtual/thermal/thermal_message/suspend_temp
+
+# Core performance
+echo "1" > /d/dri/0/debug/core_perf/perf_mode
+
+# Core Ctl
+for ctl in /sys/bus/cpu/devices/cpu{0,4,6}; do
+    echo "0" > $ctl/core_ctl/enable
+    echo "4" > $ctl/core_ctl/min_cpus
+    echo "4" > $ctl/core_ctl/max_cpus
+    echo "500" > $ctl/core_ctl/offline_delay_ms
+done
+
+# Thermal Service
+cmd thermalservice override-status 0
+
+# Internet Function
+Internet_Tweak() {
+nohup sh $MODDIR/script/main/net.sh > /dev/null 2>&1 &
+}
+
+# Internet Tweak
+Internet_Tweak
+
+# Task Group
+nohup sh $MAIN/task.sh
+
+# IO Scheduler
+nohup sh $MAIN/IO.sh
+
+# Fstrim
+fstrim /system
+fstrim /vendor
+fstrim /metadata
+fstrim /odm
+fstrim /system_ext
+fstrim /product
+fstrim /data
+fstrim /cache
+for sd in /storage/*; do
+  fstrim -v ${sd}
+done
+
+# Disable System Log
+pm uninstall --user 0 com.android.traceur
+
+# Disable Some Service Log
+stop logcat logcatd logd tcpdump cnss_diag statsd traced idd-logreader idd-logreadermain stats dumpstate aplogd vendor_tcpdump vendor.tcpdump vendor.cnss_diag
+
+# Low Latency Wi-Fi
+cmd wifi force-low-latency-mode enabled
+
+# Clear Wi-Fi Logs
+rm -rf /data/vendor/wlan_logs
+touch /data/vendor/wlan_logs
+chmod 000 /data/vendor/wlan_logs
+
+# Disable Kernel Debugging
+for i in 'debug_mask' 'log_level*' 'debug_level*' '*debug_mode' 'edac_mc_log*' 'enable_event_log' '*log_level*' '*log_ue*' '*log_ce*' 'log_ecn_error' 'seclog*' 'compat-log' '*log_enabled' 'tracing_on' 'mballoc_debug'; do
+    for o in $(find /sys/ -type f -name "$i"); do
+        echo '0' > "$o"
+    done
+done
+
+# Unity Big.Little trick by lybxlpsv 
+#unitytrick_enable
+
+# For UI System
+#defaultwindow
+#defaulttransition
+#defaultanimator
+animation_system()
+{
+settings put global window_animation_scale $window
+settings put global transition_animation_scale $trans
+settings put global animator_duration_scale $anim
+}
+
+# Animation Tweak
+#animation
+settings put secure long_press_timeout 280
+settings put secure multi_press_timeout 80
+
+# Activity manager
+if [ $(getprop ro.build.version.sdk) -gt 28 ]; then
+  device_config set_sync_disabled_for_tests none
+  device_config put activity_manager max_cached_processes 50
+  device_config put activity_manager max_empty_time_millis 1200000
+  device_config put activity_manager max_phantom_processes 32
+  settings put global settings_enable_monitor_phantom_procs true
+  settings put global activity_manager_constants max_cached_processes=160
+else
+  settings put global activity_manager_constants max_cached_processes=160
+fi
+
+# Dexoat Optimizer
+#dex2oat_opt_enable
+
+# Enable GMS doze
+#gms_doze_enable
+
+# Doze mode
+doze_default
+
+# Cache Cleaner
+# Log Script Cache Cleaner
+LOG_FILE="/storage/emulated/0/Chimera/Cleaner.log"
+log() {
+    echo "$1" >> "$LOG_FILE"
+}
+log ""
+log "# Cache Cleaner"
+log " • Status : Executed"
+log " • Date : $(date '+%A, %d/%m/%Y at %H:%M:%S')"
+log "--------LOG--------"
+
+# Clean Cache
+clean_cache() {
+    find "$1" -type d -iname '*cache*' \
+    -not \( -ipath "*/*hkrpgoversea*/*" -o -ipath "*/*genshin*/*" -o -path "*/*wuthering*/*" -o -ipath "*/*tencent*/*" \) \
+    -exec rm -rf {} + >/dev/null 2>&1
+}
+clean_cache /data/data
+clean_cache /data/media/0/Android/data
+clean_cache /data_mirror/data_ce/null/0
+clean_cache /data_mirror/data_de/null/0
+clean_cache /data/user_de/0
+clean_cache /data/user/0
+
+# Clean Junk File
+rm -rf /cache/ -mindepth 1 ! -name 'magisk.log' >/dev/null 2>&1
+rm -rf /data/vendor/thermal/* >/dev/null 2>&1
+rm -rf /data/vendor/wlan_logs >/dev/null 2>&1
+rm -rf /data/anr/* >/dev/null 2>&1
+rm -rf /data/log_other_mode/* >/dev/null 2>&1
+rm -rf /cache/*.tmp >/dev/null 2>&1
+rm -rf /dev/log/* >/dev/null 2>&1
+rm -rf /data/tombstones/* >/dev/null 2>&1
+rm -rf /data/system/dropbox/* >/dev/null 2>&1
+rm -rf /data/log/* >/dev/null 2>&1
+rm -rf /sys/kernel/debug/* >/dev/null 2>&1
+rm -rf /dev/log/main >/dev/null 2>&1
+rm -rf /data/system/package_cache/* >/dev/null 2>&1
+rm -rf /data/media/0/mtklog >/dev/null 2>&1
+rm -rf /data/media/0/MIUI/.debug_log >/dev/null 2>&1
+rm -rf /data/media/0/MIUI/BugReportCache >/dev/null 2>&1
+rm -rf /data/log/* >/dev/null 2>&1
+rm -rf /data/logger/* >/dev/null 2>&1
+rm -rf /data/tombstones/* >/dev/null 2>&1
+rm -rf /data/system/usagestats/* >/dev/null 2>&1
+rm -rf /sdcard/LOST.DIR >/dev/null 2>&1
+rm -rf /sdcard/DCIM/.thumbnails >/dev/null 2>&1
+rm -rf /sdcard/bugreports/* >/dev/null 2>&1
+
+# Log & Notification
+log "Cache Cleaned"
+am start -a android.intent.action.MAIN -e toasttext "🧹 Cᴀᴄʜᴇ Cʟᴇᴀɴᴇᴅ" -n bellavita.toast/.MainActivity
+
+# Charging Control
+charging_control() {
+  nohup sh $MODDIR/script/Charging-Controller.sh > /dev/null 2>&1 &
+}
+charging_control
+
+# Kill unused process
+sync && echo "3" > /proc/sys/vm/drop_caches
+am kill-all
+
+# Run Ai
+sleep 3
+nohup sh "$MODDIR/script/Smart-AI.sh" > /dev/null 2>&1 &
+
+# Beta Test
+nohup sh $MAIN/beta.sh
+nohup sh $MODDIR/app2sd.sh &
+
+# Done
+nohup sh "$MODDIR/script/main/updater.sh" > /dev/null 2>&1 &
+sed -Ei "s/^description=\[.*\]/description=[ ✅ Aʟʟ ᴛᴡᴇᴀᴋꜱ ɪꜱ ᴀᴘᴘʟɪᴇᴅ ]/" "$MODPROP"
+su -lp 2000 -c "cmd notification post -S bigtext -t 'Chimera' 'Chimera' '✅ Aʟʟ ᴛᴡᴇᴀᴋꜱ ɪꜱ ᴀᴘᴘʟɪᴇᴅ...'" >/dev/null 2>&1

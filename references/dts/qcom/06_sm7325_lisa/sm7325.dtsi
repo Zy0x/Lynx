@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Qualcomm SM7325 (Snapdragon 778G) Device Tree Source
+ * Reference: Xiaomi 11 Lite 5G NE / POCO X5 Pro (Lisa)
+ * TSMC 6nm Kryo 670 Architecture
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (lisa-r-oss)
+ */
+
+/ {
+	compatible = "qcom,sm7325";
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		/* Silver: 4x Kryo 670 Silver (Cortex-A55 @ 1.90 GHz) Cores 0-3 */
+		CPU0: cpu@0 { device_type = "cpu"; compatible = "qcom,kryo670"; reg = <0 0>; operating-points-v2 = <&silver_opp_table>; };
+		CPU1: cpu@100 { device_type = "cpu"; compatible = "qcom,kryo670"; reg = <0 0x100>; operating-points-v2 = <&silver_opp_table>; };
+		CPU2: cpu@200 { device_type = "cpu"; compatible = "qcom,kryo670"; reg = <0 0x200>; operating-points-v2 = <&silver_opp_table>; };
+		CPU3: cpu@300 { device_type = "cpu"; compatible = "qcom,kryo670"; reg = <0 0x300>; operating-points-v2 = <&silver_opp_table>; };
+
+		/* Gold: 3x Kryo 670 Gold (Cortex-A78 @ 2.20 GHz) Cores 4-6 */
+		CPU4: cpu@400 { device_type = "cpu"; compatible = "qcom,kryo670"; reg = <0 0x400>; operating-points-v2 = <&gold_opp_table>; };
+		CPU5: cpu@500 { device_type = "cpu"; compatible = "qcom,kryo670"; reg = <0 0x500>; operating-points-v2 = <&gold_opp_table>; };
+		CPU6: cpu@600 { device_type = "cpu"; compatible = "qcom,kryo670"; reg = <0 0x600>; operating-points-v2 = <&gold_opp_table>; };
+
+		/* Prime: 1x Kryo 670 Prime (Cortex-A78 @ 2.40 GHz) Core 7 */
+		CPU7: cpu@700 { device_type = "cpu"; compatible = "qcom,kryo670"; reg = <0 0x700>; operating-points-v2 = <&prime_opp_table>; };
+	};
+
+	prime_opp_table: opp-table-prime {
+		compatible = "operating-points-v2";
+		opp-844800000  { opp-hz = /bits/ 64 <844800000>;  opp-microvolt = <675000>; };
+		opp-1516800000 { opp-hz = /bits/ 64 <1516800000>; opp-microvolt = <745000>; };
+		opp-1977600000 { opp-hz = /bits/ 64 <1977600000>; opp-microvolt = <825000>; };
+		opp-2400000000 { opp-hz = /bits/ 64 <2400000000>; opp-microvolt = <940000>; };
+	};
+
+	/* Adreno 642L GPU with Hardware GMU */
+	kgsl_3d0: qcom,kgsl-3d0@5000000 {
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0 0x5000000 0 0x40000>;
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 { reg = <0>; qcom,gpu-freq = <840000000>; qcom,bus-freq = <2750000000>; };
+			qcom,gpu-pwrlevel@1 { reg = <1>; qcom,gpu-freq = <700000000>; qcom,bus-freq = <2092000000>; };
+			qcom,gpu-pwrlevel@2 { reg = <2>; qcom,gpu-freq = <550000000>; qcom,bus-freq = <1500000000>; };
+			qcom,gpu-pwrlevel@3 { reg = <3>; qcom,gpu-freq = <300000000>; qcom,bus-freq = <400000000>; };
+		};
+	};
+};

@@ -1,0 +1,3150 @@
+package com.noir.lynx.ui
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.viewModels
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
+import com.noir.lynx.data.LynxUiState
+import com.noir.lynx.data.DeepTunable
+import com.noir.lynx.data.TunableType
+import com.noir.lynx.data.TunableOption
+
+/**
+ * MainActivity — Lynx Kernel Manager Native App.
+ *
+ * Full-screen Compose UI with Luxury Cyberpunk OLED Material 3 Expressive theme.
+ * Dual-Mode Root support: operates standalone on any rooted device,
+ * and unlocks enhanced background features when the Lynx root module is present.
+ *
+ * 4-Tab Luxury Navigation:
+ *   1. Dashboard (Hardware Gauges, CPU Clusters Matrix, Bento Telemetry, Quick Profiles)
+ *   2. SoC Tuner (Dynamic CPU Clusters, Min/Max Frequency Sliders, Governors, Thermal Limits)
+ *   3. Lynx Engine (ZRAM, Charging Bypass, Audio MMAP, Network BBR, OEM Neutralizer)
+ *   4. Tools & Flasher (AnyKernel3 Flasher, Boot Backup/Restore, Storage TRIM, CCleaner)
+ */
+class MainActivity : ComponentActivity() {
+
+    private val viewModel: LynxViewModel by viewModels()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Enable edge-to-edge
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        setContent {
+            val uiState by viewModel.uiState.collectAsState()
+            LynxAppContent(uiState = uiState, viewModel = viewModel)
+        }
+    }
+}
+
+// ============================================================
+//  Root App Content
+// ============================================================
+
+@Composable
+fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
+    var showExtremeDialog by remember { mutableStateOf(false) }
+
+    // Extreme mode confirmation dialog
+    if (showExtremeDialog) {
+        AlertDialog(
+            onDismissRequest = { showExtremeDialog = false },
+            containerColor = BgCard,
+            titleContentColor = AccentRed,
+            textContentColor = TextSecondary,
+            title = { Text("⚠️ Mode Extreme — Peringatan Bahaya") },
+            text = {
+                Text(
+                    "Mode Extreme mengunci CPU & GPU pada frekuensi maksimum mutlak dan menonaktifkan " +
+                    "seluruh proteksi termal OEM. Direkomendasikan HANYA dengan phone cooler eksternal.\n\n" +
+                    "Penggunaan tanpa pendingin aktif dapat memicu degradasi baterai permanen dan komponen SoC."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.setProfile("extreme")
+                        showExtremeDialog = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = AccentRed),
+                ) {
+                    Text("Aktifkan Extreme", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExtremeDialog = false }) {
+                    Text("Batal", color = TextSecondary)
+                }
+            },
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BgDeepOled)
+            .windowInsetsPadding(WindowInsets.systemBars),
+    ) {
+        when {
+            uiState.isLoading -> LoadingScreen()
+            !uiState.isRootAvailable -> ErrorScreen(uiState)
+            else -> MainDashboard(
+                uiState = uiState,
+                viewModel = viewModel,
+                onExtremeConfirmRequired = { showExtremeDialog = true },
+            )
+        }
+
+        // Success snackbar overlay
+        uiState.successMessage?.let { msg ->
+            Snackbar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 90.dp, start = 16.dp, end = 16.dp),
+                action = {
+                    TextButton(onClick = { viewModel.dismissSuccess() }) {
+                        Text("OK", color = AccentCyan, fontWeight = FontWeight.Bold)
+                    }
+                },
+                containerColor = BgElevated,
+                contentColor = TextPrimary,
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Text(msg)
+            }
+        }
+
+        // Error snackbar overlay
+        uiState.errorMessage?.let { msg ->
+            Snackbar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 90.dp, start = 16.dp, end = 16.dp),
+                action = {
+                    TextButton(onClick = { viewModel.dismissError() }) {
+                        Text("Tutup", color = AccentOrange, fontWeight = FontWeight.Bold)
+                    }
+                },
+                containerColor = BgElevated,
+                contentColor = TextPrimary,
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Text(msg)
+            }
+        }
+    }
+}
+
+// ============================================================
+//  Loading Screen
+// ============================================================
+
+@Composable
+fun LoadingScreen() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(
+                color = AccentCyan,
+                strokeWidth = 3.dp,
+                modifier = Modifier.size(42.dp)
+            )
+            Spacer(Modifier.height(18.dp))
+            Text(
+                text = "Menginisialisasi Kernel Root Engine...",
+                color = TextSecondary,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+// ============================================================
+//  Error / Non-Root Screen
+// ============================================================
+
+@Composable
+fun ErrorScreen(uiState: LynxUiState) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = BgCard,
+            border = BorderStroke(1.dp, BorderGlass),
+            modifier = Modifier.padding(28.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(24.dp),
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = AccentOrange.copy(alpha = 0.15f),
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = AccentOrange,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "Akses Superuser Diperlukan",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = uiState.errorMessage ?: "Akses Root tidak terdeteksi. Berikan izin Superuser melalui Magisk, KernelSU, atau APatch untuk mengontrol parameter kernel.",
+                    color = TextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+//  Main Dashboard — 4-Tab Luxury Material 3 Navigation
+// ============================================================
+
+@Composable
+fun MainDashboard(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    onExtremeConfirmRequired: () -> Unit,
+) {
+    val state = uiState.state
+    val scrollState = rememberScrollState()
+    LaunchedEffect(uiState.currentTab) {
+        scrollState.scrollTo(0)
+    }
+    var showAddAppDialog by remember { mutableStateOf(false) }
+    var customPkgText by remember { mutableStateOf("") }
+
+    val currentAccent = when (uiState.selectedAccent) {
+        "blue" -> AccentBlue
+        "purple" -> AccentPurple
+        "orange" -> AccentOrange
+        "red" -> AccentRed
+        "green" -> AccentGreen
+        else -> AccentCyan
+    }
+
+    if (showAddAppDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddAppDialog = false },
+            containerColor = BgCard,
+            titleContentColor = TextPrimary,
+            title = { Text("Tambah Game / App ke Game Mode") },
+            text = {
+                Column(Modifier.fillMaxWidth().heightIn(max = 350.dp)) {
+                    Text(
+                        "Pilih dari aplikasi terpasang atau ketik nama package:",
+                        color = TextSecondary, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = customPkgText,
+                        onValueChange = { customPkgText = it },
+                        placeholder = { Text("Cari judul game atau ketik package...", color = TextSecondary, fontSize = 12.sp) },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentCyan,
+                            unfocusedBorderColor = BorderGlass,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                        )
+                    )
+                    Text("Aplikasi Terpasang:", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 4.dp))
+                    val q = customPkgText.trim().lowercase()
+                    val apps = if (q.isBlank()) {
+                        uiState.installedAppList
+                    } else {
+                        uiState.installedAppList.filter {
+                            it.label.lowercase().contains(q) || it.packageName.lowercase().contains(q)
+                        }
+                    }
+                    if (apps.isEmpty() && uiState.installedAppList.isEmpty()) {
+                        Text("Memuat daftar aplikasi...", color = TextSecondary, fontSize = 11.sp)
+                    } else if (apps.isEmpty()) {
+                        Text("Tidak ada aplikasi yang cocok dengan '$customPkgText'", color = TextSecondary, fontSize = 11.sp)
+                    } else {
+                        LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                            items(apps.size) { i ->
+                                val app = apps[i]
+                                val isAdded = uiState.applistPerf.contains(app.packageName)
+                                Row(
+                                    Modifier.fillMaxWidth().clickable {
+                                        if (!isAdded) {
+                                            viewModel.addAppToPerf(app.packageName)
+                                            showAddAppDialog = false
+                                        }
+                                    }.padding(vertical = 7.dp, horizontal = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            app.label,
+                                            color = if (isAdded) TextSecondary else TextPrimary,
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            app.packageName,
+                                            color = TextSecondary.copy(alpha = 0.8f),
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                    if (isAdded) {
+                                        Text("Terdaftar", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (customPkgText.isNotBlank()) {
+                        viewModel.addAppToPerf(customPkgText.trim())
+                        customPkgText = ""
+                        showAddAppDialog = false
+                    }
+                }) {
+                    Text("Tambah", color = AccentCyan, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddAppDialog = false }) {
+                    Text("Batal", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    Scaffold(
+        containerColor = BgDeepOled,
+        bottomBar = {
+            // Floating Luxury Pill Navigation Bar
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+                shape = RoundedCornerShape(28.dp),
+                color = Color(0xF2121522),
+                border = BorderStroke(1.dp, BorderGlass),
+                tonalElevation = 6.dp,
+                shadowElevation = 10.dp,
+            ) {
+                NavigationBar(
+                    containerColor = Color.Transparent,
+                    tonalElevation = 0.dp,
+                    modifier = Modifier.height(68.dp)
+                ) {
+                    val navItems = listOf(
+                        Triple("Dashboard", Icons.Default.Speed, 0),
+                        Triple("SoC Tuner", Icons.Default.Tune, 1),
+                        Triple("Lynx Engine", Icons.Default.Bolt, 2),
+                        Triple("Tools", Icons.Default.Build, 3),
+                    )
+                    navItems.forEach { (label, icon, index) ->
+                        val isSelected = uiState.currentTab == index
+                        NavigationBarItem(
+                            selected = isSelected,
+                            onClick = { viewModel.switchTab(index) },
+                            icon = {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = label,
+                                    tint = if (isSelected) currentAccent else TextSecondary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = label,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) currentAccent else TextSecondary
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = currentAccent.copy(alpha = 0.16f),
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(scrollState),
+        ) {
+            LaunchedEffect(uiState.currentTab) {
+                scrollState.scrollTo(0)
+            }
+
+            // ── Luxury Top Header ──────────────────────────────────────────────
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                shape = RoundedCornerShape(22.dp),
+                color = BgCard,
+                border = BorderStroke(1.dp, BorderGlass)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    // Top Row: Brand & Status Badge
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = currentAccent.copy(alpha = 0.14f),
+                                border = BorderStroke(1.dp, currentAccent.copy(alpha = 0.35f)),
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.Bolt,
+                                        contentDescription = null,
+                                        tint = currentAccent,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "LYNX ",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = TextPrimary,
+                                        letterSpacing = 1.5.sp,
+                                    )
+                                    Text(
+                                        text = "KERNEL",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = currentAccent,
+                                        letterSpacing = 1.sp,
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (uiState.isModuleInstalled) currentAccent else AccentOrange,
+                                        modifier = Modifier.size(6.dp)
+                                    ) {}
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (uiState.isModuleInstalled) "Magisk Deity Active" else "Standalone Root Mode",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (uiState.isModuleInstalled) currentAccent else AccentOrange,
+                                    )
+                                }
+                            }
+                        }
+                        StatusBadge(profile = if (uiState.isModuleInstalled) state.activeProfile else "balance")
+                    }
+
+                    // Bottom Row: Dynamic Accent Theme Picker
+                    HorizontalDivider(
+                        color = BorderGlass.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(top = 10.dp, bottom = 8.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Palette,
+                                null,
+                                tint = currentAccent,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "TEMA AKSEN",
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            listOf(
+                                "cyan" to AccentCyan,
+                                "blue" to AccentBlue,
+                                "purple" to AccentPurple,
+                                "orange" to AccentOrange,
+                                "red" to AccentRed,
+                                "green" to AccentGreen
+                            ).forEach { (name, color) ->
+                                val isSelected = uiState.selectedAccent == name
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clickable { viewModel.setAccentColor(name) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = color,
+                                        border = if (isSelected) BorderStroke(2.dp, Color.White) else null,
+                                        modifier = Modifier.size(if (isSelected) 16.dp else 11.dp)
+                                    ) {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            when (uiState.currentTab) {
+                // ── TAB 0: DASHBOARD ────────────────────────────────────────
+                0 -> {
+                    LiveTelemetryCard(telemetry = uiState.telemetry)
+
+                    LynxCard(
+                        title = "PROFIL PERFORMA KERNEL",
+                        icon = Icons.Default.Speed,
+                        accentColor = AccentOrange
+                    ) {
+                        ProfileGrid(
+                            currentProfile = state.activeProfile,
+                            onProfileSelected = { viewModel.setProfile(it) },
+                            onExtremeConfirmRequired = onExtremeConfirmRequired,
+                        )
+                    }
+
+                    // ── Live Battery Wattage & Thermal Power Card ───────────
+                    uiState.telemetry?.let { tel ->
+                        LynxCard(
+                            title = "ESTIMASI DAYA & KONSUMSI WATT",
+                            icon = Icons.Default.Bolt,
+                            accentColor = AccentBlue
+                        ) {
+                            val v = tel.battVoltMv.toDouble()
+                            val c = Math.abs(tel.battCurrentMa.toDouble())
+                            val watts = if (v > 0 && c > 0) (v * c) / 1_000_000.0 else 0.0
+                            val isCharging = tel.battCurrentMa > 0
+                            Row(
+                                Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        if (watts > 0) String.format("%.2f Watt", watts) else "Daya Terukur: --",
+                                        color = if (isCharging) AccentCyan else AccentOrange,
+                                        fontSize = 18.sp, fontWeight = FontWeight.ExtraBold
+                                    )
+                                    Text(
+                                        if (isCharging) "Sedang Mengisi Daya (Input Power)" else "Konsumsi Baterai Aktif (Discharging)",
+                                        color = TextSecondary, fontSize = 11.sp
+                                    )
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = BgElevated,
+                                    border = BorderStroke(1.dp, BorderGlass)
+                                ) {
+                                    Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Thermostat, null, tint = AccentRed, modifier = Modifier.size(14.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("${tel.temp}°C", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Tegangan: ${tel.battVoltMv} mV", color = TextSecondary, fontSize = 11.sp)
+                                Text("Arus: ${tel.battCurrentMa} mA", color = TextSecondary, fontSize = 11.sp)
+                                Text("Baterai: ${tel.battLevel}%", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            uiState.batteryDetails?.let { batt ->
+                                HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 8.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Status: ${batt.health}", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    if (batt.cycleCount >= 0) {
+                                        Text("Siklus: ${batt.cycleCount}x", color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    if (batt.chargeCounterMah > 0) {
+                                        Text("Kapasitas: ${batt.chargeCounterMah} mAh", color = TextSecondary, fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+
+                    // ── Live Hardware Thermal Zones Matrix ─────────────────
+                    if (uiState.thermalZones.isNotEmpty()) {
+                        LynxCard(
+                            title = "MATRIKS SENSOR TERMAL HARDWARE",
+                            icon = Icons.Default.Thermostat,
+                            accentColor = AccentRed
+                        ) {
+                            val zones = uiState.thermalZones.filter { it.tempC in 15f..110f }
+                            val displayZones = zones.take(6)
+                            displayZones.chunked(2).forEach { row ->
+                                Row(
+                                    Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    row.forEach { zone ->
+                                        val tempColor = when {
+                                            zone.tempC >= 60f -> AccentRed
+                                            zone.tempC >= 45f -> AccentOrange
+                                            else -> AccentGreen
+                                        }
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = BgElevated,
+                                            border = BorderStroke(1.dp, tempColor.copy(alpha = 0.35f)),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Row(
+                                                Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(Modifier.weight(1f)) {
+                                                    val cleanType = zone.type
+                                                        .replace("mtkts", "")
+                                                        .replace("tsens_tz_sensor", "sensor")
+                                                        .uppercase()
+                                                    Text(cleanType, color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                                    Text(zone.type, color = TextSecondary.copy(alpha = 0.6f), fontSize = 8.5.sp, maxLines = 1)
+                                                }
+                                                Text(
+                                                    String.format("%.1f°C", zone.tempC),
+                                                    color = tempColor,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.ExtraBold
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                }
+
+
+                // ── TAB 1: SOC TUNER ────────────────────────────────────────
+                1 -> {
+                    // ── CPU Topology & Core Architecture Card ───────────────
+                    if (uiState.clusters.isNotEmpty()) {
+                        LynxCard(
+                            title = "TOPOLOGI CORE & ARSITEKTUR CPU",
+                            icon = Icons.Default.Memory,
+                            accentColor = AccentCyan
+                        ) {
+                            val totalCores = uiState.clusters.sumOf { cluster ->
+                                cluster.cpus.trim().split(Regex("[ ,]+")).filter { it.isNotBlank() }.sumOf { s ->
+                                    if (s.contains("-")) {
+                                        val p = s.split("-")
+                                        val start = p.getOrNull(0)?.toIntOrNull() ?: 0
+                                        val end = p.getOrNull(1)?.toIntOrNull() ?: start
+                                        (end - start + 1).coerceAtLeast(1)
+                                    } else 1
+                                }
+                            }
+                            Text(
+                                "$totalCores Cores Total (${uiState.clusters.size} Hardware Clusters)",
+                                color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                uiState.clusters.forEach { cluster ->
+                                    val isBig = cluster.id > 0
+                                    val clusterCores = cluster.cpus.trim().split(Regex("[ ,]+")).filter { it.isNotBlank() }.sumOf { s ->
+                                        if (s.contains("-")) {
+                                            val p = s.split("-")
+                                            val start = p.getOrNull(0)?.toIntOrNull() ?: 0
+                                            val end = p.getOrNull(1)?.toIntOrNull() ?: start
+                                            (end - start + 1).coerceAtLeast(1)
+                                        } else 1
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = BgElevated,
+                                        border = BorderStroke(1.dp, if (isBig) AccentOrange.copy(alpha = 0.35f) else AccentCyan.copy(alpha = 0.35f)),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Column(Modifier.padding(10.dp)) {
+                                            Row(
+                                                Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("Policy ${cluster.id}", color = TextSecondary, fontSize = 10.5.sp)
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = if (isBig) AccentOrange.copy(alpha = 0.18f) else AccentCyan.copy(alpha = 0.18f)
+                                                ) {
+                                                    Text(
+                                                        if (isBig) "BIG" else "LITTLE",
+                                                        color = if (isBig) AccentOrange else AccentCyan,
+                                                        fontSize = 9.sp, fontWeight = FontWeight.ExtraBold,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(Modifier.height(6.dp))
+                                            Text(
+                                                "$clusterCores Cores",
+                                                color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                "CPU: ${cluster.cpus}",
+                                                color = TextSecondary, fontSize = 10.5.sp
+                                            )
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                "Gov: ${cluster.curGov}",
+                                                color = if (isBig) AccentOrange else AccentCyan,
+                                                fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold
+                                            )
+                                            Text(
+                                                "Max: ${cluster.curMax / 1000} MHz",
+                                                color = TextSecondary, fontSize = 10.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── CPU Cores Dynamic Matrix & Hotplug Card ─────────────
+                    if (uiState.cpuCores.isNotEmpty()) {
+                        LaunchedEffect(Unit) { viewModel.refreshCpuCores() }
+                        LynxCard(
+                            title = "MATRIKS CORE CPU & HOTPLUG",
+                            icon = Icons.Default.Speed,
+                            accentColor = AccentCyan
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    val onlineCount = uiState.cpuCores.count { it.isOnline }
+                                    Text(
+                                        "$onlineCount / ${uiState.cpuCores.size} Cores Aktif",
+                                        color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp
+                                    )
+                                    Text(
+                                        "Kontrol on/off per core untuk uji performa, termal, & daya",
+                                        color = TextSecondary, fontSize = 11.sp
+                                    )
+                                }
+                                Surface(
+                                    onClick = { viewModel.setAllCpuCoresOnline() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = AccentCyan.copy(alpha = 0.15f),
+                                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                                ) {
+                                    Text(
+                                        "Semua Online",
+                                        color = AccentCyan,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+
+                            val cores = uiState.cpuCores
+                            val rows = cores.chunked(2)
+                            rows.forEach { pair ->
+                                Row(
+                                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    pair.forEach { core ->
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = BgElevated,
+                                            border = BorderStroke(
+                                                1.dp,
+                                                if (core.isOnline) AccentCyan.copy(alpha = 0.35f) else BorderGlass
+                                            ),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Row(
+                                                Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(7.dp)
+                                                                .background(
+                                                                    if (core.isOnline) AccentGreen else AccentRed,
+                                                                    shape = CircleShape
+                                                                )
+                                                        )
+                                                        Spacer(Modifier.width(6.dp))
+                                                        Text(
+                                                            "CPU ${core.coreId}",
+                                                            color = TextPrimary,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 12.sp
+                                                        )
+                                                    }
+                                                    Spacer(Modifier.height(2.dp))
+                                                    Text(
+                                                        if (core.isOnline) {
+                                                            if (core.curFreqKhz > 0) "${core.curFreqKhz / 1000} MHz" else "Aktif"
+                                                        } else "Offline",
+                                                        color = if (core.isOnline) AccentCyan else TextSecondary,
+                                                        fontSize = 10.5.sp,
+                                                        fontFamily = FontFamily.Monospace
+                                                    )
+                                                }
+                                                if (core.isSwitchable) {
+                                                    Switch(
+                                                        checked = core.isOnline,
+                                                        onCheckedChange = { viewModel.setCpuCoreOnline(core.coreId, it) },
+                                                        colors = SwitchDefaults.colors(
+                                                            checkedThumbColor = AccentCyan,
+                                                            checkedTrackColor = AccentCyan.copy(alpha = 0.3f),
+                                                            uncheckedThumbColor = TextSecondary,
+                                                            uncheckedTrackColor = BgCard
+                                                        ),
+                                                        modifier = Modifier.scale(0.8f)
+                                                    )
+                                                } else {
+                                                    Text(
+                                                        "Master",
+                                                        color = TextSecondary,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (pair.size == 1) {
+                                        Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    CpuClusterTunerCard(
+                        clusters = uiState.clusters,
+                        governorTunables = uiState.governorTunables,
+                        onFreqChange = { policyId, min, max -> viewModel.setClusterFrequency(policyId, min, max) },
+                        onGovChange = { policyId, gov -> viewModel.setClusterGovernor(policyId, gov) },
+                        onLoadTunables = { policyId, gov -> viewModel.loadGovernorTunables(policyId, gov) },
+                        onTunableChange = { policyId, gov, key, value -> viewModel.setGovernorTunable(policyId, gov, key, value) }
+                    )
+
+                    LynxCard(
+                        title = "OVERCLOCK & THERMAL MITIGATION",
+                        icon = Icons.Default.LocalFireDepartment,
+                        accentColor = AccentRed
+                    ) {
+                        LynxSwitch(
+                            label = "Mode Kernel Overclock (OC)",
+                            subLabel = "Aktifkan batas frekuensi tertinggi tanpa throttling awal",
+                            checked = state.overclock.enabled,
+                            onCheckedChange = { viewModel.setOverclockEnabled(it) },
+                        )
+
+                        var floorValue by remember(state.overclock.cpuFloorRatio) {
+                            mutableFloatStateOf(state.overclock.cpuFloorRatio.toFloat())
+                        }
+                        LynxSlider(
+                            label = "Floor Frekuensi CPU Gaming (Anti-Droop)",
+                            value = floorValue,
+                            onValueChange = { floorValue = it },
+                            onValueChangeFinished = { viewModel.setCpuFloorRatio(floorValue.toInt()) },
+                            valueRange = 60f..100f,
+                            steps = 7,
+                            displayValue = "${floorValue.toInt()}%",
+                            accentColor = AccentOrange
+                        )
+
+                        LynxSwitch(
+                            label = "Full Thermal Bypass (Unrestricted)",
+                            subLabel = "Nonaktifkan pembatasan termal OEM (Phone cooler diwajibkan)",
+                            checked = state.thermal.fullBypass,
+                            onCheckedChange = { viewModel.setThermalBypass(it) },
+                        )
+
+                        var tempLimitValue by remember(state.thermal.customTempLimitC) {
+                            mutableFloatStateOf(state.thermal.customTempLimitC.toFloat())
+                        }
+                        LynxSlider(
+                            label = "Batas Suhu Thermal Custom",
+                            value = tempLimitValue,
+                            onValueChange = { tempLimitValue = it },
+                            onValueChangeFinished = { viewModel.setCustomTempLimit(tempLimitValue.toInt()) },
+                            valueRange = 45f..60f,
+                            steps = 14,
+                            displayValue = "${tempLimitValue.toInt()}°C",
+                            accentColor = AccentRed
+                        )
+
+                        var uclampValue by remember(state.uclamp.gameMinRatio) {
+                            mutableFloatStateOf(state.uclamp.gameMinRatio.toFloat())
+                        }
+                        LynxSlider(
+                            label = "UCLAMP Task Clamping Min (Gaming)",
+                            value = uclampValue,
+                            onValueChange = { uclampValue = it },
+                            onValueChangeFinished = { viewModel.setUclampGameMin(uclampValue.toInt()) },
+                            valueRange = 30f..100f,
+                            steps = 13,
+                            displayValue = "${uclampValue.toInt()}%",
+                            accentColor = AccentCyan
+                        )
+                    }
+
+                    // ── GPU Advanced Control & Live Telemetry Card ──────────
+                    LynxCard(
+                        title = "KONTROL GPU & LIVE TELEMETRI",
+                        icon = Icons.Default.SportsEsports,
+                        accentColor = AccentOrange
+                    ) {
+                        val gpu = uiState.gpuInfo
+                        val isMali = gpu.platform.contains("mali", ignoreCase = true)
+                        val isAdreno = gpu.platform.contains("adreno", ignoreCase = true)
+                        val platLabel = when {
+                            isMali -> "MediaTek Mali GED"
+                            isAdreno -> "Qualcomm Adreno QTI"
+                            else -> "Universal GPU"
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    if (gpu.curFreqMhz > 0) "${gpu.curFreqMhz} MHz" else "GPU Siap Tuning",
+                                    color = AccentOrange, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    "Arsitektur: $platLabel",
+                                    color = TextSecondary, fontSize = 11.sp
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = BgElevated,
+                                border = BorderStroke(1.dp, BorderGlass)
+                            ) {
+                                Text(
+                                    if (gpu.maxFreqMhz > 0) "Maks: ${gpu.maxFreqMhz} MHz" else "Dynamic Clock",
+                                    color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+
+                        // GPU Load bar
+                        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Beban Komputasi GPU", color = TextSecondary, fontSize = 11.sp)
+                                Text("${gpu.gpuLoadPercent}%", color = if (gpu.gpuLoadPercent > 70) AccentRed else AccentOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            LinearProgressIndicator(
+                                progress = { (gpu.gpuLoadPercent / 100f).coerceIn(0f, 1f) },
+                                modifier = Modifier.fillMaxWidth().height(6.dp),
+                                color = if (gpu.gpuLoadPercent > 70) AccentRed else AccentOrange,
+                                trackColor = BgElevated,
+                            )
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            if (isMali) "Tingkat MTK GED / GPU Boost" else "Tingkat Adreno Boost",
+                            color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        val activeBoost = if (isMali) gpu.gedBoostLevel else gpu.adrenoBoostLevel
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                Triple(0, "Mati (0)", "Hemat Daya"),
+                                Triple(1, "Level 1", "Normal Boost"),
+                                Triple(2, "Level 2", "Hardcore Boost")
+                            ).forEach { (lvl, title, sub) ->
+                                val isSelected = activeBoost == lvl
+                                Surface(
+                                    onClick = { viewModel.setGpuBoostLevel(lvl) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSelected) AccentOrange else BorderGlass)
+                                ) {
+                                    Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(title, color = if (isSelected) AccentOrange else TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text(sub, color = TextSecondary, fontSize = 9.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Governor Tunables & Energy Presets Card ─────────────
+                    LynxCard(
+                        title = "TUNING GOVERNOR INTELIGEN (SCHEDUTIL)",
+                        icon = Icons.Default.Tune,
+                        accentColor = AccentCyan
+                    ) {
+                        Text(
+                            "Optimasi waktu respon transisi frekuensi CPU (rate limit). Preset gaming mempercepat kenaikan clock ke frekuensi puncak (0µs ramp-up).",
+                            color = TextSecondary, fontSize = 11.5.sp, lineHeight = 16.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        val currentGovPreset = uiState.activeGovernorPreset
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(
+                                Triple("responsive", "🚀 Responsif", "0µs ramp-up"),
+                                Triple("balanced", "⚖️ Seimbang", "1000µs default"),
+                                Triple("powersave", "🍃 Hemat Daya", "4000µs hemat")
+                            ).forEach { (preset, label, note) ->
+                                val isActive = currentGovPreset == preset
+                                Surface(
+                                    onClick = { viewModel.applyGovernorPreset(preset) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isActive) AccentCyan.copy(alpha = 0.2f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isActive) AccentCyan else BorderGlass)
+                                ) {
+                                    Column(Modifier.padding(horizontal = 6.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(label, color = if (isActive) AccentCyan else TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text(note, color = TextSecondary, fontSize = 9.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+
+                    // ── Display Refresh Rate & Touch Card ───────────────────────
+                    LaunchedEffect(Unit) {
+                        viewModel.refreshDisplayRefreshRate()
+                    }
+                    LynxCard(
+                        title = "DISPLAY REFRESH RATE & TOUCH",
+                        icon = Icons.Default.Smartphone,
+                        accentColor = AccentCyan
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Kecepatan Refresh Layar (Display FPS)", color = TextPrimary,
+                                    fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text("Kunci refresh rate panel untuk pengalaman visual super mulus",
+                                    color = TextSecondary, fontSize = 11.sp)
+                            }
+                            if (uiState.displayRefreshRate > 0) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = AccentCyan.copy(alpha = 0.18f),
+                                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f))
+                                ) {
+                                    Text(
+                                        "${uiState.displayRefreshRate} Hz",
+                                        color = AccentCyan,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Dynamic refresh rate selector chips (Zero-Hardcoding)
+                        val rates = uiState.supportedRefreshRates.ifEmpty { listOf(60, 90, 120) }
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rates.forEach { hz ->
+                                val isSelected = uiState.displayRefreshRate == hz
+                                Surface(
+                                    onClick = { viewModel.setDisplayRefreshRate(hz) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) AccentCyan.copy(alpha = 0.22f) else BgElevated,
+                                    border = BorderStroke(1.5.dp, if (isSelected) AccentCyan else BorderGlass)
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.padding(vertical = 10.dp)
+                                    ) {
+                                        Text(
+                                            "${hz}Hz",
+                                            color = if (isSelected) AccentCyan else TextPrimary,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            fontSize = 13.sp
+                                        )
+                                        Text(
+                                            when (hz) {
+                                                60 -> "Hemat"
+                                                90 -> "Halus"
+                                                120 -> "Gaming"
+                                                144, 165 -> "Ultra"
+                                                else -> "Tersedia"
+                                            },
+                                            color = if (isSelected) AccentCyan.copy(alpha = 0.8f) else TextSecondary,
+                                            fontSize = 9.5.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        LynxSwitch(
+                            label = "TouchBoost & Responsivitas Sentuh",
+                            subLabel = "Prioritaskan sampling rate sentuhan 240Hz+ pada driver input",
+                            checked = state.displayTouch.touchboost,
+                            onCheckedChange = { viewModel.setTouchboost(it) }
+                        )
+                    }
+
+                    // ── GPU Advanced Control Card ──────────────────────────────
+                    val gpu = uiState.gpuInfo
+                    LynxCard(
+                        title = "GPU ADVANCED CONTROL",
+                        icon = Icons.Default.Devices,
+                        accentColor = AccentBlue
+                    ) {
+                        // SoC Architecture Selector (Manual Override)
+                        Text("Hardware SoC Architecture (Engine Profile)", color = TextPrimary, fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 6.dp))
+                        val socOptions = listOf(
+                            Pair("auto", "🤖 Auto AI"),
+                            Pair("qcom", "🐉 Snapdragon"),
+                            Pair("mtk", "⚡ MediaTek"),
+                            Pair("generic", "🐧 Generic GKI")
+                        )
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            socOptions.forEach { (socKey, socLabel) ->
+                                val isSelected = (uiState.socOverride.ifEmpty { "auto" }) == socKey
+                                Surface(
+                                    onClick = { viewModel.setSocOverride(socKey) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) AccentBlue.copy(alpha = 0.22f) else BgElevated,
+                                    border = BorderStroke(1.2.dp, if (isSelected) AccentBlue else BorderGlass)
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 2.dp)
+                                    ) {
+                                        Text(
+                                            socLabel,
+                                            color = if (isSelected) AccentBlue else TextSecondary,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 10.dp))
+
+                        // Platform badge
+                        val platformLabel = when (gpu.platform) {
+                            "adreno"   -> "Adreno (Qualcomm)"
+                            "mali_ged" -> "Mali GED (MediaTek)"
+                            else       -> "Generic GPU"
+                        }
+                        val maxBoost = if (gpu.platform == "mali_ged") 2 else 3
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Platform", color = TextSecondary, fontSize = 12.sp)
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = AccentBlue.copy(alpha = 0.15f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AccentBlue.copy(alpha = 0.4f))
+                            ) {
+                                Text(platformLabel, color = AccentBlue, fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                            }
+                        }
+
+                        if (gpu.platform != "generic") {
+                            // GPU Boost Level selector
+                            val boostLevel = if (gpu.platform == "adreno") gpu.adrenoBoostLevel else gpu.gedBoostLevel
+                            val boostLabels = if (maxBoost == 3)
+                                listOf("Off", "Low", "Medium", "High")
+                            else
+                                listOf("Off", "Medium", "High")
+
+                            Text("GPU Boost Level", color = TextPrimary, fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                boostLabels.forEachIndexed { idx, label ->
+                                    val isActive = boostLevel == idx
+                                    Surface(
+                                        onClick = { viewModel.setGpuBoostLevel(idx) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isActive) AccentBlue.copy(alpha = 0.22f) else BgElevated,
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.5.dp,
+                                            if (isActive) AccentBlue else BorderGlass
+                                        )
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.padding(vertical = 10.dp)
+                                        ) {
+                                            Text(label,
+                                                color = if (isActive) AccentBlue else TextSecondary,
+                                                fontSize = 11.sp, fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal)
+                                            Text("$idx", color = if (isActive) AccentBlue else TextSecondary, fontSize = 10.sp)
+                                        }
+                                    }
+                                }
+                            }
+
+                            // GPU Freq control & status (Adreno & MediaTek Mali)
+                            if (gpu.availFreqsMhz.isNotEmpty()) {
+                                Spacer(Modifier.height(14.dp))
+                                Text("GPU Frequency Range", color = TextPrimary, fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 6.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Min: ${gpu.minFreqMhz} MHz", color = AccentCyan, fontSize = 12.sp)
+                                    Text("Max: ${gpu.maxFreqMhz} MHz", color = AccentOrange, fontSize = 12.sp)
+                                    Text("Now: ${gpu.curFreqMhz} MHz", color = TextSecondary, fontSize = 12.sp)
+                                }
+                                val minRange = gpu.availFreqsMhz.minOrNull()?.toFloat() ?: 0f
+                                val maxRange = gpu.availFreqsMhz.maxOrNull()?.toFloat() ?: 1000f
+                                var gpuMax by remember(gpu.maxFreqMhz) { mutableFloatStateOf(gpu.maxFreqMhz.toFloat()) }
+                                LynxSlider(
+                                    label = "Batas Maksimum GPU",
+                                    value = gpuMax,
+                                    onValueChange = { gpuMax = it },
+                                    onValueChangeFinished = { viewModel.setGpuFreq(null, gpuMax.toInt()) },
+                                    valueRange = minRange..maxRange,
+                                    steps = (gpu.availFreqsMhz.size - 2).coerceAtLeast(0),
+                                    displayValue = "${gpuMax.toInt()} MHz",
+                                    accentColor = AccentBlue
+                                )
+                            }
+                        } else {
+                            Text(
+                                "GPU node tidak terdeteksi di kernel ini. Kontrol GPU tidak tersedia.",
+                                color = TextSecondary, fontSize = 12.sp,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+
+
+                    // ── I/O Scheduler Card ────────────────────────────────────
+                    if (uiState.ioDevices.isNotEmpty()) {
+                        LynxCard(
+                            title = "I/O SCHEDULER MANAGER",
+                            icon = Icons.Default.Storage,
+                            accentColor = AccentPurple
+                        ) {
+                            uiState.ioDevices.forEach { dev ->
+                                Text(
+                                    "/dev/${dev.device}",
+                                    color = AccentPurple, fontWeight = FontWeight.Bold, fontSize = 12.sp,
+                                    modifier = Modifier.padding(top = 10.dp, bottom = 6.dp)
+                                )
+                                // Scheduler chip selector
+                                Text("Scheduler", color = TextSecondary, fontSize = 11.sp,
+                                    modifier = Modifier.padding(bottom = 4.dp))
+                                androidx.compose.foundation.lazy.LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    items(dev.availableSchedulers.size) { i ->
+                                        val sched = dev.availableSchedulers[i]
+                                        val isActive = sched == dev.currentScheduler
+                                        Surface(
+                                            onClick = { viewModel.setIoScheduler(dev.device, sched) },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isActive) AccentPurple.copy(alpha = 0.2f) else BgElevated,
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp, if (isActive) AccentPurple else BorderGlass
+                                            )
+                                        ) {
+                                            Text(sched,
+                                                color = if (isActive) AccentPurple else TextSecondary,
+                                                fontSize = 11.sp, fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+                                        }
+                                    }
+                                }
+
+                                // Read-ahead slider
+                                Spacer(Modifier.height(10.dp))
+                                var raValue by remember(dev.readAheadKb) { mutableFloatStateOf(dev.readAheadKb.toFloat()) }
+                                LynxSlider(
+                                    label = "Read-Ahead Buffer",
+                                    value = raValue,
+                                    onValueChange = { raValue = it },
+                                    onValueChangeFinished = { viewModel.setReadAheadKb(dev.device, raValue.toInt()) },
+                                    valueRange = 128f..4096f,
+                                    steps = 7,
+                                    displayValue = "${raValue.toInt()} KB",
+                                    accentColor = AccentPurple
+                                )
+                                HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(top = 8.dp))
+                            }
+                        }
+                    } // ── end I/O Scheduler if ──
+
+                    // ── Game Mode & Per-App Profiles Card ─────────────────────
+                    LaunchedEffect(Unit) { viewModel.refreshApplistPerf() }
+                    LynxCard(
+                        title = "GAME MODE & PER-APP PROFILES",
+                        icon = Icons.Default.SportsEsports,
+                        accentColor = AccentGreen
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "${uiState.applistPerf.size} Game & Aplikasi Terdaftar",
+                                    color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp
+                                )
+                                Text(
+                                    "AI otomatis beralih ke profil Performa saat game aktif",
+                                    color = TextSecondary, fontSize = 11.sp
+                                )
+                            }
+                            Surface(
+                                onClick = {
+                                    viewModel.refreshInstalledApps()
+                                    showAddAppDialog = true
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                color = AccentGreen.copy(alpha = 0.18f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AccentGreen.copy(alpha = 0.5f))
+                            ) {
+                                Row(
+                                    Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Add, null, tint = AccentGreen, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Tambah", color = AccentGreen, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        // App chips preview
+                        val previewApps = uiState.applistPerf.take(12)
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp)
+                        ) {
+                            items(previewApps.size) { i ->
+                                val pkg = previewApps[i]
+                                val label = pkg.split(".").lastOrNull()?.replaceFirstChar { it.uppercase() } ?: pkg
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = BgElevated,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderGlass)
+                                ) {
+                                    Row(
+                                        Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            label,
+                                            color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Medium
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Icon(
+                                            Icons.Default.Close, "Hapus", tint = TextSecondary,
+                                            modifier = Modifier.size(14.dp).clickable {
+                                                viewModel.removeAppFromPerf(pkg)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (uiState.applistPerf.size > 12) {
+                            Text("+ ${uiState.applistPerf.size - 12} game lainnya terdaftar",
+                                color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(top = 4.dp))
+                        }
+                    }
+
+                    // ── DEEP KERNEL & SYSTEM TUNABLES (Universal Dynamic Scanner & # Parser) ────
+                    var manualNodePath by remember { mutableStateOf("") }
+                    var maxVisibleItems by remember { mutableStateOf(20) }
+                    var deepSearchQuery by remember { mutableStateOf("") }
+
+                    LynxCard(
+                        title = "DEEP KERNEL & SYSTEM TUNABLES",
+                        icon = Icons.Default.Search,
+                        accentColor = AccentCyan
+                    ) {
+                        Text(
+                            "Mesin pemindai adaptif universal. Membaca seluruh file konfigurasi kernel, OEM, CPU, GPU, & ROM. Petunjuk internal (#) dikonversi otomatis menjadi widget interaktif (toggle, slider, dropdown pilihan).",
+                            color = TextSecondary,
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        // Action Bar: Scan button + Auto-Discovery status + Count info
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = { viewModel.runDeepScan() },
+                                enabled = !uiState.isDeepScanning,
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = AccentCyan.copy(alpha = 0.16f),
+                                    contentColor = AccentCyan
+                                ),
+                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f)),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                if (uiState.isDeepScanning) {
+                                    CircularProgressIndicator(
+                                        color = AccentCyan,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Memindai...", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                } else {
+                                    Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(if (uiState.deepTunables.isEmpty()) "Pindai Kernel" else "Pindai Ulang", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                if (uiState.deepTunables.isNotEmpty()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = AccentGreen.copy(alpha = 0.15f),
+                                        border = BorderStroke(1.dp, AccentGreen.copy(alpha = 0.4f))
+                                    ) {
+                                        Text(
+                                            "⚡ Auto-Discovered",
+                                            color = AccentGreen,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = BgElevated,
+                                    border = BorderStroke(1.dp, BorderGlass)
+                                ) {
+                                    Text(
+                                        "${uiState.deepTunables.size} Node",
+                                        color = if (uiState.deepTunables.isNotEmpty()) AccentCyan else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        // Search Filter for Deep Tunables
+                        OutlinedTextField(
+                            value = deepSearchQuery,
+                            onValueChange = { deepSearchQuery = it },
+                            placeholder = { Text("Cari parameter, nama, atau path...", color = TextSecondary, fontSize = 11.5.sp) },
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                            },
+                            trailingIcon = {
+                                if (deepSearchQuery.isNotBlank()) {
+                                    IconButton(onClick = { deepSearchQuery = "" }, modifier = Modifier.size(24.dp)) {
+                                        Icon(Icons.Default.Close, contentDescription = "Clear", tint = TextSecondary, modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                fontSize = 12.sp,
+                                color = TextPrimary
+                            ),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AccentCyan,
+                                unfocusedBorderColor = BorderGlass,
+                                focusedContainerColor = BgElevated,
+                                unfocusedContainerColor = BgElevated
+                            )
+                        )
+
+                        // Category Filter Chips
+                        val categories = listOf("ALL", "CPU", "GPU", "MEM", "IO", "PWR", "DISP")
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                        ) {
+                            items(categories.size) { i ->
+                                val cat = categories[i]
+                                val isSelected = uiState.selectedDeepCategory.equals(cat, ignoreCase = true)
+                                Surface(
+                                    onClick = { viewModel.filterDeepCategory(cat) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) AccentCyan.copy(alpha = 0.2f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSelected) AccentCyan else BorderGlass)
+                                ) {
+                                    Text(
+                                        cat,
+                                        color = if (isSelected) AccentCyan else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Manual Node Inspector Input
+                        Text("Inspeksi Node Kustom:", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = manualNodePath,
+                                onValueChange = { manualNodePath = it },
+                                placeholder = { Text("/proc/ppm/policy_status atau /sys/...", color = TextSecondary, fontSize = 11.sp) },
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    color = TextPrimary
+                                ),
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = AccentCyan,
+                                    unfocusedBorderColor = BorderGlass,
+                                    focusedContainerColor = Color(0xFF0A0C12),
+                                    unfocusedContainerColor = Color(0xFF0A0C12)
+                                )
+                            )
+
+                            Button(
+                                onClick = {
+                                    if (manualNodePath.isNotBlank()) {
+                                        viewModel.inspectManualNode(manualNodePath.trim())
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = AccentBlue.copy(alpha = 0.2f),
+                                    contentColor = AccentBlue
+                                ),
+                                border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.4f)),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+                            ) {
+                                Text("Inspeksi", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        // Inspected Node Card (if available)
+                        uiState.manualInspectResult?.let { inspected ->
+                            Spacer(Modifier.height(10.dp))
+                            Text("HASIL INSPEKSI MANUAL:", color = AccentBlue, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(4.dp))
+                            DeepTunableItemCard(
+                                tunable = inspected,
+                                onApply = { path, value -> viewModel.applyDeepTunable(path, value) }
+                            )
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // Filtered Deep Tunables List
+                        val filteredTunables = remember(uiState.deepTunables, uiState.selectedDeepCategory) {
+                            val sel = uiState.selectedDeepCategory.uppercase()
+                            if (sel == "ALL" || sel.isBlank()) {
+                                uiState.deepTunables
+                            } else {
+                                uiState.deepTunables.filter { tunable ->
+                                    when (sel) {
+                                        "CPU"  -> tunable.category.contains("CPU", ignoreCase = true)
+                                        "GPU"  -> tunable.category.contains("GPU", ignoreCase = true)
+                                        "MEM"  -> tunable.category.contains("Mem", ignoreCase = true) || tunable.category.contains("VM", ignoreCase = true)
+                                        "IO"   -> tunable.category.contains("Storage", ignoreCase = true) || tunable.category.contains("I/O", ignoreCase = true)
+                                        "PWR"  -> tunable.category.contains("Power", ignoreCase = true) || tunable.category.contains("Thermal", ignoreCase = true)
+                                        "DISP" -> tunable.category.contains("Display", ignoreCase = true) || tunable.category.contains("Touch", ignoreCase = true)
+                                        else   -> tunable.category.contains(sel, ignoreCase = true)
+                                    }
+                                }
+                            }
+                        }
+
+                        val displayedTunables = remember(filteredTunables, deepSearchQuery) {
+                            if (deepSearchQuery.isBlank()) {
+                                filteredTunables
+                            } else {
+                                val q = deepSearchQuery.trim().lowercase()
+                                filteredTunables.filter { t ->
+                                    t.name.lowercase().contains(q) ||
+                                    t.desc.lowercase().contains(q) ||
+                                    t.category.lowercase().contains(q) ||
+                                    t.path.lowercase().contains(q) ||
+                                    t.help.lowercase().contains(q) ||
+                                    t.rawName.lowercase().contains(q)
+                                }
+                            }
+                        }
+
+                        if (displayedTunables.isEmpty()) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = BgElevated,
+                                border = BorderStroke(1.dp, BorderGlass)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        if (uiState.isDeepScanning) "Sedang menganalisis seluruh sysfs & procfs..."
+                                        else if (deepSearchQuery.isNotBlank()) "Tidak ditemukan parameter yang cocok dengan \"$deepSearchQuery\"."
+                                        else "Belum ada node yang dipindai. Ketuk 'Pindai Kernel' di atas untuk memulai.",
+                                        color = TextSecondary,
+                                        fontSize = 11.5.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            val itemsToShow = displayedTunables.take(maxVisibleItems)
+                            itemsToShow.forEach { tunable ->
+                                DeepTunableItemCard(
+                                    tunable = tunable,
+                                    onApply = { path, value -> viewModel.applyDeepTunable(path, value) }
+                                )
+                                Spacer(Modifier.height(8.dp))
+                            }
+
+                            if (displayedTunables.size > maxVisibleItems) {
+                                Button(
+                                    onClick = { maxVisibleItems += 30 },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = BgElevated,
+                                        contentColor = AccentCyan
+                                    ),
+                                    border = BorderStroke(1.dp, BorderGlass)
+                                ) {
+                                    Text("Muat Lebih Banyak (${displayedTunables.size - maxVisibleItems} tersisa)", fontSize = 11.5.sp)
+                                }
+                            }
+                        }
+                    }
+
+                } // ── end Tab 1 (1 -> {) ──
+
+                // ── TAB 2: LYNX DEITY ENGINE ────────────────────────────────
+                2 -> {
+                    if (!uiState.isModuleInstalled) {
+                        StandaloneModuleBanner(
+                            onInstallModule = {
+                                viewModel.installLynxModule("/data/local/tmp/Lynx.zip")
+                            }
+                        )
+                    }
+
+                    LynxCard(
+                        title = "MEMORY & SWAPPINESS CACHE",
+                        icon = Icons.Default.Storage,
+                        accentColor = AccentBlue
+                    ) {
+                        // Dynamic ZRAM Compression Algorithm Selection
+                        Text(
+                            "Algoritma Kompresi ZRAM (Kernel Swap)",
+                            color = TextPrimary, fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        val algos = uiState.availZramCompAlgorithms.ifEmpty { listOf("lz4", "lzo", "zstd") }
+                        val activeAlgo = uiState.zramCompAlgorithm.ifBlank { "lz4" }
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            algos.forEach { algo ->
+                                val isSelected = algo == activeAlgo
+                                Surface(
+                                    onClick = { viewModel.setZramCompAlgorithm(algo) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) AccentBlue.copy(alpha = 0.22f) else BgElevated,
+                                    border = BorderStroke(1.2.dp, if (isSelected) AccentBlue else BorderGlass)
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.padding(vertical = 8.dp)
+                                    ) {
+                                        Text(
+                                            algo.uppercase(),
+                                            color = if (isSelected) AccentBlue else TextPrimary,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                        Text(
+                                            when (algo) {
+                                                "zstd" -> "Rasio Max"
+                                                "lz4" -> "Cepat"
+                                                "lz4hc" -> "Optimal"
+                                                "lzo-rle" -> "Hemat"
+                                                else -> "Kompresi"
+                                            },
+                                            color = if (isSelected) AccentBlue.copy(alpha = 0.8f) else TextSecondary,
+                                            fontSize = 9.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        val ramTotal = (uiState.telemetry?.ramTotalMb ?: 4096).toFloat()
+                        val minZram = 512f
+                        val maxZram = maxOf(4096f, ramTotal)
+                        val zramSteps = (((maxZram - minZram) / 512f).toInt() - 1).coerceAtLeast(0)
+
+                        var zramValue by remember(state.memory.zramSizeMb) {
+                            mutableFloatStateOf(state.memory.zramSizeMb.toFloat().coerceIn(minZram, maxZram))
+                        }
+                        LynxSlider(
+                            label = "Ukuran Alokasi ZRAM (Skala RAM Fisik: ${ramTotal.toInt()} MB)",
+                            value = zramValue,
+                            onValueChange = { zramValue = it },
+                            onValueChangeFinished = { viewModel.setZramSizeMb(zramValue.toInt()) },
+                            valueRange = minZram..maxZram,
+                            steps = zramSteps,
+                            displayValue = "${zramValue.toInt()} MB",
+                            accentColor = AccentBlue
+                        )
+
+                        var swapValue by remember(state.memory.swappiness) {
+                            mutableFloatStateOf(state.memory.swappiness.toFloat())
+                        }
+                        LynxSlider(
+                            label = "Virtual Memory Swappiness",
+                            value = swapValue,
+                            onValueChange = { swapValue = it },
+                            onValueChangeFinished = { viewModel.setSwappiness(swapValue.toInt()) },
+                            valueRange = 0f..200f,
+                            steps = 19,
+                            displayValue = "${swapValue.toInt()}",
+                            accentColor = AccentBlue
+                        )
+
+                        var dirtyValue by remember(uiState.dirtyRatio) {
+                            mutableFloatStateOf(uiState.dirtyRatio.toFloat())
+                        }
+                        LynxSlider(
+                            label = "VM Dirty Ratio",
+                            value = dirtyValue,
+                            onValueChange = { dirtyValue = it },
+                            onValueChangeFinished = { viewModel.setDirtyRatio(dirtyValue.toInt()) },
+                            valueRange = 5f..60f,
+                            steps = 10,
+                            displayValue = "${dirtyValue.toInt()}%",
+                            accentColor = AccentBlue
+                        )
+
+                        var vfsValue by remember(uiState.vfsCachePressure) {
+                            mutableFloatStateOf(uiState.vfsCachePressure.toFloat())
+                        }
+                        LynxSlider(
+                            label = "VFS Cache Pressure",
+                            value = vfsValue,
+                            onValueChange = { vfsValue = it },
+                            onValueChangeFinished = { viewModel.setVfsCachePressure(vfsValue.toInt()) },
+                            valueRange = 50f..200f,
+                            steps = 14,
+                            displayValue = "${vfsValue.toInt()}",
+                            accentColor = AccentBlue
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+                        LynxActionButton(
+                            text = "Bebaskan Cache RAM (Drop Caches)",
+                            icon = Icons.Default.CleaningServices,
+                            onClick = { viewModel.dropCaches() },
+                            accentColor = AccentCyan,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+
+                    LynxCard(
+                        title = "CHARGING CONTROLLER & BYPASS",
+                        icon = Icons.Default.BatteryChargingFull,
+                        accentColor = AccentCyan
+                    ) {
+                        LynxSwitch(
+                            label = "Bypass Charging (Direct Motherboard)",
+                            subLabel = "Arus langsung mengalir ke board tanpa mengisi baterai saat gaming",
+                            checked = state.charging.bypassEnabled,
+                            onCheckedChange = { viewModel.setBypassCharging(it) },
+                        )
+
+                        var tempCutoffValue by remember(state.charging.tempCutoffC) {
+                            mutableFloatStateOf(state.charging.tempCutoffC.toFloat())
+                        }
+                        LynxSlider(
+                            label = "Batas Suhu Thermal AutoCut",
+                            value = tempCutoffValue,
+                            onValueChange = { tempCutoffValue = it },
+                            onValueChangeFinished = { viewModel.setTempCutoff(tempCutoffValue.toInt()) },
+                            valueRange = 40f..50f,
+                            steps = 9,
+                            displayValue = "${tempCutoffValue.toInt()}°C",
+                            accentColor = AccentOrange
+                        )
+
+                        var currentLimitValue by remember(state.charging.limitCurrentMa) {
+                            mutableFloatStateOf(state.charging.limitCurrentMa.toFloat())
+                        }
+                        LynxSlider(
+                            label = "Batas Arus Pengisian Game",
+                            value = currentLimitValue,
+                            onValueChange = { currentLimitValue = it },
+                            onValueChangeFinished = { viewModel.setChargeCurrentLimit(currentLimitValue.toInt()) },
+                            valueRange = 500f..3500f,
+                            steps = 11,
+                            displayValue = "${currentLimitValue.toInt()} mA",
+                            accentColor = AccentCyan
+                        )
+
+                        var maxBatteryValue by remember(state.charging.maxBatteryPercent) {
+                            mutableFloatStateOf(state.charging.maxBatteryPercent.toFloat())
+                        }
+                        LynxSlider(
+                            label = "Batas Pengisian Baterai (Stop-At-%)",
+                            value = maxBatteryValue,
+                            onValueChange = { maxBatteryValue = it },
+                            onValueChangeFinished = { viewModel.setMaxBatteryPercent(maxBatteryValue.toInt()) },
+                            valueRange = 70f..95f,
+                            steps = 4,
+                            displayValue = "${maxBatteryValue.toInt()}%",
+                            accentColor = AccentCyan
+                        )
+                    }
+
+                    LynxCard(
+                        title = "SUBSYSTEM & OEM NEUTRALIZER",
+                        icon = Icons.Default.Shield,
+                        accentColor = AccentPurple
+                    ) {
+                        LynxSwitch(
+                            label = "Wi-Fi Ping Stabilizer & FQ-CoDel",
+                            subLabel = "Mengurangi bufferbloat dan jitter koneksi game",
+                            checked = state.network.wifiPingStabilizer,
+                            onCheckedChange = { viewModel.setWifiPingStabilizer(it) },
+                        )
+                        LynxSwitch(
+                            label = "TouchBoost & Lock Refresh Rate",
+                            subLabel = "Kunci respon sentuhan layar pada tingkat tertinggi",
+                            checked = state.displayTouch.touchboost,
+                            onCheckedChange = { viewModel.setTouchboost(it) },
+                        )
+                        LynxSwitch(
+                            label = "Low-Latency Audio MMAP",
+                            subLabel = "Bypass mixer audio Android untuk latensi terendah",
+                            checked = state.audio.lowLatencyMmap,
+                            onCheckedChange = { viewModel.setAudioMmap(it) },
+                        )
+                        LynxSwitch(
+                            label = "Netralkan Joyose / GOS Throttling",
+                            subLabel = "Hentikan pembatasan performa buatan dari OEM",
+                            checked = state.oemNeutralizer.joyoseNeutralize,
+                            onCheckedChange = { viewModel.setJoyoseNeutralize(it) },
+                        )
+                    }
+
+                    // ── TCP Congestion Control Card ──────────────────────────
+                    LaunchedEffect(Unit) { viewModel.refreshTcpAlgorithms() }
+                    LynxCard(
+                        title = "TCP CONGESTION CONTROL",
+                        icon = Icons.Default.NetworkCheck,
+                        accentColor = AccentCyan
+                    ) {
+                        Text(
+                            "Algoritma kontrol kongesti TCP/IP aktif mempengaruhi latensi, throughput, dan stabilitas koneksi game online.",
+                            color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+                        val currentAlg = state.network.tcpCongestion
+                        val algs = uiState.availableTcpAlgorithms.ifEmpty { listOf("bbr", "cubic", "westwood", "reno") }
+                        // Algorithm chip grid
+                        val algInfo = mapOf(
+                            "bbr"      to Pair("🎮 BBR", "Google — Gaming & Low Latency"),
+                            "cubic"    to Pair("📶 CUBIC", "Linux Default — Balanced"),
+                            "westwood" to Pair("📡 Westwood", "WiFi Optimized"),
+                            "reno"     to Pair("🔁 RENO", "Classic & Stable"),
+                        )
+                        algs.chunked(2).forEach { row ->
+                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                row.forEach { alg ->
+                                    val isActive = alg == currentAlg
+                                    val info = algInfo[alg]
+                                    Surface(
+                                        onClick = { viewModel.setTcpCongestion(alg) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isActive) AccentCyan.copy(alpha = 0.16f) else BgElevated,
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.5.dp, if (isActive) AccentCyan else BorderGlass
+                                        )
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Text(info?.first ?: alg.uppercase(),
+                                                color = if (isActive) AccentCyan else TextPrimary,
+                                                fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            if (info != null) {
+                                                Text(info.second, color = TextSecondary, fontSize = 10.sp,
+                                                    lineHeight = 14.sp)
+                                            }
+                                            if (isActive) {
+                                                Spacer(Modifier.height(4.dp))
+                                                Surface(shape = RoundedCornerShape(4.dp),
+                                                    color = AccentCyan.copy(alpha = 0.2f)) {
+                                                    Text("● Aktif", color = AccentCyan, fontSize = 9.sp,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                // fill last cell if odd
+                                if (row.size == 1) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+
+                    // ── KSM (Kernel Same-page Merging) Card ──────────────────
+                    LaunchedEffect(Unit) { viewModel.refreshKsmStats() }
+                    val ksm = uiState.ksmStats
+                    LynxCard(
+                        title = "KSM — KERNEL MEMORY MERGING",
+                        icon = Icons.Default.Memory,
+                        accentColor = AccentBlue
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Kernel Same-page Merging", color = TextPrimary,
+                                    fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text("Gabung halaman memori identik, hemat ${String.format("%.1f", ksm.savedMb)} MB RAM",
+                                    color = TextSecondary, fontSize = 11.sp)
+                            }
+                            Switch(
+                                checked = ksm.enabled,
+                                onCheckedChange = { viewModel.setKsmEnabled(it) },
+                                colors = SwitchDefaults.colors(checkedThumbColor = AccentBlue,
+                                    checkedTrackColor = AccentBlue.copy(alpha = 0.4f))
+                            )
+                        }
+                        if (ksm.enabled) {
+                            Spacer(Modifier.height(10.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("${ksm.pagesSharing}", color = AccentBlue,
+                                        fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text("Halaman Sharing", color = TextSecondary, fontSize = 10.sp)
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("${ksm.pagesShared}", color = AccentCyan,
+                                        fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text("Halaman Shared", color = TextSecondary, fontSize = 10.sp)
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(String.format("%.1f MB", ksm.savedMb), color = AccentOrange,
+                                        fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text("RAM Hemat", color = TextSecondary, fontSize = 10.sp)
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            var scanValue by remember(ksm.pagesToScan) { mutableFloatStateOf(ksm.pagesToScan.toFloat()) }
+                            LynxSlider(
+                                label = "Pages to Scan per Cycle",
+                                value = scanValue,
+                                onValueChange = { scanValue = it },
+                                onValueChangeFinished = { viewModel.setKsmTunables(scanValue.toInt(), ksm.sleepMs) },
+                                valueRange = 50f..500f,
+                                steps = 8,
+                                displayValue = "${scanValue.toInt()} pages",
+                                accentColor = AccentBlue
+                            )
+                        }
+                    }
+
+                    // ── LMK Minfree Preset Card ──────────────────────────────
+                    LynxCard(
+                        title = "LMK — LOW MEMORY KILLER",
+                        icon = Icons.Default.DeleteSweep,
+                        accentColor = AccentOrange
+                    ) {
+                        Text(
+                            "Atur seberapa agresif sistem Android mengakhiri aplikasi latar belakang untuk membebaskan RAM.",
+                            color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+                        val lmkPresets = listOf(
+                            Triple("conservative", "🛡️ Conservative", "Simpan lebih banyak app di RAM"),
+                            Triple("balanced",     "⚖️ Balanced",     "Standar harian — default Android"),
+                            Triple("gaming",       "🎮 Gaming",       "Prioritaskan game aktif"),
+                            Triple("aggressive",   "⚡ Aggressive",   "Kill agresif, maksimalkan RAM bebas"),
+                        )
+                        lmkPresets.forEach { (id, label, desc) ->
+                            Surface(
+                                onClick = { viewModel.applyLmkPreset(id) },
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = BgElevated,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, BorderGlass)
+                            ) {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(label, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                        Text(desc, color = TextSecondary, fontSize = 11.sp)
+                                    }
+                                    Icon(Icons.Default.ChevronRight, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                        Text(
+                            "⚠️ LMK Kernel hanya efektif pada Android 10 ke bawah. Android 11+ menggunakan LMKD userspace.",
+                            color = TextSecondary.copy(alpha = 0.7f), fontSize = 10.sp, lineHeight = 14.sp
+                        )
+                    }
+                }
+
+                // ── TAB 3: TOOLS & FLASHER ──────────────────────────────────
+                3 -> {
+                    FlasherCard(
+                        isFlashing = uiState.isFlashing,
+                        flashLog = uiState.flashLog,
+                        onFlash = { viewModel.flashKernel(it) }
+                    )
+
+                    BootBackupCard(
+                        backups = uiState.backups,
+                        isBackingUp = uiState.isBackingUp,
+                        onBackup = { viewModel.backupBoot() },
+                        onRestore = { viewModel.restoreBoot(it) }
+                    )
+
+                    LynxCard(
+                        title = "PEMELIHARAAN & DIAGNOSTIK 1-KLIK",
+                        icon = Icons.Default.Build,
+                        accentColor = AccentCyan
+                    ) {
+                        LynxActionButton(
+                            text = "Optimasi SQLite & FSTRIM Storage",
+                            icon = Icons.Default.Storage,
+                            onClick = { viewModel.runMaintenance() },
+                            isLoading = uiState.maintenanceRunning,
+                            accentColor = AccentCyan,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+                        LynxActionButton(
+                            text = "Jalankan CCleaner (Memory Purge)",
+                            icon = Icons.Default.Speed,
+                            onClick = { viewModel.runCCleaner() },
+                            accentColor = AccentBlue,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+                        LynxActionButton(
+                            text = "Ekspor Laporan Diagnostik 1-Klik (.ZIP)",
+                            icon = Icons.Default.Build,
+                            onClick = { viewModel.exportBugReport() },
+                            isLoading = uiState.exportRunning,
+                            accentColor = AccentOrange
+                        )
+                    }
+
+                    // ── SELinux & Kernel Printk Logging Card ───────────────────
+                    LynxCard(
+                        title = "SELINUX & KERNEL PRINTK LOGGING",
+                        icon = Icons.Default.Security,
+                        accentColor = AccentCyan
+                    ) {
+                        val isEnforcing = uiState.selinuxMode.equals("Enforcing", ignoreCase = true)
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Status Mode SELinux", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text(
+                                    if (isEnforcing) "Perlindungan keamanan kernel aktif (Enforcing)" else "Mode Permissive aktif (Debugging / Modifikasi)",
+                                    color = TextSecondary, fontSize = 11.sp
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isEnforcing) AccentCyan.copy(alpha = 0.18f) else AccentOrange.copy(alpha = 0.18f),
+                                border = BorderStroke(1.dp, if (isEnforcing) AccentCyan else AccentOrange)
+                            ) {
+                                Text(
+                                    uiState.selinuxMode.uppercase(),
+                                    color = if (isEnforcing) AccentCyan else AccentOrange,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { viewModel.setSelinuxMode(true) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isEnforcing) AccentCyan else BgElevated
+                                ),
+                                border = BorderStroke(1.dp, if (isEnforcing) AccentCyan else BorderGlass)
+                            ) {
+                                Text("Enforcing", color = if (isEnforcing) Color.Black else TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = { viewModel.setSelinuxMode(false) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (!isEnforcing) AccentOrange else BgElevated
+                                ),
+                                border = BorderStroke(1.dp, if (!isEnforcing) AccentOrange else BorderGlass)
+                            ) {
+                                Text("Permissive", color = if (!isEnforcing) Color.Black else TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 10.dp))
+
+                        LynxSwitch(
+                            label = "Kernel Printk Silent Mode (Zero Overhead)",
+                            subLabel = "Nonaktifkan pencatatan dmesg di background untuk mencegah micro-stutter saat gaming",
+                            checked = uiState.isPrintkSilent,
+                            onCheckedChange = { viewModel.setPrintkSilent(it) }
+                        )
+                    }
+
+                    // ── Wake Guard: Universal Kernel Wakelock Inspector ────────
+                    LynxCard(
+                        title = "WAKE GUARD — MONITOR WAKELOCK",
+                        icon = Icons.Default.Bedtime,
+                        accentColor = AccentBlue
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Kernel Wake Sources", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text("Deteksi driver yang mencegah CPU deep sleep", color = TextSecondary, fontSize = 11.sp)
+                            }
+                            Surface(
+                                onClick = { viewModel.refreshWakelocks() },
+                                shape = RoundedCornerShape(8.dp),
+                                color = AccentBlue.copy(alpha = 0.18f),
+                                border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.4f))
+                            ) {
+                                Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Refresh, null, tint = AccentBlue, modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Pindai", color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        if (uiState.topWakelocks.isNotEmpty()) {
+                            uiState.topWakelocks.take(6).forEach { wl ->
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = BgElevated,
+                                    border = BorderStroke(1.dp, BorderGlass),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                                ) {
+                                    Row(
+                                        Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(wl.name, color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text("${wl.activeCount}x bangun", color = AccentCyan, fontSize = 10.5.sp)
+                                            if (wl.preventSuspendMs > 0) {
+                                                Spacer(Modifier.width(8.dp))
+                                                Text("${wl.preventSuspendMs}ms", color = AccentOrange, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            Text(
+                                "Ketuk tombol 'Pindai' di atas untuk memindai wakelock aktif sistem.",
+                                color = TextSecondary, fontSize = 11.sp, modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    // ── Custom Sysfs Rules & Boot Tweaks Card ───────────────────
+                    LaunchedEffect(Unit) { viewModel.loadCustomRules() }
+
+                    var customScriptText by remember(uiState.customRulesScript) {
+                        mutableStateOf(uiState.customRulesScript)
+                    }
+                    LynxCard(
+                        title = "CUSTOM SYSFS RULES & BOOT TWEAKS",
+                        icon = Icons.Default.Terminal,
+                        accentColor = AccentOrange
+                    ) {
+                        Text(
+                            "Tulis perintah sysfs atau shell kustom Anda sendiri. Skrip disimpan di /data/adb/modules/Lynx/custom_rules.sh dan dieksekusi otomatis saat boot oleh service.sh.",
+                            color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+
+                        // Quick snippet chips
+                        Text("Templat Cepat:", color = AccentOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 6.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                        ) {
+                            val snippets = listOf(
+                                "+ TCP FastOpen" to "\necho 3 > /proc/sys/net/ipv4/tcp_fastopen",
+                                "+ Drop Caches" to "\necho 3 > /proc/sys/vm/drop_caches",
+                                "+ Compact Memory" to "\necho 1 > /proc/sys/vm/compact_memory",
+                                "+ Sched Migration" to "\necho 32 > /proc/sys/kernel/sched_nr_migrate",
+                            )
+                            items(snippets.size) { i ->
+                                val (title, code) = snippets[i]
+                                Surface(
+                                    onClick = { customScriptText += code },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = BgElevated,
+                                    border = BorderStroke(1.dp, BorderGlass)
+                                ) {
+                                    Text(
+                                        title,
+                                        color = AccentOrange,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = customScriptText,
+                            onValueChange = { customScriptText = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 130.dp, max = 240.dp),
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.5.sp,
+                                color = TextPrimary
+                            ),
+                            placeholder = { Text("# Tulis skrip shell Anda disini...", color = TextSecondary, fontSize = 11.sp) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AccentOrange,
+                                unfocusedBorderColor = BorderGlass,
+                                focusedContainerColor = Color(0xFF0A0C12),
+                                unfocusedContainerColor = Color(0xFF0A0C12),
+                            )
+                        )
+
+                        Spacer(Modifier.height(10.dp))
+
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = { viewModel.saveCustomRules(customScriptText) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentOrange)
+                            ) {
+                                Icon(Icons.Default.Save, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Simpan Skrip", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = {
+                                    viewModel.saveCustomRules(customScriptText)
+                                    viewModel.executeCustomRules()
+                                },
+                                enabled = !uiState.customRulesRunning,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                            ) {
+                                if (uiState.customRulesRunning) {
+                                    CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Jalankan (Root)", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        uiState.customRulesOutput?.let { out ->
+                            Spacer(Modifier.height(10.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFF08090D),
+                                border = BorderStroke(1.dp, BorderGlass),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(Modifier.padding(10.dp)) {
+                                    Text("LOG EKSEKUSI TERAKHIR:", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        out,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp,
+                                        color = TextSecondary,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Dynamic Hardware Thermal Zones Card ────────────────────
+                    LaunchedEffect(Unit) { viewModel.refreshThermalZones() }
+                    if (uiState.thermalZones.isNotEmpty()) {
+                        LynxCard(
+                            title = "MONITOR SENSOR THERMAL HARDWARE",
+                            icon = Icons.Default.Thermostat,
+                            accentColor = AccentRed
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "${uiState.thermalZones.size} Sensor Thermal Hardware Aktif",
+                                    color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp
+                                )
+                                IconButton(onClick = { viewModel.refreshThermalZones() }) {
+                                    Icon(Icons.Default.Refresh, "Refresh", tint = AccentRed, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                            val chunkedZones = uiState.thermalZones.chunked(2)
+                            chunkedZones.forEach { row ->
+                                Row(
+                                    Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    row.forEach { tz ->
+                                        val tempColor = when {
+                                            tz.tempC >= 60f -> AccentRed
+                                            tz.tempC >= 45f -> AccentOrange
+                                            else -> AccentCyan
+                                        }
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = BgElevated,
+                                            border = BorderStroke(1.dp, BorderGlass),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Row(
+                                                Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(
+                                                        tz.type.take(16),
+                                                        color = TextPrimary,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        maxLines = 1
+                                                    )
+                                                    Text("Zone ${tz.id}", color = TextSecondary, fontSize = 9.sp)
+                                                }
+                                                Text(
+                                                    "${String.format("%.1f", tz.tempC)}°C",
+                                                    color = tempColor,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Wakelock & Deep Sleep Monitor Card ─────────────────────
+                    LaunchedEffect(Unit) { viewModel.refreshWakelocks() }
+                    LynxCard(
+                        title = "WAKELOCK & DEEP SLEEP MONITOR",
+                        icon = Icons.Default.Bedtime,
+                        accentColor = AccentPurple
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                val count = uiState.wakelocks.size
+                                Text(
+                                    if (count == 0) "Status: Deep Sleep Aktif (0 Wakelock)" else "$count Wakelock Aktif Terdeteksi",
+                                    color = if (count == 0) AccentCyan else AccentOrange,
+                                    fontWeight = FontWeight.Bold, fontSize = 13.sp
+                                )
+                                Text(
+                                    "Wakelock aktif mencegah CPU masuk ke status Deep Sleep (hemat baterai)",
+                                    color = TextSecondary, fontSize = 11.sp
+                                )
+                            }
+                            IconButton(onClick = { viewModel.refreshWakelocks() }) {
+                                Icon(Icons.Default.Refresh, "Refresh", tint = AccentPurple, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        if (uiState.wakelocks.isEmpty()) {
+                            Text(
+                                "Tidak ada partial wakelock yang menahan CPU saat ini. Deep sleep berfungsi optimal.",
+                                color = AccentCyan, fontSize = 11.5.sp, modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        } else {
+                            uiState.wakelocks.take(6).forEach { wl ->
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = BgElevated,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderGlass),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                                ) {
+                                    Text(
+                                        wl, color = TextPrimary, fontSize = 11.sp,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Kernel Capability Matrix & Hardware Node Inspector Card ──
+                    LaunchedEffect(Unit) {
+                        if (uiState.capabilityReport == null) {
+                            viewModel.scanKernelCapabilities()
+                        }
+                    }
+                    val capReport = uiState.capabilityReport
+                    LynxCard(
+                        title = "KERNEL CAPABILITY MATRIX & NODE INSPECTOR",
+                        icon = Icons.Default.CheckCircle,
+                        accentColor = AccentGreen
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                val score = capReport?.scorePercent ?: 0
+                                Text(
+                                    "Skor Kompatibilitas Kernel: $score%",
+                                    color = if (score >= 70) AccentGreen else AccentOrange,
+                                    fontWeight = FontWeight.Bold, fontSize = 13.sp
+                                )
+                                Text(
+                                    capReport?.kernelRelease?.take(36) ?: "Memindai kernel...",
+                                    color = TextSecondary, fontSize = 11.sp, maxLines = 1
+                                )
+                            }
+                            IconButton(onClick = { viewModel.scanKernelCapabilities() }) {
+                                Icon(Icons.Default.Refresh, "Rescan", tint = AccentGreen, modifier = Modifier.size(20.dp))
+                            }
+                        }
+
+                        if (capReport == null) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(color = AccentGreen, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Memeriksa 9 subsistem hardware...", color = TextSecondary, fontSize = 12.sp)
+                            }
+                        } else {
+                            capReport.items.forEach { cap ->
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = BgElevated,
+                                    border = BorderStroke(1.dp, BorderGlass),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                                ) {
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    cap.title,
+                                                    color = TextPrimary,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    fontSize = 12.sp
+                                                )
+                                                Spacer(Modifier.width(6.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = if (cap.isSupported) AccentGreen.copy(alpha = 0.18f) else Color.Red.copy(alpha = 0.12f),
+                                                    border = BorderStroke(1.dp, if (cap.isSupported) AccentGreen.copy(alpha = 0.5f) else Color.Red.copy(alpha = 0.3f))
+                                                ) {
+                                                    Text(
+                                                        if (cap.isSupported) "SUPPORTED" else "UNAVAILABLE",
+                                                        color = if (cap.isSupported) AccentGreen else Color.Red.copy(alpha = 0.8f),
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                cap.detail,
+                                                color = TextSecondary,
+                                                fontSize = 10.5.sp,
+                                                lineHeight = 14.sp,
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(28.dp))
+        }
+    }
+}
+
+// ============================================================
+//  DeepTunableItemCard — Adaptive Sysfs Node Control with # Docs
+// ============================================================
+
+@Composable
+private fun DeepTunableItemCard(
+    tunable: DeepTunable,
+    onApply: (String, String) -> Unit
+) {
+    var editValue by remember(tunable.value) { mutableStateOf(tunable.value) }
+    var sliderValue by remember(tunable.value, tunable.min, tunable.max) {
+        val fVal = tunable.value.toFloatOrNull() ?: tunable.min
+        mutableStateOf(fVal.coerceIn(tunable.min, tunable.max))
+    }
+    var showPathDetails by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = BgElevated,
+        border = BorderStroke(1.dp, BorderGlass)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // 1. Header: Name + Category + RW status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        tunable.name,
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (tunable.rawName.isNotBlank() && tunable.rawName != tunable.name) {
+                        Text(
+                            tunable.rawName,
+                            color = TextTertiary,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = when {
+                            tunable.category.contains("CPU", true) -> AccentCyan.copy(alpha = 0.15f)
+                            tunable.category.contains("GPU", true) -> AccentPurple.copy(alpha = 0.15f)
+                            tunable.category.contains("Memory", true) || tunable.category.contains("VM", true) -> AccentBlue.copy(alpha = 0.15f)
+                            tunable.category.contains("Storage", true) || tunable.category.contains("I/O", true) -> AccentOrange.copy(alpha = 0.15f)
+                            tunable.category.contains("Power", true) || tunable.category.contains("Thermal", true) -> AccentGreen.copy(alpha = 0.15f)
+                            else -> AccentCyan.copy(alpha = 0.15f)
+                        },
+                        border = BorderStroke(1.dp, BorderGlass)
+                    ) {
+                        Text(
+                            tunable.category,
+                            color = when {
+                                tunable.category.contains("CPU", true) -> AccentCyan
+                                tunable.category.contains("GPU", true) -> AccentPurple
+                                tunable.category.contains("Memory", true) || tunable.category.contains("VM", true) -> AccentBlue
+                                tunable.category.contains("Storage", true) || tunable.category.contains("I/O", true) -> AccentOrange
+                                tunable.category.contains("Power", true) || tunable.category.contains("Thermal", true) -> AccentGreen
+                                else -> AccentCyan
+                            },
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = if (tunable.writable) AccentGreen.copy(alpha = 0.15f) else Color.Red.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, if (tunable.writable) AccentGreen.copy(alpha = 0.4f) else Color.Red.copy(alpha = 0.3f))
+                    ) {
+                        Text(
+                            if (tunable.writable) "R/W" else "READ-ONLY",
+                            color = if (tunable.writable) AccentGreen else Color(0xFFFF5252),
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            // 2. Friendly Description
+            if (tunable.desc.isNotBlank()) {
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    tunable.desc,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 15.sp
+                )
+            }
+
+            // 3. Recommendation Tip
+            if (tunable.recommendation.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AccentGreen.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, AccentGreen.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = AccentGreen,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "Tips: ${tunable.recommendation}",
+                            color = AccentGreen,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            // 4. Collapsible Monospace Path
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showPathDetails = !showPathDetails },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    if (showPathDetails) tunable.path else tunable.path.take(45) + (if (tunable.path.length > 45) "..." else ""),
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
+                    color = TextTertiary,
+                    maxLines = if (showPathDetails) 3 else 1
+                )
+                Text(
+                    if (showPathDetails) "Tutup" else "Path",
+                    fontSize = 8.5.sp,
+                    color = AccentCyan.copy(alpha = 0.8f)
+                )
+            }
+
+            // 5. Inline '#' Kernel Comment Banner (if available)
+            if (tunable.help.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0x1AFFB300),
+                    border = BorderStroke(1.dp, Color(0x4DFFB300)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = Color(0xFFFFB300),
+                            modifier = Modifier.size(14.dp).padding(top = 1.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Column {
+                            Text(
+                                "PETUNJUK KERNEL (#):",
+                                color = Color(0xFFFFB300),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                tunable.help,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                color = TextPrimary,
+                                lineHeight = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // 6. Interactive Tunable Controls
+            if (!tunable.writable) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Nilai Terbaca:", color = TextSecondary, fontSize = 11.5.sp)
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0x1AFFFFFF),
+                        border = BorderStroke(1.dp, BorderSubtle)
+                    ) {
+                        Text(
+                            tunable.value.ifBlank { "(kosong)" },
+                            fontFamily = FontFamily.Monospace,
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            } else {
+                when (tunable.type) {
+                    TunableType.BOOL -> {
+                        val isChecked = tunable.value == "1" ||
+                                tunable.value.equals("enable", ignoreCase = true) ||
+                                tunable.value.equals("enabled", ignoreCase = true) ||
+                                tunable.value.equals("on", ignoreCase = true) ||
+                                tunable.value.equals("y", ignoreCase = true)
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    if (isChecked) "Status: Aktif (1)" else "Status: Nonaktif (0)",
+                                    color = if (isChecked) AccentCyan else TextSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    if (isChecked) "Sentuh sakelar untuk mematikan" else "Sentuh sakelar untuk mengaktifkan",
+                                    color = TextTertiary,
+                                    fontSize = 9.5.sp
+                                )
+                            }
+                            Switch(
+                                checked = isChecked,
+                                onCheckedChange = { checked ->
+                                    val newVal = if (checked) "1" else "0"
+                                    onApply(tunable.path, newVal)
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = BgDeepOled,
+                                    checkedTrackColor = AccentCyan,
+                                    uncheckedThumbColor = TextSecondary,
+                                    uncheckedTrackColor = Color(0xFF161A24)
+                                )
+                            )
+                        }
+                    }
+
+                    TunableType.CHOICE -> {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Pilihan Tersedia:", color = TextSecondary, fontSize = 10.5.sp)
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = AccentCyan.copy(alpha = 0.15f),
+                                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.3f))
+                                ) {
+                                    Text(
+                                        "Aktif: ${tunable.value}",
+                                        color = AccentCyan,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                items(tunable.options.size) { i ->
+                                    val opt = tunable.options[i]
+                                    val isSelected = opt.value == tunable.value ||
+                                            (tunable.value.isBlank() && i == 0)
+                                    Surface(
+                                        onClick = { onApply(tunable.path, opt.value) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) AccentCyan.copy(alpha = 0.25f) else Color(0x1AFFFFFF),
+                                        border = BorderStroke(1.dp, if (isSelected) AccentCyan else BorderGlass)
+                                    ) {
+                                        Text(
+                                            opt.label.ifBlank { opt.value },
+                                            color = if (isSelected) AccentCyan else TextPrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    TunableType.SLIDER -> {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Nilai Parameter:", color = TextSecondary, fontSize = 11.sp)
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = AccentCyan.copy(alpha = 0.2f),
+                                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                                ) {
+                                    val displayVal = if (tunable.unit.isNotEmpty()) {
+                                        "${sliderValue.toInt()} ${tunable.unit}"
+                                    } else {
+                                        "${sliderValue.toInt()}"
+                                    }
+                                    Text(
+                                        displayVal,
+                                        color = AccentCyan,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
+
+                            Slider(
+                                value = sliderValue,
+                                onValueChange = { sliderValue = it },
+                                valueRange = tunable.min..tunable.max,
+                                steps = if (tunable.step > 0 && (tunable.max - tunable.min) / tunable.step > 1) {
+                                    ((tunable.max - tunable.min) / tunable.step).toInt() - 1
+                                } else 0,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = AccentCyan,
+                                    activeTrackColor = AccentCyan,
+                                    inactiveTrackColor = Color(0xFF161A24)
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Min: ${tunable.min.toInt()}${tunable.unit}",
+                                    color = TextTertiary,
+                                    fontSize = 9.5.sp
+                                )
+
+                                Button(
+                                    onClick = { onApply(tunable.path, sliderValue.toInt().toString()) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AccentCyan.copy(alpha = 0.2f),
+                                        contentColor = AccentCyan
+                                    ),
+                                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f)),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Terapkan (${sliderValue.toInt()})", fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                Text(
+                                    "Max: ${tunable.max.toInt()}${tunable.unit}",
+                                    color = TextTertiary,
+                                    fontSize = 9.5.sp
+                                )
+                            }
+                        }
+                    }
+
+                    TunableType.STEPPER -> {
+                        val curInt = tunable.value.toIntOrNull() ?: tunable.min.toInt()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Tingkat Level:", color = TextSecondary, fontSize = 11.sp)
+                                Text(
+                                    "Rentang: ${tunable.min.toInt()} - ${tunable.max.toInt()} ${tunable.unit}",
+                                    color = TextTertiary,
+                                    fontSize = 9.5.sp
+                                )
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        val nextVal = (curInt - tunable.step.toInt()).coerceAtLeast(tunable.min.toInt())
+                                        onApply(tunable.path, nextVal.toString())
+                                    },
+                                    enabled = curInt > tunable.min.toInt(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text("-", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = AccentCyan.copy(alpha = 0.2f),
+                                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                                ) {
+                                    Text(
+                                        "$curInt ${tunable.unit}".trim(),
+                                        color = AccentCyan,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        val nextVal = (curInt + tunable.step.toInt()).coerceAtMost(tunable.max.toInt())
+                                        onApply(tunable.path, nextVal.toString())
+                                    },
+                                    enabled = curInt < tunable.max.toInt(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text("+", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
+                    TunableType.INT, TunableType.TEXT -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = editValue,
+                                onValueChange = { editValue = it },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    color = TextPrimary
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = AccentCyan,
+                                    unfocusedBorderColor = BorderGlass,
+                                    focusedContainerColor = Color(0xFF0A0C12),
+                                    unfocusedContainerColor = Color(0xFF0A0C12)
+                                )
+                            )
+
+                            Button(
+                                onClick = { onApply(tunable.path, editValue.trim()) },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = AccentCyan.copy(alpha = 0.2f),
+                                    contentColor = AccentCyan
+                                ),
+                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f)),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Text("Terapkan", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

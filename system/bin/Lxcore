@@ -1,29 +1,27 @@
-#!/bin/sh
+#!/system/bin/sh
+# Lynx Universal - Core Command Line Interface (Lxcore)
+# Unified Root Engine Controller for WebUI, Android App, and CLI
 
-# Define the library directory
 MODPATH="/data/adb/modules/Lynx"
 MODPROP="$MODPATH/module.prop"
-SCRIPT="$MODPATH/script"
-DIR="$SCRIPT/lib"
+CORE="$MODPATH/core"
+DIR="$CORE/lib"
 
-# Ensure the library directory exists
 if [ ! -d "$DIR" ]; then
     echo "Error: Library directory not found at $DIR"
     exit 1
 fi
 
-# Load common functions
 LOG_FILE="/storage/emulated/0/Lynx/Lynx.log"
 log_msg() {
     local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
-    echo "$msg" | tee -a "$LOG_FILE"
+    echo "$msg" >> "$LOG_FILE" 2>/dev/null
+    echo "$msg"
 }
 
-# Function to load a specific library
 load_lib() {
     local lib_name="$1"
     local lib_path="$DIR/$lib_name.sh"
-
     if [ -f "$lib_path" ]; then
         . "$lib_path"
     else
@@ -32,198 +30,290 @@ load_lib() {
     fi
 }
 
-# Check if no arguments are provided
 if [ $# -eq 0 ]; then
-    # Automatically load and run the help library
-    load_lib "help"
-    help
+    echo "=================================================="
+    echo "           LYNX [Codename: Deity] 3.0.0           "
+    echo "=================================================="
+    echo "Usage: Lxcore <command> [arguments]"
+    echo ""
+    echo "Core Commands:"
+    echo "  status                            Show current module & profile status"
+    echo "  profile <auto|balance|perf|ext|powersave> Switch active profile"
+    echo "  state [get|set|list] <args>       Manage shared config.json state"
+    echo "  maintenance                       Run SQLite VACUUM and Storage TRIM"
+    echo "  ccleaner                          Execute deep cache & RAM compaction"
+    echo "  busybox [status|<ver>]            Manage & switch active BusyBox variant"
+    echo "  log export                        Generate diagnostic .zip bugreport"
+    echo ""
+    echo "Subsystem Optimizers:"
+    echo "  -cpu apply                        Apply universal CPU scheduling tweaks"
+    echo "  -gpu apply                        Apply GPU & Compositor prioritizations"
+    echo "  -ram apply                        Apply VM & MGLRU memory tunings"
+    echo "  -task apply                       Apply top-app cpuset & renice tweaks"
+    echo "  -io apply                         Apply UFS/eMMC I/O scheduler tunings"
+    echo "  -net                              Configure network optimizations"
+    echo "  -zram                             Configure dynamic ZRAM parameters"
+    echo "=================================================="
     exit 0
 fi
 
-# Main logic
 case "$1" in
-    -help)
+    status|-status)
+        echo "=================================================="
+        echo "           LYNX DEITY RUNTIME STATUS              "
+        echo "=================================================="
+        target_soc=$(cat "$MODPATH/target_soc" 2>/dev/null | tr -d '[:space:]')
+        if [ -z "$target_soc" ] || [ "$target_soc" = "unknown" ] || [ "$target_soc" = "generic" ]; then
+            if [ -f "$DIR/hw_probe.sh" ]; then
+                . "$DIR/hw_probe.sh"
+                real_soc=$(detect_real_soc)
+                [ "$real_soc" != "generic" ] && target_soc="$real_soc"
+            fi
+        fi
+        [ -z "$target_soc" ] && target_soc="generic"
+        echo "• Architecture     : $target_soc"
+        if [ -f "$DIR/state.sh" ]; then
+            . "$DIR/state.sh"
+            echo "• Active Profile   : $(get_state_val "active_profile")"
+            echo "• Bypass Charging  : $(get_state_val "charging.bypass_enabled")"
+            echo "• Thermal Bypass   : $(get_state_val "thermal.full_bypass")"
+            echo "• Wi-Fi Stabilizer : $(get_state_val "network.wifi_ping_stabilizer")"
+            echo "• Touch Boost 120Hz: $(get_state_val "display_touch.touchboost")"
+            echo "• Audio MMAP       : $(get_state_val "audio.low_latency_mmap")"
+            echo "• Joyose Neutral   : $(get_state_val "oem_neutralizer.joyose_neutralize")"
+            echo "• UCLAMP Gaming Min: $(get_state_val "uclamp.game_min_ratio")%"
+        fi
+        echo "=================================================="
+        ;;
+    profile|-profile)
+        case "$2" in
+            auto|balance|performance|perf|extreme|ext|powersave|dormant)
+                target_p="$2"
+                [ "$target_p" = "perf" ] && target_p="performance"
+                [ "$target_p" = "ext" ] && target_p="extreme"
+                sh "$MODPATH/webroot/script.sh" set_mode "$target_p"
+                ;;
+            get|"")
+                [ -f "$DIR/state.sh" ] && . "$DIR/state.sh"
+                get_state_val "active_profile"
+                ;;
+            *)
+                echo "Usage: Lxcore profile <auto | balance | performance | extreme | powersave | dormant>"
+                ;;
+        esac
+        ;;
+    state|-state)
+        [ -f "$DIR/state.sh" ] && . "$DIR/state.sh"
+        case "$2" in
+            get)
+                get_state_val "$3"
+                ;;
+            set)
+                is_str="false"
+                [ "$5" = "str" ] || [ "$5" = "string" ] && is_str="true"
+                set_state_val "$3" "$4" "$is_str"
+                ;;
+            list|json)
+                cat "$CONFIG_FILE" 2>/dev/null
+                ;;
+            *)
+                echo "Usage: Lxcore state [get <key> | set <key> <val> [str] | list]"
+                ;;
+        esac
+        ;;
+    maintenance|-maintenance)
+        if [ -f "$DIR/maintenance.sh" ]; then
+            . "$DIR/maintenance.sh"
+            run_manual_maintenance
+        else
+            echo "Error: maintenance.sh not found"
+            exit 1
+        fi
+        ;;
+    ccleaner|-ccleaner)
+        if [ -f "$CORE/CCleaner.sh" ]; then
+            sh "$CORE/CCleaner.sh"
+        else
+            echo "1" > /proc/sys/vm/compact_memory 2>/dev/null
+            echo "Cache and memory compacted."
+        fi
+        ;;
+    log|-log)
+        case "$2" in
+            export)
+                export_dir="/sdcard/Lynx"
+                mkdir -p "$export_dir" 2>/dev/null
+                ts=$(date '+%Y%m%d_%H%M%S' 2>/dev/null || echo "report")
+                out_zip="$export_dir/lynx_diagnostic_$ts.zip"
+                tmp_dump="/data/local/tmp/lynx_diag_$ts"
+                mkdir -p "$tmp_dump" 2>/dev/null
+
+                cp -af "$MODPATH/config.json" "$tmp_dump/" 2>/dev/null
+                cp -af "$MODPATH/logs" "$tmp_dump/" 2>/dev/null
+                uname -a > "$tmp_dump/uname.txt" 2>&1
+                getprop > "$tmp_dump/getprop.txt" 2>&1
+                dmesg 2>/dev/null | tail -n 500 > "$tmp_dump/dmesg_tail.txt"
+                logcat -d -t 500 2>/dev/null > "$tmp_dump/logcat_tail.txt"
+                cat /proc/meminfo > "$tmp_dump/meminfo.txt" 2>&1
+                cat /sys/block/zram0/comp_algorithm 2>/dev/null > "$tmp_dump/zram_comp.txt"
+
+                if command -v zip >/dev/null; then
+                    (cd "$tmp_dump" && zip -r "$out_zip" . >/dev/null 2>&1)
+                elif command -v tar >/dev/null; then
+                    out_zip="$export_dir/lynx_diagnostic_$ts.tar.gz"
+                    tar -czf "$out_zip" -C "$tmp_dump" . 2>/dev/null
+                fi
+                rm -rf "$tmp_dump" 2>/dev/null
+                echo "$out_zip"
+                ;;
+            *)
+                echo "Usage: Lxcore log export"
+                ;;
+        esac
+        ;;
+    busybox|-busybox)
+        case "$2" in
+            feravolt64|64)
+                target="$MODPATH/system/bin/feravolt/busybox64"
+                ;;
+            feravolt8|8)
+                target="$MODPATH/system/bin/feravolt/busybox8"
+                ;;
+            feravolt7|7)
+                target="$MODPATH/system/bin/feravolt/busybox7"
+                ;;
+            feravolt86|86)
+                target="$MODPATH/system/bin/feravolt/busybox86"
+                ;;
+            brutal)
+                target="$MODPATH/system/bin/feravolt/busybox_brutal"
+                ;;
+            status|"")
+                echo "=================================================="
+                echo "           LYNX BUSYBOX CONFIGURATION             "
+                echo "=================================================="
+                if [ -x "$MODPATH/system/bin/busybox" ]; then
+                    echo "Active: $($MODPATH/system/bin/busybox | head -n 1 2>/dev/null)"
+                else
+                    echo "Active: Not installed"
+                fi
+                echo ""
+                echo "Available variants in $MODPATH/system/bin/feravolt/:"
+                for bb in "$MODPATH/system/bin/feravolt/"*; do
+                    [ -f "$bb" ] && echo "  • $(basename "$bb")"
+                done
+                echo "=================================================="
+                exit 0
+                ;;
+            *)
+                echo "Usage: Lxcore busybox [feravolt64 | feravolt8 | feravolt7 | feravolt86 | brutal | status]"
+                exit 1
+                ;;
+        esac
+        if [ -f "$target" ]; then
+            cp -af "$target" "$MODPATH/system/bin/busybox"
+            chmod 755 "$MODPATH/system/bin/busybox"
+            echo "✅ Switched active BusyBox to $(basename "$target")"
+        else
+            echo "❌ Error: $target not found"
+            exit 1
+        fi
+        ;;
+    -help|help)
         load_lib "help"
         help
         ;;
     -ram)
         load_lib "ram"
-        if [ "$2" = "help" ]; then
-            help_ram
-        elif [ "$2" = "apply" ]; then
-            main_ramv2
-        else
-            echo "Invalid argument. Use 'Lxcore -ram help' for usage."
-            exit 1
-        fi
+        if [ "$2" = "help" ]; then help_ram; else main_ram; fi
         ;;
     -gpu)
         load_lib "gpu"
-        if [ "$2" = "help" ]; then
-            help_gpu
-        elif [ "$2" = "apply" ]; then
-            main_gpu
-        else
-            echo "Invalid argument. Use 'Lxcore -gpu help' for usage."
-            exit 1
-        fi
+        if [ "$2" = "help" ]; then help_gpu; else main_gpu; fi
         ;;
     -cpu)
         load_lib "cpu"
-        if [ "$2" = "help" ]; then
-            help_cpu
-        elif [ "$2" = "apply" ]; then
-            main_cpu
-        else
-            echo "Invalid argument. Use 'Lxcore -cpu help' for usage."
-            exit 1
-        fi
+        if [ "$2" = "help" ]; then help_cpu; else main_cpu; fi
+        ;;
+    -sched)
+        load_lib "sched_features"
+        if [ "$2" = "help" ]; then help_sched_features; elif [ "$2" = "game" ]; then apply_sched_lib_game; elif [ "$2" = "balance" ]; then apply_sched_lib_balance; else main_sched_features; fi
+        ;;
+    -display)
+        load_lib "display_touch"
+        if [ "$2" = "game" ]; then apply_display_touch_game; else apply_display_touch_balance; fi
+        ;;
+    -memory)
+        load_lib "ram" && main_ram
+        load_lib "io" && main_io apply
+        ;;
+    -network)
+        load_lib "network"
+        main_net_command "$@"
+        ;;
+    -oem)
+        load_lib "oem_neutralizer"
+        if [ "$2" = "unfreeze" ] || [ "$2" = "restore" ]; then unfreeze_oem_throttlers; else freeze_oem_throttlers; fi
         ;;
     -system)
         load_lib "system"
-        if [ "$2" = "help" ]; then
-            help_system
-        elif [ "$2" = "apply" ]; then
-            main_system
-        else
-            echo "Invalid argument. Use 'Lxcore -system help' for usage."
-            exit 1
-        fi
+        if [ "$2" = "help" ]; then help_system; else main_system; fi
         ;;
     -cache)
         load_lib "cache"
-        if [ "$2" = "help" ]; then
-            help_cache
-        elif [ "$2" = "apply" ]; then
-            main_cache
-        else
-            echo "Invalid argument. Use 'Lxcore -cache help' for usage."
-            exit 1
-        fi
+        if [ "$2" = "help" ]; then help_cache; else main_cache; fi
         ;;
     -net)
-        load_lib "net"
+        load_lib "network"
         main_net_command "$@"
         ;;
     -deepsleep)
         load_lib "deepsleep"
-        if [ "$2" = "help" ]; then
-            help_deepsleep
-        else
-            main_deepsleep "$2"
-        fi
-        ;;
-    -gms)
-        load_lib "gms"
-        if [ "$2" = "help" ]; then
-            help_gms
-        else
-            main_gms "$@"
-        fi
+        if [ "$2" = "help" ]; then help_deepsleep; else main_deepsleep "$2"; fi
         ;;
     -sqlite)
         load_lib "sqlite"
-        if [ "$2" = "help" ]; then
-            help_sqlite
-        elif [ -z "$2" ]; then
-            help_sqlite
-        else
-            main_sqlite "$2"
-        fi
+        if [ "$2" = "help" ] || [ -z "$2" ]; then help_sqlite; else main_sqlite "$2"; fi
         ;;
     -task)
         load_lib "task"
-        if [ "$2" = "help" ]; then
-            help_task
-        elif [ "$2" = "apply" ]; then
-            main_task
-        else
-            echo "Invalid argument. Use 'Lxcore -task help' for usage."
-            exit 1
-        fi
+        if [ "$2" = "help" ]; then help_task; else main_task; fi
         ;;
     -unity)
         load_lib "unity"
-        if [ "$2" = "help" ]; then
-            help_unity
-        elif [ "$2" = "apply" ]; then
-            main_unity
-        else
-            echo "Invalid argument. Use 'Lxcore -unity help' for usage."
-            exit 1
-        fi
-        ;;
-    -updater)
-        load_lib "updater"
-        if [ "$2" = "help" ]; then
-            help_updater
-        elif [ -n "$2" ]; then
-            help_updater
-        else
-            main_updater
-        fi
+        if [ "$2" = "help" ]; then help_unity; else main_unity; fi
         ;;
     -zram)
         load_lib "zram"
-        case "$2" in
-            set)
-                if [ "$3" = "help" ]; then
-                    help_zram
-                elif [[ "$3" == size=* || "$3" == algo=* ]]; then
-                    shift 2
-                    main_setzram "$@"
-                else
-                    help_zram
-                fi
-                ;;
-            disable)
-                main_disablezram
-                ;;
-            help)
-                help_zram
-                ;;
-            *)
-                echo "Unknown option. Use 'Lxcore -zram help' for usage."
-                exit 1
-                ;;
-        esac
+        main_zram "$@"
         ;;
     -swap)
         load_lib "swap"
         case "$2" in
-            help)
-                help_swap
-                ;;
             set)
-                if [[ "$3" == size=* ]]; then
-                    size="${3#*=}"
-                    main_setswap "$size"
-                else
-                    help_swap
-                fi
+                case "$3" in
+                    size=*)
+                        size="${3#size=}"
+                        main_setswap "$size"
+                        ;;
+                    *)
+                        if [ -n "$3" ]; then
+                            main_setswap "$3"
+                        else
+                            help_swap
+                        fi
+                        ;;
+                esac
                 ;;
-            enable)
-                main_enableswap
-                ;;
-            disable)
-                main_disableswap
-                ;;
-            remove)
-                main_removeswap
-                ;;
-            *)
-                echo "Unknown option. Use 'Lxcore -swap help' for usage."
-                exit 1
-                ;;
+            enable) main_enableswap ;;
+            disable) main_disableswap ;;
+            remove) main_removeswap ;;
+            *) echo "Unknown option. Use 'Lxcore -swap help' for usage."; exit 1 ;;
         esac
         ;;
     -dns)
         load_lib "dns"
-        if [ "$2" = "help" ]; then
-            help_dns
-        else
-            main_dns $2
-        fi
+        if [ "$2" = "help" ]; then help_dns; else main_dns "$2"; fi
         ;;
     -io)
         load_lib "io"
@@ -231,17 +321,49 @@ case "$1" in
         ;;
     -dex2oat)
         load_lib "dex2oat"
-        if [ "$2" = "help" ]; then
-            help_dex2oat
-        elif [ "$2" = "apply" ]; then
-            dex2oat_opt_enable
+        if [ "$2" = "help" ]; then help_dex2oat; elif [ "$2" = "apply" ]; then dex2oat_opt_enable; else echo "Invalid argument."; exit 1; fi
+        ;;
+    -telemetry|telemetry)
+        load_lib "telemetry"
+        ;;
+    -cluster|cluster)
+        load_lib "cluster_manager"
+        case "$2" in
+            topology) get_cluster_topology_json ;;
+            set_freq) set_cluster_freq "$3" "$4" "$5" ;;
+            set_gov) set_cluster_gov "$3" "$4" ;;
+            *) get_cluster_topology_json ;;
+        esac
+        ;;
+    -gpumanager|gpumanager)
+        load_lib "gpu_manager"
+        case "$2" in
+            info) get_gpu_info_json ;;
+            set_freq) set_gpu_freq "$3" ;;
+            *) get_gpu_info_json ;;
+        esac
+        ;;
+    -flasher|flasher)
+        load_lib "flasher"
+        case "$2" in
+            backup) backup_boot ;;
+            list_backups) list_backups_json ;;
+            restore) restore_boot "$3" ;;
+            flash) flash_anykernel "$3" ;;
+            *) echo "Usage: Lxcore flasher {backup|list_backups|restore <file>|flash <zip>}" ;;
+        esac
+        ;;
+    -deep|deep)
+        if [ -f "$DIR/deep_inspector.sh" ]; then
+            shift
+            sh "$DIR/deep_inspector.sh" "$@"
         else
-            echo "Invalid argument. Use 'Lxcore -dex2oat help' for usage."
+            echo "Error: deep_inspector.sh not found in $DIR"
             exit 1
         fi
         ;;
     *)
-        echo "Unknown command. Use 'Lxcore -help' for usage."
+        echo "Unknown command: $1. Use 'Lxcore' or 'Lxcore -help' for usage."
         exit 1
         ;;
 esac

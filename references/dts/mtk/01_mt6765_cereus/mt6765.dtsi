@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MediaTek MT6765 / MT6762 Device Tree Source
+ * Reference: Redmi 6 / 6A / 9A / 9C (Cereus / Cactus) - Baseline Minimum MediaTek
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (cactus-o-oss)
+ */
+
+/ {
+	compatible = "mediatek,mt6765", "mediatek,mt6762";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Little Cluster (Cores 0-3): up to 1.8 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x000>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x001>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x002>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x003>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+
+		/* Big Cluster (Cores 4-7): up to 2.3 GHz */
+		cpu4: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x100>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu5: cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x101>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu6: cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x102>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu7: cpu@103 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x103>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+	};
+
+	cpu0_opp_table: opp-table-cpu0 {
+		compatible = "operating-points-v2";
+		opp-900000000  { opp-hz = /bits/ 64 <900000000>;  opp-microvolt = <700000>; };
+		opp-1150000000 { opp-hz = /bits/ 64 <1150000000>; opp-microvolt = <750000>; };
+		opp-1400000000 { opp-hz = /bits/ 64 <1400000000>; opp-microvolt = <800000>; };
+		opp-1600000000 { opp-hz = /bits/ 64 <1600000000>; opp-microvolt = <875000>; };
+		opp-1800000000 { opp-hz = /bits/ 64 <1800000000>; opp-microvolt = <950000>; };
+	};
+
+	cpu4_opp_table: opp-table-cpu4 {
+		compatible = "operating-points-v2";
+		opp-900000000  { opp-hz = /bits/ 64 <900000000>;  opp-microvolt = <700000>; };
+		opp-1150000000 { opp-hz = /bits/ 64 <1150000000>; opp-microvolt = <750000>; };
+		opp-1400000000 { opp-hz = /bits/ 64 <1400000000>; opp-microvolt = <800000>; };
+		opp-1600000000 { opp-hz = /bits/ 64 <1600000000>; opp-microvolt = <850000>; };
+		opp-1800000000 { opp-hz = /bits/ 64 <1800000000>; opp-microvolt = <900000>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <975000>; };
+		opp-2300000000 { opp-hz = /bits/ 64 <2300000000>; opp-microvolt = <1050000>; };
+	};
+
+	/*
+	 * IMPORTANT ARCHITECTURAL NOTE:
+	 * MT6765 uses Imagination Technologies PowerVR GE8320 GPU, NOT ARM Mali!
+	 * Sysfs node: /sys/devices/platform/13000000.mali does NOT exist on this SoC.
+	 */
+	gpu: gpu@13000000 {
+		compatible = "img,powervr-rogue", "mediatek,mt6765-gpu";
+		reg = <0 0x13000000 0 0x100000>;
+		interrupts = <0 210 4>;
+		clocks = <&topckgen 42>;
+		clock-names = "gpu_core";
+	};
+
+	/* MediaTek PPM Subsystem */
+	ppm: mediatek,ppm {
+		compatible = "mediatek,ppm";
+		interrupts = <0 178 4>;
+	};
+};

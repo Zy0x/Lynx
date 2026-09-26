@@ -1,0 +1,124 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Qualcomm Technologies, Inc. SM7435 (Snapdragon 7s Gen 2, Samsung 4nm)
+ * Reference: Redmi Note 13 Pro 5G / Realme 12 Pro+ 5G (Garnet)
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (garnet-t-oss)
+ */
+
+/ {
+	compatible = "qcom,sm7435", "qcom,sm6375";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Silver / Little Cluster: 4x Cortex-A55 up to 1.95 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x0>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x100>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@200 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x200>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu3: cpu@300 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x300>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+
+		/* Gold / Performance Cluster: 4x Cortex-A78 up to 2.40 GHz */
+		cpu4: cpu@400 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x400>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu5: cpu@500 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x500>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu6: cpu@600 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x600>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu7: cpu@700 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78";
+			reg = <0x700>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+	};
+
+	cpu0_opp_table: cpu0-opp-table {
+		compatible = "operating-points-v2";
+		opp-300000000  { opp-hz = /bits/ 64 <300000000>;  opp-microvolt = <576000>; };
+		opp-748800000  { opp-hz = /bits/ 64 <748800000>;  opp-microvolt = <620000>; };
+		opp-1209600000 { opp-hz = /bits/ 64 <1209600000>; opp-microvolt = <690000>; };
+		opp-1612800000 { opp-hz = /bits/ 64 <1612800000>; opp-microvolt = <780000>; };
+		opp-1958400000 { opp-hz = /bits/ 64 <1958400000>; opp-microvolt = <880000>; };
+	};
+
+	cpu4_opp_table: cpu4-opp-table {
+		compatible = "operating-points-v2";
+		opp-691200000  { opp-hz = /bits/ 64 <691200000>;  opp-microvolt = <612000>; };
+		opp-1190400000 { opp-hz = /bits/ 64 <1190400000>; opp-microvolt = <680000>; };
+		opp-1689600000 { opp-hz = /bits/ 64 <1689600000>; opp-microvolt = <760000>; };
+		opp-2112000000 { opp-hz = /bits/ 64 <2112000000>; opp-microvolt = <850000>; };
+		opp-2400000000 { opp-hz = /bits/ 64 <2400000000>; opp-microvolt = <940000>; };
+	};
+
+	soc: soc@0 {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		/* Adreno 710 GPU with GMU */
+		gpu: gpu@5900000 {
+			compatible = "qcom,adreno-710.0", "qcom,adreno";
+			reg = <0x0 0x05900000 0x0 0x40000>;
+			clocks = <&gcc 145>;
+			operating-points-v2 = <&gpu_opp_table>;
+
+			/* GMU Subsystem */
+			gmu: gmu@596a000 {
+				compatible = "qcom,adreno-gmu-710.0", "qcom,adreno-gmu";
+				reg = <0x0 0x0596a000 0x0 0x30000>;
+			};
+		};
+
+		gpu_opp_table: gpu-opp-table {
+			compatible = "operating-points-v2";
+			opp-315000000 { opp-hz = /bits/ 64 <315000000>; opp-level = <1>; };
+			opp-480000000 { opp-hz = /bits/ 64 <480000000>; opp-level = <2>; };
+			opp-650000000 { opp-hz = /bits/ 64 <650000000>; opp-level = <3>; };
+			opp-800000000 { opp-hz = /bits/ 64 <800000000>; opp-level = <4>; };
+			opp-940000000 { opp-hz = /bits/ 64 <940000000>; opp-level = <5>; };
+		};
+
+		/* UFS 2.2 / 3.1 Host Controller */
+		ufs: ufs@1d84000 {
+			compatible = "qcom,sm7435-ufshc", "qcom,ufshc";
+			reg = <0x0 0x01d84000 0x0 0x3000>;
+		};
+	};
+};

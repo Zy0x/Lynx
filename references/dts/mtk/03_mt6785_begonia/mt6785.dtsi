@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MediaTek MT6785 (Helio G90T / G95) Device Tree Source
+ * Reference: Redmi Note 8 Pro (Begonia) / Realme 7
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (begonia-q-oss)
+ */
+
+/ {
+	compatible = "mediatek,mt6785";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Little Cluster (Cores 0-5): 6x Cortex-A55 up to 2.0 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x000>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x001>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x002>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x003>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu4: cpu@4 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x004>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu5: cpu@5 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x005>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+
+		/* Big Cluster (Cores 6-7): 2x Cortex-A76 up to 2.05 GHz */
+		cpu6: cpu@600 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76";
+			reg = <0x600>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu6_opp_table>;
+		};
+		cpu7: cpu@700 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76";
+			reg = <0x700>;
+			operating-points-v2 = <&cpu6_opp_table>;
+		};
+	};
+
+	cpu0_opp_table: opp-table-cpu0 {
+		compatible = "operating-points-v2";
+		opp-500000000  { opp-hz = /bits/ 64 <500000000>;  opp-microvolt = <650000>; };
+		opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-microvolt = <700000>; };
+		opp-1150000000 { opp-hz = /bits/ 64 <1150000000>; opp-microvolt = <750000>; };
+		opp-1400000000 { opp-hz = /bits/ 64 <1400000000>; opp-microvolt = <800000>; };
+		opp-1600000000 { opp-hz = /bits/ 64 <1600000000>; opp-microvolt = <850000>; };
+		opp-1800000000 { opp-hz = /bits/ 64 <1800000000>; opp-microvolt = <900000>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <975000>; };
+	};
+
+	cpu6_opp_table: opp-table-cpu6 {
+		compatible = "operating-points-v2";
+		opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-microvolt = <725000>; };
+		opp-1200000000 { opp-hz = /bits/ 64 <1200000000>; opp-microvolt = <775000>; };
+		opp-1500000000 { opp-hz = /bits/ 64 <1500000000>; opp-microvolt = <825000>; };
+		opp-1800000000 { opp-hz = /bits/ 64 <1800000000>; opp-microvolt = <875000>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <950000>; };
+		opp-2050000000 { opp-hz = /bits/ 64 <2050000000>; opp-microvolt = <1025000>; };
+	};
+
+	/* ARM Mali-G76 3EEMC4 (Bifrost v3) up to 800 MHz */
+	mali: gpu@13000000 {
+		compatible = "arm,mali-bifrost", "arm,mali-g76";
+		reg = <0 0x13000000 0 0x100000>;
+		interrupts = <0 205 4>;
+		clocks = <&topckgen 58>;
+		clock-names = "mali_core";
+	};
+
+	/* MediaTek PPM & CCI Interconnect */
+	ppm: mediatek,ppm {
+		compatible = "mediatek,ppm";
+		interrupts = <0 180 4>;
+	};
+};

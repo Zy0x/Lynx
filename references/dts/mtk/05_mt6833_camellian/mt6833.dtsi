@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MediaTek MT6833 (Dimensity 700 / 810) Device Tree Source
+ * Reference: Redmi Note 10 5G / Poco M3 Pro 5G (Camellian)
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (camellian-r-oss)
+ */
+
+/ {
+	compatible = "mediatek,mt6833";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Little Cluster (Cores 0-5): 6x Cortex-A55 up to 2.0 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x000>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x001>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x002>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x003>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu4: cpu@4 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x004>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu5: cpu@5 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x005>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+
+		/* Big Cluster (Cores 6-7): 2x Cortex-A76 up to 2.2 GHz (MT6833) / 2.4 GHz (MT6833P) */
+		cpu6: cpu@600 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76";
+			reg = <0x600>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu6_opp_table>;
+		};
+		cpu7: cpu@700 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a76";
+			reg = <0x700>;
+			operating-points-v2 = <&cpu6_opp_table>;
+		};
+	};
+
+	cpu0_opp_table: opp-table-cpu0 {
+		compatible = "operating-points-v2";
+		opp-500000000  { opp-hz = /bits/ 64 <500000000>;  opp-microvolt = <650000>; };
+		opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-microvolt = <700000>; };
+		opp-1150000000 { opp-hz = /bits/ 64 <1150000000>; opp-microvolt = <750000>; };
+		opp-1400000000 { opp-hz = /bits/ 64 <1400000000>; opp-microvolt = <800000>; };
+		opp-1600000000 { opp-hz = /bits/ 64 <1600000000>; opp-microvolt = <850000>; };
+		opp-1800000000 { opp-hz = /bits/ 64 <1800000000>; opp-microvolt = <900000>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <975000>; };
+	};
+
+	cpu6_opp_table: opp-table-cpu6 {
+		compatible = "operating-points-v2";
+		opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-microvolt = <700000>; };
+		opp-1200000000 { opp-hz = /bits/ 64 <1200000000>; opp-microvolt = <750000>; };
+		opp-1500000000 { opp-hz = /bits/ 64 <1500000000>; opp-microvolt = <800000>; };
+		opp-1800000000 { opp-hz = /bits/ 64 <1800000000>; opp-microvolt = <850000>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <925000>; };
+		opp-2200000000 { opp-hz = /bits/ 64 <2200000000>; opp-microvolt = <1000000>; };
+	};
+
+	/* ARM Mali-G57 MC2 (Valhall v1) up to 950 MHz */
+	mali: gpu@13000000 {
+		compatible = "arm,mali-valhall", "arm,mali-g57";
+		reg = <0 0x13000000 0 0x100000>;
+		interrupts = <0 215 4>;
+		clocks = <&topckgen 62>;
+		clock-names = "mali_core";
+	};
+
+	/* MediaTek PPM & FPSGO Common Framework */
+	ppm: mediatek,ppm {
+		compatible = "mediatek,ppm";
+		interrupts = <0 182 4>;
+	};
+};

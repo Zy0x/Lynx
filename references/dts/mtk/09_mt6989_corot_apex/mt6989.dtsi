@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MediaTek MT6989 (Dimensity 9300) Device Tree Source
+ * Reference: Vivo X100 / X100 Pro - All Big Core Architecture
+ * Source: Android Linux Mainline / MediaTek Upstream
+ */
+
+/ {
+	compatible = "mediatek,mt6989";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		/* Big Cluster: 4x Cortex-A720 up to 2.0 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a720";
+			reg = <0x0 0x0>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a720";
+			reg = <0x0 0x100>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@200 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a720";
+			reg = <0x0 0x200>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu3: cpu@300 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a720";
+			reg = <0x0 0x300>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+
+		/* Prime Cluster: 3x Cortex-X4 up to 2.85 GHz */
+		cpu4: cpu@400 {
+			device_type = "cpu";
+			compatible = "arm,cortex-x4";
+			reg = <0x0 0x400>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu5: cpu@500 {
+			device_type = "cpu";
+			compatible = "arm,cortex-x4";
+			reg = <0x0 0x500>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu6: cpu@600 {
+			device_type = "cpu";
+			compatible = "arm,cortex-x4";
+			reg = <0x0 0x600>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+
+		/* Ultra Prime: 1x Cortex-X4 up to 3.25 GHz */
+		cpu7: cpu@700 {
+			device_type = "cpu";
+			compatible = "arm,cortex-x4";
+			reg = <0x0 0x700>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu7_opp_table>;
+		};
+	};
+
+	cpu0_opp_table: opp-table-cpu0 {
+		compatible = "operating-points-v2";
+		opp-750000000  { opp-hz = /bits/ 64 <750000000>;  opp-microvolt = <650000>; };
+		opp-1400000000 { opp-hz = /bits/ 64 <1400000000>; opp-microvolt = <750000>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <880000>; };
+	};
+
+	cpu4_opp_table: opp-table-cpu4 {
+		compatible = "operating-points-v2";
+		opp-850000000  { opp-hz = /bits/ 64 <850000000>;  opp-microvolt = <680000>; };
+		opp-1800000000 { opp-hz = /bits/ 64 <1800000000>; opp-microvolt = <800000>; };
+		opp-2850000000 { opp-hz = /bits/ 64 <2850000000>; opp-microvolt = <1020000>; };
+	};
+
+	cpu7_opp_table: opp-table-cpu7 {
+		compatible = "operating-points-v2";
+		opp-1000000000 { opp-hz = /bits/ 64 <1000000000>; opp-microvolt = <700000>; };
+		opp-2200000000 { opp-hz = /bits/ 64 <2200000000>; opp-microvolt = <880000>; };
+		opp-3250000000 { opp-hz = /bits/ 64 <3250000000>; opp-microvolt = <1100000>; };
+	};
+
+	/* ARM Immortalis-G720 MC12 */
+	mali: gpu@13000000 {
+		compatible = "arm,mali-valhall", "arm,mali-immortalis";
+		reg = <0 0x13000000 0 0x100000>;
+		interrupts = <0 240 4>;
+		clocks = <&topckgen 80>;
+		clock-names = "mali_core";
+	};
+
+	dvfsrc: mediatek,dvfsrc {
+		compatible = "mediatek,mt6989-dvfsrc";
+		reg = <0 0x10012000 0 0x1000>;
+	};
+};

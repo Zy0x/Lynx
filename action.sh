@@ -1,35 +1,41 @@
-#!/bin/bash
+#!/system/bin/sh
+# Lynx Universal - Action Button Trigger for KernelSU & APatch
+# Pure POSIX /system/bin/sh compliance (Android Toybox/ash)
+# Replaces dangerous legacy dalvik wiping with safe CCleaner & Memory Compactor
 
-# Checking Root Access
-if [ "$EUID" -ne 0 ]; then
-  echo "This script requires root access. Please run it with 'su'."
-  exit 1
+# 1. Root verification
+if [ "$(id -u 2>/dev/null)" -ne 0 ]; then
+    echo "❌ Error: Root access required (uid=0)."
+    exit 1
 fi
 
-echo "Starting cache clearing process..."
-sleep 2
+MODDIR="${0%/*}"
+[ -d "$MODDIR" ] || MODDIR="/data/adb/modules/Lynx"
 
-# Clean Cache App
-echo "Cleaning Cache App...."
-rm -rf /cache/*
-rm -rf /data/cache/*
-sleep 2
+echo "=========================================="
+echo "      LYNX DEITY — MAINTENANCE ACTION     "
+echo "=========================================="
+echo ""
 
-# Clean Dalvik-Cache
-echo "Clearing Dalvik cache..."
-rm -rf /data/dalvik-cache/*
-sleep 2
+# 2. Storage & Memory Maintenance
+if [ -f "$MODDIR/core/CCleaner.sh" ]; then
+    echo "🧹 Executing Lynx Storage & Memory Maintenance..."
+    sh "$MODDIR/core/CCleaner.sh"
+    echo "✅ Memory compaction & storage trim complete!"
+else
+    echo "🧹 Compacting physical memory..."
+    [ -e "/proc/sys/vm/compact_memory" ] && echo 1 > /proc/sys/vm/compact_memory
+    
+    echo "🗑️ Clearing crash dumps & tombstones..."
+    rm -rf /data/tombstones/* /data/system/dropbox/* /data/anr/* 2>/dev/null
+    
+    echo "💾 Running fstrim on /data..."
+    fstrim -v /data 2>/dev/null
+    echo "✅ Quick cleanup complete!"
+fi
 
-# Cleaning tombstones (optional)
-echo "Cleaning tombstones..."
-rm -rf /data/tombstones/*
-sleep 2
-
-# Clearing system logs (optional)
-echo "Clearing system logs..."
-rm -rf /data/anr/*
-rm -rf /data/system/dropbox/*
-sleep 2
-
-# Done
-echo "Cleaning Completed✅"
+echo ""
+echo "=========================================="
+echo "    ✨ System Optimization Finished!      "
+echo "=========================================="
+exit 0

@@ -1,0 +1,1 @@
+am start -a android.intent.action.MAIN -e toasttext "🧹 Cᴀᴄʜᴇ Cʟᴇᴀɴᴇᴅ" -n bellavita.toast/.MainActivity > /dev/null 2>&1

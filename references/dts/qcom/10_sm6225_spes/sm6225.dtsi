@@ -1,0 +1,96 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Qualcomm Technologies, Inc. SM6225 / SM6115 (Snapdragon 680 / 662)
+ * Reference: Redmi Note 11 (Spes) / Redmi 9T (Lime)
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (spes-s-oss)
+ */
+
+/ {
+	compatible = "qcom,sm6225", "qcom,sm6115";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Silver / Little Cluster: 4x Kryo 265 Silver (Cortex-A53) up to 1.9 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x0>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x1>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x2>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x3>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+
+		/* Gold / Big Cluster: 4x Kryo 265 Gold (Cortex-A73) up to 2.4 GHz */
+		cpu4: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a73";
+			reg = <0x100>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu5: cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a73";
+			reg = <0x101>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu6: cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a73";
+			reg = <0x102>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+		cpu7: cpu@103 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a73";
+			reg = <0x103>;
+			operating-points-v2 = <&cpu4_opp_table>;
+		};
+	};
+
+	cpu0_opp_table: opp-table-cpu0 {
+		compatible = "operating-points-v2";
+		opp-600000000  { opp-hz = /bits/ 64 <600000000>;  opp-microvolt = <650000>; };
+		opp-1020000000 { opp-hz = /bits/ 64 <1020000000>; opp-microvolt = <720000>; };
+		opp-1401600000 { opp-hz = /bits/ 64 <1401600000>; opp-microvolt = <800000>; };
+		opp-1900800000 { opp-hz = /bits/ 64 <1900800000>; opp-microvolt = <950000>; };
+	};
+
+	cpu4_opp_table: opp-table-cpu4 {
+		compatible = "operating-points-v2";
+		opp-1056000000 { opp-hz = /bits/ 64 <1056000000>; opp-microvolt = <720000>; };
+		opp-1516800000 { opp-hz = /bits/ 64 <1516800000>; opp-microvolt = <800000>; };
+		opp-1900800000 { opp-hz = /bits/ 64 <1900800000>; opp-microvolt = <900000>; };
+		opp-2400000000 { opp-hz = /bits/ 64 <2400000000>; opp-microvolt = <1050000>; };
+	};
+
+	/* Adreno 610 GPU */
+	gpu: qcom,kgsl-3d0@5900000 {
+		compatible = "qcom,kgsl-3d0", "qcom,adreno";
+		reg = <0 0x05900000 0 0x40000>;
+		interrupts = <0 177 4>;
+		clocks = <&gcc 112>;
+		clock-names = "core_clk";
+	};
+};

@@ -1,0 +1,49 @@
+{
+  "Profiles": [
+    {
+      "Name": "TopAppPolicy",
+      "Actions": [
+        {
+          "Name": "SetAttribute",
+          "Params": {
+            "Name": "UclampMin",
+            "Value": "512"
+          }
+        },
+        {
+          "Name": "SetAttribute",
+          "Params": {
+            "Name": "UclampLatencySensitive",
+            "Value": "1"
+          }
+        },
+        {
+          "Name": "JoinCgroup",
+          "Params": {
+            "Controller": "cpuset",
+            "Path": "top-app"
+          }
+        }
+      ]
+    },
+    {
+      "Name": "BackgroundPolicy",
+      "Actions": [
+        {
+          "Name": "SetAttribute",
+          "Params": {
+            "Name": "UclampMax",
+            "Value": "256"
+          }
+        },
+        {
+          "Name": "JoinCgroup",
+          "Params": {
+            "Controller": "cpuset",
+            "Path": "background"
+          }
+        }
+      ]
+    }
+  ]
+}

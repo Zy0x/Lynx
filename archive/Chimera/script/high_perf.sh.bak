@@ -1,0 +1,272 @@
+#!/system/bin/sh
+#by Noir
+
+# Path
+MODDIR="/data/adb/modules/Chimera/"
+MODPROP="$MODDIR/module.prop"
+
+# Switch power mode
+# (0) default, (1) low, (2) moderate, (3) high performance/sport
+echo "3" > /proc/cpufreq/cpufreq_power_mode 
+
+# Switch cci mode
+# (0) balance, (1) high performance
+echo "1" > /proc/cpufreq/cpufreq_cci_mode
+
+# Disable log cpu
+echo "0" > /proc/cpufreq/cpufreq_debug
+
+# Force CPU frequency to maximum mode
+echo "1" > /proc/cpufreq/cpufreq_imax_enable
+echo "N" > /sys/module/workqueue/parameters/power_efficient
+
+# Set Governor
+for cpu in /sys/devices/system/cpu/cpu[0-7]
+do
+    echo "performance" > "$cpu/cpufreq/scaling_governor"
+    echo "0" > "$cpu/sched_load_boost"
+done
+echo "performance" > /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+echo "performance" > /sys/devices/system/cpu/cpufreq/policy6/scaling_governor
+
+# Lock CPU speed to maximum
+for i in $(seq 0 7); do
+  freq=$(cat /sys/devices/system/cpu/cpufreq/policy$i/cpuinfo_max_freq)
+  echo "$freq" > /sys/devices/system/cpu/cpufreq/policy$i/scaling_max_freq
+  echo "$freq" > /sys/devices/system/cpu/cpufreq/policy$i/scaling_min_freq
+done
+
+# Disable PPM
+echo "0" > /proc/ppm/enabled
+echo "0 0" > /proc/ppm/policy_status
+echo "1 1" > /proc/ppm/policy_status
+echo "2 0" > /proc/ppm/policy_status
+echo "3 0" > /proc/ppm/policy_status
+echo "4 0" > /proc/ppm/policy_status
+echo "5 0" > /proc/ppm/policy_status
+echo "6 1" > /proc/ppm/policy_status
+echo "7 1" > /proc/ppm/policy_status
+echo "8 0" > /proc/ppm/policy_status
+echo "9 1" > /proc/ppm/policy_status
+echo "0" > /proc/ppm/cpi/cpi_enabled
+
+#clust. 0
+freq0="/proc/ppm/dump_cluster_0_dvfs_table"
+if [ -f "$freq0" ]; then
+    freq=$(awk '{print $1}' "$freq0")
+    echo "0 $freq" >/proc/ppm/policy/hard_userlimit_max_cpu_freq
+    echo "0 $freq" >/proc/ppm/policy/hard_userlimit_min_cpu_freq
+else
+    echo "File $freq0 tidak ditemukan."
+    exit 1
+fi
+#clust. 1
+freq1="/proc/ppm/dump_cluster_1_dvfs_table"
+if [ -f "$freq1" ]; then
+    freq=$(awk '{print $1}' "$freq1")
+    echo "0 $freq" >/proc/ppm/policy/hard_userlimit_max_cpu_freq
+    echo "0 $freq" >/proc/ppm/policy/hard_userlimit_min_cpu_freq
+fi
+#clust. 2
+freq2="/proc/ppm/dump_cluster_2_dvfs_table"
+if [ -f "$freq2" ]; then
+    freq=$(awk '{print $1}' "$freq2")
+    echo "0 $freq" >/proc/ppm/policy/hard_userlimit_max_cpu_freq
+    echo "0 $freq" >/proc/ppm/policy/hard_userlimit_min_cpu_freq
+fi
+
+# HMP
+echo "0" > /sys/devices/system/cpu/eas/enable
+echo "1" > /sys/devices/system/cpu/perf/enable
+
+# GPU Tweak
+echo "always_on" > /sys/devices/platform/13000000.mali/power_policy
+echo "1" > /proc/mali/always_on
+echo "0" > /proc/mali/dvfs_enable
+echo "0" > /proc/mali/debug_log
+echo "1" > /sys/kernel/fpsgo/common/gpu_block_boost
+echo "1" > /sys/module/ged/parameters/boost_amp
+echo "1" > /sys/module/ged/parameters/boost_extra
+echo "1" > /sys/module/ged/parameters/boost_gpu_enable
+echo "1" > /sys/module/ged/parameters/cpu_boost_policy
+echo "0" > /sys/module/ged/parameters/deboost_reduce
+echo "0" > /sys/module/ged/parameters/enable_game_self_frc_detect
+echo "1" > /sys/module/ged/parameters/enable_cpu_boost
+echo "1" > /sys/module/ged/parameters/enable_gpu_boost
+echo "100" > /sys/module/ged/parameters/g_fb_dvfs_threshold
+echo "1" > /sys/module/ged/parameters/ged_boost_enable
+echo "1" > /sys/module/ged/parameters/ged_force_mdp_enable
+echo "0" > /sys/module/ged/parameters/ged_log_perf_trace_enable
+echo "0" > /sys/module/ged/parameters/ged_log_trace_enable
+echo "0" > /sys/module/ged/parameters/ged_monitor_3D_fence_debug
+echo "0" > /sys/module/ged/parameters/ged_monitor_3D_fence_systrace
+echo "1" > /sys/module/ged/parameters/ged_monitor_3D_fence_disable
+echo "1" > /sys/module/ged/parameters/ged_smart_boost
+echo "1" > /sys/module/ged/parameters/gpu_idle
+val=$(head -n 1 /proc/gpufreq/gpufreq_opp_dump)
+freq=$(echo "$val" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+chmod 644 /sys/module/ged/parameters/gpu_cust_upbound_freq
+chmod 644 /sys/module/ged/parameters/gpu_cust_boost_freq
+chmod 644 /sys/kernel/ged/hal/custom_upbound_gpu_freq
+chmod 644 /sys/module/ged/parameters/gpu_bottom_freq
+echo "$freq" > /sys/module/ged/parameters/gpu_cust_upbound_freq
+echo "$freq" > /sys/module/ged/parameters/gpu_cust_boost_freq
+echo "$freq" > /sys/kernel/ged/hal/custom_upbound_gpu_freq
+echo "$freq" > /sys/module/ged/parameters/gpu_bottom_freq
+chmod 444 /sys/module/ged/parameters/gpu_cust_upbound_freq
+chmod 444 /sys/module/ged/parameters/gpu_cust_boost_freq
+chmod 444 /sys/kernel/ged/hal/custom_upbound_gpu_freq
+chmod 444 /sys/module/ged/parameters/gpu_bottom_freq
+echo "1" > /sys/module/ged/parameters/gx_boost_on
+echo "1" > /sys/module/ged/parameters/gx_force_cpu_boost
+echo "0" > /sys/module/ged/parameters/gx_frc_mode
+echo "1" > /sys/module/ged/parameters/gx_game_mode
+# echo "[masukkan pid game]" >/sys/module/ged/parameters/gx_top_app_pid
+echo "$freq" > /proc/gpufreq/gpufreq_opp_freq
+echo "0" > /proc/gpufreq/gpufreq_aging_enable
+echo "0" > /sys/kernel/ged/hal/dvfs_margin_value
+#echo "0" > /sys/module/ged/parameters/gpu_dvfs_enable
+echo "0" > /sys/module/ged/parameters/gx_fb_dvfs_margin
+
+# Config GPU
+echo "0 0 0" > /proc/gpufreq/gpufreq_limit_table
+echo "1 0 0" > /proc/gpufreq/gpufreq_limit_table
+echo "2 0 0" > /proc/gpufreq/gpufreq_limit_table
+echo "3 0 0" > /proc/gpufreq/gpufreq_limit_table
+echo "4 0 0" > /proc/gpufreq/gpufreq_limit_table
+echo "5 0 0" > /proc/gpufreq/gpufreq_limit_table
+echo "6 0 0" > /proc/gpufreq/gpufreq_limit_table
+echo "7 0 0" > /proc/gpufreq/gpufreq_limit_table
+echo "8 0 0" > /proc/gpufreq/gpufreq_limit_table
+
+# Perf CPU
+echo "1" > /proc/perfmgr/syslimiter/syslimiter_force_disable
+echo "0" > /proc/perfmgr/syslimiter/syslimiter_fps_60
+echo "0" > /proc/perfmgr/syslimiter/syslimiter_fps_90
+echo "0" > /proc/perfmgr/syslimiter/syslimiter_fps_120
+echo "0" > /proc/perfmgr/syslimiter/syslimiter_fps_144
+
+# Disable sched. CPU freq.
+echo "1" > /proc/cpufreq/cpufreq_sched_disable
+
+# Arm performance level
+#(0) on (1) interactive (2) off
+echo "0" > /proc/cpuidle/control/armpll_mode
+
+# Buck mode/supplying power to the CPU
+#(0) on (1) low power (2) off
+echo "0" > /proc/cpuidle/control/buck_mode
+
+# CPU set
+echo "0-7" > /dev/cpuset/foreground/cpus
+echo "0-2" > /dev/cpuset/background/cpus
+echo "2-7" > /dev/cpuset/system-background/cpus
+echo "0-7" > /dev/cpuset/top-app/cpus
+echo "0" > /dev/cpuset/restricted/cpus
+echo "0-2" > /dev/cpuset/camera-daemon/cpus
+echo "4-7" > /dev/cpuset/audio-app/cpus
+
+# Disable Logging
+echo "0" > /sys/kernel/ccci/debug
+
+# Schedtune Boost Base
+echo "1" > /dev/stune/schedtune.sched_boost_enabled
+echo "5" > /dev/stune/schedtune.boost
+echo "0" > /dev/stune/schedtune.sched_boost_no_override
+echo "0" > /dev/stune/schedtune.prefer_idle
+echo "0" > /dev/stune/schedtune.colocate
+echo "0" > /dev/stune/cgroup.clone_children
+echo "0" > /dev/stune/schedtune.util.min
+echo "0" > /dev/stune/schedtune.util.max
+echo "0" > /dev/stune/schedtune.util.max.effective
+echo "0" > /dev/stune/schedtune.util.min.effective
+
+# Schedtune Boost real time
+echo "1" > /dev/stune/rt/schedtune.sched_boost_enabled
+echo "5" > /dev/stune/rt/schedtune.boost
+echo "0" > /dev/stune/rt/schedtune.sched_boost_no_override
+echo "0" > /dev/stune/rt/schedtune.prefer_idle
+
+# Schedtune Boost background
+echo "1" > /dev/stune/background/schedtune.sched_boost_enabled
+echo "5" > /dev/stune/background/schedtune.boost
+echo "0" > /dev/stune/background/schedtune.sched_boost_no_override
+echo "0" > /dev/stune/background/schedtune.prefer_idle
+echo "0" > /dev/stune/background/schedtune.util.max.effective
+echo "0" > /dev/stune/background/schedtune.util.min.effective
+echo "0" > /dev/stune/background/schedtune.util.max
+echo "0" > /dev/stune/background/schedtune.util.min
+
+# Schedtune Boost foreground
+echo "1" > /dev/stune/foreground/schedtune.sched_boost_enabled
+echo "5" > /dev/stune/foreground/schedtune.boost
+echo "1" > /dev/stune/foreground/schedtune.sched_boost_no_override
+echo "0" > /dev/stune/foreground/schedtune.prefer_idle
+echo "0" > /dev/stune/foreground/schedtune.util.max.effective
+echo "0" > /dev/stune/foreground/schedtune.util.min.effective
+echo "0" > /dev/stune/foreground/schedtune.util.max
+echo "0" > /dev/stune/foreground/schedtune.util.min
+
+# Schedtune Boost top app
+echo "1" > /dev/stune/top-app/schedtune.sched_boost_enabled
+echo "5" > /dev/stune/top-app/schedtune.boost
+echo "0" > /dev/stune/top-app/schedtune.sched_boost_no_override
+echo "0" > /dev/stune/top-app/schedtune.prefer_idle
+echo "0" > /dev/stune/top-app/schedtune.util.max.effective
+echo "0" > /dev/stune/top-app/schedtune.util.min.effective
+echo "0" > /dev/stune/top-app/schedtune.util.max
+echo "0" > /dev/stune/top-app/schedtune.util.min
+
+# Additional
+echo "150" > /proc/sys/vm/vfs_cache_pressure
+echo "1000" > /proc/sys/vm/stat_interval
+echo "32" > /proc/sys/vm/watermark_scale_factor
+echo "0" > /proc/sys/vm/watermark_boost_factor
+echo "0" > /proc/sys/vm/oom_dump_tasks
+
+# Improve real time latencies by reducing the scheduler migration time
+echo "16" > /proc/sys/kernel/sched_nr_migrate
+
+# Limit max perf event processing time to this much CPU usage
+echo "40" > /proc/sys/kernel/perf_cpu_time_max_percent
+
+# For user UFS
+echo "5" > /sys/devices/platform/soc/1d84000.ufshc/clkgate_delay_ms_perf
+echo "1000" > /sys/devices/platform/soc/1d84000.ufshc/clkgate_delay_ms_pwr_save
+
+# Set load boost
+for i in $(seq 0 7); do 
+    echo "1" > /sys/devices/system/cpu/cpu$i/sched_load_boost
+done
+
+# Set Prefered core
+for cpu in 0 1 2 3 4 5 6 7
+do
+    echo "1 1 1 1" > "/sys/devices/system/cpu/cpu${cpu}/core_ctl/not_preferred"
+done
+
+# Fs
+echo "1" > /proc/sys/fs/lease-break-time
+
+# Thermal Interface
+# Disable Eara Thermal
+echo "0" > /sys/kernel/eara_thermal/enable
+echo "0" > /sys/kernel/eara_thermal/fake_throttle
+echo "100 99" > /proc/driver/thermal/clatm_gpu_threshold
+
+# FPSGO 
+echo "1" > /sys/kernel/fpsgo/common/gpu_block_boost
+echo "1" > /sys/kernel/fpsgo/common/force_onoff
+echo "1" > /sys/kernel/fpsgo/fbt/boost_ta
+# Disable Thermal CPU
+echo "0" > /sys/kernel/fpsgo/fbt/thrm_limit_cpu
+
+# Disable sched boost
+echo "1" > /proc/sys/kernel/sched_boost
+
+# Entropy
+echo "512" > /proc/sys/kernel/random/read_wakeup_threshold
+echo "2048" > /proc/sys/kernel/random/write_wakeup_threshold
+
+sed -Ei "s/^description=\[.*\]/description=[ 🔥 Pᴇʀꜰᴏʀᴍᴀɴᴄᴇ Mᴏᴅᴇ ]/" "$MODPROP"
+am start -a android.intent.action.MAIN -e toasttext "🔥 Pᴇʀꜰᴏʀᴍᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity

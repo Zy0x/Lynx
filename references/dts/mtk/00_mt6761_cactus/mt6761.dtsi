@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * MediaTek MT6761 (Helio A22) Device Tree Source
+ * Reference: Redmi 6A (Cactus) - Ultra Budget Entry Baseline
+ * Source: MiCode/Xiaomi_Kernel_OpenSource (cactus-p-oss)
+ */
+
+/ {
+	compatible = "mediatek,mt6761";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Quad-Core Cortex-A53 up to 2.0 GHz */
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x000>;
+			enable-method = "psci";
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x001>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x002>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x003>;
+			operating-points-v2 = <&cpu0_opp_table>;
+		};
+	};
+
+	cpu0_opp_table: opp-table-cpu0 {
+		compatible = "operating-points-v2";
+		opp-750000000  { opp-hz = /bits/ 64 <750000000>;  opp-microvolt = <700000>; };
+		opp-1150000000 { opp-hz = /bits/ 64 <1150000000>; opp-microvolt = <750000>; };
+		opp-1500000000 { opp-hz = /bits/ 64 <1500000000>; opp-microvolt = <825000>; };
+		opp-2000000000 { opp-hz = /bits/ 64 <2000000000>; opp-microvolt = <975000>; };
+	};
+
+	/* Imagination PowerVR GE8300 (Rogue) */
+	gpu: gpu@13000000 {
+		compatible = "img,powervr-rogue", "mediatek,mt6761-gpu";
+		reg = <0 0x13000000 0 0x100000>;
+		interrupts = <0 210 4>;
+		clocks = <&topckgen 40>;
+		clock-names = "gpu_core";
+	};
+
+	ppm: mediatek,ppm {
+		compatible = "mediatek,ppm";
+		interrupts = <0 178 4>;
+	};
+};

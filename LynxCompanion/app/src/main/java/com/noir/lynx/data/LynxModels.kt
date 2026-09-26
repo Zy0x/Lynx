@@ -1,0 +1,332 @@
+package com.noir.lynx.data
+
+/**
+ * Central data models for Lynx Universal v3.0 module state.
+ *
+ * All fields mirror keys in /data/adb/modules/Lynx/config.json.
+ * Nested JSON objects are represented as dedicated data classes.
+ */
+
+// ============================================================
+//  MASTER STATE
+// ============================================================
+
+data class LynxState(
+    val moduleVersion: String = "3.0.0",
+    val releaseType: String = "beta",
+    val activeProfile: String = "dormant",
+    val targetSoc: String = "generic",
+    val isSpoofed: Boolean = false,
+
+    // Subsystem configs
+    val overclock: OverclockConfig = OverclockConfig(),
+    val memory: MemoryConfig = MemoryConfig(),
+    val charging: ChargingConfig = ChargingConfig(),
+    val uclamp: UclampConfig = UclampConfig(),
+    val displayTouch: DisplayTouchConfig = DisplayTouchConfig(),
+    val network: NetworkConfig = NetworkConfig(),
+    val audio: AudioConfig = AudioConfig(),
+    val oemNeutralizer: OemNeutralizerConfig = OemNeutralizerConfig(),
+    val thermal: ThermalConfig = ThermalConfig(),
+)
+
+// ============================================================
+//  SUBSYSTEM CONFIGS
+// ============================================================
+
+data class OverclockConfig(
+    val enabled: Boolean = false,
+    val cpuFloorRatio: Int = 85,
+    val zramSizeMb: Int = 2048,
+    val swappiness: Int = 80,
+)
+
+data class MemoryConfig(
+    val zramSizeMb: Int = 2048,
+    val swappiness: Int = 80,
+    val mglruEnabled: Boolean = true,
+    val compAlgorithm: String = "lz4",
+)
+
+data class ChargingConfig(
+    val bypassEnabled: Boolean = false,
+    val tempCutoffC: Int = 45,
+    val limitCurrentMa: Int = 1500,
+    val autoCutEnabled: Boolean = true,
+    val maxBatteryPercent: Int = 80,
+)
+
+data class UclampConfig(
+    val gameMinRatio: Int = 70,
+    val gameMaxRatio: Int = 100,
+    val balanceMinRatio: Int = 20,
+    val schedutilUpRateUs: Int = 500,
+    val schedutilDownRateUs: Int = 20000,
+)
+
+data class DisplayTouchConfig(
+    val touchboost: Boolean = true,
+    val refreshRateLock: Int = 120,
+    val surfaceFlingerOffsetNs: Int = 2000000,
+    val skiaVulkanEnabled: Boolean = false,
+)
+
+data class NetworkConfig(
+    val wifiPingStabilizer: Boolean = true,
+    val tcpCongestion: String = "bbr",
+    val fqCodelEnabled: Boolean = true,
+    val wifiPowerSaveInGame: Boolean = false,
+)
+
+data class AudioConfig(
+    val lowLatencyMmap: Boolean = true,
+    val fastTrackEnabled: Boolean = true,
+    val btCrackleGuard: Boolean = true,
+)
+
+data class OemNeutralizerConfig(
+    val joyoseNeutralize: Boolean = true,
+    val gosNeutralize: Boolean = true,
+    val freezeMethod: String = "sigstop",
+)
+
+data class ThermalConfig(
+    val fullBypass: Boolean = false,
+    val customTempLimitC: Int = 50,
+    val tripPointOverrideC: Int = 150,
+)
+
+// ============================================================
+//  TELEMETRY & CPU CLUSTER MODELS (Kernel Manager)
+// ============================================================
+
+data class TelemetryData(
+    val cpu: List<Long> = emptyList(),
+    val gpuFreq: Int = 0,
+    val gpuBusy: Int = 0,
+    val temp: String = "0.0",
+    val battLevel: Int = 0,
+    val battCurrentMa: Int = 0,
+    val battVoltMv: Int = 0,
+    val ramUsedMb: Int = 0,
+    val ramTotalMb: Int = 0,
+)
+
+data class CpuClusterInfo(
+    val id: Int = 0,
+    val role: String = "Little",
+    val cpus: String = "0",
+    val curMin: Long = 0L,
+    val curMax: Long = 0L,
+    val curGov: String = "schedutil",
+    val availFreqs: List<Long> = emptyList(),
+    val availGovs: List<String> = emptyList(),
+)
+
+data class CpuCoreInfo(
+    val coreId: Int = 0,
+    val isOnline: Boolean = true,
+    val isSwitchable: Boolean = true,
+    val curFreqKhz: Long = 0L,
+)
+
+data class BatteryDetails(
+    val level: Int = 0,
+    val status: String = "Discharging",
+    val health: String = "Good",
+    val tempC: Float = 0f,
+    val voltageMv: Int = 0,
+    val currentMa: Int = 0,
+    val cycleCount: Int = -1,
+    val chargeCounterMah: Int = 0,
+)
+
+data class BootBackupInfo(
+    val name: String = "",
+    val path: String = "",
+    val size: Long = 0L,
+    val date: String = "",
+)
+
+// ============================================================
+//  GPU ADVANCED INFO
+// ============================================================
+
+data class GpuInfo(
+    val minFreqMhz: Int = 0,
+    val maxFreqMhz: Int = 0,
+    val curFreqMhz: Int = 0,
+    val availFreqsMhz: List<Int> = emptyList(),
+    val adrenoBoostLevel: Int = 0,   // 0=off, 1=low, 2=medium, 3=high (Adreno)
+    val gedBoostLevel: Int = 0,      // MTK GED: 0–2
+    val platform: String = "generic", // "adreno" | "mali_ged" | "generic"
+    val gpuLoadPercent: Int = 0,
+    val powerPolicy: String = "",
+)
+
+data class WakelockItem(
+    val name: String = "",
+    val activeCount: Long = 0L,
+    val preventSuspendMs: Long = 0L,
+)
+
+
+// ============================================================
+//  KSM (Kernel Same-page Merging) STATS
+// ============================================================
+
+data class KsmStats(
+    val enabled: Boolean = false,
+    val pagesShared: Long = 0L,
+    val pagesSharing: Long = 0L,
+    val savedMb: Float = 0f,
+    val pagesToScan: Int = 100,
+    val sleepMs: Int = 200,
+)
+
+// ============================================================
+//  I/O SCHEDULER INFO (per block device)
+// ============================================================
+
+data class IoDeviceInfo(
+    val device: String = "",
+    val currentScheduler: String = "",
+    val availableSchedulers: List<String> = emptyList(),
+    val readAheadKb: Int = 128,
+)
+
+// ============================================================
+//  GOVERNOR TUNABLES (dynamic, governor-specific)
+// ============================================================
+
+data class GovernorTunable(
+    val key: String,
+    val displayName: String,
+    val currentValue: String,
+    val minValue: Float = 0f,
+    val maxValue: Float = 100000f,
+    val isBoolean: Boolean = false,
+    val unit: String = "",
+)
+
+// ============================================================
+//  KERNEL CAPABILITY MATRIX
+// ============================================================
+
+data class KernelCapabilityItem(
+    val title: String,
+    val detail: String,
+    val isSupported: Boolean,
+)
+
+data class KernelCapabilityReport(
+    val scorePercent: Int = 0,
+    val kernelRelease: String = "",
+    val items: List<KernelCapabilityItem> = emptyList(),
+)
+
+// ============================================================
+//  HARDWARE THERMAL ZONES & APPS
+// ============================================================
+
+data class ThermalZoneInfo(
+    val id: Int = 0,
+    val type: String = "unknown",
+    val tempC: Float = 0f,
+)
+
+data class AppInfo(
+    val packageName: String = "",
+    val label: String = "",
+    val isGame: Boolean = false,
+)
+
+// ============================================================
+//  UI STATE WRAPPER
+// ============================================================
+
+data class LynxUiState(
+    val isLoading: Boolean = true,
+    val isRootAvailable: Boolean = false,
+    val isModuleInstalled: Boolean = false,
+    val currentTab: Int = 0,
+    val state: LynxState = LynxState(),
+    val telemetry: TelemetryData? = null,
+    val clusters: List<CpuClusterInfo> = emptyList(),
+    val backups: List<BootBackupInfo> = emptyList(),
+    val isFlashing: Boolean = false,
+    val flashLog: String = "",
+    val isBackingUp: Boolean = false,
+    val errorMessage: String? = null,
+    val successMessage: String? = null,
+    val lastSyncedAt: Long = 0L,
+    val maintenanceRunning: Boolean = false,
+    val exportRunning: Boolean = false,
+    // Phase 1 & 2 Feature Additions
+    val gpuInfo: GpuInfo = GpuInfo(),
+    val ksmStats: KsmStats = KsmStats(),
+    val ioDevices: List<IoDeviceInfo> = emptyList(),
+    val governorTunables: Map<Int, List<GovernorTunable>> = emptyMap(),
+    val availableTcpAlgorithms: List<String> = emptyList(),
+    val applistPerf: List<String> = emptyList(),
+    val wakelocks: List<String> = emptyList(),
+    val installedApps: List<String> = emptyList(),
+    // Modern M3 & Multi-SoC Flexibility
+    val selectedAccent: String = "cyan",
+    val displayRefreshRate: Int = 0,
+    val socOverride: String = "auto",
+    val capabilityReport: KernelCapabilityReport? = null,
+    // Dynamic Zero-Hardcoding Capabilities
+    val zramCompAlgorithm: String = "lz4",
+    val availZramCompAlgorithms: List<String> = emptyList(),
+    val supportedRefreshRates: List<Int> = listOf(60, 90, 120),
+    val customRulesScript: String = "",
+    val customRulesOutput: String? = null,
+    val customRulesRunning: Boolean = false,
+    val thermalZones: List<ThermalZoneInfo> = emptyList(),
+    val installedAppList: List<AppInfo> = emptyList(),
+    val selinuxMode: String = "Enforcing",
+    val isPrintkSilent: Boolean = true,
+    val dirtyRatio: Int = 20,
+    val vfsCachePressure: Int = 100,
+    val cpuCores: List<CpuCoreInfo> = emptyList(),
+    val batteryDetails: BatteryDetails? = null,
+    val topWakelocks: List<WakelockItem> = emptyList(),
+    val activeGovernorPreset: String = "balanced",
+    // Deep Kernel & System Tunables (Dynamic Auto-Discovery)
+    val deepTunables: List<DeepTunable> = emptyList(),
+    val isDeepScanning: Boolean = false,
+    val selectedDeepCategory: String = "ALL",
+    val manualInspectResult: DeepTunable? = null,
+)
+
+// ============================================================
+//  DEEP SYSFS INSPECTOR & SMART COMMENT TUNABLES
+// ============================================================
+
+enum class TunableType { BOOL, CHOICE, SLIDER, STEPPER, INT, TEXT }
+
+data class TunableOption(
+    val value: String = "",
+    val label: String = ""
+)
+
+data class DeepTunable(
+    val path: String = "",
+    val name: String = "",
+    val rawName: String = "",
+    val category: String = "General",
+    val desc: String = "",
+    val value: String = "",
+    val writable: Boolean = true,
+    val type: TunableType = TunableType.TEXT,
+    val options: List<TunableOption> = emptyList(),
+    val min: Float = 0f,
+    val max: Float = 100f,
+    val step: Float = 1f,
+    val unit: String = "",
+    val help: String = "",
+    val recommendation: String = ""
+)
+
+

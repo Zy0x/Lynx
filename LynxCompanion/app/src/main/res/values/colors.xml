@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_deep_oled">#FF0A0A0A</color>
+    <color name="accent_cyan">#FF00FFAA</color>
+    <color name="accent_blue">#FF0099FF</color>
+</resources>

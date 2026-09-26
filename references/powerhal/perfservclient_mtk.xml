@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MediaTek Performance Service Scenario Table Reference (perfservclient) -->
+<SCN_TABLE>
+    <Scenario id="SCN_APP_SWITCH">
+        <data cmd="PERF_RES_CPUFREQ_MIN_CLUSTER_0" param="1400000" />
+        <data cmd="PERF_RES_CPUFREQ_MIN_CLUSTER_1" param="2000000" />
+        <data cmd="PERF_RES_POWER_MODE" param="3" />
+        <data cmd="PERF_RES_DRAM_OPP_MIN" param="0" />
+    </Scenario>
+    <Scenario id="SCN_GAME_LAUNCH">
+        <data cmd="PERF_RES_CPUFREQ_MAX_CLUSTER_0" param="2000000" />
+        <data cmd="PERF_RES_CPUFREQ_MAX_CLUSTER_1" param="2500000" />
+        <data cmd="PERF_RES_GPU_FREQ_MIN" param="950" />
+        <data cmd="PERF_RES_FPSGO_ENABLE" param="1" />
+        <data cmd="PERF_RES_GED_BENCHMARK_ON" param="1" />
+    </Scenario>
+    <Scenario id="SCN_BALANCE">
+        <data cmd="PERF_RES_POWER_MODE" param="0" />
+        <data cmd="PERF_RES_CPUFREQ_MIN_CLUSTER_0" param="500000" />
+        <data cmd="PERF_RES_CPUFREQ_MIN_CLUSTER_1" param="850000" />
+    </Scenario>
+</SCN_TABLE>

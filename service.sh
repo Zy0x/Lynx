@@ -1,257 +1,183 @@
 #!/system/bin/sh
-# Waiting for boot completed
-while [ "$(getprop sys.boot_completed | tr -d '\r')" != "1" ]; do sleep 3; done
+# ==============================================================================
+# Lynx Universal - Late Start Service Router
+# Hybrid Architecture: Qualcomm Snapdragon, MediaTek, & Generic Linux
+# Clean, high-performance, non-redundant system boot manager
+# ==============================================================================
 
-# Detect temproot
+# Wait for boot completion (max 120s timeout)
+boot_count=0
+while [ "$(getprop sys.boot_completed | tr -d '\r')" != "1" ]; do
+    sleep 2
+    boot_count=$((boot_count + 1))
+    [ $boot_count -ge 60 ] && break
+done
 
-# Path
+# Wait for decrypted user storage (max 50s timeout for lockscreen FBE)
+fbe_count=0
+while [ ! -d "/sdcard/Android" ]; do
+    sleep 2
+    fbe_count=$((fbe_count + 1))
+    [ $fbe_count -ge 25 ] && break
+done
+
 MODPATH=${0%/*}
+[ -d "$MODPATH" ] || MODPATH="/data/adb/modules/Lynx"
 MODPROP="$MODPATH/module.prop"
-SCRIPT="$MODPATH/script"
-LIB="$MODPATH/script/lib"
+CORE="$MODPATH/core"
+LIB="$MODPATH/core/lib"
+CONFIG_JSON="$MODPATH/config.json"
+TARGET_SOC_FILE="$MODPATH/target_soc"
 
-# Variables
-ZRAMSIZE=0
-SWAPSIZE=0
+# ── 1. Target Architecture & Environment ────────────────────────────
+TARGET_SOC="generic"
+if [ -f "$TARGET_SOC_FILE" ]; then
+    TARGET_SOC=$(cat "$TARGET_SOC_FILE" 2>/dev/null | tr -d '[:space:]')
+fi
+if [ -z "$TARGET_SOC" ] || [ "$TARGET_SOC" = "generic" ]; then
+    if [ -f "$CONFIG_JSON" ]; then
+        TARGET_SOC=$(awk -F'"' '/"soc_type"[ \t]*:/ {print $4}' "$CONFIG_JSON" 2>/dev/null)
+    fi
+fi
+# Kernel ground-truth fallback (Immune to prop spoofing)
+if [ -z "$TARGET_SOC" ] || [ "$TARGET_SOC" = "generic" ]; then
+    if [ -f "$LIB/hw_probe.sh" ]; then
+        . "$LIB/hw_probe.sh"
+        detected_soc=$(detect_real_soc)
+        [ "$detected_soc" != "generic" ] && TARGET_SOC="$detected_soc"
+    fi
+fi
+[ -z "$TARGET_SOC" ] && TARGET_SOC="generic"
 
-# Load common functions
+
+# Ensure log and storage directories exist
+mkdir -p "/storage/emulated/0/Lynx" "$MODPATH/logs" 2>/dev/null
 LOG_FILE="/storage/emulated/0/Lynx/Lynx.log"
+
+# Log rotation if file exceeds 512 KB
+if [ -f "$LOG_FILE" ]; then
+    log_size=$(wc -c < "$LOG_FILE" 2>/dev/null || echo 0)
+    if [ "$log_size" -gt 524288 ] 2>/dev/null; then
+        tail -n 300 "$LOG_FILE" > "$LOG_FILE.tmp" 2>/dev/null
+        mv "$LOG_FILE.tmp" "$LOG_FILE" 2>/dev/null
+    fi
+fi
+
 log_msg() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
-    echo "$msg" | tee -a "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE" 2>/dev/null
 }
 
-# Read Prop Function
-read_prop() {
-    sed -nE "s/^$1=(.*)/\1/p" "$MODPROP"
-}
+log_msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log_msg "Lynx Universal Service Initializing..."
+log_msg "• Platform: $TARGET_SOC"
+log_msg "• Device: $(getprop ro.product.brand) $(getprop ro.product.model)"
+log_msg "• Kernel: $(uname -r)"
 
-# Check and create Lynx directory
-mkdir -p "/storage/emulated/0/Lynx" || { log_msg "Failed to create Lynx directory"; exit 1; }
-
-# Log module and device info
-{
-    log_msg "--------------------"
-    log_msg "Module info:"
-    log_msg "• Name             : $(read_prop 'name')"
-    log_msg "• Version          : $(read_prop 'version')"
-    log_msg "• Owner            : $(read_prop 'author')"
-    log_msg "• Release Date     : $(read_prop 'versionCode' | sed 's/\(....\)\(..\)\(..\)/\3-\2-\1/')"
-    log_msg ""
-    log_msg "Device info:"
-    log_msg "• Brand            : $(getprop ro.product.system.brand)"
-    log_msg "• Device           : $(getprop ro.product.system.model)"
-    log_msg "• Processor        : $(getprop ro.product.board)"
-    log_msg "• Android Version  : $(getprop ro.system.build.version.release)"
-    log_msg "• SDK Version      : $(getprop ro.build.version.sdk)"
-    log_msg "• Architecture     : $(getprop ro.product.cpu.abi)"
-    log_msg "• Kernel Version   : $(uname -r)"
-    log_msg ""
-    log_msg "Profile Mode:"
-} || { log_msg "Failed to write module and device info to log"; exit 1; }
-
-# Device online functions
-wait_until_login()
-{
-    # whether in lock screen, tested on Android 7.1 & 10.0
-    # in case of other magisk module remounting /data as RW
-    while [ "$(dumpsys window policy | grep mInputRestricted=true)" != "" ]; do
-        sleep 2
-    done
-    # we doesn't have the permission to rw "/sdcard" before the user unlocks the screen
-    while [ ! -d "/sdcard/Android" ]; do
-        sleep 2
-    done
-}
-
-# Unlock Screen fullroot
-screen_unlock()
-{
-su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '⚠️ 𝙋𝙡𝙚𝙖𝙨𝙚 𝙐𝙣𝙡𝙤𝙘𝙠 𝙔𝙤𝙪𝙧 𝙇𝙤𝙘𝙠𝙨𝙘𝙧𝙚𝙚𝙣!'" >/dev/null 2>&1
-}
-#screen_unlock
-
-# Device online
-#wait_login_temproot
-
-# Sync to data in the rare case a device crashes
-sync
-
-# Change zram
-#change_zram
-
-# Swap ram
-#change_swap
-
-# Device online
-#wait_login_fullroot
-
-# Load Config File
-. "$MODPATH/script/lib/lynx.conf"
-CONFIG_FILE="$MODPATH/script/lib/lynx.conf"
-if [ -f "$CONFIG_FILE" ]; then
-    while IFS= read -r line || [ -n "$line" ]; do
-        echo "$line" | grep -q '^#' && continue
-        echo "$line" | grep -q '^$' && continue
-        NAME=$(echo "$line" | cut -d= -f1)
-        VALUE=$(echo "$line" | cut -d= -f2)
-        if [[ "$NAME" == *widow* || "$NAME" == *trans* || "$NAME" == *anim* ]]; then
-            log_msg "⏩ Skipping prop: $NAME"
-            continue
-        fi
-        resetprop "$NAME" "$VALUE"
-        log_msg "resetprop $NAME $VALUE"
-    done < "$CONFIG_FILE"
-    log_msg "✅ All props applied (excluding skipped patterns)."
-else
-    log_msg "❌ Configuration file not found: $CONFIG_FILE"
+# ── 2. Platform-Specific Hardware Initialization (Strictly SoC Isolated) ─
+if [ -f "$MODPATH/platforms/$TARGET_SOC/sysfs.sh" ]; then
+    sh "$MODPATH/platforms/$TARGET_SOC/sysfs.sh" >/dev/null 2>&1
+    log_msg "⚡ Platform HAL ($TARGET_SOC) sysfs initialized"
 fi
 
-# Enable all tweak
-sed -Ei "s/^description=\[.*\]/description=[ ⚙️ Aᴘᴘʟʏ ᴛᴡᴇᴀᴋꜱ ᴘʟᴇᴀꜱᴇ ᴡᴀɪᴛ... ]/" "$MODPROP"
-su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '⚙️ 𝘼𝙥𝙥𝙡𝙮 𝙏𝙬𝙚𝙖𝙠𝙨 𝙋𝙡𝙚𝙖𝙨𝙚 𝙒𝙖𝙞𝙩...'" >/dev/null 2>&1
-
-# Thermal Service
-cmd thermalservice override-status 0
-
-# DNS Routing
-dns_provider=""
-if [ -n "$dns_provider" ]; then
-    Lxcore -dns "$dns_provider" || log_msg "Lxcore is not available right now!"
-else
-    log_msg "No changes to DNS Provider, skipping configuration."
+# ── 3. Universal Subsystem Optimization (Lxcore Modular Categories) ─────
+if [ -x "$MODPATH/system/bin/Lxcore" ]; then
+    "$MODPATH/system/bin/Lxcore" -system apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -cpu apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -gpu apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -task apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -io apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -ram apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -network apply >/dev/null 2>&1
+    log_msg "✅ Core modular subsystems optimized via Lxcore"
 fi
 
-# Internet Tweak
-#Internet_Tweak
+# Touch & Compositor Phase Latency Offsets
+settings put secure long_press_timeout 280 2>/dev/null
+settings put secure multi_press_timeout 80 2>/dev/null
 
-# Unity Big.Little trick by lybxlpsv 
-#unitytrick_enable
+# ── 5. Start Background Daemons ────────────────────────────────────
+if command -v crond >/dev/null && [ -d "$CORE/cron" ]; then
+    crond -f -c "$CORE/cron" -l 5 -L "$MODPATH/logs/cron.log" &
+fi
 
-# Animation scales
-animation_system() {
-    if [ "$window" != "" ]; then
-        settings put global window_animation_scale $window
+if [ -d "$MODPATH/webroot" ]; then
+    pkill -f "httpd.*127.0.0.1:8080" 2>/dev/null
+    if command -v busybox >/dev/null; then
+        busybox httpd -p 127.0.0.1:8080 -h "$MODPATH/webroot" 2>/dev/null
+    elif command -v toybox >/dev/null; then
+        toybox httpd -p 127.0.0.1:8080 -h "$MODPATH/webroot" 2>/dev/null
     fi
-    if [ "$trans" != "" ]; then
-        settings put global transition_animation_scale $trans
-    fi
-    if [ "$anim" != "" ]; then
-        settings put global animator_duration_scale $anim
-    fi
-}
-
-# Animation Tweak
-animation_system
-settings put secure long_press_timeout 280
-settings put secure multi_press_timeout 80
-
-# Run Script
-Lxcore -io apply
-Lxcore -task apply
-Lxcore -cpu apply
-Lxcore -gpu apply
-Lxcore -ram apply
-Lxcore -system apply
-
-# Run add-on
-# for script in $(grep -E '^[a-zA-Z_][a-zA-Z0-9_]*\(\)' $LIB/add_on.sh | awk -F '(' '{print $1}'); do
-#     "$script" >/dev/null 2>&1
-# done
-
-# Cron Job
-crond -f -c $MODPATH/cron -l 5 -L $MODPATH/cron/cron.log &
-
-# Dexoat Optimizer
-#dex2oat_opt_enable
-
-# Doze mode
-#dozemode
-
-# Disable Ramdumps
-if [ -d "/sys/module/subsystem_restart/parameters" ]
-then
-    echo "0" > /sys/module/subsystem_restart/parameters/enable_ramdumps
-    echo "0" > /sys/module/subsystem_restart/parameters/enable_mini_ramdumps
+    log_msg "🌐 WebUI HTTP Server active on 127.0.0.1:8080"
 fi
 
-# Disable all Log and Debug Mask
-find /sys/ -type f \( \
-    -name 'debug_mask' -or \
-    -name 'debug_level' -or \
-    -name 'enable_event_log' -or \
-    -name 'log_level*' -or \
-    -name '*debug_mode' -or \
-    -name 'edac_mc_log*' -or \
-    -name '*log_ue*' -or \
-    -name '*log_ce*' -or \
-    -name 'log_ecn_error' -or \
-    -name 'seclog*' -or \
-    -name 'compat-log' -or \
-    -name '*log_enabled' -or \
-    -name 'tracing_on' -or \
-    -name 'mballoc_debug' \
-\) -exec sh -c 'echo 0 > "$1"' _ {} \;
-
-# Disable debuggers bluetooth
-for bl in /sys/module/bluetooth/parameters/disable_ertm /sys/module/bluetooth/parameters/disable_esco
-do
-if [[ -e "$bl" ]]; then
-    echo "Y" > "$bl"
+if command -v inotifyd >/dev/null && [ -f "$CONFIG_JSON" ] && [ -f "$LIB/state_watcher.sh" ]; then
+    pkill -f "inotifyd.*state_watcher.sh" 2>/dev/null
+    nohup inotifyd "$LIB/state_watcher.sh" "$CONFIG_JSON:w" >/dev/null 2>&1 &
+    log_msg "🔄 Inotifyd state watcher active"
 fi
-done
 
-# Disable System Log
-pm uninstall --user 0 com.android.traceur
+# ── 6. Profile Enforcement & First-Boot Dormant Safety ──────────────
+active_profile="dormant"
+if [ -f "$CONFIG_JSON" ]; then
+    active_profile=$(awk -F'"' '/"active_profile"[ \t]*:/ {print $4}' "$CONFIG_JSON" 2>/dev/null)
+fi
 
-# Disable Some Service Log
-stop logcat logcatd logd tcpdump cnss_diag statsd traced idd-logreader idd-logreadermain stats dumpstate aplogd vendor_tcpdump vendor.tcpdump vendor.cnss_diag
+log_msg "Active profile: $active_profile"
 
-# Low Latency Wi-Fi
-cmd wifi force-low-latency-mode enabled
+if [ "$active_profile" = "dormant" ]; then
+    sed -Ei "s/^description=\[.*\]/description=[ 💤 Dormant (Pending Setup) ]/" "$MODPROP" 2>/dev/null
+    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '💤 Modul terpasang aman (Standby). Buka WebUI atau Aplikasi Lynx untuk konfigurasi awal.'" >/dev/null 2>&1
+    log_msg "Lynx initialized in dormant standby mode."
+    exit 0
+fi
 
-# Clear Wi-Fi Logs
-rm -rf /data/vendor/wlan_logs
-touch /data/vendor/wlan_logs
-chmod 000 /data/vendor/wlan_logs
+if [ -f "$CORE/Charging-Controller.sh" ]; then
+    nohup sh "$CORE/Charging-Controller.sh" >/dev/null 2>&1 &
+fi
 
-# Cache Cleaner
-#cache_cleaner
- 
-# Fstrim
-fstrim /system
-fstrim /vendor
-fstrim /metadata
-fstrim /odm
-fstrim /system_ext
-fstrim /product
-fstrim /data
-fstrim /cache
-for sd in /storage/*; do
-  fstrim -v ${sd}
-done
+[ -f "$CORE/CCleaner.sh" ] && sh "$CORE/CCleaner.sh" >/dev/null 2>&1
 
-# Dark GPU
-nohup sh "$LIB/dark_gpu.sh" > /dev/null 2>&1 &
+if [ -f "$LIB/lowend_shield.sh" ]; then
+    . "$LIB/lowend_shield.sh"
+    apply_lowend_shield
+fi
 
-# Charging Control
-charging_control() {
-  nohup sh $SCRIPT/Charging-Controller.sh > /dev/null 2>&1 &
-}
-#charging_control
+case "$active_profile" in
+    auto)
+        sed -Ei "s/^description=\[.*\]/description=[ ⚡ Auto (AI) Mode Active ]/" "$MODPROP" 2>/dev/null
+        nohup sh "$CORE/Smart-AI.sh" >/dev/null 2>&1 &
+        ;;
+    powersave)
+        sed -Ei "s/^description=\[.*\]/description=[ 🔋 Powersave Mode Active ]/" "$MODPROP" 2>/dev/null
+        [ -f "$MODPATH/platforms/$TARGET_SOC/powersave.sh" ] && sh "$MODPATH/platforms/$TARGET_SOC/powersave.sh" >/dev/null 2>&1
+        ;;
+    balance)
+        sed -Ei "s/^description=\[.*\]/description=[ ⚖️ Balance Mode Active ]/" "$MODPROP" 2>/dev/null
+        [ -f "$MODPATH/platforms/$TARGET_SOC/balance.sh" ] && sh "$MODPATH/platforms/$TARGET_SOC/balance.sh" >/dev/null 2>&1
+        ;;
+    performance)
+        sed -Ei "s/^description=\[.*\]/description=[ 🚀 Performance Mode Active ]/" "$MODPROP" 2>/dev/null
+        [ -f "$MODPATH/platforms/$TARGET_SOC/perf.sh" ] && sh "$MODPATH/platforms/$TARGET_SOC/perf.sh" >/dev/null 2>&1
+        ;;
+    extreme)
+        sed -Ei "s/^description=\[.*\]/description=[ 🔥 Extreme Mode Active ]/" "$MODPROP" 2>/dev/null
+        [ -f "$MODPATH/platforms/$TARGET_SOC/perf.sh" ] && sh "$MODPATH/platforms/$TARGET_SOC/perf.sh" "extreme" >/dev/null 2>&1
+        ;;
+esac
 
-# Kill unused process
-sync && echo "3" > /proc/sys/vm/drop_caches
-am kill-all
+[ -f "$LIB/updater.sh" ] && nohup sh "$LIB/updater.sh" >/dev/null 2>&1 &
 
-# Run Ai
-sleep 3
-nohup sh "$SCRIPT/Smart-AI.sh" > /dev/null 2>&1 &
+# ── 7. Execute Custom User Rules & Deep Tunables ──────────────────
+if [ -f "$CORE/custom_tunables.sh" ]; then
+    log_msg "⚡ Applying custom deep kernel tunables ($CORE/custom_tunables.sh)..."
+    sh "$CORE/custom_tunables.sh" >> "$MODPATH/logs/custom_tunables.log" 2>&1
+fi
+if [ -f "$MODPATH/custom_rules.sh" ]; then
+    log_msg "⚡ Executing custom user boot rules ($MODPATH/custom_rules.sh)..."
+    sh "$MODPATH/custom_rules.sh" >> "$MODPATH/logs/custom_rules.log" 2>&1
+    log_msg "Custom rules execution finished."
+fi
 
-# Beta Test
-nohup sh $LIB/beta.sh
 
-# Done
-. "$LIB/updater.sh" > /dev/null 2>&1 &
-sed -Ei "s/^description=\[.*\]/description=[ ✅ Aʟʟ ᴛᴡᴇᴀᴋꜱ ɪꜱ ᴀᴘᴘʟɪᴇᴅ ]/" "$MODPROP"
-su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '✅  𝘼𝙡𝙡 𝙏𝙬𝙚𝙖𝙠𝙨 𝙞𝙨 𝘼𝙥𝙥𝙡𝙞𝙚𝙙...'" >/dev/null 2>&1
+su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '✅  $active_profile Mode Applied...'" >/dev/null 2>&1
+log_msg "Lynx service completed successfully."
