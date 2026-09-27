@@ -4290,7 +4290,7 @@ fun BenchmarkStudioDialog(
     val result = uiState.benchmarkResult
     val isRunning = uiState.isBenchmarking
     val context = LocalContext.current
-    var selectedDuration by remember { mutableStateOf(10) }
+    var selectedDuration by remember { mutableStateOf(60) }
 
     AlertDialog(
         onDismissRequest = {
@@ -4564,7 +4564,7 @@ fun BenchmarkStudioDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf(5 to "5s", 10 to "10s", 30 to "30s", 60 to "60s").forEach { (sec, label) ->
+                        listOf(10 to "10s", 30 to "30s", 60 to "1 Min", 120 to "2 Min").forEach { (sec, label) ->
                             val isSel = selectedDuration == sec
                             Surface(
                                 shape = RoundedCornerShape(8.dp),

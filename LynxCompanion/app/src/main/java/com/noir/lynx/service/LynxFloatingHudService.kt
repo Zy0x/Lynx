@@ -163,7 +163,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
 
         val telemetryFlow = kotlinx.coroutines.flow.MutableStateFlow(LynxRepository.FloatingHudTelemetry())
         val isHudBenchmarkingFlow = kotlinx.coroutines.flow.MutableStateFlow(false)
-        val hudBenchmarkCountdownFlow = kotlinx.coroutines.flow.MutableStateFlow(10)
+        val hudBenchmarkCountdownFlow = kotlinx.coroutines.flow.MutableStateFlow(60)
         val hudBenchmarkSummaryFlow = kotlinx.coroutines.flow.MutableStateFlow<com.noir.lynx.data.LynxBenchmarkResult?>(null)
 
         // Start Telemetry Query Loop (500ms for ultra-smooth live HUD)
@@ -211,7 +211,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                             hudBenchmarkSummaryFlow.value = null
                             try {
                                 val res = withContext(Dispatchers.IO) {
-                                    LynxRepository.runHardwareBenchmark(durationSeconds = 10) { rem ->
+                                    LynxRepository.runHardwareBenchmark(durationSeconds = 60) { rem ->
                                         hudBenchmarkCountdownFlow.value = rem
                                     }
                                 }
@@ -319,7 +319,7 @@ fun FloatingHudContent(
     telemetry: LynxRepository.FloatingHudTelemetry,
     isExpanded: Boolean,
     isHudBenchmarking: Boolean = false,
-    hudBenchmarkCountdown: Int = 10,
+    hudBenchmarkCountdown: Int = 60,
     hudBenchmarkSummary: com.noir.lynx.data.LynxBenchmarkResult? = null,
     onToggleExpand: () -> Unit,
     onClose: () -> Unit,
@@ -649,7 +649,7 @@ fun FloatingHudContent(
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                text = if (isHudBenchmarking) "Merekam Pacing... (${hudBenchmarkCountdown}s)" else "⚡ Live Benchmark (10s)",
+                                text = if (isHudBenchmarking) "Merekam Pacing... (${hudBenchmarkCountdown}s)" else "⚡ Live Benchmark (1 Menit)",
                                 color = if (isHudBenchmarking) NeonGold else NeonCyan,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold

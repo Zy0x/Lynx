@@ -1,3 +1,17 @@
+# Lynx [Codename: Deity] 3.0.8
+Released on: 2026-09-28
+> **Versi ini** memperbarui durasi **Live Benchmark OSD di Floating Game HUD** menjadi **1 Menit (60 detik)** penuh, memungkinkan analisis kestabilan frametime jangka panjang, deteksi thermal throttling progresif, serta perataan pacing yang lebih representatif saat gameplay intensif.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.8)
+
+### 1. ⏱️ 1-Minute Live Benchmark pada Floating Game HUD
+- **Standar Durasi 1 Menit (60 Detik)**: Tombol benchmark instan di Expanded Game HUD kini disetel ke durasi 60 detik (sebelumnya 10 detik).
+- **Pemantauan Pacing Jangka Panjang**: Pengujian 60 detik menangkap siklus gameplay realistis (rotasi peta, pertempuran, burst efek partikel) serta efek kenaikan suhu terhadap kestabilan frame delivery.
+- **Hitung Mundur Real-Time**: Tampilan tombol HUD menampilkan indikator live `Merekam Pacing... (60s)` hingga `(0s)`.
+- **Benchmark Studio Dialog Synchronization**: Di dalam aplikasi utama Lynx Companion, opsi default juga disesuaikan ke 1 Menit (60s) dengan pilihan rentang `10s`, `30s`, `1 Min`, dan `2 Min`.
+
+---
+
 # Lynx [Codename: Deity] 3.0.7
 Released on: 2026-09-28
 > **Versi ini** menghadirkan **Live Hardware Benchmark Studio & Frame Pacing Profiler**, pembaruan ergonomi Floating Game HUD (Frame Time langsung di Mini Pill), penguncian hardware fixed OPP GPU, bypass limit table Mali, dan isolasi SMP Affinity IRQ CPU.
