@@ -178,16 +178,22 @@ switch_mode() {
         extreme|performance)
             touch "/dev/lynx_active_game" 2>/dev/null
             if [ -n "$top_app" ]; then
-                gpid=$(pidof "$top_app" 2>/dev/null | awk '{print $1}')
-                if [ -n "$gpid" ]; then
-                    [ -e /sys/module/ged/parameters/gx_top_app_pid ] && echo "$gpid" > /sys/module/ged/parameters/gx_top_app_pid 2>/dev/null
-                    renice -n -20 -p "$gpid" 2>/dev/null
-                    ionice -c 1 -n 0 -p "$gpid" 2>/dev/null
-                    echo "$gpid" > /dev/cpuset/top-app/cgroup.procs 2>/dev/null
-                    for tid in $(ls /proc/$gpid/task/ 2>/dev/null); do
-                        renice -n -20 -p "$tid" 2>/dev/null
-                        echo "$tid" > /dev/cpuset/top-app/tasks 2>/dev/null
-                    done
+                if [ -f "$MODDIR/core/lib/game_pacing.sh" ]; then
+                    . "$MODDIR/core/lib/game_pacing.sh"
+                    apply_render_pipeline_priority
+                    optimize_game_process "$top_app"
+                elif [ -f "/data/adb/lynx/game_pacing.sh" ]; then
+                    . "/data/adb/lynx/game_pacing.sh"
+                    apply_render_pipeline_priority
+                    optimize_game_process "$top_app"
+                else
+                    gpid=$(pidof "$top_app" 2>/dev/null | awk '{print $1}')
+                    if [ -n "$gpid" ]; then
+                        [ -e /sys/module/ged/parameters/gx_top_app_pid ] && echo "$gpid" > /sys/module/ged/parameters/gx_top_app_pid 2>/dev/null
+                        renice -n -20 -p "$gpid" 2>/dev/null
+                        ionice -c 1 -n 0 -p "$gpid" 2>/dev/null
+                        echo "$gpid" > /dev/cpuset/top-app/cgroup.procs 2>/dev/null
+                    fi
                 fi
             fi
             if [ "$target" = "extreme" ]; then

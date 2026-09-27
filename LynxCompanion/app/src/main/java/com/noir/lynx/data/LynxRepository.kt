@@ -3785,15 +3785,13 @@ case "${'$'}PROFILE" in
                     write_node "${'$'}peak_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
                     write_node "${'$'}peak_f" "/sys/module/ged/parameters/gpu_bottom_freq"
                     write_node "${'$'}peak_f" "/proc/gpufreq/gpufreq_opp_freq"
-                    if [ -n "${'$'}peak_vgpu" ]; then
-                        write_node "${'$'}{peak_f} ${'$'}{peak_vgpu}" "/proc/gpufreq/gpufreq_fixed_freq_volt"
-                    fi
+                    write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
                 fi
             fi
             for i in 0 1 2 3 4 5 6 7 8; do
                 write_node "${'$'}i 0 0" "/proc/gpufreq/gpufreq_limit_table"
             done
-            write_node "0" "/proc/mali/dvfs_enable"
+            write_node "1" "/proc/mali/dvfs_enable"
         else
             write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
             write_node "5" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
@@ -3844,7 +3842,9 @@ case "${'$'}PROFILE" in
         write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
         write_node "1" "/sys/kernel/fpsgo/fbt/boost_ta"
         write_node "1" "/sys/kernel/fpsgo/fbt/ultra_rescue"
-        write_node "1" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
+        write_node "0" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
+        write_node "0" "/sys/kernel/fpsgo/fbt/enable_switch_down_throttle"
+        write_node "8333333" "/sys/module/ged/parameters/target_t_cpu_remained"
         write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy"
         write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy_90"
         write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy"
@@ -3858,7 +3858,11 @@ case "${'$'}PROFILE" in
         write_node "0" "/proc/mali/debug_log"
 
         uclamp_val=75
-        [ "${'$'}PROFILE" = "extreme" ] && uclamp_val=100
+        stune_boost=15
+        if [ "${'$'}PROFILE" = "extreme" ]; then
+            uclamp_val=100
+            stune_boost=25
+        fi
         for u_node in "/dev/cpuset/top-app/cpu.uclamp.min" "/proc/sys/kernel/sched_util_clamp_min"; do
             if [ -e "${'$'}u_node" ]; then
                 max_sc=100
@@ -3882,7 +3886,7 @@ case "${'$'}PROFILE" in
         write_node "5" "/dev/stune/schedtune.boost"
         write_node "0" "/dev/stune/schedtune.prefer_idle"
         write_node "5" "/dev/stune/foreground/schedtune.boost"
-        write_node "5" "/dev/stune/top-app/schedtune.boost"
+        write_node "${'$'}stune_boost" "/dev/stune/top-app/schedtune.boost"
 
         # CFS Low-Latency Scheduler & VM Optimization
         sync
@@ -5768,6 +5772,8 @@ done
                 "done",
                 // 2. Reset GPU boost and limit
                 "echo 0 > /proc/gpufreq/gpufreq_opp_freq 2>/dev/null || true",
+                "echo '0 0' > /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null || true",
+                "echo 1 > /proc/mali/dvfs_enable 2>/dev/null || true",
                 "echo 0 > /sys/module/ged/parameters/gpu_cust_boost_freq 2>/dev/null || true",
                 "echo 0 > /sys/kernel/ged/hal/custom_boost_gpu_freq 2>/dev/null || true",
                 "echo 0 > /sys/kernel/ged/hal/custom_upbound_gpu_freq 2>/dev/null || true",

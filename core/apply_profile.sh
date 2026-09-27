@@ -8,10 +8,27 @@
 
 PROFILE="${1:-balance}"
 CALLER="${2:-user}"
+TARGET_APP="${3:-}"
 mkdir -p /data/adb/lynx 2>/dev/null
 echo "$PROFILE" > /data/adb/lynx/active_profile 2>/dev/null
 if [ "$CALLER" != "watcher" ] && [ "$PROFILE" != "auto" ]; then
     echo "$PROFILE" > /data/adb/lynx/baseline_profile 2>/dev/null
+fi
+if [ -z "$TARGET_APP" ]; then
+    TARGET_APP=$(dumpsys activity activities 2>/dev/null | grep -m1 "topResumedActivity" | grep -oE '[a-zA-Z0-9._]+/[a-zA-Z0-9._]+' | head -n1 | cut -d'/' -f1)
+fi
+TARGET_SOC="generic"
+if [ -f "/data/adb/modules/Lynx/target_soc" ]; then
+    TARGET_SOC=$(cat "/data/adb/modules/Lynx/target_soc" 2>/dev/null | tr -d '[:space:]')
+elif [ -f "/data/adb/lynx/target_soc" ]; then
+    TARGET_SOC=$(cat "/data/adb/lynx/target_soc" 2>/dev/null | tr -d '[:space:]')
+fi
+if [ -z "$TARGET_SOC" ] || [ "$TARGET_SOC" = "generic" ]; then
+    if [ -d "/proc/ppm" ] || [ -d "/proc/ged" ] || [ -c "/dev/ged" ]; then
+        TARGET_SOC="mtk"
+    elif [ -d "/sys/class/kgsl" ] || [ -c "/dev/kgsl-3d0" ] || [ -d "/sys/devices/soc0" ]; then
+        TARGET_SOC="qcom"
+    fi
 fi
 
 # Zero-Fork Fast Path: only chmod if direct write failed and node is not writable
@@ -68,7 +85,15 @@ case "$PROFILE" in
             fi
 
             if [ "$PROFILE" = "extreme" ]; then
-                write_node "performance" "$p/scaling_governor"
+                if [ "$TARGET_SOC" = "mtk" ]; then
+                    write_node "schedutil" "$p/scaling_governor"
+                    write_node "0" "$p/schedutil/up_rate_limit_us"
+                    write_node "0" "$p/schedutil/down_rate_limit_us"
+                    write_node "1" "$p/schedutil/pl"
+                    write_node "$max_freq" "$p/schedutil/hispeed_freq"
+                else
+                    write_node "performance" "$p/scaling_governor"
+                fi
                 write_node "$max_freq" "$p/scaling_max_freq"
                 write_node "$max_freq" "$p/scaling_min_freq"
                 eval "saved_floor_${pol_num}=\"$max_freq\""
@@ -227,15 +252,14 @@ case "$PROFILE" in
                     write_node "$peak_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
                     write_node "$peak_f" "/sys/module/ged/parameters/gpu_bottom_freq"
                     write_node "$peak_f" "/proc/gpufreq/gpufreq_opp_freq"
-                    if [ -n "$peak_vgpu" ]; then
-                        write_node "${peak_f} ${peak_vgpu}" "/proc/gpufreq/gpufreq_fixed_freq_volt"
-                    fi
+                    write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
                 fi
             fi
             for i in 0 1 2 3 4 5 6 7 8; do
                 write_node "$i 0 0" "/proc/gpufreq/gpufreq_limit_table"
             done
-            write_node "0" "/proc/mali/dvfs_enable"
+            write_node "1" "/proc/mali/dvfs_enable"
+            write_node "1" "/proc/mali/always_on"
         else
             # Performance: high sustained OPP range
             write_node "1" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
@@ -288,7 +312,9 @@ case "$PROFILE" in
         write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
         write_node "1" "/sys/kernel/fpsgo/fbt/boost_ta"
         write_node "1" "/sys/kernel/fpsgo/fbt/ultra_rescue"
-        write_node "1" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
+        write_node "0" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
+        write_node "0" "/sys/kernel/fpsgo/fbt/enable_switch_down_throttle"
+        write_node "8333333" "/sys/module/ged/parameters/target_t_cpu_remained"
         write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy"
         write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy_90"
         write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy"
@@ -302,7 +328,11 @@ case "$PROFILE" in
 
         # ── 4. UCLAMP & Top-App Process Clamping ──────────────────────────────
         uclamp_val=75
-        [ "$PROFILE" = "extreme" ] && uclamp_val=100
+        stune_boost=15
+        if [ "$PROFILE" = "extreme" ]; then
+            uclamp_val=100
+            stune_boost=25
+        fi
         for u_node in "/dev/cpuset/top-app/cpu.uclamp.min" "/proc/sys/kernel/sched_util_clamp_min"; do
             if [ -e "$u_node" ]; then
                 max_sc=100
@@ -327,7 +357,7 @@ case "$PROFILE" in
         write_node "5" "/dev/stune/schedtune.boost"
         write_node "0" "/dev/stune/schedtune.prefer_idle"
         write_node "5" "/dev/stune/foreground/schedtune.boost"
-        write_node "5" "/dev/stune/top-app/schedtune.boost"
+        write_node "$stune_boost" "/dev/stune/top-app/schedtune.boost"
 
         # ── 5. Virtual Memory (VM), CFS Low-Latency Scheduler, & I/O ─────────
         # Proactively flush pagecache and defrag memory to eliminate Direct Reclaim stutters
@@ -506,13 +536,23 @@ case "$PROFILE" in
             fi
         ) >/dev/null 2>&1 &
 
-        # ── 9. Critical Process Priority Renicing ────────────────────────────
-        pids=$(pidof surfaceflinger android.hardware.graphics.composer vendor.qti.hardware.display.composer vendor.mediatek.hardware.pq 2>/dev/null)
-        if [ -n "$pids" ]; then
-            renice -n -20 -p $pids 2>/dev/null
-            for pid in $pids; do
-                write_node "$pid" "/dev/cpuset/top-app/cgroup.procs"
-            done
+        # ── 9. Critical Process Priority Renicing & Game Thread Pacing ───────
+        if [ -f "/data/adb/modules/Lynx/core/lib/game_pacing.sh" ]; then
+            . "/data/adb/modules/Lynx/core/lib/game_pacing.sh"
+            apply_render_pipeline_priority
+            [ -n "$TARGET_APP" ] && optimize_game_process "$TARGET_APP"
+        elif [ -f "/data/adb/lynx/game_pacing.sh" ]; then
+            . "/data/adb/lynx/game_pacing.sh"
+            apply_render_pipeline_priority
+            [ -n "$TARGET_APP" ] && optimize_game_process "$TARGET_APP"
+        else
+            pids=$(pidof surfaceflinger android.hardware.graphics.composer vendor.qti.hardware.display.composer vendor.mediatek.hardware.pq android.hardware.graphics.allocator@4.0-service-mediatek 2>/dev/null)
+            if [ -n "$pids" ]; then
+                renice -n -20 -p $pids 2>/dev/null
+                for pid in $pids; do
+                    write_node "$pid" "/dev/cpuset/top-app/cgroup.procs"
+                done
+            fi
         fi
 
         # Route GPU Interrupts to Big Cores
@@ -938,6 +978,10 @@ case "$PROFILE" in
         write_node "1" "/proc/mali/always_on"
         write_node "1" "/proc/mali/dvfs_enable"
         write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+        write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+        write_node "1" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
+        write_node "1" "/sys/kernel/fpsgo/fbt/enable_switch_down_throttle"
+        write_node "16000000" "/sys/module/ged/parameters/target_t_cpu_remained"
         for i in 0 1 2 3 4 5 6 7 8; do
             write_node "$i 1 1" "/proc/gpufreq/gpufreq_limit_table"
         done

@@ -118,17 +118,17 @@ done
 write_node "1" "/proc/mali/always_on"
 write_node "0" "/proc/mali/debug_log"
 
-if [ "$MODE" = "extreme" ]; then
-    write_node "0" "/proc/mali/dvfs_enable"
-else
-    write_node "1" "/proc/mali/dvfs_enable"
-fi
+write_node "1" "/proc/mali/dvfs_enable"
 
 # GED Parameters
 write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
 write_node "1" "/sys/kernel/fpsgo/common/force_onoff"
 write_node "1" "/sys/kernel/fpsgo/fbt/boost_ta"
 write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+write_node "0" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
+write_node "0" "/sys/kernel/fpsgo/fbt/enable_switch_down_throttle"
+write_node "1" "/sys/kernel/fpsgo/fbt/ultra_rescue"
+write_node "8333333" "/sys/module/ged/parameters/target_t_cpu_remained"
 write_node "1" "/sys/module/ged/parameters/boost_amp"
 write_node "1" "/sys/module/ged/parameters/boost_extra"
 write_node "1" "/sys/module/ged/parameters/boost_gpu_enable"
@@ -147,6 +147,7 @@ write_node "1" "/sys/module/ged/parameters/gx_boost_on"
 write_node "1" "/sys/module/ged/parameters/gx_force_cpu_boost"
 write_node "1" "/sys/module/ged/parameters/gx_game_mode"
 write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
+write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
 
 # Extract Peak GPU Frequency from OPP Dump
 if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
@@ -158,12 +159,6 @@ if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
         write_node "$gpu_peak_freq" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
         write_node "$gpu_peak_freq" "/sys/module/ged/parameters/gpu_bottom_freq"
         write_node "$gpu_peak_freq" "/proc/gpufreq/gpufreq_opp_freq"
-        if [ "$MODE" = "extreme" ]; then
-            chmod 444 /sys/module/ged/parameters/gpu_cust_upbound_freq 2>/dev/null
-            chmod 444 /sys/module/ged/parameters/gpu_cust_boost_freq 2>/dev/null
-            chmod 444 /sys/kernel/ged/hal/custom_upbound_gpu_freq 2>/dev/null
-            chmod 444 /sys/module/ged/parameters/gpu_bottom_freq 2>/dev/null
-        fi
     fi
 fi
 

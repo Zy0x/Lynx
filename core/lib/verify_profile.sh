@@ -616,7 +616,11 @@ for p in /sys/devices/system/cpu/cpufreq/policy*; do
 
     case "$EVAL_PROFILE" in
         extreme)
-            audit_tweak "CPU" "$pol_name Governor" "$p/scaling_governor" "performance" "eq"
+            if [ "$SOC_ARCH" = "mtk" ]; then
+                audit_tweak "CPU" "$pol_name Governor" "$p/scaling_governor" "schedutil" "eq"
+            else
+                audit_tweak "CPU" "$pol_name Governor" "$p/scaling_governor" "performance" "eq"
+            fi
             audit_tweak "CPU" "$pol_name Min Freq" "$p/scaling_min_freq" "$max_f" "opp_clamp"
             audit_tweak "CPU" "$pol_name Max Freq" "$p/scaling_max_freq" "$max_f" "opp_clamp"
             ;;
@@ -718,7 +722,7 @@ if [ "$SOC_ARCH" = "mtk" ]; then
             audit_tweak "MTK" "PPM Enabled" "/proc/ppm/enabled" "disabled" "contains"
             audit_tweak "MTK" "Syslimiter Disable" "/proc/perfmgr/syslimiter/syslimiter_force_disable" "1" "eq"
             if [ "$EVAL_PROFILE" = "extreme" ]; then
-                audit_tweak "MTK" "Mali DVFS Disable" "/proc/mali/dvfs_enable" "mali_dvfs_off" "driver_state"
+                audit_tweak "MTK" "Mali DVFS Enable" "/proc/mali/dvfs_enable" "mali_dvfs_on" "driver_state"
                 audit_tweak "MTK" "GED Boost Level" "/sys/kernel/ged/hal/gpu_boost_level" "2" "eq"
                 audit_tweak "MTK" "GED GPU Idle" "/sys/module/ged/parameters/gpu_idle" "gpu_idle_off" "driver_state"
             else
