@@ -286,8 +286,21 @@ class LynxViewModel : ViewModel() {
                     context?.let { LynxAppAutomationService.updateBaselineProfile(it, profile) }
                 }
             }
-            delay(150L)
-            refreshState()
+            // Fast targeted telemetry refresh: only update dynamic values (CPU clusters, GPU, display refresh rate)
+            // Eliminates heavy 35-query refreshState() on profile switch for instant sub-200ms transitions
+            try {
+                val freshClusters = LynxRepository.readClusters()
+                val freshGpu = LynxRepository.readGpuInfo()
+                val freshRr = LynxRepository.readDisplayRefreshRate()
+                _uiState.update {
+                    it.copy(
+                        clusters = freshClusters,
+                        gpuInfo = freshGpu,
+                        displayRefreshRate = freshRr
+                    )
+                }
+            } catch (e: Exception) {
+            }
         }
     }
 

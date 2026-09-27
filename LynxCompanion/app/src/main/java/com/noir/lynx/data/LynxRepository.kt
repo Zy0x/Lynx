@@ -10,6 +10,7 @@ import com.topjohnwu.superuser.Shell
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
@@ -267,38 +268,31 @@ object LynxRepository {
     /**
      * Set the active performance profile.
      */
-    suspend fun setProfile(profile: String): Boolean {
+    suspend fun setProfile(profile: String): Boolean = withContext(Dispatchers.IO) {
         val allowedProfiles = setOf("auto", "balance", "performance", "extreme", "powersave", "dormant")
-        if (profile !in allowedProfiles) return false
-        val ok = writeStateKey("active_profile", profile, "str")
-        val isAuto = profile == "auto"
-        val baseProfile = if (isAuto) "balance" else profile
-        Shell.cmd(
-            "mkdir -p /data/adb/lynx 2>/dev/null",
-            "echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null",
-            "echo '$baseProfile' > /data/adb/lynx/baseline_profile 2>/dev/null",
-            "setprop lynx.mode '$profile' 2>/dev/null"
-        ).exec()
+        if (profile !in allowedProfiles) return@withContext false
 
-        // Always apply sysfs kernel tuning immediately for zero-delay hardware response
-        applyStandaloneProfile(profile)
-
-        if (isModuleInstalled()) {
-            Shell.cmd("sh '$MODULE_DIR/core/lib/state_watcher.sh' 2>/dev/null").exec()
+        // Background write to config.json without blocking profile execution
+        launch {
+            writeStateKey("active_profile", profile, "str")
         }
-        return ok
-    }
 
-    private suspend fun applyStandaloneProfile(profile: String) = withContext(Dispatchers.IO) {
         try {
-            val exists = Shell.cmd("[ -f /data/adb/lynx/apply_profile.sh ] && grep -q 'setprop lynx.mode auto' /data/adb/lynx/apply_profile.sh").exec()
+            val exists = Shell.cmd("[ -f /data/adb/lynx/apply_profile.sh ]").exec()
             if (!exists.isSuccess) {
                 deployWatcherScripts()
             }
-            Shell.cmd("[ -f /data/adb/modules/Lynx/core/apply_profile.sh ] && sh /data/adb/modules/Lynx/core/apply_profile.sh $profile || sh /data/adb/lynx/apply_profile.sh $profile").exec()
-            Unit
+            val res = Shell.cmd(
+                "[ -f /data/adb/modules/Lynx/core/apply_profile.sh ] && sh /data/adb/modules/Lynx/core/apply_profile.sh $profile user || sh /data/adb/lynx/apply_profile.sh $profile user"
+            ).exec()
+
+            if (isModuleInstalled()) {
+                Shell.cmd("sh '$MODULE_DIR/core/lib/state_watcher.sh' 2>/dev/null").exec()
+            }
+            res.isSuccess
         } catch (e: Exception) {
-            Log.e(TAG, "applyStandaloneProfile error: ${e.message}")
+            Log.e(TAG, "setProfile error: ${e.message}")
+            false
         }
     }
 

@@ -14,12 +14,14 @@ if [ "$CALLER" != "watcher" ] && [ "$PROFILE" != "auto" ]; then
     echo "$PROFILE" > /data/adb/lynx/baseline_profile 2>/dev/null
 fi
 
-# Zero-Fork Fast Path: only chmod if direct write failed
+# Zero-Fork Fast Path: only chmod if direct write failed and node is not writable
 write_node() {
     [ -e "$2" ] || return 0
     echo "$1" > "$2" 2>/dev/null && return 0
-    chmod 666 "$2" 2>/dev/null
-    echo "$1" > "$2" 2>/dev/null
+    if [ ! -w "$2" ]; then
+        chmod 666 "$2" 2>/dev/null
+        echo "$1" > "$2" 2>/dev/null
+    fi
 }
 
 # Target throttler daemons known to clamp FPS and frequencies
@@ -30,14 +32,16 @@ is_bluetooth_audio() {
 }
 
 # Ensure frequency files are readable even if Unity trick was previously applied
-for p in /sys/devices/system/cpu/cpufreq/policy*; do
-    [ -d "$p" ] || continue
-    chmod 444 "$p"/cpuinfo_* 2>/dev/null
-done
-for c in /sys/devices/system/cpu/cpu[0-9]*; do
-    [ -d "$c" ] || continue
-    chmod 444 "$c"/cpufreq/cpuinfo_* "$c"/cpu_capacity "$c"/topology/physical_package_id 2>/dev/null
-done
+if [ ! -r "/sys/devices/system/cpu/cpufreq/policy0/cpuinfo_max_freq" ]; then
+    for p in /sys/devices/system/cpu/cpufreq/policy*; do
+        [ -d "$p" ] || continue
+        chmod 444 "$p"/cpuinfo_* 2>/dev/null
+    done
+    for c in /sys/devices/system/cpu/cpu[0-9]*; do
+        [ -d "$c" ] || continue
+        chmod 444 "$c"/cpufreq/cpuinfo_* "$c"/cpu_capacity "$c"/topology/physical_package_id 2>/dev/null
+    done
+fi
 
 case "$PROFILE" in
     extreme|performance)
@@ -46,20 +50,22 @@ case "$PROFILE" in
         # Performance: 'schedutil' with 0us up-rate limit and 85% floor frequency
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "$p" ] || continue
-
-            max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
-            if [ -z "$max_freq" ]; then
-                max_freq=$(tr -s ' ' '\n' < "$p/scaling_available_frequencies" 2>/dev/null | sort -n | tail -n 1)
-            fi
-            min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
-            if [ -z "$min_freq" ]; then
-                min_freq=$(tr -s ' ' '\n' < "$p/scaling_available_frequencies" 2>/dev/null | sort -n | head -n 1)
-            fi
+            pol_num=$(basename "$p" | tr -dc '0-9')
+            avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
+            min_freq=""
+            max_freq=""
+            for f in $avail_f; do
+                [ -z "$min_freq" ] && min_freq="$f"
+                max_freq="$f"
+            done
+            [ -z "$max_freq" ] && max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
+            [ -z "$min_freq" ] && min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
 
             if [ "$PROFILE" = "extreme" ]; then
                 write_node "performance" "$p/scaling_governor"
                 write_node "$max_freq" "$p/scaling_max_freq"
                 write_node "$max_freq" "$p/scaling_min_freq"
+                eval "saved_floor_${pol_num}=\"$max_freq\""
             else
                 write_node "schedutil" "$p/scaling_governor"
                 write_node "$max_freq" "$p/scaling_max_freq"
@@ -69,20 +75,18 @@ case "$PROFILE" in
                 write_node "1" "$p/schedutil/iowait_boost_enable"
                 write_node "1" "$p/schedutil/pl"
                 write_node "$max_freq" "$p/schedutil/hispeed_freq"
-                if [ -n "$max_freq" ] && [ -n "$min_freq" ]; then
+                if [ -n "$max_freq" ]; then
                     floor=$(( max_freq * 85 / 100 ))
                     snapped_floor=""
-                    avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
                     for f in $avail_f; do
                         if [ "$f" -le "$floor" ]; then
-                            if [ -z "$snapped_floor" ] || [ "$f" -gt "$snapped_floor" ]; then
-                                snapped_floor="$f"
-                            fi
+                            snapped_floor="$f"
                         fi
                     done
                     [ -z "$snapped_floor" ] && snapped_floor="$floor"
-                    [ "$snapped_floor" -lt "$min_freq" ] && snapped_floor="$min_freq"
+                    [ -n "$min_freq" ] && [ "$snapped_floor" -lt "$min_freq" ] && snapped_floor="$min_freq"
                     write_node "$snapped_floor" "$p/scaling_min_freq"
+                    eval "saved_floor_${pol_num}=\"$snapped_floor\""
                 fi
             fi
         done
@@ -147,36 +151,6 @@ case "$PROFILE" in
                 [ "$perf_floor_idx" -lt 1 ] 2>/dev/null && perf_floor_idx=2
                 write_node "$c 0" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
                 write_node "$c $perf_floor_idx" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
-            fi
-        done
-
-        # Re-assert CCI interconnect and CPU min_freq floor after PPM driver re-evaluation
-        write_node "1" "/proc/cpufreq/cpufreq_cci_mode"
-        for p in /sys/devices/system/cpu/cpufreq/policy*; do
-            [ -d "$p" ] || continue
-            if [ "$PROFILE" = "extreme" ]; then
-                max_f=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
-                [ -z "$max_f" ] && max_f=$(cat "$p/scaling_max_freq" 2>/dev/null)
-                [ -n "$max_f" ] && write_node "$max_f" "$p/scaling_min_freq"
-            else
-                max_f=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
-                min_f=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
-                [ -z "$max_f" ] && max_f=$(cat "$p/scaling_max_freq" 2>/dev/null)
-                if [ -n "$max_f" ]; then
-                    floor=$(( max_f * 85 / 100 ))
-                    snapped_floor=""
-                    avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
-                    for f in $avail_f; do
-                        if [ "$f" -le "$floor" ]; then
-                            if [ -z "$snapped_floor" ] || [ "$f" -gt "$snapped_floor" ]; then
-                                snapped_floor="$f"
-                            fi
-                        fi
-                    done
-                    [ -z "$snapped_floor" ] && snapped_floor="$floor"
-                    [ -n "$min_f" ] && [ "$snapped_floor" -lt "$min_f" ] && snapped_floor="$min_f"
-                    write_node "$snapped_floor" "$p/scaling_min_freq"
-                fi
             fi
         done
 
@@ -369,17 +343,17 @@ case "$PROFILE" in
 
         ra_val=1024
         [ "$PROFILE" = "extreme" ] && ra_val=2048
-        for queue in /sys/block/*/queue; do
+        for queue in /sys/block/sd[a-z]/queue /sys/block/mmcblk[0-9]/queue; do
             [ -d "$queue" ] || continue
             write_node "0" "$queue/add_random"
             write_node "0" "$queue/iostats"
             write_node "1" "$queue/rq_affinity"
             write_node "512" "$queue/nr_requests"
         done
-        for q in /sys/block/*/queue/scheduler; do
+        for q in /sys/block/sd[a-z]/queue/scheduler /sys/block/mmcblk[0-9]/queue/scheduler; do
             [ -e "$q" ] && echo deadline > "$q" 2>/dev/null
         done
-        for ra in /sys/block/sd*/queue/read_ahead_kb /sys/block/mmcblk*/queue/read_ahead_kb; do
+        for ra in /sys/block/sd[a-z]/queue/read_ahead_kb /sys/block/mmcblk[0-9]/queue/read_ahead_kb; do
             write_node "$ra_val" "$ra"
         done
         for ufs in /sys/devices/platform/soc/*ufshc*; do
@@ -389,24 +363,29 @@ case "$PROFILE" in
         done
 
         # ── 6. Display Vsync Offsets, Frame Pacing & TouchBoost ──────────────
-        setprop debug.sf.latch_unsignaled 1 2>/dev/null
-        setprop debug.sf.enable_gl_backpressure 0 2>/dev/null
-        setprop debug.sf.disable_backpressure 1 2>/dev/null
-        setprop debug.renderengine.backend skiaglthreaded 2>/dev/null
-        setprop debug.sf.early_phase_offset_ns 500000 2>/dev/null
-        setprop debug.sf.early_app_phase_offset_ns 500000 2>/dev/null
-        setprop debug.sf.early_gl_phase_offset_ns 3000000 2>/dev/null
-        setprop debug.sf.high_fps_early_phase_offset_ns 1000000 2>/dev/null
-        setprop debug.sf.high_fps_early_gl_phase_offset_ns 1000000 2>/dev/null
-        setprop debug.sf.high_fps_late_app_phase_offset_ns 1000000 2>/dev/null
-        setprop ro.hwui.render_dirty_regions false 2>/dev/null
-        setprop debug.hwui.fps_divisor 1 2>/dev/null
-        setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
+        # ── 6. Display Vsync Offsets, Frame Pacing & TouchBoost ──────────────
+        (
+            setprop debug.sf.latch_unsignaled 1
+            setprop debug.sf.enable_gl_backpressure 0
+            setprop debug.sf.disable_backpressure 1
+            setprop debug.renderengine.backend skiaglthreaded
+            setprop debug.sf.early_phase_offset_ns 500000
+            setprop debug.sf.early_app_phase_offset_ns 500000
+            setprop debug.sf.early_gl_phase_offset_ns 3000000
+            setprop debug.sf.high_fps_early_phase_offset_ns 1000000
+            setprop debug.sf.high_fps_early_gl_phase_offset_ns 1000000
+            setprop debug.sf.high_fps_late_app_phase_offset_ns 1000000
+            setprop ro.hwui.render_dirty_regions false
+            setprop debug.hwui.fps_divisor 1
+            setprop vendor.perf.gestureFlingBoost.enable 1
+        ) >/dev/null 2>&1 &
 
-        # Lock to true hardware peak display refresh rate
+        # Lock to true hardware peak display refresh rate (cached fast path)
         max_hw_rr=""
         if [ -f "/dev/lynx_orig_peak_rr" ]; then
             max_hw_rr=$(cat "/dev/lynx_orig_peak_rr" 2>/dev/null | tr -d '[:space:]')
+        elif [ -f "/data/adb/lynx/max_hw_rr" ]; then
+            max_hw_rr=$(cat "/data/adb/lynx/max_hw_rr" 2>/dev/null | tr -d '[:space:]')
         fi
         if [ -z "$max_hw_rr" ] || [ "$max_hw_rr" = "60.0" ] || [ "$max_hw_rr" = "60" ] || [ "$max_hw_rr" = "null" ]; then
             max_hw_rr=$(dumpsys display 2>/dev/null | grep -oE "fps=[0-9.]+" | cut -d'=' -f2 | sort -rn | head -n 1)
@@ -420,25 +399,24 @@ case "$PROFILE" in
             90*|90)   max_hw_rr="90.0" ;;
             *)        max_hw_rr="${max_hw_rr:-120.0}" ;;
         esac
+        [ -n "$max_hw_rr" ] && echo "$max_hw_rr" > /data/adb/lynx/max_hw_rr 2>/dev/null
 
         if [ ! -f "/dev/lynx_orig_min_rr" ]; then
             orig_min=$(settings get system min_refresh_rate 2>/dev/null)
             echo "${orig_min:-60.0}" > "/dev/lynx_orig_min_rr"
         fi
-        settings put system peak_refresh_rate "$max_hw_rr" 2>/dev/null
-        settings put system min_refresh_rate "$max_hw_rr" 2>/dev/null
+        [ "$(settings get system peak_refresh_rate 2>/dev/null)" != "$max_hw_rr" ] && settings put system peak_refresh_rate "$max_hw_rr" 2>/dev/null
+        [ "$(settings get system min_refresh_rate 2>/dev/null)" != "$max_hw_rr" ] && settings put system min_refresh_rate "$max_hw_rr" 2>/dev/null
 
         for tn in /sys/class/touch/touch_dev/touch_game_mode \
                  /sys/devices/virtual/touch/touch_dev/bump_sample_rate \
                  /proc/touchscreen/game_mode \
                  /sys/devices/platform/goodix_ts.*/game_mode \
-                 /sys/devices/platform/tp_wake_switch/game_mode \
-                 /sys/devices/virtual/input/input*/touch_game_mode; do
-            write_node "1" "$tn"
+                 /sys/devices/platform/tp_wake_switch/game_mode; do
+            [ -e "$tn" ] && write_node "1" "$tn"
         done
 
         # ── 7. Wi-Fi & TCP Network Gaming Stack ──────────────────────────────
-        cmd wifi set-power-save-mode 0 >/dev/null 2>&1
         cmd wifi force-low-latency-mode enabled >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_low_latency=1 >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_autocorking=0 >/dev/null 2>&1
@@ -458,23 +436,26 @@ case "$PROFILE" in
         done
 
         # ── 8. Audio Pipeline Acceleration ───────────────────────────────────
-        setprop af.fast_track_multiplier 1 2>/dev/null
-        if is_bluetooth_audio; then
-            setprop aaudio.mmap_policy 2 2>/dev/null
-            setprop aaudio.hw_burst_min_usec 4000 2>/dev/null
-        else
-            setprop aaudio.mmap_policy 2 2>/dev/null
-            setprop aaudio.mmap_exclusive_policy 2 2>/dev/null
-            setprop aaudio.hw_burst_min_usec 2000 2>/dev/null
-        fi
+        (
+            setprop af.fast_track_multiplier 1
+            if is_bluetooth_audio; then
+                setprop aaudio.mmap_policy 2
+                setprop aaudio.hw_burst_min_usec 4000
+            else
+                setprop aaudio.mmap_policy 2
+                setprop aaudio.mmap_exclusive_policy 2
+                setprop aaudio.hw_burst_min_usec 2000
+            fi
+        ) >/dev/null 2>&1 &
 
         # ── 9. Critical Process Priority Renicing ────────────────────────────
-        for proc in "surfaceflinger" "android.hardware.graphics.composer" "vendor.qti.hardware.display.composer" "vendor.mediatek.hardware.pq"; do
-            for pid in $(pgrep -f "$proc" 2>/dev/null); do
-                renice -n -20 -p "$pid" 2>/dev/null
+        pids=$(pidof surfaceflinger android.hardware.graphics.composer vendor.qti.hardware.display.composer vendor.mediatek.hardware.pq 2>/dev/null)
+        if [ -n "$pids" ]; then
+            renice -n -20 -p $pids 2>/dev/null
+            for pid in $pids; do
                 write_node "$pid" "/dev/cpuset/top-app/cgroup.procs"
             done
-        done
+        fi
 
         # Route GPU Interrupts to Big Cores
         for irq in $(grep -iE "mali|ged|kgsl|adreno" /proc/interrupts 2>/dev/null | awk '{print $1}' | tr -d ':'); do
@@ -495,14 +476,13 @@ case "$PROFILE" in
         fi
 
         # ── 11. OEM Throttler Neutralizer (Freeze with SIGSTOP) ──────────────
-        for proc in $OEM_TARGET_PROCS; do
-            for pid in $(pidof "$proc" 2>/dev/null); do
-                kill -STOP "$pid" 2>/dev/null
+        oem_pids=$(pidof $OEM_TARGET_PROCS 2>/dev/null)
+        [ -n "$oem_pids" ] && kill -STOP $oem_pids 2>/dev/null
+        if [ -d "/data/data/com.xiaomi.joyose" ]; then
+            for jpid in $(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
+                kill -STOP "$jpid" 2>/dev/null
             done
-        done
-        for jpid in $(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
-            kill -STOP "$jpid" 2>/dev/null
-        done
+        fi
 
         # ── 12. Thermal Policy & Unity Trick ─────────────────────────────────
         if [ "$PROFILE" = "extreme" ]; then
@@ -512,11 +492,6 @@ case "$PROFILE" in
                 [ -d "$tz" ] || continue
                 write_node "disabled" "$tz/mode"
                 write_node "150000" "$tz/trip_point_0_temp"
-            done
-            for cooling in /sys/class/thermal/cooling_device*; do
-                [ -d "$cooling" ] || continue
-                max_s=$(cat "$cooling/max_state" 2>/dev/null)
-                [ -n "$max_s" ] && write_node "$max_s" "$cooling/min_state"
             done
 
             # Unity Engine FPS uncap trick
@@ -535,10 +510,6 @@ case "$PROFILE" in
                 write_node "enabled" "$tz/mode"
                 write_node "85000" "$tz/trip_point_0_temp"
             done
-            for cooling in /sys/class/thermal/cooling_device*; do
-                [ -d "$cooling" ] || continue
-                write_node "0" "$cooling/min_state"
-            done
             for cpu in 0 1 2 3 4 5 6 7; do
                 path="/sys/devices/system/cpu/cpu${cpu}"
                 [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
@@ -551,30 +522,9 @@ case "$PROFILE" in
         write_node "1" "/proc/cpufreq/cpufreq_cci_mode"
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "$p" ] || continue
-            if [ "$PROFILE" = "extreme" ]; then
-                max_f=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
-                [ -z "$max_f" ] && max_f=$(cat "$p/scaling_max_freq" 2>/dev/null)
-                [ -n "$max_f" ] && write_node "$max_f" "$p/scaling_min_freq"
-            else
-                max_f=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
-                min_f=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
-                [ -z "$max_f" ] && max_f=$(cat "$p/scaling_max_freq" 2>/dev/null)
-                if [ -n "$max_f" ]; then
-                    floor=$(( max_f * 85 / 100 ))
-                    snapped_floor=""
-                    avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
-                    for f in $avail_f; do
-                        if [ "$f" -le "$floor" ]; then
-                            if [ -z "$snapped_floor" ] || [ "$f" -gt "$snapped_floor" ]; then
-                                snapped_floor="$f"
-                            fi
-                        fi
-                    done
-                    [ -z "$snapped_floor" ] && snapped_floor="$floor"
-                    [ -n "$min_f" ] && [ "$snapped_floor" -lt "$min_f" ] && snapped_floor="$min_f"
-                    write_node "$snapped_floor" "$p/scaling_min_freq"
-                fi
-            fi
+            pol_num=$(basename "$p" | tr -dc '0-9')
+            eval "sf=\$saved_floor_${pol_num}"
+            [ -n "$sf" ] && write_node "$sf" "$p/scaling_min_freq"
         done
 
         setprop lynx.mode "$PROFILE"
@@ -591,14 +541,15 @@ case "$PROFILE" in
             write_node "0" "$p/schedutil/iowait_boost_enable"
             write_node "0" "$p/schedutil/pl"
 
-            min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
-            max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
-            if [ -z "$max_freq" ]; then
-                max_freq=$(tr -s ' ' '\n' < "$p/scaling_available_frequencies" 2>/dev/null | sort -n | tail -n 1)
-            fi
-            if [ -z "$min_freq" ]; then
-                min_freq=$(tr -s ' ' '\n' < "$p/scaling_available_frequencies" 2>/dev/null | sort -n | head -n 1)
-            fi
+            avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
+            min_freq=""
+            max_freq=""
+            for f in $avail_f; do
+                [ -z "$min_freq" ] && min_freq="$f"
+                max_freq="$f"
+            done
+            [ -z "$max_freq" ] && max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
+            [ -z "$min_freq" ] && min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
             [ -n "$min_freq" ] && write_node "$min_freq" "$p/scaling_min_freq"
             if [ -n "$max_freq" ]; then
                 p_cap=$(( max_freq * 55 / 100 ))
@@ -698,22 +649,21 @@ case "$PROFILE" in
         write_node "5" "/proc/sys/vm/dirty_background_ratio"
         write_node "100" "/proc/sys/vm/swappiness"
         write_node "50" "/proc/sys/vm/vfs_cache_pressure"
-        for q in /sys/block/*/queue/scheduler; do
+        for q in /sys/block/sd[a-z]/queue/scheduler /sys/block/mmcblk[0-9]/queue/scheduler; do
             [ -e "$q" ] && echo noop > "$q" 2>/dev/null
         done
-        for ra in /sys/block/*/queue/read_ahead_kb; do
+        for ra in /sys/block/sd[a-z]/queue/read_ahead_kb /sys/block/mmcblk[0-9]/queue/read_ahead_kb; do
             write_node "64" "$ra"
         done
 
         # ── 5. Unfreeze Throttlers, Enforce 60Hz Screen, Network & Thermal ───
-        for proc in $OEM_TARGET_PROCS; do
-            for pid in $(pidof "$proc" 2>/dev/null); do
-                kill -CONT "$pid" 2>/dev/null
+        oem_pids=$(pidof $OEM_TARGET_PROCS 2>/dev/null)
+        [ -n "$oem_pids" ] && kill -CONT $oem_pids 2>/dev/null
+        if [ -d "/data/data/com.xiaomi.joyose" ]; then
+            for jpid in $(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
+                kill -CONT "$jpid" 2>/dev/null
             done
-        done
-        for jpid in $(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
-            kill -CONT "$jpid" 2>/dev/null
-        done
+        fi
         cmd wifi set-power-save-mode 1 >/dev/null 2>&1
         cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
@@ -733,17 +683,16 @@ case "$PROFILE" in
         if [ ! -f "/dev/lynx_orig_peak_rr" ] && [ -n "$cur_peak_rr" ] && [ "$cur_peak_rr" != "null" ]; then
             echo "$cur_peak_rr" > /dev/lynx_orig_peak_rr
         fi
-        settings put system min_refresh_rate 60.0 2>/dev/null
-        settings put system peak_refresh_rate 60.0 2>/dev/null
+        [ "$cur_min_rr" != "60.0" ] && settings put system min_refresh_rate 60.0 2>/dev/null
+        [ "$cur_peak_rr" != "60.0" ] && settings put system peak_refresh_rate 60.0 2>/dev/null
 
         # Reset Touch Boost Nodes
         for tn in /sys/class/touch/touch_dev/touch_game_mode \
                  /sys/devices/virtual/touch/touch_dev/bump_sample_rate \
                  /proc/touchscreen/game_mode \
                  /sys/devices/platform/goodix_ts.*/game_mode \
-                 /sys/devices/platform/tp_wake_switch/game_mode \
-                 /sys/devices/virtual/input/input*/touch_game_mode; do
-            write_node "0" "$tn"
+                 /sys/devices/platform/tp_wake_switch/game_mode; do
+            [ -e "$tn" ] && write_node "0" "$tn"
         done
 
         # Full Thermal Protection Active
@@ -753,10 +702,6 @@ case "$PROFILE" in
             [ -d "$tz" ] || continue
             write_node "enabled" "$tz/mode"
             write_node "80000" "$tz/trip_point_0_temp"
-        done
-        for cooling in /sys/class/thermal/cooling_device*; do
-            [ -d "$cooling" ] || continue
-            write_node "0" "$cooling/min_state"
         done
 
         # Restore permissions if Unity trick was previously applied
@@ -781,14 +726,15 @@ case "$PROFILE" in
             write_node "1" "$p/schedutil/iowait_boost_enable"
             write_node "1" "$p/schedutil/pl"
 
-            min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
-            max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
-            if [ -z "$max_freq" ]; then
-                max_freq=$(tr -s ' ' '\n' < "$p/scaling_available_frequencies" 2>/dev/null | sort -n | tail -n 1)
-            fi
-            if [ -z "$min_freq" ]; then
-                min_freq=$(tr -s ' ' '\n' < "$p/scaling_available_frequencies" 2>/dev/null | sort -n | head -n 1)
-            fi
+            avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
+            min_freq=""
+            max_freq=""
+            for f in $avail_f; do
+                [ -z "$min_freq" ] && min_freq="$f"
+                max_freq="$f"
+            done
+            [ -z "$max_freq" ] && max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
+            [ -z "$min_freq" ] && min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
             [ -n "$min_freq" ] && write_node "$min_freq" "$p/scaling_min_freq"
             [ -n "$max_freq" ] && write_node "$max_freq" "$p/scaling_max_freq"
         done
@@ -903,10 +849,10 @@ case "$PROFILE" in
         write_node "5" "/proc/sys/vm/dirty_background_ratio"
         write_node "80" "/proc/sys/vm/swappiness"
         write_node "100" "/proc/sys/vm/vfs_cache_pressure"
-        for q in /sys/block/*/queue/scheduler; do
+        for q in /sys/block/sd[a-z]/queue/scheduler /sys/block/mmcblk[0-9]/queue/scheduler; do
             [ -e "$q" ] && echo deadline > "$q" 2>/dev/null
         done
-        for ra in /sys/block/*/queue/read_ahead_kb; do
+        for ra in /sys/block/sd[a-z]/queue/read_ahead_kb /sys/block/mmcblk[0-9]/queue/read_ahead_kb; do
             write_node "128" "$ra"
         done
 
@@ -931,14 +877,13 @@ case "$PROFILE" in
         write_node "1" "/sys/kernel/fpsgo/fbt/light_loading_policy_90"
 
         # ── 5. Unfreeze Throttlers, Restore Display, Network & Thermal ────────
-        for proc in $OEM_TARGET_PROCS; do
-            for pid in $(pidof "$proc" 2>/dev/null); do
-                kill -CONT "$pid" 2>/dev/null
+        oem_pids=$(pidof $OEM_TARGET_PROCS 2>/dev/null)
+        [ -n "$oem_pids" ] && kill -CONT $oem_pids 2>/dev/null
+        if [ -d "/data/data/com.xiaomi.joyose" ]; then
+            for jpid in $(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
+                kill -CONT "$jpid" 2>/dev/null
             done
-        done
-        for jpid in $(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
-            kill -CONT "$jpid" 2>/dev/null
-        done
+        fi
         cmd wifi set-power-save-mode 1 >/dev/null 2>&1
         cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
@@ -952,11 +897,13 @@ case "$PROFILE" in
         write_node "" "/proc/sys/kernel/sched_lib_name"
         write_node "0" "/proc/sys/kernel/sched_lib_mask_force"
 
-        # Restore Display Refresh Rates (min 60.0, peak panel max)
+        # Restore Display Refresh Rates (min 60.0, peak panel max cached)
         max_hw_rr=""
         if [ -f "/dev/lynx_orig_peak_rr" ]; then
             max_hw_rr=$(cat "/dev/lynx_orig_peak_rr" 2>/dev/null | tr -d '[:space:]')
             rm -f "/dev/lynx_orig_peak_rr" 2>/dev/null
+        elif [ -f "/data/adb/lynx/max_hw_rr" ]; then
+            max_hw_rr=$(cat "/data/adb/lynx/max_hw_rr" 2>/dev/null | tr -d '[:space:]')
         fi
         if [ -z "$max_hw_rr" ] || [ "$max_hw_rr" = "60.0" ] || [ "$max_hw_rr" = "60" ] || [ "$max_hw_rr" = "null" ]; then
             max_hw_rr=$(dumpsys display 2>/dev/null | grep -oE "fps=[0-9.]+" | cut -d'=' -f2 | sort -rn | head -n 1)
@@ -967,6 +914,7 @@ case "$PROFILE" in
             90*|90)   max_hw_rr="90.0" ;;
             *)        max_hw_rr="${max_hw_rr:-120.0}" ;;
         esac
+        [ -n "$max_hw_rr" ] && echo "$max_hw_rr" > /data/adb/lynx/max_hw_rr 2>/dev/null
 
         orig_min="60.0"
         if [ -f "/dev/lynx_orig_min_rr" ]; then
@@ -976,17 +924,16 @@ case "$PROFILE" in
                 orig_min="$saved_min"
             fi
         fi
-        settings put system min_refresh_rate "$orig_min" 2>/dev/null
-        settings put system peak_refresh_rate "$max_hw_rr" 2>/dev/null
+        [ "$(settings get system min_refresh_rate 2>/dev/null)" != "$orig_min" ] && settings put system min_refresh_rate "$orig_min" 2>/dev/null
+        [ "$(settings get system peak_refresh_rate 2>/dev/null)" != "$max_hw_rr" ] && settings put system peak_refresh_rate "$max_hw_rr" 2>/dev/null
 
         # Reset Touch Boost Nodes
         for tn in /sys/class/touch/touch_dev/touch_game_mode \
                  /sys/devices/virtual/touch/touch_dev/bump_sample_rate \
                  /proc/touchscreen/game_mode \
                  /sys/devices/platform/goodix_ts.*/game_mode \
-                 /sys/devices/platform/tp_wake_switch/game_mode \
-                 /sys/devices/virtual/input/input*/touch_game_mode; do
-            write_node "0" "$tn"
+                 /sys/devices/platform/tp_wake_switch/game_mode; do
+            [ -e "$tn" ] && write_node "0" "$tn"
         done
 
         # Restore Thermal Protection
@@ -996,10 +943,6 @@ case "$PROFILE" in
             [ -d "$tz" ] || continue
             write_node "enabled" "$tz/mode"
             write_node "80000" "$tz/trip_point_0_temp"
-        done
-        for cooling in /sys/class/thermal/cooling_device*; do
-            [ -d "$cooling" ] || continue
-            write_node "0" "$cooling/min_state"
         done
 
         # Restore permissions if Unity trick was applied
@@ -1031,11 +974,6 @@ elif [ -f "/data/adb/lynx/verify_profile.sh" ]; then
     VERIFY_SCRIPT="/data/adb/lynx/verify_profile.sh"
 fi
 
-if [ -n "$VERIFY_SCRIPT" ]; then
-    if [ "$DO_VERIFY" = "true" ]; then
-        sh "$VERIFY_SCRIPT" "$PROFILE"
-    else
-        # Run audit asynchronously to keep profile application instant (<50ms)
-        sh "$VERIFY_SCRIPT" "$PROFILE" >/dev/null 2>&1 &
-    fi
+if [ -n "$VERIFY_SCRIPT" ] && [ "$DO_VERIFY" = "true" ]; then
+    sh "$VERIFY_SCRIPT" "$PROFILE"
 fi
