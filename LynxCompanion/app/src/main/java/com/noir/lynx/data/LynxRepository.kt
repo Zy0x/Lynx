@@ -364,7 +364,7 @@ object LynxRepository {
             } else {
                 """
                 echo "cpu:"${'$'}(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null | tr '\n' ',')
-                echo "gpu:"${'$'}(cat /sys/kernel/ged/hal/current_freqency /sys/class/kgsl/kgsl-3d0/gpuclk /proc/gpufreq/gpufreq_opp_freq 2>/dev/null | head -n 3)
+                echo "gpu:"${'$'}( (grep -m1 -oE '\(real\) freq: [0-9]+' /proc/gpufreq/gpufreq_var_dump 2>/dev/null | cut -d' ' -f3) || (grep -m1 -oE 'g_fixed_freq = [0-9]+' /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null | cut -d' ' -f3) || (cat /sys/kernel/ged/hal/current_freqency /sys/class/kgsl/kgsl-3d0/gpuclk /proc/gpufreq/gpufreq_opp_freq 2>/dev/null | head -n 3) )
                 echo "gpuload:"${'$'}(cat /sys/kernel/ged/hal/gpu_utilization /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null | head -n 1)
                 echo "temp:"${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null)
                 echo "batt_lvl:"${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null)
@@ -4586,14 +4586,37 @@ done
 
                 gpumhz=0
                 gpuload=0
-                if [ -r /sys/kernel/ged/hal/current_freqency ]; then
-                    gpumhz=${'$'}(cat /sys/kernel/ged/hal/current_freqency 2>/dev/null | awk '{if(NF>=2) print int(${'$'}2/1000); else print int(${'$'}1/1000)}')
-                    gpuload=${'$'}(cat /sys/kernel/ged/hal/gpu_utilization 2>/dev/null | awk '{print int(${'$'}1)}')
-                elif [ -r /sys/class/kgsl/kgsl-3d0/gpuclk ]; then
-                    gpumhz=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpuclk 2>/dev/null | awk '{print int(${'$'}1/1000000)}')
-                    busy=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpubusy 2>/dev/null | awk '{if(${'$'}2>0) print int((${'$'}1*100)/${'$'}2); else print 0}')
-                    gpuload=${'$'}busy
+                # 1. MediaTek Mali: Hardware real frequency
+                if [ -r /proc/gpufreq/gpufreq_var_dump ]; then
+                    rf=${'$'}(grep -m1 -oE '\(real\) freq: [0-9]+' /proc/gpufreq/gpufreq_var_dump 2>/dev/null | cut -d' ' -f3)
+                    [ -n "${'$'}rf" ] && [ "${'$'}rf" -gt 0 ] 2>/dev/null && gpumhz=${'$'}(( rf / 1000 ))
                 fi
+                # 2. MediaTek Mali: Fixed frequency register
+                if [ -z "${'$'}gpumhz" ] || [ "${'$'}gpumhz" -eq 0 ]; then
+                    if [ -r /proc/gpufreq/gpufreq_fixed_freq_volt ]; then
+                        ff=${'$'}(grep -m1 -oE 'g_fixed_freq = [0-9]+' /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null | cut -d' ' -f3)
+                        [ -n "${'$'}ff" ] && [ "${'$'}ff" -gt 0 ] 2>/dev/null && gpumhz=${'$'}(( ff / 1000 ))
+                    fi
+                fi
+                # 3. MediaTek Mali: Standard GED HAL
+                if [ -z "${'$'}gpumhz" ] || [ "${'$'}gpumhz" -eq 0 ]; then
+                    if [ -r /sys/kernel/ged/hal/current_freqency ]; then
+                        gpumhz=${'$'}(cat /sys/kernel/ged/hal/current_freqency 2>/dev/null | awk '{if(NF>=2) print int(${'$'}2/1000); else print int(${'$'}1/1000)}')
+                    fi
+                fi
+                if [ -r /sys/kernel/ged/hal/gpu_utilization ]; then
+                    gpuload=${'$'}(cat /sys/kernel/ged/hal/gpu_utilization 2>/dev/null | awk '{print int(${'$'}1)}')
+                fi
+                # 4. Qualcomm Adreno
+                if [ -z "${'$'}gpumhz" ] || [ "${'$'}gpumhz" -eq 0 ]; then
+                    if [ -r /sys/class/kgsl/kgsl-3d0/gpuclk ]; then
+                        gpumhz=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpuclk 2>/dev/null | awk '{print int(${'$'}1/1000000)}')
+                        busy=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpubusy 2>/dev/null | awk '{if(${'$'}2>0) print int((${'$'}1*100)/${'$'}2); else print 0}')
+                        gpuload=${'$'}busy
+                    fi
+                fi
+                [ -z "${'$'}gpumhz" ] && gpumhz=0
+                [ -z "${'$'}gpuload" ] && gpuload=0
 
                 btemp=${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null | awk '{print ${'$'}1/10}')
                 bvolt=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || echo 0)
@@ -4681,6 +4704,11 @@ done
 
     private fun readCurrentProfileFast(): String {
         return try {
+            val direct = Shell.cmd("cat /data/adb/lynx/active_profile 2>/dev/null").exec()
+            val directProf = direct.out.firstOrNull()?.trim()?.lowercase() ?: ""
+            if (directProf in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) {
+                return directProf
+            }
             val r = Shell.cmd("cat /data/adb/modules/Lynx/config.json 2>/dev/null || cat $LOCAL_CONFIG_PATH 2>/dev/null || cat $LOCAL_CONFIG_PATH_DEBUG 2>/dev/null").exec()
             val text = r.out.joinToString("\n")
             if (text.contains("\"active_profile\"")) {

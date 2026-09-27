@@ -34,14 +34,34 @@ if [ -f "/sys/class/kgsl/kgsl-3d0/gpuclk" ]; then
         fi
     fi
 # B. MediaTek Mali
-elif [ -f "/proc/gpufreq/gpufreq_opp_freq" ]; then
-    gpu_freq=$(grep 'freq =' /proc/gpufreq/gpufreq_opp_freq 2>/dev/null | head -n1 | awk '{print $4}' | tr -d ',')
-    [ -z "$gpu_freq" ] && gpu_freq=0
-    [ "$gpu_freq" -gt 10000 ] 2>/dev/null && gpu_freq=$(( gpu_freq / 1000 ))
-    if [ -f "/sys/module/ged/parameters/gpu_loading" ]; then
-        gpu_busy=$(cat /sys/module/ged/parameters/gpu_loading 2>/dev/null || echo 0)
+elif [ -f "/proc/gpufreq/gpufreq_var_dump" ] || [ -f "/proc/gpufreq/gpufreq_fixed_freq_volt" ] || [ -f "/sys/kernel/ged/hal/current_freqency" ] || [ -f "/proc/gpufreq/gpufreq_opp_freq" ]; then
+    if [ -r "/proc/gpufreq/gpufreq_var_dump" ]; then
+        rf=${'$'}(grep -m1 -oE '\(real\) freq: [0-9]+' /proc/gpufreq/gpufreq_var_dump 2>/dev/null | cut -d' ' -f3)
+        [ -n "${'$'}rf" ] && [ "${'$'}rf" -gt 0 ] 2>/dev/null && gpu_freq=${'$'}(( rf / 1000 ))
+    fi
+    if [ -z "${'$'}gpu_freq" ] || [ "${'$'}gpu_freq" -eq 0 ]; then
+        if [ -r "/proc/gpufreq/gpufreq_fixed_freq_volt" ]; then
+            ff=${'$'}(grep -m1 -oE 'g_fixed_freq = [0-9]+' /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null | cut -d' ' -f3)
+            [ -n "${'$'}ff" ] && [ "${'$'}ff" -gt 0 ] 2>/dev/null && gpu_freq=${'$'}(( ff / 1000 ))
+        fi
+    fi
+    if [ -z "${'$'}gpu_freq" ] || [ "${'$'}gpu_freq" -eq 0 ]; then
+        if [ -r "/sys/kernel/ged/hal/current_freqency" ]; then
+            gpu_freq=${'$'}(cat /sys/kernel/ged/hal/current_freqency 2>/dev/null | awk '{if(NF>=2) print int(${'$'}2/1000); else print int(${'$'}1/1000)}')
+        fi
+    fi
+    if [ -z "${'$'}gpu_freq" ] || [ "${'$'}gpu_freq" -eq 0 ]; then
+        gpu_freq=${'$'}(grep 'freq =' /proc/gpufreq/gpufreq_opp_freq 2>/dev/null | head -n1 | awk '{print ${'$'}4}' | tr -d ',')
+        [ -z "${'$'}gpu_freq" ] && gpu_freq=0
+        [ "${'$'}gpu_freq" -gt 10000 ] 2>/dev/null && gpu_freq=${'$'}(( gpu_freq / 1000 ))
+    fi
+
+    if [ -r "/sys/kernel/ged/hal/gpu_utilization" ]; then
+        gpu_busy=${'$'}(cat /sys/kernel/ged/hal/gpu_utilization 2>/dev/null | awk '{print int(${'$'}1)}')
+    elif [ -f "/sys/module/ged/parameters/gpu_loading" ]; then
+        gpu_busy=${'$'}(cat /sys/module/ged/parameters/gpu_loading 2>/dev/null || echo 0)
     elif [ -f "/sys/class/misc/mali0/device/utilisation" ]; then
-        gpu_busy=$(cat /sys/class/misc/mali0/device/utilisation 2>/dev/null || echo 0)
+        gpu_busy=${'$'}(cat /sys/class/misc/mali0/device/utilisation 2>/dev/null || echo 0)
     fi
 fi
 
