@@ -1,6 +1,36 @@
+# Lynx [Codename: Deity] 3.0.6
+Released on: 2026-09-28
+> **Versi ini** menghadirkan **Frametime & Sustained FPS Optimization Suite** untuk Extreme dan Performance mode — meminimalisir frame delivery jitter, menghilangkan micro-stuttering pada 3D open-world gaming, serta mengoptimalkan SurfaceFlinger buffer latching, MediaTek FPSGO Ultra Rescue, dan Linux CFS low-latency scheduling.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.6)
+
+### 1. ⏱️ SurfaceFlinger & Frame Pacing Pipeline Optimization
+- **`debug.sf.latch_unsignaled = 1`**: Mengizinkan SurfaceFlinger melakukan latch render buffer seketika setelah GPU selesai me-rasterize tanpa harus menunggu sinyal fence siklus VSYNC berikutnya, memangkas display input lag 1–2 frame dan menghilangkan frame drop artificial.
+- **`debug.sf.enable_gl_backpressure = 0` & `disable_backpressure = 1`**: Menghilangkan backpressure pipeline GPU yang sering kali memblokir RenderThread game saat rendering frame kompleks.
+- **SkiaGL Threaded Backend & Phase Offsets**: Mengaktifkan `debug.renderengine.backend skiaglthreaded` bersama offset fase mikrodetik (`early_phase_offset_ns 500000`, `early_gl_phase_offset_ns 3000000`) untuk penyerahan frame sub-millisecond.
+
+### 2. ⚡ MediaTek FPSGO Ultra Rescue & GED Anti-Stutter Tuning
+- **GPU Idle Elimination (`gpu_idle = 0`)**: Mematikan state idle mikro pada Mali GPU di mode Extreme agar shader core tidak mengalami siklus tidur-bangun antar draw call yang memicu spike frametime.
+- **FPSGO Ultra Rescue (`ultra_rescue = 1`)**: Mengaktifkan MediaTek Ultra Rescue untuk mendeteksi frame time overrun secara sub-millisecond dan menginjeksi CPU boost seketika sebelum frame drop terjadi.
+- **Light Loading Policy Bypass (`light_loading_policy = 0`)**: Mencegah penurunan clock otomatis saat transisi adegan/menu di dalam game.
+- **Hardware MDP Composition Offloading (`ged_force_mdp_enable = 1`)**: Mengalihkan komposisi overlay ke MediaTek Display Processor, menghemat ALU execution unit GPU Mali untuk 3D rendering murni.
+- **GED Top-App PID Prioritization (`gx_top_app_pid`)**: Menginjeksi PID game aktif secara dinamis ke driver GED untuk prioritas antrean command stream GPU tertinggi.
+
+### 3. 🧠 Linux CFS Scheduler Low-Latency Preemption
+- **Scheduling Latency Epoch 4ms (`sched_latency_ns = 4000000`, `sched_min_granularity_ns = 500000`)**: Memperketat jendela penjadwalan CPU dari default 10ms menjadi 4ms, memastikan thread game diprioritaskan tanpa tertunda oleh background worker.
+- **Instant Core Migration (`sched_migration_cost_ns = 50000`)**: Menurunkan ambang migrasi dari 200µs ke 50µs agar thread rendering game segera berpindah ke cluster Big (A76) seketika ada beban rendering.
+- **Thread Spawning Acceleration (`sched_child_runs_first = 1`)**: Thread worker yang di-spawn oleh game engine (seperti Unity Job System `Job.Worker` atau Unreal Engine worker) langsung dieksekusi seketika.
+- **C-State Aware Packing Disable (`sched_cstate_aware = 0`)**: Mematikan pemadatan tugas ke core hemat daya pada Extreme mode.
+
+### 4. 🎯 Dynamic Game Process & Thread Renicing
+- Pada saat game aktif terdeteksi oleh watcher/daemon, seluruh thread proses game (`UnityMain`, `UnityGfxDeviceW`, `Job.Worker`, `RenderThread`) secara otomatis di-renice ke tingkat prioritas tertinggi Linux (`nice -20`), diberikan I/O Real-Time (`ionice -c 1 -n 0`), dan dialokasikan ke `top-app` cpuset.
+
+### 5. 🗄️ Storage I/O Read-Ahead 2048 KB (Zero Stutter World Streaming)
+- Meningkatkan buffer UFS/MMC `read_ahead_kb` ke 2048 KB dan `nr_requests` ke 512 untuk mengeliminasi hitching saat streaming tekstur dan model 3D di game open-world.
+
+---
+
 # Lynx [Codename: Deity] 3.0.5
-Released on: 2026-09-27
-> **Versi ini** merupakan **Critical Fix** untuk mode Extreme yang tidak berfungsi sesuai namanya — GPU terkunci di 300 MHz dan CPU tidak mencapai frekuensi maksimal akibat dua bug indexing yang tersembunyi di `apply_profile.sh`.
 
 ## 🐛 Critical Bug Fixes (3.0.5)
 

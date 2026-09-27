@@ -146,20 +146,35 @@ switch_mode() {
     setprop lynx.mode "$target"
 
     case "$target" in
-        extreme)
+        extreme|performance)
             touch "/dev/lynx_active_game" 2>/dev/null
-            am start -a android.intent.action.MAIN -e toasttext "🔥 Lʏɴx: Exᴛʀᴇᴍᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
-            ;;
-        performance)
-            touch "/dev/lynx_active_game" 2>/dev/null
-            am start -a android.intent.action.MAIN -e toasttext "⚡ Lʏɴx: Pᴇʀꜰᴏʀᴍᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+            if [ -n "$top_app" ]; then
+                gpid=$(pidof "$top_app" 2>/dev/null | awk '{print $1}')
+                if [ -n "$gpid" ]; then
+                    [ -e /sys/module/ged/parameters/gx_top_app_pid ] && echo "$gpid" > /sys/module/ged/parameters/gx_top_app_pid 2>/dev/null
+                    renice -n -20 -p "$gpid" 2>/dev/null
+                    ionice -c 1 -n 0 -p "$gpid" 2>/dev/null
+                    echo "$gpid" > /dev/cpuset/top-app/cgroup.procs 2>/dev/null
+                    for tid in $(ls /proc/$gpid/task/ 2>/dev/null); do
+                        renice -n -20 -p "$tid" 2>/dev/null
+                        echo "$tid" > /dev/cpuset/top-app/tasks 2>/dev/null
+                    done
+                fi
+            fi
+            if [ "$target" = "extreme" ]; then
+                am start -a android.intent.action.MAIN -e toasttext "🔥 Lʏɴx: Exᴛʀᴇᴍᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+            else
+                am start -a android.intent.action.MAIN -e toasttext "⚡ Lʏɴx: Pᴇʀꜰᴏʀᴍᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+            fi
             ;;
         powersave)
             rm -f "/dev/lynx_active_game" 2>/dev/null
+            [ -e /sys/module/ged/parameters/gx_top_app_pid ] && echo "0" > /sys/module/ged/parameters/gx_top_app_pid 2>/dev/null
             am start -a android.intent.action.MAIN -e toasttext "🔋 Lʏɴx: Pᴏᴡᴇʀsᴀᴠᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
             ;;
         *)
             rm -f "/dev/lynx_active_game" 2>/dev/null
+            [ -e /sys/module/ged/parameters/gx_top_app_pid ] && echo "0" > /sys/module/ged/parameters/gx_top_app_pid 2>/dev/null
             am start -a android.intent.action.MAIN -e toasttext "⚖️ Lʏɴx: Bᴀʟᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
             ;;
     esac

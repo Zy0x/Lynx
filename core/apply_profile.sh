@@ -236,21 +236,38 @@ case "$PROFILE" in
         write_node "1" "/sys/module/ged/parameters/ged_boost_enable"
         write_node "1" "/sys/module/ged/parameters/ged_force_mdp_enable"
         write_node "1" "/sys/module/ged/parameters/ged_monitor_3D_fence_disable"
-        write_node "1" "/sys/module/ged/parameters/gpu_idle"
+        if [ "$PROFILE" = "extreme" ]; then
+            write_node "0" "/sys/module/ged/parameters/gpu_idle"
+            write_node "100" "/sys/module/ged/parameters/boost_upper_bound"
+        else
+            write_node "1" "/sys/module/ged/parameters/gpu_idle"
+            write_node "80" "/sys/module/ged/parameters/boost_upper_bound"
+        fi
         write_node "1" "/sys/module/ged/parameters/gx_force_cpu_boost"
         write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
-        write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
+
+        # MediaTek FPSGO (Frame Rate Stabilization Engine)
+        write_node "1" "/sys/kernel/fpsgo/common/fpsgo_enable"
         write_node "1" "/sys/kernel/fpsgo/common/force_onoff"
+        write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
         write_node "1" "/sys/kernel/fpsgo/fbt/boost_ta"
+        write_node "1" "/sys/kernel/fpsgo/fbt/ultra_rescue"
+        write_node "1" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
+        write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy"
+        write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy_90"
+        write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy"
+        write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy_90"
         write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+        write_node "0" "/sys/kernel/fpsgo/fstb/fstb_soft_level"
+
         write_node "always_on" "/sys/devices/platform/*mali*/power_policy"
         write_node "1" "/proc/mali/always_on"
         write_node "1" "/proc/mali/dvfs_enable"
         write_node "0" "/proc/mali/debug_log"
 
         # ── 4. UCLAMP & Top-App Process Clamping ──────────────────────────────
-        uclamp_val=60
-        [ "$PROFILE" = "extreme" ] && uclamp_val=80
+        uclamp_val=75
+        [ "$PROFILE" = "extreme" ] && uclamp_val=100
         for u_node in "/dev/cpuset/top-app/cpu.uclamp.min" "/proc/sys/kernel/sched_util_clamp_min"; do
             if [ -e "$u_node" ]; then
                 max_sc=100
@@ -262,6 +279,8 @@ case "$PROFILE" in
                 fi
             fi
         done
+        write_node "1" "/dev/cpuset/top-app/cpu.uclamp.latency_sensitive"
+        write_node "1" "/dev/cpuset/foreground/boost/cpu.uclamp.latency_sensitive"
 
         # CPUSet & SchedTune Boost
         write_node "0-7" "/dev/cpuset/foreground/cpus"
@@ -275,7 +294,29 @@ case "$PROFILE" in
         write_node "5" "/dev/stune/foreground/schedtune.boost"
         write_node "5" "/dev/stune/top-app/schedtune.boost"
 
-        # ── 5. Virtual Memory (VM), MGLRU, & I/O ─────────────────────────────
+        # ── 5. Virtual Memory (VM), CFS Low-Latency Scheduler, & I/O ─────────
+        if [ "$PROFILE" = "extreme" ]; then
+            write_node "4000000" "/proc/sys/kernel/sched_latency_ns"
+            write_node "500000" "/proc/sys/kernel/sched_min_granularity_ns"
+            write_node "1000000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
+            write_node "50000" "/proc/sys/kernel/sched_migration_cost_ns"
+            write_node "0" "/proc/sys/kernel/sched_schedstats"
+            write_node "1" "/proc/sys/kernel/sched_child_runs_first"
+            write_node "0" "/proc/sys/kernel/sched_cstate_aware"
+            write_node "10" "/proc/sys/vm/stat_interval"
+            write_node "50" "/proc/sys/vm/vfs_cache_pressure"
+        else
+            write_node "6000000" "/proc/sys/kernel/sched_latency_ns"
+            write_node "750000" "/proc/sys/kernel/sched_min_granularity_ns"
+            write_node "1500000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
+            write_node "100000" "/proc/sys/kernel/sched_migration_cost_ns"
+            write_node "0" "/proc/sys/kernel/sched_schedstats"
+            write_node "1" "/proc/sys/kernel/sched_child_runs_first"
+            write_node "0" "/proc/sys/kernel/sched_cstate_aware"
+            write_node "1" "/proc/sys/vm/stat_interval"
+            write_node "70" "/proc/sys/vm/vfs_cache_pressure"
+        fi
+
         if [ -e "/sys/kernel/mm/lru_gen/enabled" ]; then
             write_node "y" "/sys/kernel/mm/lru_gen/enabled"
             write_node "1000" "/sys/kernel/mm/lru_gen/min_ttl_ms"
@@ -284,7 +325,6 @@ case "$PROFILE" in
         write_node "10" "/proc/sys/vm/dirty_background_ratio"
         write_node "500" "/proc/sys/vm/dirty_expire_centisecs"
         write_node "200" "/proc/sys/vm/dirty_writeback_centisecs"
-        write_node "70" "/proc/sys/vm/vfs_cache_pressure"
         write_node "100" "/proc/sys/vm/extfrag_threshold"
         write_node "0" "/proc/sys/vm/oom_dump_tasks"
         write_node "80" "/proc/sys/vm/overcommit_ratio"
@@ -298,22 +338,21 @@ case "$PROFILE" in
         [ "$PROFILE" = "extreme" ] && swap_v=60
         write_node "$swap_v" "/proc/sys/vm/swappiness"
 
-        # Storage I/O Optimization
+        # Storage I/O Optimization (Zero Stutter Streaming for 3D Game Worlds)
+        ra_val=1024
+        [ "$PROFILE" = "extreme" ] && ra_val=2048
         for queue in /sys/block/*/queue; do
             [ -d "$queue" ] || continue
             write_node "0" "$queue/add_random"
             write_node "0" "$queue/iostats"
             write_node "1" "$queue/rq_affinity"
-            write_node "128" "$queue/nr_requests"
+            write_node "512" "$queue/nr_requests"
         done
         for q in /sys/block/*/queue/scheduler; do
             [ -e "$q" ] && echo deadline > "$q" 2>/dev/null
         done
-        for ra in /sys/block/sd*/queue/read_ahead_kb; do
-            write_node "128" "$ra"
-        done
-        for ra in /sys/block/mmcblk*/queue/read_ahead_kb; do
-            write_node "512" "$ra"
+        for ra in /sys/block/sd*/queue/read_ahead_kb /sys/block/mmcblk*/queue/read_ahead_kb; do
+            write_node "$ra_val" "$ra"
         done
         for ufs in /sys/devices/platform/soc/*ufshc*; do
             [ -d "$ufs" ] || continue
@@ -321,11 +360,20 @@ case "$PROFILE" in
             write_node "1000" "$ufs/clkgate_delay_ms_pwr_save"
         done
 
-        # ── 6. Display Vsync Offsets, Refresh Rate & TouchBoost ──────────────
+        # ── 6. Display Vsync Offsets, Frame Pacing & TouchBoost ──────────────
+        setprop debug.sf.latch_unsignaled 1 2>/dev/null
+        setprop debug.sf.enable_gl_backpressure 0 2>/dev/null
+        setprop debug.sf.disable_backpressure 1 2>/dev/null
+        setprop debug.renderengine.backend skiaglthreaded 2>/dev/null
         setprop debug.sf.early_phase_offset_ns 500000 2>/dev/null
         setprop debug.sf.early_app_phase_offset_ns 500000 2>/dev/null
-        setprop debug.sf.high_fps_late_app_phase_offset_ns 1000000 2>/dev/null
+        setprop debug.sf.early_gl_phase_offset_ns 3000000 2>/dev/null
         setprop debug.sf.high_fps_early_phase_offset_ns 1000000 2>/dev/null
+        setprop debug.sf.high_fps_early_gl_phase_offset_ns 1000000 2>/dev/null
+        setprop debug.sf.high_fps_late_app_phase_offset_ns 1000000 2>/dev/null
+        setprop ro.hwui.render_dirty_regions false 2>/dev/null
+        setprop debug.hwui.fps_divisor 1 2>/dev/null
+        setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
 
         # Refresh rate holding
         peak_rr=$(settings get system peak_refresh_rate 2>/dev/null)
@@ -744,6 +792,26 @@ case "$PROFILE" in
             write_node "128" "$ra"
         done
 
+        # Restore Scheduler & VM Balanced Tunables
+        write_node "10000000" "/proc/sys/kernel/sched_latency_ns"
+        write_node "3000000" "/proc/sys/kernel/sched_min_granularity_ns"
+        write_node "2000000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
+        write_node "200000" "/proc/sys/kernel/sched_migration_cost_ns"
+        write_node "1" "/proc/sys/kernel/sched_schedstats"
+        write_node "0" "/proc/sys/kernel/sched_child_runs_first"
+        write_node "1" "/proc/sys/kernel/sched_cstate_aware"
+        write_node "1" "/proc/sys/vm/stat_interval"
+        write_node "100" "/proc/sys/vm/vfs_cache_pressure"
+
+        # Restore FPSGO & GED Parameters
+        write_node "1" "/sys/module/ged/parameters/gpu_idle"
+        write_node "0" "/sys/module/ged/parameters/gx_top_app_pid"
+        write_node "0" "/sys/module/ged/parameters/ged_force_mdp_enable"
+        write_node "0" "/sys/kernel/fpsgo/fbt/ultra_rescue"
+        write_node "1" "/sys/kernel/fpsgo/fstb/fstb_soft_level"
+        write_node "1" "/sys/kernel/fpsgo/fbt/light_loading_policy"
+        write_node "1" "/sys/kernel/fpsgo/fbt/light_loading_policy_90"
+
         # ── 5. Unfreeze Throttlers, Restore Display, Network & Thermal ────────
         for proc in $OEM_TARGET_PROCS; do
             for pid in $(pidof "$proc" 2>/dev/null); do
@@ -756,6 +824,9 @@ case "$PROFILE" in
         cmd wifi set-power-save-mode 1 >/dev/null 2>&1
         cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
+        setprop debug.sf.latch_unsignaled "" 2>/dev/null
+        setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
+        setprop debug.sf.disable_backpressure "" 2>/dev/null
         setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
         setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
         setprop af.fast_track_multiplier 2 2>/dev/null
