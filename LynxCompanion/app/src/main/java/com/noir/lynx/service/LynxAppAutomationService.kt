@@ -125,26 +125,26 @@ class LynxAppAutomationService : Service() {
                 } catch (e: Exception) {
                     Log.w(TAG, "Watcher cycle error: ${e.message}")
                 }
-                delay(1000L) // 1s polling interval for responsive boost & ultra-light footprint
+                delay(350L) // 350ms ultra-snappy polling for instant game detection & zero UI delay
             }
         }
     }
 
     private fun queryTopResumedPackage(): String? {
         return try {
-            // First check topResumedActivity from dumpsys activity (fastest and most accurate on Android 10-14)
+            // First check mCurrentFocus from dumpsys window (sub-15ms, Universal Android 8-14)
+            val resWin = Shell.cmd("dumpsys window | grep -m1 mCurrentFocus").exec()
+            val winLine = resWin.out.firstOrNull()
+            if (!winLine.isNullOrBlank() && !winLine.contains("mCurrentFocus=null")) {
+                val match = Regex("""([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.]*""").find(winLine)
+                val pkg = match?.groupValues?.get(1)?.trim()
+                if (!pkg.isNullOrBlank() && pkg != "null") return pkg
+            }
+            // Fallback to topResumedActivity from dumpsys activity
             val resAct = Shell.cmd("dumpsys activity activities | grep -m1 topResumedActivity").exec()
             val actLine = resAct.out.firstOrNull()
             if (!actLine.isNullOrBlank()) {
                 val match = Regex("""([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.]*""").find(actLine)
-                val pkg = match?.groupValues?.get(1)?.trim()
-                if (!pkg.isNullOrBlank() && pkg != "null") return pkg
-            }
-            // Fallback to mCurrentFocus from dumpsys window (Universal Android 8-14)
-            val resWin = Shell.cmd("dumpsys window | grep -m1 mCurrentFocus").exec()
-            val winLine = resWin.out.firstOrNull()
-            if (!winLine.isNullOrBlank()) {
-                val match = Regex("""([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.]*""").find(winLine)
                 val pkg = match?.groupValues?.get(1)?.trim()
                 if (!pkg.isNullOrBlank() && pkg != "null") return pkg
             }
@@ -153,6 +153,18 @@ class LynxAppAutomationService : Service() {
             Log.w(TAG, "Failed to query top resumed pkg: ${e.message}")
             null
         }
+    }
+
+    private fun isHomeLauncher(pkg: String): Boolean {
+        return try {
+            val homeIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+            val resolveInfo = packageManager.resolveActivity(homeIntent, 0)
+            if (resolveInfo?.activityInfo?.packageName.equals(pkg, ignoreCase = true)) {
+                return true
+            }
+            val lower = pkg.lowercase()
+            lower.contains("launcher") || lower.contains("home") || lower == "com.android.systemui"
+        } catch (_: Exception) { false }
     }
 
     private suspend fun handleForegroundPackage(pkg: String) {
@@ -173,17 +185,8 @@ class LynxAppAutomationService : Service() {
                 activeCustomPkg = pkg
                 val target = matchingRule.targetProfile
                 Log.i(TAG, "App match detected: $pkg -> activating [$target]")
-                LynxRepository.setProfile(target)
 
-                // Apply target refresh rate if specified
-                matchingRule.targetRefreshRate?.let { hz ->
-                    if (hz > 0) {
-                        Log.i(TAG, "Applying app-specific refresh rate: ${hz}Hz for $pkg")
-                        LynxRepository.setDisplayRefreshRate(hz)
-                    }
-                }
-
-                // Auto launch Floating Game HUD if requested
+                // 1. AUTO LAUNCH FLOATING GAME HUD IMMEDIATELY (ZERO DELAY!)
                 if (matchingRule.autoFloatingHud && !LynxFloatingHudService.isRunning) {
                     try {
                         val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
@@ -200,23 +203,35 @@ class LynxAppAutomationService : Service() {
                     }
                 }
 
+                // 2. APPLY TARGET REFRESH RATE
+                matchingRule.targetRefreshRate?.let { hz ->
+                    if (hz > 0) {
+                        serviceScope.launch(Dispatchers.IO) {
+                            LynxRepository.setDisplayRefreshRate(hz)
+                        }
+                    }
+                }
+
+                // 3. APPLY PERFORMANCE PROFILE ASYNCHRONOUSLY (Non-blocking so foreground loop remains blistering fast)
+                serviceScope.launch(Dispatchers.IO) {
+                    LynxRepository.setProfile(target)
+                }
+
                 val hzInfo = matchingRule.targetRefreshRate?.let { " • ${it}Hz" } ?: ""
                 val hudInfo = if (matchingRule.autoFloatingHud) " • HUD" else ""
                 updateNotification("Aktif: [${target.uppercase()}]$hzInfo$hudInfo untuk ${matchingRule.appName}")
             }
         } else {
-            // Not in rules: if we previously boosted an app, start 3.5s cooldown
+            // Not in rules: if we previously boosted an app, start cooldown buffer
             if (activeCustomPkg != null) {
                 if (cooldownJob == null || !cooldownJob!!.isActive) {
+                    val isHome = isHomeLauncher(pkg)
+                    val cooldownMs = if (isHome) 1500L else 2500L // 1.5s for home screen exit, 2.5s for app switcher/temporary overlay
                     cooldownJob = serviceScope.launch {
-                        delay(3500L) // 3.5s debounce cooldown buffer
-                        Log.i(TAG, "Cooldown expired, restoring baseline profile [$baselineProfile]")
-                        LynxRepository.setProfile(baselineProfile)
+                        delay(cooldownMs)
+                        Log.i(TAG, "Cooldown expired (${cooldownMs}ms), restoring baseline profile [$baselineProfile]")
 
-                        baselineRefreshRate?.let { hz ->
-                            LynxRepository.setDisplayRefreshRate(hz)
-                        }
-
+                        // Stop Floating HUD smoothly
                         if (autoStartedHud) {
                             try {
                                 val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
@@ -227,6 +242,14 @@ class LynxAppAutomationService : Service() {
                             } catch (_: Exception) {}
                             autoStartedHud = false
                         }
+
+                        // Restore baseline refresh rate
+                        baselineRefreshRate?.let { hz ->
+                            LynxRepository.setDisplayRefreshRate(hz)
+                        }
+
+                        // Restore baseline performance profile
+                        LynxRepository.setProfile(baselineProfile)
 
                         activeCustomPkg = null
                         updateNotification("Standby: Mode [$baselineProfile] aktif")

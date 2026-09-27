@@ -265,7 +265,7 @@ object LynxRepository {
         val allowedProfiles = setOf("auto", "balance", "performance", "extreme", "powersave", "dormant")
         if (profile !in allowedProfiles) return false
         val ok = writeStateKey("active_profile", profile, "str")
-        Shell.cmd("mkdir -p /data/adb/lynx 2>/dev/null; echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null; echo '$profile' > /data/adb/lynx/baseline_profile 2>/dev/null").exec()
+        Shell.cmd("mkdir -p /data/adb/lynx 2>/dev/null; echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null; echo '$profile' > /data/adb/lynx/baseline_profile 2>/dev/null; setprop lynx.mode '$profile' 2>/dev/null").exec()
         if (ok && !isModuleInstalled()) {
             applyStandaloneProfile(profile)
         }
@@ -3579,14 +3579,14 @@ object LynxRepository {
 PROFILE="${'$'}{1:-balance}"
 mkdir -p /data/adb/lynx 2>/dev/null
 echo "${'$'}PROFILE" > /data/adb/lynx/active_profile 2>/dev/null
+setprop lynx.mode "${'$'}PROFILE" 2>/dev/null
 
+# Zero-Fork Fast Path: only chmod if direct write failed
 write_node() {
-    local val="${'$'}1"
-    local node="${'$'}2"
-    if [ -e "${'$'}node" ]; then
-        chmod 644 "${'$'}node" 2>/dev/null
-        echo "${'$'}val" > "${'$'}node" 2>/dev/null
-    fi
+    [ -e "${'$'}2" ] || return 0
+    echo "${'$'}1" > "${'$'}2" 2>/dev/null && return 0
+    chmod 644 "${'$'}2" 2>/dev/null
+    echo "${'$'}1" > "${'$'}2" 2>/dev/null
 }
 
 OEM_TARGET_PROCS="mi_thermald thermal-engine thermal-engine-v2 ituxd com.samsung.android.game.gos"
@@ -3594,15 +3594,6 @@ OEM_TARGET_PROCS="mi_thermald thermal-engine thermal-engine-v2 ituxd com.samsung
 is_bluetooth_audio() {
     dumpsys audio 2>/dev/null | grep -iE "a2dp.*connected|device.*bluetooth_a2dp" | grep -qv "state=0"
 }
-
-for p in /sys/devices/system/cpu/cpufreq/policy*; do
-    [ -d "${'$'}p" ] || continue
-    chmod 444 "${'$'}p"/cpuinfo_* 2>/dev/null
-done
-for c in /sys/devices/system/cpu/cpu[0-9]*; do
-    [ -d "${'$'}c" ] || continue
-    chmod 444 "${'$'}c"/cpufreq/cpuinfo_* "${'$'}c"/cpu_capacity "${'$'}c"/topology/physical_package_id 2>/dev/null
-done
 
 case "${'$'}PROFILE" in
     extreme|performance)
@@ -3638,17 +3629,24 @@ case "${'$'}PROFILE" in
             fi
         done
 
+        for c in /sys/devices/system/cpu/cpu[0-9]*; do
+            [ -d "${'$'}c" ] || continue
+            [ -e "${'$'}c/online" ] && echo 1 > "${'$'}c/online" 2>/dev/null
+        done
         for ctl in /sys/devices/system/cpu/cpu*/core_ctl; do
             [ -d "${'$'}ctl" ] || continue
-            write_node "500" "${'$'}ctl/offline_delay_ms"
+            write_node "1000" "${'$'}ctl/offline_delay_ms"
             write_node "1 1 1 1" "${'$'}ctl/not_preferred"
+            [ "${'$'}PROFILE" = "extreme" ] && write_node "4" "${'$'}ctl/min_cpus"
         done
 
         write_node "N" "/sys/module/workqueue/parameters/power_efficient"
         write_node "1" "/sys/devices/system/cpu/perf/enable"
         write_node "0" "/sys/devices/system/cpu/eas/enable"
+        write_node "0" "/proc/sys/kernel/sched_energy_aware"
         write_node "1" "/proc/sys/kernel/sched_autogroup_enabled"
         write_node "0" "/proc/sys/kernel/sched_tunable_scaling"
+        write_node "1" "/proc/sys/kernel/sched_sync_hint_enable"
 
         write_node "3" "/proc/cpufreq/cpufreq_power_mode"
         write_node "1" "/proc/cpufreq/cpufreq_cci_mode"
@@ -3695,10 +3693,14 @@ case "${'$'}PROFILE" in
             case "${'$'}dev" in
                 *ufshc*|*cpubw*|*gpubw*|*llccbw*|*l3-cpu*|*bus_ddr*)
                     write_node "performance" "${'$'}dev/governor"
-                    freq_table="${'$'}dev/available_frequencies"
-                    if [ -s "${'$'}freq_table" ]; then
-                        h_freq=${'$'}(tr -s ' ' '\n' < "${'$'}freq_table" 2>/dev/null | sort -n | tail -n 1)
-                        [ -n "${'$'}h_freq" ] && write_node "${'$'}h_freq" "${'$'}dev/min_freq"
+                    if [ -f "${'$'}dev/max_freq" ]; then
+                        write_node "${'$'}(cat "${'$'}dev/max_freq" 2>/dev/null)" "${'$'}dev/min_freq"
+                    else
+                        freq_table="${'$'}dev/available_frequencies"
+                        if [ -s "${'$'}freq_table" ]; then
+                            h_freq=${'$'}(tr -s ' ' '\n' < "${'$'}freq_table" 2>/dev/null | sort -n | tail -n 1)
+                            [ -n "${'$'}h_freq" ] && write_node "${'$'}h_freq" "${'$'}dev/min_freq"
+                        fi
                     fi
                     ;;
             esac
@@ -3709,6 +3711,8 @@ case "${'$'}PROFILE" in
             write_node "0" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "2" "/sys/kernel/ged/hal/gpu_boost_level"
             write_node "100" "/sys/kernel/ged/hal/dvfs_margin_value"
+            write_node "performance" "/sys/class/kgsl/kgsl-3d0/pwrscale/policy"
+            write_node "1" "/sys/class/kgsl/kgsl-3d0/force_no_nap"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/default_pwrlevel"
@@ -3830,32 +3834,39 @@ case "${'$'}PROFILE" in
 
         # CFS Low-Latency Scheduler & VM Optimization
         if [ "${'$'}PROFILE" = "extreme" ]; then
-            write_node "4000000" "/proc/sys/kernel/sched_latency_ns"
-            write_node "500000" "/proc/sys/kernel/sched_min_granularity_ns"
-            write_node "1000000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
-            write_node "50000" "/proc/sys/kernel/sched_migration_cost_ns"
+            write_node "3000000" "/proc/sys/kernel/sched_latency_ns"
+            write_node "400000" "/proc/sys/kernel/sched_min_granularity_ns"
+            write_node "800000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
+            write_node "30000" "/proc/sys/kernel/sched_migration_cost_ns"
+            write_node "60" "/proc/sys/kernel/sched_upmigrate"
+            write_node "40" "/proc/sys/kernel/sched_downmigrate"
             write_node "0" "/proc/sys/kernel/sched_schedstats"
             write_node "1" "/proc/sys/kernel/sched_child_runs_first"
             write_node "0" "/proc/sys/kernel/sched_cstate_aware"
             write_node "10" "/proc/sys/vm/stat_interval"
-            write_node "50" "/proc/sys/vm/vfs_cache_pressure"
+            write_node "40" "/proc/sys/vm/vfs_cache_pressure"
+            write_node "50" "/proc/sys/vm/swappiness"
+            write_node "25" "/proc/sys/vm/dirty_ratio"
         else
             write_node "6000000" "/proc/sys/kernel/sched_latency_ns"
             write_node "750000" "/proc/sys/kernel/sched_min_granularity_ns"
             write_node "1500000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
             write_node "100000" "/proc/sys/kernel/sched_migration_cost_ns"
+            write_node "85" "/proc/sys/kernel/sched_upmigrate"
+            write_node "65" "/proc/sys/kernel/sched_downmigrate"
             write_node "0" "/proc/sys/kernel/sched_schedstats"
             write_node "1" "/proc/sys/kernel/sched_child_runs_first"
             write_node "0" "/proc/sys/kernel/sched_cstate_aware"
             write_node "1" "/proc/sys/vm/stat_interval"
             write_node "70" "/proc/sys/vm/vfs_cache_pressure"
+            write_node "70" "/proc/sys/vm/swappiness"
+            write_node "20" "/proc/sys/vm/dirty_ratio"
         fi
 
         if [ -e "/sys/kernel/mm/lru_gen/enabled" ]; then
             write_node "y" "/sys/kernel/mm/lru_gen/enabled"
             write_node "1000" "/sys/kernel/mm/lru_gen/min_ttl_ms"
         fi
-        write_node "20" "/proc/sys/vm/dirty_ratio"
         write_node "10" "/proc/sys/vm/dirty_background_ratio"
         write_node "500" "/proc/sys/vm/dirty_expire_centisecs"
         write_node "200" "/proc/sys/vm/dirty_writeback_centisecs"
@@ -3863,14 +3874,11 @@ case "${'$'}PROFILE" in
         write_node "0" "/proc/sys/vm/oom_dump_tasks"
         write_node "80" "/proc/sys/vm/overcommit_ratio"
         write_node "1" "/proc/sys/vm/compact_unevictable_allowed"
-        write_node "16" "/proc/sys/kernel/sched_nr_migrate"
+        write_node "32" "/proc/sys/kernel/sched_nr_migrate"
         write_node "40" "/proc/sys/kernel/perf_cpu_time_max_percent"
         write_node "1" "/proc/sys/kernel/sched_boost"
         write_node "512" "/proc/sys/kernel/random/read_wakeup_threshold"
         write_node "2048" "/proc/sys/kernel/random/write_wakeup_threshold"
-        swap_v=70
-        [ "${'$'}PROFILE" = "extreme" ] && swap_v=60
-        write_node "${'$'}swap_v" "/proc/sys/vm/swappiness"
 
         # Storage I/O Optimization (Zero Stutter Streaming for 3D Game Worlds)
         ra_val=1024
@@ -3894,11 +3902,14 @@ case "${'$'}PROFILE" in
             write_node "1000" "${'$'}ufs/clkgate_delay_ms_pwr_save"
         done
 
-        # ── 6. Display Vsync Offsets, Frame Pacing & TouchBoost ──────────────
+        # ── 5. Display Vsync Offsets, Frame Pacing & TouchBoost ──────────────
         setprop debug.sf.latch_unsignaled 1 2>/dev/null
         setprop debug.sf.enable_gl_backpressure 0 2>/dev/null
         setprop debug.sf.disable_backpressure 1 2>/dev/null
         setprop debug.renderengine.backend skiaglthreaded 2>/dev/null
+        setprop debug.hwui.renderer skiagl 2>/dev/null
+        setprop debug.hwui.use_buffer_age false 2>/dev/null
+        setprop persist.sys.sf.native_mode 1 2>/dev/null
         setprop debug.sf.early_phase_offset_ns 500000 2>/dev/null
         setprop debug.sf.early_app_phase_offset_ns 500000 2>/dev/null
         setprop debug.sf.early_gl_phase_offset_ns 3000000 2>/dev/null
@@ -3927,43 +3938,17 @@ case "${'$'}PROFILE" in
             write_node "1" "${'$'}tn"
         done
 
-        cmd wifi set-power-save-mode 0 >/dev/null 2>&1
-        cmd wifi force-low-latency-mode enabled >/dev/null 2>&1
+        # Network Low Latency
         sysctl -w net.ipv4.tcp_low_latency=1 >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_autocorking=0 >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
         for ps_node in /sys/module/wlan/parameters/power_save /sys/module/bcmdhd/parameters/op_mode; do
             write_node "0" "${'$'}ps_node"
         done
 
-        avail_tcp=${'$'}(cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null)
-        for target_algo in bbrv3 bbr westwood cubic; do
-            case " ${'$'}avail_tcp " in
-                *" ${'$'}target_algo "*)
-                    sysctl -w net.ipv4.tcp_congestion_control="${'$'}target_algo" >/dev/null 2>&1
-                    break
-                    ;;
-            esac
-        done
-
-        setprop af.fast_track_multiplier 1 2>/dev/null
-        if is_bluetooth_audio; then
-            setprop aaudio.mmap_policy 2 2>/dev/null
-            setprop aaudio.hw_burst_min_usec 4000 2>/dev/null
-        else
-            setprop aaudio.mmap_policy 2 2>/dev/null
-            setprop aaudio.mmap_exclusive_policy 2 2>/dev/null
-            setprop aaudio.hw_burst_min_usec 2000 2>/dev/null
-        fi
-
-        for proc in "surfaceflinger" "android.hardware.graphics.composer" "vendor.qti.hardware.display.composer" "vendor.mediatek.hardware.pq"; do
-            for pid in ${'$'}(pgrep -f "${'$'}proc" 2>/dev/null); do
-                renice -n -20 -p "${'$'}pid" 2>/dev/null
-                write_node "${'$'}pid" "/dev/cpuset/top-app/cgroup.procs"
-            done
-        done
-
-        for irq in ${'$'}(grep -i mali /proc/interrupts 2>/dev/null | awk '{print ${'$'}1}' | tr -d ':'); do
+        # Multi-SoC GPU & Display IRQ SMP Affinity
+        for irq in ${'$'}(grep -iE "mali|kgsl|adreno|msm_drm|mdss" /proc/interrupts 2>/dev/null | awk '{print ${'$'}1}' | tr -d ':'); do
             write_node "3f" "/proc/irq/${'$'}irq/smp_affinity"
         done
 
@@ -3979,27 +3964,12 @@ case "${'$'}PROFILE" in
             done
         fi
 
-        for proc in ${'$'}OEM_TARGET_PROCS; do
-            for pid in ${'$'}(pidof "${'$'}proc" 2>/dev/null); do
-                kill -STOP "${'$'}pid" 2>/dev/null
-            done
-        done
-        for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
-            kill -STOP "${'$'}jpid" 2>/dev/null
-        done
-
         if [ "${'$'}PROFILE" = "extreme" ]; then
             write_node "0" "/proc/cpufreq/cpufreq_imax_thermal_protect"
-            cmd thermalservice override-status 0 2>/dev/null
             for tz in /sys/class/thermal/thermal_zone*; do
                 [ -d "${'$'}tz" ] || continue
                 write_node "disabled" "${'$'}tz/mode"
                 write_node "150000" "${'$'}tz/trip_point_0_temp"
-            done
-            for cooling in /sys/class/thermal/cooling_device*; do
-                [ -d "${'$'}cooling" ] || continue
-                max_s=${'$'}(cat "${'$'}cooling/max_state" 2>/dev/null)
-                [ -n "${'$'}max_s" ] && write_node "${'$'}max_s" "${'$'}cooling/min_state"
             done
 
             for cpu in 0 1 2 3 4 5 6 7; do
@@ -4010,15 +3980,10 @@ case "${'$'}PROFILE" in
             done
         else
             write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
-            cmd thermalservice reset 2>/dev/null
             for tz in /sys/class/thermal/thermal_zone*; do
                 [ -d "${'$'}tz" ] || continue
                 write_node "enabled" "${'$'}tz/mode"
                 write_node "80000" "${'$'}tz/trip_point_0_temp"
-            done
-            for cooling in /sys/class/thermal/cooling_device*; do
-                [ -d "${'$'}cooling" ] || continue
-                write_node "0" "${'$'}cooling/min_state"
             done
             for cpu in 0 1 2 3 4 5 6 7; do
                 path="/sys/devices/system/cpu/cpu${'$'}{cpu}"
@@ -4027,6 +3992,33 @@ case "${'$'}PROFILE" in
                 [ -e "${'$'}path/topology/physical_package_id" ] && chmod 444 "${'$'}path/topology/physical_package_id" 2>/dev/null
             done
         fi
+
+        # Async Fast Background Fork (Zero-delay profile completion)
+        (
+            if [ "${'$'}PROFILE" = "extreme" ]; then
+                cmd thermalservice override-status 0 2>/dev/null
+            else
+                cmd thermalservice reset 2>/dev/null
+            fi
+            cmd wifi set-power-save-mode 0 2>/dev/null
+            cmd wifi force-low-latency-mode enabled 2>/dev/null
+
+            for proc in "surfaceflinger" "android.hardware.graphics.composer" "vendor.qti.hardware.display.composer" "vendor.mediatek.hardware.pq"; do
+                for pid in ${'$'}(pgrep -f "${'$'}proc" 2>/dev/null); do
+                    renice -n -20 -p "${'$'}pid" 2>/dev/null
+                    write_node "${'$'}pid" "/dev/cpuset/top-app/cgroup.procs"
+                done
+            done
+
+            for proc in ${'$'}OEM_TARGET_PROCS; do
+                for pid in ${'$'}(pidof "${'$'}proc" 2>/dev/null); do
+                    kill -STOP "${'$'}pid" 2>/dev/null
+                done
+            done
+            for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
+                kill -STOP "${'$'}jpid" 2>/dev/null
+            done
+        ) >/dev/null 2>&1 &
 
         setprop lynx.mode "${'$'}PROFILE"
         ;;
@@ -4128,16 +4120,16 @@ case "${'$'}PROFILE" in
             write_node "64" "${'$'}ra"
         done
 
-        for proc in ${'$'}OEM_TARGET_PROCS; do
-            for pid in ${'$'}(pidof "${'$'}proc" 2>/dev/null); do
-                kill -CONT "${'$'}pid" 2>/dev/null
+        (
+            for proc in ${'$'}OEM_TARGET_PROCS; do
+                for pid in ${'$'}(pidof "${'$'}proc" 2>/dev/null); do kill -CONT "${'$'}pid" 2>/dev/null; done
             done
-        done
-        for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
-            kill -CONT "${'$'}jpid" 2>/dev/null
-        done
-        cmd wifi set-power-save-mode 1 >/dev/null 2>&1
-        cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
+            for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -CONT "${'$'}jpid" 2>/dev/null; done
+            cmd wifi set-power-save-mode 1 >/dev/null 2>&1
+            cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
+            cmd thermalservice reset 2>/dev/null
+        ) >/dev/null 2>&1 &
+
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
         setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
         setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
@@ -4153,22 +4145,9 @@ case "${'$'}PROFILE" in
         fi
 
         write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
-        cmd thermalservice reset 2>/dev/null
         for tz in /sys/class/thermal/thermal_zone*; do
             [ -d "${'$'}tz" ] || continue
             write_node "enabled" "${'$'}tz/mode"
-            write_node "80000" "${'$'}tz/trip_point_0_temp"
-        done
-        for cooling in /sys/class/thermal/cooling_device*; do
-            [ -d "${'$'}cooling" ] || continue
-            write_node "0" "${'$'}cooling/min_state"
-        done
-
-        for cpu in 0 1 2 3 4 5 6 7; do
-            path="/sys/devices/system/cpu/cpu${'$'}{cpu}"
-            [ -e "${'$'}path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "${'$'}path/cpufreq/cpuinfo_max_freq" 2>/dev/null
-            [ -e "${'$'}path/cpu_capacity" ] && chmod 444 "${'$'}path/cpu_capacity" 2>/dev/null
-            [ -e "${'$'}path/topology/physical_package_id" ] && chmod 444 "${'$'}path/topology/physical_package_id" 2>/dev/null
         done
 
         setprop lynx.mode powersave
@@ -4317,16 +4296,16 @@ case "${'$'}PROFILE" in
         write_node "1" "/sys/kernel/fpsgo/fbt/light_loading_policy"
         write_node "1" "/sys/kernel/fpsgo/fbt/light_loading_policy_90"
 
-        for proc in ${'$'}OEM_TARGET_PROCS; do
-            for pid in ${'$'}(pidof "${'$'}proc" 2>/dev/null); do
-                kill -CONT "${'$'}pid" 2>/dev/null
+        (
+            for proc in ${'$'}OEM_TARGET_PROCS; do
+                for pid in ${'$'}(pidof "${'$'}proc" 2>/dev/null); do kill -CONT "${'$'}pid" 2>/dev/null; done
             done
-        done
-        for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
-            kill -CONT "${'$'}jpid" 2>/dev/null
-        done
-        cmd wifi set-power-save-mode 1 >/dev/null 2>&1
-        cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
+            for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -CONT "${'$'}jpid" 2>/dev/null; done
+            cmd wifi set-power-save-mode 1 >/dev/null 2>&1
+            cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
+            cmd thermalservice reset 2>/dev/null
+        ) >/dev/null 2>&1 &
+
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
         setprop debug.sf.latch_unsignaled "" 2>/dev/null
         setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
@@ -4354,22 +4333,9 @@ case "${'$'}PROFILE" in
         done
 
         write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
-        cmd thermalservice reset 2>/dev/null
         for tz in /sys/class/thermal/thermal_zone*; do
             [ -d "${'$'}tz" ] || continue
             write_node "enabled" "${'$'}tz/mode"
-            write_node "80000" "${'$'}tz/trip_point_0_temp"
-        done
-        for cooling in /sys/class/thermal/cooling_device*; do
-            [ -d "${'$'}cooling" ] || continue
-            write_node "0" "${'$'}cooling/min_state"
-        done
-
-        for cpu in 0 1 2 3 4 5 6 7; do
-            path="/sys/devices/system/cpu/cpu${'$'}{cpu}"
-            [ -e "${'$'}path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "${'$'}path/cpufreq/cpuinfo_max_freq" 2>/dev/null
-            [ -e "${'$'}path/cpu_capacity" ] && chmod 444 "${'$'}path/cpu_capacity" 2>/dev/null
-            [ -e "${'$'}path/topology/physical_package_id" ] && chmod 444 "${'$'}path/topology/physical_package_id" 2>/dev/null
         done
 
         setprop lynx.mode balance
@@ -4716,8 +4682,10 @@ done
                 bcurr=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null || echo 0)
                 bstat=${'$'}(cat /sys/class/power_supply/battery/status 2>/dev/null || echo Discharging)
                 blevel=${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 0)
+                cur_prof=${'$'}(getprop lynx.mode 2>/dev/null)
+                [ -z "${'$'}cur_prof" ] && cur_prof=${'$'}(cat /data/adb/lynx/active_profile 2>/dev/null || echo balance)
 
-                echo "${'$'}fps|${'$'}cpumhz|${'$'}gpumhz|${'$'}gpuload|${'$'}btemp|${'$'}bcurr|${'$'}blevel|${'$'}tot_frames|${'$'}bvolt|${'$'}bstat"
+                echo "${'$'}fps|${'$'}cpumhz|${'$'}gpumhz|${'$'}gpuload|${'$'}btemp|${'$'}bcurr|${'$'}blevel|${'$'}tot_frames|${'$'}bvolt|${'$'}bstat|${'$'}cur_prof"
             """.trimIndent()
 
             val res = Shell.cmd(script).exec()
@@ -4770,7 +4738,9 @@ done
                 }
             }
 
-            val currentProfile = readCurrentProfileFast()
+            val currentProfile = parts.getOrNull(10)?.trim()?.lowercase()
+                ?.takeIf { it in setOf("auto", "balance", "performance", "extreme", "powersave", "dormant") }
+                ?: readCurrentProfileFast()
 
             FloatingHudTelemetry(
                 renderFps = calculatedRenderFps,
@@ -5023,7 +4993,7 @@ done
 
     private fun readCurrentProfileFast(): String {
         return try {
-            val direct = Shell.cmd("cat /data/adb/lynx/active_profile 2>/dev/null").exec()
+            val direct = Shell.cmd("getprop lynx.mode 2>/dev/null || cat /data/adb/lynx/active_profile 2>/dev/null").exec()
             val directProf = direct.out.firstOrNull()?.trim()?.lowercase() ?: ""
             if (directProf in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) {
                 return directProf

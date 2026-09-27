@@ -7,12 +7,10 @@ MODE="${1:-perf}"
 MODDIR="/data/adb/modules/Lynx"
 
 write_node() {
-    local val="$1"
-    local node="$2"
-    if [ -e "$node" ]; then
-        chmod 644 "$node" 2>/dev/null
-        echo "$val" > "$node" 2>/dev/null
-    fi
+    [ -e "$2" ] || return 0
+    echo "$1" > "$2" 2>/dev/null && return 0
+    chmod 644 "$2" 2>/dev/null
+    echo "$1" > "$2" 2>/dev/null
 }
 
 # ── 1. Devfreq Memory Bus Boost ──────────────────────────────────────
@@ -43,6 +41,10 @@ if [ -d "$KGSL" ]; then
     write_node "1" "$KGSL/force_bus_on"
     write_node "1" "$KGSL/force_clk_on"
     write_node "1" "$KGSL/force_rail_on"
+    write_node "1" "$KGSL/force_no_nap"
+    write_node "performance" "$KGSL/pwrscale/policy"
+    write_node "performance" "$KGSL/devfreq/governor"
+    write_node "1" "$KGSL/devfreq/adreno_boost"
     write_node "120" "$KGSL/idle_timer"
     write_node "0" "$KGSL/bus_split"
 fi
@@ -118,6 +120,29 @@ if [ "$MODE" = "extreme" ]; then
     if [ -f "$MODDIR/platforms/qcom/thermal.sh" ]; then
         sh "$MODDIR/platforms/qcom/thermal.sh" disable >/dev/null 2>&1
     fi
+
+    # Universal Scheduler EAS Bypass & Core Activation
+    write_node "0" "/proc/sys/kernel/sched_energy_aware"
+    write_node "1" "/proc/sys/kernel/sched_sync_hint_enable"
+    write_node "1024" "/proc/sys/kernel/sched_uclamp_util_min"
+    write_node "1024" "/proc/sys/kernel/sched_util_clamp_min"
+    write_node "1024" "/dev/cpuset/top-app/cpu.uclamp.min"
+    write_node "60" "/proc/sys/kernel/sched_upmigrate"
+    write_node "40" "/proc/sys/kernel/sched_downmigrate"
+    write_node "3000000" "/proc/sys/kernel/sched_latency_ns"
+    write_node "40" "/proc/sys/vm/vfs_cache_pressure"
+    write_node "50" "/proc/sys/vm/swappiness"
+
+    for c in 0 1 2 3 4 5 6 7; do
+        write_node "1" "/sys/devices/system/cpu/cpu$c/online"
+        write_node "4" "/sys/devices/system/cpu/cpu$c/core_ctl/min_cpus"
+    done
+
+    # Qualcomm Adreno & Display IRQ SMP affinity to big cores
+    for irq in $(grep -iE "kgsl|adreno|msm_drm|mdss" /proc/interrupts 2>/dev/null | awk '{print $1}' | tr -d ':'); do
+        write_node "f0" "/proc/irq/$irq/smp_affinity" 2>/dev/null || write_node "3f" "/proc/irq/$irq/smp_affinity" 2>/dev/null
+    done
+
     # Apply Unity FPS uncap trick
     for cpu in 0 1 2 3 4 5 6 7; do
         path="/sys/devices/system/cpu/cpu${cpu}"

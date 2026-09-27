@@ -27,12 +27,12 @@ CURRENT_MODE="balance"
 EXIT_COOLDOWN=0
 COOLDOWN_BUFFER=3 # Seconds to hold performance after leaving game
 
-# 1. Ultra-fast top app retrieval (sub-30ms)
+# 1. Ultra-fast top app retrieval (sub-15ms fast path)
 get_top_app() {
     local raw
-    raw=$(dumpsys activity activities 2>/dev/null | grep -m1 "topResumedActivity" | grep -oE '[a-zA-Z0-9._]+/[a-zA-Z0-9._]+' | head -n1 | cut -d'/' -f1)
-    if [ -z "$raw" ]; then
-        raw=$(dumpsys window 2>/dev/null | grep -m1 -E "mCurrentFocus|mFocusedApp" | grep -oE '[a-zA-Z0-9._]+/[a-zA-Z0-9._]+' | head -n1 | cut -d'/' -f1)
+    raw=$(dumpsys window 2>/dev/null | grep -m1 "mCurrentFocus" | grep -oE '[a-zA-Z0-9._]+/[a-zA-Z0-9._]+' | head -n1 | cut -d'/' -f1)
+    if [ -z "$raw" ] || [ "$raw" = "com.android.systemui" ] || [ "$raw" = "StatusBar" ]; then
+        raw=$(dumpsys activity activities 2>/dev/null | grep -m1 "topResumedActivity" | grep -oE '[a-zA-Z0-9._]+/[a-zA-Z0-9._]+' | head -n1 | cut -d'/' -f1)
     fi
     # Strip user prefixes or clone app tags (e.g. u10_a123 or package:1)
     echo "$raw" | cut -d':' -f1

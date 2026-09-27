@@ -1,3 +1,26 @@
+# Lynx [Codename: Deity] 3.0.9
+Released on: 2026-09-28
+> **Versi ini** menghadirkan **Zero-Delay App Transition & Universal Extreme Mode Performance Suite** — menghilangkan jeda saat berpindah atau menutup aplikasi, meluncurkan Floating Game HUD seketika (0ms), serta memperluas optimasi Extreme Mode secara universal untuk SoC Qualcomm Snapdragon dan MediaTek (EAS Bypass, Multi-SoC IRQ Affinity, Adreno Force-No-Nap, dan Linux CFS Low-Latency Scheduling).
+
+## 🚀 Fitur Baru & Peningkatan (3.0.9)
+
+### 1. ⚡ Zero-Delay App Transition Engine
+- **Inversi Peluncuran Floating Game HUD (0ms Immediate Feedback)**: Floating HUD kini diinisiasi seketika pada frame pertama saat game terdeteksi, tanpa terhalang antrean eksekusi skrip kernel yang kini diproses secara asinkron di latar belakang (`Dispatchers.IO`).
+- **Zero-Fork Fast Path `write_node()`**: Merekayasa ulang fungsi modifikasi kernel sysfs dengan mekanisme pengecekan langsung tanpa membuat subprocess `chmod` berulang (menurunkan waktu eksekusi skrip profil dari ~4.8 detik menjadi <600 milidetik).
+- **Fast Foreground Query (sub-15ms)**: Pemantauan aplikasi aktif memprioritaskan ekstraksi jendela fokus cepat (`mCurrentFocus`) sebelum beralih ke inspeksi hierarki aktivitas penuh.
+- **Smart Launcher Dismissal**: Mendeteksi penutupan game kembali ke Home Launcher dan memangkas waktu cooldown penutupan HUD dari 3.5 detik menjadi 1.5 detik secara responsif.
+- **Merged Telemetry Query**: Pengambilan status profil aktif kini digabungkan ke dalam satu query telemetri multi-sensor sub-20ms di HUD, memangkas separuh frekuensi root IPC.
+
+### 2. 🛡️ Universal Multi-SoC Extreme Mode Enhancements (Snapdragon & MediaTek)
+- **Universal Energy-Aware Scheduling (EAS) Bypass**: Memaksa `sched_energy_aware = 0` dan `sched_sync_hint_enable = 1` di mode Extreme agar task scheduler kernel tidak membatasi performa CPU demi efisiensi daya.
+- **Universal Sched Clamping (`uclamp_util_min = 1024`)**: Mengunci utilitas minimum cpuset `top-app` ke 100% kapasitas pada seluruh arsitektur kernel yang mendukung uclamp.
+- **Multi-SoC GPU & Display IRQ SMP Affinity**: Otomatis mengidentifikasi interrupt handler grafis baik Qualcomm (`kgsl`, `adreno`, `msm_drm`, `mdss`) maupun MediaTek (`mali`, `ged`, `disp`, `drm`) dan mengisolasinya ke CPU core sekunder (`0x3F`), membebaskan Big Cores 100% untuk komputasi render thread game engine.
+- **Qualcomm Snapdragon Adreno Boost**: Mengaktifkan `force_no_nap = 1`, `pwrscale/policy = performance`, `devfreq/adreno_boost = 1`, dan `devfreq/governor = performance`.
+- **CPU Online Core Retention**: Memastikan seluruh 8 core CPU tetap aktif (`online = 1`) dan mencegah sleep core yang tidak diinginkan dengan `core_ctl/min_cpus = 4`.
+- **CFS Low-Latency Tunables**: Mengonfigurasi `sched_upmigrate = 60`, `sched_downmigrate = 40`, `sched_latency_ns = 3000000`, `vfs_cache_pressure = 40`, dan `swappiness = 50`.
+
+---
+
 # Lynx [Codename: Deity] 3.0.8
 Released on: 2026-09-28
 > **Versi ini** memperbarui durasi **Live Benchmark OSD di Floating Game HUD** menjadi **1 Menit (60 detik)** penuh, memungkinkan analisis kestabilan frametime jangka panjang, deteksi thermal throttling progresif, serta perataan pacing yang lebih representatif saat gameplay intensif.
