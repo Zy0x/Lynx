@@ -5,12 +5,10 @@
 MODDIR="/data/adb/modules/Lynx"
 
 write_node() {
-    local val="$1"
-    local node="$2"
-    if [ -e "$node" ]; then
-        chmod 644 "$node" 2>/dev/null
-        echo "$val" > "$node" 2>/dev/null
-    fi
+    [ -e "$2" ] || return 0
+    echo "$1" > "$2" 2>/dev/null && return 0
+    chmod 666 "$2" 2>/dev/null
+    echo "$1" > "$2" 2>/dev/null
 }
 
 # ── 1. CPU Power Mode: Low Power (1) ─────────────────────────────────
@@ -25,7 +23,7 @@ write_node "Y" "/sys/module/workqueue/parameters/power_efficient"
 write_node "1" "/sys/devices/system/cpu/eas/enable"
 write_node "0" "/sys/devices/system/cpu/perf/enable"
 
-# Cap CPU Cluster Frequencies to 60% of Max Clock
+# Cap CPU Cluster Frequencies to 55% of Max Clock
 for policy in /sys/devices/system/cpu/cpufreq/policy*; do
     [ -d "$policy" ] || continue
     min_freq=$(cat "$policy/cpuinfo_min_freq" 2>/dev/null)
@@ -33,7 +31,7 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
     [ -n "$min_freq" ] && write_node "$min_freq" "$policy/scaling_min_freq"
     
     if [ -n "$max_freq" ]; then
-        power_cap=$(( max_freq * 60 / 100 ))
+        power_cap=$(( max_freq * 55 / 100 ))
         [ "$power_cap" -gt "$min_freq" ] && write_node "$power_cap" "$policy/scaling_max_freq"
     fi
 
@@ -44,11 +42,12 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
             write_node "500" "$s_dir/down_rate_limit_us"
             write_node "99" "$s_dir/hispeed_load"
             write_node "0" "$s_dir/pl"
+            write_node "0" "$s_dir/iowait_boost_enable"
         fi
     done
 done
 
-# Enable MediaTek PPM Driver
+# Enable MediaTek PPM Driver & All Power Policies
 write_node "1" "/proc/ppm/enabled"
 write_node "0 0" "/proc/ppm/policy_status"
 write_node "1 1" "/proc/ppm/policy_status"
@@ -62,6 +61,18 @@ write_node "8 1" "/proc/ppm/policy_status"
 write_node "9 1" "/proc/ppm/policy_status"
 write_node "1" "/proc/ppm/cpi/cpi_enabled"
 
+# Cap PPM Cluster Table to 50% OPP Index
+for c in 0 1 2; do
+    table="/proc/ppm/dump_cluster_${c}_dvfs_table"
+    [ -f "$table" ] || continue
+    total_opp=$(wc -w < "$table" 2>/dev/null)
+    ps_cap_idx=$(( total_opp * 50 / 100 ))
+    [ "$ps_cap_idx" -lt 2 ] && ps_cap_idx=3
+    last_idx=$(( total_opp - 1 ))
+    write_node "$c $ps_cap_idx" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+    write_node "$c $last_idx" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+done
+
 # ── 2. GPU & GED Subsystem: Sleep Allowed (Coarse Demand) ─────────────
 for mali in /sys/devices/platform/*mali*; do
     [ -d "$mali" ] || continue
@@ -69,6 +80,9 @@ for mali in /sys/devices/platform/*mali*; do
 done
 write_node "0" "/proc/mali/always_on"
 write_node "1" "/proc/mali/dvfs_enable"
+write_node "48" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+write_node "0" "/sys/kernel/ged/hal/gpu_boost_level"
+write_node "0" "/sys/kernel/ged/hal/dvfs_margin_value"
 
 write_node "0" "/sys/kernel/fpsgo/common/gpu_block_boost"
 write_node "0" "/sys/kernel/fpsgo/fbt/boost_ta"
@@ -95,6 +109,18 @@ write_node "100 0" "/proc/driver/thermal/clatm_gpu_threshold"
 write_node "0" "/dev/stune/schedtune.boost"
 write_node "0" "/dev/stune/foreground/schedtune.boost"
 write_node "0" "/dev/stune/top-app/schedtune.boost"
+
+# Enforce 60Hz Screen Refresh Rate for Power Conservation
+cur_min_rr=$(settings get system min_refresh_rate 2>/dev/null)
+cur_peak_rr=$(settings get system peak_refresh_rate 2>/dev/null)
+if [ ! -f "/dev/lynx_orig_min_rr" ] && [ -n "$cur_min_rr" ] && [ "$cur_min_rr" != "null" ]; then
+    echo "$cur_min_rr" > /dev/lynx_orig_min_rr
+fi
+if [ ! -f "/dev/lynx_orig_peak_rr" ] && [ -n "$cur_peak_rr" ] && [ "$cur_peak_rr" != "null" ]; then
+    echo "$cur_peak_rr" > /dev/lynx_orig_peak_rr
+fi
+settings put system min_refresh_rate 60.0 2>/dev/null
+settings put system peak_refresh_rate 60.0 2>/dev/null
 
 # Revert Unity Trick if applied
 for cpu in 0 1 2 3 4 5 6 7; do

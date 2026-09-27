@@ -1,7 +1,7 @@
 #!/system/bin/sh
 # ==============================================================================
-# Lynx Universal - Master Hardware Profile Applicator v3.0.4
-# Complete, audited kernel & hardware tuning for Extreme, Performance, Balance, Powersave.
+# Lynx Universal - Master Hardware Profile Applicator
+# Complete, audited kernel & hardware tuning for Extreme, Performance, Balance, Powersave, Auto.
 # Pure POSIX /system/bin/sh compliance (Android Toybox/ash).
 # Zero hardcoding, multi-platform (MediaTek Dimensity/Helio & Qualcomm Snapdragon).
 # ==============================================================================
@@ -10,14 +10,12 @@ PROFILE="${1:-balance}"
 mkdir -p /data/adb/lynx 2>/dev/null
 echo "$PROFILE" > /data/adb/lynx/active_profile 2>/dev/null
 
+# Zero-Fork Fast Path: only chmod if direct write failed
 write_node() {
-    local val="$1"
-    local node="$2"
-    if [ -e "$node" ]; then
-        echo "$val" > "$node" 2>/dev/null && return 0
-        chmod 666 "$node" 2>/dev/null
-        echo "$val" > "$node" 2>/dev/null
-    fi
+    [ -e "$2" ] || return 0
+    echo "$1" > "$2" 2>/dev/null && return 0
+    chmod 666 "$2" 2>/dev/null
+    echo "$1" > "$2" 2>/dev/null
 }
 
 # Target throttler daemons known to clamp FPS and frequencies
@@ -40,9 +38,8 @@ done
 case "$PROFILE" in
     extreme|performance)
         # ── 1. CPU Governor & Frequency Clamping ──────────────────────────
-        # For extreme: use 'performance' governor → CPU always runs at scaling_max_freq
-        # This bypasses mtkpower HAL interference on scaling_min_freq
-        # For performance: use schedutil with aggressive boost settings
+        # Extreme: 'performance' governor locks all cores to scaling_max_freq (100% hardlock)
+        # Performance: 'schedutil' with 0us up-rate limit and 85% floor frequency
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "$p" ] || continue
 
@@ -56,11 +53,10 @@ case "$PROFILE" in
             fi
 
             if [ "$PROFILE" = "extreme" ]; then
-                # Extreme: 'performance' governor locks to max freq, bypasses all DVFS
                 write_node "$max_freq" "$p/scaling_max_freq"
+                write_node "$max_freq" "$p/scaling_min_freq"
                 write_node "performance" "$p/scaling_governor"
             else
-                # Performance: schedutil with zero up-limit, 85% floor
                 write_node "$max_freq" "$p/scaling_max_freq"
                 write_node "schedutil" "$p/scaling_governor"
                 write_node "0" "$p/schedutil/up_rate_limit_us"
@@ -77,6 +73,11 @@ case "$PROFILE" in
             fi
         done
 
+        # Ensure all CPU cores are online
+        for c in /sys/devices/system/cpu/cpu[0-9]*; do
+            [ -d "$c" ] || continue
+            write_node "1" "$c/online"
+        done
 
         # Core Control Jitter Prevention
         for ctl in /sys/devices/system/cpu/cpu*/core_ctl; do
@@ -120,19 +121,13 @@ case "$PROFILE" in
         write_node "0" "/proc/ppm/cpi/cpi_enabled"
 
         # MediaTek PPM DVFS Cluster Clamping
-        # hard_userlimit_min/max_cpu_freq uses OPP INDEX, NOT KHz!
-        # Index 0 = peak frequency, last_index = minimum frequency
-        # Format: echo "<cluster_id> <opp_index>" > node
         for c in 0 1 2; do
             table="/proc/ppm/dump_cluster_${c}_dvfs_table"
             [ -f "$table" ] || continue
             if [ "$PROFILE" = "extreme" ]; then
-                # Extreme: lock to index 0 (peak freq) for both min and max
                 write_node "$c 0" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
                 write_node "$c 0" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
             else
-                # Performance: max = index 0 (peak), floor = ~15% into table
-                # Count OPP entries using wc -w (POSIX, Toybox-safe)
                 total_opp=$(wc -w < "$table" 2>/dev/null)
                 perf_floor_idx=$(( total_opp * 15 / 100 ))
                 [ "$perf_floor_idx" -lt 1 ] 2>/dev/null && perf_floor_idx=2
@@ -140,7 +135,6 @@ case "$PROFILE" in
                 write_node "$c $perf_floor_idx" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
             fi
         done
-
 
         # Qualcomm Devfreq Memory Bus Boost
         for dev in /sys/class/devfreq/*; do
@@ -159,9 +153,6 @@ case "$PROFILE" in
 
         # ── 3. GPU Subsystem Boost (Mali GED & Qualcomm Adreno KGSL) ─────────
         if [ "$PROFILE" = "extreme" ]; then
-            # GED HAL: custom_boost_gpu_freq & custom_upbound_gpu_freq use OPP INDEX
-            # Index 0 = highest freq (950 MHz), Index 48 = lowest (300 MHz)
-            # So for maximum boost: write index 0 to both
             write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
             write_node "0" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "2" "/sys/kernel/ged/hal/gpu_boost_level"
@@ -173,36 +164,31 @@ case "$PROFILE" in
             write_node "1" "/sys/class/kgsl/kgsl-3d0/force_bus_on"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/force_clk_on"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/force_rail_on"
+            write_node "1" "/sys/class/kgsl/kgsl-3d0/force_no_nap"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/throttling"
             write_node "120" "/sys/class/kgsl/kgsl-3d0/idle_timer"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/bus_split"
 
-            # Parse peak GPU freq (KHz) from OPP table (line 1 = highest OPP)
             if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
                 opp_line=$(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
                 peak_f=$(echo "$opp_line" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
                 peak_vgpu=$(echo "$opp_line" | grep -Eo 'vgpu = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
                 if [ -n "$peak_f" ]; then
-                    # gpu_cust_upbound_freq & gpu_cust_boost_freq use KHz values
                     write_node "$peak_f" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
                     write_node "$peak_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
                     write_node "$peak_f" "/sys/module/ged/parameters/gpu_bottom_freq"
-                    # gpufreq_opp_freq: write peak frequency in KHz to lock fixed OPP hardware register
                     write_node "$peak_f" "/proc/gpufreq/gpufreq_opp_freq"
-                    # Lock GPU to peak freq+volt via fixed_freq_volt if available
                     if [ -n "$peak_vgpu" ]; then
                         write_node "${peak_f} ${peak_vgpu}" "/proc/gpufreq/gpufreq_fixed_freq_volt"
                     fi
                 fi
             fi
-            # Disable all GPU frequency limiters (THERMAL, PTPOD, PBM, etc.)
             for i in 0 1 2 3 4 5 6 7 8; do
                 write_node "$i 0 0" "/proc/gpufreq/gpufreq_limit_table"
             done
             write_node "0" "/proc/mali/dvfs_enable"
         else
-            # Performance profile: boost to upper OPP range but allow DVFS
-            # GED HAL: write OPP index (0=max). Index 5 ≈ 900 MHz for performance
+            # Performance: high sustained OPP range
             write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
             write_node "5" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "1" "/sys/kernel/ged/hal/gpu_boost_level"
@@ -210,7 +196,6 @@ case "$PROFILE" in
             write_node "1" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/devfreq/adreno_boost"
             write_node "60" "/sys/class/kgsl/kgsl-3d0/idle_timer"
-            # Performance: set KHz floor to 85% of peak GPU freq
             if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
                 opp_line=$(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
                 peak_f=$(echo "$opp_line" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
@@ -221,8 +206,8 @@ case "$PROFILE" in
                     write_node "$perf_floor" "/sys/module/ged/parameters/gpu_bottom_freq"
                 fi
             fi
+            write_node "1" "/proc/mali/dvfs_enable"
         fi
-
 
         write_node "1" "/sys/module/ged/parameters/boost_gpu_enable"
         write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
@@ -248,7 +233,7 @@ case "$PROFILE" in
         write_node "1" "/sys/module/ged/parameters/gx_force_cpu_boost"
         write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
 
-        # MediaTek FPSGO (Frame Rate Stabilization Engine)
+        # MediaTek FPSGO
         write_node "1" "/sys/kernel/fpsgo/common/fpsgo_enable"
         write_node "1" "/sys/kernel/fpsgo/common/force_onoff"
         write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
@@ -264,7 +249,6 @@ case "$PROFILE" in
 
         write_node "always_on" "/sys/devices/platform/*mali*/power_policy"
         write_node "1" "/proc/mali/always_on"
-        write_node "1" "/proc/mali/dvfs_enable"
         write_node "0" "/proc/mali/debug_log"
 
         # ── 4. UCLAMP & Top-App Process Clamping ──────────────────────────────
@@ -298,7 +282,7 @@ case "$PROFILE" in
 
         # ── 5. Virtual Memory (VM), CFS Low-Latency Scheduler, & I/O ─────────
         if [ "$PROFILE" = "extreme" ]; then
-            write_node "4000000" "/proc/sys/kernel/sched_latency_ns"
+            write_node "3000000" "/proc/sys/kernel/sched_latency_ns"
             write_node "500000" "/proc/sys/kernel/sched_min_granularity_ns"
             write_node "1000000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
             write_node "50000" "/proc/sys/kernel/sched_migration_cost_ns"
@@ -306,7 +290,8 @@ case "$PROFILE" in
             write_node "1" "/proc/sys/kernel/sched_child_runs_first"
             write_node "0" "/proc/sys/kernel/sched_cstate_aware"
             write_node "10" "/proc/sys/vm/stat_interval"
-            write_node "50" "/proc/sys/vm/vfs_cache_pressure"
+            write_node "40" "/proc/sys/vm/vfs_cache_pressure"
+            write_node "60" "/proc/sys/vm/swappiness"
         else
             write_node "6000000" "/proc/sys/kernel/sched_latency_ns"
             write_node "750000" "/proc/sys/kernel/sched_min_granularity_ns"
@@ -317,6 +302,7 @@ case "$PROFILE" in
             write_node "0" "/proc/sys/kernel/sched_cstate_aware"
             write_node "1" "/proc/sys/vm/stat_interval"
             write_node "70" "/proc/sys/vm/vfs_cache_pressure"
+            write_node "70" "/proc/sys/vm/swappiness"
         fi
 
         if [ -e "/sys/kernel/mm/lru_gen/enabled" ]; then
@@ -336,11 +322,7 @@ case "$PROFILE" in
         write_node "1" "/proc/sys/kernel/sched_boost"
         write_node "512" "/proc/sys/kernel/random/read_wakeup_threshold"
         write_node "2048" "/proc/sys/kernel/random/write_wakeup_threshold"
-        swap_v=70
-        [ "$PROFILE" = "extreme" ] && swap_v=60
-        write_node "$swap_v" "/proc/sys/vm/swappiness"
 
-        # Storage I/O Optimization (Zero Stutter Streaming for 3D Game Worlds)
         ra_val=1024
         [ "$PROFILE" = "extreme" ] && ra_val=2048
         for queue in /sys/block/*/queue; do
@@ -377,7 +359,7 @@ case "$PROFILE" in
         setprop debug.hwui.fps_divisor 1 2>/dev/null
         setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
 
-        # Refresh rate holding
+        # Lock to peak display refresh rate
         peak_rr=$(settings get system peak_refresh_rate 2>/dev/null)
         if [ -n "$peak_rr" ] && [ "$peak_rr" != "null" ]; then
             if [ ! -f "/dev/lynx_orig_min_rr" ]; then
@@ -406,7 +388,6 @@ case "$PROFILE" in
             write_node "0" "$ps_node"
         done
 
-        # Dynamic TCP Congestion Algorithm
         avail_tcp=$(cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null)
         for target_algo in bbrv3 bbr westwood cubic; do
             case " $avail_tcp " in
@@ -436,9 +417,9 @@ case "$PROFILE" in
             done
         done
 
-        # ── 9b. Mali GPU Interrupt Routing (SMP Affinity Isolation) ──────────
-        for irq in $(grep -i mali /proc/interrupts 2>/dev/null | awk '{print $1}' | tr -d ':'); do
-            write_node "3f" "/proc/irq/$irq/smp_affinity"
+        # Route GPU Interrupts to Big Cores
+        for irq in $(grep -iE "mali|ged|kgsl|adreno" /proc/interrupts 2>/dev/null | awk '{print $1}' | tr -d ':'); do
+            write_node "3f" "/proc/irq/$irq/smp_affinity" 2>/dev/null || write_node "f0" "/proc/irq/$irq/smp_affinity" 2>/dev/null
         done
 
         # ── 10. Kernel Game Library Prioritization & Sched Features ─────────
@@ -464,7 +445,7 @@ case "$PROFILE" in
             kill -STOP "$jpid" 2>/dev/null
         done
 
-        # ── 12. Extreme Exclusive: Full Thermal Bypass & Unity Trick ─────────
+        # ── 12. Thermal Policy & Unity Trick ─────────────────────────────────
         if [ "$PROFILE" = "extreme" ]; then
             write_node "0" "/proc/cpufreq/cpufreq_imax_thermal_protect"
             cmd thermalservice override-status 0 2>/dev/null
@@ -487,19 +468,18 @@ case "$PROFILE" in
                 [ -e "$path/topology/physical_package_id" ] && chmod 000 "$path/topology/physical_package_id" 2>/dev/null
             done
         else
-            # Performance Mode: Safe Thermal Bounds
+            # Performance Mode: Safe Relaxed Thermal Bounds (85°C trip point)
             write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
             cmd thermalservice reset 2>/dev/null
             for tz in /sys/class/thermal/thermal_zone*; do
                 [ -d "$tz" ] || continue
                 write_node "enabled" "$tz/mode"
-                write_node "80000" "$tz/trip_point_0_temp"
+                write_node "85000" "$tz/trip_point_0_temp"
             done
             for cooling in /sys/class/thermal/cooling_device*; do
                 [ -d "$cooling" ] || continue
                 write_node "0" "$cooling/min_state"
             done
-            # Restore permissions in case Extreme was previously active
             for cpu in 0 1 2 3 4 5 6 7; do
                 path="/sys/devices/system/cpu/cpu${cpu}"
                 [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
@@ -512,7 +492,7 @@ case "$PROFILE" in
         ;;
 
     powersave)
-        # ── 1. CPU Schedutil & Low Frequency Cap (60% Max) ───────────────────
+        # ── 1. CPU Schedutil & Low Frequency Cap (55% Max) ───────────────────
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "$p" ] || continue
             write_node "schedutil" "$p/scaling_governor"
@@ -532,12 +512,12 @@ case "$PROFILE" in
             fi
             [ -n "$min_freq" ] && write_node "$min_freq" "$p/scaling_min_freq"
             if [ -n "$max_freq" ]; then
-                p_cap=$(( max_freq * 60 / 100 ))
+                p_cap=$(( max_freq * 55 / 100 ))
                 [ -n "$min_freq" ] && [ "$p_cap" -gt "$min_freq" ] && write_node "$p_cap" "$p/scaling_max_freq"
             fi
         done
 
-        # Core Control
+        # Core Control: allow power saving core sleeping
         for cpu in 0 1 2 3 4 5 6 7; do
             write_node "0 0 0 0" "/sys/devices/system/cpu/cpu${cpu}/core_ctl/not_preferred"
         done
@@ -568,6 +548,18 @@ case "$PROFILE" in
         write_node "8 1" "/proc/ppm/policy_status"
         write_node "9 1" "/proc/ppm/policy_status"
         write_node "1" "/proc/ppm/cpi/cpi_enabled"
+
+        # Cap MediaTek PPM DVFS Cluster Table to 50% OPP Index
+        for c in 0 1 2; do
+            table="/proc/ppm/dump_cluster_${c}_dvfs_table"
+            [ -f "$table" ] || continue
+            total_opp=$(wc -w < "$table" 2>/dev/null)
+            ps_cap_idx=$(( total_opp * 50 / 100 ))
+            [ "$ps_cap_idx" -lt 2 ] && ps_cap_idx=3
+            last_idx=$(( total_opp - 1 ))
+            write_node "$c $ps_cap_idx" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+            write_node "$c $last_idx" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+        done
 
         # Qualcomm Devfreq Bus Powersave
         for dev in /sys/class/devfreq/*; do
@@ -607,6 +599,9 @@ case "$PROFILE" in
         for u_node in "/dev/cpuset/top-app/cpu.uclamp.min" "/proc/sys/kernel/sched_util_clamp_min"; do
             write_node "0" "$u_node"
         done
+        write_node "0" "/dev/cpuset/top-app/cpu.uclamp.latency_sensitive"
+        write_node "0" "/dev/cpuset/foreground/boost/cpu.uclamp.latency_sensitive"
+
         write_node "0-3" "/dev/cpuset/background/cpus"
         write_node "0-3" "/dev/cpuset/system-background/cpus"
         write_node "0-3" "/dev/cpuset/restricted/cpus"
@@ -621,7 +616,7 @@ case "$PROFILE" in
             write_node "64" "$ra"
         done
 
-        # ── 5. Unfreeze Throttlers, Restore Display, Network & Thermal ────────
+        # ── 5. Unfreeze Throttlers, Enforce 60Hz Screen, Network & Thermal ───
         for proc in $OEM_TARGET_PROCS; do
             for pid in $(pidof "$proc" 2>/dev/null); do
                 kill -CONT "$pid" 2>/dev/null
@@ -640,14 +635,29 @@ case "$PROFILE" in
         write_node "" "/proc/sys/kernel/sched_lib_name"
         write_node "0" "/proc/sys/kernel/sched_lib_mask_force"
 
-        # Restore Min Refresh Rate
-        if [ -f "/dev/lynx_orig_min_rr" ]; then
-            orig_min=$(cat "/dev/lynx_orig_min_rr" 2>/dev/null)
-            [ -n "$orig_min" ] && settings put system min_refresh_rate "$orig_min" 2>/dev/null
-            rm -f "/dev/lynx_orig_min_rr" 2>/dev/null
+        # Enforce 60Hz Display Refresh Rate for Battery Endurance
+        cur_min_rr=$(settings get system min_refresh_rate 2>/dev/null)
+        cur_peak_rr=$(settings get system peak_refresh_rate 2>/dev/null)
+        if [ ! -f "/dev/lynx_orig_min_rr" ] && [ -n "$cur_min_rr" ] && [ "$cur_min_rr" != "null" ]; then
+            echo "$cur_min_rr" > /dev/lynx_orig_min_rr
         fi
+        if [ ! -f "/dev/lynx_orig_peak_rr" ] && [ -n "$cur_peak_rr" ] && [ "$cur_peak_rr" != "null" ]; then
+            echo "$cur_peak_rr" > /dev/lynx_orig_peak_rr
+        fi
+        settings put system min_refresh_rate 60.0 2>/dev/null
+        settings put system peak_refresh_rate 60.0 2>/dev/null
 
-        # Restore Thermal Protection
+        # Reset Touch Boost Nodes
+        for tn in /sys/class/touch/touch_dev/touch_game_mode \
+                 /sys/devices/virtual/touch/touch_dev/bump_sample_rate \
+                 /proc/touchscreen/game_mode \
+                 /sys/devices/platform/goodix_ts.*/game_mode \
+                 /sys/devices/platform/tp_wake_switch/game_mode \
+                 /sys/devices/virtual/input/input*/touch_game_mode; do
+            write_node "0" "$tn"
+        done
+
+        # Full Thermal Protection Active
         write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
         cmd thermalservice reset 2>/dev/null
         for tz in /sys/class/thermal/thermal_zone*; do
@@ -672,7 +682,7 @@ case "$PROFILE" in
         ;;
 
     balance|auto|*)
-        # ── 1. CPU Schedutil & Uncapped Frequencies ──────────────────────────
+        # ── 1. CPU Schedutil & Uncapped Frequencies (Full Idle Downclock) ────
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "$p" ] || continue
             write_node "schedutil" "$p/scaling_governor"
@@ -787,6 +797,9 @@ case "$PROFILE" in
         for u_node in "/dev/cpuset/top-app/cpu.uclamp.min" "/proc/sys/kernel/sched_util_clamp_min"; do
             write_node "0" "$u_node"
         done
+        write_node "0" "/dev/cpuset/top-app/cpu.uclamp.latency_sensitive"
+        write_node "0" "/dev/cpuset/foreground/boost/cpu.uclamp.latency_sensitive"
+
         write_node "0-7" "/dev/cpuset/foreground/cpus"
         write_node "0-2" "/dev/cpuset/background/cpus"
         write_node "0-5" "/dev/cpuset/system-background/cpus"
@@ -850,11 +863,16 @@ case "$PROFILE" in
         write_node "" "/proc/sys/kernel/sched_lib_name"
         write_node "0" "/proc/sys/kernel/sched_lib_mask_force"
 
-        # Restore Min Refresh Rate
+        # Restore Display Refresh Rates (min and peak)
         if [ -f "/dev/lynx_orig_min_rr" ]; then
             orig_min=$(cat "/dev/lynx_orig_min_rr" 2>/dev/null)
             [ -n "$orig_min" ] && settings put system min_refresh_rate "$orig_min" 2>/dev/null
             rm -f "/dev/lynx_orig_min_rr" 2>/dev/null
+        fi
+        if [ -f "/dev/lynx_orig_peak_rr" ]; then
+            orig_peak=$(cat "/dev/lynx_orig_peak_rr" 2>/dev/null)
+            [ -n "$orig_peak" ] && settings put system peak_refresh_rate "$orig_peak" 2>/dev/null
+            rm -f "/dev/lynx_orig_peak_rr" 2>/dev/null
         fi
 
         # Reset Touch Boost Nodes

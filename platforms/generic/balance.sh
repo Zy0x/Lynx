@@ -33,3 +33,15 @@ write_node "60" "/proc/sys/vm/swappiness"
 write_node "100" "/proc/sys/vm/vfs_cache_pressure"
 write_node "20" "/proc/sys/vm/dirty_ratio"
 write_node "10" "/proc/sys/vm/dirty_background_ratio"
+
+# Restore Display Refresh Rates
+if [ -f "/dev/lynx_orig_min_rr" ]; then
+    orig_min=$(cat "/dev/lynx_orig_min_rr" 2>/dev/null)
+    [ -n "$orig_min" ] && settings put system min_refresh_rate "$orig_min" 2>/dev/null
+    rm -f "/dev/lynx_orig_min_rr" 2>/dev/null
+fi
+if [ -f "/dev/lynx_orig_peak_rr" ]; then
+    orig_peak=$(cat "/dev/lynx_orig_peak_rr" 2>/dev/null)
+    [ -n "$orig_peak" ] && settings put system peak_refresh_rate "$orig_peak" 2>/dev/null
+    rm -f "/dev/lynx_orig_peak_rr" 2>/dev/null
+fi

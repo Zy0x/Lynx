@@ -41,16 +41,25 @@ class LynxAppAutomationService : Service() {
     private var rulesCache: List<AppProfileRule> = emptyList()
 
     private var isScreenOn = true
+    private val categoryProfileCache = mutableMapOf<String, String>()
+
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    Log.i(TAG, "Screen OFF detected: Pausing app automation polling to allow kernel deep sleep")
+                    Log.i(TAG, "Screen OFF detected: Pausing app automation polling and applying powersave for deep sleep")
                     isScreenOn = false
+                    serviceScope.launch(Dispatchers.IO) {
+                        LynxRepository.setProfile("powersave")
+                    }
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     Log.i(TAG, "Screen ON detected: Resuming app automation polling")
                     isScreenOn = true
+                    serviceScope.launch(Dispatchers.IO) {
+                        val base = if (baselineProfile == "auto") "balance" else baselineProfile
+                        LynxRepository.setProfile(base)
+                    }
                 }
             }
         }
@@ -189,9 +198,67 @@ class LynxAppAutomationService : Service() {
         } catch (_: Exception) { false }
     }
 
+    private fun resolveAppCategoryProfile(pkg: String): String {
+        categoryProfileCache[pkg]?.let { return it }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val appInfo = packageManager.getApplicationInfo(pkg, 0)
+                val resolved = when (appInfo.category) {
+                    android.content.pm.ApplicationInfo.CATEGORY_GAME -> "performance"
+                    android.content.pm.ApplicationInfo.CATEGORY_AUDIO,
+                    android.content.pm.ApplicationInfo.CATEGORY_VIDEO -> "powersave"
+                    else -> {
+                        val lower = pkg.lowercase()
+                        if (lower.contains("youtube") || lower.contains("netflix") || lower.contains("spotify") ||
+                            lower.contains("tiktok") || lower.contains("twitch") || lower.contains("vlc") ||
+                            lower.contains("mxplayer") || lower.contains("primevideo") || lower.contains("disney") ||
+                            lower.contains("webtoon") || lower.contains("kindle") || lower.contains("manga") ||
+                            lower.contains("bilibili") || lower.contains("iqiyi")) {
+                            "powersave"
+                        } else if (lower.contains("game") || lower.contains("genshin") || lower.contains("honkai") ||
+                                   lower.contains("pubg") || lower.contains("codm") || lower.contains("mobilelegends") ||
+                                   lower.contains("freefire")) {
+                            "performance"
+                        } else {
+                            "balance"
+                        }
+                    }
+                }
+                categoryProfileCache[pkg] = resolved
+                return resolved
+            }
+        } catch (_: Exception) {}
+        val lower = pkg.lowercase()
+        val fallback = if (lower.contains("youtube") || lower.contains("netflix") || lower.contains("spotify") || lower.contains("tiktok")) "powersave"
+        else if (lower.contains("game") || lower.contains("genshin") || lower.contains("honkai") || lower.contains("pubg")) "performance"
+        else "balance"
+        categoryProfileCache[pkg] = fallback
+        return fallback
+    }
+
     private suspend fun handleForegroundPackage(pkg: String) {
-        // Find matching active rule
-        val matchingRule = rulesCache.firstOrNull { it.enabled && it.packageName.equals(pkg, ignoreCase = true) }
+        // 1. Find matching explicit rule
+        var matchingRule = rulesCache.firstOrNull { it.enabled && it.packageName.equals(pkg, ignoreCase = true) }
+
+        // 2. Multi-tier Category Intelligence if no explicit rule
+        if (matchingRule == null && !isHomeLauncher(pkg)) {
+            val catProfile = resolveAppCategoryProfile(pkg)
+            if (catProfile != "balance") {
+                val appLabel = try {
+                    val appInfo = packageManager.getApplicationInfo(pkg, 0)
+                    packageManager.getApplicationLabel(appInfo).toString()
+                } catch (_: Exception) { pkg }
+                val targetHz = if (catProfile == "powersave") 60 else (baselineRefreshRate ?: 120)
+                matchingRule = AppProfileRule(
+                    packageName = pkg,
+                    appName = appLabel,
+                    targetProfile = catProfile,
+                    targetRefreshRate = targetHz,
+                    autoFloatingHud = (catProfile == "performance" || catProfile == "extreme"),
+                    enabled = true
+                )
+            }
+        }
 
         if (matchingRule != null) {
             // Cancel any pending cooldown back to baseline
@@ -248,7 +315,7 @@ class LynxAppAutomationService : Service() {
             if (activeCustomPkg != null) {
                 if (cooldownJob == null || !cooldownJob!!.isActive) {
                     val isHome = isHomeLauncher(pkg)
-                    val cooldownMs = if (isHome) 1500L else 2500L // 1.5s for home screen exit, 2.5s for app switcher/temporary overlay
+                    val cooldownMs = if (isHome) 3000L else 4000L // 3s for home screen exit, 4s for app switcher/temporary overlay
                     cooldownJob = serviceScope.launch {
                         delay(cooldownMs)
                         val diskBase = LynxRepository.readCurrentProfile()

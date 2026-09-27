@@ -5,15 +5,13 @@
 MODDIR="/data/adb/modules/Lynx"
 
 write_node() {
-    local val="$1"
-    local node="$2"
-    if [ -e "$node" ]; then
-        chmod 644 "$node" 2>/dev/null
-        echo "$val" > "$node" 2>/dev/null
-    fi
+    [ -e "$2" ] || return 0
+    echo "$1" > "$2" 2>/dev/null && return 0
+    chmod 666 "$2" 2>/dev/null
+    echo "$1" > "$2" 2>/dev/null
 }
 
-# ── 1. Cap CPU Frequencies to 60% of Max Clock ───────────────────────
+# ── 1. Cap CPU Frequencies to 55% of Max Clock ───────────────────────
 for policy in /sys/devices/system/cpu/cpufreq/policy*; do
     [ -d "$policy" ] || continue
     min_freq=$(cat "$policy/cpuinfo_min_freq" 2>/dev/null)
@@ -21,7 +19,7 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
     [ -n "$min_freq" ] && write_node "$min_freq" "$policy/scaling_min_freq"
 
     if [ -n "$max_freq" ]; then
-        power_cap=$(( max_freq * 60 / 100 ))
+        power_cap=$(( max_freq * 55 / 100 ))
         [ "$power_cap" -gt "$min_freq" ] && write_node "$power_cap" "$policy/scaling_max_freq"
     fi
 
@@ -32,21 +30,18 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
         write_node "500" "$schedutil/down_rate_limit_us"
         write_node "99" "$schedutil/hispeed_load"
         write_node "0" "$schedutil/pl"
+        write_node "0" "$schedutil/iowait_boost_enable"
     fi
 done
 
-# ── 2. Devfreq Memory Bus Lowest Clocks ──────────────────────────────
+# ── 2. Devfreq Memory Bus Lowest Clocks / Powersave ──────────────────
 for dev in /sys/class/devfreq/*; do
     [ -d "$dev" ] || continue
     gov_node="$dev/governor"
     case "$dev" in
-        *ufshc*)       write_node "simple_ondemand" "$gov_node" ;;
-        *cpubw*)       write_node "bw_hwmon" "$gov_node" ;;
-        *gpubw*)       write_node "bw_vbif" "$gov_node" ;;
-        *kgsl-busmon*) write_node "gpubw_mon" "$gov_node" ;;
-        *llccbw*)      write_node "bw_hwmon" "$gov_node" ;;
-        *l3-cpu*)      write_node "mem_latency" "$gov_node" ;;
-        *bus_ddr*)     write_node "msm-vidc-ddr" "$gov_node" ;;
+        *ufshc*|*cpubw*|*gpubw*|*llccbw*|*l3-cpu*|*bus_ddr*)
+            write_node "powersave" "$gov_node"
+            ;;
     esac
     freq_table="$dev/available_frequencies"
     if [ -s "$freq_table" ]; then
@@ -58,11 +53,14 @@ done
 # ── 3. Adreno KGSL Power Saver ───────────────────────────────────────
 KGSL="/sys/class/kgsl/kgsl-3d0"
 if [ -d "$KGSL" ]; then
+    num_pwr=$(cat "$KGSL/num_pwrlevels" 2>/dev/null)
+    [ -n "$num_pwr" ] && [ "$num_pwr" -gt 1 ] && write_node "$((num_pwr - 1))" "$KGSL/min_pwrlevel"
+    write_node "0" "$KGSL/devfreq/adreno_boost"
     write_node "1" "$KGSL/throttling"
     write_node "0" "$KGSL/force_bus_on"
     write_node "0" "$KGSL/force_clk_on"
     write_node "0" "$KGSL/force_rail_on"
-    write_node "30" "$KGSL/idle_timer"
+    write_node "20" "$KGSL/idle_timer"
 fi
 
 # ── 4. Workqueue & Thermal Reset ─────────────────────────────────────
@@ -75,6 +73,18 @@ fi
 write_node "0" "/dev/stune/schedtune.boost"
 write_node "0" "/dev/stune/foreground/schedtune.boost"
 write_node "0" "/dev/stune/top-app/schedtune.boost"
+
+# Enforce 60Hz Screen Refresh Rate for Power Conservation
+cur_min_rr=$(settings get system min_refresh_rate 2>/dev/null)
+cur_peak_rr=$(settings get system peak_refresh_rate 2>/dev/null)
+if [ ! -f "/dev/lynx_orig_min_rr" ] && [ -n "$cur_min_rr" ] && [ "$cur_min_rr" != "null" ]; then
+    echo "$cur_min_rr" > /dev/lynx_orig_min_rr
+fi
+if [ ! -f "/dev/lynx_orig_peak_rr" ] && [ -n "$cur_peak_rr" ] && [ "$cur_peak_rr" != "null" ]; then
+    echo "$cur_peak_rr" > /dev/lynx_orig_peak_rr
+fi
+settings put system min_refresh_rate 60.0 2>/dev/null
+settings put system peak_refresh_rate 60.0 2>/dev/null
 
 # Revert Unity Trick if applied
 for cpu in 0 1 2 3 4 5 6 7; do

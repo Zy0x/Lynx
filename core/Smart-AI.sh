@@ -85,23 +85,52 @@ is_target_app() {
     # C. Check RAM session cache (/dev/lynx_pkg_cache) to prevent repeated dumpsys overhead
     local cache_dir="/dev/lynx_pkg_cache"
     if [ -f "$cache_dir/$pkg" ]; then
-        LAST_IS_TARGET=$(cat "$cache_dir/$pkg" 2>/dev/null || echo 1)
-        [ "$LAST_IS_TARGET" = "0" ] && TARGET_APP_MODE="performance"
-        return $LAST_IS_TARGET
+        cached_mode=$(cat "$cache_dir/$pkg" 2>/dev/null)
+        if [ -n "$cached_mode" ] && [ "$cached_mode" != "balance" ]; then
+            TARGET_APP_MODE="$cached_mode"
+            LAST_IS_TARGET=0
+            return 0
+        else
+            TARGET_APP_MODE="balance"
+            LAST_IS_TARGET=1
+            return 1
+        fi
     fi
 
     # D. Dynamic Android Framework Category Inspection (Called ONCE per unknown package per boot)
     mkdir -p "$cache_dir" 2>/dev/null
-    if dumpsys package "$pkg" 2>/dev/null | grep -qE "category=0|category=GAME|appCategory=0"; then
-        echo "0" > "$cache_dir/$pkg" 2>/dev/null
+    pkg_dump=$(dumpsys package "$pkg" 2>/dev/null)
+
+    # 1. Game Category Check
+    if echo "$pkg_dump" | grep -qE "category=0|category=GAME|appCategory=0"; then
+        echo "performance" > "$cache_dir/$pkg" 2>/dev/null
         TARGET_APP_MODE="performance"
         LAST_IS_TARGET=0
         return 0
-    else
-        echo "1" > "$cache_dir/$pkg" 2>/dev/null
-        LAST_IS_TARGET=1
-        return 1
     fi
+
+    # 2. Audio/Video/Streaming Category Check
+    if echo "$pkg_dump" | grep -qE "category=1|category=2|category=AUDIO|category=VIDEO|appCategory=1|appCategory=2"; then
+        echo "powersave" > "$cache_dir/$pkg" 2>/dev/null
+        TARGET_APP_MODE="powersave"
+        LAST_IS_TARGET=0
+        return 0
+    fi
+
+    # 3. Known streaming and reading app package patterns
+    case "$pkg" in
+        *youtube*|*netflix*|*spotify*|*tiktok*|*twitch*|*vlc*|*mxplayer*|*disney*|*primevideo*|*webtoon*|*kindle*|*manga*|*bilibili*)
+            echo "powersave" > "$cache_dir/$pkg" 2>/dev/null
+            TARGET_APP_MODE="powersave"
+            LAST_IS_TARGET=0
+            return 0
+            ;;
+    esac
+
+    echo "balance" > "$cache_dir/$pkg" 2>/dev/null
+    TARGET_APP_MODE="balance"
+    LAST_IS_TARGET=1
+    return 1
 }
 
 # 4. Safe Mode Switcher with Atomic Mutex Guard
@@ -197,10 +226,10 @@ while true; do
         fi
     fi
 
-    # Screen-State Deep Sleep Shield
+    # Screen-State Deep Sleep Shield: switch to powersave on screen off
     if ! is_screen_on; then
-        if [ "$CURRENT_MODE" != "balance" ]; then
-            switch_mode "balance"
+        if [ "$CURRENT_MODE" != "powersave" ]; then
+            switch_mode "powersave"
             EXIT_COOLDOWN=0
         fi
         sleep 20

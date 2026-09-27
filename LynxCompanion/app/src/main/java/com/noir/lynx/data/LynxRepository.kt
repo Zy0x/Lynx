@@ -295,7 +295,7 @@ object LynxRepository {
             if (!exists.isSuccess) {
                 deployWatcherScripts()
             }
-            Shell.cmd("sh /data/adb/lynx/apply_profile.sh $profile").exec()
+            Shell.cmd("[ -f /data/adb/modules/Lynx/core/apply_profile.sh ] && sh /data/adb/modules/Lynx/core/apply_profile.sh $profile || sh /data/adb/lynx/apply_profile.sh $profile").exec()
             Unit
         } catch (e: Exception) {
             Log.e(TAG, "applyStandaloneProfile error: ${e.message}")
@@ -3628,6 +3628,7 @@ case "${'$'}PROFILE" in
 
             if [ "${'$'}PROFILE" = "extreme" ]; then
                 write_node "${'$'}max_freq" "${'$'}p/scaling_max_freq"
+                write_node "${'$'}max_freq" "${'$'}p/scaling_min_freq"
                 write_node "performance" "${'$'}p/scaling_governor"
             else
                 write_node "${'$'}max_freq" "${'$'}p/scaling_max_freq"
@@ -4000,7 +4001,7 @@ case "${'$'}PROFILE" in
             for tz in /sys/class/thermal/thermal_zone*; do
                 [ -d "${'$'}tz" ] || continue
                 write_node "enabled" "${'$'}tz/mode"
-                write_node "80000" "${'$'}tz/trip_point_0_temp"
+                write_node "85000" "${'$'}tz/trip_point_0_temp"
             done
             for cpu in 0 1 2 3 4 5 6 7; do
                 path="/sys/devices/system/cpu/cpu${'$'}{cpu}"
@@ -4060,7 +4061,7 @@ case "${'$'}PROFILE" in
             fi
             [ -n "${'$'}min_freq" ] && write_node "${'$'}min_freq" "${'$'}p/scaling_min_freq"
             if [ -n "${'$'}max_freq" ]; then
-                p_cap=${'$'}(( max_freq * 60 / 100 ))
+                p_cap=${'$'}(( max_freq * 55 / 100 ))
                 [ -n "${'$'}min_freq" ] && [ "${'$'}p_cap" -gt "${'$'}min_freq" ] && write_node "${'$'}p_cap" "${'$'}p/scaling_max_freq"
             fi
         done
@@ -4155,11 +4156,16 @@ case "${'$'}PROFILE" in
         write_node "" "/proc/sys/kernel/sched_lib_name"
         write_node "0" "/proc/sys/kernel/sched_lib_mask_force"
 
-        if [ -f "/dev/lynx_orig_min_rr" ]; then
-            orig_min=${'$'}(cat "/dev/lynx_orig_min_rr" 2>/dev/null)
-            [ -n "${'$'}orig_min" ] && settings put system min_refresh_rate "${'$'}orig_min" 2>/dev/null
-            rm -f "/dev/lynx_orig_min_rr" 2>/dev/null
+        cur_min_rr=${'$'}(settings get system min_refresh_rate 2>/dev/null)
+        cur_peak_rr=${'$'}(settings get system peak_refresh_rate 2>/dev/null)
+        if [ ! -f "/dev/lynx_orig_min_rr" ] && [ -n "${'$'}cur_min_rr" ] && [ "${'$'}cur_min_rr" != "null" ]; then
+            echo "${'$'}cur_min_rr" > /dev/lynx_orig_min_rr
         fi
+        if [ ! -f "/dev/lynx_orig_peak_rr" ] && [ -n "${'$'}cur_peak_rr" ] && [ "${'$'}cur_peak_rr" != "null" ]; then
+            echo "${'$'}cur_peak_rr" > /dev/lynx_orig_peak_rr
+        fi
+        settings put system min_refresh_rate 60.0 2>/dev/null
+        settings put system peak_refresh_rate 60.0 2>/dev/null
 
         write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
         for tz in /sys/class/thermal/thermal_zone*; do
@@ -4339,6 +4345,11 @@ case "${'$'}PROFILE" in
             [ -n "${'$'}orig_min" ] && settings put system min_refresh_rate "${'$'}orig_min" 2>/dev/null
             rm -f "/dev/lynx_orig_min_rr" 2>/dev/null
         fi
+        if [ -f "/dev/lynx_orig_peak_rr" ]; then
+            orig_peak=${'$'}(cat "/dev/lynx_orig_peak_rr" 2>/dev/null)
+            [ -n "${'$'}orig_peak" ] && settings put system peak_refresh_rate "${'$'}orig_peak" 2>/dev/null
+            rm -f "/dev/lynx_orig_peak_rr" 2>/dev/null
+        fi
 
         for tn in /sys/class/touch/touch_dev/touch_game_mode \
                  /sys/devices/virtual/touch/touch_dev/bump_sample_rate \
@@ -4430,13 +4441,18 @@ while true; do
     fi
 
     if ! is_screen_on; then
-        if [ -n "${'$'}CURRENT_ACTIVE_APP" ]; then
-            sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" >/dev/null 2>&1
-            CURRENT_ACTIVE_APP=""
+        if [ "${'$'}CURRENT_ACTIVE_APP" != "SCREEN_OFF" ]; then
+            sh "${'$'}APPLY_SCRIPT" "powersave" >/dev/null 2>&1
+            CURRENT_ACTIVE_APP="SCREEN_OFF"
             COOLDOWN_REMAINING=0
         fi
         sleep 15
         continue
+    fi
+
+    if [ "${'$'}CURRENT_ACTIVE_APP" = "SCREEN_OFF" ]; then
+        CURRENT_ACTIVE_APP=""
+        sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" >/dev/null 2>&1
     fi
 
     top_app=${'$'}(get_top_app)
@@ -4461,6 +4477,38 @@ while true; do
         target_hz="120"
         auto_hud=0
         app_label="${'$'}top_app"
+    elif [ -n "${'$'}top_app" ]; then
+        cached_mode=""
+        [ -f "/dev/lynx_pkg_cache/${'$'}top_app" ] && cached_mode=${'$'}(cat "/dev/lynx_pkg_cache/${'$'}top_app" 2>/dev/null)
+        if [ -z "${'$'}cached_mode" ]; then
+            mkdir -p /dev/lynx_pkg_cache 2>/dev/null
+            pkg_dump=${'$'}(dumpsys package "${'$'}top_app" 2>/dev/null)
+            if echo "${'$'}pkg_dump" | grep -qE "category=0|category=GAME|appCategory=0"; then
+                cached_mode="performance"
+            elif echo "${'$'}pkg_dump" | grep -qE "category=1|category=2|category=AUDIO|category=VIDEO|appCategory=1|appCategory=2"; then
+                cached_mode="powersave"
+            else
+                case "${'$'}top_app" in
+                    *youtube*|*netflix*|*spotify*|*tiktok*|*twitch*|*vlc*|*mxplayer*|*disney*|*primevideo*|*webtoon*|*kindle*|*manga*|*bilibili*)
+                        cached_mode="powersave"
+                        ;;
+                    *)
+                        cached_mode="balance"
+                        ;;
+                esac
+            fi
+            echo "${'$'}cached_mode" > "/dev/lynx_pkg_cache/${'$'}top_app" 2>/dev/null
+        fi
+
+        if [ "${'$'}cached_mode" = "performance" ]; then
+            target_profile="performance"
+            target_hz="120"
+            app_label="${'$'}top_app"
+        elif [ "${'$'}cached_mode" = "powersave" ]; then
+            target_profile="powersave"
+            target_hz="60"
+            app_label="${'$'}top_app"
+        fi
     fi
 
     if [ -n "${'$'}target_profile" ]; then
@@ -4532,9 +4580,9 @@ done
 
             Shell.cmd(
                 "mkdir -p /data/adb/lynx 2>/dev/null",
-                "cat << 'EOF' > /data/adb/lynx/apply_profile.sh\n$applyScript\nEOF",
+                "if [ -f /data/adb/modules/Lynx/core/apply_profile.sh ]; then cp -f /data/adb/modules/Lynx/core/apply_profile.sh /data/adb/lynx/apply_profile.sh; else cat << 'EOF' > /data/adb/lynx/apply_profile.sh\n$applyScript\nEOF\nfi",
                 "chmod 755 /data/adb/lynx/apply_profile.sh 2>/dev/null",
-                "cat << 'EOF' > /data/adb/lynx/lynx_watcher.sh\n$watcherScript\nEOF",
+                "if [ -f /data/adb/modules/Lynx/core/lynx_watcher.sh ]; then cp -f /data/adb/modules/Lynx/core/lynx_watcher.sh /data/adb/lynx/lynx_watcher.sh; else cat << 'EOF' > /data/adb/lynx/lynx_watcher.sh\n$watcherScript\nEOF\nfi",
                 "chmod 755 /data/adb/lynx/lynx_watcher.sh 2>/dev/null"
             ).exec()
             true

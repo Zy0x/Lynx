@@ -87,3 +87,15 @@ for cpu in 0 1 2 3 4 5 6 7; do
     [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
     [ -e "$path/cpu_capacity" ] && chmod 444 "$path/cpu_capacity" 2>/dev/null
 done
+
+# Restore Display Refresh Rates
+if [ -f "/dev/lynx_orig_min_rr" ]; then
+    orig_min=$(cat "/dev/lynx_orig_min_rr" 2>/dev/null)
+    [ -n "$orig_min" ] && settings put system min_refresh_rate "$orig_min" 2>/dev/null
+    rm -f "/dev/lynx_orig_min_rr" 2>/dev/null
+fi
+if [ -f "/dev/lynx_orig_peak_rr" ]; then
+    orig_peak=$(cat "/dev/lynx_orig_peak_rr" 2>/dev/null)
+    [ -n "$orig_peak" ] && settings put system peak_refresh_rate "$orig_peak" 2>/dev/null
+    rm -f "/dev/lynx_orig_peak_rr" 2>/dev/null
+fi
