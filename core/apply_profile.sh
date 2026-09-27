@@ -14,7 +14,8 @@ write_node() {
     local val="$1"
     local node="$2"
     if [ -e "$node" ]; then
-        chmod 644 "$node" 2>/dev/null
+        echo "$val" > "$node" 2>/dev/null && return 0
+        chmod 666 "$node" 2>/dev/null
         echo "$val" > "$node" 2>/dev/null
     fi
 }
@@ -887,6 +888,10 @@ case "$PROFILE" in
             [ -e "$path/topology/physical_package_id" ] && chmod 444 "$path/topology/physical_package_id" 2>/dev/null
         done
 
-        setprop lynx.mode balance
+        if [ "$PROFILE" = "auto" ]; then
+            setprop lynx.mode auto
+        else
+            setprop lynx.mode balance
+        fi
         ;;
 esac

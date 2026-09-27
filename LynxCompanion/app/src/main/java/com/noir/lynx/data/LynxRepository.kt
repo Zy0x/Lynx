@@ -92,11 +92,17 @@ object LynxRepository {
         return try {
             val root = JSONObject(raw)
             val soc = readTargetSocFile()
+            val currentActiveProf = readCurrentProfileFast()
+            val resolvedActiveProfile = if (currentActiveProf in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) {
+                currentActiveProf
+            } else {
+                root.optString("active_profile", "balance")
+            }
 
             LynxState(
                 moduleVersion = root.optString("module_version", "3.0.0"),
                 releaseType = root.optString("release_type", "beta"),
-                activeProfile = root.optString("active_profile", "dormant"),
+                activeProfile = resolvedActiveProfile,
                 targetSoc = soc,
                 isSpoofed = root.optBoolean("is_spoofed", false),
                 overclock = parseOverclock(root.optJSONObject("overclock")),
@@ -265,16 +271,27 @@ object LynxRepository {
         val allowedProfiles = setOf("auto", "balance", "performance", "extreme", "powersave", "dormant")
         if (profile !in allowedProfiles) return false
         val ok = writeStateKey("active_profile", profile, "str")
-        Shell.cmd("mkdir -p /data/adb/lynx 2>/dev/null; echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null; echo '$profile' > /data/adb/lynx/baseline_profile 2>/dev/null; setprop lynx.mode '$profile' 2>/dev/null").exec()
-        if (ok && !isModuleInstalled()) {
-            applyStandaloneProfile(profile)
+        val isAuto = profile == "auto"
+        val baseProfile = if (isAuto) "balance" else profile
+        Shell.cmd(
+            "mkdir -p /data/adb/lynx 2>/dev/null",
+            "echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null",
+            "echo '$baseProfile' > /data/adb/lynx/baseline_profile 2>/dev/null",
+            "setprop lynx.mode '$profile' 2>/dev/null"
+        ).exec()
+
+        // Always apply sysfs kernel tuning immediately for zero-delay hardware response
+        applyStandaloneProfile(profile)
+
+        if (isModuleInstalled()) {
+            Shell.cmd("sh '$MODULE_DIR/core/lib/state_watcher.sh' 2>/dev/null").exec()
         }
         return ok
     }
 
     private suspend fun applyStandaloneProfile(profile: String) = withContext(Dispatchers.IO) {
         try {
-            val exists = Shell.cmd("[ -f /data/adb/lynx/apply_profile.sh ]").exec()
+            val exists = Shell.cmd("[ -f /data/adb/lynx/apply_profile.sh ] && grep -q 'setprop lynx.mode auto' /data/adb/lynx/apply_profile.sh").exec()
             if (!exists.isSuccess) {
                 deployWatcherScripts()
             }
@@ -3585,7 +3602,7 @@ setprop lynx.mode "${'$'}PROFILE" 2>/dev/null
 write_node() {
     [ -e "${'$'}2" ] || return 0
     echo "${'$'}1" > "${'$'}2" 2>/dev/null && return 0
-    chmod 644 "${'$'}2" 2>/dev/null
+    chmod 666 "${'$'}2" 2>/dev/null
     echo "${'$'}1" > "${'$'}2" 2>/dev/null
 }
 
@@ -4338,7 +4355,11 @@ case "${'$'}PROFILE" in
             write_node "enabled" "${'$'}tz/mode"
         done
 
-        setprop lynx.mode balance
+        if [ "${'$'}PROFILE" = "auto" ]; then
+            setprop lynx.mode auto
+        else
+            setprop lynx.mode balance
+        fi
         ;;
 esac
 """.trimIndent()
@@ -4485,6 +4506,10 @@ while true; do
             if [ "${'$'}COOLDOWN_REMAINING" -gt 0 ]; then
                 COOLDOWN_REMAINING=${'$'}((COOLDOWN_REMAINING - 1))
             else
+                if [ -f "${'$'}WATCHER_DIR/baseline_profile" ]; then
+                    dyn_base=${'$'}(cat "${'$'}WATCHER_DIR/baseline_profile" 2>/dev/null | tr -d '[:space:]')
+                    [ -n "${'$'}dyn_base" ] && BASELINE_PROFILE="${'$'}dyn_base"
+                fi
                 sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" >/dev/null 2>&1
                 [ -e /sys/module/ged/parameters/gx_top_app_pid ] && echo "0" > /sys/module/ged/parameters/gx_top_app_pid 2>/dev/null
                 settings put system min_refresh_rate "${'$'}BASELINE_HZ" 2>/dev/null

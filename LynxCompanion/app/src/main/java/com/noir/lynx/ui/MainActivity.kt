@@ -81,6 +81,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
+    val context = LocalContext.current
     var showExtremeDialog by remember { mutableStateOf(false) }
 
     // Extreme mode confirmation dialog
@@ -101,7 +102,7 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.setProfile("extreme")
+                        viewModel.setProfile("extreme", context)
                         showExtremeDialog = false
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = AccentRed),
@@ -924,7 +925,7 @@ fun MainDashboard(
                     ) {
                         ProfileGrid(
                             currentProfile = state.activeProfile,
-                            onProfileSelected = { viewModel.setProfile(it) },
+                            onProfileSelected = { viewModel.setProfile(it, context) },
                             onExtremeConfirmRequired = onExtremeConfirmRequired,
                         )
                     }

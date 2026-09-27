@@ -62,9 +62,24 @@ class LynxAppAutomationService : Service() {
         const val ACTION_START = "com.noir.lynx.service.START_AUTOMATION"
         const val ACTION_STOP = "com.noir.lynx.service.STOP_AUTOMATION"
         const val ACTION_RELOAD_RULES = "com.noir.lynx.service.RELOAD_RULES"
+        const val ACTION_UPDATE_BASELINE = "com.noir.lynx.service.UPDATE_BASELINE"
         private const val NOTIF_CHANNEL_ID = "lynx_app_automation_channel"
         private const val NOTIF_ID = 8802
         private const val TAG = "LynxAppAutomation"
+
+        fun updateBaselineProfile(context: Context, profile: String) {
+            if (isRunning) {
+                try {
+                    val intent = Intent(context, LynxAppAutomationService::class.java).apply {
+                        action = ACTION_UPDATE_BASELINE
+                        putExtra("baseline", profile)
+                    }
+                    context.startService(intent)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to update baseline profile: ${e.message}")
+                }
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -93,6 +108,13 @@ class LynxAppAutomationService : Service() {
             ACTION_RELOAD_RULES -> {
                 serviceScope.launch {
                     rulesCache = LynxRepository.readAppProfileRules()
+                }
+            }
+            ACTION_UPDATE_BASELINE -> {
+                val newBase = intent?.getStringExtra("baseline") ?: "balance"
+                baselineProfile = if (newBase == "auto") "balance" else newBase
+                if (activeCustomPkg == null) {
+                    updateNotification("Standby: Mode [$baselineProfile] aktif")
                 }
             }
         }
@@ -229,6 +251,10 @@ class LynxAppAutomationService : Service() {
                     val cooldownMs = if (isHome) 1500L else 2500L // 1.5s for home screen exit, 2.5s for app switcher/temporary overlay
                     cooldownJob = serviceScope.launch {
                         delay(cooldownMs)
+                        val diskBase = LynxRepository.readCurrentProfile()
+                        if (diskBase.isNotBlank() && diskBase in listOf("auto", "balance", "performance", "extreme", "powersave")) {
+                            baselineProfile = if (diskBase == "auto") "balance" else diskBase
+                        }
                         Log.i(TAG, "Cooldown expired (${cooldownMs}ms), restoring baseline profile [$baselineProfile]")
 
                         // Stop Floating HUD smoothly

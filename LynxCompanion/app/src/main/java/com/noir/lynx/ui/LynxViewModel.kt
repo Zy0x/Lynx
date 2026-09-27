@@ -1,10 +1,12 @@
 package com.noir.lynx.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.noir.lynx.data.LynxRepository
 import com.noir.lynx.data.LynxState
 import com.noir.lynx.data.LynxUiState
+import com.noir.lynx.service.LynxAppAutomationService
 import com.noir.lynx.sync.StateFileObserver
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -270,16 +272,22 @@ class LynxViewModel : ViewModel() {
     //  Profile Management
     // ----------------------------------------------------------------
 
-    fun setProfile(profile: String) {
+    fun setProfile(profile: String, context: Context? = null) {
         viewModelScope.launch {
+            // Optimistically update activeProfile in UI state for immediate visual responsiveness
+            _uiState.update {
+                it.copy(state = it.state.copy(activeProfile = profile))
+            }
             val success = LynxRepository.setProfile(profile)
             if (success) {
-                _uiState.update {
-                    it.copy(state = it.state.copy(activeProfile = profile))
+                if (profile == "auto") {
+                    context?.let { LynxRepository.startAppAutomation(it) }
+                } else {
+                    context?.let { LynxAppAutomationService.updateBaselineProfile(it, profile) }
                 }
-                delay(300L)
-                refreshState()
             }
+            delay(150L)
+            refreshState()
         }
     }
 

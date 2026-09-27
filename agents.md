@@ -321,6 +321,14 @@ Untuk memverifikasi stabilitas dan fungsionalitas Lynx Companion tanpa memodifik
 5. **Dormant Background Daemons**: Fitur otomasi latar belakang yang bergantung pada modul (seperti Smart-AI foreground watcher dan Charging AutoCut) berstatus *Standby/Non-Aktif*.
 6. **Penyimpanan Berkas Uji & Tanpa Reboot**: Seluruh berkas diagnostik, log, dan tangkapan layar pengujian disimpan secara eksklusif di `/storage/emulated/0/Debug/` tanpa me-reboot perangkat pengguna.
 
+### 9.2 Freeze Versioning — Penghentian Kenaikan Versi Otomatis (Mandatory)
+Sesuai arahan pengguna, siklus penomoran versi Lynx Universal saat ini **DIBEKUKAN (FROZEN)** pada versi:
+- **Module Version**: `3.0.9`
+- **Version Code**: `20261002`
+
+**Ketentuan Operasional Agent**:
+1. **Dilarang Menaikkan Nomor Versi**: Agen dilarang keras mengubah atau menaikkan nomor versi pada berkas apapun (`module.prop`, `LynxCompanion/app/build.gradle.kts`, `changelog.md`, maupun WebUI), kecuali jika pengguna memberikan instruksi eksplisit tertulis untuk menaikkan versi.
+2. **Commit & Push Saja**: Seluruh perbaikan bug, penyempurnaan fitur, refactoring, atau tuning hardware tetap diuji dan di-commit ke Git serta di-push ke GitHub tanpa mengubah versi (version bump).
 
 ---
 
