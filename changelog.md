@@ -1,3 +1,29 @@
+# Lynx [Codename: Deity] 3.0.5
+Released on: 2026-09-27
+> **Versi ini** merupakan **Critical Fix** untuk mode Extreme yang tidak berfungsi sesuai namanya — GPU terkunci di 300 MHz dan CPU tidak mencapai frekuensi maksimal akibat dua bug indexing yang tersembunyi di `apply_profile.sh`.
+
+## 🐛 Critical Bug Fixes (3.0.5)
+
+### 1. ⚡ Fix GPU Extreme Mode — OPP Index vs KHz Mismatch
+- **Root Cause**: Node `custom_upbound_gpu_freq` dan `gpufreq_opp_freq` di MTK GED HAL menggunakan **OPP Index** (0 = frekuensi tertinggi, 48 = terendah), bukan nilai KHz. Script lama menulis nilai `950000` (KHz) ke node index ini, sehingga GED menginterpretasinya sebagai "index 950000" yang tidak valid dan mem-fallback ke index 48 (= 300 MHz minimum).
+- **Fix**: Tulis `0` (index 0 = OPP tertinggi) ke `custom_upbound_gpu_freq` dan `gpufreq_opp_freq`. Nilai KHz tetap digunakan di node `gpu_cust_upbound_freq` dan `gpu_cust_boost_freq` dari `/sys/module/ged/`.
+- **Tambahan**: Aktifkan `gpufreq_fixed_freq_volt` dengan nilai puncak OPP untuk memastikan GPU terkunci di 950 MHz pada mode Extreme.
+
+### 2. 🔒 Fix CPU Extreme Mode — MTK PPM Index vs KHz Mismatch
+- **Root Cause**: Node `hard_userlimit_min_cpu_freq` dan `hard_userlimit_max_cpu_freq` di PPM (MediaTek Power Policy Manager) juga menggunakan **OPP Index** bukan KHz. Script lama mengirim nilai KHz mentah yang salah diinterpretasikan oleh PPM.
+- **Fix**: Tulis `<cluster_id> 0` (index 0 = frekuensi puncak) untuk extreme, dan index proporsional untuk performance.
+
+### 3. 🚀 Fix CPU Extreme — Governor Switch ke `performance`
+- **Root Cause**: `mtkpower@1.0-service` (MTK Power HAL daemon) terus me-reset `scaling_min_freq` ke nilai defaultnya, menimpa nilai yang ditulis oleh `apply_profile.sh`.
+- **Fix**: Mode Extreme kini menggunakan CPU governor **`performance`** (bukan `schedutil`), yang secara otomatis memaksa CPU berjalan di `scaling_max_freq` tanpa bergantung pada `scaling_min_freq`. Ini secara efektif mem-bypass interferensi mtkpower HAL.
+
+### ✅ Hasil Terverifikasi (Infinix X698, Dimensity 920)
+- CPU policy0 (A55): governor `performance`, freq **2000 MHz** ✅
+- CPU policy6 (A76): governor `performance`, freq **2050 MHz** (saat load) ✅
+- GPU: fixed_freq **950 MHz** enabled via `gpufreq_fixed_freq_volt` ✅
+
+---
+
 # Lynx [Codename: Deity] 3.0.4
 Released on: 2026-09-28
 > **Versi ini** menghadirkan **Audit & Hardening Total Seluruh Profil Hardware (18 Vektor Subsistem)** untuk Extreme, Performance, Balance, dan Powersave, menjamin **Zero Missing Tweaks & 100% Parity** antara Standalone Root Mode dan Magisk/KernelSU Module Mode, resolusi Unity FPS Uncap read permission collision, serta sinkronisasi per-app profile targeting secara komprehensif.
