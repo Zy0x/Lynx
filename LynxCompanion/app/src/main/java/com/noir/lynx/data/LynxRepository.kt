@@ -264,6 +264,7 @@ object LynxRepository {
         val allowedProfiles = setOf("auto", "balance", "performance", "extreme", "powersave", "dormant")
         if (profile !in allowedProfiles) return false
         val ok = writeStateKey("active_profile", profile, "str")
+        Shell.cmd("mkdir -p /data/adb/lynx 2>/dev/null; echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null; echo '$profile' > /data/adb/lynx/baseline_profile 2>/dev/null").exec()
         if (ok && !isModuleInstalled()) {
             applyStandaloneProfile(profile)
         }

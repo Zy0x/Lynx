@@ -277,6 +277,8 @@ class LynxViewModel : ViewModel() {
                 _uiState.update {
                     it.copy(state = it.state.copy(activeProfile = profile))
                 }
+                delay(300L)
+                refreshState()
             }
         }
     }

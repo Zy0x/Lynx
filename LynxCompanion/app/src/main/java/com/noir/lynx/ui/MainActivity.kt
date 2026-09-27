@@ -844,7 +844,7 @@ fun MainDashboard(
                                 }
                             }
                         }
-                        StatusBadge(profile = if (uiState.isModuleInstalled) state.activeProfile else "balance")
+                        StatusBadge(profile = state.activeProfile)
                     }
 
                     // Bottom Row: Dynamic Accent Theme Picker
