@@ -3606,29 +3606,31 @@ case "${'$'}PROFILE" in
     extreme|performance)
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "${'$'}p" ] || continue
-            write_node "schedutil" "${'$'}p/scaling_governor"
-            write_node "0" "${'$'}p/schedutil/up_rate_limit_us"
-            write_node "5000" "${'$'}p/schedutil/down_rate_limit_us"
-            write_node "85" "${'$'}p/schedutil/hispeed_load"
-            write_node "1" "${'$'}p/schedutil/iowait_boost_enable"
-            write_node "1" "${'$'}p/schedutil/pl"
 
-            min_freq=${'$'}(cat "${'$'}p/cpuinfo_min_freq" 2>/dev/null)
             max_freq=${'$'}(cat "${'$'}p/cpuinfo_max_freq" 2>/dev/null)
             if [ -z "${'$'}max_freq" ]; then
                 max_freq=${'$'}(tr -s ' ' '\n' < "${'$'}p/scaling_available_frequencies" 2>/dev/null | sort -n | tail -n 1)
             fi
+            min_freq=${'$'}(cat "${'$'}p/cpuinfo_min_freq" 2>/dev/null)
             if [ -z "${'$'}min_freq" ]; then
                 min_freq=${'$'}(tr -s ' ' '\n' < "${'$'}p/scaling_available_frequencies" 2>/dev/null | sort -n | head -n 1)
             fi
-            if [ -n "${'$'}max_freq" ]; then
+
+            if [ "${'$'}PROFILE" = "extreme" ]; then
                 write_node "${'$'}max_freq" "${'$'}p/scaling_max_freq"
+                write_node "performance" "${'$'}p/scaling_governor"
+            else
+                write_node "${'$'}max_freq" "${'$'}p/scaling_max_freq"
+                write_node "schedutil" "${'$'}p/scaling_governor"
+                write_node "0" "${'$'}p/schedutil/up_rate_limit_us"
+                write_node "5000" "${'$'}p/schedutil/down_rate_limit_us"
+                write_node "85" "${'$'}p/schedutil/hispeed_load"
+                write_node "1" "${'$'}p/schedutil/iowait_boost_enable"
+                write_node "1" "${'$'}p/schedutil/pl"
                 write_node "${'$'}max_freq" "${'$'}p/schedutil/hispeed_freq"
-                if [ "${'$'}PROFILE" = "extreme" ]; then
-                    write_node "${'$'}max_freq" "${'$'}p/scaling_min_freq"
-                else
+                if [ -n "${'$'}max_freq" ] && [ -n "${'$'}min_freq" ]; then
                     floor=${'$'}(( max_freq * 85 / 100 ))
-                    [ -n "${'$'}min_freq" ] && [ "${'$'}floor" -lt "${'$'}min_freq" ] && floor="${'$'}min_freq"
+                    [ "${'$'}floor" -lt "${'$'}min_freq" ] && floor="${'$'}min_freq"
                     write_node "${'$'}floor" "${'$'}p/scaling_min_freq"
                 fi
             fi
@@ -3673,17 +3675,16 @@ case "${'$'}PROFILE" in
 
         for c in 0 1 2; do
             table="/proc/ppm/dump_cluster_${'$'}{c}_dvfs_table"
-            if [ -f "${'$'}table" ]; then
-                c_max=${'$'}(awk '{print ${'$'}1}' "${'$'}table" 2>/dev/null | head -n 1)
-                if [ -n "${'$'}c_max" ]; then
-                    write_node "${'$'}c ${'$'}c_max" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
-                    if [ "${'$'}PROFILE" = "extreme" ]; then
-                        write_node "${'$'}c ${'$'}c_max" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
-                    else
-                        c_floor=${'$'}(( c_max * 85 / 100 ))
-                        write_node "${'$'}c ${'$'}c_floor" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
-                    fi
-                fi
+            [ -f "${'$'}table" ] || continue
+            if [ "${'$'}PROFILE" = "extreme" ]; then
+                write_node "${'$'}c 0" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+                write_node "${'$'}c 0" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+            else
+                total_opp=${'$'}(wc -w < "${'$'}table" 2>/dev/null)
+                perf_floor_idx=${'$'}(( total_opp * 15 / 100 ))
+                [ "${'$'}perf_floor_idx" -lt 1 ] 2>/dev/null && perf_floor_idx=2
+                write_node "${'$'}c 0" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+                write_node "${'$'}c ${'$'}perf_floor_idx" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
             fi
         done
 
@@ -3703,6 +3704,7 @@ case "${'$'}PROFILE" in
 
         if [ "${'$'}PROFILE" = "extreme" ]; then
             write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+            write_node "0" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "2" "/sys/kernel/ged/hal/gpu_boost_level"
             write_node "100" "/sys/kernel/ged/hal/dvfs_margin_value"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
@@ -3719,24 +3721,38 @@ case "${'$'}PROFILE" in
             if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
                 opp_line=${'$'}(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
                 peak_f=${'$'}(echo "${'$'}opp_line" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+                peak_vgpu=${'$'}(echo "${'$'}opp_line" | grep -Eo 'vgpu = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
                 if [ -n "${'$'}peak_f" ]; then
                     write_node "${'$'}peak_f" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
                     write_node "${'$'}peak_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
-                    write_node "${'$'}peak_f" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
                     write_node "${'$'}peak_f" "/sys/module/ged/parameters/gpu_bottom_freq"
-                    write_node "${'$'}peak_f" "/proc/gpufreq/gpufreq_opp_freq"
+                    write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+                    if [ -n "${'$'}peak_vgpu" ]; then
+                        write_node "${'$'}{peak_f} ${'$'}{peak_vgpu}" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+                    fi
                 fi
             fi
             for i in 0 1 2 3 4 5 6 7 8; do
                 write_node "${'$'}i 0 0" "/proc/gpufreq/gpufreq_limit_table"
             done
         else
-            write_node "15" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+            write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+            write_node "5" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "1" "/sys/kernel/ged/hal/gpu_boost_level"
             write_node "50" "/sys/kernel/ged/hal/dvfs_margin_value"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/devfreq/adreno_boost"
             write_node "60" "/sys/class/kgsl/kgsl-3d0/idle_timer"
+            if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
+                opp_line=${'$'}(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+                peak_f=${'$'}(echo "${'$'}opp_line" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+                if [ -n "${'$'}peak_f" ]; then
+                    perf_floor=${'$'}(( peak_f * 85 / 100 ))
+                    write_node "${'$'}peak_f" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
+                    write_node "${'$'}perf_floor" "/sys/module/ged/parameters/gpu_cust_boost_freq"
+                    write_node "${'$'}perf_floor" "/sys/module/ged/parameters/gpu_bottom_freq"
+                fi
+            fi
         fi
 
         write_node "1" "/sys/module/ged/parameters/boost_gpu_enable"
