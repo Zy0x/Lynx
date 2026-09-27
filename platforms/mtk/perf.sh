@@ -25,6 +25,16 @@ write_node "N" "/sys/module/workqueue/parameters/power_efficient"
 write_node "0" "/sys/devices/system/cpu/eas/enable"
 write_node "1" "/sys/devices/system/cpu/perf/enable"
 
+# MediaTek EAS perfmgr Kernel Turbo
+write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
+write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
+write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
+write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
+write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
+write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle"
+write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle"
+
 # ── 2. Disable PPM Throttling & Policy Configuration ─────────────────
 write_node "0" "/proc/ppm/enabled"
 write_node "0 0" "/proc/ppm/policy_status"
@@ -188,26 +198,56 @@ write_node "5" "/dev/stune/foreground/schedtune.boost"
 write_node "5" "/dev/stune/top-app/schedtune.boost"
 
 # VM & Memory Response
-write_node "70" "/proc/sys/vm/vfs_cache_pressure"
-write_node "1000" "/proc/sys/vm/stat_interval"
-write_node "32" "/proc/sys/vm/watermark_scale_factor"
+sync
+write_node "3" "/proc/sys/vm/drop_caches"
+write_node "1" "/proc/sys/vm/compact_memory"
+write_node "40" "/proc/sys/vm/vfs_cache_pressure"
+write_node "10" "/proc/sys/vm/stat_interval"
+if [ "$MODE" = "extreme" ]; then
+    write_node "200" "/proc/sys/vm/watermark_scale_factor"
+    write_node "32" "/proc/sys/kernel/sched_nr_migrate"
+else
+    write_node "150" "/proc/sys/vm/watermark_scale_factor"
+    write_node "16" "/proc/sys/kernel/sched_nr_migrate"
+fi
 write_node "0" "/proc/sys/vm/watermark_boost_factor"
 write_node "0" "/proc/sys/vm/oom_dump_tasks"
+write_node "980000" "/proc/sys/kernel/sched_rt_runtime_us"
+write_node "1000000" "/proc/sys/kernel/sched_rt_period_us"
+
+# Block I/O Cache Locality
+for queue in /sys/block/sd[a-z]/queue /sys/block/mmcblk[0-9]/queue; do
+    [ -d "$queue" ] || continue
+    write_node "0" "$queue/add_random"
+    write_node "0" "$queue/iostats"
+    write_node "0" "$queue/nomerges"
+    write_node "0" "$queue/rotational"
+    write_node "2" "$queue/rq_affinity"
+    write_node "512" "$queue/nr_requests"
+done
 
 # Scheduler Latency
-write_node "16" "/proc/sys/kernel/sched_nr_migrate"
 write_node "40" "/proc/sys/kernel/perf_cpu_time_max_percent"
 write_node "1" "/proc/sys/kernel/sched_boost"
 write_node "1" "/proc/sys/fs/lease-break-time"
 write_node "512" "/proc/sys/kernel/random/read_wakeup_threshold"
 write_node "2048" "/proc/sys/kernel/random/write_wakeup_threshold"
 
-# UFS Low Latency Gating
-for ufs in /sys/devices/platform/soc/*ufshc*; do
+# UFS Low Latency Gating (Qualcomm & MediaTek bootdevice)
+for ufs in /sys/devices/platform/soc/*ufshc* /sys/devices/platform/bootdevice /sys/devices/platform/*ufshc*; do
     [ -d "$ufs" ] || continue
-    write_node "5" "$ufs/clkgate_delay_ms_perf"
+    write_node "1000" "$ufs/clkgate_delay_ms"
+    write_node "0" "$ufs/clkgate_delay_ms_perf"
     write_node "1000" "$ufs/clkgate_delay_ms_pwr_save"
+    write_node "0" "$ufs/auto_hibern8_enable"
 done
+
+# Network Gaming Stack
+sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
+sysctl -w net.ipv4.tcp_low_latency=1 >/dev/null 2>&1
+sysctl -w net.ipv4.tcp_autocorking=0 >/dev/null 2>&1
+sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
+sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
 
 # EARA Thermal Overrides
 write_node "0" "/sys/kernel/eara_thermal/enable"

@@ -97,12 +97,20 @@ case "$PROFILE" in
             write_node "1" "$c/online"
         done
 
-        # Core Control Jitter Prevention
+        # Core Control Jitter Prevention & Qualcomm Core Retention
         for ctl in /sys/devices/system/cpu/cpu*/core_ctl; do
             [ -d "$ctl" ] || continue
             write_node "500" "$ctl/offline_delay_ms"
             write_node "1 1 1 1" "$ctl/not_preferred"
+            max_c=$(cat "$ctl/max_cpus" 2>/dev/null)
+            [ -n "$max_c" ] && write_node "$max_c" "$ctl/min_cpus"
+            write_node "0" "$ctl/busy_up_thres"
+            write_node "100" "$ctl/busy_down_thres"
         done
+
+        # Qualcomm CPU Boost / Input Boost
+        write_node "1" "/sys/module/cpu_boost/parameters/sched_boost_on_input"
+        write_node "500" "/sys/module/cpu_boost/parameters/input_boost_ms"
 
         # ── 2. Workqueue & Interconnect Mode ────────────────────────────────
         write_node "N" "/sys/module/workqueue/parameters/power_efficient"
@@ -123,6 +131,16 @@ case "$PROFILE" in
         write_node "0" "/sys/kernel/eara_thermal/enable"
         write_node "0" "/sys/kernel/eara_thermal/fake_throttle"
         write_node "100 99" "/proc/driver/thermal/clatm_gpu_threshold"
+
+        # MediaTek EAS perfmgr Kernel Turbo
+        write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
+        write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
+        write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
+        write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
+        write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle"
 
         # MediaTek PPM Throttler Release
         write_node "0" "/proc/ppm/enabled"
@@ -175,16 +193,18 @@ case "$PROFILE" in
             write_node "0" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "2" "/sys/kernel/ged/hal/gpu_boost_level"
             write_node "100" "/sys/kernel/ged/hal/dvfs_margin_value"
+            write_node "0" "/sys/class/kgsl/kgsl-3d0/max_pwrlevel"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/default_pwrlevel"
             write_node "3" "/sys/class/kgsl/kgsl-3d0/devfreq/adreno_boost"
+            write_node "performance" "/sys/class/kgsl/kgsl-3d0/devfreq/governor"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/force_bus_on"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/force_clk_on"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/force_rail_on"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/force_no_nap"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/throttling"
-            write_node "120" "/sys/class/kgsl/kgsl-3d0/idle_timer"
+            write_node "100000" "/sys/class/kgsl/kgsl-3d0/idle_timer"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/bus_split"
 
             if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
@@ -299,30 +319,44 @@ case "$PROFILE" in
         write_node "5" "/dev/stune/top-app/schedtune.boost"
 
         # ── 5. Virtual Memory (VM), CFS Low-Latency Scheduler, & I/O ─────────
+        # Proactively flush pagecache and defrag memory to eliminate Direct Reclaim stutters
+        sync
+        write_node "3" "/proc/sys/vm/drop_caches"
+        write_node "1" "/proc/sys/vm/compact_memory"
+
         if [ "$PROFILE" = "extreme" ]; then
             write_node "3000000" "/proc/sys/kernel/sched_latency_ns"
             write_node "500000" "/proc/sys/kernel/sched_min_granularity_ns"
             write_node "1000000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
             write_node "50000" "/proc/sys/kernel/sched_migration_cost_ns"
+            write_node "32" "/proc/sys/kernel/sched_nr_migrate"
             write_node "0" "/proc/sys/kernel/sched_schedstats"
             write_node "1" "/proc/sys/kernel/sched_child_runs_first"
             write_node "0" "/proc/sys/kernel/sched_cstate_aware"
+            write_node "980000" "/proc/sys/kernel/sched_rt_runtime_us"
+            write_node "1000000" "/proc/sys/kernel/sched_rt_period_us"
             write_node "10" "/proc/sys/vm/stat_interval"
             write_node "40" "/proc/sys/vm/vfs_cache_pressure"
             write_node "60" "/proc/sys/vm/swappiness"
+            write_node "200" "/proc/sys/vm/watermark_scale_factor"
         else
             write_node "6000000" "/proc/sys/kernel/sched_latency_ns"
             write_node "750000" "/proc/sys/kernel/sched_min_granularity_ns"
             write_node "1500000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
             write_node "100000" "/proc/sys/kernel/sched_migration_cost_ns"
+            write_node "16" "/proc/sys/kernel/sched_nr_migrate"
             write_node "0" "/proc/sys/kernel/sched_schedstats"
             write_node "1" "/proc/sys/kernel/sched_child_runs_first"
             write_node "0" "/proc/sys/kernel/sched_cstate_aware"
+            write_node "980000" "/proc/sys/kernel/sched_rt_runtime_us"
+            write_node "1000000" "/proc/sys/kernel/sched_rt_period_us"
             write_node "1" "/proc/sys/vm/stat_interval"
-            write_node "70" "/proc/sys/vm/vfs_cache_pressure"
+            write_node "60" "/proc/sys/vm/vfs_cache_pressure"
             write_node "70" "/proc/sys/vm/swappiness"
+            write_node "150" "/proc/sys/vm/watermark_scale_factor"
         fi
 
+        write_node "0" "/proc/sys/vm/watermark_boost_factor"
         if [ -e "/sys/kernel/mm/lru_gen/enabled" ]; then
             write_node "y" "/sys/kernel/mm/lru_gen/enabled"
             write_node "1000" "/sys/kernel/mm/lru_gen/min_ttl_ms"
@@ -335,7 +369,6 @@ case "$PROFILE" in
         write_node "0" "/proc/sys/vm/oom_dump_tasks"
         write_node "80" "/proc/sys/vm/overcommit_ratio"
         write_node "1" "/proc/sys/vm/compact_unevictable_allowed"
-        write_node "16" "/proc/sys/kernel/sched_nr_migrate"
         write_node "40" "/proc/sys/kernel/perf_cpu_time_max_percent"
         write_node "1" "/proc/sys/kernel/sched_boost"
         write_node "512" "/proc/sys/kernel/random/read_wakeup_threshold"
@@ -347,7 +380,9 @@ case "$PROFILE" in
             [ -d "$queue" ] || continue
             write_node "0" "$queue/add_random"
             write_node "0" "$queue/iostats"
-            write_node "1" "$queue/rq_affinity"
+            write_node "0" "$queue/nomerges"
+            write_node "0" "$queue/rotational"
+            write_node "2" "$queue/rq_affinity"
             write_node "512" "$queue/nr_requests"
         done
         for q in /sys/block/sd[a-z]/queue/scheduler /sys/block/mmcblk[0-9]/queue/scheduler; do
@@ -356,10 +391,13 @@ case "$PROFILE" in
         for ra in /sys/block/sd[a-z]/queue/read_ahead_kb /sys/block/mmcblk[0-9]/queue/read_ahead_kb; do
             write_node "$ra_val" "$ra"
         done
-        for ufs in /sys/devices/platform/soc/*ufshc*; do
+        # Universal UFS Storage Controller Anti-Gating (Qualcomm & MediaTek)
+        for ufs in /sys/devices/platform/soc/*ufshc* /sys/devices/platform/bootdevice /sys/devices/platform/*ufshc*; do
             [ -d "$ufs" ] || continue
-            write_node "5" "$ufs/clkgate_delay_ms_perf"
+            write_node "1000" "$ufs/clkgate_delay_ms"
+            write_node "0" "$ufs/clkgate_delay_ms_perf"
             write_node "1000" "$ufs/clkgate_delay_ms_pwr_save"
+            write_node "0" "$ufs/auto_hibern8_enable"
         done
 
         # ── 6. Display Refresh Rate & Touch Responsiveness ──────────────
@@ -426,9 +464,11 @@ case "$PROFILE" in
 
         # ── 7. Wi-Fi & TCP Network Gaming Stack ──────────────────────────────
         cmd wifi force-low-latency-mode enabled >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_low_latency=1 >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_autocorking=0 >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
+        sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
         for ps_node in /sys/module/wlan/parameters/power_save /sys/module/bcmdhd/parameters/op_mode; do
             write_node "0" "$ps_node"
         done
@@ -569,6 +609,13 @@ case "$PROFILE" in
         for cpu in 0 1 2 3 4 5 6 7; do
             write_node "0 0 0 0" "/sys/devices/system/cpu/cpu${cpu}/core_ctl/not_preferred"
         done
+        for ctl in /sys/devices/system/cpu/cpu*/core_ctl; do
+            [ -d "$ctl" ] || continue
+            write_node "1" "$ctl/min_cpus"
+            write_node "60" "$ctl/busy_up_thres"
+            write_node "20" "$ctl/busy_down_thres"
+        done
+        write_node "0" "/sys/module/cpu_boost/parameters/sched_boost_on_input"
 
         # ── 2. Workqueue & Interconnect Mode: Power Efficient ────────────────
         write_node "Y" "/sys/module/workqueue/parameters/power_efficient"
@@ -582,6 +629,13 @@ case "$PROFILE" in
         write_node "0" "/proc/cpufreq/cpufreq_sched_disable"
         write_node "1" "/proc/cpuidle/control/armpll_mode"
         write_node "0" "/proc/cpuidle/control/buck_mode"
+
+        # Reset MediaTek EAS perfmgr
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+        write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
 
         # MediaTek PPM All Active
         write_node "1" "/proc/ppm/enabled"
@@ -657,11 +711,21 @@ case "$PROFILE" in
         write_node "5" "/proc/sys/vm/dirty_background_ratio"
         write_node "100" "/proc/sys/vm/swappiness"
         write_node "50" "/proc/sys/vm/vfs_cache_pressure"
+        write_node "10" "/proc/sys/vm/watermark_scale_factor"
+        write_node "950000" "/proc/sys/kernel/sched_rt_runtime_us"
+        for queue in /sys/block/sd[a-z]/queue /sys/block/mmcblk[0-9]/queue; do
+            [ -d "$queue" ] || continue
+            write_node "1" "$queue/rq_affinity"
+        done
         for q in /sys/block/sd[a-z]/queue/scheduler /sys/block/mmcblk[0-9]/queue/scheduler; do
             [ -e "$q" ] && echo noop > "$q" 2>/dev/null
         done
         for ra in /sys/block/sd[a-z]/queue/read_ahead_kb /sys/block/mmcblk[0-9]/queue/read_ahead_kb; do
             write_node "64" "$ra"
+        done
+        for ufs in /sys/devices/platform/soc/*ufshc* /sys/devices/platform/bootdevice /sys/devices/platform/*ufshc*; do
+            [ -d "$ufs" ] || continue
+            write_node "15" "$ufs/clkgate_delay_ms"
         done
 
         # ── 5. Unfreeze Throttlers, Enforce 60Hz Screen, Network & Thermal ───
@@ -674,6 +738,7 @@ case "$PROFILE" in
         fi
         cmd wifi set-power-save-mode 1 >/dev/null 2>&1
         cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_slow_start_after_idle=1 >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
         setprop debug.sf.latch_unsignaled "" 2>/dev/null
         setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
@@ -765,6 +830,13 @@ case "$PROFILE" in
         for cpu in 0 1 2 3 4 5 6 7; do
             write_node "0 0 0 0" "/sys/devices/system/cpu/cpu${cpu}/core_ctl/not_preferred"
         done
+        for ctl in /sys/devices/system/cpu/cpu*/core_ctl; do
+            [ -d "$ctl" ] || continue
+            write_node "1" "$ctl/min_cpus"
+            write_node "40" "$ctl/busy_up_thres"
+            write_node "40" "$ctl/busy_down_thres"
+        done
+        write_node "0" "/sys/module/cpu_boost/parameters/sched_boost_on_input"
 
         # ── 2. Workqueue & Interconnect Mode: Balanced ───────────────────────
         write_node "Y" "/sys/module/workqueue/parameters/power_efficient"
@@ -780,6 +852,14 @@ case "$PROFILE" in
         write_node "0" "/proc/cpufreq/cpufreq_sched_disable"
         write_node "1" "/proc/cpuidle/control/armpll_mode"
         write_node "0" "/proc/cpuidle/control/buck_mode"
+
+        # MediaTek EAS perfmgr Balanced
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
+        write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
 
         # MediaTek PPM Balanced
         write_node "1" "/proc/ppm/enabled"
@@ -870,12 +950,21 @@ case "$PROFILE" in
         write_node "15" "/proc/sys/vm/dirty_ratio"
         write_node "5" "/proc/sys/vm/dirty_background_ratio"
         write_node "80" "/proc/sys/vm/swappiness"
-        write_node "100" "/proc/sys/vm/vfs_cache_pressure"
+        write_node "30" "/proc/sys/vm/watermark_scale_factor"
+        write_node "950000" "/proc/sys/kernel/sched_rt_runtime_us"
+        for queue in /sys/block/sd[a-z]/queue /sys/block/mmcblk[0-9]/queue; do
+            [ -d "$queue" ] || continue
+            write_node "1" "$queue/rq_affinity"
+        done
         for q in /sys/block/sd[a-z]/queue/scheduler /sys/block/mmcblk[0-9]/queue/scheduler; do
             [ -e "$q" ] && echo deadline > "$q" 2>/dev/null
         done
         for ra in /sys/block/sd[a-z]/queue/read_ahead_kb /sys/block/mmcblk[0-9]/queue/read_ahead_kb; do
             write_node "128" "$ra"
+        done
+        for ufs in /sys/devices/platform/soc/*ufshc* /sys/devices/platform/bootdevice /sys/devices/platform/*ufshc*; do
+            [ -d "$ufs" ] || continue
+            write_node "15" "$ufs/clkgate_delay_ms"
         done
 
         # Restore Scheduler & VM Balanced Tunables
@@ -908,6 +997,7 @@ case "$PROFILE" in
         fi
         cmd wifi set-power-save-mode 1 >/dev/null 2>&1
         cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_slow_start_after_idle=1 >/dev/null 2>&1
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
         setprop debug.sf.latch_unsignaled "" 2>/dev/null
         setprop debug.sf.enable_gl_backpressure "" 2>/dev/null

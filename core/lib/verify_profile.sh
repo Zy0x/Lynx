@@ -541,6 +541,18 @@ audit_tweak() {
                             reason="Kernel DTB trip point hardcoded ($actual vs requested $expected)"
                         fi
                         ;;
+
+                    rate_clamp)
+                        if [ "$actual" = "$expected" ]; then
+                            status="VERIFIED"
+                        elif [ "$actual" = "0" ] || [ "$actual" = "5000" ] || [ "$actual" = "20000" ]; then
+                            status="CLAMPED"
+                            reason="Kernel governor locked rate limit ($actual vs requested $expected)"
+                        else
+                            status="FALLBACK"
+                            reason="Expected $expected, found $actual"
+                        fi
+                        ;;
                 esac
             fi
             ;;
@@ -630,7 +642,7 @@ for p in /sys/devices/system/cpu/cpufreq/policy*; do
             fi
             audit_tweak "CPU" "$pol_name Max Freq" "$p/scaling_max_freq" "$max_f" "opp_clamp"
             audit_tweak "CPU" "$pol_name Up Rate Limit" "$p/schedutil/up_rate_limit_us" "0" "eq"
-            audit_tweak "CPU" "$pol_name Down Rate Limit" "$p/schedutil/down_rate_limit_us" "5000" "eq"
+            audit_tweak "CPU" "$pol_name Down Rate Limit" "$p/schedutil/down_rate_limit_us" "5000" "rate_clamp"
             audit_tweak "CPU" "$pol_name Hispeed Load" "$p/schedutil/hispeed_load" "85" "eq"
             audit_tweak "CPU" "$pol_name iowait boost" "$p/schedutil/iowait_boost_enable" "1" "eq"
             ;;
@@ -716,6 +728,8 @@ if [ "$SOC_ARCH" = "mtk" ]; then
             fi
             audit_tweak "MTK" "GED Boost Enable" "/sys/module/ged/parameters/boost_gpu_enable" "1" "eq"
             audit_tweak "MTK" "GED Game Mode" "/sys/module/ged/parameters/gx_game_mode" "1" "eq"
+            audit_tweak "MTK" "EAS TA Boost" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost" "100" "eq"
+            audit_tweak "MTK" "EAS TA UClamp Min" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min" "100" "eq"
             audit_tweak "MTK" "FPSGO Enable" "/sys/kernel/fpsgo/common/fpsgo_enable" "1" "eq"
             audit_tweak "MTK" "FPSGO GPU Boost" "/sys/kernel/fpsgo/common/gpu_block_boost" "fpsgo_boost_on" "driver_state"
             ;;
@@ -730,6 +744,7 @@ if [ "$SOC_ARCH" = "mtk" ]; then
             audit_tweak "MTK" "GED Boost Level" "/sys/kernel/ged/hal/gpu_boost_level" "0" "eq"
             audit_tweak "MTK" "GED Boost Enable" "/sys/module/ged/parameters/boost_gpu_enable" "0" "eq"
             audit_tweak "MTK" "GED Game Mode" "/sys/module/ged/parameters/gx_game_mode" "0" "eq"
+            audit_tweak "MTK" "EAS TA Boost" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost" "0" "eq"
             audit_tweak "MTK" "FPSGO GPU Boost" "/sys/kernel/fpsgo/common/gpu_block_boost" "fpsgo_boost_off" "driver_state"
             ;;
 
@@ -740,6 +755,7 @@ if [ "$SOC_ARCH" = "mtk" ]; then
             audit_tweak "MTK" "CPU Sched Disable" "/proc/cpufreq/cpufreq_sched_disable" "sched_enable" "driver_state"
             audit_tweak "MTK" "PPM Enabled" "/proc/ppm/enabled" "enabled" "contains"
             audit_tweak "MTK" "Mali DVFS Enable" "/proc/mali/dvfs_enable" "mali_dvfs_on" "driver_state"
+            audit_tweak "MTK" "EAS TA Boost" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost" "0" "eq"
             audit_tweak "MTK" "GED GPU Idle" "/sys/module/ged/parameters/gpu_idle" "gpu_idle_on" "driver_state"
             ;;
     esac
@@ -807,22 +823,30 @@ case "$EVAL_PROFILE" in
     extreme)
         audit_tweak "VM" "Swappiness" "/proc/sys/vm/swappiness" "60" "eq"
         audit_tweak "VM" "VFS Cache Pressure" "/proc/sys/vm/vfs_cache_pressure" "40" "eq"
+        audit_tweak "VM" "Watermark Scale Factor" "/proc/sys/vm/watermark_scale_factor" "200" "eq"
+        audit_tweak "IO" "Block RQ Affinity" "/sys/block/sda/queue/rq_affinity" "2" "eq"
         audit_tweak "CFS" "Sched Latency" "/proc/sys/kernel/sched_latency_ns" "3000000" "eq"
         audit_tweak "CFS" "Sched Min Granularity" "/proc/sys/kernel/sched_min_granularity_ns" "500000" "eq"
         ;;
     performance)
         audit_tweak "VM" "Swappiness" "/proc/sys/vm/swappiness" "70" "eq"
-        audit_tweak "VM" "VFS Cache Pressure" "/proc/sys/vm/vfs_cache_pressure" "70" "eq"
+        audit_tweak "VM" "VFS Cache Pressure" "/proc/sys/vm/vfs_cache_pressure" "60" "eq"
+        audit_tweak "VM" "Watermark Scale Factor" "/proc/sys/vm/watermark_scale_factor" "150" "eq"
+        audit_tweak "IO" "Block RQ Affinity" "/sys/block/sda/queue/rq_affinity" "2" "eq"
         audit_tweak "CFS" "Sched Latency" "/proc/sys/kernel/sched_latency_ns" "6000000" "eq"
         audit_tweak "CFS" "Sched Min Granularity" "/proc/sys/kernel/sched_min_granularity_ns" "750000" "eq"
         ;;
     powersave)
         audit_tweak "VM" "Swappiness" "/proc/sys/vm/swappiness" "100" "eq"
         audit_tweak "VM" "VFS Cache Pressure" "/proc/sys/vm/vfs_cache_pressure" "50" "eq"
+        audit_tweak "VM" "Watermark Scale Factor" "/proc/sys/vm/watermark_scale_factor" "10" "eq"
+        audit_tweak "IO" "Block RQ Affinity" "/sys/block/sda/queue/rq_affinity" "1" "eq"
         ;;
     balance|*)
         audit_tweak "VM" "Swappiness" "/proc/sys/vm/swappiness" "80" "eq"
         audit_tweak "VM" "VFS Cache Pressure" "/proc/sys/vm/vfs_cache_pressure" "100" "eq"
+        audit_tweak "VM" "Watermark Scale Factor" "/proc/sys/vm/watermark_scale_factor" "30" "eq"
+        audit_tweak "IO" "Block RQ Affinity" "/sys/block/sda/queue/rq_affinity" "1" "eq"
         audit_tweak "CFS" "Sched Latency" "/proc/sys/kernel/sched_latency_ns" "10000000" "eq"
         ;;
 esac
@@ -897,10 +921,12 @@ esac
 case "$EVAL_PROFILE" in
     extreme|performance)
         audit_tweak "Network" "TCP Low Latency" "/proc/sys/net/ipv4/tcp_low_latency" "1" "eq"
+        audit_tweak "Network" "TCP Slow Start After Idle" "/proc/sys/net/ipv4/tcp_slow_start_after_idle" "0" "eq"
         audit_tweak "Audio" "Fast Track Multiplier" "af.fast_track_multiplier" "1" "prop"
         ;;
     powersave|balance|*)
         audit_tweak "Network" "TCP Low Latency" "/proc/sys/net/ipv4/tcp_low_latency" "0" "eq"
+        audit_tweak "Network" "TCP Slow Start After Idle" "/proc/sys/net/ipv4/tcp_slow_start_after_idle" "1" "eq"
         audit_tweak "Audio" "Fast Track Multiplier" "af.fast_track_multiplier" "2" "prop"
         ;;
 esac

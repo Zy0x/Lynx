@@ -36,7 +36,6 @@ KGSL="/sys/class/kgsl/kgsl-3d0"
 if [ -d "$KGSL" ]; then
     write_node "0" "$KGSL/throttling"
     write_node "0" "$KGSL/thermal_pwrlevel"
-    write_node "0" "$KGSL/min_pwrlevel"
     write_node "0" "$KGSL/default_pwrlevel"
     write_node "1" "$KGSL/force_bus_on"
     write_node "1" "$KGSL/force_clk_on"
@@ -44,8 +43,16 @@ if [ -d "$KGSL" ]; then
     write_node "1" "$KGSL/force_no_nap"
     write_node "performance" "$KGSL/pwrscale/policy"
     write_node "performance" "$KGSL/devfreq/governor"
-    write_node "1" "$KGSL/devfreq/adreno_boost"
-    write_node "120" "$KGSL/idle_timer"
+    if [ "$MODE" = "extreme" ]; then
+        write_node "0" "$KGSL/max_pwrlevel"
+        write_node "0" "$KGSL/min_pwrlevel"
+        write_node "3" "$KGSL/devfreq/adreno_boost"
+        write_node "100000" "$KGSL/idle_timer"
+    else
+        write_node "1" "$KGSL/min_pwrlevel"
+        write_node "1" "$KGSL/devfreq/adreno_boost"
+        write_node "60" "$KGSL/idle_timer"
+    fi
     write_node "0" "$KGSL/bus_split"
 fi
 
@@ -91,14 +98,22 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
     done
 done
 
-# Core Control Jitter Prevention
+# Core Control Jitter Prevention & Qualcomm Core Retention
 for ctl in /sys/devices/system/cpu/cpu*/core_ctl; do
     [ -d "$ctl" ] || continue
     write_node "500" "$ctl/offline_delay_ms"
     write_node "1 1 1 1" "$ctl/not_preferred"
+    max_c=$(cat "$ctl/max_cpus" 2>/dev/null)
+    [ -n "$max_c" ] && write_node "$max_c" "$ctl/min_cpus"
+    write_node "0" "$ctl/busy_up_thres"
+    write_node "100" "$ctl/busy_down_thres"
 done
 
-# ── 4. Workqueue, CPUSet, & SchedTune Boost ──────────────────────────
+# Qualcomm CPU Boost / Input Boost
+write_node "1" "/sys/module/cpu_boost/parameters/sched_boost_on_input"
+write_node "500" "/sys/module/cpu_boost/parameters/input_boost_ms"
+
+# ── 4. Workqueue, CPUSet, VM, I/O & Network Boost ────────────────────
 write_node "N" "/sys/module/workqueue/parameters/power_efficient"
 write_node "1" "/proc/sys/kernel/sched_autogroup_enabled"
 write_node "0" "/proc/sys/kernel/sched_tunable_scaling"
@@ -113,6 +128,51 @@ write_node "5" "/dev/stune/schedtune.boost"
 write_node "0" "/dev/stune/schedtune.prefer_idle"
 write_node "5" "/dev/stune/foreground/schedtune.boost"
 write_node "5" "/dev/stune/top-app/schedtune.boost"
+
+# VM & Memory Response
+sync
+write_node "3" "/proc/sys/vm/drop_caches"
+write_node "1" "/proc/sys/vm/compact_memory"
+write_node "40" "/proc/sys/vm/vfs_cache_pressure"
+write_node "10" "/proc/sys/vm/stat_interval"
+if [ "$MODE" = "extreme" ]; then
+    write_node "200" "/proc/sys/vm/watermark_scale_factor"
+    write_node "32" "/proc/sys/kernel/sched_nr_migrate"
+else
+    write_node "150" "/proc/sys/vm/watermark_scale_factor"
+    write_node "16" "/proc/sys/kernel/sched_nr_migrate"
+fi
+write_node "0" "/proc/sys/vm/watermark_boost_factor"
+write_node "0" "/proc/sys/vm/oom_dump_tasks"
+write_node "980000" "/proc/sys/kernel/sched_rt_runtime_us"
+write_node "1000000" "/proc/sys/kernel/sched_rt_period_us"
+
+# Block I/O Cache Locality
+for queue in /sys/block/sd[a-z]/queue /sys/block/mmcblk[0-9]/queue; do
+    [ -d "$queue" ] || continue
+    write_node "0" "$queue/add_random"
+    write_node "0" "$queue/iostats"
+    write_node "0" "$queue/nomerges"
+    write_node "0" "$queue/rotational"
+    write_node "2" "$queue/rq_affinity"
+    write_node "512" "$queue/nr_requests"
+done
+
+# UFS Storage Controller Anti-Gating
+for ufs in /sys/devices/platform/soc/*ufshc*; do
+    [ -d "$ufs" ] || continue
+    write_node "1000" "$ufs/clkgate_delay_ms"
+    write_node "0" "$ufs/clkgate_delay_ms_perf"
+    write_node "1000" "$ufs/clkgate_delay_ms_pwr_save"
+    write_node "0" "$ufs/auto_hibern8_enable"
+done
+
+# Network Gaming Stack
+sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
+sysctl -w net.ipv4.tcp_low_latency=1 >/dev/null 2>&1
+sysctl -w net.ipv4.tcp_autocorking=0 >/dev/null 2>&1
+sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
+sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
 
 # ── 5. Mode Specific Integrations (Extreme vs Perf) ───────────────────
 if [ "$MODE" = "extreme" ]; then

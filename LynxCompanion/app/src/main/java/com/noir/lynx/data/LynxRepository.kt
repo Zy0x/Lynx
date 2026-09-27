@@ -3700,6 +3700,13 @@ case "${'$'}PROFILE" in
         write_node "0" "/sys/kernel/eara_thermal/fake_throttle"
         write_node "100 99" "/proc/driver/thermal/clatm_gpu_threshold"
 
+        write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
+        write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
+        write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
+        write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
+        write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
+
         write_node "0" "/proc/ppm/enabled"
         write_node "0 0" "/proc/ppm/policy_status"
         write_node "1 1" "/proc/ppm/policy_status"
@@ -3873,6 +3880,9 @@ case "${'$'}PROFILE" in
         write_node "5" "/dev/stune/top-app/schedtune.boost"
 
         # CFS Low-Latency Scheduler & VM Optimization
+        sync
+        write_node "3" "/proc/sys/vm/drop_caches"
+        write_node "1" "/proc/sys/vm/compact_memory"
         if [ "${'$'}PROFILE" = "extreme" ]; then
             write_node "3000000" "/proc/sys/kernel/sched_latency_ns"
             write_node "400000" "/proc/sys/kernel/sched_min_granularity_ns"
@@ -3887,6 +3897,7 @@ case "${'$'}PROFILE" in
             write_node "40" "/proc/sys/vm/vfs_cache_pressure"
             write_node "50" "/proc/sys/vm/swappiness"
             write_node "25" "/proc/sys/vm/dirty_ratio"
+            write_node "200" "/proc/sys/vm/watermark_scale_factor"
         else
             write_node "6000000" "/proc/sys/kernel/sched_latency_ns"
             write_node "750000" "/proc/sys/kernel/sched_min_granularity_ns"
@@ -3901,8 +3912,12 @@ case "${'$'}PROFILE" in
             write_node "70" "/proc/sys/vm/vfs_cache_pressure"
             write_node "70" "/proc/sys/vm/swappiness"
             write_node "20" "/proc/sys/vm/dirty_ratio"
+            write_node "150" "/proc/sys/vm/watermark_scale_factor"
         fi
 
+        write_node "0" "/proc/sys/vm/watermark_boost_factor"
+        write_node "980000" "/proc/sys/kernel/sched_rt_runtime_us"
+        write_node "1000000" "/proc/sys/kernel/sched_rt_period_us"
         if [ -e "/sys/kernel/mm/lru_gen/enabled" ]; then
             write_node "y" "/sys/kernel/mm/lru_gen/enabled"
             write_node "1000" "/sys/kernel/mm/lru_gen/min_ttl_ms"
@@ -3927,7 +3942,9 @@ case "${'$'}PROFILE" in
             [ -d "${'$'}queue" ] || continue
             write_node "0" "${'$'}queue/add_random"
             write_node "0" "${'$'}queue/iostats"
-            write_node "1" "${'$'}queue/rq_affinity"
+            write_node "0" "${'$'}queue/nomerges"
+            write_node "0" "${'$'}queue/rotational"
+            write_node "2" "${'$'}queue/rq_affinity"
             write_node "512" "${'$'}queue/nr_requests"
         done
         for q in /sys/block/*/queue/scheduler; do
@@ -3936,11 +3953,21 @@ case "${'$'}PROFILE" in
         for ra in /sys/block/sd*/queue/read_ahead_kb /sys/block/mmcblk*/queue/read_ahead_kb; do
             write_node "${'$'}ra_val" "${'$'}ra"
         done
-        for ufs in /sys/devices/platform/soc/*ufshc*; do
+        for ufs in /sys/devices/platform/soc/*ufshc* /sys/devices/platform/bootdevice /sys/devices/platform/*ufshc*; do
             [ -d "${'$'}ufs" ] || continue
-            write_node "5" "${'$'}ufs/clkgate_delay_ms_perf"
+            write_node "1000" "${'$'}ufs/clkgate_delay_ms"
+            write_node "0" "${'$'}ufs/clkgate_delay_ms_perf"
             write_node "1000" "${'$'}ufs/clkgate_delay_ms_pwr_save"
+            write_node "0" "${'$'}ufs/auto_hibern8_enable"
         done
+
+        # Network Gaming Stack
+        cmd wifi force-low-latency-mode enabled >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_low_latency=1 >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_autocorking=0 >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
+        sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
 
         # ── 5. Display Refresh Rate & Touch Responsiveness ──────────────
         setprop debug.sf.latch_unsignaled "" 2>/dev/null
