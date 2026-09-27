@@ -913,3 +913,25 @@ case "$PROFILE" in
         fi
         ;;
 esac
+
+# ── Verification & Granular Debugging Audit Dispatch ────────────────────────
+DO_VERIFY=false
+case "$2" in
+    --verify|-v|verify) DO_VERIFY=true ;;
+esac
+
+VERIFY_SCRIPT=""
+if [ -f "/data/adb/modules/Lynx/core/lib/verify_profile.sh" ]; then
+    VERIFY_SCRIPT="/data/adb/modules/Lynx/core/lib/verify_profile.sh"
+elif [ -f "/data/adb/lynx/verify_profile.sh" ]; then
+    VERIFY_SCRIPT="/data/adb/lynx/verify_profile.sh"
+fi
+
+if [ -n "$VERIFY_SCRIPT" ]; then
+    if [ "$DO_VERIFY" = "true" ]; then
+        sh "$VERIFY_SCRIPT" "$PROFILE"
+    else
+        # Run audit asynchronously to keep profile application instant (<50ms)
+        sh "$VERIFY_SCRIPT" "$PROFILE" >/dev/null 2>&1 &
+    fi
+fi

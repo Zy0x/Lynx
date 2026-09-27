@@ -302,9 +302,37 @@ object LynxRepository {
         }
     }
 
-    // ----------------------------------------------------------------
-    //  Action Commands
-    // ----------------------------------------------------------------
+    /**
+     * Run granular verification audit for the active (or specified) profile.
+     * Evaluates every single tweak at the node/unit level, checks driver clamping,
+     * detects fallbacks, and writes /data/adb/lynx/profile_audit.json.
+     */
+    suspend fun verifyProfile(profile: String? = null): String = withContext(Dispatchers.IO) {
+        try {
+            val profArg = profile ?: ""
+            val cmd = "[ -f /data/adb/modules/Lynx/core/lib/verify_profile.sh ] && sh /data/adb/modules/Lynx/core/lib/verify_profile.sh $profArg || sh /data/adb/lynx/verify_profile.sh $profArg"
+            val res = Shell.cmd(cmd).exec()
+            res.out.joinToString("\n").ifBlank { "Audit selesai." }
+        } catch (e: Exception) {
+            "Error running profile audit: ${e.message}"
+        }
+    }
+
+    /**
+     * Read the structured profile audit JSON result.
+     */
+    suspend fun readProfileAuditJson(): String? = withContext(Dispatchers.IO) {
+        try {
+            val res = Shell.cmd("cat /data/adb/lynx/profile_audit.json 2>/dev/null").exec()
+            if (res.isSuccess && res.out.isNotEmpty()) {
+                res.out.joinToString("\n")
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     /**
      * Trigger manual storage maintenance (SQLite VACUUM + fstrim).
@@ -4583,7 +4611,8 @@ done
                 "if [ -f /data/adb/modules/Lynx/core/apply_profile.sh ]; then cp -f /data/adb/modules/Lynx/core/apply_profile.sh /data/adb/lynx/apply_profile.sh; else cat << 'EOF' > /data/adb/lynx/apply_profile.sh\n$applyScript\nEOF\nfi",
                 "chmod 755 /data/adb/lynx/apply_profile.sh 2>/dev/null",
                 "if [ -f /data/adb/modules/Lynx/core/lynx_watcher.sh ]; then cp -f /data/adb/modules/Lynx/core/lynx_watcher.sh /data/adb/lynx/lynx_watcher.sh; else cat << 'EOF' > /data/adb/lynx/lynx_watcher.sh\n$watcherScript\nEOF\nfi",
-                "chmod 755 /data/adb/lynx/lynx_watcher.sh 2>/dev/null"
+                "chmod 755 /data/adb/lynx/lynx_watcher.sh 2>/dev/null",
+                "if [ -f /data/adb/modules/Lynx/core/lib/verify_profile.sh ]; then cp -f /data/adb/modules/Lynx/core/lib/verify_profile.sh /data/adb/lynx/verify_profile.sh; chmod 755 /data/adb/lynx/verify_profile.sh 2>/dev/null; fi"
             ).exec()
             true
         } catch (e: Exception) {

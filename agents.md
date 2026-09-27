@@ -390,5 +390,30 @@ Untuk mencegah "log kosong" dan kehilangan jejak eksekusi:
      - Seluruh riwayat berkas log modul.
 
 ---
+
+## 🔍 13. Granular Profile Verification & Debugging Engine (Unit-Level Auditing)
+
+Untuk memastikan seluruh konfigurasi profil (`extreme`, `performance`, `balance`, `powersave`, `auto`) benar-benar bekerja 100% dan tidak mengalami silent fallback atau reversion oleh daemon vendor:
+
+1. **Prinsip Verifikasi Satuan Konfigurasi (Unit-Level Auditing)**:
+   - Dilarang hanya memverifikasi status keluar skrip (`exit 0`).
+   - Setiap tweak individual (satuan node/baris config) wajib diaudit nilai nyatanya langsung dari kernel sysfs/procfs/settings setelah diaplikasikan.
+2. **Arsitektur Mesin Verifikasi (`core/lib/verify_profile.sh`)**:
+   - Membaca arsitektur hardware asli secara mandiri (MediaTek vs Qualcomm vs Generic).
+   - Menguji seluruh parameter: CPU Governor, Min/Max Freq, Schedutil Rate Limits, Workqueue, SoC Engines (MediaTek PPM/GED/Mali/FPSGO; Qualcomm KGSL/Devfreq/CoreControl), CPUSet, UCLAMP, VM, CFS, I/O, Display Refresh Rate, Thermal Zones, dan pembekuan Throttler OEM.
+3. **Status Klasifikasi Hasil Audit**:
+   - `[PASS]` / `VERIFIED`: Nilai runtime hardware persis cocok dengan target spesifikasi profil.
+   - `[CLAMP]`: Nilai diadaptasi secara sah oleh driver hardware ke step OPP terdekat.
+   - `[FALLBACK]`: Nilai tidak berubah atau direvert oleh daemon OEM (e.g. PowerHAL).
+   - `[ERROR]`: Node gagal diakses karena pembatasan permission/SELinux.
+   - `[SKIP]`: Node tidak didukung oleh kernel/SoC perangkat saat ini.
+4. **Alur Pelaporan & Integrasi**:
+   - Menghasilkan ringkasan dan skor kesehatan profil (`Health Score %`).
+   - Menyimpan laporan terstruktur ke `/data/adb/lynx/profile_audit.json` dan `/data/adb/lynx/profile_audit.log`.
+   - Otomatis mencadangkan log ke folder debug lokal `/storage/emulated/0/Debug/` (Rule 9.3).
+   - Dapat dipanggil via CLI: `Lxcore verify [profile]` atau `apply_profile.sh <profile> --verify`.
+   - Diintegrasikan ke Companion App via `LynxRepository.verifyProfile()` dan `readProfileAuditJson()`.
+
+---
 *Dokumen ini sah sebagai panduan teknis dan acuan implementasi resmi proyek Lynx Universal.*
 

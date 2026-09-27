@@ -39,6 +39,7 @@ if [ $# -eq 0 ]; then
     echo "Core Commands:"
     echo "  status                            Show current module & profile status"
     echo "  profile <auto|balance|perf|ext|powersave> Switch active profile"
+    echo "  verify [profile]                  Granular audit of active/specified profile tweaks"
     echo "  state [get|set|list] <args>       Manage shared config.json state"
     echo "  maintenance                       Run SQLite VACUUM and Storage TRIM"
     echo "  ccleaner                          Execute deep cache & RAM compaction"
@@ -84,6 +85,17 @@ case "$1" in
             echo "• UCLAMP Gaming Min: $(get_state_val "uclamp.game_min_ratio")%"
         fi
         echo "=================================================="
+        ;;
+    verify|verify-profile|-verify)
+        prof="$2"
+        if [ -f "$DIR/verify_profile.sh" ]; then
+            sh "$DIR/verify_profile.sh" "$prof"
+        elif [ -f "/data/adb/lynx/verify_profile.sh" ]; then
+            sh "/data/adb/lynx/verify_profile.sh" "$prof"
+        else
+            echo "Error: verify_profile.sh not found in $DIR or /data/adb/lynx"
+            exit 1
+        fi
         ;;
     profile|-profile)
         case "$2" in
