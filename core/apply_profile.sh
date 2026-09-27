@@ -310,33 +310,69 @@ case "$PROFILE" in
             write_node "0" "/sys/module/ged/parameters/gpu_idle"
             write_node "0" "/sys/module/ged/parameters/ged_smart_boost"
             write_node "100" "/sys/module/ged/parameters/boost_upper_bound"
+            # Disable Mali DVFS — freq sudah dikunci via hardware PLL
+            write_node "0" "/proc/mali/dvfs_enable"
+            # Percepat CPU response untuk render thread (240Hz budget)
+            write_node "4166666" "/sys/module/ged/parameters/target_t_cpu_remained"
+            # Disable GPU aging (mengurangi voltase/freq saat panas)
+            write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
+            # Route Mali IRQ ke big cores (A78, cores 6-7, mask 0xC0) untuk latency rendah
+            for irq_dir in /proc/irq/*/actions; do
+                [ -f "$irq_dir" ] || continue
+                irq_name=$(cat "$irq_dir" 2>/dev/null)
+                case "$irq_name" in
+                    *mali*|*gpu*|*g3d*)
+                        irq_num=$(echo "$irq_dir" | grep -Eo '/[0-9]+/' | tr -d '/')
+                        [ -f "/proc/irq/$irq_num/smp_affinity" ] && \
+                            write_node "c0" "/proc/irq/$irq_num/smp_affinity"
+                        ;;
+                esac
+            done
         else
             write_node "1" "/sys/module/ged/parameters/gpu_idle"
             write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
             write_node "80" "/sys/module/ged/parameters/boost_upper_bound"
+            # Re-enable Mali DVFS untuk performance (managed DVFS)
+            write_node "1" "/proc/mali/dvfs_enable"
+            # Standard 120Hz CPU response time
+            write_node "8333333" "/sys/module/ged/parameters/target_t_cpu_remained"
         fi
         write_node "1" "/sys/module/ged/parameters/gx_force_cpu_boost"
         write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
 
-        # MediaTek FPSGO
-        write_node "1" "/sys/kernel/fpsgo/common/fpsgo_enable"
-        write_node "1" "/sys/kernel/fpsgo/common/force_onoff"
-        write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
-        write_node "1" "/sys/kernel/fpsgo/fbt/boost_ta"
-        write_node "1" "/sys/kernel/fpsgo/fbt/ultra_rescue"
-        write_node "0" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
-        write_node "0" "/sys/kernel/fpsgo/fbt/enable_switch_down_throttle"
-        write_node "8333333" "/sys/module/ged/parameters/target_t_cpu_remained"
-        write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy"
-        write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy_90"
-        write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy"
-        write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy_90"
-        write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
-        write_node "0" "/sys/kernel/fpsgo/fstb/fstb_soft_level"
 
-        write_node "always_on" "/sys/devices/platform/*mali*/power_policy"
+        # MediaTek FPSGO — dimatikan di extreme (no frame budget cap), aktif di performance
+        if [ "$PROFILE" = "extreme" ]; then
+            # Matikan FPSGO sepenuhnya — tidak ada frame budget enforcement, GPU bisa maks
+            write_node "0" "/sys/kernel/fpsgo/common/fpsgo_enable"
+            # Thermal FPSGO throttle disable
+            write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+            write_node "200" "/sys/kernel/fpsgo/fbt/thrm_temp_th"
+        else
+            write_node "1" "/sys/kernel/fpsgo/common/fpsgo_enable"
+            write_node "1" "/sys/kernel/fpsgo/common/force_onoff"
+            write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
+            write_node "1" "/sys/kernel/fpsgo/fbt/boost_ta"
+            write_node "1" "/sys/kernel/fpsgo/fbt/ultra_rescue"
+            write_node "0" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
+            write_node "0" "/sys/kernel/fpsgo/fbt/enable_switch_down_throttle"
+            write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy"
+            write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy_90"
+            write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy"
+            write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy_90"
+            write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+            write_node "0" "/sys/kernel/fpsgo/fstb/fstb_soft_level"
+        fi
+
+        # Mali power policy — fix untuk sh (tidak bisa glob di write_node)
+        for pp in /sys/devices/platform/13000000.mali/power_policy \
+                  /sys/devices/platform/13040000.mali/power_policy \
+                  /sys/devices/platform/mali.0/power_policy; do
+            write_node "always_on" "$pp"
+        done
         write_node "1" "/proc/mali/always_on"
         write_node "0" "/proc/mali/debug_log"
+
 
         # ── 4. UCLAMP & Top-App Process Clamping ──────────────────────────────
         uclamp_val=75
@@ -386,12 +422,21 @@ case "$PROFILE" in
             write_node "0" "/proc/sys/kernel/sched_schedstats"
             write_node "1" "/proc/sys/kernel/sched_child_runs_first"
             write_node "0" "/proc/sys/kernel/sched_cstate_aware"
-            write_node "980000" "/proc/sys/kernel/sched_rt_runtime_us"
+            # Disable RT throttling sepenuhnya — game render thread tidak di-throttle
+            write_node "-1" "/proc/sys/kernel/sched_rt_runtime_us"
             write_node "1000000" "/proc/sys/kernel/sched_rt_period_us"
+            # Schedutil rate limit lebih cepat (500µs) — CPU clock naik lebih responsif
+            for pol_dir in /sys/devices/system/cpu/cpu0/cpufreq/schedutil \
+                           /sys/devices/system/cpu/cpu4/cpufreq/schedutil \
+                           /sys/devices/system/cpu/cpu6/cpufreq/schedutil; do
+                write_node "500" "$pol_dir/rate_limit_us"
+            done
             write_node "10" "/proc/sys/vm/stat_interval"
             write_node "40" "/proc/sys/vm/vfs_cache_pressure"
-            write_node "60" "/proc/sys/vm/swappiness"
+            # Swappiness minimal — jangan geser data game ke swap
+            write_node "1" "/proc/sys/vm/swappiness"
             write_node "200" "/proc/sys/vm/watermark_scale_factor"
+
         else
             write_node "6000000" "/proc/sys/kernel/sched_latency_ns"
             write_node "750000" "/proc/sys/kernel/sched_min_granularity_ns"
@@ -414,10 +459,18 @@ case "$PROFILE" in
             write_node "y" "/sys/kernel/mm/lru_gen/enabled"
             write_node "1000" "/sys/kernel/mm/lru_gen/min_ttl_ms"
         fi
-        write_node "20" "/proc/sys/vm/dirty_ratio"
-        write_node "10" "/proc/sys/vm/dirty_background_ratio"
-        write_node "500" "/proc/sys/vm/dirty_expire_centisecs"
-        write_node "200" "/proc/sys/vm/dirty_writeback_centisecs"
+        if [ "$PROFILE" = "extreme" ]; then
+            write_node "3" "/proc/sys/vm/dirty_ratio"
+            write_node "2" "/proc/sys/vm/dirty_background_ratio"
+            write_node "100" "/proc/sys/vm/dirty_expire_centisecs"
+            write_node "100" "/proc/sys/vm/dirty_writeback_centisecs"
+            write_node "65536" "/proc/sys/vm/min_free_kbytes"
+        else
+            write_node "20" "/proc/sys/vm/dirty_ratio"
+            write_node "10" "/proc/sys/vm/dirty_background_ratio"
+            write_node "500" "/proc/sys/vm/dirty_expire_centisecs"
+            write_node "200" "/proc/sys/vm/dirty_writeback_centisecs"
+        fi
         write_node "100" "/proc/sys/vm/extfrag_threshold"
         write_node "0" "/proc/sys/vm/oom_dump_tasks"
         write_node "80" "/proc/sys/vm/overcommit_ratio"
@@ -455,17 +508,23 @@ case "$PROFILE" in
 
         # ── 6. Display Refresh Rate & Touch Responsiveness ──────────────
         (
-            # Clear any experimental SurfaceFlinger / HWUI debug overrides to guarantee
-            # zero display glitching, prevent buffer fence tearing, and avoid partial black screens.
-            setprop debug.sf.latch_unsignaled ""
+            # SF: extreme mode = latch_unsignaled ON untuk kurangi 1 frame latency
+            # Mode lain = bersihkan semua SF/HWUI debug overrides
+            if [ "$PROFILE" = "extreme" ]; then
+                setprop debug.sf.latch_unsignaled 1
+                setprop debug.sf.early_phase_offset_ns 500000
+                setprop debug.sf.early_app_phase_offset_ns 500000
+            else
+                setprop debug.sf.latch_unsignaled ""
+                setprop debug.sf.early_phase_offset_ns ""
+                setprop debug.sf.early_app_phase_offset_ns ""
+            fi
             setprop debug.sf.enable_gl_backpressure ""
             setprop debug.sf.disable_backpressure ""
             setprop debug.renderengine.backend ""
             setprop debug.hwui.renderer ""
             setprop debug.hwui.use_buffer_age ""
             setprop debug.hwui.fps_divisor ""
-            setprop debug.sf.early_phase_offset_ns ""
-            setprop debug.sf.early_app_phase_offset_ns ""
             setprop debug.sf.early_gl_phase_offset_ns ""
             setprop debug.sf.high_fps_early_phase_offset_ns ""
             setprop debug.sf.high_fps_early_gl_phase_offset_ns ""
@@ -611,6 +670,15 @@ case "$PROFILE" in
                 [ -e "$path/cpu_capacity" ] && chmod 444 "$path/cpu_capacity" 2>/dev/null
                 [ -e "$path/topology/physical_package_id" ] && chmod 444 "$path/topology/physical_package_id" 2>/dev/null
             done
+
+            # MTK CLATM GPU power budget bypass — naikkan threshold agar 950MHz tidak didowngrade
+            write_node "150 149" "/proc/driver/thermal/clatm_gpu_threshold"
+            # Disable GPU aging — mencegah freq/volt dikurangi saat panas
+            write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
+            # Mali DVFS params — threshold tinggi agar tidak downscale
+            [ -e "/proc/mali/dvfs_threshold" ] && echo "99 20" > /proc/mali/dvfs_threshold 2>/dev/null
+            [ -e "/proc/mali/dvfs_deferred_count" ] && echo "1" > /proc/mali/dvfs_deferred_count 2>/dev/null
+
         else
             # Performance Mode: Safe Relaxed Thermal Bounds (85°C trip point)
             write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"

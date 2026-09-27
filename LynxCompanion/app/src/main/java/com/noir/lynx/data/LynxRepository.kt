@@ -3857,33 +3857,62 @@ case "${'$'}PROFILE" in
             write_node "0" "/sys/module/ged/parameters/gpu_idle"
             write_node "0" "/sys/module/ged/parameters/ged_smart_boost"
             write_node "100" "/sys/module/ged/parameters/boost_upper_bound"
+            # Disable Mali DVFS — freq dikunci via hardware PLL
+            write_node "0" "/proc/mali/dvfs_enable"
+            # CPU response lebih cepat untuk render thread (240Hz budget)
+            write_node "4166666" "/sys/module/ged/parameters/target_t_cpu_remained"
+            # Route Mali IRQ ke big cores (A78 core 6-7, mask 0xC0)
+            for irq_dir in /proc/irq/*/actions; do
+                [ -f "${'$'}irq_dir" ] || continue
+                irq_name=${'$'}(cat "${'$'}irq_dir" 2>/dev/null)
+                case "${'$'}irq_name" in
+                    *mali*|*gpu*|*g3d*)
+                        irq_num=${'$'}(echo "${'$'}irq_dir" | grep -Eo '/[0-9]+/' | tr -d '/')
+                        [ -f "/proc/irq/${'$'}irq_num/smp_affinity" ] && \
+                            write_node "c0" "/proc/irq/${'$'}irq_num/smp_affinity"
+                        ;;
+                esac
+            done
         else
             write_node "1" "/sys/module/ged/parameters/gpu_idle"
             write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
             write_node "80" "/sys/module/ged/parameters/boost_upper_bound"
+            write_node "1" "/proc/mali/dvfs_enable"
+            write_node "8333333" "/sys/module/ged/parameters/target_t_cpu_remained"
         fi
         write_node "1" "/sys/module/ged/parameters/gx_force_cpu_boost"
         write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
 
-        # MediaTek FPSGO (Frame Rate Stabilization Engine)
-        write_node "1" "/sys/kernel/fpsgo/common/fpsgo_enable"
-        write_node "1" "/sys/kernel/fpsgo/common/force_onoff"
-        write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
-        write_node "1" "/sys/kernel/fpsgo/fbt/boost_ta"
-        write_node "1" "/sys/kernel/fpsgo/fbt/ultra_rescue"
-        write_node "0" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
-        write_node "0" "/sys/kernel/fpsgo/fbt/enable_switch_down_throttle"
-        write_node "8333333" "/sys/module/ged/parameters/target_t_cpu_remained"
-        write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy"
-        write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy_90"
-        write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy"
-        write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy_90"
-        write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
-        write_node "0" "/sys/kernel/fpsgo/fstb/fstb_soft_level"
 
-        write_node "always_on" "/sys/devices/platform/*mali*/power_policy"
+        # MediaTek FPSGO — dimatikan di extreme (no FPS cap), aktif di performance
+        if [ "${'$'}PROFILE" = "extreme" ]; then
+            write_node "0" "/sys/kernel/fpsgo/common/fpsgo_enable"
+            write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+            write_node "200" "/sys/kernel/fpsgo/fbt/thrm_temp_th"
+        else
+            write_node "1" "/sys/kernel/fpsgo/common/fpsgo_enable"
+            write_node "1" "/sys/kernel/fpsgo/common/force_onoff"
+            write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
+            write_node "1" "/sys/kernel/fpsgo/fbt/boost_ta"
+            write_node "1" "/sys/kernel/fpsgo/fbt/ultra_rescue"
+            write_node "0" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
+            write_node "0" "/sys/kernel/fpsgo/fbt/enable_switch_down_throttle"
+            write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy"
+            write_node "0" "/sys/kernel/fpsgo/fbt/light_loading_policy_90"
+            write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy"
+            write_node "0" "/sys/kernel/fpsgo/fbt/llf_task_policy_90"
+            write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+            write_node "0" "/sys/kernel/fpsgo/fstb/fstb_soft_level"
+        fi
+
+        # Mali power policy — explicit paths (sh tidak bisa glob di write_node)
+        for pp in /sys/devices/platform/13000000.mali/power_policy \
+                  /sys/devices/platform/13040000.mali/power_policy \
+                  /sys/devices/platform/mali.0/power_policy; do
+            write_node "always_on" "${'$'}pp"
+        done
         write_node "1" "/proc/mali/always_on"
-        write_node "1" "/proc/mali/dvfs_enable"
+
         write_node "0" "/proc/mali/debug_log"
 
         uclamp_val=75
