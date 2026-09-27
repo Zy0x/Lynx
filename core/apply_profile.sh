@@ -51,15 +51,21 @@ case "$PROFILE" in
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "$p" ] || continue
             pol_num=$(basename "$p" | tr -dc '0-9')
+            max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
+            min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
             avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
-            min_freq=""
-            max_freq=""
-            for f in $avail_f; do
-                [ -z "$min_freq" ] && min_freq="$f"
-                max_freq="$f"
-            done
-            [ -z "$max_freq" ] && max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
-            [ -z "$min_freq" ] && min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
+            if [ -z "$max_freq" ] || [ -z "$min_freq" ]; then
+                sorted_f=$(echo "$avail_f" | tr -s ' ' '\n' | sort -n)
+                [ -z "$min_freq" ] && min_freq=$(echo "$sorted_f" | head -n 1)
+                [ -z "$max_freq" ] && max_freq=$(echo "$sorted_f" | tail -n 1)
+            fi
+            if [ -n "$max_freq" ] && [ -n "$min_freq" ]; then
+                if [ "$max_freq" -lt "$min_freq" ] 2>/dev/null; then
+                    tmp="$max_freq"
+                    max_freq="$min_freq"
+                    min_freq="$tmp"
+                fi
+            fi
 
             if [ "$PROFILE" = "extreme" ]; then
                 write_node "performance" "$p/scaling_governor"
@@ -160,15 +166,20 @@ case "$PROFILE" in
         for c in 0 1 2; do
             table="/proc/ppm/dump_cluster_${c}_dvfs_table"
             [ -f "$table" ] || continue
+            c_max=$(awk '{print $1}' "$table" 2>/dev/null | head -n 1)
+            c_min=$(awk '{print $NF}' "$table" 2>/dev/null | tail -n 1)
+            [ -z "$c_max" ] && continue
             if [ "$PROFILE" = "extreme" ]; then
-                write_node "$c 0" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
-                write_node "$c 0" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+                write_node "$c $c_max" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+                write_node "$c $c_max" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
             else
                 total_opp=$(wc -w < "$table" 2>/dev/null)
                 perf_floor_idx=$(( total_opp * 15 / 100 ))
                 [ "$perf_floor_idx" -lt 1 ] 2>/dev/null && perf_floor_idx=2
-                write_node "$c 0" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
-                write_node "$c $perf_floor_idx" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+                perf_floor=$(awk -v idx="$perf_floor_idx" '{print $idx}' "$table" 2>/dev/null)
+                [ -z "$perf_floor" ] && perf_floor=$c_max
+                write_node "$c $c_max" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+                write_node "$c $perf_floor" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
             fi
         done
 
@@ -189,8 +200,8 @@ case "$PROFILE" in
 
         # ── 3. GPU Subsystem Boost (Mali GED & Qualcomm Adreno KGSL) ─────────
         if [ "$PROFILE" = "extreme" ]; then
-            write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
-            write_node "0" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
+            write_node "1" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+            write_node "1" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "2" "/sys/kernel/ged/hal/gpu_boost_level"
             write_node "100" "/sys/kernel/ged/hal/dvfs_margin_value"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/max_pwrlevel"
@@ -227,7 +238,7 @@ case "$PROFILE" in
             write_node "0" "/proc/mali/dvfs_enable"
         else
             # Performance: high sustained OPP range
-            write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+            write_node "1" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
             write_node "5" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "1" "/sys/kernel/ged/hal/gpu_boost_level"
             write_node "50" "/sys/kernel/ged/hal/dvfs_margin_value"
@@ -486,13 +497,12 @@ case "$PROFILE" in
         # ── 8. Audio Pipeline Acceleration ───────────────────────────────────
         (
             setprop af.fast_track_multiplier 1
+            setprop aaudio.hw_burst_min_usec ""
             if is_bluetooth_audio; then
                 setprop aaudio.mmap_policy 2
-                setprop aaudio.hw_burst_min_usec 4000
             else
                 setprop aaudio.mmap_policy 2
                 setprop aaudio.mmap_exclusive_policy 2
-                setprop aaudio.hw_burst_min_usec 2000
             fi
         ) >/dev/null 2>&1 &
 
@@ -542,12 +552,12 @@ case "$PROFILE" in
                 write_node "150000" "$tz/trip_point_0_temp"
             done
 
-            # Unity Engine FPS uncap trick
+            # Ensure CPU capabilities and topology are always readable by Game Engines (Unity/Unreal) and EAS
             for cpu in 0 1 2 3 4 5 6 7; do
                 path="/sys/devices/system/cpu/cpu${cpu}"
-                [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 000 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
-                [ -e "$path/cpu_capacity" ] && chmod 000 "$path/cpu_capacity" 2>/dev/null
-                [ -e "$path/topology/physical_package_id" ] && chmod 000 "$path/topology/physical_package_id" 2>/dev/null
+                [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
+                [ -e "$path/cpu_capacity" ] && chmod 444 "$path/cpu_capacity" 2>/dev/null
+                [ -e "$path/topology/physical_package_id" ] && chmod 444 "$path/topology/physical_package_id" 2>/dev/null
             done
         else
             # Performance Mode: Safe Relaxed Thermal Bounds (85°C trip point)
@@ -589,15 +599,21 @@ case "$PROFILE" in
             write_node "0" "$p/schedutil/iowait_boost_enable"
             write_node "0" "$p/schedutil/pl"
 
+            max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
+            min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
             avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
-            min_freq=""
-            max_freq=""
-            for f in $avail_f; do
-                [ -z "$min_freq" ] && min_freq="$f"
-                max_freq="$f"
-            done
-            [ -z "$max_freq" ] && max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
-            [ -z "$min_freq" ] && min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
+            if [ -z "$max_freq" ] || [ -z "$min_freq" ]; then
+                sorted_f=$(echo "$avail_f" | tr -s ' ' '\n' | sort -n)
+                [ -z "$min_freq" ] && min_freq=$(echo "$sorted_f" | head -n 1)
+                [ -z "$max_freq" ] && max_freq=$(echo "$sorted_f" | tail -n 1)
+            fi
+            if [ -n "$max_freq" ] && [ -n "$min_freq" ]; then
+                if [ "$max_freq" -lt "$min_freq" ] 2>/dev/null; then
+                    tmp="$max_freq"
+                    max_freq="$min_freq"
+                    min_freq="$tmp"
+                fi
+            fi
             [ -n "$min_freq" ] && write_node "$min_freq" "$p/scaling_min_freq"
             if [ -n "$max_freq" ]; then
                 p_cap=$(( max_freq * 55 / 100 ))
@@ -813,15 +829,21 @@ case "$PROFILE" in
             write_node "1" "$p/schedutil/iowait_boost_enable"
             write_node "1" "$p/schedutil/pl"
 
+            max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
+            min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
             avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
-            min_freq=""
-            max_freq=""
-            for f in $avail_f; do
-                [ -z "$min_freq" ] && min_freq="$f"
-                max_freq="$f"
-            done
-            [ -z "$max_freq" ] && max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
-            [ -z "$min_freq" ] && min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
+            if [ -z "$max_freq" ] || [ -z "$min_freq" ]; then
+                sorted_f=$(echo "$avail_f" | tr -s ' ' '\n' | sort -n)
+                [ -z "$min_freq" ] && min_freq=$(echo "$sorted_f" | head -n 1)
+                [ -z "$max_freq" ] && max_freq=$(echo "$sorted_f" | tail -n 1)
+            fi
+            if [ -n "$max_freq" ] && [ -n "$min_freq" ]; then
+                if [ "$max_freq" -lt "$min_freq" ] 2>/dev/null; then
+                    tmp="$max_freq"
+                    max_freq="$min_freq"
+                    min_freq="$tmp"
+                fi
+            fi
             [ -n "$min_freq" ] && write_node "$min_freq" "$p/scaling_min_freq"
             [ -n "$max_freq" ] && write_node "$max_freq" "$p/scaling_max_freq"
         done

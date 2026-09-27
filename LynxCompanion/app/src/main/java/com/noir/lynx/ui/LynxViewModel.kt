@@ -180,6 +180,15 @@ class LynxViewModel : ViewModel() {
     //  Real-Time 2-Way Sync via inotify & High-Frequency Telemetry
     // ----------------------------------------------------------------
 
+    private var isForeground = true
+
+    fun setAppForeground(foreground: Boolean) {
+        isForeground = foreground
+        if (foreground) {
+            refreshState()
+        }
+    }
+
     private fun startFileObserver() {
         fileObserver?.stopWatching()
         fileObserver = StateFileObserver { refreshState() }
@@ -189,8 +198,10 @@ class LynxViewModel : ViewModel() {
     private fun startPeriodicSync() {
         viewModelScope.launch {
             while (true) {
-                delay(3000L)
-                refreshState()
+                delay(if (isForeground) 3000L else 20000L)
+                if (isForeground) {
+                    refreshState()
+                }
             }
         }
     }
@@ -199,7 +210,8 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             var counter = 0
             while (true) {
-                delay(1500L)
+                delay(if (isForeground) 1500L else 12000L)
+                if (!isForeground) continue
                 try {
                     val tel = LynxRepository.readTelemetry()
                     counter++

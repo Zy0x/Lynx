@@ -283,11 +283,11 @@ if [ "$MODE" = "extreme" ]; then
         write_node "f0" "/proc/irq/$irq/smp_affinity" 2>/dev/null || write_node "3f" "/proc/irq/$irq/smp_affinity" 2>/dev/null
     done
 
-    # Apply Unity FPS uncap trick
+    # Ensure CPU capabilities and topology are always readable by Game Engines and EAS
     for cpu in 0 1 2 3 4 5 6 7; do
         path="/sys/devices/system/cpu/cpu${cpu}"
-        [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 000 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
-        [ -e "$path/cpu_capacity" ] && chmod 000 "$path/cpu_capacity" 2>/dev/null
+        [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
+        [ -e "$path/cpu_capacity" ] && chmod 444 "$path/cpu_capacity" 2>/dev/null
     done
 else
     # Re-enable thermal protection in normal Performance mode

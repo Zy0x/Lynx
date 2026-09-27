@@ -882,7 +882,7 @@ case "$EVAL_PROFILE" in
         else
             audit_tweak "Thermal" "Thermal Zone 0 Trip Temp" "/sys/class/thermal/thermal_zone0/trip_point_0_temp" "150000" "eq"
         fi
-        audit_tweak "Thermal" "Unity Trick Perms" "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq" "000" "perm"
+        audit_tweak "Thermal" "CPU Capabilities Readable" "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq" "444" "perm"
         for proc in "mi_thermald" "thermal-engine" "com.xiaomi.joyose"; do
             audit_tweak "Throttler" "$proc Frozen" "$proc" "SIGSTOP" "proc_stop"
         done

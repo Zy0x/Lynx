@@ -73,6 +73,16 @@ class MainActivity : ComponentActivity() {
             LynxAppContent(uiState = uiState, viewModel = viewModel)
         }
     }
+
+    override fun onStart() {
+        super.onStart()
+        viewModel.setAppForeground(true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        viewModel.setAppForeground(false)
+    }
 }
 
 // ============================================================

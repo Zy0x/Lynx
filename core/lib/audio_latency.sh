@@ -15,22 +15,23 @@ is_bluetooth_audio_active() {
 apply_audio_latency_game() {
     # 1. Fast-track mixer acceleration
     setprop af.fast_track_multiplier 1 2>/dev/null
+    setprop aaudio.hw_burst_min_usec "" 2>/dev/null
 
     # 2. Check Bluetooth Audio Endpoint
     if is_bluetooth_audio_active; then
-        # Bluetooth active: Keep safe burst size to prevent buffer underrun crackling
+        # Bluetooth active: MMAP Auto with safe ALSA burst
         setprop aaudio.mmap_policy 2 2>/dev/null
-        setprop aaudio.hw_burst_min_usec 4000 2>/dev/null
     else
-        # Built-in speaker / 3.5mm Jack / Low-latency USB-C: Ultra-low latency MMAP
+        # Built-in speaker / 3.5mm Jack / Low-latency USB-C: Ultra-low latency MMAP Exclusive
         setprop aaudio.mmap_policy 2 2>/dev/null
         setprop aaudio.mmap_exclusive_policy 2 2>/dev/null
-        setprop aaudio.hw_burst_min_usec 2000 2>/dev/null
     fi
 }
 
 apply_audio_latency_balance() {
+    setprop aaudio.hw_burst_min_usec "" 2>/dev/null
     setprop aaudio.mmap_policy 1 2>/dev/null
     setprop aaudio.mmap_exclusive_policy 1 2>/dev/null
     setprop af.fast_track_multiplier 2 2>/dev/null
 }
+

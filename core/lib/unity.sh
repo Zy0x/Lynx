@@ -18,13 +18,13 @@ help_unity() {
 }
 
 main_unity() {
-    log_msg "Starting Unity trick optimizations..."
+    log_msg "Ensuring CPU topology and capabilities are properly accessible for game engines..."
     for cpu in 0 1 2 3 4 5 6 7; do
         path="/sys/devices/system/cpu/cpu${cpu}"
-        chmod 000 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
-        chmod 000 "$path/cpu_capacity" 2>/dev/null
-        chmod 000 "$path/topology/physical_package_id" 2>/dev/null
+        chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
+        chmod 444 "$path/cpu_capacity" 2>/dev/null
+        chmod 444 "$path/topology/physical_package_id" 2>/dev/null
     done
 
-    log_msg "Unity trick optimizations have been applied successfully."
+    log_msg "CPU topology and capability permissions verified (0444)."
 }
