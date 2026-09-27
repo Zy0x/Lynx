@@ -147,7 +147,9 @@ write_node "1" "/sys/module/ged/parameters/gx_boost_on"
 write_node "1" "/sys/module/ged/parameters/gx_force_cpu_boost"
 write_node "1" "/sys/module/ged/parameters/gx_game_mode"
 write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
-write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+if grep -q "is enabled" /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null; then
+    write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+fi
 
 # Extract Peak GPU Frequency from OPP Dump
 if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then

@@ -3651,7 +3651,15 @@ case "${'$'}PROFILE" in
             if [ "${'$'}PROFILE" = "extreme" ]; then
                 write_node "${'$'}max_freq" "${'$'}p/scaling_max_freq"
                 write_node "${'$'}max_freq" "${'$'}p/scaling_min_freq"
-                write_node "performance" "${'$'}p/scaling_governor"
+                if [ -d "/proc/ppm" ] || [ -d "/proc/ged" ] || [ -c "/dev/ged" ]; then
+                    write_node "schedutil" "${'$'}p/scaling_governor"
+                    write_node "0" "${'$'}p/schedutil/up_rate_limit_us"
+                    write_node "0" "${'$'}p/schedutil/down_rate_limit_us"
+                    write_node "1" "${'$'}p/schedutil/pl"
+                    write_node "${'$'}max_freq" "${'$'}p/schedutil/hispeed_freq"
+                else
+                    write_node "performance" "${'$'}p/scaling_governor"
+                fi
             else
                 write_node "${'$'}max_freq" "${'$'}p/scaling_max_freq"
                 write_node "schedutil" "${'$'}p/scaling_governor"
@@ -3663,8 +3671,15 @@ case "${'$'}PROFILE" in
                 write_node "${'$'}max_freq" "${'$'}p/schedutil/hispeed_freq"
                 if [ -n "${'$'}max_freq" ] && [ -n "${'$'}min_freq" ]; then
                     floor=${'$'}(( max_freq * 85 / 100 ))
-                    [ "${'$'}floor" -lt "${'$'}min_freq" ] && floor="${'$'}min_freq"
-                    write_node "${'$'}floor" "${'$'}p/scaling_min_freq"
+                    snapped_floor=""
+                    for f in ${'$'}(tr -s ' ' '\n' < "${'$'}p/scaling_available_frequencies" 2>/dev/null | sort -n); do
+                        if [ "${'$'}f" -le "${'$'}floor" ]; then
+                            snapped_floor="${'$'}f"
+                        fi
+                    done
+                    [ -z "${'$'}snapped_floor" ] && snapped_floor="${'$'}floor"
+                    [ "${'$'}snapped_floor" -lt "${'$'}min_freq" ] && snapped_floor="${'$'}min_freq"
+                    write_node "${'$'}snapped_floor" "${'$'}p/scaling_min_freq"
                 fi
             fi
         done
@@ -3785,14 +3800,21 @@ case "${'$'}PROFILE" in
                     write_node "${'$'}peak_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
                     write_node "${'$'}peak_f" "/sys/module/ged/parameters/gpu_bottom_freq"
                     write_node "${'$'}peak_f" "/proc/gpufreq/gpufreq_opp_freq"
-                    write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+                    if [ -n "${'$'}peak_vgpu" ]; then
+                        write_node "${'$'}peak_f ${'$'}peak_vgpu" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+                    fi
                 fi
             fi
             for i in 0 1 2 3 4 5 6 7 8; do
                 write_node "${'$'}i 0 0" "/proc/gpufreq/gpufreq_limit_table"
             done
             write_node "1" "/proc/mali/dvfs_enable"
+            write_node "1" "/proc/mali/always_on"
+            write_node "150 149" "/proc/driver/thermal/clatm_gpu_threshold"
         else
+            if grep -q "is enabled" /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null; then
+                write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+            fi
             write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
             write_node "5" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "1" "/sys/kernel/ged/hal/gpu_boost_level"
@@ -3810,10 +3832,15 @@ case "${'$'}PROFILE" in
                     write_node "${'$'}perf_floor" "/sys/module/ged/parameters/gpu_bottom_freq"
                 fi
             fi
+            write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+            for i in 0 1 2 3 4 5 6 7 8; do
+                write_node "${'$'}i 0 0" "/proc/gpufreq/gpufreq_limit_table"
+            done
+            write_node "1" "/proc/mali/dvfs_enable"
+            write_node "1" "/proc/mali/always_on"
         fi
 
         write_node "1" "/sys/module/ged/parameters/boost_gpu_enable"
-        write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
         write_node "1" "/sys/module/ged/parameters/enable_gpu_boost"
         write_node "1" "/sys/module/ged/parameters/enable_cpu_boost"
         write_node "1" "/sys/module/ged/parameters/gx_game_mode"
@@ -3828,9 +3855,11 @@ case "${'$'}PROFILE" in
         write_node "1" "/sys/module/ged/parameters/ged_monitor_3D_fence_disable"
         if [ "${'$'}PROFILE" = "extreme" ]; then
             write_node "0" "/sys/module/ged/parameters/gpu_idle"
+            write_node "0" "/sys/module/ged/parameters/ged_smart_boost"
             write_node "100" "/sys/module/ged/parameters/boost_upper_bound"
         else
             write_node "1" "/sys/module/ged/parameters/gpu_idle"
+            write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
             write_node "80" "/sys/module/ged/parameters/boost_upper_bound"
         fi
         write_node "1" "/sys/module/ged/parameters/gx_force_cpu_boost"

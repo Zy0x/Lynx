@@ -200,6 +200,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     onToggleExpand = { isExpanded = !isExpanded },
                     onClose = { cleanUpAndStop() },
                     onProfileSelect = { profile ->
+                        telemetryFlow.value = tel.copy(activeProfile = profile)
                         serviceScope.launch {
                             LynxRepository.setProfile(profile)
                         }
@@ -608,10 +609,11 @@ fun FloatingHudContent(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
+                                    .heightIn(min = 34.dp)
                                     .clip(RoundedCornerShape(6.dp))
                                     .background(if (isSel) NeonCyan else Color(0x22FFFFFF))
                                     .clickable { onProfileSelect(key) }
-                                    .padding(vertical = 4.dp),
+                                    .padding(vertical = 7.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(

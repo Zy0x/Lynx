@@ -109,7 +109,7 @@ case "$PROFILE" in
                 if [ -n "$max_freq" ]; then
                     floor=$(( max_freq * 85 / 100 ))
                     snapped_floor=""
-                    for f in $avail_f; do
+                    for f in $(echo "$avail_f" | tr -s ' ' '\n' | sort -n); do
                         if [ "$f" -le "$floor" ]; then
                             snapped_floor="$f"
                         fi
@@ -252,7 +252,9 @@ case "$PROFILE" in
                     write_node "$peak_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
                     write_node "$peak_f" "/sys/module/ged/parameters/gpu_bottom_freq"
                     write_node "$peak_f" "/proc/gpufreq/gpufreq_opp_freq"
-                    write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+                    if [ -n "$peak_vgpu" ]; then
+                        write_node "$peak_f $peak_vgpu" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+                    fi
                 fi
             fi
             for i in 0 1 2 3 4 5 6 7 8; do
@@ -260,8 +262,12 @@ case "$PROFILE" in
             done
             write_node "1" "/proc/mali/dvfs_enable"
             write_node "1" "/proc/mali/always_on"
+            write_node "150 149" "/proc/driver/thermal/clatm_gpu_threshold"
         else
             # Performance: high sustained OPP range
+            if grep -q "is enabled" /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null; then
+                write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+            fi
             write_node "1" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
             write_node "5" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "1" "/sys/kernel/ged/hal/gpu_boost_level"
@@ -279,11 +285,15 @@ case "$PROFILE" in
                     write_node "$perf_floor" "/sys/module/ged/parameters/gpu_bottom_freq"
                 fi
             fi
+            write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+            for i in 0 1 2 3 4 5 6 7 8; do
+                write_node "$i 0 0" "/proc/gpufreq/gpufreq_limit_table"
+            done
             write_node "1" "/proc/mali/dvfs_enable"
+            write_node "1" "/proc/mali/always_on"
         fi
 
         write_node "1" "/sys/module/ged/parameters/boost_gpu_enable"
-        write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
         write_node "1" "/sys/module/ged/parameters/enable_gpu_boost"
         write_node "1" "/sys/module/ged/parameters/enable_cpu_boost"
         write_node "1" "/sys/module/ged/parameters/gx_game_mode"
@@ -298,9 +308,11 @@ case "$PROFILE" in
         write_node "1" "/sys/module/ged/parameters/ged_monitor_3D_fence_disable"
         if [ "$PROFILE" = "extreme" ]; then
             write_node "0" "/sys/module/ged/parameters/gpu_idle"
+            write_node "0" "/sys/module/ged/parameters/ged_smart_boost"
             write_node "100" "/sys/module/ged/parameters/boost_upper_bound"
         else
             write_node "1" "/sys/module/ged/parameters/gpu_idle"
+            write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
             write_node "80" "/sys/module/ged/parameters/boost_upper_bound"
         fi
         write_node "1" "/sys/module/ged/parameters/gx_force_cpu_boost"
@@ -744,6 +756,8 @@ case "$PROFILE" in
         write_node "0" "/proc/mali/always_on"
         write_node "1" "/proc/mali/dvfs_enable"
         write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+        write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+        write_node "2" "/sys/module/ged/parameters/gpu_idle"
         for i in 0 1 2 3 4 5 6 7 8; do
             write_node "$i 1 1" "/proc/gpufreq/gpufreq_limit_table"
         done
