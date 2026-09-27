@@ -43,27 +43,65 @@ is_screen_on() {
     dumpsys power 2>/dev/null | grep -q "mHoldingDisplaySuspendBlocker=true"
 }
 
-# 3. Hybrid Game Detection: Static List + Config JSON + System CATEGORY_GAME
+# 3. Hybrid Game Detection: Static List + Config JSON + Cached System CATEGORY_GAME
+LAST_CHECKED_PKG=""
+LAST_IS_TARGET=1
+
 is_target_app() {
     local pkg="$1"
     [ -z "$pkg" ] && return 1
 
-    # A. Check static list
-    if [ -f "$APPLIST_FILE" ] && grep -Fxq "$pkg" "$APPLIST_FILE"; then
+    # Fast in-memory bypass if app hasn't changed
+    if [ "$pkg" = "$LAST_CHECKED_PKG" ]; then
+        return $LAST_IS_TARGET
+    fi
+
+    LAST_CHECKED_PKG="$pkg"
+
+    # A1. Check per-app profile rules TSV
+    if [ -f "/data/adb/lynx/app_rules.tsv" ]; then
+        rule_target=$(grep "^$pkg|" "/data/adb/lynx/app_rules.tsv" 2>/dev/null | head -n1 | cut -d'|' -f2)
+        if [ -n "$rule_target" ]; then
+            TARGET_APP_MODE="$rule_target"
+            LAST_IS_TARGET=0
+            return 0
+        fi
+    fi
+
+    # A2. Check static game list
+    if [ -f "$APPLIST_FILE" ] && grep -Fxq "$pkg" "$APPLIST_FILE" 2>/dev/null; then
+        TARGET_APP_MODE="performance"
+        LAST_IS_TARGET=0
         return 0
     fi
 
     # B. Check custom apps list in config.json
     if [ -f "$CONFIG_FILE" ] && grep -q "\"$pkg\"" "$CONFIG_FILE" 2>/dev/null; then
+        TARGET_APP_MODE="performance"
+        LAST_IS_TARGET=0
         return 0
     fi
 
-    # C. Dynamic Android Framework Category Inspection
+    # C. Check RAM session cache (/dev/lynx_pkg_cache) to prevent repeated dumpsys overhead
+    local cache_dir="/dev/lynx_pkg_cache"
+    if [ -f "$cache_dir/$pkg" ]; then
+        LAST_IS_TARGET=$(cat "$cache_dir/$pkg" 2>/dev/null || echo 1)
+        [ "$LAST_IS_TARGET" = "0" ] && TARGET_APP_MODE="performance"
+        return $LAST_IS_TARGET
+    fi
+
+    # D. Dynamic Android Framework Category Inspection (Called ONCE per unknown package per boot)
+    mkdir -p "$cache_dir" 2>/dev/null
     if dumpsys package "$pkg" 2>/dev/null | grep -qE "category=0|category=GAME|appCategory=0"; then
+        echo "0" > "$cache_dir/$pkg" 2>/dev/null
+        TARGET_APP_MODE="performance"
+        LAST_IS_TARGET=0
         return 0
+    else
+        echo "1" > "$cache_dir/$pkg" 2>/dev/null
+        LAST_IS_TARGET=1
+        return 1
     fi
-
-    return 1
 }
 
 # 4. Safe Mode Switcher with Atomic Mutex Guard
@@ -76,33 +114,55 @@ switch_mode() {
     fi
     touch "$LOCK_FILE"
 
-    if [ "$target" = "performance" ]; then
-        touch "/dev/lynx_active_game" 2>/dev/null
-        [ -f "$MODDIR/core/lib/lowend_shield.sh" ] && . "$MODDIR/core/lib/lowend_shield.sh" && apply_lowend_shield
-        [ -f "$MODDIR/core/lib/oem_neutralizer.sh" ] && . "$MODDIR/core/lib/oem_neutralizer.sh" && freeze_oem_throttlers
-        [ -f "$MODDIR/core/lib/uclamp.sh" ] && . "$MODDIR/core/lib/uclamp.sh" && apply_uclamp_game
-        [ -f "$MODDIR/core/lib/display_touch.sh" ] && . "$MODDIR/core/lib/display_touch.sh" && apply_display_touch_game
-        [ -f "$MODDIR/core/lib/network.sh" ] && . "$MODDIR/core/lib/network.sh" && apply_network_game
-        [ -f "$MODDIR/core/lib/audio_latency.sh" ] && . "$MODDIR/core/lib/audio_latency.sh" && apply_audio_latency_game
-        [ -f "$MODDIR/core/lib/sched_features.sh" ] && . "$MODDIR/core/lib/sched_features.sh" && apply_sched_lib_game
-        sh "$PLATFORM_DIR/perf.sh" >/dev/null 2>&1
-        CURRENT_MODE="performance"
-        setprop lynx.mode performance
-        am start -a android.intent.action.MAIN -e toasttext "⚡ Lʏɴx: Pᴇʀꜰᴏʀᴍᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+    if [ -f "$MODDIR/core/apply_profile.sh" ]; then
+        sh "$MODDIR/core/apply_profile.sh" "$target" >/dev/null 2>&1
+    elif [ -f "/data/adb/lynx/apply_profile.sh" ]; then
+        sh "/data/adb/lynx/apply_profile.sh" "$target" >/dev/null 2>&1
     else
-        rm -f "/dev/lynx_active_game" 2>/dev/null
-        sh "$PLATFORM_DIR/balance.sh" >/dev/null 2>&1
-        [ -f "$MODDIR/core/lib/sched_features.sh" ] && . "$MODDIR/core/lib/sched_features.sh" && apply_sched_lib_balance
-        [ -f "$MODDIR/core/lib/oem_neutralizer.sh" ] && . "$MODDIR/core/lib/oem_neutralizer.sh" && unfreeze_oem_throttlers
-        [ -f "$MODDIR/core/lib/uclamp.sh" ] && . "$MODDIR/core/lib/uclamp.sh" && apply_uclamp_balance
-        [ -f "$MODDIR/core/lib/display_touch.sh" ] && . "$MODDIR/core/lib/display_touch.sh" && apply_display_touch_balance
-        [ -f "$MODDIR/core/lib/network.sh" ] && . "$MODDIR/core/lib/network.sh" && apply_network_balance
-        [ -f "$MODDIR/core/lib/audio_latency.sh" ] && . "$MODDIR/core/lib/audio_latency.sh" && apply_audio_latency_balance
-        [ -f "$MODDIR/core/lib/lowend_shield.sh" ] && . "$MODDIR/core/lib/lowend_shield.sh" && apply_idle_battery_saver
-        CURRENT_MODE="balance"
-        setprop lynx.mode balance
-        am start -a android.intent.action.MAIN -e toasttext "⚖️ Lʏɴx: Bᴀʟᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+        if [ "$target" = "performance" ] || [ "$target" = "extreme" ]; then
+            [ -f "$MODDIR/core/lib/lowend_shield.sh" ] && . "$MODDIR/core/lib/lowend_shield.sh" && apply_lowend_shield
+            [ -f "$MODDIR/core/lib/oem_neutralizer.sh" ] && . "$MODDIR/core/lib/oem_neutralizer.sh" && freeze_oem_throttlers
+            [ -f "$MODDIR/core/lib/uclamp.sh" ] && . "$MODDIR/core/lib/uclamp.sh" && apply_uclamp_game
+            [ -f "$MODDIR/core/lib/display_touch.sh" ] && . "$MODDIR/core/lib/display_touch.sh" && apply_display_touch_game
+            [ -f "$MODDIR/core/lib/network.sh" ] && . "$MODDIR/core/lib/network.sh" && apply_network_game
+            [ -f "$MODDIR/core/lib/audio_latency.sh" ] && . "$MODDIR/core/lib/audio_latency.sh" && apply_audio_latency_game
+            [ -f "$MODDIR/core/lib/sched_features.sh" ] && . "$MODDIR/core/lib/sched_features.sh" && apply_sched_lib_game
+            sh "$PLATFORM_DIR/perf.sh" "$target" >/dev/null 2>&1
+        elif [ "$target" = "powersave" ]; then
+            sh "$PLATFORM_DIR/powersave.sh" >/dev/null 2>&1
+        else
+            sh "$PLATFORM_DIR/balance.sh" >/dev/null 2>&1
+            [ -f "$MODDIR/core/lib/sched_features.sh" ] && . "$MODDIR/core/lib/sched_features.sh" && apply_sched_lib_balance
+            [ -f "$MODDIR/core/lib/oem_neutralizer.sh" ] && . "$MODDIR/core/lib/oem_neutralizer.sh" && unfreeze_oem_throttlers
+            [ -f "$MODDIR/core/lib/uclamp.sh" ] && . "$MODDIR/core/lib/uclamp.sh" && apply_uclamp_balance
+            [ -f "$MODDIR/core/lib/display_touch.sh" ] && . "$MODDIR/core/lib/display_touch.sh" && apply_display_touch_balance
+            [ -f "$MODDIR/core/lib/network.sh" ] && . "$MODDIR/core/lib/network.sh" && apply_network_balance
+            [ -f "$MODDIR/core/lib/audio_latency.sh" ] && . "$MODDIR/core/lib/audio_latency.sh" && apply_audio_latency_balance
+            [ -f "$MODDIR/core/lib/lowend_shield.sh" ] && . "$MODDIR/core/lib/lowend_shield.sh" && apply_idle_battery_saver
+        fi
     fi
+
+    CURRENT_MODE="$target"
+    setprop lynx.mode "$target"
+
+    case "$target" in
+        extreme)
+            touch "/dev/lynx_active_game" 2>/dev/null
+            am start -a android.intent.action.MAIN -e toasttext "🔥 Lʏɴx: Exᴛʀᴇᴍᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+            ;;
+        performance)
+            touch "/dev/lynx_active_game" 2>/dev/null
+            am start -a android.intent.action.MAIN -e toasttext "⚡ Lʏɴx: Pᴇʀꜰᴏʀᴍᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+            ;;
+        powersave)
+            rm -f "/dev/lynx_active_game" 2>/dev/null
+            am start -a android.intent.action.MAIN -e toasttext "🔋 Lʏɴx: Pᴏᴡᴇʀsᴀᴠᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+            ;;
+        *)
+            rm -f "/dev/lynx_active_game" 2>/dev/null
+            am start -a android.intent.action.MAIN -e toasttext "⚖️ Lʏɴx: Bᴀʟᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+            ;;
+    esac
 
     rm -f "$LOCK_FILE"
 }
@@ -136,9 +196,9 @@ while true; do
     top_app=$(get_top_app)
 
     if is_target_app "$top_app"; then
-        # Instant 0ms trigger into performance
+        # Instant 0ms trigger into target profile
         EXIT_COOLDOWN=$COOLDOWN_BUFFER
-        switch_mode "performance"
+        switch_mode "${TARGET_APP_MODE:-performance}"
     else
         # App is not in target list
         if [ "$EXIT_COOLDOWN" -gt 0 ]; then

@@ -1,0 +1,12 @@
+# Scratch and temporary work
+scratch/
+Emergency_Recovery/
+*.img
+*.log
+.gradle/
+local.properties
+.idea/
+*.pyc
+__pycache__/
+archive/packages/Chimera.zip
+archive/packages/Lynx.zip

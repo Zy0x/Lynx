@@ -17,6 +17,15 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Haptic feedback on profile switches -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Floating Game HUD Overlay -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Per-App Profile Usage Monitoring -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:name=".LynxApp"
@@ -27,7 +36,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LynxDeity"
         android:requestLegacyExternalStorage="true"
-        tools:targetApi="33">
+        tools:targetApi="34">
 
         <activity
             android:name=".ui.MainActivity"
@@ -41,6 +50,68 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".service.LynxFloatingHudService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Realtime floating hardware telemetry overlay for games and benchmarks" />
+        </service>
+
+        <service
+            android:name=".service.LynxAppAutomationService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Monitors foreground apps to dynamically switch kernel performance profiles" />
+        </service>
+
+        <service
+            android:name=".service.LynxProfileTileService"
+            android:exported="true"
+            android:label="Lynx Profile"
+            android:icon="@android:drawable/ic_dialog_info"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".service.LynxHbmTileService"
+            android:exported="true"
+            android:label="Lynx HBM"
+            android:icon="@android:drawable/ic_dialog_info"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".service.LynxHudTileService"
+            android:exported="true"
+            android:label="Lynx HUD"
+            android:icon="@android:drawable/ic_dialog_info"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".receiver.LynxBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

@@ -66,6 +66,17 @@ HW_BYPASS_NODE=$(detect_hw_bypass)
 
 # Daemon Loop for Safety & AutoCut
 while true; do
+    # Check if charger is connected
+    usb_online=$(read_node "$USB_DIR/online")
+    [ -z "$usb_online" ] && usb_online=$(read_node "$PS_DIR/ac/online")
+    batt_status=$(read_node "$BATT_DIR/status")
+    
+    if [ "$usb_online" != "1" ] && [ "$batt_status" != "Charging" ]; then
+        # Device is on battery power; sleep and avoid unnecessary sysfs writes
+        sleep 15
+        continue
+    fi
+
     # Read Temperature (in decicelsius, e.g. 450 = 45.0C)
     temp=$(read_node "$BATT_DIR/temp")
     capacity=$(read_node "$BATT_DIR/capacity")

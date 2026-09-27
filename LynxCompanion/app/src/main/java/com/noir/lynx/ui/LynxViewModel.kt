@@ -50,6 +50,9 @@ class LynxViewModel : ViewModel() {
                 val ksmStats = LynxRepository.readKsmStats()
                 val ioDevices = LynxRepository.readIoDevices()
                 val tcpAlgs = LynxRepository.readAvailableTcpAlgorithms()
+                val currentTcp = LynxRepository.readCurrentTcpCongestion()
+                val vmAdvanced = LynxRepository.readVirtualMemoryAdvancedConfig()
+                val wlBlocker = LynxRepository.readWakelockBlockerInfo()
                 val applistPerf = LynxRepository.readApplistPerf()
                 val installedApps = LynxRepository.readInstalledApps()
                 val wakelocks = LynxRepository.readWakelocks()
@@ -69,12 +72,27 @@ class LynxViewModel : ViewModel() {
                 val batteryDetails = LynxRepository.readBatteryDetails()
                 val topWakelocks = LynxRepository.readTopWakelocks()
                 val cachedTunables = LynxRepository.loadCachedDeepTunables()
+                val appRules = LynxRepository.readAppProfileRules()
+                val isHudRunning = com.noir.lynx.service.LynxFloatingHudService.isRunning
+                val isAutoRunning = LynxRepository.isAppAutomationRunning()
+                val voltageInfo = LynxRepository.readVoltageInfo()
+                val batteryHealthStats = LynxRepository.readBatteryHealth()
+                val displayCalibration = LynxRepository.readDisplayCalibration()
+                val soundControl = LynxRepository.readSoundControl()
+                val memoryEntropy = LynxRepository.readMemoryEntropy()
+                val customScripts = LynxRepository.readCustomScripts()
+                val schedInfo = LynxRepository.readSchedulerInfo()
+
+                val resolvedState = if (currentTcp.isNotBlank()) {
+                    state.copy(network = state.network.copy(tcpCongestion = currentTcp))
+                } else state
+
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         isRootAvailable = true,
                         isModuleInstalled = moduleInstalled,
-                        state = state,
+                        state = resolvedState,
                         clusters = clusters,
                         telemetry = telemetry,
                         backups = backups,
@@ -82,6 +100,10 @@ class LynxViewModel : ViewModel() {
                         ksmStats = ksmStats,
                         ioDevices = ioDevices,
                         availableTcpAlgorithms = tcpAlgs,
+                        currentTcpCongestion = currentTcp,
+                        vmAdvanced = vmAdvanced,
+                        wakelockBlockerInfo = wlBlocker,
+                        schedulerInfo = schedInfo,
                         applistPerf = applistPerf,
                         installedApps = installedApps,
                         installedAppList = installedAppList,
@@ -102,6 +124,15 @@ class LynxViewModel : ViewModel() {
                         cpuCores = cpuCores,
                         batteryDetails = batteryDetails,
                         deepTunables = cachedTunables,
+                        appProfileRules = appRules,
+                        isGameHudActive = isHudRunning,
+                        isAppAutomationActive = isAutoRunning,
+                        voltageInfo = voltageInfo,
+                        batteryHealthStats = batteryHealthStats,
+                        displayCalibration = displayCalibration,
+                        soundControl = soundControl,
+                        memoryEntropy = memoryEntropy,
+                        customScripts = customScripts,
                         lastSyncedAt = System.currentTimeMillis(),
                     )
                 }
@@ -386,7 +417,12 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val algs = LynxRepository.readAvailableTcpAlgorithms()
-                _uiState.update { it.copy(availableTcpAlgorithms = algs) }
+                val current = LynxRepository.readCurrentTcpCongestion()
+                _uiState.update { it.copy(
+                    availableTcpAlgorithms = algs,
+                    currentTcpCongestion = current,
+                    state = if (current.isNotBlank()) it.state.copy(network = it.state.network.copy(tcpCongestion = current)) else it.state
+                ) }
             } catch (_: Exception) {}
         }
     }
@@ -395,13 +431,16 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setTcpCongestion(algorithm)
             if (ok) {
+                val current = LynxRepository.readCurrentTcpCongestion()
+                val effective = if (current.isNotBlank()) current else algorithm
                 _uiState.update { it.copy(
-                    state = it.state.copy(network = it.state.network.copy(tcpCongestion = algorithm)),
-                    successMessage = "TCP: $algorithm diterapkan"
+                    currentTcpCongestion = effective,
+                    state = it.state.copy(network = it.state.network.copy(tcpCongestion = effective)),
+                    successMessage = "TCP: $algorithm berhasil diterapkan"
                 ) }
                 LynxRepository.writeStateKey("network.tcp_congestion", algorithm, "str")
             } else {
-                _uiState.update { it.copy(errorMessage = "Gagal menerapkan TCP $algorithm") }
+                _uiState.update { it.copy(errorMessage = "Gagal menerapkan TCP $algorithm (Kernel menolak)") }
             }
         }
     }
@@ -499,8 +538,44 @@ class LynxViewModel : ViewModel() {
             try {
                 val w = LynxRepository.readWakelocks()
                 val top = LynxRepository.readTopWakelocks()
-                _uiState.update { it.copy(wakelocks = w, topWakelocks = top, successMessage = "Wakelock kernel diperbarui (${top.size} sumber)") }
+                val blocker = LynxRepository.readWakelockBlockerInfo()
+                _uiState.update { it.copy(
+                    wakelocks = w,
+                    topWakelocks = top,
+                    wakelockBlockerInfo = blocker,
+                    successMessage = "Wakelock kernel diperbarui (${top.size} sumber)"
+                ) }
             } catch (_: Exception) {}
+        }
+    }
+
+    fun toggleWakelockBlocked(name: String, blocked: Boolean) {
+        viewModelScope.launch {
+            val ok = LynxRepository.setWakelockBlocked(name, blocked)
+            if (ok) {
+                val blocker = LynxRepository.readWakelockBlockerInfo()
+                _uiState.update { it.copy(
+                    wakelockBlockerInfo = blocker,
+                    successMessage = if (blocked) "Wakelock '$name' diblokir" else "Wakelock '$name' dibuka"
+                ) }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah blokir wakelock (Driver Boeffla tidak tersedia di kernel ini)") }
+            }
+        }
+    }
+
+    fun toggleAggressiveDoze(enabled: Boolean) {
+        viewModelScope.launch {
+            val ok = LynxRepository.toggleAggressiveDoze(enabled)
+            if (ok) {
+                val blocker = LynxRepository.readWakelockBlockerInfo()
+                _uiState.update { it.copy(
+                    wakelockBlockerInfo = blocker.copy(aggressiveDozeEnabled = enabled),
+                    successMessage = if (enabled) "Aggressive Doze: Paksa Idle aktif" else "Aggressive Doze: Standar"
+                ) }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengatur status Doze sistem") }
+            }
         }
     }
 
@@ -742,7 +817,23 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setDirtyRatio(ratio)
             if (ok) {
-                _uiState.update { it.copy(dirtyRatio = ratio, successMessage = "VM Dirty Ratio diatur ke $ratio%") }
+                _uiState.update { it.copy(
+                    dirtyRatio = ratio,
+                    vmAdvanced = it.vmAdvanced.copy(dirtyRatio = ratio, activePreset = "custom"),
+                    successMessage = "VM Dirty Ratio diatur ke $ratio%"
+                ) }
+            }
+        }
+    }
+
+    fun setDirtyBackgroundRatio(ratio: Int) {
+        viewModelScope.launch {
+            val ok = LynxRepository.setDirtyBackgroundRatio(ratio)
+            if (ok) {
+                _uiState.update { it.copy(
+                    vmAdvanced = it.vmAdvanced.copy(dirtyBackgroundRatio = ratio, activePreset = "custom"),
+                    successMessage = "VM Dirty Background: $ratio%"
+                ) }
             }
         }
     }
@@ -751,7 +842,95 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setVfsCachePressure(pressure)
             if (ok) {
-                _uiState.update { it.copy(vfsCachePressure = pressure, successMessage = "VFS Cache Pressure diatur ke $pressure") }
+                _uiState.update { it.copy(
+                    vfsCachePressure = pressure,
+                    vmAdvanced = it.vmAdvanced.copy(vfsCachePressure = pressure, activePreset = "custom"),
+                    successMessage = "VFS Cache Pressure diatur ke $pressure"
+                ) }
+            }
+        }
+    }
+
+    fun setDirtyExpireCentisecs(cs: Int) {
+        viewModelScope.launch {
+            val ok = LynxRepository.setDirtyExpireCentisecs(cs)
+            if (ok) {
+                _uiState.update { it.copy(
+                    vmAdvanced = it.vmAdvanced.copy(dirtyExpireCentisecs = cs, activePreset = "custom"),
+                    successMessage = "VM Expire Time: ${cs / 100}s"
+                ) }
+            }
+        }
+    }
+
+    fun setDirtyWritebackCentisecs(cs: Int) {
+        viewModelScope.launch {
+            val ok = LynxRepository.setDirtyWritebackCentisecs(cs)
+            if (ok) {
+                _uiState.update { it.copy(
+                    vmAdvanced = it.vmAdvanced.copy(dirtyWritebackCentisecs = cs, activePreset = "custom"),
+                    successMessage = "VM Writeback Interval: ${cs / 100}s"
+                ) }
+            }
+        }
+    }
+
+    fun setVmStatInterval(interval: Int) {
+        viewModelScope.launch {
+            val ok = LynxRepository.setVmStatInterval(interval)
+            if (ok) {
+                _uiState.update { it.copy(
+                    vmAdvanced = it.vmAdvanced.copy(statInterval = interval, activePreset = "custom"),
+                    successMessage = "VM Stat Interval: ${interval}s"
+                ) }
+            }
+        }
+    }
+
+    fun applyVmPreset(preset: String) {
+        viewModelScope.launch {
+            val ok = LynxRepository.applyVmPreset(preset)
+            if (ok) {
+                val freshVm = LynxRepository.readVirtualMemoryAdvancedConfig()
+                _uiState.update { it.copy(
+                    vmAdvanced = freshVm,
+                    dirtyRatio = freshVm.dirtyRatio,
+                    vfsCachePressure = freshVm.vfsCachePressure,
+                    successMessage = "Preset VM '$preset' berhasil diterapkan"
+                ) }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset VM '$preset'") }
+            }
+        }
+    }
+
+    fun refreshSchedulerInfo() {
+        viewModelScope.launch {
+            val sched = LynxRepository.readSchedulerInfo()
+            _uiState.update { it.copy(schedulerInfo = sched) }
+        }
+    }
+
+    fun setSchedulerTunable(tunable: String, value: Long) {
+        viewModelScope.launch {
+            val ok = LynxRepository.setSchedulerTunable(tunable, value)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo()
+                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Parameter $tunable diperbarui") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal memperbarui $tunable") }
+            }
+        }
+    }
+
+    fun applySchedulerPreset(preset: String) {
+        viewModelScope.launch {
+            val ok = LynxRepository.applySchedulerPreset(preset)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo()
+                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Preset Penjadwal '$preset' berhasil diterapkan") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset penjadwal '$preset'") }
             }
         }
     }
@@ -914,9 +1093,258 @@ class LynxViewModel : ViewModel() {
     }
 
     // ----------------------------------------------------------------
-    //  Lifecycle
+    //  Per-App Profiles & Floating Game HUD Controls
     // ----------------------------------------------------------------
 
+    fun toggleGameHud(context: android.content.Context, enable: Boolean) {
+        viewModelScope.launch {
+            if (enable) {
+                LynxRepository.grantOverlayPermission()
+                val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
+                    action = com.noir.lynx.service.LynxFloatingHudService.ACTION_START
+                }
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+                _uiState.update { it.copy(isGameHudActive = true, successMessage = "🎮 Floating Game HUD Diaktifkan!") }
+            } else {
+                val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
+                    action = com.noir.lynx.service.LynxFloatingHudService.ACTION_STOP
+                }
+                context.stopService(intent)
+                _uiState.update { it.copy(isGameHudActive = false, successMessage = "Floating Game HUD Dinonaktifkan") }
+            }
+        }
+    }
+
+    fun toggleAppAutomation(context: android.content.Context, enable: Boolean) {
+        viewModelScope.launch {
+            if (enable) {
+                val ok = LynxRepository.startAppAutomation(context)
+                _uiState.update { it.copy(isAppAutomationActive = true, successMessage = "⚡ Otomasi Profil Per-App Diaktifkan!") }
+            } else {
+                val ok = LynxRepository.stopAppAutomation(context)
+                _uiState.update { it.copy(isAppAutomationActive = false, successMessage = "Otomasi Profil Dinonaktifkan") }
+            }
+        }
+    }
+
+    fun addOrUpdateAppProfileRule(context: android.content.Context, rule: com.noir.lynx.data.AppProfileRule) {
+        viewModelScope.launch {
+            val ok = LynxRepository.saveAppProfileRule(rule)
+            if (ok) {
+                val updated = LynxRepository.readAppProfileRules()
+                _uiState.update { it.copy(appProfileRules = updated, successMessage = "Aturan profil untuk ${rule.appName} disimpan!") }
+                if (_uiState.value.isAppAutomationActive) {
+                    val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
+                        action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
+                    }
+                    context.startService(intent)
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menyimpan aturan aplikasi") }
+            }
+        }
+    }
+
+    fun deleteAppProfileRule(context: android.content.Context, packageName: String) {
+        viewModelScope.launch {
+            val ok = LynxRepository.deleteAppProfileRule(packageName)
+            if (ok) {
+                val updated = LynxRepository.readAppProfileRules()
+                _uiState.update { it.copy(appProfileRules = updated, successMessage = "Aturan aplikasi dihapus") }
+                if (_uiState.value.isAppAutomationActive) {
+                    val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
+                        action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
+                    }
+                    context.startService(intent)
+                }
+            }
+        }
+    }
+
+    fun toggleAppProfileRule(context: android.content.Context, packageName: String, enabled: Boolean) {
+        viewModelScope.launch {
+            val ok = LynxRepository.toggleAppProfileRule(packageName, enabled)
+            if (ok) {
+                val updated = LynxRepository.readAppProfileRules()
+                _uiState.update { it.copy(appProfileRules = updated) }
+                if (_uiState.value.isAppAutomationActive) {
+                    val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
+                        action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
+                    }
+                    context.startService(intent)
+                }
+            }
+        }
+    }
+
+    // ============================================================
+    //  FKM ADVANCED SUBSYSTEMS ACTIONS
+    // ============================================================
+
+    fun applyVoltageOffset(offsetMv: Int) {
+        viewModelScope.launch {
+            if (!_uiState.value.voltageInfo.isSupported) {
+                _uiState.update { it.copy(errorMessage = "Tegangan terkunci: Driver undervolt tidak didukung oleh kernel ini") }
+                return@launch
+            }
+            val ok = LynxRepository.applyVoltageOffset(offsetMv)
+            if (ok) {
+                val updated = LynxRepository.readVoltageInfo()
+                _uiState.update { it.copy(voltageInfo = updated.copy(globalOffsetMv = offsetMv), successMessage = "Offset voltase ${offsetMv}mV diaplikasikan") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menerapkan offset voltase") }
+            }
+        }
+    }
+
+    fun refreshBatteryHealth() {
+        viewModelScope.launch {
+            val stats = LynxRepository.readBatteryHealth()
+            _uiState.update { it.copy(batteryHealthStats = stats) }
+        }
+    }
+
+    fun setKcalParams(enabled: Boolean, r: Int, g: Int, b: Int, sat: Int, v: Int, cont: Int, hue: Int) {
+        viewModelScope.launch {
+            if (!_uiState.value.displayCalibration.isKcalSupported) {
+                _uiState.update { it.copy(errorMessage = "KCAL tidak didukung oleh kernel perangkat ini") }
+                return@launch
+            }
+            val ok = LynxRepository.setKcalParams(enabled, r, g, b, sat, v, cont, hue)
+            if (ok) {
+                val updated = LynxRepository.readDisplayCalibration()
+                _uiState.update { it.copy(displayCalibration = updated, successMessage = "Kalibrasi KCAL diperbarui") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menerapkan parameter KCAL") }
+            }
+        }
+    }
+
+    fun setHbmEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            if (!_uiState.value.displayCalibration.isHbmSupported) {
+                _uiState.update { it.copy(errorMessage = "HBM tidak didukung oleh panel display perangkat ini") }
+                return@launch
+            }
+            val ok = LynxRepository.setHbmEnabled(enabled)
+            if (ok) {
+                val updated = LynxRepository.readDisplayCalibration()
+                _uiState.update { it.copy(displayCalibration = updated, successMessage = if (enabled) "HBM Outdoor Aktif" else "HBM Dimatikan") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah status HBM") }
+            }
+        }
+    }
+
+    fun setSoundGain(hpL: Int, hpR: Int, spk: Int, mic: Int, highPerf: Boolean) {
+        viewModelScope.launch {
+            if (!_uiState.value.soundControl.isSupported) {
+                _uiState.update { it.copy(errorMessage = "Sound Control tidak didukung oleh kernel perangkat ini") }
+                return@launch
+            }
+            val ok = LynxRepository.setSoundGain(hpL, hpR, spk, mic, highPerf)
+            if (ok) {
+                val updated = LynxRepository.readSoundControl()
+                _uiState.update { it.copy(soundControl = updated, successMessage = "Gain audio diperbarui") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menerapkan gain audio") }
+            }
+        }
+    }
+
+    fun setEntropyThresholds(readThresh: Int, writeThresh: Int) {
+        viewModelScope.launch {
+            val ok = LynxRepository.setEntropyThresholds(readThresh, writeThresh)
+            if (ok) {
+                val updated = LynxRepository.readMemoryEntropy()
+                _uiState.update { it.copy(memoryEntropy = updated, successMessage = "Threshold entropi disimpan ($readThresh / $writeThresh)") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah threshold entropi") }
+            }
+        }
+    }
+
+    fun saveCustomScript(item: com.noir.lynx.data.CustomScriptItem) {
+        viewModelScope.launch {
+            val current = _uiState.value.customScripts.toMutableList()
+            val idx = current.indexOfFirst { it.id == item.id }
+            if (idx >= 0) {
+                current[idx] = item
+            } else {
+                current.add(item)
+            }
+            val ok = LynxRepository.saveCustomScripts(current)
+            if (ok) {
+                _uiState.update { it.copy(customScripts = current, successMessage = "Skrip '${item.name}' disimpan") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menyimpan skrip") }
+            }
+        }
+    }
+
+    fun deleteCustomScript(id: String) {
+        viewModelScope.launch {
+            val current = _uiState.value.customScripts.filter { it.id != id }
+            val ok = LynxRepository.saveCustomScripts(current)
+            if (ok) {
+                _uiState.update { it.copy(customScripts = current, successMessage = "Skrip dihapus") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menghapus skrip") }
+            }
+        }
+    }
+
+    fun executeCustomScript(item: com.noir.lynx.data.CustomScriptItem) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(successMessage = "Mengeksekusi '${item.name}'...") }
+            val result = LynxRepository.executeCustomScript(item)
+            val current = _uiState.value.customScripts.toMutableList()
+            val idx = current.indexOfFirst { it.id == item.id }
+            if (idx >= 0) {
+                current[idx] = result
+                LynxRepository.saveCustomScripts(current)
+                _uiState.update { it.copy(customScripts = current, successMessage = "Eksekusi selesai (Exit: ${result.lastExitCode})") }
+            }
+        }
+    }
+
+    fun loadDmesgLog(filter: String = "") {
+        viewModelScope.launch {
+            _uiState.update { it.copy(dmesgState = it.dmesgState.copy(isLoading = true, filter = filter)) }
+            val logs = LynxRepository.readDmesgLog(limit = 300, filter = filter)
+            _uiState.update { it.copy(dmesgState = it.dmesgState.copy(isLoading = false, logs = logs, filter = filter)) }
+        }
+    }
+
+    fun exportDmesgLog() {
+        viewModelScope.launch {
+            val path = LynxRepository.exportDmesgToFile()
+            if (path != null) {
+                _uiState.update { it.copy(dmesgState = it.dmesgState.copy(exportPath = path), successMessage = "Dmesg diekspor ke $path") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengekspor dmesg ke penyimpanan") }
+            }
+        }
+    }
+
+    fun resetKernelToStock() {
+        viewModelScope.launch {
+            val msg = LynxRepository.resetKernelToStock()
+            _uiState.update { it.copy(successMessage = msg) }
+            refreshState()
+            refreshClusters()
+            refreshGpuInfo()
+            refreshBatteryHealth()
+        }
+    }
+
+    // ----------------------------------------------------------------
+    //  Lifecycle
+    // ----------------------------------------------------------------
 
     override fun onCleared() {
         super.onCleared()

@@ -386,7 +386,15 @@
             <!-- Virtual Memory & Cache Tuners -->
             <div class="card">
                 <div class="card-title">🧹 VM Cache & Memory Tuner</div>
-                <button class="btn btn-primary" onclick="dropCaches()" style="margin-bottom: 12px; border-color: var(--accent-green); color: var(--accent-green);">
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                    Konfigurasi manajemen swap, flush dirty page ke storage, dan agresivitas reclaim cache kernel.
+                </div>
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <button class="btn btn-primary" onclick="applyWebVmPreset('gaming')" id="btn-vm-gaming" style="flex:1;">⚡ Gaming</button>
+                    <button class="btn btn-primary" onclick="applyWebVmPreset('balanced')" id="btn-vm-balanced" style="flex:1;">⚖️ Balanced</button>
+                    <button class="btn btn-primary" onclick="applyWebVmPreset('battery')" id="btn-vm-battery" style="flex:1;">🔋 Battery</button>
+                </div>
+                <button class="btn btn-primary" onclick="dropCaches()" style="margin-bottom: 14px; border-color: var(--accent-green); color: var(--accent-green);">
                     🧹 Bebaskan Cache RAM (Drop Caches)
                 </button>
                 <div class="control-group">
@@ -394,18 +402,63 @@
                         <span>VM Dirty Ratio (Batas Dirty RAM Flush)</span>
                         <strong id="dirty-ratio-val">20%</strong>
                     </div>
-                    <input type="range" id="dirty-ratio-slider" min="5" max="50" step="5" value="20"
+                    <input type="range" id="dirty-ratio-slider" min="5" max="50" step="1" value="20"
                            oninput="document.getElementById('dirty-ratio-val').textContent = this.value + '%'"
-                           onchange="setDirtyRatio(parseInt(this.value))">
+                           onchange="setWebVmTunable('dirty_ratio', parseInt(this.value))">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>VM Dirty Background Ratio (Flush Latar Belakang)</span>
+                        <strong id="dirty-bg-ratio-val">5%</strong>
+                    </div>
+                    <input type="range" id="dirty-bg-ratio-slider" min="1" max="25" step="1" value="5"
+                           oninput="document.getElementById('dirty-bg-ratio-val').textContent = this.value + '%'"
+                           onchange="setWebVmTunable('dirty_background_ratio', parseInt(this.value))">
                 </div>
                 <div class="control-group">
                     <div class="control-label">
                         <span>VFS Cache Pressure (Reclaim Inode/Dentry)</span>
                         <strong id="vfs-pressure-val">100</strong>
                     </div>
-                    <input type="range" id="vfs-pressure-slider" min="50" max="200" step="10" value="100"
+                    <input type="range" id="vfs-pressure-slider" min="10" max="200" step="5" value="100"
                            oninput="document.getElementById('vfs-pressure-val').textContent = this.value"
-                           onchange="setVfsPressure(parseInt(this.value))">
+                           onchange="setWebVmTunable('vfs_cache_pressure', parseInt(this.value))">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Swappiness (Agresivitas Paging ZRAM)</span>
+                        <strong id="swappiness-val">100</strong>
+                    </div>
+                    <input type="range" id="swappiness-slider" min="0" max="100" step="5" value="100"
+                           oninput="document.getElementById('swappiness-val').textContent = this.value"
+                           onchange="setWebVmTunable('swappiness', parseInt(this.value))">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Dirty Expire Time (Masa Hidup Dirty Page)</span>
+                        <strong id="dirty-expire-val">30s</strong>
+                    </div>
+                    <input type="range" id="dirty-expire-slider" min="500" max="6000" step="500" value="3000"
+                           oninput="document.getElementById('dirty-expire-val').textContent = (parseInt(this.value)/100) + 's'"
+                           onchange="setWebVmTunable('dirty_expire_centisecs', parseInt(this.value))">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Dirty Writeback Interval (Frekuensi Flusher)</span>
+                        <strong id="dirty-wb-val">5s</strong>
+                    </div>
+                    <input type="range" id="dirty-wb-slider" min="100" max="3000" step="100" value="500"
+                           oninput="document.getElementById('dirty-wb-val').textContent = (parseInt(this.value)/100) + 's'"
+                           onchange="setWebVmTunable('dirty_writeback_centisecs', parseInt(this.value))">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>VM Stat Interval (Periode Update Statistik)</span>
+                        <strong id="stat-interval-val">1s</strong>
+                    </div>
+                    <input type="range" id="stat-interval-slider" min="1" max="30" step="1" value="1"
+                           oninput="document.getElementById('stat-interval-val').textContent = this.value + 's'"
+                           onchange="setWebVmTunable('stat_interval', parseInt(this.value))">
                 </div>
             </div>
 
@@ -413,13 +466,10 @@
             <div class="card">
                 <div class="card-title">🌐 TCP Congestion Control</div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
-                    Algoritma TCP aktif mempengaruhi throughput, latensi, dan stabilitas game online.
+                    Algoritma TCP aktif mempengaruhi throughput, latensi, dan stabilitas koneksi game online.
                 </div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="tcp-container">
-                    <button class="btn btn-primary" onclick="setTcpCongestion('bbr')" id="tcp-bbr" style="flex:1;">BBR</button>
-                    <button class="btn btn-primary" onclick="setTcpCongestion('cubic')" id="tcp-cubic" style="flex:1;">CUBIC</button>
-                    <button class="btn btn-primary" onclick="setTcpCongestion('westwood')" id="tcp-westwood" style="flex:1;">Westwood</button>
-                    <button class="btn btn-primary" onclick="setTcpCongestion('reno')" id="tcp-reno" style="flex:1;">Reno</button>
+                    <div style="font-size: 11px; color: var(--text-muted);">Memuat algoritma TCP dari kernel...</div>
                 </div>
             </div>
 
@@ -489,11 +539,25 @@
                 </div>
             </div>
 
-            <!-- Wake Guard — Wakelock Telemetry -->
+            <!-- Wake Guard — Wakelock Telemetry & Deep Sleep -->
             <div class="card" id="card-wakeguard">
-                <div class="card-title">🛡️ Wake Guard — Monitor Wakelock (Real-Time)</div>
-                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                <div class="card-title">🛡️ Wake Guard — Wakelock & Deep Sleep</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
                     Pantau driver kernel dan proses yang menahan CPU agar tidak masuk deep sleep.
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 8px 12px; background: var(--bg-elevated); border: 1px solid var(--border-glass); border-radius: 8px;">
+                    <span style="font-size: 12px; color: var(--text-primary); font-weight: 600;">Driver Boeffla Wakelock Blocker</span>
+                    <span id="boeffla-status-badge" style="font-size: 10px; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: var(--text-muted); font-weight: 700;">MEMERIKSA...</span>
+                </div>
+                <div class="switch-row" style="margin-bottom: 12px;">
+                    <div>
+                        <div class="switch-label">Aggressive Doze (Paksa Deep Sleep)</div>
+                        <div style="font-size: 10.5px; color: var(--text-secondary);">Paksa mode idle saat layar mati untuk memotong konsumsi baterai standby</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="doze-toggle" onchange="toggleWebAggressiveDoze(this.checked)">
+                        <span class="slider"></span>
+                    </label>
                 </div>
                 <button class="btn btn-primary" onclick="pollWebWakelocks()" style="margin-bottom: 10px; font-size: 12px; padding: 6px 12px; border-color: var(--accent-cyan); color: var(--accent-cyan);">
                     🔄 Pindai Wakelock Aktif

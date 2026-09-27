@@ -28,11 +28,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
+import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.data.DeepTunable
 import com.noir.lynx.data.TunableType
 import com.noir.lynx.data.TunableOption
+import com.noir.lynx.data.AppProfileRule
+
 
 /**
  * MainActivity — Lynx Kernel Manager Native App.
@@ -238,6 +246,46 @@ fun ErrorScreen(uiState: LynxUiState) {
 }
 
 // ============================================================
+//  App Icon Loader Composable
+// ============================================================
+
+@Composable
+fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val bitmapState = remember(packageName) {
+        try {
+            val pm = context.packageManager
+            val drawable = pm.getApplicationIcon(packageName)
+            val bmp = Bitmap.createBitmap(
+                drawable.intrinsicWidth.coerceAtLeast(1),
+                drawable.intrinsicHeight.coerceAtLeast(1),
+                Bitmap.Config.ARGB_8888
+            )
+            val canvas = Canvas(bmp)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            bmp.asImageBitmap()
+        } catch (_: Exception) {
+            null
+        }
+    }
+    if (bitmapState != null) {
+        Image(
+            bitmap = bitmapState,
+            contentDescription = null,
+            modifier = modifier
+        )
+    } else {
+        Icon(
+            Icons.Default.Android,
+            contentDescription = null,
+            tint = AccentCyan,
+            modifier = modifier
+        )
+    }
+}
+
+// ============================================================
 //  Main Dashboard — 4-Tab Luxury Material 3 Navigation
 // ============================================================
 
@@ -248,12 +296,16 @@ fun MainDashboard(
     onExtremeConfirmRequired: () -> Unit,
 ) {
     val state = uiState.state
+    val context = LocalContext.current
     val scrollState = rememberScrollState()
     LaunchedEffect(uiState.currentTab) {
         scrollState.scrollTo(0)
     }
     var showAddAppDialog by remember { mutableStateOf(false) }
+    var editingRule by remember { mutableStateOf<AppProfileRule?>(null) }
+    var addAppFilter by remember { mutableStateOf("ALL") }
     var customPkgText by remember { mutableStateOf("") }
+    var selectedTargetProfile by remember { mutableStateOf("performance") }
 
     val currentAccent = when (uiState.selectedAccent) {
         "blue" -> AccentBlue
@@ -264,24 +316,205 @@ fun MainDashboard(
         else -> AccentCyan
     }
 
+    // ── Dialog Edit Rule Profil Aplikasi ───────────────────────
+    if (editingRule != null) {
+        val rule = editingRule!!
+        var targetProf by remember(rule) { mutableStateOf(rule.targetProfile) }
+        var targetHz by remember(rule) { mutableStateOf(rule.targetRefreshRate) }
+        var autoHud by remember(rule) { mutableStateOf(rule.autoFloatingHud) }
+        var isRuleEnabled by remember(rule) { mutableStateOf(rule.enabled) }
+
+        AlertDialog(
+            onDismissRequest = { editingRule = null },
+            containerColor = BgCard,
+            titleContentColor = TextPrimary,
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    AppIconImage(
+                        packageName = rule.packageName,
+                        modifier = Modifier.size(38.dp).clip(RoundedCornerShape(8.dp))
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(rule.appName, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = TextPrimary)
+                        Text(rule.packageName, fontSize = 10.sp, color = TextSecondary, maxLines = 1)
+                    }
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Status Aturan Toggle
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Status Otomasi Aplikasi", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("Aktifkan profil kustom untuk aplikasi ini", color = TextSecondary, fontSize = 10.5.sp)
+                        }
+                        Switch(
+                            checked = isRuleEnabled,
+                            onCheckedChange = { isRuleEnabled = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = BgDeepOled,
+                                checkedTrackColor = AccentGreen
+                            ),
+                            modifier = Modifier.scale(0.85f)
+                        )
+                    }
+
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f))
+
+                    // Target Profil Kernel
+                    Column {
+                        Text("Profil Performa Kernel", color = AccentCyan, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                        Text("Pilih profil CPU/GPU saat aplikasi berada di foreground", color = TextSecondary, fontSize = 10.sp)
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                "extreme" to ("Extreme" to AccentRed),
+                                "performance" to ("Performa" to AccentOrange),
+                                "balance" to ("Balance" to AccentBlue),
+                                "powersave" to ("Hemat" to AccentGreen),
+                            ).forEach { (prof, meta) ->
+                                val isSel = targetProf.equals(prof, ignoreCase = true)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) meta.second.copy(alpha = 0.22f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSel) meta.second else BorderGlass),
+                                    modifier = Modifier.weight(1f).clickable { targetProf = prof }
+                                ) {
+                                    Box(Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = meta.first,
+                                            color = if (isSel) meta.second else TextSecondary,
+                                            fontSize = 10.sp,
+                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Target Display Refresh Rate
+                    Column {
+                        Text("Kunci Refresh Rate Layar", color = AccentPurple, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                        Text("Paksa refresh rate panel saat aplikasi berjalan di layar", color = TextSecondary, fontSize = 10.sp)
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                null to "Bawaan",
+                                60 to "60 Hz",
+                                90 to "90 Hz",
+                                120 to "120 Hz"
+                            ).forEach { (hz, label) ->
+                                val isSel = targetHz == hz
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) AccentPurple.copy(alpha = 0.22f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSel) AccentPurple else BorderGlass),
+                                    modifier = Modifier.weight(1f).clickable { targetHz = hz }
+                                ) {
+                                    Box(Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = label,
+                                            color = if (isSel) AccentPurple else TextSecondary,
+                                            fontSize = 10.sp,
+                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Auto Floating HUD Toggle
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Floating Game HUD (OSD)", color = AccentCyan, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("Buka overlay FPS & watt otomatis saat aplikasi dibuka", color = TextSecondary, fontSize = 10.sp)
+                        }
+                        Switch(
+                            checked = autoHud,
+                            onCheckedChange = { autoHud = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = BgDeepOled,
+                                checkedTrackColor = AccentCyan
+                            ),
+                            modifier = Modifier.scale(0.85f)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val updated = rule.copy(
+                        targetProfile = targetProf,
+                        targetRefreshRate = targetHz,
+                        autoFloatingHud = autoHud,
+                        enabled = isRuleEnabled
+                    )
+                    viewModel.addOrUpdateAppProfileRule(context, updated)
+                    editingRule = null
+                }) {
+                    Text("Simpan", color = AccentGreen, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.deleteAppProfileRule(context, rule.packageName)
+                    viewModel.removeAppFromPerf(rule.packageName)
+                    editingRule = null
+                }) {
+                    Text("Hapus Aturan", color = AccentRed)
+                }
+            }
+        )
+    }
+
+    // ── Dialog Tambah Aturan Profil Aplikasi ───────────────────
     if (showAddAppDialog) {
         AlertDialog(
             onDismissRequest = { showAddAppDialog = false },
             containerColor = BgCard,
             titleContentColor = TextPrimary,
-            title = { Text("Tambah Game / App ke Game Mode") },
+            title = {
+                Text("Pilih Aplikasi / Game", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            },
             text = {
-                Column(Modifier.fillMaxWidth().heightIn(max = 350.dp)) {
-                    Text(
-                        "Pilih dari aplikasi terpasang atau ketik nama package:",
-                        color = TextSecondary, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                Column(Modifier.fillMaxWidth().heightIn(max = 460.dp)) {
+                    // Search text field
                     OutlinedTextField(
                         value = customPkgText,
                         onValueChange = { customPkgText = it },
-                        placeholder = { Text("Cari judul game atau ketik package...", color = TextSecondary, fontSize = 12.sp) },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                        placeholder = { Text("Cari nama atau package...", color = TextSecondary, fontSize = 11.5.sp) },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                         singleLine = true,
+                        trailingIcon = {
+                            if (customPkgText.isNotBlank()) {
+                                IconButton(onClick = { customPkgText = "" }) {
+                                    Icon(Icons.Default.Clear, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AccentCyan,
                             unfocusedBorderColor = BorderGlass,
@@ -289,50 +522,156 @@ fun MainDashboard(
                             unfocusedTextColor = TextPrimary,
                         )
                     )
-                    Text("Aplikasi Terpasang:", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 4.dp))
-                    val q = customPkgText.trim().lowercase()
-                    val apps = if (q.isBlank()) {
-                        uiState.installedAppList
-                    } else {
-                        uiState.installedAppList.filter {
-                            it.label.lowercase().contains(q) || it.packageName.lowercase().contains(q)
+
+                    // Filter category chips (Semua, Game, Belum Dikonfigurasi)
+                    val allApps = uiState.installedAppList
+                    val configuredPkgs = remember(uiState.appProfileRules) {
+                        uiState.appProfileRules.map { it.packageName }.toSet()
+                    }
+                    val gameCount = remember(allApps) { allApps.count { it.isGame } }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            Triple("ALL", "Semua (${allApps.size})", AccentCyan),
+                            Triple("GAME", "🎮 Game ($gameCount)", AccentOrange),
+                            Triple("UNCONFIGURED", "⚡ Belum Dikonfigurasi", AccentGreen),
+                        ).forEach { (key, label, accent) ->
+                            val isSel = addAppFilter == key
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSel) accent.copy(alpha = 0.22f) else BgElevated,
+                                border = BorderStroke(1.dp, if (isSel) accent else BorderGlass),
+                                modifier = Modifier.weight(1f).clickable { addAppFilter = key }
+                            ) {
+                                Box(Modifier.padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSel) accent else TextSecondary,
+                                        fontSize = 9.5.sp,
+                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
                         }
                     }
-                    if (apps.isEmpty() && uiState.installedAppList.isEmpty()) {
-                        Text("Memuat daftar aplikasi...", color = TextSecondary, fontSize = 11.sp)
-                    } else if (apps.isEmpty()) {
-                        Text("Tidak ada aplikasi yang cocok dengan '$customPkgText'", color = TextSecondary, fontSize = 11.sp)
+
+                    val q = customPkgText.trim().lowercase()
+                    val filteredApps = remember(allApps, q, addAppFilter, configuredPkgs) {
+                        allApps.filter { app ->
+                            val matchQuery = q.isBlank() || app.label.lowercase().contains(q) || app.packageName.lowercase().contains(q)
+                            val matchCat = when (addAppFilter) {
+                                "GAME" -> app.isGame
+                                "UNCONFIGURED" -> !configuredPkgs.contains(app.packageName)
+                                else -> true
+                            }
+                            matchQuery && matchCat
+                        }
+                    }
+
+                    if (filteredApps.isEmpty() && allApps.isEmpty()) {
+                        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                            Text("Memuat daftar aplikasi...", color = TextSecondary, fontSize = 11.5.sp)
+                        }
+                    } else if (filteredApps.isEmpty()) {
+                        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                            Text("Tidak ada aplikasi yang cocok.", color = TextSecondary, fontSize = 11.5.sp)
+                        }
                     } else {
-                        LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-                            items(apps.size) { i ->
-                                val app = apps[i]
-                                val isAdded = uiState.applistPerf.contains(app.packageName)
-                                Row(
-                                    Modifier.fillMaxWidth().clickable {
-                                        if (!isAdded) {
-                                            viewModel.addAppToPerf(app.packageName)
-                                            showAddAppDialog = false
+                        LazyColumn(
+                            Modifier.fillMaxWidth().weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(filteredApps.size) { i ->
+                                val app = filteredApps[i]
+                                val existingRule = uiState.appProfileRules.find { it.packageName == app.packageName }
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = BgElevated,
+                                    border = BorderStroke(1.dp, if (existingRule != null) AccentCyan.copy(alpha = 0.4f) else BorderGlass),
+                                    modifier = Modifier.fillMaxWidth().clickable {
+                                        if (existingRule != null) {
+                                            editingRule = existingRule
+                                        } else {
+                                            val newRule = AppProfileRule(
+                                                packageName = app.packageName,
+                                                appName = app.label,
+                                                targetProfile = if (app.isGame) "extreme" else selectedTargetProfile,
+                                                enabled = true,
+                                                targetRefreshRate = if (app.isGame) 120 else null,
+                                                autoFloatingHud = app.isGame,
+                                                isGame = app.isGame
+                                            )
+                                            editingRule = newRule
                                         }
-                                    }.padding(vertical = 7.dp, horizontal = 4.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            app.label,
-                                            color = if (isAdded) TextSecondary else TextPrimary,
-                                            fontSize = 12.5.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                        Text(
-                                            app.packageName,
-                                            color = TextSecondary.copy(alpha = 0.8f),
-                                            fontSize = 10.sp
-                                        )
+                                        showAddAppDialog = false
                                     }
-                                    if (isAdded) {
-                                        Text("Terdaftar", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                ) {
+                                    Row(
+                                        Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.weight(1f),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            AppIconImage(
+                                                packageName = app.packageName,
+                                                modifier = Modifier.size(34.dp).clip(RoundedCornerShape(6.dp))
+                                            )
+                                            Spacer(Modifier.width(10.dp))
+                                            Column {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        app.label,
+                                                        color = TextPrimary,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                    if (app.isGame) {
+                                                        Spacer(Modifier.width(5.dp))
+                                                        Surface(
+                                                            shape = RoundedCornerShape(4.dp),
+                                                            color = AccentOrange.copy(alpha = 0.18f),
+                                                            border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.4f))
+                                                        ) {
+                                                            Text(
+                                                                "🎮 GAME",
+                                                                color = AccentOrange,
+                                                                fontSize = 8.sp,
+                                                                fontWeight = FontWeight.ExtraBold,
+                                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                Text(
+                                                    app.packageName,
+                                                    color = TextSecondary.copy(alpha = 0.8f),
+                                                    fontSize = 9.5.sp,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+                                        if (existingRule != null) {
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = AccentCyan.copy(alpha = 0.15f),
+                                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.3f))
+                                            ) {
+                                                Text(
+                                                    existingRule.targetProfile.uppercase(),
+                                                    color = AccentCyan,
+                                                    fontSize = 8.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -341,19 +680,26 @@ fun MainDashboard(
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    if (customPkgText.isNotBlank()) {
-                        viewModel.addAppToPerf(customPkgText.trim())
-                        customPkgText = ""
+                if (customPkgText.isNotBlank()) {
+                    TextButton(onClick = {
+                        val pkg = customPkgText.trim()
+                        val label = pkg.split(".").lastOrNull()?.replaceFirstChar { it.uppercase() } ?: pkg
+                        val newRule = AppProfileRule(
+                            packageName = pkg,
+                            appName = label,
+                            targetProfile = selectedTargetProfile,
+                            enabled = true
+                        )
+                        editingRule = newRule
                         showAddAppDialog = false
+                    }) {
+                        Text("Konfigurasi Manual", color = AccentCyan, fontWeight = FontWeight.Bold)
                     }
-                }) {
-                    Text("Tambah", color = AccentCyan, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAddAppDialog = false }) {
-                    Text("Batal", color = TextSecondary)
+                    Text("Tutup", color = TextSecondary)
                 }
             }
         )
@@ -576,6 +922,69 @@ fun MainDashboard(
                         )
                     }
 
+                    // ── Live Floating Game HUD & OSD Card ─────────────────
+                    LynxCard(
+                        title = "FLOATING GAME HUD & OSD",
+                        icon = Icons.Default.Visibility,
+                        accentColor = AccentCyan
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Overlay Game HUD Real-Time",
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    "Tampilkan FPS hardware, clock CPU/GPU, watt baterai & quick profile switcher di atas semua game.",
+                                    color = TextSecondary,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                            Switch(
+                                checked = uiState.isGameHudActive,
+                                onCheckedChange = { viewModel.toggleGameHud(context, it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = BgDeepOled,
+                                    checkedTrackColor = AccentCyan,
+                                    uncheckedThumbColor = TextSecondary,
+                                    uncheckedTrackColor = BgElevated,
+                                    uncheckedBorderColor = BorderGlass
+                                )
+                            )
+                        }
+
+                        if (uiState.isGameHudActive) {
+                            Spacer(Modifier.height(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = AccentCyan.copy(alpha = 0.08f),
+                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.25f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Info, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "HUD aktif! Sentuh pil HUD di layar untuk membuka detail CPU/GPU atau switch profil seketika.",
+                                        color = TextPrimary,
+                                        fontSize = 10.5.sp,
+                                        lineHeight = 14.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     // ── Live Battery Wattage & Thermal Power Card ───────────
                     uiState.telemetry?.let { tel ->
                         LynxCard(
@@ -635,6 +1044,11 @@ fun MainDashboard(
                         }
                     }
 
+                    // ── FKM Parity: Battery Health & Deep Sleep Card ───────────
+                    BatteryHealthStatsCard(
+                        batteryHealth = uiState.batteryHealthStats,
+                        onRefresh = { viewModel.refreshBatteryHealth() }
+                    )
 
                     // ── Live Hardware Thermal Zones Matrix ─────────────────
                     if (uiState.thermalZones.isNotEmpty()) {
@@ -1326,6 +1740,20 @@ fun MainDashboard(
                         }
                     }
 
+                    // ── FKM Parity: Voltage Control (Undervolting) Card ───────
+                    VoltageControlCard(
+                        voltageInfo = uiState.voltageInfo,
+                        onApplyOffset = { viewModel.applyVoltageOffset(it) }
+                    )
+
+                    // ── FKM Parity: Display Calibration (KCAL & HBM) Card ────
+                    DisplayCalibrationCard(
+                        displayCalibration = uiState.displayCalibration,
+                        onSetKcal = { en, r, g, b, sat, v, c, h ->
+                            viewModel.setKcalParams(en, r, g, b, sat, v, c, h)
+                        },
+                        onSetHbm = { viewModel.setHbmEnabled(it) }
+                    )
 
                     // ── I/O Scheduler Card ────────────────────────────────────
                     if (uiState.ioDevices.isNotEmpty()) {
@@ -1384,26 +1812,280 @@ fun MainDashboard(
                         }
                     } // ── end I/O Scheduler if ──
 
-                    // ── Game Mode & Per-App Profiles Card ─────────────────────
-                    LaunchedEffect(Unit) { viewModel.refreshApplistPerf() }
+                    // ── KERNEL SCHEDULER & GOVERNOR DEEP TUNABLES (CFS / EAS / BORE) ──
+                    val schedInfo = uiState.schedulerInfo
+                    var schedUpRate by remember(schedInfo.upRateLimitUs) { mutableFloatStateOf(schedInfo.upRateLimitUs.toFloat()) }
+                    var schedDownRate by remember(schedInfo.downRateLimitUs) { mutableFloatStateOf(schedInfo.downRateLimitUs.toFloat()) }
+                    var schedLatency by remember(schedInfo.schedLatencyNs) { mutableFloatStateOf((schedInfo.schedLatencyNs / 1000000f)) }
+                    var schedMinGran by remember(schedInfo.schedMinGranularityNs) { mutableFloatStateOf((schedInfo.schedMinGranularityNs / 1000000f)) }
+                    var schedWakeGran by remember(schedInfo.schedWakeupGranularityNs) { mutableFloatStateOf((schedInfo.schedWakeupGranularityNs / 1000000f)) }
+                    var schedMigCost by remember(schedInfo.schedMigrationCostNs) { mutableFloatStateOf((schedInfo.schedMigrationCostNs / 1000f)) }
+
                     LynxCard(
-                        title = "GAME MODE & PER-APP PROFILES",
-                        icon = Icons.Default.SportsEsports,
-                        accentColor = AccentGreen
+                        title = "PENJADWAL KERNEL & GUBERNUR",
+                        icon = Icons.Default.Speed,
+                        accentColor = AccentCyan
                     ) {
+                        // Header info & BORE Status badge
                         Row(
-                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text(
-                                    "${uiState.applistPerf.size} Game & Aplikasi Terdaftar",
-                                    color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp
+                                    text = schedInfo.schedulerName,
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
                                 )
                                 Text(
-                                    "AI otomatis beralih ke profil Performa saat game aktif",
-                                    color = TextSecondary, fontSize = 11.sp
+                                    text = "Optimasi latensi context-switch & responsivitas cpufreq",
+                                    color = TextSecondary,
+                                    fontSize = 10.5.sp
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (schedInfo.isBoreSupported) AccentGreen.copy(alpha = 0.18f) else BgElevated,
+                                border = BorderStroke(1.dp, if (schedInfo.isBoreSupported) AccentGreen else BorderGlass)
+                            ) {
+                                Text(
+                                    text = if (schedInfo.isBoreSupported) "BORE: ACTIVE" else "BORE: UNSUPPORTED",
+                                    color = if (schedInfo.isBoreSupported) AccentGreen else TextSecondary,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+
+                        // 3 Quick Presets
+                        Text("Preset Penjadwal Cepat", color = AccentCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                Triple("gaming", "⚡ Gaming", AccentOrange),
+                                Triple("balanced", "⚖️ Balanced", AccentBlue),
+                                Triple("battery", "🔋 Battery", AccentGreen)
+                            ).forEach { (preset, label, color) ->
+                                val isSel = schedInfo.activePreset == preset
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) color.copy(alpha = 0.22f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSel) color else BorderGlass),
+                                    modifier = Modifier.weight(1f).clickable {
+                                        viewModel.applySchedulerPreset(preset)
+                                    }
+                                ) {
+                                    Box(Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = label,
+                                            color = if (isSel) color else TextSecondary,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(bottom = 10.dp))
+
+                        // Schedutil Up Rate Limit
+                        LynxSlider(
+                            label = "Schedutil Ramp-Up Rate Limit",
+                            value = schedUpRate,
+                            onValueChange = { schedUpRate = it },
+                            onValueChangeFinished = { viewModel.setSchedulerTunable("up_rate_limit_us", schedUpRate.toLong()) },
+                            valueRange = 0f..10000f,
+                            steps = 19,
+                            displayValue = if (schedUpRate == 0f) "0 µs (Instant Jump)" else "${schedUpRate.toInt()} µs",
+                            accentColor = AccentOrange
+                        )
+                        Text(
+                            "Waktu tunggu sebelum CPU menaikkan frekuensi. 0µs langsung melompat ke frekuensi puncak saat game membutuhkan daya.",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+
+                        // Schedutil Down Rate Limit
+                        LynxSlider(
+                            label = "Schedutil Ramp-Down Rate Limit",
+                            value = schedDownRate,
+                            onValueChange = { schedDownRate = it },
+                            onValueChangeFinished = { viewModel.setSchedulerTunable("down_rate_limit_us", schedDownRate.toLong()) },
+                            valueRange = 1000f..40000f,
+                            steps = 38,
+                            displayValue = "${schedDownRate.toInt() / 1000} ms (${schedDownRate.toInt()} µs)",
+                            accentColor = AccentBlue
+                        )
+                        Text(
+                            "Waktu tahan sebelum CPU menurunkan clock. Mempertahankan frekuensi tinggi lebih lama mencegah micro-stutter saat frame drop.",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+
+                        // CFS Latency
+                        LynxSlider(
+                            label = "CFS Target Scheduling Latency",
+                            value = schedLatency,
+                            onValueChange = { schedLatency = it },
+                            onValueChangeFinished = { viewModel.setSchedulerTunable("sched_latency_ns", (schedLatency * 1000000).toLong()) },
+                            valueRange = 2f..24f,
+                            steps = 21,
+                            displayValue = "${schedLatency.toInt()} ms",
+                            accentColor = AccentPurple
+                        )
+                        Text(
+                            "Periode target di mana seluruh task yang siap dieksekusi dijamin mendapat giliran CPU. Latensi lebih kecil meningkatkan kehalusan UI/game.",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+
+                        // CFS Min Granularity
+                        LynxSlider(
+                            label = "CFS Min Preemption Granularity",
+                            value = schedMinGran,
+                            onValueChange = { schedMinGran = it },
+                            onValueChangeFinished = { viewModel.setSchedulerTunable("sched_min_granularity_ns", (schedMinGran * 1000000).toLong()) },
+                            valueRange = 0.5f..8f,
+                            steps = 14,
+                            displayValue = "${String.format("%.1f", schedMinGran)} ms",
+                            accentColor = AccentCyan
+                        )
+                        Text(
+                            "Jatah waktu minimum yang dijamin untuk setiap task sebelum kernel mengizinkan preemption oleh task lain.",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+
+                        // CFS Wakeup Granularity
+                        LynxSlider(
+                            label = "CFS Wakeup Granularity",
+                            value = schedWakeGran,
+                            onValueChange = { schedWakeGran = it },
+                            onValueChangeFinished = { viewModel.setSchedulerTunable("sched_wakeup_granularity_ns", (schedWakeGran * 1000000).toLong()) },
+                            valueRange = 0.5f..8f,
+                            steps = 14,
+                            displayValue = "${String.format("%.1f", schedWakeGran)} ms",
+                            accentColor = AccentGreen
+                        )
+                        Text(
+                            "Keuntungan latensi yang dibutuhkan task yang baru bangun untuk menggeser task yang sedang berjalan di CPU.",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+
+                        // Task Migration Cost
+                        LynxSlider(
+                            label = "Task Migration Cost (Cache-Hot)",
+                            value = schedMigCost,
+                            onValueChange = { schedMigCost = it },
+                            onValueChangeFinished = { viewModel.setSchedulerTunable("sched_migration_cost_ns", (schedMigCost * 1000).toLong()) },
+                            valueRange = 100f..3000f,
+                            steps = 28,
+                            displayValue = "${schedMigCost.toInt()} µs",
+                            accentColor = AccentOrange
+                        )
+                        Text(
+                            "Waktu task dianggap masih berada dalam cache L1/L2 sebelum diizinkan migrasi ke inti CPU lain.",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+
+                        // Child Process Runs First
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Child Process Runs First", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text("Prioritaskan eksekusi child process saat fork untuk mempercepat buka aplikasi", color = TextSecondary, fontSize = 10.sp)
+                            }
+                            Switch(
+                                checked = schedInfo.schedChildRunsFirst,
+                                onCheckedChange = { viewModel.setSchedulerTunable("sched_child_runs_first", if (it) 1L else 0L) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = BgDeepOled,
+                                    checkedTrackColor = AccentCyan,
+                                    uncheckedThumbColor = TextSecondary,
+                                    uncheckedTrackColor = BgElevated,
+                                    uncheckedBorderColor = BorderGlass
+                                ),
+                                modifier = Modifier.scale(0.85f)
+                            )
+                        }
+                    }
+
+                    // ── Otomasi Profil Per-Aplikasi (Scene-Grade Engine) ───────
+                    LaunchedEffect(Unit) {
+                        viewModel.refreshApplistPerf()
+                    }
+                    LynxCard(
+                        title = "OTOMASI PROFIL PER-APLIKASI",
+                        icon = Icons.Default.SportsEsports,
+                        accentColor = AccentGreen
+                    ) {
+                        // Master Service Toggle
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Layanan Otomasi Latar Belakang",
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    "Pantau aplikasi aktif dan alihkan profil CPU/GPU seketika (0ms boost saat launch)",
+                                    color = TextSecondary,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                            Switch(
+                                checked = uiState.isAppAutomationActive,
+                                onCheckedChange = { viewModel.toggleAppAutomation(context, it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = BgDeepOled,
+                                    checkedTrackColor = AccentGreen,
+                                    uncheckedThumbColor = TextSecondary,
+                                    uncheckedTrackColor = BgElevated,
+                                    uncheckedBorderColor = BorderGlass
+                                )
+                            )
+                        }
+
+                        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(bottom = 10.dp))
+
+                        // Header: Rule Count & Add Button
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "${uiState.appProfileRules.size} Aturan Profil Dikonfigurasi",
+                                    color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.5.sp
+                                )
+                                Text(
+                                    "Profil khusus diterapkan otomatis saat aplikasi berada di foreground",
+                                    color = TextSecondary, fontSize = 10.5.sp
                                 )
                             }
                             Surface(
@@ -1413,7 +2095,7 @@ fun MainDashboard(
                                 },
                                 shape = RoundedCornerShape(10.dp),
                                 color = AccentGreen.copy(alpha = 0.18f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, AccentGreen.copy(alpha = 0.5f))
+                                border = BorderStroke(1.dp, AccentGreen.copy(alpha = 0.5f))
                             ) {
                                 Row(
                                     Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1426,42 +2108,175 @@ fun MainDashboard(
                             }
                         }
 
-                        // App chips preview
-                        val previewApps = uiState.applistPerf.take(12)
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp)
-                        ) {
-                            items(previewApps.size) { i ->
-                                val pkg = previewApps[i]
-                                val label = pkg.split(".").lastOrNull()?.replaceFirstChar { it.uppercase() } ?: pkg
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = BgElevated,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderGlass)
+                        // App Profile Rules List
+                        if (uiState.appProfileRules.isEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = BgElevated,
+                                border = BorderStroke(1.dp, BorderGlass),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            ) {
+                                Column(
+                                    Modifier.padding(14.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Row(
-                                        Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                    Icon(Icons.Default.Tune, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        "Belum ada aturan khusus",
+                                        color = TextPrimary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        "Klik tombol 'Tambah' untuk mengunci profil tertentu (Performa, Extreme, Balance, Hemat) ke game atau app favorit.",
+                                        color = TextSecondary,
+                                        fontSize = 10.5.sp,
+                                        textAlign = TextAlign.Center,
+                                        lineHeight = 14.sp,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                uiState.appProfileRules.forEach { rule ->
+                                    val (badgeLabel, badgeColor) = when (rule.targetProfile.lowercase()) {
+                                        "extreme" -> "EXTREME" to AccentRed
+                                        "performance" -> "PERFORMA" to AccentOrange
+                                        "powersave" -> "HEMAT" to AccentGreen
+                                        else -> "BALANCE" to AccentBlue
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = BgElevated,
+                                        border = BorderStroke(1.dp, if (rule.isEnabled) badgeColor.copy(alpha = 0.35f) else BorderGlass),
+                                        modifier = Modifier.fillMaxWidth().clickable {
+                                            editingRule = rule
+                                        }
                                     ) {
-                                        Text(
-                                            label,
-                                            color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Medium
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Icon(
-                                            Icons.Default.Close, "Hapus", tint = TextSecondary,
-                                            modifier = Modifier.size(14.dp).clickable {
-                                                viewModel.removeAppFromPerf(pkg)
+                                        Row(
+                                            Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.weight(1f),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                AppIconImage(
+                                                    packageName = rule.packageName,
+                                                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp))
+                                                )
+                                                Spacer(Modifier.width(10.dp))
+                                                Column {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Text(
+                                                            rule.appName,
+                                                            color = TextPrimary,
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                        if (rule.isGame) {
+                                                            Spacer(Modifier.width(4.dp))
+                                                            Text("🎮", fontSize = 10.sp)
+                                                        }
+                                                        Spacer(Modifier.width(6.dp))
+                                                        Surface(
+                                                            shape = RoundedCornerShape(4.dp),
+                                                            color = badgeColor.copy(alpha = 0.18f),
+                                                            border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.4f))
+                                                        ) {
+                                                            Text(
+                                                                badgeLabel,
+                                                                color = badgeColor,
+                                                                fontSize = 8.5.sp,
+                                                                fontWeight = FontWeight.ExtraBold,
+                                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                            )
+                                                        }
+                                                        if (rule.targetRefreshRate != null) {
+                                                            Spacer(Modifier.width(4.dp))
+                                                            Surface(
+                                                                shape = RoundedCornerShape(4.dp),
+                                                                color = AccentPurple.copy(alpha = 0.18f),
+                                                                border = BorderStroke(1.dp, AccentPurple.copy(alpha = 0.4f))
+                                                            ) {
+                                                                Text(
+                                                                    "${rule.targetRefreshRate}Hz",
+                                                                    color = AccentPurple,
+                                                                    fontSize = 8.5.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                        if (rule.autoFloatingHud) {
+                                                            Spacer(Modifier.width(4.dp))
+                                                            Surface(
+                                                                shape = RoundedCornerShape(4.dp),
+                                                                color = AccentCyan.copy(alpha = 0.18f),
+                                                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                                                            ) {
+                                                                Text(
+                                                                    "HUD",
+                                                                    color = AccentCyan,
+                                                                    fontSize = 8.5.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                    Text(
+                                                        rule.packageName,
+                                                        color = TextSecondary,
+                                                        fontSize = 9.5.sp,
+                                                        maxLines = 1
+                                                    )
+                                                }
                                             }
-                                        )
+
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Switch(
+                                                    checked = rule.isEnabled,
+                                                    onCheckedChange = {
+                                                        viewModel.toggleAppProfileRule(context, rule.packageName, it)
+                                                    },
+                                                    colors = SwitchDefaults.colors(
+                                                        checkedThumbColor = BgDeepOled,
+                                                        checkedTrackColor = badgeColor,
+                                                        uncheckedThumbColor = TextSecondary,
+                                                        uncheckedTrackColor = BgCard,
+                                                        uncheckedBorderColor = BorderGlass
+                                                    ),
+                                                    modifier = Modifier.scale(0.8f)
+                                                )
+                                                IconButton(
+                                                    onClick = {
+                                                        viewModel.deleteAppProfileRule(context, rule.packageName)
+                                                        viewModel.removeAppFromPerf(rule.packageName)
+                                                    },
+                                                    modifier = Modifier.size(28.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Delete,
+                                                        contentDescription = "Hapus Aturan",
+                                                        tint = TextSecondary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
-                        }
-                        if (uiState.applistPerf.size > 12) {
-                            Text("+ ${uiState.applistPerf.size - 12} game lainnya terdaftar",
-                                color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(top = 4.dp))
                         }
                     }
 
@@ -1830,8 +2645,54 @@ fun MainDashboard(
                             accentColor = AccentBlue
                         )
 
-                        var swapValue by remember(state.memory.swappiness) {
-                            mutableFloatStateOf(state.memory.swappiness.toFloat())
+                        // ── VM Tuning Presets ─────────────────────────────
+                        Text(
+                            "Preset Rekomendasi Virtual Memory",
+                            color = TextPrimary, fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
+                        )
+                        val vmPresets = listOf(
+                            Triple("gaming", "⚡ Gaming", "Zero-stutter I/O"),
+                            Triple("balanced", "⚖️ Balanced", "OEM Default"),
+                            Triple("battery", "🔋 Battery", "Low Writeback")
+                        )
+                        val activeVmPreset = uiState.vmAdvanced.activePreset
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            vmPresets.forEach { (presetKey, title, subtitle) ->
+                                val isSelected = activeVmPreset == presetKey
+                                Surface(
+                                    onClick = { viewModel.applyVmPreset(presetKey) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) AccentBlue.copy(alpha = 0.22f) else BgElevated,
+                                    border = BorderStroke(1.2.dp, if (isSelected) AccentBlue else BorderGlass)
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                                    ) {
+                                        Text(
+                                            title,
+                                            color = if (isSelected) AccentBlue else TextPrimary,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                        Text(
+                                            subtitle,
+                                            color = if (isSelected) AccentBlue.copy(alpha = 0.8f) else TextSecondary,
+                                            fontSize = 9.sp,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        var swapValue by remember(uiState.vmAdvanced.swappiness) {
+                            mutableFloatStateOf(uiState.vmAdvanced.swappiness.toFloat())
                         }
                         LynxSlider(
                             label = "Virtual Memory Swappiness",
@@ -1844,11 +2705,11 @@ fun MainDashboard(
                             accentColor = AccentBlue
                         )
 
-                        var dirtyValue by remember(uiState.dirtyRatio) {
-                            mutableFloatStateOf(uiState.dirtyRatio.toFloat())
+                        var dirtyValue by remember(uiState.vmAdvanced.dirtyRatio) {
+                            mutableFloatStateOf(uiState.vmAdvanced.dirtyRatio.toFloat())
                         }
                         LynxSlider(
-                            label = "VM Dirty Ratio",
+                            label = "VM Dirty Ratio (Batas Writeback)",
                             value = dirtyValue,
                             onValueChange = { dirtyValue = it },
                             onValueChangeFinished = { viewModel.setDirtyRatio(dirtyValue.toInt()) },
@@ -1858,17 +2719,73 @@ fun MainDashboard(
                             accentColor = AccentBlue
                         )
 
-                        var vfsValue by remember(uiState.vfsCachePressure) {
-                            mutableFloatStateOf(uiState.vfsCachePressure.toFloat())
+                        var dirtyBgValue by remember(uiState.vmAdvanced.dirtyBackgroundRatio) {
+                            mutableFloatStateOf(uiState.vmAdvanced.dirtyBackgroundRatio.toFloat())
                         }
                         LynxSlider(
-                            label = "VFS Cache Pressure",
+                            label = "VM Dirty Background Ratio",
+                            value = dirtyBgValue,
+                            onValueChange = { dirtyBgValue = it },
+                            onValueChangeFinished = { viewModel.setDirtyBackgroundRatio(dirtyBgValue.toInt()) },
+                            valueRange = 1f..30f,
+                            steps = 28,
+                            displayValue = "${dirtyBgValue.toInt()}%",
+                            accentColor = AccentBlue
+                        )
+
+                        var vfsValue by remember(uiState.vmAdvanced.vfsCachePressure) {
+                            mutableFloatStateOf(uiState.vmAdvanced.vfsCachePressure.toFloat())
+                        }
+                        LynxSlider(
+                            label = "VFS Cache Pressure (Reclaim Rate)",
                             value = vfsValue,
                             onValueChange = { vfsValue = it },
                             onValueChangeFinished = { viewModel.setVfsCachePressure(vfsValue.toInt()) },
                             valueRange = 50f..200f,
                             steps = 14,
                             displayValue = "${vfsValue.toInt()}",
+                            accentColor = AccentBlue
+                        )
+
+                        var expireValue by remember(uiState.vmAdvanced.dirtyExpireCentisecs) {
+                            mutableFloatStateOf((uiState.vmAdvanced.dirtyExpireCentisecs / 100).toFloat())
+                        }
+                        LynxSlider(
+                            label = "VM Dirty Expire Time",
+                            value = expireValue,
+                            onValueChange = { expireValue = it },
+                            onValueChangeFinished = { viewModel.setDirtyExpireCentisecs((expireValue * 100).toInt()) },
+                            valueRange = 10f..60f,
+                            steps = 9,
+                            displayValue = "${expireValue.toInt()}s",
+                            accentColor = AccentBlue
+                        )
+
+                        var writebackValue by remember(uiState.vmAdvanced.dirtyWritebackCentisecs) {
+                            mutableFloatStateOf((uiState.vmAdvanced.dirtyWritebackCentisecs / 100).toFloat())
+                        }
+                        LynxSlider(
+                            label = "VM Dirty Writeback Interval",
+                            value = writebackValue,
+                            onValueChange = { writebackValue = it },
+                            onValueChangeFinished = { viewModel.setDirtyWritebackCentisecs((writebackValue * 100).toInt()) },
+                            valueRange = 1f..15f,
+                            steps = 13,
+                            displayValue = "${writebackValue.toInt()}s",
+                            accentColor = AccentBlue
+                        )
+
+                        var statValue by remember(uiState.vmAdvanced.statInterval) {
+                            mutableFloatStateOf(uiState.vmAdvanced.statInterval.toFloat())
+                        }
+                        LynxSlider(
+                            label = "VM Stat Interval (Pembaruan Statistik)",
+                            value = statValue,
+                            onValueChange = { statValue = it },
+                            onValueChangeFinished = { viewModel.setVmStatInterval(statValue.toInt()) },
+                            valueRange = 1f..10f,
+                            steps = 8,
+                            displayValue = "${statValue.toInt()}s",
                             accentColor = AccentBlue
                         )
 
@@ -1975,56 +2892,134 @@ fun MainDashboard(
                         icon = Icons.Default.NetworkCheck,
                         accentColor = AccentCyan
                     ) {
-                        Text(
-                            "Algoritma kontrol kongesti TCP/IP aktif mempengaruhi latensi, throughput, dan stabilitas koneksi game online.",
-                            color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp,
-                            modifier = Modifier.padding(bottom = 10.dp)
-                        )
-                        val currentAlg = state.network.tcpCongestion
-                        val algs = uiState.availableTcpAlgorithms.ifEmpty { listOf("bbr", "cubic", "westwood", "reno") }
-                        // Algorithm chip grid
-                        val algInfo = mapOf(
-                            "bbr"      to Pair("🎮 BBR", "Google — Gaming & Low Latency"),
-                            "cubic"    to Pair("📶 CUBIC", "Linux Default — Balanced"),
-                            "westwood" to Pair("📡 Westwood", "WiFi Optimized"),
-                            "reno"     to Pair("🔁 RENO", "Classic & Stable"),
-                        )
-                        algs.chunked(2).forEach { row ->
-                            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                row.forEach { alg ->
-                                    val isActive = alg == currentAlg
-                                    val info = algInfo[alg]
+                        val currentAlg = uiState.currentTcpCongestion.ifBlank { state.network.tcpCongestion }
+                        val algs = uiState.availableTcpAlgorithms
+
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Algoritma kontrol kongesti TCP/IP aktif mempengaruhi latensi dan throughput koneksi game online.",
+                                color = TextSecondary, fontSize = 12.sp, lineHeight = 17.sp,
+                                modifier = Modifier.weight(1f).padding(end = 8.dp)
+                            )
+                            if (currentAlg.isNotBlank()) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = AccentCyan.copy(alpha = 0.15f),
+                                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.35f))
+                                ) {
+                                    Text(
+                                        "● ${currentAlg.uppercase()}",
+                                        color = AccentCyan,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (algs.isEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = BgElevated,
+                                border = BorderStroke(1.dp, BorderGlass),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Surface(
-                                        onClick = { viewModel.setTcpCongestion(alg) },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = if (isActive) AccentCyan.copy(alpha = 0.16f) else BgElevated,
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            1.5.dp, if (isActive) AccentCyan else BorderGlass
-                                        )
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AccentOrange.copy(alpha = 0.2f),
+                                        modifier = Modifier.padding(end = 10.dp)
                                     ) {
-                                        Column(modifier = Modifier.padding(12.dp)) {
-                                            Text(info?.first ?: alg.uppercase(),
-                                                color = if (isActive) AccentCyan else TextPrimary,
-                                                fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                            if (info != null) {
-                                                Text(info.second, color = TextSecondary, fontSize = 10.sp,
-                                                    lineHeight = 14.sp)
-                                            }
-                                            if (isActive) {
-                                                Spacer(Modifier.height(4.dp))
-                                                Surface(shape = RoundedCornerShape(4.dp),
-                                                    color = AccentCyan.copy(alpha = 0.2f)) {
-                                                    Text("● Aktif", color = AccentCyan, fontSize = 9.sp,
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                        Text(
+                                            "UNSUPPORTED",
+                                            color = AccentOrange,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Text(
+                                        "Kernel perangkat ini tidak mengekspos pemilihan algoritma TCP dinamis via sysfs.",
+                                        color = TextSecondary,
+                                        fontSize = 11.5.sp
+                                    )
+                                }
+                            }
+                        } else {
+                            val algInfo = mapOf(
+                                "bic"      to Pair("⚡ BIC", "High Speed & Low Latency (Kernel Active)"),
+                                "cubic"    to Pair("📶 CUBIC", "Linux Default — Balanced"),
+                                "reno"     to Pair("🔁 RENO", "Classic Standard — Stable"),
+                                "bbr"      to Pair("🎮 BBR", "Google BBR — Low Latency Gaming"),
+                                "westwood" to Pair("📡 Westwood", "WiFi & Wireless Loss Tolerant"),
+                                "htcp"     to Pair("🚀 H-TCP", "High Bandwidth Delay Product"),
+                                "vegas"    to Pair("⏱️ Vegas", "Delay-Based Congestion Avoidance"),
+                                "hybla"    to Pair("🌐 Hybla", "Satellite & High Latency Links")
+                            )
+
+                            algs.chunked(2).forEach { row ->
+                                Row(
+                                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    row.forEach { alg ->
+                                        val isActive = alg.equals(currentAlg, ignoreCase = true)
+                                        val info = algInfo[alg.lowercase()]
+                                        Surface(
+                                            onClick = { viewModel.setTcpCongestion(alg) },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = if (isActive) AccentCyan.copy(alpha = 0.16f) else BgElevated,
+                                            border = BorderStroke(
+                                                1.5.dp, if (isActive) AccentCyan else BorderGlass
+                                            )
+                                        ) {
+                                            Column(modifier = Modifier.padding(12.dp)) {
+                                                Row(
+                                                    Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        info?.first ?: alg.uppercase(),
+                                                        color = if (isActive) AccentCyan else TextPrimary,
+                                                        fontWeight = FontWeight.Bold, fontSize = 12.sp
+                                                    )
+                                                    if (isActive) {
+                                                        Surface(
+                                                            shape = RoundedCornerShape(4.dp),
+                                                            color = AccentCyan.copy(alpha = 0.2f)
+                                                        ) {
+                                                            Text(
+                                                                "AKTIF",
+                                                                color = AccentCyan,
+                                                                fontSize = 8.5.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                            )
+                                                        }
+                                                    }
                                                 }
+                                                Spacer(Modifier.height(4.dp))
+                                                Text(
+                                                    info?.second ?: "Algoritma Kernel Linux",
+                                                    color = TextSecondary,
+                                                    fontSize = 10.sp,
+                                                    lineHeight = 14.sp
+                                                )
                                             }
                                         }
                                     }
+                                    if (row.size == 1) Spacer(Modifier.weight(1f))
                                 }
-                                // fill last cell if odd
-                                if (row.size == 1) Spacer(Modifier.weight(1f))
                             }
                         }
                     }
@@ -2132,6 +3127,23 @@ fun MainDashboard(
                             color = TextSecondary.copy(alpha = 0.7f), fontSize = 10.sp, lineHeight = 14.sp
                         )
                     }
+
+                    // ── FKM Parity: Sound Control (Gain Booster) Card ─────────
+                    SoundControlCard(
+                        soundControl = uiState.soundControl,
+                        onSetGain = { hpL, hpR, spk, mic, hpMode ->
+                            viewModel.setSoundGain(hpL, hpR, spk, mic, hpMode)
+                        }
+                    )
+
+                    // ── FKM Parity: Memory LMK & Entropy Tuner Card ───────────
+                    MemoryEntropyCard(
+                        memoryEntropy = uiState.memoryEntropy,
+                        onSetEntropy = { r, w ->
+                            viewModel.setEntropyThresholds(r, w)
+                        }
+                    )
+
                 }
 
                 // ── TAB 3: TOOLS & FLASHER ──────────────────────────────────
@@ -2174,7 +3186,14 @@ fun MainDashboard(
                             icon = Icons.Default.Build,
                             onClick = { viewModel.exportBugReport() },
                             isLoading = uiState.exportRunning,
-                            accentColor = AccentOrange
+                            accentColor = AccentOrange,
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+                        LynxActionButton(
+                            text = "🛡️ Reset Aman Kernel ke Bawaan (Stock Safe)",
+                            icon = Icons.Default.RestartAlt,
+                            onClick = { viewModel.resetKernelToStock() },
+                            accentColor = AccentGreen
                         )
                     }
 
@@ -2248,66 +3267,6 @@ fun MainDashboard(
                         )
                     }
 
-                    // ── Wake Guard: Universal Kernel Wakelock Inspector ────────
-                    LynxCard(
-                        title = "WAKE GUARD — MONITOR WAKELOCK",
-                        icon = Icons.Default.Bedtime,
-                        accentColor = AccentBlue
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text("Kernel Wake Sources", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                Text("Deteksi driver yang mencegah CPU deep sleep", color = TextSecondary, fontSize = 11.sp)
-                            }
-                            Surface(
-                                onClick = { viewModel.refreshWakelocks() },
-                                shape = RoundedCornerShape(8.dp),
-                                color = AccentBlue.copy(alpha = 0.18f),
-                                border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.4f))
-                            ) {
-                                Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Refresh, null, tint = AccentBlue, modifier = Modifier.size(14.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Pindai", color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-
-                        if (uiState.topWakelocks.isNotEmpty()) {
-                            uiState.topWakelocks.take(6).forEach { wl ->
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = BgElevated,
-                                    border = BorderStroke(1.dp, BorderGlass),
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
-                                ) {
-                                    Row(
-                                        Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(wl.name, color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text("${wl.activeCount}x bangun", color = AccentCyan, fontSize = 10.5.sp)
-                                            if (wl.preventSuspendMs > 0) {
-                                                Spacer(Modifier.width(8.dp))
-                                                Text("${wl.preventSuspendMs}ms", color = AccentOrange, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            Text(
-                                "Ketuk tombol 'Pindai' di atas untuk memindai wakelock aktif sistem.",
-                                color = TextSecondary, fontSize = 11.sp, modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                        }
-                    }
 
                     // ── Custom Sysfs Rules & Boot Tweaks Card ───────────────────
                     LaunchedEffect(Unit) { viewModel.loadCustomRules() }
@@ -2506,51 +3465,154 @@ fun MainDashboard(
                         }
                     }
 
-                    // ── Wakelock & Deep Sleep Monitor Card ─────────────────────
+                    // ── Wakelock Blocker & Deep Sleep Audit Card ─────────────────────
                     LaunchedEffect(Unit) { viewModel.refreshWakelocks() }
+                    val wlInfo = uiState.wakelockBlockerInfo
                     LynxCard(
-                        title = "WAKELOCK & DEEP SLEEP MONITOR",
+                        title = "WAKELOCK BLOCKER & DEEP SLEEP AUDIT",
                         icon = Icons.Default.Bedtime,
                         accentColor = AccentPurple
                     ) {
+                        // Driver Status Header
                         Row(
-                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            Modifier.fillMaxWidth().padding(bottom = 10.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                val count = uiState.wakelocks.size
+                            Column(Modifier.weight(1f).padding(end = 8.dp)) {
                                 Text(
-                                    if (count == 0) "Status: Deep Sleep Aktif (0 Wakelock)" else "$count Wakelock Aktif Terdeteksi",
-                                    color = if (count == 0) AccentCyan else AccentOrange,
-                                    fontWeight = FontWeight.Bold, fontSize = 13.sp
+                                    "Audit Sumber Bangun Kernel (Wakeup Sources)",
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
                                 )
                                 Text(
-                                    "Wakelock aktif mencegah CPU masuk ke status Deep Sleep (hemat baterai)",
-                                    color = TextSecondary, fontSize = 11.sp
+                                    "Mendeteksi driver & thread yang menahan CPU dari mode deep sleep",
+                                    color = TextSecondary,
+                                    fontSize = 11.sp
                                 )
                             }
-                            IconButton(onClick = { viewModel.refreshWakelocks() }) {
-                                Icon(Icons.Default.Refresh, "Refresh", tint = AccentPurple, modifier = Modifier.size(20.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (wlInfo.isDriverSupported) AccentGreen.copy(alpha = 0.18f) else AccentOrange.copy(alpha = 0.18f),
+                                border = BorderStroke(1.dp, if (wlInfo.isDriverSupported) AccentGreen.copy(alpha = 0.4f) else AccentOrange.copy(alpha = 0.4f))
+                            ) {
+                                Text(
+                                    if (wlInfo.isDriverSupported) "DRIVER: BOEFFLA" else "DRIVER: UNSUPPORTED",
+                                    color = if (wlInfo.isDriverSupported) AccentGreen else AccentOrange,
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                )
                             }
                         }
-                        if (uiState.wakelocks.isEmpty()) {
+
+                        if (!wlInfo.isDriverSupported) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = BgElevated,
+                                border = BorderStroke(1.dp, BorderGlass),
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                            ) {
+                                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Info, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Kernel stock OEM ini tidak memiliki driver Boeffla Wakelock Blocker. Pemantauan wakeup sources tetap aktif 100%, dan penghematan daya dilakukan via Aggressive Doze.",
+                                        color = TextSecondary, fontSize = 10.5.sp, lineHeight = 15.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        // Aggressive Doze Switch
+                        LynxSwitch(
+                            label = "Aggressive Doze (Paksa Idle)",
+                            subLabel = "Paksa status idle sistem saat layar mati untuk memotong konsumsi baterai standby",
+                            checked = wlInfo.aggressiveDozeEnabled,
+                            onCheckedChange = { viewModel.toggleAggressiveDoze(it) }
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // Wakeup Sources List Header
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                "Tidak ada partial wakelock yang menahan CPU saat ini. Deep sleep berfungsi optimal.",
+                                "SUMBER WAKEUP TERTINGGI (${uiState.topWakelocks.size})",
+                                color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.Bold
+                            )
+                            IconButton(onClick = { viewModel.refreshWakelocks() }) {
+                                Icon(Icons.Default.Refresh, "Refresh", tint = AccentPurple, modifier = Modifier.size(18.dp))
+                            }
+                        }
+
+                        if (uiState.topWakelocks.isEmpty()) {
+                            Text(
+                                "Tidak ada sumber wakeup yang aktif menahan sistem. Deep sleep berfungsi optimal.",
                                 color = AccentCyan, fontSize = 11.5.sp, modifier = Modifier.padding(vertical = 4.dp)
                             )
                         } else {
-                            uiState.wakelocks.take(6).forEach { wl ->
+                            uiState.topWakelocks.take(8).forEach { wl ->
+                                val isBlocked = wlInfo.blockedWakelocks.contains(wl.name)
                                 Surface(
-                                    shape = RoundedCornerShape(8.dp),
+                                    shape = RoundedCornerShape(10.dp),
                                     color = BgElevated,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderGlass),
+                                    border = BorderStroke(1.dp, if (isBlocked) AccentRed.copy(alpha = 0.5f) else BorderGlass),
                                     modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
                                 ) {
-                                    Text(
-                                        wl, color = TextPrimary, fontSize = 11.sp,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
-                                    )
+                                    Row(
+                                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    wl.name,
+                                                    color = if (isBlocked) AccentRed else TextPrimary,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                                if (isBlocked) {
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Surface(shape = RoundedCornerShape(4.dp), color = AccentRed.copy(alpha = 0.2f)) {
+                                                        Text("DIBLOKIR", color = AccentRed, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                                                    }
+                                                }
+                                            }
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                                                Text(
+                                                    "${wl.activeCount}x bangun",
+                                                    color = AccentCyan,
+                                                    fontSize = 10.5.sp
+                                                )
+                                                if (wl.preventSuspendMs > 0) {
+                                                    Spacer(Modifier.width(8.dp))
+                                                    Text(
+                                                        "${wl.preventSuspendMs}ms tahan sleep",
+                                                        color = AccentOrange,
+                                                        fontSize = 10.5.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        if (wlInfo.isDriverSupported) {
+                                            Switch(
+                                                checked = isBlocked,
+                                                onCheckedChange = { viewModel.toggleWakelockBlocked(wl.name, it) },
+                                                colors = SwitchDefaults.colors(
+                                                    checkedThumbColor = BgDeepOled,
+                                                    checkedTrackColor = AccentRed
+                                                ),
+                                                modifier = Modifier.scale(0.8f)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -2649,6 +3711,22 @@ fun MainDashboard(
                             }
                         }
                     }
+
+                    // ── FKM Parity: Custom Shell Script Manager Card ──────────
+                    CustomScriptManagerCard(
+                        scripts = uiState.customScripts,
+                        onExecute = { viewModel.executeCustomScript(it) },
+                        onSave = { viewModel.saveCustomScript(it) },
+                        onDelete = { viewModel.deleteCustomScript(it) }
+                    )
+
+                    // ── FKM Parity: Live Kernel Dmesg Ring Buffer Viewer Card ─
+                    DmesgViewerCard(
+                        dmesgState = uiState.dmesgState,
+                        onLoadLogs = { viewModel.loadDmesgLog(it) },
+                        onExport = { viewModel.exportDmesgLog() }
+                    )
+
                 }
             }
             Spacer(modifier = Modifier.height(28.dp))

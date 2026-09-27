@@ -39,7 +39,6 @@ main_system() {
     # 2. RCU Expedited Synchronization
     write_node "1" "/sys/kernel/rcu_expedited"
     write_node "1" "/sys/module/rcupdate/parameters/rcu_cpu_stall_suppress"
-    write_node "0" "/sys/module/rcupdate/parameters/rcu_cpu_stall_timeout"
 
     # 3. Tracing & Profiling Suppression (Saves CPU cycles & RAM)
     write_node "0" "/proc/sys/kernel/tracing/tracing_on"
@@ -54,9 +53,6 @@ main_system() {
     write_node "0" "/proc/sys/kernel/panic"
 
     # 5. Universal Telemetry & Logger Daemon Suppression
-    for bl in /sys/module/bluetooth/parameters/disable_ertm /sys/module/bluetooth/parameters/disable_esco; do
-        write_node "Y" "$bl"
-    done
 
     stop logcatd tcpdump statsd traced idd-logreader idd-logreadermain \
          dumpstate aplogd vendor_tcpdump vendor.tcpdump 2>/dev/null

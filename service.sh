@@ -2,10 +2,21 @@
 # ==============================================================================
 # Lynx Universal - Late Start Service Router
 # Hybrid Architecture: Qualcomm Snapdragon, MediaTek, & Generic Linux
-# Clean, high-performance, non-redundant system boot manager
+# Clean, high-performance, hardened system boot manager with First-Boot Dormant Safety
 # ==============================================================================
 
-# Wait for boot completion (max 120s timeout)
+MODPATH=${0%/*}
+[ -d "$MODPATH" ] || MODPATH="/data/adb/modules/Lynx"
+
+# ── 0. Critical Safe Mode & Bootloop Protection Guard ───────────────
+if [ -f "/data/adb/modules/.disable_magisk" ] || [ -f "/data/adb/apatch/.disable" ] || [ -f "$MODPATH/disable" ] || [ -f "/sdcard/Debug/SAFE_MODE" ]; then
+    exit 0
+fi
+
+# Clean up any legacy or rogue service.d scripts that could cause bootloops
+rm -f /data/adb/service.d/lynx* 2>/dev/null
+
+# ── 1. Wait for boot completion (max 120s timeout) ──────────────────
 boot_count=0
 while [ "$(getprop sys.boot_completed | tr -d '\r')" != "1" ]; do
     sleep 2
@@ -13,7 +24,7 @@ while [ "$(getprop sys.boot_completed | tr -d '\r')" != "1" ]; do
     [ $boot_count -ge 60 ] && break
 done
 
-# Wait for decrypted user storage (max 50s timeout for lockscreen FBE)
+# ── 2. Wait for decrypted user storage (max 50s timeout for lockscreen FBE) ─
 fbe_count=0
 while [ ! -d "/sdcard/Android" ]; do
     sleep 2
@@ -21,15 +32,33 @@ while [ ! -d "/sdcard/Android" ]; do
     [ $fbe_count -ge 25 ] && break
 done
 
-MODPATH=${0%/*}
-[ -d "$MODPATH" ] || MODPATH="/data/adb/modules/Lynx"
+# Second safe mode check after storage decrypted
+[ -f "/sdcard/Debug/SAFE_MODE" ] && exit 0
+
 MODPROP="$MODPATH/module.prop"
 CORE="$MODPATH/core"
 LIB="$MODPATH/core/lib"
 CONFIG_JSON="$MODPATH/config.json"
 TARGET_SOC_FILE="$MODPATH/target_soc"
 
-# ── 1. Target Architecture & Environment ────────────────────────────
+# Ensure log and storage directories exist
+mkdir -p "/storage/emulated/0/Lynx" "$MODPATH/logs" 2>/dev/null
+LOG_FILE="/storage/emulated/0/Lynx/Lynx.log"
+
+# Log rotation if file exceeds 512 KB
+if [ -f "$LOG_FILE" ]; then
+    log_size=$(wc -c < "$LOG_FILE" 2>/dev/null || echo 0)
+    if [ "$log_size" -gt 524288 ] 2>/dev/null; then
+        tail -n 300 "$LOG_FILE" > "$LOG_FILE.tmp" 2>/dev/null
+        mv "$LOG_FILE.tmp" "$LOG_FILE" 2>/dev/null
+    fi
+fi
+
+log_msg() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE" 2>/dev/null
+}
+
+# ── 3. Target Architecture & Environment ────────────────────────────
 TARGET_SOC="generic"
 if [ -f "$TARGET_SOC_FILE" ]; then
     TARGET_SOC=$(cat "$TARGET_SOC_FILE" 2>/dev/null | tr -d '[:space:]')
@@ -49,57 +78,13 @@ if [ -z "$TARGET_SOC" ] || [ "$TARGET_SOC" = "generic" ]; then
 fi
 [ -z "$TARGET_SOC" ] && TARGET_SOC="generic"
 
-
-# Ensure log and storage directories exist
-mkdir -p "/storage/emulated/0/Lynx" "$MODPATH/logs" 2>/dev/null
-LOG_FILE="/storage/emulated/0/Lynx/Lynx.log"
-
-# Log rotation if file exceeds 512 KB
-if [ -f "$LOG_FILE" ]; then
-    log_size=$(wc -c < "$LOG_FILE" 2>/dev/null || echo 0)
-    if [ "$log_size" -gt 524288 ] 2>/dev/null; then
-        tail -n 300 "$LOG_FILE" > "$LOG_FILE.tmp" 2>/dev/null
-        mv "$LOG_FILE.tmp" "$LOG_FILE" 2>/dev/null
-    fi
-fi
-
-log_msg() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE" 2>/dev/null
-}
-
 log_msg "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 log_msg "Lynx Universal Service Initializing..."
 log_msg "• Platform: $TARGET_SOC"
 log_msg "• Device: $(getprop ro.product.brand) $(getprop ro.product.model)"
 log_msg "• Kernel: $(uname -r)"
 
-# ── 2. Platform-Specific Hardware Initialization (Strictly SoC Isolated) ─
-if [ -f "$MODPATH/platforms/$TARGET_SOC/sysfs.sh" ]; then
-    sh "$MODPATH/platforms/$TARGET_SOC/sysfs.sh" >/dev/null 2>&1
-    log_msg "⚡ Platform HAL ($TARGET_SOC) sysfs initialized"
-fi
-
-# ── 3. Universal Subsystem Optimization (Lxcore Modular Categories) ─────
-if [ -x "$MODPATH/system/bin/Lxcore" ]; then
-    "$MODPATH/system/bin/Lxcore" -system apply >/dev/null 2>&1
-    "$MODPATH/system/bin/Lxcore" -cpu apply >/dev/null 2>&1
-    "$MODPATH/system/bin/Lxcore" -gpu apply >/dev/null 2>&1
-    "$MODPATH/system/bin/Lxcore" -task apply >/dev/null 2>&1
-    "$MODPATH/system/bin/Lxcore" -io apply >/dev/null 2>&1
-    "$MODPATH/system/bin/Lxcore" -ram apply >/dev/null 2>&1
-    "$MODPATH/system/bin/Lxcore" -network apply >/dev/null 2>&1
-    log_msg "✅ Core modular subsystems optimized via Lxcore"
-fi
-
-# Touch & Compositor Phase Latency Offsets
-settings put secure long_press_timeout 280 2>/dev/null
-settings put secure multi_press_timeout 80 2>/dev/null
-
-# ── 5. Start Background Daemons ────────────────────────────────────
-if command -v crond >/dev/null && [ -d "$CORE/cron" ]; then
-    crond -f -c "$CORE/cron" -l 5 -L "$MODPATH/logs/cron.log" &
-fi
-
+# ── 4. WebUI & Sync Watcher (Always active so UI can control module) ─
 if [ -d "$MODPATH/webroot" ]; then
     pkill -f "httpd.*127.0.0.1:8080" 2>/dev/null
     if command -v busybox >/dev/null; then
@@ -116,19 +101,48 @@ if command -v inotifyd >/dev/null && [ -f "$CONFIG_JSON" ] && [ -f "$LIB/state_w
     log_msg "🔄 Inotifyd state watcher active"
 fi
 
-# ── 6. Profile Enforcement & First-Boot Dormant Safety ──────────────
+# ── 5. Profile Enforcement & First-Boot Dormant Safety Guard ────────
 active_profile="dormant"
 if [ -f "$CONFIG_JSON" ]; then
     active_profile=$(awk -F'"' '/"active_profile"[ \t]*:/ {print $4}' "$CONFIG_JSON" 2>/dev/null)
 fi
+[ -z "$active_profile" ] && active_profile="dormant"
 
 log_msg "Active profile: $active_profile"
 
+# FIRST-BOOT DORMANT SAFETY: If dormant, EXIT NOW without modifying any kernel hardware!
 if [ "$active_profile" = "dormant" ]; then
     sed -Ei "s/^description=\[.*\]/description=[ 💤 Dormant (Pending Setup) ]/" "$MODPROP" 2>/dev/null
     su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '💤 Modul terpasang aman (Standby). Buka WebUI atau Aplikasi Lynx untuk konfigurasi awal.'" >/dev/null 2>&1
-    log_msg "Lynx initialized in dormant standby mode."
+    log_msg "Lynx initialized safely in dormant standby mode. No hardware sysfs applied."
     exit 0
+fi
+
+# ── 6. Platform-Specific Hardware Initialization (Only when active) ─
+if [ -f "$MODPATH/platforms/$TARGET_SOC/sysfs.sh" ]; then
+    sh "$MODPATH/platforms/$TARGET_SOC/sysfs.sh" >/dev/null 2>&1
+    log_msg "⚡ Platform HAL ($TARGET_SOC) sysfs initialized"
+fi
+
+# ── 7. Universal Subsystem Optimization (Lxcore Modular Categories) ──
+if [ -x "$MODPATH/system/bin/Lxcore" ]; then
+    "$MODPATH/system/bin/Lxcore" -system apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -cpu apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -gpu apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -task apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -io apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -ram apply >/dev/null 2>&1
+    "$MODPATH/system/bin/Lxcore" -network apply >/dev/null 2>&1
+    log_msg "✅ Core modular subsystems optimized via Lxcore"
+fi
+
+# Touch & Compositor Phase Latency Offsets
+settings put secure long_press_timeout 280 2>/dev/null
+settings put secure multi_press_timeout 80 2>/dev/null
+
+# ── 8. Start Background Services ────────────────────────────────────
+if command -v crond >/dev/null && [ -d "$CORE/cron" ]; then
+    crond -f -c "$CORE/cron" -l 5 -L "$MODPATH/logs/cron.log" &
 fi
 
 if [ -f "$CORE/Charging-Controller.sh" ]; then
@@ -142,32 +156,34 @@ if [ -f "$LIB/lowend_shield.sh" ]; then
     apply_lowend_shield
 fi
 
+# ── 9. Profile Action Execution ─────────────────────────────────────
 case "$active_profile" in
     auto)
         sed -Ei "s/^description=\[.*\]/description=[ ⚡ Auto (AI) Mode Active ]/" "$MODPROP" 2>/dev/null
         nohup sh "$CORE/Smart-AI.sh" >/dev/null 2>&1 &
         ;;
-    powersave)
-        sed -Ei "s/^description=\[.*\]/description=[ 🔋 Powersave Mode Active ]/" "$MODPROP" 2>/dev/null
-        [ -f "$MODPATH/platforms/$TARGET_SOC/powersave.sh" ] && sh "$MODPATH/platforms/$TARGET_SOC/powersave.sh" >/dev/null 2>&1
-        ;;
-    balance)
-        sed -Ei "s/^description=\[.*\]/description=[ ⚖️ Balance Mode Active ]/" "$MODPROP" 2>/dev/null
-        [ -f "$MODPATH/platforms/$TARGET_SOC/balance.sh" ] && sh "$MODPATH/platforms/$TARGET_SOC/balance.sh" >/dev/null 2>&1
-        ;;
-    performance)
-        sed -Ei "s/^description=\[.*\]/description=[ 🚀 Performance Mode Active ]/" "$MODPROP" 2>/dev/null
-        [ -f "$MODPATH/platforms/$TARGET_SOC/perf.sh" ] && sh "$MODPATH/platforms/$TARGET_SOC/perf.sh" >/dev/null 2>&1
-        ;;
-    extreme)
-        sed -Ei "s/^description=\[.*\]/description=[ 🔥 Extreme Mode Active ]/" "$MODPROP" 2>/dev/null
-        [ -f "$MODPATH/platforms/$TARGET_SOC/perf.sh" ] && sh "$MODPATH/platforms/$TARGET_SOC/perf.sh" "extreme" >/dev/null 2>&1
+    powersave|balance|performance|extreme)
+        case "$active_profile" in
+            powersave) sed -Ei "s/^description=\[.*\]/description=[ 🔋 Powersave Mode Active ]/" "$MODPROP" 2>/dev/null ;;
+            balance) sed -Ei "s/^description=\[.*\]/description=[ ⚖️ Balance Mode Active ]/" "$MODPROP" 2>/dev/null ;;
+            performance) sed -Ei "s/^description=\[.*\]/description=[ 🚀 Performance Mode Active ]/" "$MODPROP" 2>/dev/null ;;
+            extreme) sed -Ei "s/^description=\[.*\]/description=[ 🔥 Extreme Mode Active ]/" "$MODPROP" 2>/dev/null ;;
+        esac
+        if [ -f "$CORE/apply_profile.sh" ]; then
+            sh "$CORE/apply_profile.sh" "$active_profile" >/dev/null 2>&1
+        elif [ "$active_profile" = "extreme" ] && [ -f "$MODPATH/platforms/$TARGET_SOC/perf.sh" ]; then
+            sh "$MODPATH/platforms/$TARGET_SOC/perf.sh" "extreme" >/dev/null 2>&1
+        elif [ -f "$MODPATH/platforms/$TARGET_SOC/$active_profile.sh" ]; then
+            sh "$MODPATH/platforms/$TARGET_SOC/$active_profile.sh" >/dev/null 2>&1
+        elif [ "$active_profile" = "performance" ] && [ -f "$MODPATH/platforms/$TARGET_SOC/perf.sh" ]; then
+            sh "$MODPATH/platforms/$TARGET_SOC/perf.sh" >/dev/null 2>&1
+        fi
         ;;
 esac
 
 [ -f "$LIB/updater.sh" ] && nohup sh "$LIB/updater.sh" >/dev/null 2>&1 &
 
-# ── 7. Execute Custom User Rules & Deep Tunables ──────────────────
+# ── 10. Execute Custom User Rules & Deep Tunables ───────────────────
 if [ -f "$CORE/custom_tunables.sh" ]; then
     log_msg "⚡ Applying custom deep kernel tunables ($CORE/custom_tunables.sh)..."
     sh "$CORE/custom_tunables.sh" >> "$MODPATH/logs/custom_tunables.log" 2>&1
@@ -178,6 +194,5 @@ if [ -f "$MODPATH/custom_rules.sh" ]; then
     log_msg "Custom rules execution finished."
 fi
 
-
-su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '✅  $active_profile Mode Applied...'" >/dev/null 2>&1
+su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '✅ $active_profile Mode Applied...'" >/dev/null 2>&1
 log_msg "Lynx service completed successfully."

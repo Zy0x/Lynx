@@ -565,14 +565,68 @@ async function dropCaches() {
     logToConsole(res.stdout || "Cache RAM dibebaskan.", 'success');
 }
 
-async function setDirtyRatio(val) {
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_dirty_ratio ${val}`);
-    logToConsole(res.stdout || `Dirty ratio ${val}%`, 'info');
+async function loadWebVmTunables() {
+    try {
+        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh get_vm_tunables");
+        if (res.errno === 0 && res.stdout) {
+            const data = JSON.parse(res.stdout);
+            const setSlider = (id, labelId, val, suffix = '') => {
+                const slider = document.getElementById(id);
+                const label = document.getElementById(labelId);
+                if (slider) slider.value = val;
+                if (label) label.textContent = val + suffix;
+            };
+            if (data.dirty_ratio !== undefined) setSlider('dirty-ratio-slider', 'dirty-ratio-val', data.dirty_ratio, '%');
+            if (data.dirty_background_ratio !== undefined) setSlider('dirty-bg-ratio-slider', 'dirty-bg-ratio-val', data.dirty_background_ratio, '%');
+            if (data.vfs_cache_pressure !== undefined) setSlider('vfs-pressure-slider', 'vfs-pressure-val', data.vfs_cache_pressure);
+            if (data.swappiness !== undefined) setSlider('swappiness-slider', 'swappiness-val', data.swappiness);
+            if (data.dirty_expire_centisecs !== undefined) setSlider('dirty-expire-slider', 'dirty-expire-val', (data.dirty_expire_centisecs / 100), 's');
+            if (data.dirty_writeback_centisecs !== undefined) setSlider('dirty-wb-slider', 'dirty-wb-val', (data.dirty_writeback_centisecs / 100), 's');
+            if (data.stat_interval !== undefined) setSlider('stat-interval-slider', 'stat-interval-val', data.stat_interval, 's');
+        }
+    } catch (e) {
+        console.error("loadWebVmTunables error:", e);
+    }
 }
 
-async function setVfsPressure(val) {
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_vfs_pressure ${val}`);
-    logToConsole(res.stdout || `VFS cache pressure ${val}`, 'info');
+async function setWebVmTunable(param, val) {
+    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_vm_tunable ${param} ${val}`);
+    logToConsole(res.stdout || `VM ${param} disetel ke ${val}`, 'info');
+}
+
+async function applyWebVmPreset(preset) {
+    logToConsole(`Menerapkan preset VM '${preset}'...`);
+    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh apply_vm_preset ${preset}`);
+    logToConsole(res.stdout || `Preset VM '${preset}' diterapkan`, 'success');
+    await loadWebVmTunables();
+    document.querySelectorAll('#btn-vm-gaming, #btn-vm-balanced, #btn-vm-battery').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById(`btn-vm-${preset}`);
+    if (btn) btn.classList.add('active');
+}
+
+async function loadTcpCongestion() {
+    const container = document.getElementById('tcp-container');
+    if (!container) return;
+    try {
+        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh get_tcp");
+        if (res.errno === 0 && res.stdout) {
+            const data = JSON.parse(res.stdout);
+            const cur = (data.current || "").trim();
+            const avail = (data.available || "cubic reno").trim().split(/\s+/).filter(Boolean);
+            container.innerHTML = '';
+            avail.forEach(alg => {
+                const btn = document.createElement('button');
+                btn.className = `btn btn-primary ${alg === cur ? 'active' : ''}`;
+                btn.id = `tcp-${alg}`;
+                btn.style.cssText = 'flex: 1; min-width: 70px;';
+                btn.textContent = alg.toUpperCase();
+                btn.onclick = () => setTcpCongestion(alg);
+                container.appendChild(btn);
+            });
+        }
+    } catch (e) {
+        console.error("loadTcpCongestion error:", e);
+    }
 }
 
 async function setTcpCongestion(alg) {
@@ -583,6 +637,41 @@ async function setTcpCongestion(alg) {
     document.querySelectorAll('#tcp-container button').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById(`tcp-${alg}`);
     if (btn) btn.classList.add('active');
+}
+
+async function loadWebBoefflaAndDoze() {
+    try {
+        const bRes = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh get_boeffla_status");
+        const badge = document.getElementById('boeffla-status-badge');
+        if (badge && bRes.errno === 0 && bRes.stdout) {
+            const bData = JSON.parse(bRes.stdout);
+            if (bData.supported) {
+                badge.textContent = "DRIVER: ACTIVE";
+                badge.style.color = "var(--accent-green)";
+                badge.style.borderColor = "var(--accent-green)";
+            } else {
+                badge.textContent = "DRIVER: UNSUPPORTED";
+                badge.style.color = "var(--text-muted)";
+                badge.style.borderColor = "var(--border-glass)";
+            }
+        }
+
+        const dRes = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh get_doze");
+        const toggle = document.getElementById('doze-toggle');
+        if (toggle && dRes.errno === 0 && dRes.stdout) {
+            const dData = JSON.parse(dRes.stdout);
+            toggle.checked = (dData.state === "IDLE");
+        }
+    } catch (e) {
+        console.error("loadWebBoefflaAndDoze error:", e);
+    }
+}
+
+async function toggleWebAggressiveDoze(enabled) {
+    const p = enabled ? '1' : '0';
+    logToConsole(`Menyetel Aggressive Doze ke ${enabled ? 'Aktif' : 'Nonaktif'}...`);
+    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_doze ${p}`);
+    logToConsole(res.stdout || `Aggressive Doze diperbarui`, 'success');
 }
 
 async function setSelinux(val) {
@@ -1015,6 +1104,9 @@ window.addEventListener('DOMContentLoaded', () => {
     pollThermalZones();
     loadIoDevices();
     pollWebWakelocks();
+    loadTcpCongestion();
+    loadWebVmTunables();
+    loadWebBoefflaAndDoze();
 
     setInterval(syncState, 3000);
     setInterval(pollTelemetry, 1500);

@@ -128,17 +128,14 @@ MODPROP="$MODPATH/module.prop"
 case "$TARGET_SOC" in
     mtk)
         sed -i 's/^name=.*/name=Lynx - Deity (MediaTek)/' "$MODPROP"
-        sed -i 's/^version=.*/version=3.0.0/' "$MODPROP"
         sed -i 's/^description=.*/description=[ ⚡ MediaTek Dimensity\/Helio Engine Active ]/' "$MODPROP"
         ;;
     qcom)
         sed -i 's/^name=.*/name=Lynx - Deity (Qualcomm)/' "$MODPROP"
-        sed -i 's/^version=.*/version=3.0.0/' "$MODPROP"
         sed -i 's/^description=.*/description=[ ⚡ Qualcomm Snapdragon Engine Active ]/' "$MODPROP"
         ;;
     *)
         sed -i 's/^name=.*/name=Lynx - Deity (Universal)/' "$MODPROP"
-        sed -i 's/^version=.*/version=3.0.0/' "$MODPROP"
         sed -i 's/^description=.*/description=[ ⚡ Generic Linux Engine Active ]/' "$MODPROP"
         ;;
 esac
@@ -164,18 +161,7 @@ elif [ "$TARGET_SOC" = "mtk" ]; then
         echo "" >> "$MODPATH/system.prop"
         cat "$MODPATH/platforms/mtk/system.prop" >> "$MODPATH/system.prop"
     fi
-    # MediaTek Wi-Fi In-Place Patcher (Prevents Driver Incompatibilities)
-    if [ -f "/vendor/firmware/wifi.cfg" ]; then
-        mkdir -p "$MODPATH/system/vendor/firmware"
-        cp -af "/vendor/firmware/wifi.cfg" "$MODPATH/system/vendor/firmware/wifi.cfg"
-        sed -i 's/^RoamingRCPIGoodValue.*/RoamingRCPIGoodValue 68/' "$MODPATH/system/vendor/firmware/wifi.cfg"
-        sed -i 's/^RoamingRCPIPoorValue.*/RoamingRCPIPoorValue 68/' "$MODPATH/system/vendor/firmware/wifi.cfg"
-        sed -i 's/^AmsduInAmpduTx.*/AmsduInAmpduTx 1/' "$MODPATH/system/vendor/firmware/wifi.cfg"
-        sed -i 's/^AmsduInAmpduRx.*/AmsduInAmpduRx 1/' "$MODPATH/system/vendor/firmware/wifi.cfg"
-        sed -i 's/^AgingPeriod.*/AgingPeriod 30/' "$MODPATH/system/vendor/firmware/wifi.cfg"
-        ui_print "  📶 MediaTek Wi-Fi Config Patched In-Place"
-    fi
-    ui_print "  ⚡ MediaTek HAL Overlays Injected"
+    ui_print "  ⚡ MediaTek HAL Overlays Injected (Firmware untouched)"
 else
     ui_print "  🛡️ Generic Linux: Preserving stock vendor partition"
 fi

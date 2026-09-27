@@ -108,6 +108,8 @@ data class TelemetryData(
     val battLevel: Int = 0,
     val battCurrentMa: Int = 0,
     val battVoltMv: Int = 0,
+    val battWatt: Float = 0f,
+    val isCharging: Boolean = false,
     val ramUsedMb: Int = 0,
     val ramTotalMb: Int = 0,
 )
@@ -242,6 +244,89 @@ data class AppInfo(
 )
 
 // ============================================================
+//  FKM ADVANCED HARDWARE PARITY MODELS
+// ============================================================
+
+data class VoltageEntry(
+    val freqKhz: Long = 0L,
+    val defaultMv: Int = 0,
+    val currentMv: Int = 0,
+)
+
+data class VoltageTableInfo(
+    val isSupported: Boolean = false,
+    val unsupportedReason: String = "Kernel tidak mengekspos sysfs vdd_levels atau CPR voltage table locked oleh OEM (Driver undervolt tidak terpasang di kernel ini)",
+    val globalOffsetMv: Int = 0,
+    val tableEntries: List<VoltageEntry> = emptyList(),
+)
+
+data class BatteryHealthStats(
+    val isSupported: Boolean = true,
+    val healthPct: Int = 100,
+    val cycleCount: Int = -1,
+    val designedCapacityMah: Int = 4500,
+    val actualCapacityMah: Int = 4500,
+    val activeDrainRateMh: Float = 0f,
+    val idleDrainRateMh: Float = 0f,
+    val uptimeSec: Long = 0L,
+    val idleSleepSec: Long = 0L,
+    val deepSleepPct: Float = 0f,
+)
+
+data class DisplayCalibrationInfo(
+    val isKcalSupported: Boolean = false,
+    val kcalUnsupportedReason: String = "Driver KCAL platform tidak terpasang di kernel ini (KCAL node tidak ditemukan)",
+    val kcalEnabled: Boolean = false,
+    val red: Int = 256,
+    val green: Int = 256,
+    val blue: Int = 256,
+    val saturation: Int = 256,
+    val value: Int = 256,
+    val contrast: Int = 256,
+    val hue: Int = 0,
+    val isHbmSupported: Boolean = false,
+    val hbmUnsupportedReason: String = "Driver HBM (High Brightness Mode) tidak didukung oleh panel display ini",
+    val hbmEnabled: Boolean = false,
+)
+
+data class SoundControlInfo(
+    val isSupported: Boolean = false,
+    val unsupportedReason: String = "Driver Sound Control (Faux/Franco sound) tidak ditemukan di kernel ini",
+    val headphoneGainL: Int = 0,
+    val headphoneGainR: Int = 0,
+    val speakerGain: Int = 0,
+    val micGain: Int = 0,
+    val highPerfMode: Boolean = false,
+)
+
+data class MemoryEntropyInfo(
+    val isLmkLegacySupported: Boolean = false,
+    val lmkReason: String = "Kernel menggunakan userspace lmkd / PSI (Pressure Stall Information) modern (minfree sysfs di-deprecate)",
+    val minfreeMb: List<Int> = emptyList(),
+    val isEntropySupported: Boolean = true,
+    val entropyAvail: Int = 0,
+    val readThreshold: Int = 64,
+    val writeThreshold: Int = 896,
+)
+
+data class CustomScriptItem(
+    val id: String = "",
+    val name: String = "",
+    val script: String = "",
+    val runOnBoot: Boolean = false,
+    val lastRunTime: Long = 0L,
+    val lastExitCode: Int? = null,
+    val lastOutput: String = "",
+)
+
+data class DmesgLogState(
+    val logs: List<String> = emptyList(),
+    val isLoading: Boolean = false,
+    val filter: String = "",
+    val exportPath: String? = null,
+)
+
+// ============================================================
 //  UI STATE WRAPPER
 // ============================================================
 
@@ -298,7 +383,68 @@ data class LynxUiState(
     val isDeepScanning: Boolean = false,
     val selectedDeepCategory: String = "ALL",
     val manualInspectResult: DeepTunable? = null,
+    // Per-App Profile Rules & Floating Game HUD
+    val appProfileRules: List<AppProfileRule> = emptyList(),
+    val isGameHudActive: Boolean = false,
+    val isAppAutomationActive: Boolean = false,
+    // FKM Feature Parity Subsystems
+    val voltageInfo: VoltageTableInfo = VoltageTableInfo(),
+    val batteryHealthStats: BatteryHealthStats = BatteryHealthStats(),
+    val displayCalibration: DisplayCalibrationInfo = DisplayCalibrationInfo(),
+    val soundControl: SoundControlInfo = SoundControlInfo(),
+    val memoryEntropy: MemoryEntropyInfo = MemoryEntropyInfo(),
+    val customScripts: List<CustomScriptItem> = emptyList(),
+    val dmesgState: DmesgLogState = DmesgLogState(),
+    val currentTcpCongestion: String = "",
+    val vmAdvanced: VirtualMemoryAdvancedConfig = VirtualMemoryAdvancedConfig(),
+    val wakelockBlockerInfo: WakelockBlockerInfo = WakelockBlockerInfo(),
+    val schedulerInfo: SchedulerInfo = SchedulerInfo(),
 )
+
+data class VirtualMemoryAdvancedConfig(
+    val swappiness: Int = 100,
+    val dirtyRatio: Int = 20,
+    val dirtyBackgroundRatio: Int = 5,
+    val vfsCachePressure: Int = 100,
+    val dirtyExpireCentisecs: Int = 3000,
+    val dirtyWritebackCentisecs: Int = 500,
+    val statInterval: Int = 1,
+    val activePreset: String = "balanced", // "gaming", "balanced", "battery", "custom"
+)
+
+data class SchedulerInfo(
+    val isBoreSupported: Boolean = false,
+    val schedulerName: String = "CFS / EAS",
+    val schedLatencyNs: Long = 10000000L,
+    val schedMinGranularityNs: Long = 3000000L,
+    val schedWakeupGranularityNs: Long = 2000000L,
+    val schedMigrationCostNs: Long = 200000L,
+    val schedNrMigrate: Int = 32,
+    val schedChildRunsFirst: Boolean = false,
+    val upRateLimitUs: Long = 500L,
+    val downRateLimitUs: Long = 20000L,
+    val activePreset: String = "balanced", // "gaming", "balanced", "battery", "custom"
+)
+
+data class WakelockBlockerInfo(
+    val isDriverSupported: Boolean = false,
+    val driverPath: String = "",
+    val blockedWakelocks: List<String> = emptyList(),
+    val availableWakelocks: List<String> = emptyList(),
+    val aggressiveDozeEnabled: Boolean = false,
+)
+
+data class AppProfileRule(
+    val packageName: String = "",
+    val appName: String = "",
+    val targetProfile: String = "performance",
+    val enabled: Boolean = true,
+    val targetRefreshRate: Int? = null,
+    val autoFloatingHud: Boolean = false,
+    val isGame: Boolean = false,
+) {
+    val isEnabled: Boolean get() = enabled
+}
 
 // ============================================================
 //  DEEP SYSFS INSPECTOR & SMART COMMENT TUNABLES

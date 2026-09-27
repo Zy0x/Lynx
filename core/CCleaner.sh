@@ -20,18 +20,31 @@ fi
 for queue in /sys/block/*/queue; do
     [ -d "$queue" ] || continue
     case "$queue" in
-        *loop*|*ram*) continue ;;
+        *loop*|*ram*|*zram*) continue ;;
     esac
 
-    echo "512" > "$queue/read_ahead_kb" 2>/dev/null
-    echo "128" > "$queue/nr_requests" 2>/dev/null
     echo "0" > "$queue/iostats" 2>/dev/null
     echo "0" > "$queue/add_random" 2>/dev/null
 
-    if grep -q "none" "$queue/scheduler" 2>/dev/null; then
-        echo "none" > "$queue/scheduler" 2>/dev/null
-    elif grep -q "noop" "$queue/scheduler" 2>/dev/null; then
-        echo "noop" > "$queue/scheduler" 2>/dev/null
+    # Target specific block types safely
+    if echo "$queue" | grep -qE "sd[a-z]|nvme"; then
+        # Fast UFS / NVMe internal flash
+        echo "128" > "$queue/read_ahead_kb" 2>/dev/null
+        echo "128" > "$queue/nr_requests" 2>/dev/null
+        if grep -q "none" "$queue/scheduler" 2>/dev/null; then
+            echo "none" > "$queue/scheduler" 2>/dev/null
+        elif grep -q "mq-deadline" "$queue/scheduler" 2>/dev/null; then
+            echo "mq-deadline" > "$queue/scheduler" 2>/dev/null
+        fi
+    elif echo "$queue" | grep -q "mmcblk"; then
+        # eMMC / MicroSD: never force noop (chokes kernel driver under heavy writes)
+        echo "512" > "$queue/read_ahead_kb" 2>/dev/null
+        echo "128" > "$queue/nr_requests" 2>/dev/null
+        if grep -q "mq-deadline" "$queue/scheduler" 2>/dev/null; then
+            echo "mq-deadline" > "$queue/scheduler" 2>/dev/null
+        elif grep -q "bfq" "$queue/scheduler" 2>/dev/null; then
+            echo "bfq" > "$queue/scheduler" 2>/dev/null
+        fi
     fi
 done
 

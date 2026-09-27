@@ -56,7 +56,9 @@ case "$active_profile" in
     powersave)
         sed -Ei "s/^description=\[.*\]/description=[ 🔋 Powersave Mode Active ]/" "$MODPATH/module.prop" 2>/dev/null
         pkill -f "Smart-AI.sh" 2>/dev/null
-        if [ -f "$PLATFORM_DIR/powersave.sh" ]; then
+        if [ -f "$CORE/apply_profile.sh" ]; then
+            sh "$CORE/apply_profile.sh" powersave >/dev/null 2>&1
+        elif [ -f "$PLATFORM_DIR/powersave.sh" ]; then
             sh "$PLATFORM_DIR/powersave.sh" >/dev/null 2>&1
         fi
         am start -a android.intent.action.MAIN -e toasttext "🔋 Lʏɴx: Pᴏᴡᴇʀsᴀᴠᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
@@ -64,7 +66,9 @@ case "$active_profile" in
     balance)
         sed -Ei "s/^description=\[.*\]/description=[ ⚖️ Balance Mode Active ]/" "$MODPATH/module.prop" 2>/dev/null
         pkill -f "Smart-AI.sh" 2>/dev/null
-        if [ -f "$PLATFORM_DIR/balance.sh" ]; then
+        if [ -f "$CORE/apply_profile.sh" ]; then
+            sh "$CORE/apply_profile.sh" balance >/dev/null 2>&1
+        elif [ -f "$PLATFORM_DIR/balance.sh" ]; then
             sh "$PLATFORM_DIR/balance.sh" >/dev/null 2>&1
         fi
         am start -a android.intent.action.MAIN -e toasttext "⚖️ Lʏɴx: Bᴀʟᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
@@ -72,7 +76,9 @@ case "$active_profile" in
     performance)
         sed -Ei "s/^description=\[.*\]/description=[ 🚀 Performance Mode Active ]/" "$MODPATH/module.prop" 2>/dev/null
         pkill -f "Smart-AI.sh" 2>/dev/null
-        if [ -f "$PLATFORM_DIR/perf.sh" ]; then
+        if [ -f "$CORE/apply_profile.sh" ]; then
+            sh "$CORE/apply_profile.sh" performance >/dev/null 2>&1
+        elif [ -f "$PLATFORM_DIR/perf.sh" ]; then
             sh "$PLATFORM_DIR/perf.sh" "perf" >/dev/null 2>&1
         fi
         am start -a android.intent.action.MAIN -e toasttext "🚀 Lʏɴx: Pᴇʀꜰᴏʀᴍᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
@@ -80,7 +86,9 @@ case "$active_profile" in
     extreme)
         sed -Ei "s/^description=\[.*\]/description=[ 🔥 Extreme Mode Active ]/" "$MODPATH/module.prop" 2>/dev/null
         pkill -f "Smart-AI.sh" 2>/dev/null
-        if [ -f "$PLATFORM_DIR/perf.sh" ]; then
+        if [ -f "$CORE/apply_profile.sh" ]; then
+            sh "$CORE/apply_profile.sh" extreme >/dev/null 2>&1
+        elif [ -f "$PLATFORM_DIR/perf.sh" ]; then
             sh "$PLATFORM_DIR/perf.sh" "extreme" >/dev/null 2>&1
         fi
         am start -a android.intent.action.MAIN -e toasttext "🔥 Lʏɴx: Exᴛʀᴇᴍᴇ Mᴏᴅᴇ (Cooler Recommended)" -n bellavita.toast/.MainActivity >/dev/null 2>&1

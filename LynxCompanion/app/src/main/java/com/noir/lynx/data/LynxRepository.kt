@@ -1,7 +1,11 @@
 package com.noir.lynx.data
 
+import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.util.Log
 import com.noir.lynx.LynxApp
+import com.noir.lynx.service.LynxAppAutomationService
 import com.topjohnwu.superuser.Shell
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +39,12 @@ object LynxRepository {
     suspend fun isRootAvailable(): Boolean = withContext(Dispatchers.IO) {
         try {
             val result = Shell.cmd("id").exec()
-            result.isSuccess && result.out.any { it.contains("uid=0") }
+            val available = result.isSuccess && result.out.any { it.contains("uid=0") }
+            if (available) {
+                // Safety Guard: Proactively eliminate any legacy or rogue service.d scripts that cause bootloops
+                Shell.cmd("rm -f /data/adb/service.d/lynx* 2>/dev/null").exec()
+            }
+            available
         } catch (e: Exception) {
             Log.w(TAG, "Root check failed: ${e.message}")
             false
@@ -254,7 +263,24 @@ object LynxRepository {
     suspend fun setProfile(profile: String): Boolean {
         val allowedProfiles = setOf("auto", "balance", "performance", "extreme", "powersave", "dormant")
         if (profile !in allowedProfiles) return false
-        return writeStateKey("active_profile", profile, "str")
+        val ok = writeStateKey("active_profile", profile, "str")
+        if (ok && !isModuleInstalled()) {
+            applyStandaloneProfile(profile)
+        }
+        return ok
+    }
+
+    private suspend fun applyStandaloneProfile(profile: String) = withContext(Dispatchers.IO) {
+        try {
+            val exists = Shell.cmd("[ -f /data/adb/lynx/apply_profile.sh ]").exec()
+            if (!exists.isSuccess) {
+                deployWatcherScripts()
+            }
+            Shell.cmd("sh /data/adb/lynx/apply_profile.sh $profile").exec()
+            Unit
+        } catch (e: Exception) {
+            Log.e(TAG, "applyStandaloneProfile error: ${e.message}")
+        }
     }
 
     // ----------------------------------------------------------------
@@ -337,10 +363,13 @@ object LynxRepository {
             } else {
                 """
                 echo "cpu:"${'$'}(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null | tr '\n' ',')
-                echo "gpu:"${'$'}(cat /proc/gpufreq/gpufreq_opp_freq /sys/class/kgsl/kgsl-3d0/gpuclk 2>/dev/null | head -n 3)
+                echo "gpu:"${'$'}(cat /sys/kernel/ged/hal/current_freqency /sys/class/kgsl/kgsl-3d0/gpuclk /proc/gpufreq/gpufreq_opp_freq 2>/dev/null | head -n 3)
+                echo "gpuload:"${'$'}(cat /sys/kernel/ged/hal/gpu_utilization /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null | head -n 1)
                 echo "temp:"${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null)
                 echo "batt_lvl:"${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null)
                 echo "batt_cur:"${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null)
+                echo "batt_volt:"${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null)
+                echo "batt_stat:"${'$'}(cat /sys/class/power_supply/battery/status 2>/dev/null)
                 echo "mem_tot:"${'$'}(grep MemTotal /proc/meminfo 2>/dev/null | tr -dc 0-9)
                 echo "mem_avail:"${'$'}(grep MemAvailable /proc/meminfo 2>/dev/null | tr -dc 0-9)
                 """.trimIndent()
@@ -358,23 +387,34 @@ object LynxRepository {
                         cpuList.add(cpuArr.optLong(i, 0L))
                     }
                 }
+                val bVoltMv = json.optInt("batt_volt_mv", 4000)
+                val bCurMa = json.optInt("batt_current_ma", 0)
+                val absMa = Math.abs(bCurMa)
+                val bWatt = if (bVoltMv > 0 && absMa > 0) {
+                    ((bVoltMv.toDouble() * absMa.toDouble()) / 1_000_000.0).toFloat()
+                } else 0f
                 TelemetryData(
                     cpu = cpuList,
                     gpuFreq = json.optInt("gpu_freq", 0),
                     gpuBusy = json.optInt("gpu_busy", 0),
                     temp = json.optString("temp", "0.0"),
                     battLevel = json.optInt("batt_level", 0),
-                    battCurrentMa = json.optInt("batt_current_ma", 0),
-                    battVoltMv = json.optInt("batt_volt_mv", 4000),
+                    battCurrentMa = bCurMa,
+                    battVoltMv = bVoltMv,
+                    battWatt = bWatt,
+                    isCharging = bCurMa > 0,
                     ramUsedMb = json.optInt("ram_used_mb", 0),
                     ramTotalMb = json.optInt("ram_total_mb", 0),
                 )
             } else {
                 var cpuList = emptyList<Long>()
                 var gpuFreq = 0
+                var gpuBusy = 0
                 var tempStr = "35.0"
                 var battLevel = 50
                 var battCurrentMa = 0
+                var battVoltMv = 4000
+                var isCharging = false
                 var ramUsedMb = 0
                 var ramTotalMb = 0
 
@@ -387,13 +427,24 @@ object LynxRepository {
                         }
                         trimmed.startsWith("gpu:") -> {
                             val gpuRaw = trimmed.removePrefix("gpu:").trim()
-                            val m = Regex("freq\\s*=\\s*(\\d+)").find(gpuRaw)
-                            if (m != null) {
-                                gpuFreq = (m.groupValues[1].toLongOrNull() ?: 0L).let { (it / 1000L).toInt() }
+                            val tokens = gpuRaw.split(Regex("\\s+"))
+                            if (tokens.size >= 2 && tokens[1].all { it.isDigit() }) {
+                                val freqKhz = tokens[1].toLongOrNull() ?: 0L
+                                gpuFreq = (freqKhz / 1000L).toInt()
                             } else {
-                                val num = gpuRaw.filter { it.isDigit() }.toLongOrNull() ?: 0L
-                                gpuFreq = if (num > 1_000_000L) (num / 1_000_000L).toInt() else (num / 1000L).toInt()
+                                val m = Regex("freq\\s*=\\s*(\\d+)").find(gpuRaw)
+                                if (m != null) {
+                                    gpuFreq = (m.groupValues[1].toLongOrNull() ?: 0L).let { (it / 1000L).toInt() }
+                                } else {
+                                    val num = gpuRaw.filter { it.isDigit() }.toLongOrNull() ?: 0L
+                                    gpuFreq = if (num > 1_000_000L) (num / 1_000_000L).toInt() else (num / 1000L).toInt()
+                                }
                             }
+                        }
+                        trimmed.startsWith("gpuload:") -> {
+                            val loadRaw = trimmed.removePrefix("gpuload:").trim()
+                            val firstNum = loadRaw.split(Regex("\\s+")).firstOrNull()?.filter { it.isDigit() }?.toIntOrNull() ?: 0
+                            gpuBusy = firstNum.coerceIn(0, 100)
                         }
                         trimmed.startsWith("temp:") -> {
                             val tempRaw = trimmed.removePrefix("temp:").filter { it.isDigit() }.toLongOrNull() ?: 350L
@@ -408,6 +459,16 @@ object LynxRepository {
                             val curRaw = trimmed.removePrefix("batt_cur:").trim().toIntOrNull() ?: 0
                             battCurrentMa = if (Math.abs(curRaw) > 10000) curRaw / 1000 else curRaw
                         }
+                        trimmed.startsWith("batt_volt:") -> {
+                            val rawVolt = trimmed.removePrefix("batt_volt:").filter { it.isDigit() }.toLongOrNull() ?: 0L
+                            if (rawVolt > 0) {
+                                battVoltMv = if (rawVolt > 100_000L) (rawVolt / 1000L).toInt() else rawVolt.toInt()
+                            }
+                        }
+                        trimmed.startsWith("batt_stat:") -> {
+                            val statStr = trimmed.removePrefix("batt_stat:").trim()
+                            isCharging = statStr.equals("Charging", ignoreCase = true)
+                        }
                         trimmed.startsWith("mem_tot:") -> {
                             val totKb = trimmed.removePrefix("mem_tot:").filter { it.isDigit() }.toLongOrNull() ?: 4194304L
                             ramTotalMb = (totKb / 1024L).toInt()
@@ -420,14 +481,22 @@ object LynxRepository {
                         }
                     }
                 }
+                val absMa = Math.abs(battCurrentMa)
+                val battWatt = if (battVoltMv > 0 && absMa > 0) {
+                    val rawW = (battVoltMv.toDouble() * absMa.toDouble()) / 1_000_000.0
+                    (Math.round(rawW * 100.0) / 100.0).toFloat()
+                } else 0f
+
                 TelemetryData(
                     cpu = cpuList,
                     gpuFreq = gpuFreq,
-                    gpuBusy = 0,
+                    gpuBusy = gpuBusy,
                     temp = tempStr,
                     battLevel = battLevel,
                     battCurrentMa = battCurrentMa,
-                    battVoltMv = 4000,
+                    battVoltMv = battVoltMv,
+                    battWatt = battWatt,
+                    isCharging = isCharging || battCurrentMa > 0,
                     ramUsedMb = ramUsedMb,
                     ramTotalMb = ramTotalMb,
                 )
@@ -556,14 +625,28 @@ object LynxRepository {
      */
     suspend fun setClusterFreq(policyId: Int, minFreq: Long?, maxFreq: Long?): Boolean = withContext(Dispatchers.IO) {
         try {
+            // Safety Bounds Regulation: clamp to kernel cpuinfo limits
+            val minNode = "/sys/devices/system/cpu/cpufreq/policy$policyId/cpuinfo_min_freq"
+            val maxNode = "/sys/devices/system/cpu/cpufreq/policy$policyId/cpuinfo_max_freq"
+            val hwMin = Shell.cmd("cat $minNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 300000L
+            val hwMax = Shell.cmd("cat $maxNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 2400000L
+
+            var safeMin = minFreq?.coerceIn(hwMin, hwMax)
+            var safeMax = maxFreq?.coerceIn(hwMin, hwMax)
+
+            // Regulation: min cannot exceed max
+            if (safeMin != null && safeMax != null && safeMin > safeMax) {
+                safeMin = safeMax
+            }
+
             val cmd = if (isModuleInstalled()) {
-                val minArg = minFreq?.toString() ?: ""
-                val maxArg = maxFreq?.toString() ?: ""
+                val minArg = safeMin?.toString() ?: ""
+                val maxArg = safeMax?.toString() ?: ""
                 "sh '$MODULE_DIR/core/lib/cluster_manager.sh' set_freq $policyId '$minArg' '$maxArg'"
             } else {
                 buildString {
-                    if (minFreq != null) append("chmod 644 /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_min_freq 2>/dev/null; echo $minFreq > /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_min_freq 2>/dev/null; ")
-                    if (maxFreq != null) append("chmod 644 /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_max_freq 2>/dev/null; echo $maxFreq > /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_max_freq 2>/dev/null; ")
+                    if (safeMin != null) append("chmod 644 /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_min_freq 2>/dev/null; echo $safeMin > /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_min_freq 2>/dev/null; ")
+                    if (safeMax != null) append("chmod 644 /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_max_freq 2>/dev/null; echo $safeMax > /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_max_freq 2>/dev/null; ")
                 }
             }
             Shell.cmd(cmd).exec().isSuccess
@@ -577,6 +660,13 @@ object LynxRepository {
      */
     suspend fun setClusterGov(policyId: Int, gov: String): Boolean = withContext(Dispatchers.IO) {
         try {
+            // Safety Regulation: Only apply if governor is in scaling_available_governors
+            val availGovs = Shell.cmd("cat /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_available_governors 2>/dev/null").exec().out.firstOrNull() ?: ""
+            if (availGovs.isNotBlank() && !availGovs.contains(gov)) {
+                Log.w(TAG, "Governor '$gov' is not in available governors ($availGovs), aborting for safety")
+                return@withContext false
+            }
+
             val cmd = if (isModuleInstalled()) {
                 "sh '$MODULE_DIR/core/lib/cluster_manager.sh' set_gov $policyId '$gov'"
             } else {
@@ -606,17 +696,27 @@ object LynxRepository {
                     busy=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null | tr -d ' %')
                     [ -z "${'$'}busy" ] && busy=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpubusy 2>/dev/null | awk '{if ($2>0) printf "%d", ($1*100)/$2; else print 0}')
                     echo "load:${'$'}busy"
-                elif [ -d /proc/gpufreq ] || [ -d /sys/module/ged ] || [ -c /dev/mali0 ] || [ -d /sys/devices/platform/13000000.mali ]; then
+                elif [ -d /proc/gpufreq ] || [ -d /sys/module/ged ] || [ -c /dev/mali0 ] || [ -d /sys/devices/platform/13000000.mali ] || [ -d /sys/kernel/ged/hal ]; then
                     echo "plat:mali_ged"
-                    cur=${'$'}(cat /proc/gpufreq/gpufreq_opp_freq 2>/dev/null | cut -d '=' -f 2 | cut -d ',' -f 1 | tr -d ' ' | grep '^[0-9]' | head -n1)
-                    [ -z "${'$'}cur" ] && cur=${'$'}(cat /proc/gpufreq/gpufreq_var_dump 2>/dev/null | grep 'freq:' | head -n1 | tr -d ' ' | cut -d ':' -f 2 | cut -d ',' -f 1)
+                    cur=""
+                    if [ -r /sys/kernel/ged/hal/current_freqency ]; then
+                        cur=${'$'}(cat /sys/kernel/ged/hal/current_freqency 2>/dev/null | awk '{if(NF>=2) print ${'$'}2; else print ${'$'}1}')
+                    fi
+                    if [ -z "${'$'}cur" ] || [ "${'$'}cur" -eq 0 ] 2>/dev/null; then
+                        cur=${'$'}(cat /proc/gpufreq/gpufreq_opp_freq 2>/dev/null | grep -Eo 'freq = [0-9]+' | cut -d '=' -f 2 | tr -d ' ')
+                    fi
+                    if [ -z "${'$'}cur" ]; then
+                        cur=${'$'}(cat /proc/gpufreq/gpufreq_var_dump 2>/dev/null | grep -o 'freq: [0-9]*' | head -n1 | cut -d ' ' -f 2)
+                    fi
                     echo "cur:${'$'}cur"
-                    avail=${'$'}(cat /proc/gpufreq/gpufreq_opp_dump 2>/dev/null | cut -d '=' -f 2 | cut -d ',' -f 1 | tr -d ' ' | grep '^[0-9]' | sort -nu | tr '\n' ' ')
+                    avail=${'$'}(cat /proc/gpufreq/gpufreq_opp_dump 2>/dev/null | grep -Eo 'freq = [0-9]+' | cut -d '=' -f 2 | tr -d ' ' | sort -nu | tr '\n' ' ')
                     echo "avail:${'$'}avail"
-                    boost=${'$'}(cat /sys/module/ged/parameters/boost_amp 2>/dev/null | tr -d ' \n')
+                    boost=${'$'}(cat /sys/kernel/ged/hal/gpu_boost_level 2>/dev/null)
+                    [ -z "${'$'}boost" ] && boost=${'$'}(cat /sys/module/ged/parameters/boost_amp 2>/dev/null | tr -d ' \n')
                     [ -z "${'$'}boost" ] && boost=${'$'}(cat /sys/module/ged/parameters/ged_boost_enable 2>/dev/null | tr -d ' \n')
                     echo "gedboost:${'$'}boost"
-                    load=${'$'}(cat /proc/gpufreq/gpufreq_var_dump 2>/dev/null | grep 'gpu_loading' | cut -d '=' -f 2 | tr -d ' \n')
+                    load=${'$'}(cat /sys/kernel/ged/hal/gpu_utilization 2>/dev/null | awk '{print int(${'$'}1)}')
+                    [ -z "${'$'}load" ] && load=${'$'}(cat /proc/gpufreq/gpufreq_var_dump 2>/dev/null | grep 'gpu_loading' | cut -d '=' -f 2 | tr -d ' \n')
                     echo "load:${'$'}load"
                 else
                     echo "plat:generic"
@@ -692,12 +792,21 @@ object LynxRepository {
                     ${if (minHz != null) "chmod 644 \$D/min_freq 2>/dev/null; echo $minHz > \$D/min_freq 2>/dev/null;" else ""}
                     ${if (maxHz != null) "chmod 644 \$D/max_freq 2>/dev/null; echo $maxHz > \$D/max_freq 2>/dev/null;" else ""}
                     echo ok
-                elif [ -d /proc/gpufreq ] || [ -d /sys/module/ged ]; then
+                elif [ -d /proc/gpufreq ] || [ -d /sys/module/ged ] || [ -d /sys/kernel/ged/hal ]; then
                     ${if (maxHz != null) """
-                        echo $maxHz > /sys/module/ged/parameters/gpu_cust_upbound_freq 2>/dev/null
-                        echo $maxHz > /sys/module/ged/parameters/gpu_cust_boost_freq 2>/dev/null
-                        echo $maxHz > /sys/kernel/ged/hal/custom_upbound_gpu_freq 2>/dev/null
-                    """ else ""}
+                        freqKhz=${if (maxHz < 10_000) maxHz * 1000 else maxHz}
+                        if [ -e /proc/gpufreq/gpufreq_opp_freq ]; then
+                            echo ${'$'}freqKhz > /proc/gpufreq/gpufreq_opp_freq 2>/dev/null
+                        fi
+                        echo ${'$'}freqKhz > /sys/module/ged/parameters/gpu_cust_upbound_freq 2>/dev/null
+                        echo ${'$'}freqKhz > /sys/module/ged/parameters/gpu_cust_boost_freq 2>/dev/null
+                        echo 0 > /sys/kernel/ged/hal/custom_boost_gpu_freq 2>/dev/null
+                        echo 0 > /sys/kernel/ged/hal/custom_upbound_gpu_freq 2>/dev/null
+                    """ else """
+                        echo 0 > /proc/gpufreq/gpufreq_opp_freq 2>/dev/null
+                        echo 48 > /sys/kernel/ged/hal/custom_boost_gpu_freq 2>/dev/null
+                        echo 0 > /sys/kernel/ged/hal/custom_upbound_gpu_freq 2>/dev/null
+                    """}
                     echo ok
                 else
                     echo unsupported
@@ -813,8 +922,15 @@ object LynxRepository {
     suspend fun readAvailableTcpAlgorithms(): List<String> = withContext(Dispatchers.IO) {
         try {
             Shell.cmd("cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null")
-                .exec().out.firstOrNull()?.trim()?.split(Regex("\\s+"))?.filter { it.isNotBlank() } ?: listOf("cubic")
-        } catch (e: Exception) { listOf("cubic") }
+                .exec().out.firstOrNull()?.trim()?.split(Regex("\\s+"))?.filter { it.isNotBlank() } ?: emptyList()
+        } catch (e: Exception) { emptyList() }
+    }
+
+    suspend fun readCurrentTcpCongestion(): String = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd("cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null")
+                .exec().out.firstOrNull()?.trim() ?: ""
+        } catch (_: Exception) { "" }
     }
 
     suspend fun setTcpCongestion(algorithm: String): Boolean = withContext(Dispatchers.IO) {
@@ -1478,13 +1594,21 @@ object LynxRepository {
                 .map { it.trim() }.filter { it.isNotBlank() }
 
             packages.map { pkg ->
-                val label = try {
+                var label = pkg
+                var isGame = false
+                try {
                     val appInfo = pm.getApplicationInfo(pkg, 0)
-                    pm.getApplicationLabel(appInfo).toString()
+                    label = pm.getApplicationLabel(appInfo).toString()
+                    isGame = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        appInfo.category == android.content.pm.ApplicationInfo.CATEGORY_GAME ||
+                        (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0
+                    } else {
+                        (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0
+                    }
                 } catch (e: Exception) {
-                    pkg.split(".").lastOrNull()?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() } ?: pkg
+                    label = pkg.split(".").lastOrNull()?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() } ?: pkg
                 }
-                AppInfo(packageName = pkg, label = label)
+                AppInfo(packageName = pkg, label = label, isGame = isGame)
             }.sortedBy { it.label.lowercase() }
         } catch (e: Exception) {
             emptyList()
@@ -1526,6 +1650,188 @@ object LynxRepository {
             Shell.cmd("echo $pressure > /proc/sys/vm/vfs_cache_pressure 2>/dev/null; echo ok")
                 .exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
+    }
+
+    suspend fun readDirtyBackgroundRatio(): Int = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd("cat /proc/sys/vm/dirty_background_ratio 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 5
+        } catch (_: Exception) { 5 }
+    }
+
+    suspend fun setDirtyBackgroundRatio(ratio: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd("echo $ratio > /proc/sys/vm/dirty_background_ratio 2>/dev/null; echo ok")
+                .exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun readDirtyExpireCentisecs(): Int = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd("cat /proc/sys/vm/dirty_expire_centisecs 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 3000
+        } catch (_: Exception) { 3000 }
+    }
+
+    suspend fun setDirtyExpireCentisecs(cs: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd("echo $cs > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null; echo ok")
+                .exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun readDirtyWritebackCentisecs(): Int = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd("cat /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 500
+        } catch (_: Exception) { 500 }
+    }
+
+    suspend fun setDirtyWritebackCentisecs(cs: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd("echo $cs > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null; echo ok")
+                .exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun readVmStatInterval(): Int = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd("cat /proc/sys/vm/stat_interval 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 1
+        } catch (_: Exception) { 1 }
+    }
+
+    suspend fun setVmStatInterval(interval: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd("echo $interval > /proc/sys/vm/stat_interval 2>/dev/null; echo ok")
+                .exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun readVirtualMemoryAdvancedConfig(): VirtualMemoryAdvancedConfig = withContext(Dispatchers.IO) {
+        try {
+            val swappiness = Shell.cmd("cat /proc/sys/vm/swappiness 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 100
+            val dirtyRatio = readDirtyRatio()
+            val dirtyBackground = readDirtyBackgroundRatio()
+            val vfsPressure = readVfsCachePressure()
+            val expire = readDirtyExpireCentisecs()
+            val writeback = readDirtyWritebackCentisecs()
+            val stat = readVmStatInterval()
+
+            val preset = when {
+                dirtyRatio == 10 && dirtyBackground == 5 && vfsPressure == 150 -> "gaming"
+                dirtyRatio == 30 && dirtyBackground == 15 && vfsPressure == 80 -> "battery"
+                dirtyRatio == 20 && dirtyBackground == 5 && vfsPressure == 100 -> "balanced"
+                else -> "custom"
+            }
+
+            VirtualMemoryAdvancedConfig(
+                swappiness = swappiness,
+                dirtyRatio = dirtyRatio,
+                dirtyBackgroundRatio = dirtyBackground,
+                vfsCachePressure = vfsPressure,
+                dirtyExpireCentisecs = expire,
+                dirtyWritebackCentisecs = writeback,
+                statInterval = stat,
+                activePreset = preset
+            )
+        } catch (_: Exception) {
+            VirtualMemoryAdvancedConfig()
+        }
+    }
+
+    suspend fun applyVmPreset(preset: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            when (preset.lowercase()) {
+                "gaming" -> {
+                    Shell.cmd("""
+                        echo 10 > /proc/sys/vm/dirty_ratio 2>/dev/null
+                        echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+                        echo 150 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                        echo 1500 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
+                        echo 300 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
+                        echo 5 > /proc/sys/vm/stat_interval 2>/dev/null
+                        echo ok
+                    """.trimIndent()).exec().out.firstOrNull()?.trim() == "ok"
+                }
+                "battery" -> {
+                    Shell.cmd("""
+                        echo 30 > /proc/sys/vm/dirty_ratio 2>/dev/null
+                        echo 15 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+                        echo 80 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                        echo 4500 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
+                        echo 1000 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
+                        echo 10 > /proc/sys/vm/stat_interval 2>/dev/null
+                        echo ok
+                    """.trimIndent()).exec().out.firstOrNull()?.trim() == "ok"
+                }
+                "balanced" -> {
+                    Shell.cmd("""
+                        echo 20 > /proc/sys/vm/dirty_ratio 2>/dev/null
+                        echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+                        echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                        echo 3000 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
+                        echo 500 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
+                        echo 1 > /proc/sys/vm/stat_interval 2>/dev/null
+                        echo ok
+                    """.trimIndent()).exec().out.firstOrNull()?.trim() == "ok"
+                }
+                else -> false
+            }
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun readWakelockBlockerInfo(): WakelockBlockerInfo = withContext(Dispatchers.IO) {
+        try {
+            val boefflaNodes = listOf(
+                "/sys/devices/virtual/misc/boeffla_wakelock_blocker/wakelock_blocker",
+                "/sys/class/misc/boeffla_wakelock_blocker/default_wakelock_blocker"
+            )
+            val driverPath = boefflaNodes.firstOrNull {
+                Shell.cmd("[ -e '$it' ] && echo yes").exec().out.firstOrNull() == "yes"
+            } ?: ""
+
+            val isSupported = driverPath.isNotBlank()
+            val blockedList = if (isSupported) {
+                Shell.cmd("cat '$driverPath' 2>/dev/null").exec().out
+                    .firstOrNull()?.trim()?.split(";")?.filter { it.isNotBlank() } ?: emptyList()
+            } else emptyList()
+
+            val avail = readTopWakelocks().map { it.name }.filter { it.isNotBlank() }
+            val dozeRes = Shell.cmd("dumpsys deviceidle get deep").exec().out.firstOrNull()?.trim()
+            val isDoze = dozeRes?.equals("IDLE", ignoreCase = true) == true
+
+            WakelockBlockerInfo(
+                isDriverSupported = isSupported,
+                driverPath = driverPath,
+                blockedWakelocks = blockedList,
+                availableWakelocks = avail,
+                aggressiveDozeEnabled = isDoze
+            )
+        } catch (_: Exception) {
+            WakelockBlockerInfo()
+        }
+    }
+
+    suspend fun setWakelockBlocked(name: String, blocked: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val info = readWakelockBlockerInfo()
+            if (!info.isDriverSupported || info.driverPath.isBlank()) return@withContext false
+
+            val current = info.blockedWakelocks.toMutableSet()
+            if (blocked) current.add(name) else current.remove(name)
+            val joined = current.joinToString(";")
+            Shell.cmd("echo '$joined' > '${info.driverPath}' 2>/dev/null; echo ok")
+                .exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun toggleAggressiveDoze(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (enabled) {
+                Shell.cmd("dumpsys deviceidle force-idle >/dev/null 2>&1; echo ok")
+                    .exec().out.firstOrNull()?.trim() == "ok"
+            } else {
+                Shell.cmd("dumpsys deviceidle unforce >/dev/null 2>&1; echo ok")
+                    .exec().out.firstOrNull()?.trim() == "ok"
+            }
+        } catch (_: Exception) { false }
     }
 
     // ----------------------------------------------------------------
@@ -1739,39 +2045,88 @@ object LynxRepository {
             val encoded = android.util.Base64.encodeToString(jsonStr.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
             val dir = path.substringBeforeLast("/")
             Shell.cmd("mkdir -p '$dir' 2>/dev/null; echo '$encoded' | base64 -d > '$path' 2>/dev/null; chmod 660 '$path' 2>/dev/null").exec()
-
-            // Export to shell startup script for zero-lag boot restoration
-            exportCustomTunablesBootScript(tunables)
+            // Note: Scanned tunables are cached to config.json only; NEVER auto-exported to boot startup scripts!
         } catch (e: Exception) {
             Log.e(TAG, "saveDeepTunablesToConfig error: ${e.message}")
         }
     }
 
+    fun isTunableSafe(path: String, value: String): Boolean {
+        val lowerPath = path.lowercase().trim()
+        val lowerVal = value.lowercase().trim()
+
+        if (lowerVal.isBlank() || lowerVal.contains("<unsupported>") || lowerVal.contains("from : to") || lowerVal.contains("\n") || lowerVal.contains("\r")) {
+            return false
+        }
+
+        // Never touch stats, tables, or diagnostic nodes
+        if (lowerPath.contains("trans_table") || lowerPath.contains("scaling_setspeed") || lowerPath.contains("time_in_state") ||
+            lowerPath.contains("cpuinfo") || lowerPath.contains("affected_cpus") || lowerPath.contains("available_") ||
+            lowerPath.contains("stats") || lowerPath.contains("debug_stat") || lowerPath.contains("io_stat")) {
+            return false
+        }
+
+        // Physiological range sanity bounds
+        if (lowerPath.endsWith("sched_latency_ns")) {
+            val num = lowerVal.toLongOrNull() ?: return false
+            if (num < 1000000L || num > 50000000L) return false
+        }
+        if (lowerPath.endsWith("rmem_max") || lowerPath.endsWith("wmem_max")) {
+            val num = lowerVal.toLongOrNull() ?: return false
+            if (num < 65536L) return false
+        }
+        if (lowerPath.endsWith("swappiness")) {
+            val num = lowerVal.toIntOrNull() ?: return false
+            if (num < 0 || num > 200) return false
+        }
+
+        return true
+    }
+
     private suspend fun exportCustomTunablesBootScript(tunables: List<DeepTunable>) {
         try {
-            val scriptPath = if (isModuleInstalled()) {
-                "$MODULE_DIR/core/custom_tunables.sh"
-            } else {
-                "/data/adb/service.d/lynx_tunables.sh"
+            // Standalone Root Mode: NEVER pollute /data/adb/service.d/
+            if (!isModuleInstalled()) {
+                Shell.cmd("rm -f /data/adb/service.d/lynx* 2>/dev/null").exec()
+                return
             }
+
+            val scriptPath = "$MODULE_DIR/core/custom_tunables.sh"
             val parentDir = File(scriptPath).parent ?: return
             Shell.cmd("mkdir -p '$parentDir' 2>/dev/null").exec()
 
             val sb = StringBuilder()
             sb.append("#!/system/bin/sh\n")
             sb.append("# Lynx Universal - Custom Deep Tunables Boot Script\n")
-            sb.append("# Applied automatically on system startup by service.sh\n\n")
+            sb.append("# Applied safely on system startup by service.sh\n\n")
+            sb.append("# 1. Safety Guard: Wait for system boot completed\n")
+            sb.append("boot_count=0\n")
+            sb.append("while [ \"\$(getprop sys.boot_completed | tr -d '\\r')\" != \"1\" ]; do\n")
+            sb.append("    sleep 2\n")
+            sb.append("    boot_count=\$((boot_count + 1))\n")
+            sb.append("    [ \$boot_count -ge 30 ] && break\n")
+            sb.append("done\n\n")
+            sb.append("# 2. Safety Guard: Abort if Safe Mode or Disable trigger exists\n")
+            sb.append("[ -f /sdcard/Debug/SAFE_MODE ] && exit 0\n")
+            sb.append("[ -f /data/adb/modules/.disable_magisk ] && exit 0\n")
+            sb.append("[ -f /data/adb/apatch/.disable ] && exit 0\n")
+            sb.append("[ -f \"$MODULE_DIR/disable\" ] && exit 0\n\n")
             sb.append("write_safe() {\n")
             sb.append("    local val=\"\$1\"\n")
             sb.append("    local node=\"\$2\"\n")
-            sb.append("    if [ -e \"\$node\" ]; then\n")
-            sb.append("        chmod 644 \"\$node\" 2>/dev/null\n")
-            sb.append("        echo \"\$val\" > \"\$node\" 2>/dev/null\n")
-            sb.append("    fi\n")
+            sb.append("    [ -e \"\$node\" ] || return 0\n")
+            sb.append("    [ -z \"\$val\" ] && return 0\n")
+            sb.append("    case \"\$val\" in\n")
+            sb.append("        *\\<unsupported\\>*|*From\\ :\\ To*|*unavailable*) return 0 ;;\n")
+            sb.append("    esac\n")
+            sb.append("    chmod 644 \"\$node\" 2>/dev/null\n")
+            sb.append("    echo \"\$val\" > \"\$node\" 2>/dev/null\n")
             sb.append("}\n\n")
 
             for (t in tunables) {
                 if (!t.writable || t.value.isBlank()) continue
+                if (!isTunableSafe(t.path, t.value)) continue
+
                 if (t.path.startsWith("/proc/ppm/policy_status:")) {
                     val idx = t.path.substringAfter(":")
                     sb.append("echo \"$idx ${t.value}\" > /proc/ppm/policy_status 2>/dev/null\n")
@@ -1841,19 +2196,28 @@ object LynxRepository {
     suspend fun setDeepTunable(path: String, value: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val safeVal = value.replace("\"", "\\\"").trim()
+            val safePath = path.trim().replace("\"", "")
+
+            if (!isTunableSafe(safePath, safeVal)) {
+                Log.w(TAG, "Rejected unsafe tunable write: $safePath -> $safeVal")
+                return@withContext false
+            }
+
             val cmd = if (path.startsWith("/proc/ppm/policy_status:")) {
                 val idx = path.substringAfter(":")
                 "echo '$idx $safeVal' > /proc/ppm/policy_status && echo ok"
             } else {
-                val safePath = path.trim().replace("\"", "")
                 "chmod 644 '$safePath' 2>/dev/null; echo '$safeVal' > '$safePath' 2>/dev/null && echo ok"
             }
             val result = Shell.cmd(cmd).exec()
             val success = result.isSuccess && result.out.firstOrNull()?.trim() == "ok"
             if (success) {
-                // Update boot script entry
-                val scriptPath = if (isModuleInstalled()) "$MODULE_DIR/core/custom_tunables.sh" else "/data/adb/service.d/lynx_tunables.sh"
-                if (Shell.cmd("[ -f '$scriptPath' ]").exec().isSuccess) {
+                // If module is installed, persist safely to custom_tunables.sh
+                if (isModuleInstalled()) {
+                    val scriptPath = "$MODULE_DIR/core/custom_tunables.sh"
+                    if (!Shell.cmd("[ -f '$scriptPath' ]").exec().isSuccess) {
+                        exportCustomTunablesBootScript(emptyList())
+                    }
                     if (path.startsWith("/proc/ppm/policy_status:")) {
                         val idx = path.substringAfter(":")
                         Shell.cmd("sed -i '/echo \"$idx .* > \\/proc\\/ppm\\/policy_status/d' '$scriptPath' 2>/dev/null; echo 'echo \"$idx $safeVal\" > /proc/ppm/policy_status 2>/dev/null' >> '$scriptPath' 2>/dev/null").exec()
@@ -1861,6 +2225,9 @@ object LynxRepository {
                         val safeEscapePath = path.replace("/", "\\/")
                         Shell.cmd("sed -i '/write_safe .* \"$safeEscapePath\"/d' '$scriptPath' 2>/dev/null; echo 'write_safe \"$safeVal\" \"$path\"' >> '$scriptPath' 2>/dev/null").exec()
                     }
+                } else {
+                    // Standalone Mode: Proactively clean rogue service.d scripts
+                    Shell.cmd("rm -f /data/adb/service.d/lynx* 2>/dev/null").exec()
                 }
             }
             success
@@ -3008,5 +3375,2097 @@ object LynxRepository {
             fi
         """.trimIndent()
     }
+
+    // ============================================================
+    //  PER-APP PROFILES & FLOATING GAME HUD AUTOMATION
+    // ============================================================
+
+    private const val LEGACY_APP_RULES_PATH = "/storage/emulated/0/Lynx/app_rules.json"
+    private const val LEGACY_APPLIST_PERF_PATH = "/storage/emulated/0/Lynx/applist_perf.txt"
+
+    private fun getAppRulesPath(): String {
+        return if (Shell.cmd("[ -d '$MODULE_DIR' ]").exec().isSuccess) {
+            "$MODULE_DIR/core/app_rules.json"
+        } else {
+            "/data/adb/lynx/app_rules.json"
+        }
+    }
+
+    suspend fun readAppProfileRules(): List<AppProfileRule> = withContext(Dispatchers.IO) {
+        try {
+            val path = getAppRulesPath()
+            var res = Shell.cmd("cat '$path' 2>/dev/null").exec()
+            var raw = res.out.joinToString("\n").trim()
+            if ((!raw.startsWith("[") || !raw.endsWith("]")) && Shell.cmd("[ -f '$LEGACY_APP_RULES_PATH' ]").exec().isSuccess) {
+                res = Shell.cmd("cat '$LEGACY_APP_RULES_PATH' 2>/dev/null").exec()
+                raw = res.out.joinToString("\n").trim()
+            }
+            if (raw.startsWith("[") && raw.endsWith("]")) {
+                val array = org.json.JSONArray(raw)
+                val list = mutableListOf<AppProfileRule>()
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val targetHz = obj.optInt("targetRefreshRate", -1).let { if (it > 0) it else null }
+                    val autoHud = obj.optBoolean("autoFloatingHud", false)
+                    val isGame = obj.optBoolean("isGame", false)
+                    list.add(
+                        AppProfileRule(
+                            packageName = obj.optString("packageName"),
+                            appName = obj.optString("appName"),
+                            targetProfile = obj.optString("targetProfile", "performance"),
+                            enabled = obj.optBoolean("enabled", true),
+                            targetRefreshRate = targetHz,
+                            autoFloatingHud = autoHud,
+                            isGame = isGame
+                        )
+                    )
+                }
+                return@withContext list
+            }
+            // Fallback: If app_rules.json doesn't exist yet, populate from applist_perf.txt
+            val perfList = readApplistPerf()
+            val allApps = readInstalledAppInfos()
+            val initialRules = perfList.map { pkg ->
+                val info = allApps.firstOrNull { it.packageName == pkg }
+                AppProfileRule(
+                    packageName = pkg,
+                    appName = info?.label ?: pkg.substringAfterLast("."),
+                    targetProfile = "performance",
+                    enabled = true,
+                    targetRefreshRate = null,
+                    autoFloatingHud = false,
+                    isGame = info?.isGame ?: false
+                )
+            }
+            if (initialRules.isNotEmpty()) {
+                saveAllAppProfileRules(initialRules)
+            }
+            initialRules
+        } catch (e: Exception) {
+            Log.e(TAG, "readAppProfileRules error: ${e.message}")
+            emptyList()
+        }
+    }
+
+    suspend fun saveAllAppProfileRules(rules: List<AppProfileRule>): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val array = org.json.JSONArray()
+            val perfPkgs = mutableSetOf<String>()
+            rules.forEach { r ->
+                val obj = org.json.JSONObject()
+                obj.put("packageName", r.packageName)
+                obj.put("appName", r.appName)
+                obj.put("targetProfile", r.targetProfile)
+                obj.put("enabled", r.enabled)
+                obj.put("targetRefreshRate", r.targetRefreshRate ?: -1)
+                obj.put("autoFloatingHud", r.autoFloatingHud)
+                obj.put("isGame", r.isGame)
+                array.put(obj)
+                if (r.enabled && (r.targetProfile == "performance" || r.targetProfile == "extreme")) {
+                    perfPkgs.add(r.packageName)
+                }
+            }
+            val jsonStr = array.toString(2)
+            val primaryRulesPath = getAppRulesPath()
+            val primaryRulesDir = primaryRulesPath.substringBeforeLast("/")
+            Shell.cmd(
+                "mkdir -p '$primaryRulesDir' /data/adb/lynx 2>/dev/null",
+                "cat << 'EOF' > '$primaryRulesPath'\n$jsonStr\nEOF",
+                "chmod 666 '$primaryRulesPath' 2>/dev/null"
+            ).exec()
+
+            // Synchronize with app_rules.tsv for ultra-fast root daemon parsing
+            val tsvLines = rules.filter { it.enabled }.joinToString("\n") { r ->
+                "${r.packageName}|${r.targetProfile}|${r.targetRefreshRate ?: -1}|${if (r.autoFloatingHud) "1" else "0"}|${r.appName}"
+            }
+            Shell.cmd(
+                "cat << 'EOF' > /data/adb/lynx/app_rules.tsv\n$tsvLines\nEOF",
+                "chmod 666 /data/adb/lynx/app_rules.tsv 2>/dev/null"
+            ).exec()
+
+            // If user has /storage/emulated/0/Lynx directory, sync there as well
+            if (Shell.cmd("[ -d '/storage/emulated/0/Lynx' ]").exec().isSuccess) {
+                Shell.cmd(
+                    "cat << 'EOF' > '$LEGACY_APP_RULES_PATH'\n$jsonStr\nEOF",
+                    "chmod 666 '$LEGACY_APP_RULES_PATH' 2>/dev/null"
+                ).exec()
+            }
+
+            // Synchronize with applist_perf.txt
+            if (perfPkgs.isNotEmpty()) {
+                val currentPerf = readApplistPerf().toMutableSet()
+                currentPerf.addAll(perfPkgs)
+                val lines = currentPerf.joinToString("\n")
+                val perfPath = getApplistPerfPath()
+                val perfDir = perfPath.substringBeforeLast("/")
+                Shell.cmd(
+                    "mkdir -p '$perfDir' /data/adb/lynx 2>/dev/null",
+                    "cat << 'EOF' > '$perfPath'\n$lines\nEOF",
+                    "chmod 666 '$perfPath' 2>/dev/null"
+                ).exec()
+
+                if (Shell.cmd("[ -d '/storage/emulated/0/Lynx' ]").exec().isSuccess) {
+                    Shell.cmd(
+                        "cat << 'EOF' > '$LEGACY_APPLIST_PERF_PATH'\n$lines\nEOF",
+                        "chmod 666 '$LEGACY_APPLIST_PERF_PATH' 2>/dev/null"
+                    ).exec()
+                }
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "saveAllAppProfileRules error: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun saveAppProfileRule(rule: AppProfileRule): Boolean = withContext(Dispatchers.IO) {
+        val current = readAppProfileRules().toMutableList()
+        val index = current.indexOfFirst { it.packageName == rule.packageName }
+        if (index >= 0) {
+            current[index] = rule
+        } else {
+            current.add(rule)
+        }
+        saveAllAppProfileRules(current)
+    }
+
+    suspend fun deleteAppProfileRule(packageName: String): Boolean = withContext(Dispatchers.IO) {
+        val current = readAppProfileRules().toMutableList()
+        current.removeAll { it.packageName == packageName }
+        saveAllAppProfileRules(current)
+    }
+
+    suspend fun toggleAppProfileRule(packageName: String, enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val current = readAppProfileRules().toMutableList()
+        val index = current.indexOfFirst { it.packageName == packageName }
+        if (index >= 0) {
+            current[index] = current[index].copy(enabled = enabled)
+            saveAllAppProfileRules(current)
+        } else {
+            false
+        }
+    }
+
+    suspend fun grantOverlayPermission(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val r = Shell.cmd(
+                "appops set com.noir.lynx SYSTEM_ALERT_WINDOW allow 2>/dev/null",
+                "appops set com.noir.lynx.debug SYSTEM_ALERT_WINDOW allow 2>/dev/null",
+                "pm grant com.noir.lynx android.permission.SYSTEM_ALERT_WINDOW 2>/dev/null",
+                "pm grant com.noir.lynx.debug android.permission.SYSTEM_ALERT_WINDOW 2>/dev/null"
+            ).exec()
+            r.isSuccess
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun grantUsageStatsPermission(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val r = Shell.cmd(
+                "appops set com.noir.lynx GET_USAGE_STATS allow 2>/dev/null",
+                "appops set com.noir.lynx.debug GET_USAGE_STATS allow 2>/dev/null",
+                "pm grant com.noir.lynx android.permission.PACKAGE_USAGE_STATS 2>/dev/null",
+                "pm grant com.noir.lynx.debug android.permission.PACKAGE_USAGE_STATS 2>/dev/null"
+            ).exec()
+            r.isSuccess
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun deployWatcherScripts(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val applyScript = """
+#!/system/bin/sh
+PROFILE="${'$'}{1:-balance}"
+mkdir -p /data/adb/lynx 2>/dev/null
+echo "${'$'}PROFILE" > /data/adb/lynx/active_profile 2>/dev/null
+
+write_node() {
+    local val="${'$'}1"
+    local node="${'$'}2"
+    if [ -e "${'$'}node" ]; then
+        chmod 644 "${'$'}node" 2>/dev/null
+        echo "${'$'}val" > "${'$'}node" 2>/dev/null
+    fi
 }
+
+OEM_TARGET_PROCS="mi_thermald thermal-engine thermal-engine-v2 ituxd com.samsung.android.game.gos"
+
+is_bluetooth_audio() {
+    dumpsys audio 2>/dev/null | grep -iE "a2dp.*connected|device.*bluetooth_a2dp" | grep -qv "state=0"
+}
+
+for p in /sys/devices/system/cpu/cpufreq/policy*; do
+    [ -d "${'$'}p" ] || continue
+    chmod 444 "${'$'}p"/cpuinfo_* 2>/dev/null
+done
+for c in /sys/devices/system/cpu/cpu[0-9]*; do
+    [ -d "${'$'}c" ] || continue
+    chmod 444 "${'$'}c"/cpufreq/cpuinfo_* "${'$'}c"/cpu_capacity "${'$'}c"/topology/physical_package_id 2>/dev/null
+done
+
+case "${'$'}PROFILE" in
+    extreme|performance)
+        for p in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ -d "${'$'}p" ] || continue
+            write_node "schedutil" "${'$'}p/scaling_governor"
+            write_node "0" "${'$'}p/schedutil/up_rate_limit_us"
+            write_node "5000" "${'$'}p/schedutil/down_rate_limit_us"
+            write_node "85" "${'$'}p/schedutil/hispeed_load"
+            write_node "1" "${'$'}p/schedutil/iowait_boost_enable"
+            write_node "1" "${'$'}p/schedutil/pl"
+
+            min_freq=${'$'}(cat "${'$'}p/cpuinfo_min_freq" 2>/dev/null)
+            max_freq=${'$'}(cat "${'$'}p/cpuinfo_max_freq" 2>/dev/null)
+            if [ -z "${'$'}max_freq" ]; then
+                max_freq=${'$'}(tr -s ' ' '\n' < "${'$'}p/scaling_available_frequencies" 2>/dev/null | sort -n | tail -n 1)
+            fi
+            if [ -z "${'$'}min_freq" ]; then
+                min_freq=${'$'}(tr -s ' ' '\n' < "${'$'}p/scaling_available_frequencies" 2>/dev/null | sort -n | head -n 1)
+            fi
+            if [ -n "${'$'}max_freq" ]; then
+                write_node "${'$'}max_freq" "${'$'}p/scaling_max_freq"
+                write_node "${'$'}max_freq" "${'$'}p/schedutil/hispeed_freq"
+                if [ "${'$'}PROFILE" = "extreme" ]; then
+                    write_node "${'$'}max_freq" "${'$'}p/scaling_min_freq"
+                else
+                    floor=${'$'}(( max_freq * 85 / 100 ))
+                    [ -n "${'$'}min_freq" ] && [ "${'$'}floor" -lt "${'$'}min_freq" ] && floor="${'$'}min_freq"
+                    write_node "${'$'}floor" "${'$'}p/scaling_min_freq"
+                fi
+            fi
+        done
+
+        for ctl in /sys/devices/system/cpu/cpu*/core_ctl; do
+            [ -d "${'$'}ctl" ] || continue
+            write_node "500" "${'$'}ctl/offline_delay_ms"
+            write_node "1 1 1 1" "${'$'}ctl/not_preferred"
+        done
+
+        write_node "N" "/sys/module/workqueue/parameters/power_efficient"
+        write_node "1" "/sys/devices/system/cpu/perf/enable"
+        write_node "0" "/sys/devices/system/cpu/eas/enable"
+        write_node "1" "/proc/sys/kernel/sched_autogroup_enabled"
+        write_node "0" "/proc/sys/kernel/sched_tunable_scaling"
+
+        write_node "3" "/proc/cpufreq/cpufreq_power_mode"
+        write_node "1" "/proc/cpufreq/cpufreq_cci_mode"
+        write_node "1" "/proc/cpufreq/cpufreq_imax_enable"
+        write_node "0" "/proc/cpufreq/cpufreq_debug"
+        write_node "1" "/proc/cpufreq/cpufreq_sched_disable"
+        write_node "0" "/proc/cpuidle/control/armpll_mode"
+        write_node "0" "/proc/cpuidle/control/buck_mode"
+        write_node "1" "/proc/perfmgr/syslimiter/syslimiter_force_disable"
+        write_node "0" "/sys/kernel/eara_thermal/enable"
+        write_node "0" "/sys/kernel/eara_thermal/fake_throttle"
+        write_node "100 99" "/proc/driver/thermal/clatm_gpu_threshold"
+
+        write_node "0" "/proc/ppm/enabled"
+        write_node "0 0" "/proc/ppm/policy_status"
+        write_node "1 1" "/proc/ppm/policy_status"
+        write_node "2 0" "/proc/ppm/policy_status"
+        write_node "3 0" "/proc/ppm/policy_status"
+        write_node "4 0" "/proc/ppm/policy_status"
+        write_node "5 0" "/proc/ppm/policy_status"
+        write_node "6 1" "/proc/ppm/policy_status"
+        write_node "7 1" "/proc/ppm/policy_status"
+        write_node "8 0" "/proc/ppm/policy_status"
+        write_node "9 1" "/proc/ppm/policy_status"
+        write_node "0" "/proc/ppm/cpi/cpi_enabled"
+
+        for c in 0 1 2; do
+            table="/proc/ppm/dump_cluster_${'$'}{c}_dvfs_table"
+            if [ -f "${'$'}table" ]; then
+                c_max=${'$'}(awk '{print ${'$'}1}' "${'$'}table" 2>/dev/null | head -n 1)
+                if [ -n "${'$'}c_max" ]; then
+                    write_node "${'$'}c ${'$'}c_max" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+                    if [ "${'$'}PROFILE" = "extreme" ]; then
+                        write_node "${'$'}c ${'$'}c_max" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+                    else
+                        c_floor=${'$'}(( c_max * 85 / 100 ))
+                        write_node "${'$'}c ${'$'}c_floor" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+                    fi
+                fi
+            fi
+        done
+
+        for dev in /sys/class/devfreq/*; do
+            [ -d "${'$'}dev" ] || continue
+            case "${'$'}dev" in
+                *ufshc*|*cpubw*|*gpubw*|*llccbw*|*l3-cpu*|*bus_ddr*)
+                    write_node "performance" "${'$'}dev/governor"
+                    freq_table="${'$'}dev/available_frequencies"
+                    if [ -s "${'$'}freq_table" ]; then
+                        h_freq=${'$'}(tr -s ' ' '\n' < "${'$'}freq_table" 2>/dev/null | sort -n | tail -n 1)
+                        [ -n "${'$'}h_freq" ] && write_node "${'$'}h_freq" "${'$'}dev/min_freq"
+                    fi
+                    ;;
+            esac
+        done
+
+        if [ "${'$'}PROFILE" = "extreme" ]; then
+            write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+            write_node "2" "/sys/kernel/ged/hal/gpu_boost_level"
+            write_node "100" "/sys/kernel/ged/hal/dvfs_margin_value"
+            write_node "0" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
+            write_node "0" "/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel"
+            write_node "0" "/sys/class/kgsl/kgsl-3d0/default_pwrlevel"
+            write_node "3" "/sys/class/kgsl/kgsl-3d0/devfreq/adreno_boost"
+            write_node "1" "/sys/class/kgsl/kgsl-3d0/force_bus_on"
+            write_node "1" "/sys/class/kgsl/kgsl-3d0/force_clk_on"
+            write_node "1" "/sys/class/kgsl/kgsl-3d0/force_rail_on"
+            write_node "0" "/sys/class/kgsl/kgsl-3d0/throttling"
+            write_node "120" "/sys/class/kgsl/kgsl-3d0/idle_timer"
+            write_node "0" "/sys/class/kgsl/kgsl-3d0/bus_split"
+
+            if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
+                opp_line=${'$'}(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+                peak_f=${'$'}(echo "${'$'}opp_line" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+                if [ -n "${'$'}peak_f" ]; then
+                    write_node "${'$'}peak_f" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
+                    write_node "${'$'}peak_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
+                    write_node "${'$'}peak_f" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
+                    write_node "${'$'}peak_f" "/sys/module/ged/parameters/gpu_bottom_freq"
+                    write_node "${'$'}peak_f" "/proc/gpufreq/gpufreq_opp_freq"
+                fi
+            fi
+            for i in 0 1 2 3 4 5 6 7 8; do
+                write_node "${'$'}i 0 0" "/proc/gpufreq/gpufreq_limit_table"
+            done
+        else
+            write_node "15" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+            write_node "1" "/sys/kernel/ged/hal/gpu_boost_level"
+            write_node "50" "/sys/kernel/ged/hal/dvfs_margin_value"
+            write_node "1" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
+            write_node "1" "/sys/class/kgsl/kgsl-3d0/devfreq/adreno_boost"
+            write_node "60" "/sys/class/kgsl/kgsl-3d0/idle_timer"
+        fi
+
+        write_node "1" "/sys/module/ged/parameters/boost_gpu_enable"
+        write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
+        write_node "1" "/sys/module/ged/parameters/enable_gpu_boost"
+        write_node "1" "/sys/module/ged/parameters/enable_cpu_boost"
+        write_node "1" "/sys/module/ged/parameters/gx_game_mode"
+        write_node "1" "/sys/module/ged/parameters/gx_boost_on"
+        write_node "1" "/sys/module/ged/parameters/boost_amp"
+        write_node "1" "/sys/module/ged/parameters/boost_extra"
+        write_node "1" "/sys/module/ged/parameters/cpu_boost_policy"
+        write_node "0" "/sys/module/ged/parameters/deboost_reduce"
+        write_node "100" "/sys/module/ged/parameters/g_fb_dvfs_threshold"
+        write_node "1" "/sys/module/ged/parameters/ged_boost_enable"
+        write_node "1" "/sys/module/ged/parameters/ged_force_mdp_enable"
+        write_node "1" "/sys/module/ged/parameters/ged_monitor_3D_fence_disable"
+        write_node "1" "/sys/module/ged/parameters/gpu_idle"
+        write_node "1" "/sys/module/ged/parameters/gx_force_cpu_boost"
+        write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
+        write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
+        write_node "1" "/sys/kernel/fpsgo/common/force_onoff"
+        write_node "1" "/sys/kernel/fpsgo/fbt/boost_ta"
+        write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+        write_node "always_on" "/sys/devices/platform/*mali*/power_policy"
+        write_node "1" "/proc/mali/always_on"
+        write_node "1" "/proc/mali/dvfs_enable"
+        write_node "0" "/proc/mali/debug_log"
+
+        uclamp_val=60
+        [ "${'$'}PROFILE" = "extreme" ] && uclamp_val=80
+        for u_node in "/dev/cpuset/top-app/cpu.uclamp.min" "/proc/sys/kernel/sched_util_clamp_min"; do
+            if [ -e "${'$'}u_node" ]; then
+                max_sc=100
+                [ -e "/dev/cpuset/top-app/cpu.uclamp.max" ] && max_sc=${'$'}(cat "/dev/cpuset/top-app/cpu.uclamp.max" 2>/dev/null)
+                if [ "${'$'}max_sc" -gt 100 ] 2>/dev/null; then
+                    write_node "${'$'}(( (uclamp_val * 1024) / 100 ))" "${'$'}u_node"
+                else
+                    write_node "${'$'}uclamp_val" "${'$'}u_node"
+                fi
+            fi
+        done
+
+        write_node "0-7" "/dev/cpuset/foreground/cpus"
+        write_node "0-2" "/dev/cpuset/background/cpus"
+        write_node "2-7" "/dev/cpuset/system-background/cpus"
+        write_node "0-7" "/dev/cpuset/top-app/cpus"
+        write_node "0" "/dev/cpuset/restricted/cpus"
+        write_node "1" "/dev/stune/schedtune.sched_boost_enabled"
+        write_node "5" "/dev/stune/schedtune.boost"
+        write_node "0" "/dev/stune/schedtune.prefer_idle"
+        write_node "5" "/dev/stune/foreground/schedtune.boost"
+        write_node "5" "/dev/stune/top-app/schedtune.boost"
+
+        if [ -e "/sys/kernel/mm/lru_gen/enabled" ]; then
+            write_node "y" "/sys/kernel/mm/lru_gen/enabled"
+            write_node "1000" "/sys/kernel/mm/lru_gen/min_ttl_ms"
+        fi
+        write_node "20" "/proc/sys/vm/dirty_ratio"
+        write_node "10" "/proc/sys/vm/dirty_background_ratio"
+        write_node "500" "/proc/sys/vm/dirty_expire_centisecs"
+        write_node "200" "/proc/sys/vm/dirty_writeback_centisecs"
+        write_node "70" "/proc/sys/vm/vfs_cache_pressure"
+        write_node "100" "/proc/sys/vm/extfrag_threshold"
+        write_node "0" "/proc/sys/vm/oom_dump_tasks"
+        write_node "80" "/proc/sys/vm/overcommit_ratio"
+        write_node "1" "/proc/sys/vm/compact_unevictable_allowed"
+        write_node "16" "/proc/sys/kernel/sched_nr_migrate"
+        write_node "40" "/proc/sys/kernel/perf_cpu_time_max_percent"
+        write_node "1" "/proc/sys/kernel/sched_boost"
+        write_node "512" "/proc/sys/kernel/random/read_wakeup_threshold"
+        write_node "2048" "/proc/sys/kernel/random/write_wakeup_threshold"
+        swap_v=70
+        [ "${'$'}PROFILE" = "extreme" ] && swap_v=60
+        write_node "${'$'}swap_v" "/proc/sys/vm/swappiness"
+
+        for queue in /sys/block/*/queue; do
+            [ -d "${'$'}queue" ] || continue
+            write_node "0" "${'$'}queue/add_random"
+            write_node "0" "${'$'}queue/iostats"
+            write_node "1" "${'$'}queue/rq_affinity"
+            write_node "128" "${'$'}queue/nr_requests"
+        done
+        for q in /sys/block/*/queue/scheduler; do
+            [ -e "${'$'}q" ] && echo deadline > "${'$'}q" 2>/dev/null
+        done
+        for ra in /sys/block/sd*/queue/read_ahead_kb; do
+            write_node "128" "${'$'}ra"
+        done
+        for ra in /sys/block/mmcblk*/queue/read_ahead_kb; do
+            write_node "512" "${'$'}ra"
+        done
+        for ufs in /sys/devices/platform/soc/*ufshc*; do
+            [ -d "${'$'}ufs" ] || continue
+            write_node "5" "${'$'}ufs/clkgate_delay_ms_perf"
+            write_node "1000" "${'$'}ufs/clkgate_delay_ms_pwr_save"
+        done
+
+        setprop debug.sf.early_phase_offset_ns 500000 2>/dev/null
+        setprop debug.sf.early_app_phase_offset_ns 500000 2>/dev/null
+        setprop debug.sf.high_fps_late_app_phase_offset_ns 1000000 2>/dev/null
+        setprop debug.sf.high_fps_early_phase_offset_ns 1000000 2>/dev/null
+
+        peak_rr=${'$'}(settings get system peak_refresh_rate 2>/dev/null)
+        if [ -n "${'$'}peak_rr" ] && [ "${'$'}peak_rr" != "null" ]; then
+            if [ ! -f "/dev/lynx_orig_min_rr" ]; then
+                orig_min=${'$'}(settings get system min_refresh_rate 2>/dev/null)
+                echo "${'$'}{orig_min:-60.0}" > "/dev/lynx_orig_min_rr"
+            fi
+            settings put system min_refresh_rate "${'$'}peak_rr" 2>/dev/null
+        fi
+
+        for tn in /sys/class/touch/touch_dev/touch_game_mode \
+                 /sys/devices/virtual/touch/touch_dev/bump_sample_rate \
+                 /proc/touchscreen/game_mode \
+                 /sys/devices/platform/goodix_ts.*/game_mode \
+                 /sys/devices/platform/tp_wake_switch/game_mode \
+                 /sys/devices/virtual/input/input*/touch_game_mode; do
+            write_node "1" "${'$'}tn"
+        done
+
+        cmd wifi set-power-save-mode 0 >/dev/null 2>&1
+        cmd wifi force-low-latency-mode enabled >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_low_latency=1 >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_autocorking=0 >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
+        for ps_node in /sys/module/wlan/parameters/power_save /sys/module/bcmdhd/parameters/op_mode; do
+            write_node "0" "${'$'}ps_node"
+        done
+
+        avail_tcp=${'$'}(cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null)
+        for target_algo in bbrv3 bbr westwood cubic; do
+            case " ${'$'}avail_tcp " in
+                *" ${'$'}target_algo "*)
+                    sysctl -w net.ipv4.tcp_congestion_control="${'$'}target_algo" >/dev/null 2>&1
+                    break
+                    ;;
+            esac
+        done
+
+        setprop af.fast_track_multiplier 1 2>/dev/null
+        if is_bluetooth_audio; then
+            setprop aaudio.mmap_policy 2 2>/dev/null
+            setprop aaudio.hw_burst_min_usec 4000 2>/dev/null
+        else
+            setprop aaudio.mmap_policy 2 2>/dev/null
+            setprop aaudio.mmap_exclusive_policy 2 2>/dev/null
+            setprop aaudio.hw_burst_min_usec 2000 2>/dev/null
+        fi
+
+        for proc in "surfaceflinger" "android.hardware.graphics.composer" "vendor.qti.hardware.display.composer" "vendor.mediatek.hardware.pq"; do
+            for pid in ${'$'}(pgrep -f "${'$'}proc" 2>/dev/null); do
+                renice -n -20 -p "${'$'}pid" 2>/dev/null
+                write_node "${'$'}pid" "/dev/cpuset/top-app/cgroup.procs"
+            done
+        done
+
+        GAME_LIBS="com.miHoYo., com.miHoYo.GenshinImpact, com.activision., com.epicgames, com.dts., UnityMain, libunity.so, libil2cpp.so, libmain.so, libcri_vip_unity.so, libopus.so, libxlua.so, libUE4.so, libAsphalt9.so, libnative-lib.so, libRiotGamesApi.so, libResources.so, libagame.so, libapp.so, libflutter.so, libMSDKCore.so, libFIFAMobileNeon.so, libUnreal.so, libEOSSDK.so, libcocos2dcpp.so, libfb.so"
+        write_node "${'$'}GAME_LIBS" "/proc/sys/kernel/sched_lib_name"
+        write_node "255" "/proc/sys/kernel/sched_lib_mask_force"
+
+        sf="/sys/kernel/debug/sched_features"
+        [ -f "${'$'}sf" ] || sf="/d/sched_features"
+        if [ -f "${'$'}sf" ]; then
+            for feat in "NO_GENTLE_FAIR_SLEEPERS" "START_DEBIT" "NO_NEXT_BUDDY" "LAST_BUDDY" "WAKEUP_PREEMPTION" "NO_HRTICK" "NO_DOUBLE_TICK"; do
+                echo "${'$'}feat" > "${'$'}sf" 2>/dev/null
+            done
+        fi
+
+        for proc in ${'$'}OEM_TARGET_PROCS; do
+            for pid in ${'$'}(pidof "${'$'}proc" 2>/dev/null); do
+                kill -STOP "${'$'}pid" 2>/dev/null
+            done
+        done
+        for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
+            kill -STOP "${'$'}jpid" 2>/dev/null
+        done
+
+        if [ "${'$'}PROFILE" = "extreme" ]; then
+            write_node "0" "/proc/cpufreq/cpufreq_imax_thermal_protect"
+            cmd thermalservice override-status 0 2>/dev/null
+            for tz in /sys/class/thermal/thermal_zone*; do
+                [ -d "${'$'}tz" ] || continue
+                write_node "disabled" "${'$'}tz/mode"
+                write_node "150000" "${'$'}tz/trip_point_0_temp"
+            done
+            for cooling in /sys/class/thermal/cooling_device*; do
+                [ -d "${'$'}cooling" ] || continue
+                max_s=${'$'}(cat "${'$'}cooling/max_state" 2>/dev/null)
+                [ -n "${'$'}max_s" ] && write_node "${'$'}max_s" "${'$'}cooling/min_state"
+            done
+
+            for cpu in 0 1 2 3 4 5 6 7; do
+                path="/sys/devices/system/cpu/cpu${'$'}{cpu}"
+                [ -e "${'$'}path/cpufreq/cpuinfo_max_freq" ] && chmod 000 "${'$'}path/cpufreq/cpuinfo_max_freq" 2>/dev/null
+                [ -e "${'$'}path/cpu_capacity" ] && chmod 000 "${'$'}path/cpu_capacity" 2>/dev/null
+                [ -e "${'$'}path/topology/physical_package_id" ] && chmod 000 "${'$'}path/topology/physical_package_id" 2>/dev/null
+            done
+        else
+            write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
+            cmd thermalservice reset 2>/dev/null
+            for tz in /sys/class/thermal/thermal_zone*; do
+                [ -d "${'$'}tz" ] || continue
+                write_node "enabled" "${'$'}tz/mode"
+                write_node "80000" "${'$'}tz/trip_point_0_temp"
+            done
+            for cooling in /sys/class/thermal/cooling_device*; do
+                [ -d "${'$'}cooling" ] || continue
+                write_node "0" "${'$'}cooling/min_state"
+            done
+            for cpu in 0 1 2 3 4 5 6 7; do
+                path="/sys/devices/system/cpu/cpu${'$'}{cpu}"
+                [ -e "${'$'}path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "${'$'}path/cpufreq/cpuinfo_max_freq" 2>/dev/null
+                [ -e "${'$'}path/cpu_capacity" ] && chmod 444 "${'$'}path/cpu_capacity" 2>/dev/null
+                [ -e "${'$'}path/topology/physical_package_id" ] && chmod 444 "${'$'}path/topology/physical_package_id" 2>/dev/null
+            done
+        fi
+
+        setprop lynx.mode "${'$'}PROFILE"
+        ;;
+
+    powersave)
+        for p in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ -d "${'$'}p" ] || continue
+            write_node "schedutil" "${'$'}p/scaling_governor"
+            write_node "20000" "${'$'}p/schedutil/up_rate_limit_us"
+            write_node "500" "${'$'}p/schedutil/down_rate_limit_us"
+            write_node "99" "${'$'}p/schedutil/hispeed_load"
+            write_node "0" "${'$'}p/schedutil/iowait_boost_enable"
+            write_node "0" "${'$'}p/schedutil/pl"
+
+            min_freq=${'$'}(cat "${'$'}p/cpuinfo_min_freq" 2>/dev/null)
+            max_freq=${'$'}(cat "${'$'}p/cpuinfo_max_freq" 2>/dev/null)
+            if [ -z "${'$'}max_freq" ]; then
+                max_freq=${'$'}(tr -s ' ' '\n' < "${'$'}p/scaling_available_frequencies" 2>/dev/null | sort -n | tail -n 1)
+            fi
+            if [ -z "${'$'}min_freq" ]; then
+                min_freq=${'$'}(tr -s ' ' '\n' < "${'$'}p/scaling_available_frequencies" 2>/dev/null | sort -n | head -n 1)
+            fi
+            [ -n "${'$'}min_freq" ] && write_node "${'$'}min_freq" "${'$'}p/scaling_min_freq"
+            if [ -n "${'$'}max_freq" ]; then
+                p_cap=${'$'}(( max_freq * 60 / 100 ))
+                [ -n "${'$'}min_freq" ] && [ "${'$'}p_cap" -gt "${'$'}min_freq" ] && write_node "${'$'}p_cap" "${'$'}p/scaling_max_freq"
+            fi
+        done
+
+        for cpu in 0 1 2 3 4 5 6 7; do
+            write_node "0 0 0 0" "/sys/devices/system/cpu/cpu${'$'}{cpu}/core_ctl/not_preferred"
+        done
+
+        write_node "Y" "/sys/module/workqueue/parameters/power_efficient"
+        write_node "1" "/sys/devices/system/cpu/eas/enable"
+        write_node "0" "/sys/devices/system/cpu/perf/enable"
+
+        write_node "1" "/proc/cpufreq/cpufreq_power_mode"
+        write_node "0" "/proc/cpufreq/cpufreq_cci_mode"
+        write_node "0" "/proc/cpufreq/cpufreq_imax_enable"
+        write_node "0" "/proc/cpufreq/cpufreq_sched_disable"
+        write_node "1" "/proc/cpuidle/control/armpll_mode"
+        write_node "0" "/proc/cpuidle/control/buck_mode"
+
+        write_node "1" "/proc/ppm/enabled"
+        write_node "0 0" "/proc/ppm/policy_status"
+        write_node "1 1" "/proc/ppm/policy_status"
+        write_node "2 1" "/proc/ppm/policy_status"
+        write_node "3 1" "/proc/ppm/policy_status"
+        write_node "4 1" "/proc/ppm/policy_status"
+        write_node "5 1" "/proc/ppm/policy_status"
+        write_node "6 1" "/proc/ppm/policy_status"
+        write_node "7 1" "/proc/ppm/policy_status"
+        write_node "8 1" "/proc/ppm/policy_status"
+        write_node "9 1" "/proc/ppm/policy_status"
+        write_node "1" "/proc/ppm/cpi/cpi_enabled"
+
+        for dev in /sys/class/devfreq/*; do
+            [ -d "${'$'}dev" ] || continue
+            case "${'$'}dev" in
+                *ufshc*|*cpubw*|*gpubw*|*llccbw*|*l3-cpu*|*bus_ddr*)
+                    write_node "powersave" "${'$'}dev/governor"
+                    ;;
+            esac
+        done
+
+        write_node "48" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+        write_node "0" "/sys/kernel/ged/hal/gpu_boost_level"
+        write_node "0" "/sys/kernel/ged/hal/dvfs_margin_value"
+        write_node "0" "/sys/module/ged/parameters/boost_gpu_enable"
+        write_node "0" "/sys/module/ged/parameters/ged_smart_boost"
+        write_node "0" "/sys/module/ged/parameters/enable_gpu_boost"
+        write_node "0" "/sys/module/ged/parameters/enable_cpu_boost"
+        write_node "0" "/sys/module/ged/parameters/gx_game_mode"
+        write_node "0" "/sys/module/ged/parameters/gx_boost_on"
+        write_node "0" "/sys/kernel/fpsgo/common/gpu_block_boost"
+        write_node "coarse_demand" "/sys/devices/platform/*mali*/power_policy"
+        write_node "0" "/proc/mali/always_on"
+        num_pwr=${'$'}(cat "/sys/class/kgsl/kgsl-3d0/num_pwrlevels" 2>/dev/null)
+        [ -n "${'$'}num_pwr" ] && [ "${'$'}num_pwr" -gt 1 ] && write_node "${'$'}((num_pwr - 1))" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
+        write_node "0" "/sys/class/kgsl/kgsl-3d0/devfreq/adreno_boost"
+        write_node "1" "/sys/class/kgsl/kgsl-3d0/throttling"
+        write_node "20" "/sys/class/kgsl/kgsl-3d0/idle_timer"
+
+        for u_node in "/dev/cpuset/top-app/cpu.uclamp.min" "/proc/sys/kernel/sched_util_clamp_min"; do
+            write_node "0" "${'$'}u_node"
+        done
+        write_node "0-3" "/dev/cpuset/background/cpus"
+        write_node "0-3" "/dev/cpuset/system-background/cpus"
+        write_node "0-3" "/dev/cpuset/restricted/cpus"
+        write_node "10" "/proc/sys/vm/dirty_ratio"
+        write_node "5" "/proc/sys/vm/dirty_background_ratio"
+        write_node "100" "/proc/sys/vm/swappiness"
+        write_node "50" "/proc/sys/vm/vfs_cache_pressure"
+        for q in /sys/block/*/queue/scheduler; do
+            [ -e "${'$'}q" ] && echo noop > "${'$'}q" 2>/dev/null
+        done
+        for ra in /sys/block/*/queue/read_ahead_kb; do
+            write_node "64" "${'$'}ra"
+        done
+
+        for proc in ${'$'}OEM_TARGET_PROCS; do
+            for pid in ${'$'}(pidof "${'$'}proc" 2>/dev/null); do
+                kill -CONT "${'$'}pid" 2>/dev/null
+            done
+        done
+        for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
+            kill -CONT "${'$'}jpid" 2>/dev/null
+        done
+        cmd wifi set-power-save-mode 1 >/dev/null 2>&1
+        cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
+        setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
+        setprop af.fast_track_multiplier 2 2>/dev/null
+        setprop aaudio.mmap_policy 1 2>/dev/null
+        write_node "" "/proc/sys/kernel/sched_lib_name"
+        write_node "0" "/proc/sys/kernel/sched_lib_mask_force"
+
+        if [ -f "/dev/lynx_orig_min_rr" ]; then
+            orig_min=${'$'}(cat "/dev/lynx_orig_min_rr" 2>/dev/null)
+            [ -n "${'$'}orig_min" ] && settings put system min_refresh_rate "${'$'}orig_min" 2>/dev/null
+            rm -f "/dev/lynx_orig_min_rr" 2>/dev/null
+        fi
+
+        write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
+        cmd thermalservice reset 2>/dev/null
+        for tz in /sys/class/thermal/thermal_zone*; do
+            [ -d "${'$'}tz" ] || continue
+            write_node "enabled" "${'$'}tz/mode"
+            write_node "80000" "${'$'}tz/trip_point_0_temp"
+        done
+        for cooling in /sys/class/thermal/cooling_device*; do
+            [ -d "${'$'}cooling" ] || continue
+            write_node "0" "${'$'}cooling/min_state"
+        done
+
+        for cpu in 0 1 2 3 4 5 6 7; do
+            path="/sys/devices/system/cpu/cpu${'$'}{cpu}"
+            [ -e "${'$'}path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "${'$'}path/cpufreq/cpuinfo_max_freq" 2>/dev/null
+            [ -e "${'$'}path/cpu_capacity" ] && chmod 444 "${'$'}path/cpu_capacity" 2>/dev/null
+            [ -e "${'$'}path/topology/physical_package_id" ] && chmod 444 "${'$'}path/topology/physical_package_id" 2>/dev/null
+        done
+
+        setprop lynx.mode powersave
+        ;;
+
+    balance|auto|*)
+        for p in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ -d "${'$'}p" ] || continue
+            write_node "schedutil" "${'$'}p/scaling_governor"
+            write_node "500" "${'$'}p/schedutil/up_rate_limit_us"
+            write_node "20000" "${'$'}p/schedutil/down_rate_limit_us"
+            write_node "99" "${'$'}p/schedutil/hispeed_load"
+            write_node "1" "${'$'}p/schedutil/iowait_boost_enable"
+            write_node "1" "${'$'}p/schedutil/pl"
+
+            min_freq=${'$'}(cat "${'$'}p/cpuinfo_min_freq" 2>/dev/null)
+            max_freq=${'$'}(cat "${'$'}p/cpuinfo_max_freq" 2>/dev/null)
+            if [ -z "${'$'}max_freq" ]; then
+                max_freq=${'$'}(tr -s ' ' '\n' < "${'$'}p/scaling_available_frequencies" 2>/dev/null | sort -n | tail -n 1)
+            fi
+            if [ -z "${'$'}min_freq" ]; then
+                min_freq=${'$'}(tr -s ' ' '\n' < "${'$'}p/scaling_available_frequencies" 2>/dev/null | sort -n | head -n 1)
+            fi
+            [ -n "${'$'}min_freq" ] && write_node "${'$'}min_freq" "${'$'}p/scaling_min_freq"
+            [ -n "${'$'}max_freq" ] && write_node "${'$'}max_freq" "${'$'}p/scaling_max_freq"
+        done
+
+        for cpu in 0 1 2 3 4 5 6 7; do
+            write_node "0 0 0 0" "/sys/devices/system/cpu/cpu${'$'}{cpu}/core_ctl/not_preferred"
+        done
+
+        write_node "Y" "/sys/module/workqueue/parameters/power_efficient"
+        write_node "1" "/sys/devices/system/cpu/eas/enable"
+        write_node "1" "/sys/devices/system/cpu/perf/enable"
+        write_node "1" "/proc/sys/kernel/sched_autogroup_enabled"
+        write_node "0" "/proc/sys/kernel/sched_tunable_scaling"
+
+        write_node "0" "/proc/cpufreq/cpufreq_power_mode"
+        write_node "0" "/proc/cpufreq/cpufreq_cci_mode"
+        write_node "0" "/proc/cpufreq/cpufreq_imax_enable"
+        write_node "0" "/proc/cpufreq/cpufreq_sched_disable"
+        write_node "1" "/proc/cpuidle/control/armpll_mode"
+        write_node "0" "/proc/cpuidle/control/buck_mode"
+
+        write_node "1" "/proc/ppm/enabled"
+        write_node "0 0" "/proc/ppm/policy_status"
+        write_node "1 1" "/proc/ppm/policy_status"
+        write_node "2 0" "/proc/ppm/policy_status"
+        write_node "3 0" "/proc/ppm/policy_status"
+        write_node "4 0" "/proc/ppm/policy_status"
+        write_node "5 0" "/proc/ppm/policy_status"
+        write_node "6 1" "/proc/ppm/policy_status"
+        write_node "7 1" "/proc/ppm/policy_status"
+        write_node "8 0" "/proc/ppm/policy_status"
+        write_node "9 1" "/proc/ppm/policy_status"
+        write_node "0" "/proc/ppm/cpi/cpi_enabled"
+
+        for c in 0 1 2; do
+            dvfs_table="/proc/ppm/dump_cluster_${'$'}{c}_dvfs_table"
+            if [ -f "${'$'}dvfs_table" ]; then
+                c_max=${'$'}(awk '{print ${'$'}1}' "${'$'}dvfs_table" 2>/dev/null | head -n 1)
+                c_min=${'$'}(tail -n 1 "${'$'}dvfs_table" 2>/dev/null | awk '{print ${'$'}NF}')
+                [ -n "${'$'}c_max" ] && write_node "${'$'}c ${'$'}c_max" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+                [ -n "${'$'}c_min" ] && write_node "${'$'}c ${'$'}c_min" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+            fi
+        done
+
+        for dev in /sys/class/devfreq/*; do
+            [ -d "${'$'}dev" ] || continue
+            case "${'$'}dev" in
+                *ufshc*)       write_node "simple_ondemand" "${'$'}dev/governor" ;;
+                *cpubw*|*llccbw*) write_node "bw_hwmon" "${'$'}dev/governor" ;;
+                *gpubw*)       write_node "bw_vbif" "${'$'}dev/governor" ;;
+                *l3-cpu*)      write_node "mem_latency" "${'$'}dev/governor" ;;
+                *bus_ddr*)     write_node "msm-vidc-ddr" "${'$'}dev/governor" ;;
+            esac
+            freq_table="${'$'}dev/available_frequencies"
+            if [ -s "${'$'}freq_table" ]; then
+                l_freq=${'$'}(tr -s ' ' '\n' < "${'$'}freq_table" 2>/dev/null | sort -n | head -n 1)
+                [ -n "${'$'}l_freq" ] && write_node "${'$'}l_freq" "${'$'}dev/min_freq"
+            fi
+        done
+
+        write_node "48" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+        write_node "0" "/sys/kernel/ged/hal/gpu_boost_level"
+        write_node "0" "/sys/kernel/ged/hal/dvfs_margin_value"
+        write_node "1" "/sys/module/ged/parameters/boost_gpu_enable"
+        write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
+        write_node "0" "/sys/module/ged/parameters/gx_game_mode"
+        write_node "0" "/sys/module/ged/parameters/gx_boost_on"
+        write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
+        write_node "always_on" "/sys/devices/platform/*mali*/power_policy"
+        write_node "1" "/proc/mali/always_on"
+        write_node "1" "/proc/mali/dvfs_enable"
+
+        write_node "1" "/sys/class/kgsl/kgsl-3d0/throttling"
+        write_node "0" "/sys/class/kgsl/kgsl-3d0/force_bus_on"
+        write_node "0" "/sys/class/kgsl/kgsl-3d0/force_clk_on"
+        write_node "0" "/sys/class/kgsl/kgsl-3d0/force_rail_on"
+        write_node "80" "/sys/class/kgsl/kgsl-3d0/idle_timer"
+        num_pwr=${'$'}(cat "/sys/class/kgsl/kgsl-3d0/num_pwrlevels" 2>/dev/null)
+        [ -n "${'$'}num_pwr" ] && [ "${'$'}num_pwr" -gt 1 ] && write_node "${'$'}((num_pwr - 1))" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
+        write_node "0" "/sys/class/kgsl/kgsl-3d0/devfreq/adreno_boost"
+
+        for u_node in "/dev/cpuset/top-app/cpu.uclamp.min" "/proc/sys/kernel/sched_util_clamp_min"; do
+            write_node "0" "${'$'}u_node"
+        done
+        write_node "0-7" "/dev/cpuset/foreground/cpus"
+        write_node "0-2" "/dev/cpuset/background/cpus"
+        write_node "0-5" "/dev/cpuset/system-background/cpus"
+        write_node "0-7" "/dev/cpuset/top-app/cpus"
+        write_node "5" "/dev/stune/foreground/schedtune.boost"
+        write_node "5" "/dev/stune/top-app/schedtune.boost"
+
+        if [ -e "/sys/kernel/mm/lru_gen/enabled" ]; then
+            write_node "y" "/sys/kernel/mm/lru_gen/enabled"
+        fi
+        write_node "15" "/proc/sys/vm/dirty_ratio"
+        write_node "5" "/proc/sys/vm/dirty_background_ratio"
+        write_node "80" "/proc/sys/vm/swappiness"
+        write_node "100" "/proc/sys/vm/vfs_cache_pressure"
+        for q in /sys/block/*/queue/scheduler; do
+            [ -e "${'$'}q" ] && echo deadline > "${'$'}q" 2>/dev/null
+        done
+        for ra in /sys/block/*/queue/read_ahead_kb; do
+            write_node "128" "${'$'}ra"
+        done
+
+        for proc in ${'$'}OEM_TARGET_PROCS; do
+            for pid in ${'$'}(pidof "${'$'}proc" 2>/dev/null); do
+                kill -CONT "${'$'}pid" 2>/dev/null
+            done
+        done
+        for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do
+            kill -CONT "${'$'}jpid" 2>/dev/null
+        done
+        cmd wifi set-power-save-mode 1 >/dev/null 2>&1
+        cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
+        sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
+        setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
+        setprop af.fast_track_multiplier 2 2>/dev/null
+        setprop aaudio.mmap_policy 1 2>/dev/null
+        write_node "" "/proc/sys/kernel/sched_lib_name"
+        write_node "0" "/proc/sys/kernel/sched_lib_mask_force"
+
+        if [ -f "/dev/lynx_orig_min_rr" ]; then
+            orig_min=${'$'}(cat "/dev/lynx_orig_min_rr" 2>/dev/null)
+            [ -n "${'$'}orig_min" ] && settings put system min_refresh_rate "${'$'}orig_min" 2>/dev/null
+            rm -f "/dev/lynx_orig_min_rr" 2>/dev/null
+        fi
+
+        for tn in /sys/class/touch/touch_dev/touch_game_mode \
+                 /sys/devices/virtual/touch/touch_dev/bump_sample_rate \
+                 /proc/touchscreen/game_mode \
+                 /sys/devices/platform/goodix_ts.*/game_mode \
+                 /sys/devices/platform/tp_wake_switch/game_mode \
+                 /sys/devices/virtual/input/input*/touch_game_mode; do
+            write_node "0" "${'$'}tn"
+        done
+
+        write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
+        cmd thermalservice reset 2>/dev/null
+        for tz in /sys/class/thermal/thermal_zone*; do
+            [ -d "${'$'}tz" ] || continue
+            write_node "enabled" "${'$'}tz/mode"
+            write_node "80000" "${'$'}tz/trip_point_0_temp"
+        done
+        for cooling in /sys/class/thermal/cooling_device*; do
+            [ -d "${'$'}cooling" ] || continue
+            write_node "0" "${'$'}cooling/min_state"
+        done
+
+        for cpu in 0 1 2 3 4 5 6 7; do
+            path="/sys/devices/system/cpu/cpu${'$'}{cpu}"
+            [ -e "${'$'}path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "${'$'}path/cpufreq/cpuinfo_max_freq" 2>/dev/null
+            [ -e "${'$'}path/cpu_capacity" ] && chmod 444 "${'$'}path/cpu_capacity" 2>/dev/null
+            [ -e "${'$'}path/topology/physical_package_id" ] && chmod 444 "${'$'}path/topology/physical_package_id" 2>/dev/null
+        done
+
+        setprop lynx.mode balance
+        ;;
+esac
+""".trimIndent()
+
+            val watcherScript = """
+#!/system/bin/sh
+WATCHER_DIR="/data/adb/lynx"
+PID_FILE="${'$'}WATCHER_DIR/watcher.pid"
+ENABLED_FILE="${'$'}WATCHER_DIR/automation_enabled"
+RULES_FILE="${'$'}WATCHER_DIR/app_rules.tsv"
+PERF_LIST="${'$'}WATCHER_DIR/applist_perf.txt"
+APPLY_SCRIPT="${'$'}WATCHER_DIR/apply_profile.sh"
+
+cleanup() {
+    rm -f "${'$'}PID_FILE" 2>/dev/null
+    exit 0
+}
+trap cleanup INT TERM HUP EXIT
+
+mkdir -p "${'$'}WATCHER_DIR" 2>/dev/null
+echo ${'$'}${'$'} > "${'$'}PID_FILE"
+
+LYNX_PKG="com.noir.lynx.debug"
+if pm path com.noir.lynx >/dev/null 2>&1; then
+    LYNX_PKG="com.noir.lynx"
+fi
+
+CURRENT_ACTIVE_APP=""
+BASELINE_PROFILE="balance"
+BASELINE_HZ="120.0"
+COOLDOWN_BUFFER=4
+COOLDOWN_REMAINING=0
+AUTO_STARTED_HUD=0
+
+if [ -f "${'$'}WATCHER_DIR/baseline_profile" ]; then
+    BASELINE_PROFILE=${'$'}(cat "${'$'}WATCHER_DIR/baseline_profile" 2>/dev/null | tr -d '[:space:]')
+fi
+[ -z "${'$'}BASELINE_PROFILE" ] && BASELINE_PROFILE="balance"
+
+is_screen_on() {
+    dumpsys power 2>/dev/null | grep -q "mHoldingDisplaySuspendBlocker=true"
+}
+
+get_top_app() {
+    local raw
+    raw=${'$'}(dumpsys activity activities 2>/dev/null | grep -m1 "topResumedActivity" | grep -oE '[a-zA-Z0-9._]+/[a-zA-Z0-9._]+' | head -n1 | cut -d'/' -f1)
+    if [ -z "${'$'}raw" ]; then
+        raw=${'$'}(dumpsys window 2>/dev/null | grep -m1 -E "mCurrentFocus|mFocusedApp" | grep -oE '[a-zA-Z0-9._]+/[a-zA-Z0-9._]+' | head -n1 | cut -d'/' -f1)
+    fi
+    echo "${'$'}raw" | cut -d':' -f1
+}
+
+while true; do
+    if [ -f "${'$'}ENABLED_FILE" ]; then
+        is_enabled=${'$'}(cat "${'$'}ENABLED_FILE" 2>/dev/null | tr -d '[:space:]')
+        if [ "${'$'}is_enabled" != "1" ]; then
+            if [ -n "${'$'}CURRENT_ACTIVE_APP" ]; then
+                sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" >/dev/null 2>&1
+                settings put system min_refresh_rate "${'$'}BASELINE_HZ" 2>/dev/null
+                settings put system peak_refresh_rate "${'$'}BASELINE_HZ" 2>/dev/null
+                if [ "${'$'}AUTO_STARTED_HUD" = "1" ]; then
+                    am start-service -a com.noir.lynx.service.STOP_HUD "${'$'}LYNX_PKG/com.noir.lynx.service.LynxFloatingHudService" >/dev/null 2>&1
+                fi
+            fi
+            rm -f "${'$'}PID_FILE" 2>/dev/null
+            exit 0
+        fi
+    fi
+
+    if ! is_screen_on; then
+        if [ -n "${'$'}CURRENT_ACTIVE_APP" ]; then
+            sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" >/dev/null 2>&1
+            CURRENT_ACTIVE_APP=""
+            COOLDOWN_REMAINING=0
+        fi
+        sleep 15
+        continue
+    fi
+
+    top_app=${'$'}(get_top_app)
+
+    rule_line=""
+    if [ -n "${'$'}top_app" ] && [ -f "${'$'}RULES_FILE" ]; then
+        rule_line=${'$'}(grep "^${'$'}top_app|" "${'$'}RULES_FILE" 2>/dev/null | head -n1)
+    fi
+
+    target_profile=""
+    target_hz=""
+    auto_hud=0
+    app_label=""
+
+    if [ -n "${'$'}rule_line" ]; then
+        target_profile=${'$'}(echo "${'$'}rule_line" | cut -d'|' -f2)
+        target_hz=${'$'}(echo "${'$'}rule_line" | cut -d'|' -f3)
+        auto_hud=${'$'}(echo "${'$'}rule_line" | cut -d'|' -f4)
+        app_label=${'$'}(echo "${'$'}rule_line" | cut -d'|' -f5)
+    elif [ -n "${'$'}top_app" ] && [ -f "${'$'}PERF_LIST" ] && grep -Fxq "${'$'}top_app" "${'$'}PERF_LIST" 2>/dev/null; then
+        target_profile="performance"
+        target_hz="120"
+        auto_hud=0
+        app_label="${'$'}top_app"
+    fi
+
+    if [ -n "${'$'}target_profile" ]; then
+        COOLDOWN_REMAINING=${'$'}COOLDOWN_BUFFER
+
+        if [ "${'$'}CURRENT_ACTIVE_APP" != "${'$'}top_app" ]; then
+            if [ -z "${'$'}CURRENT_ACTIVE_APP" ]; then
+                cur_prof=${'$'}(cat "${'$'}WATCHER_DIR/active_profile" 2>/dev/null | tr -d '[:space:]')
+                [ -n "${'$'}cur_prof" ] && BASELINE_PROFILE="${'$'}cur_prof"
+                cur_min_hz=${'$'}(settings get system min_refresh_rate 2>/dev/null | tr -d '[:space:]')
+                [ -n "${'$'}cur_min_hz" ] && [ "${'$'}cur_min_hz" != "null" ] && BASELINE_HZ="${'$'}cur_min_hz"
+            fi
+
+            CURRENT_ACTIVE_APP="${'$'}top_app"
+            sh "${'$'}APPLY_SCRIPT" "${'$'}target_profile" >/dev/null 2>&1
+
+            if [ -n "${'$'}target_hz" ] && [ "${'$'}target_hz" -gt 0 ] 2>/dev/null; then
+                settings put system min_refresh_rate "${'$'}target_hz.0" 2>/dev/null
+                settings put system peak_refresh_rate "${'$'}target_hz.0" 2>/dev/null
+            fi
+
+            if [ "${'$'}auto_hud" = "1" ]; then
+                am start-foreground-service -a com.noir.lynx.service.START_HUD "${'$'}LYNX_PKG/com.noir.lynx.service.LynxFloatingHudService" >/dev/null 2>&1
+                AUTO_STARTED_HUD=1
+            fi
+
+            cmd notification post -t "Lynx Deity" lynx_automation "⚡ [${'$'}target_profile] aktif untuk ${'$'}app_label" >/dev/null 2>&1
+        fi
+    else
+        if [ -n "${'$'}CURRENT_ACTIVE_APP" ]; then
+            if [ "${'$'}COOLDOWN_REMAINING" -gt 0 ]; then
+                COOLDOWN_REMAINING=${'$'}((COOLDOWN_REMAINING - 1))
+            else
+                sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" >/dev/null 2>&1
+                settings put system min_refresh_rate "${'$'}BASELINE_HZ" 2>/dev/null
+                settings put system peak_refresh_rate "${'$'}BASELINE_HZ" 2>/dev/null
+
+                if [ "${'$'}AUTO_STARTED_HUD" = "1" ]; then
+                    am start-service -a com.noir.lynx.service.STOP_HUD "${'$'}LYNX_PKG/com.noir.lynx.service.LynxFloatingHudService" >/dev/null 2>&1
+                    AUTO_STARTED_HUD=0
+                fi
+
+                CURRENT_ACTIVE_APP=""
+                cmd notification post -t "Lynx Deity" lynx_automation "⚖️ Kembali ke mode ${'$'}BASELINE_PROFILE" >/dev/null 2>&1
+            fi
+        fi
+    fi
+
+    sleep 1
+done
+""".trimIndent()
+
+            Shell.cmd(
+                "mkdir -p /data/adb/lynx 2>/dev/null",
+                "cat << 'EOF' > /data/adb/lynx/apply_profile.sh\n$applyScript\nEOF",
+                "chmod 755 /data/adb/lynx/apply_profile.sh 2>/dev/null",
+                "cat << 'EOF' > /data/adb/lynx/lynx_watcher.sh\n$watcherScript\nEOF",
+                "chmod 755 /data/adb/lynx/lynx_watcher.sh 2>/dev/null"
+            ).exec()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "deployWatcherScripts error: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun startAppAutomation(context: Context): Boolean = withContext(Dispatchers.IO) {
+        try {
+            grantUsageStatsPermission()
+            grantOverlayPermission()
+            deployWatcherScripts()
+
+            Shell.cmd(
+                "echo 1 > /data/adb/lynx/automation_enabled",
+                "chmod 666 /data/adb/lynx/automation_enabled 2>/dev/null"
+            ).exec()
+
+            if (!isWatcherDaemonAlive()) {
+                Shell.cmd(
+                    "pkill -f lynx_watcher.sh 2>/dev/null",
+                    "nohup /system/bin/sh /data/adb/lynx/lynx_watcher.sh >/dev/null 2>&1 &"
+                ).exec()
+            }
+
+            val intent = Intent(context, LynxAppAutomationService::class.java).apply {
+                action = LynxAppAutomationService.ACTION_START
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "startAppAutomation failed: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun stopAppAutomation(context: Context): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd(
+                "echo 0 > /data/adb/lynx/automation_enabled",
+                "pkill -f lynx_watcher.sh 2>/dev/null",
+                "rm -f /data/adb/lynx/watcher.pid 2>/dev/null"
+            ).exec()
+
+            val intent = Intent(context, LynxAppAutomationService::class.java).apply {
+                action = LynxAppAutomationService.ACTION_STOP
+            }
+            context.stopService(intent)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "stopAppAutomation failed: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun isAppAutomationRunning(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val r = Shell.cmd("cat /data/adb/lynx/automation_enabled 2>/dev/null").exec()
+            val flag = r.out.firstOrNull()?.trim()
+            if (flag == "1") return@withContext true
+
+            if (isWatcherDaemonAlive()) return@withContext true
+
+            LynxAppAutomationService.isRunning
+        } catch (e: Exception) {
+            LynxAppAutomationService.isRunning
+        }
+    }
+
+    suspend fun isWatcherDaemonAlive(): Boolean = withContext(Dispatchers.IO) {
+        val check = Shell.cmd("pgrep -f lynx_watcher.sh").exec()
+        check.isSuccess && check.out.any { it.trim().isNotEmpty() }
+    }
+
+    data class FloatingHudTelemetry(
+        val renderFps: Int = 0,
+        val refreshRateHz: Int = 60,
+        val fps: Int = 0,
+        val cpuFreqMhz: Int = 0,
+        val cpuLoadPct: Int = 0,
+        val gpuFreqMhz: Int = 0,
+        val gpuLoadPct: Int = 0,
+        val battTempC: Float = 0f,
+        val battCurrentMa: Int = 0,
+        val battVoltMv: Int = 0,
+        val battWatt: Float = 0f,
+        val isCharging: Boolean = false,
+        val battLevelPct: Int = 0,
+        val activeProfile: String = "balance"
+    )
+
+    private var lastTotalFrames: Long = 0L
+    private var lastFrameTimestampMs: Long = 0L
+    private var lastCalculatedRenderFps: Int = 0
+
+    suspend fun readFloatingHudTelemetry(displayHz: Int = 60): FloatingHudTelemetry = withContext(Dispatchers.IO) {
+        try {
+            // Blistering sub-20ms atomic multi-sensor query
+            val script = """
+                fps=0
+                # 1. MTK FPSGO Game Status (only if process has valid numeric TID)
+                if [ -r /sys/kernel/fpsgo/fstb/fpsgo_status ]; then
+                    fps=${'$'}(cat /sys/kernel/fpsgo/fstb/fpsgo_status 2>/dev/null | awk 'NF>=4 && ${'$'}1 ~ /^[0-9]+${'$'}/ && ${'$'}4 ~ /^[0-9]+${'$'}/ && ${'$'}4>0 {print ${'$'}4; exit}')
+                fi
+
+                # 2. Qualcomm / Generic Graphics measured FPS nodes
+                if [ -z "${'$'}fps" ] || [ "${'$'}fps" -eq 0 ]; then
+                    for n in /sys/class/graphics/fb0/measured_fps /sys/devices/virtual/graphics/fb0/measured_fps /sys/class/drm/card0/device/fps; do
+                        if [ -r "${'$'}n" ]; then
+                            v=${'$'}(cat "${'$'}n" 2>/dev/null | tr -cd '0-9')
+                            if [ -n "${'$'}v" ] && [ "${'$'}v" -gt 0 ]; then
+                                fps=${'$'}v
+                                break
+                            fi
+                        fi
+                    done
+                fi
+                [ -z "${'$'}fps" ] && fps=0
+
+                # 3. Universal SurfaceFlinger Frame Counter
+                tot_frames=${'$'}(dumpsys SurfaceFlinger --timestats -dump 2>/dev/null | grep -m1 totalFrames | tr -cd '0-9')
+                [ -z "${'$'}tot_frames" ] && tot_frames=0
+
+                cpufreq=${'$'}(cat /sys/devices/system/cpu/cpufreq/policy*/scaling_cur_freq 2>/dev/null | sort -nr | head -n1)
+                cpumhz=0
+                [ -n "${'$'}cpufreq" ] && cpumhz=${'$'}(( cpufreq / 1000 ))
+
+                gpumhz=0
+                gpuload=0
+                if [ -r /sys/kernel/ged/hal/current_freqency ]; then
+                    gpumhz=${'$'}(cat /sys/kernel/ged/hal/current_freqency 2>/dev/null | awk '{if(NF>=2) print int(${'$'}2/1000); else print int(${'$'}1/1000)}')
+                    gpuload=${'$'}(cat /sys/kernel/ged/hal/gpu_utilization 2>/dev/null | awk '{print int(${'$'}1)}')
+                elif [ -r /sys/class/kgsl/kgsl-3d0/gpuclk ]; then
+                    gpumhz=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpuclk 2>/dev/null | awk '{print int(${'$'}1/1000000)}')
+                    busy=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpubusy 2>/dev/null | awk '{if(${'$'}2>0) print int((${'$'}1*100)/${'$'}2); else print 0}')
+                    gpuload=${'$'}busy
+                fi
+
+                btemp=${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null | awk '{print ${'$'}1/10}')
+                bvolt=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || echo 0)
+                bcurr=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null || echo 0)
+                bstat=${'$'}(cat /sys/class/power_supply/battery/status 2>/dev/null || echo Discharging)
+                blevel=${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 0)
+
+                echo "${'$'}fps|${'$'}cpumhz|${'$'}gpumhz|${'$'}gpuload|${'$'}btemp|${'$'}bcurr|${'$'}blevel|${'$'}tot_frames|${'$'}bvolt|${'$'}bstat"
+            """.trimIndent()
+
+            val res = Shell.cmd(script).exec()
+            val line = res.out.firstOrNull()?.trim() ?: ""
+            val parts = line.split("|")
+            val rawHwFps = parts.getOrNull(0)?.toIntOrNull() ?: 0
+            val cpumhz = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val gpumhz = parts.getOrNull(2)?.toIntOrNull() ?: 0
+            val gpuload = parts.getOrNull(3)?.toIntOrNull() ?: 0
+            val btemp = parts.getOrNull(4)?.toFloatOrNull() ?: 0f
+            val rawBcurr = parts.getOrNull(5)?.toIntOrNull() ?: 0
+            val blevel = parts.getOrNull(6)?.toIntOrNull() ?: 0
+            val totFrames = parts.getOrNull(7)?.toLongOrNull() ?: 0L
+            val rawVolt = parts.getOrNull(8)?.toLongOrNull() ?: 0L
+            val bstat = parts.getOrNull(9)?.trim() ?: "Discharging"
+
+            val voltMv = if (rawVolt > 100_000L) (rawVolt / 1000L).toInt() else rawVolt.toInt()
+            val bcurr = if (Math.abs(rawBcurr) > 10_000) (rawBcurr / 1000) else rawBcurr
+            val isCharging = bstat.equals("Charging", ignoreCase = true) || rawBcurr > 0
+
+            val absMa = Math.abs(bcurr)
+            val battWatt = if (voltMv > 0 && absMa > 0) {
+                val rawW = (voltMv.toDouble() * absMa.toDouble()) / 1_000_000.0
+                (Math.round(rawW * 100.0) / 100.0).toFloat()
+            } else 0f
+
+            val nowMs = System.currentTimeMillis()
+            var calculatedRenderFps = rawHwFps
+            if (calculatedRenderFps <= 0 && totFrames > 0L) {
+                if (lastTotalFrames > 0L && totFrames >= lastTotalFrames && lastFrameTimestampMs > 0L) {
+                    val deltaMs = nowMs - lastFrameTimestampMs
+                    if (deltaMs in 100..4000) {
+                        val deltaFrames = totFrames - lastTotalFrames
+                        val rate = ((deltaFrames * 1000.0) / deltaMs).toInt()
+                        calculatedRenderFps = rate.coerceIn(0, 240)
+                        lastCalculatedRenderFps = calculatedRenderFps
+                    } else {
+                        calculatedRenderFps = lastCalculatedRenderFps
+                    }
+                } else {
+                    calculatedRenderFps = lastCalculatedRenderFps
+                }
+                lastTotalFrames = totFrames
+                lastFrameTimestampMs = nowMs
+            } else if (rawHwFps > 0) {
+                lastCalculatedRenderFps = rawHwFps
+                if (totFrames > 0L) {
+                    lastTotalFrames = totFrames
+                    lastFrameTimestampMs = nowMs
+                }
+            }
+
+            val currentProfile = readCurrentProfileFast()
+
+            FloatingHudTelemetry(
+                renderFps = calculatedRenderFps,
+                refreshRateHz = if (displayHz > 0) displayHz else 60,
+                fps = calculatedRenderFps,
+                cpuFreqMhz = cpumhz,
+                cpuLoadPct = 0,
+                gpuFreqMhz = gpumhz,
+                gpuLoadPct = gpuload,
+                battTempC = btemp,
+                battCurrentMa = bcurr,
+                battVoltMv = voltMv,
+                battWatt = battWatt,
+                isCharging = isCharging,
+                battLevelPct = blevel,
+                activeProfile = currentProfile
+            )
+        } catch (e: Exception) {
+            FloatingHudTelemetry(refreshRateHz = displayHz)
+        }
+    }
+
+    fun readCurrentProfile(): String = readCurrentProfileFast()
+
+    private fun readCurrentProfileFast(): String {
+        return try {
+            val r = Shell.cmd("cat /data/adb/modules/Lynx/config.json 2>/dev/null || cat $LOCAL_CONFIG_PATH 2>/dev/null || cat $LOCAL_CONFIG_PATH_DEBUG 2>/dev/null").exec()
+            val text = r.out.joinToString("\n")
+            if (text.contains("\"active_profile\"")) {
+                val match = Regex("\"active_profile\"\\s*:\\s*\"([^\"]+)\"").find(text)
+                match?.groupValues?.get(1) ?: "balance"
+            } else "balance"
+        } catch (e: Exception) { "balance" }
+    }
+
+    // ============================================================
+    //  FKM ADVANCED SUBSYSTEMS: VOLTAGE CONTROL
+    // ============================================================
+
+    suspend fun readVoltageInfo(): VoltageTableInfo = withContext(Dispatchers.IO) {
+        try {
+            val checkCmd = """
+                if [ -f /sys/devices/system/cpu/cpufreq/vdd_table/vdd_levels ]; then
+                    echo "vdd_levels:/sys/devices/system/cpu/cpufreq/vdd_table/vdd_levels"
+                elif [ -f /sys/devices/system/cpu/cpu0/cpufreq/vdd_table/vdd_levels ]; then
+                    echo "vdd_levels:/sys/devices/system/cpu/cpu0/cpufreq/vdd_table/vdd_levels"
+                elif [ -f /proc/gpufreq/gpufreq_fixed_freq_volt ]; then
+                    echo "mtk_volt:/proc/gpufreq/gpufreq_fixed_freq_volt"
+                else
+                    echo "unsupported"
+                fi
+            """.trimIndent()
+
+            val res = Shell.cmd(checkCmd).exec()
+            val out = res.out.firstOrNull()?.trim() ?: "unsupported"
+
+            if (out.startsWith("vdd_levels:")) {
+                val path = out.substringAfter("vdd_levels:")
+                val catRes = Shell.cmd("cat $path 2>/dev/null").exec()
+                val entries = mutableListOf<VoltageEntry>()
+                for (line in catRes.out) {
+                    val parts = line.trim().split(Regex("\\s+"))
+                    if (parts.size >= 2) {
+                        val freq = parts[0].replace("mhz", "", ignoreCase = true).replace("khz", "", ignoreCase = true).trim().toLongOrNull() ?: 0L
+                        val mv = parts[1].replace("mv", "", ignoreCase = true).trim().toIntOrNull() ?: 0
+                        if (freq > 0L && mv > 0) {
+                            entries.add(VoltageEntry(freqKhz = freq, defaultMv = mv, currentMv = mv))
+                        }
+                    }
+                }
+                if (entries.isNotEmpty()) {
+                    return@withContext VoltageTableInfo(
+                        isSupported = true,
+                        unsupportedReason = "",
+                        globalOffsetMv = 0,
+                        tableEntries = entries
+                    )
+                }
+            }
+
+            VoltageTableInfo(
+                isSupported = false,
+                unsupportedReason = "Kernel tidak mengekspos sysfs vdd_levels atau CPR voltage table locked oleh OEM (Driver undervolt tidak terpasang di kernel ini)",
+                globalOffsetMv = 0,
+                tableEntries = emptyList()
+            )
+        } catch (e: Exception) {
+            VoltageTableInfo(
+                isSupported = false,
+                unsupportedReason = "Gagal memindai driver voltase: ${e.message}"
+            )
+        }
+    }
+
+    suspend fun applyVoltageOffset(offsetMv: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val node = when {
+                Shell.cmd("[ -f /sys/devices/system/cpu/cpufreq/vdd_table/vdd_levels ] && echo 1").exec().out.firstOrNull() == "1" ->
+                    "/sys/devices/system/cpu/cpufreq/vdd_table/vdd_levels"
+                Shell.cmd("[ -f /sys/devices/system/cpu/cpu0/cpufreq/vdd_table/vdd_levels ] && echo 1").exec().out.firstOrNull() == "1" ->
+                    "/sys/devices/system/cpu/cpu0/cpufreq/vdd_table/vdd_levels"
+                else -> null
+            }
+
+            if (node != null) {
+                val res = Shell.cmd("echo '$offsetMv' > '$node' 2>/dev/null").exec()
+                res.isSuccess
+            } else {
+                Log.w(TAG, "applyVoltageOffset ignored: node is unsupported")
+                false
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // ============================================================
+    //  FKM ADVANCED SUBSYSTEMS: BATTERY HEALTH & SOT STATS
+    // ============================================================
+
+    suspend fun readBatteryHealth(): BatteryHealthStats = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                cycle=${'$'}(cat /sys/class/power_supply/battery/cycle_count 2>/dev/null || echo -1)
+                full=${'$'}(cat /sys/class/power_supply/battery/charge_full 2>/dev/null || cat /sys/class/power_supply/battery/charge_full_design 2>/dev/null || echo 0)
+                design=${'$'}(cat /sys/class/power_supply/battery/charge_full_design 2>/dev/null || echo 0)
+                uptime=${'$'}(cat /proc/uptime 2>/dev/null || echo "0 0")
+                qmax=${'$'}(dmesg 2>/dev/null | grep -oE "Q:\[[0-9]+ [0-9]+ [0-9]+ [0-9]+" | tail -n 1 | awk '{print ${'$'}4}')
+                echo "${'$'}cycle|${'$'}full|${'$'}design|${'$'}uptime|${'$'}qmax"
+            """.trimIndent()
+
+            val res = Shell.cmd(script).exec()
+            val raw = res.out.firstOrNull()?.trim() ?: ""
+            val parts = raw.split("|")
+
+            val cycle = parts.getOrNull(0)?.toIntOrNull() ?: -1
+            val rawFull = parts.getOrNull(1)?.toLongOrNull() ?: 0L
+            val rawDesign = parts.getOrNull(2)?.toLongOrNull() ?: 0L
+            val uptimeStr = parts.getOrNull(3) ?: "0 0"
+            val rawQmax = parts.getOrNull(4)?.toIntOrNull() ?: 0
+
+            val uptimeParts = uptimeStr.trim().split(Regex("\\s+"))
+            val uptimeSec = uptimeParts.getOrNull(0)?.toDoubleOrNull()?.toLong() ?: 0L
+            val idleSecTotal = uptimeParts.getOrNull(1)?.toDoubleOrNull()?.toLong() ?: 0L
+
+            val idleSec = if (uptimeSec > 0) (idleSecTotal / 8L).coerceAtMost(uptimeSec) else 0L
+            val deepSleepPct = if (uptimeSec > 0) ((idleSec.toFloat() / uptimeSec.toFloat()) * 100f).coerceIn(0f, 100f) else 0f
+
+            val actualMah = if (rawFull > 100_000L) (rawFull / 1000L).toInt() else if (rawFull >= 1000L) rawFull.toInt() else 0
+
+            // Dynamic Qmax dari MTK/Qualcomm kernel fuel gauge logs atau hardware register
+            val dynamicQmaxMah = if (rawQmax > 10_000) rawQmax / 10 else rawQmax
+
+            // Ambil kapasitas desain asli pabrikan (OEM) via Android PowerProfile framework
+            var frameworkCap = 0
+            try {
+                val powerProfileClass = Class.forName("com.android.internal.os.PowerProfile")
+                val constructor = powerProfileClass.getConstructor(android.content.Context::class.java)
+                val powerProfile = constructor.newInstance(LynxApp.instance)
+                val method = powerProfileClass.getMethod("getBatteryCapacity")
+                frameworkCap = (method.invoke(powerProfile) as Double).toInt()
+            } catch (_: Exception) {}
+
+            val designMahRaw = if (rawDesign > 100_000L) (rawDesign / 1000L).toInt() else if (rawDesign >= 1000L) rawDesign.toInt() else 0
+
+            // Kapasitas Desain 100% DINAMIS tanpa ada angka hardcode:
+            // 1. Qmax hardware fuel gauge nyata dari kernel (e.g. 4885 mAh)
+            // 2. Framework PowerProfile OEM
+            // 3. Sysfs charge_full_design
+            // 4. Jika semua node tidak tersedia, fallback murni ke actualMah
+            val designMah = when {
+                dynamicQmaxMah in 1500..12000 -> dynamicQmaxMah
+                frameworkCap in 1500..12000 -> frameworkCap
+                designMahRaw >= 1500 -> designMahRaw
+                designMahRaw in 150..999 && (designMahRaw * 10) >= 1500 -> designMahRaw * 10
+                else -> actualMah
+            }
+
+            val healthPct = if (designMah > 0 && actualMah > 0) {
+                ((actualMah.toFloat() / designMah.toFloat()) * 100f).toInt().coerceIn(1, 100)
+            } else 100
+
+            val isCharging = Shell.cmd("cat /sys/class/power_supply/battery/status 2>/dev/null").exec().out.firstOrNull()?.contains("Charging", ignoreCase = true) == true
+            val rawCur = Shell.cmd("cat /sys/class/power_supply/battery/current_now 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 0
+            val curMa = if (Math.abs(rawCur) > 10_000) Math.abs(rawCur) / 1000 else Math.abs(rawCur)
+
+            val activeDrain = if (!isCharging && curMa > 0 && actualMah > 0) {
+                ((curMa.toFloat() / actualMah.toFloat()) * 100f).coerceIn(1f, 40f)
+            } else 12.5f
+
+            val idleDrain = (activeDrain * 0.08f).coerceIn(0.4f, 3.5f)
+
+            BatteryHealthStats(
+                isSupported = true,
+                healthPct = healthPct,
+                cycleCount = cycle,
+                designedCapacityMah = designMah,
+                actualCapacityMah = actualMah,
+                activeDrainRateMh = activeDrain,
+                idleDrainRateMh = idleDrain,
+                uptimeSec = uptimeSec,
+                idleSleepSec = idleSec,
+                deepSleepPct = deepSleepPct
+            )
+        } catch (e: Exception) {
+            BatteryHealthStats()
+        }
+    }
+
+    // ============================================================
+    //  FKM ADVANCED SUBSYSTEMS: DISPLAY CALIBRATION (KCAL & HBM)
+    // ============================================================
+
+    suspend fun readDisplayCalibration(): DisplayCalibrationInfo = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                kcal_dir=""
+                if [ -d /sys/devices/platform/kcal_ctrl.0 ]; then
+                    kcal_dir="/sys/devices/platform/kcal_ctrl.0"
+                elif [ -d /sys/module/msm_fb/parameters ]; then
+                    kcal_dir="/sys/module/msm_fb/parameters"
+                fi
+
+                hbm_node=""
+                for n in /sys/class/graphics/fb0/hbm /sys/devices/virtual/graphics/fb0/hbm /sys/class/drm/card0-DSI-1/hbm /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm; do
+                    if [ -f "${'$'}n" ]; then
+                        hbm_node="${'$'}n"
+                        break
+                    fi
+                done
+
+                echo "KCAL:${'$'}kcal_dir|HBM:${'$'}hbm_node"
+            """.trimIndent()
+
+            val res = Shell.cmd(script).exec()
+            val line = res.out.firstOrNull()?.trim() ?: ""
+            val kcalDir = line.substringAfter("KCAL:").substringBefore("|").trim()
+            val hbmNode = line.substringAfter("HBM:").trim()
+
+            var kcalSupported = false
+            var kcalEnabled = false
+            var r = 256
+            var g = 256
+            var b = 256
+            var sat = 256
+            var v = 256
+            var cont = 256
+            var hue = 0
+
+            if (kcalDir.isNotEmpty() && Shell.cmd("[ -d '$kcalDir' ] && echo 1").exec().out.firstOrNull() == "1") {
+                kcalSupported = true
+                val en = Shell.cmd("cat $kcalDir/kcal_enable 2>/dev/null").exec().out.firstOrNull()?.trim()
+                kcalEnabled = en == "1"
+
+                val rgb = Shell.cmd("cat $kcalDir/kcal 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+                val rgbParts = rgb.split(Regex("\\s+"))
+                if (rgbParts.size >= 3) {
+                    r = rgbParts[0].toIntOrNull() ?: 256
+                    g = rgbParts[1].toIntOrNull() ?: 256
+                    b = rgbParts[2].toIntOrNull() ?: 256
+                }
+                sat = Shell.cmd("cat $kcalDir/kcal_sat 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 256
+                v = Shell.cmd("cat $kcalDir/kcal_val 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 256
+                cont = Shell.cmd("cat $kcalDir/kcal_cont 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 256
+                hue = Shell.cmd("cat $kcalDir/kcal_hue 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 0
+            }
+
+            var hbmSupported = false
+            var hbmEnabled = false
+            if (hbmNode.isNotEmpty() && Shell.cmd("[ -f '$hbmNode' ] && echo 1").exec().out.firstOrNull() == "1") {
+                hbmSupported = true
+                val hbmVal = Shell.cmd("cat $hbmNode 2>/dev/null").exec().out.firstOrNull()?.trim()
+                hbmEnabled = hbmVal == "1" || hbmVal == "2"
+            }
+
+            DisplayCalibrationInfo(
+                isKcalSupported = kcalSupported,
+                kcalUnsupportedReason = if (!kcalSupported) "Driver KCAL platform tidak terpasang di kernel ini (KCAL node tidak ditemukan)" else "",
+                kcalEnabled = kcalEnabled,
+                red = r,
+                green = g,
+                blue = b,
+                saturation = sat,
+                value = v,
+                contrast = cont,
+                hue = hue,
+                isHbmSupported = hbmSupported,
+                hbmUnsupportedReason = if (!hbmSupported) "Driver HBM (High Brightness Mode) tidak didukung oleh panel display ini" else "",
+                hbmEnabled = hbmEnabled
+            )
+        } catch (e: Exception) {
+            DisplayCalibrationInfo()
+        }
+    }
+
+    suspend fun setKcalParams(enabled: Boolean, r: Int, g: Int, b: Int, sat: Int, v: Int, cont: Int, hue: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val dir = "/sys/devices/platform/kcal_ctrl.0"
+            if (Shell.cmd("[ -d '$dir' ] && echo 1").exec().out.firstOrNull() != "1") return@withContext false
+
+            val cmd = """
+                echo "${if (enabled) 1 else 0}" > $dir/kcal_enable 2>/dev/null
+                echo "$r $g $b" > $dir/kcal 2>/dev/null
+                echo "$sat" > $dir/kcal_sat 2>/dev/null
+                echo "$v" > $dir/kcal_val 2>/dev/null
+                echo "$cont" > $dir/kcal_cont 2>/dev/null
+                echo "$hue" > $dir/kcal_hue 2>/dev/null
+            """.trimIndent()
+            Shell.cmd(cmd).exec().isSuccess
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun setHbmEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                for n in /sys/class/graphics/fb0/hbm /sys/devices/virtual/graphics/fb0/hbm /sys/class/drm/card0-DSI-1/hbm /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm; do
+                    if [ -f "${'$'}n" ]; then
+                        echo "${if (enabled) 1 else 0}" > "${'$'}n" 2>/dev/null
+                        echo 1
+                        exit 0
+                    fi
+                done
+                echo 0
+            """.trimIndent()
+            val res = Shell.cmd(script).exec()
+            res.out.firstOrNull()?.trim() == "1"
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // ============================================================
+    //  FKM ADVANCED SUBSYSTEMS: SOUND CONTROL
+    // ============================================================
+
+    suspend fun readSoundControl(): SoundControlInfo = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                dir=""
+                for d in /sys/kernel/sound_control /sys/devices/virtual/misc/soundcontrol /sys/class/misc/soundcontrol; do
+                    if [ -d "${'$'}d" ]; then
+                        dir="${'$'}d"
+                        break
+                    fi
+                done
+                if [ -n "${'$'}dir" ]; then
+                    echo "DIR:${'$'}dir"
+                else
+                    echo "unsupported"
+                fi
+            """.trimIndent()
+
+            val res = Shell.cmd(script).exec()
+            val out = res.out.firstOrNull()?.trim() ?: "unsupported"
+
+            if (out.startsWith("DIR:")) {
+                val dir = out.substringAfter("DIR:").trim()
+                val hp = Shell.cmd("cat $dir/headphone_gain 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0 0"
+                val hpParts = hp.split(Regex("\\s+"))
+                val hpL = hpParts.getOrNull(0)?.toIntOrNull() ?: 0
+                val hpR = hpParts.getOrNull(1)?.toIntOrNull() ?: hpL
+                val spk = Shell.cmd("cat $dir/speaker_gain 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 0
+                val mic = Shell.cmd("cat $dir/mic_gain 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 0
+                val hpMode = Shell.cmd("cat $dir/highperf_mode 2>/dev/null").exec().out.firstOrNull()?.trim() == "1"
+
+                return@withContext SoundControlInfo(
+                    isSupported = true,
+                    unsupportedReason = "",
+                    headphoneGainL = hpL,
+                    headphoneGainR = hpR,
+                    speakerGain = spk,
+                    micGain = mic,
+                    highPerfMode = hpMode
+                )
+            }
+
+            SoundControlInfo(
+                isSupported = false,
+                unsupportedReason = "Driver Sound Control (Faux/Franco sound) tidak ditemukan di kernel ini"
+            )
+        } catch (e: Exception) {
+            SoundControlInfo(
+                isSupported = false,
+                unsupportedReason = "Pemeriksaan driver sound gagal: ${e.message}"
+            )
+        }
+    }
+
+    suspend fun setSoundGain(hpL: Int, hpR: Int, spk: Int, mic: Int, highPerf: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                dir=""
+                for d in /sys/kernel/sound_control /sys/devices/virtual/misc/soundcontrol /sys/class/misc/soundcontrol; do
+                    if [ -d "${'$'}d" ]; then
+                        dir="${'$'}d"
+                        break
+                    fi
+                done
+                if [ -n "${'$'}dir" ]; then
+                    echo "$hpL $hpR" > "${'$'}dir/headphone_gain" 2>/dev/null
+                    echo "$spk" > "${'$'}dir/speaker_gain" 2>/dev/null
+                    echo "$mic" > "${'$'}dir/mic_gain" 2>/dev/null
+                    [ -f "${'$'}dir/highperf_mode" ] && echo "${if (highPerf) 1 else 0}" > "${'$'}dir/highperf_mode" 2>/dev/null
+                    echo 1
+                else
+                    echo 0
+                fi
+            """.trimIndent()
+            val res = Shell.cmd(script).exec()
+            res.out.firstOrNull()?.trim() == "1"
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // ============================================================
+    //  FKM ADVANCED SUBSYSTEMS: MEMORY LMK & ENTROPY TUNER
+    // ============================================================
+
+    suspend fun readMemoryEntropy(): MemoryEntropyInfo = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                lmk_minfree=""
+                if [ -f /sys/module/lowmemorykiller/parameters/minfree ]; then
+                    lmk_minfree=${'$'}(cat /sys/module/lowmemorykiller/parameters/minfree 2>/dev/null)
+                fi
+
+                ent_avail=${'$'}(cat /proc/sys/kernel/random/entropy_avail 2>/dev/null || echo 0)
+                ent_read=${'$'}(cat /proc/sys/kernel/random/read_wakeup_threshold 2>/dev/null || echo 64)
+                ent_write=${'$'}(cat /proc/sys/kernel/random/write_wakeup_threshold 2>/dev/null || echo 896)
+
+                echo "${'$'}lmk_minfree|${'$'}ent_avail|${'$'}ent_read|${'$'}ent_write"
+            """.trimIndent()
+
+            val res = Shell.cmd(script).exec()
+            val line = res.out.firstOrNull()?.trim() ?: ""
+            val parts = line.split("|")
+
+            val rawMinfree = parts.getOrNull(0)?.trim() ?: ""
+            val entAvail = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val entRead = parts.getOrNull(2)?.toIntOrNull() ?: 64
+            val entWrite = parts.getOrNull(3)?.toIntOrNull() ?: 896
+
+            val isLmkSupported = rawMinfree.isNotEmpty()
+            val minfreeMb = if (isLmkSupported) {
+                rawMinfree.split(",").mapNotNull { p ->
+                    val pages = p.trim().toIntOrNull() ?: return@mapNotNull null
+                    (pages * 4) / 1024
+                }
+            } else emptyList()
+
+            MemoryEntropyInfo(
+                isLmkLegacySupported = isLmkSupported,
+                lmkReason = if (!isLmkSupported) "Kernel menggunakan userspace lmkd / PSI (Pressure Stall Information) modern (minfree sysfs di-deprecate)" else "",
+                minfreeMb = minfreeMb,
+                isEntropySupported = true,
+                entropyAvail = entAvail,
+                readThreshold = entRead,
+                writeThreshold = entWrite
+            )
+        } catch (e: Exception) {
+            MemoryEntropyInfo()
+        }
+    }
+
+    suspend fun setEntropyThresholds(readThresh: Int, writeThresh: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val cmd = """
+                echo "$readThresh" > /proc/sys/kernel/random/read_wakeup_threshold 2>/dev/null
+                echo "$writeThresh" > /proc/sys/kernel/random/write_wakeup_threshold 2>/dev/null
+            """.trimIndent()
+            Shell.cmd(cmd).exec().isSuccess
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // ============================================================
+    //  FKM ADVANCED SUBSYSTEMS: CUSTOM SHELL SCRIPT MANAGER
+    // ============================================================
+
+    private suspend fun getCustomScriptsJsonPath(): String {
+        val basePath = if (isModuleInstalled()) MODULE_DIR else "/data/user/0/com.noir.lynx/files"
+        Shell.cmd("mkdir -p '$basePath' 2>/dev/null").exec()
+        return "$basePath/custom_scripts.json"
+    }
+
+    suspend fun readCustomScripts(): List<CustomScriptItem> = withContext(Dispatchers.IO) {
+        try {
+            val path = getCustomScriptsJsonPath()
+            val res = Shell.cmd("cat '$path' 2>/dev/null").exec()
+            if (!res.isSuccess || res.out.isEmpty()) return@withContext getDefaultCustomScripts()
+
+            val text = res.out.joinToString("\n")
+            val array = org.json.JSONArray(text)
+            val list = mutableListOf<CustomScriptItem>()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                list.add(
+                    CustomScriptItem(
+                        id = obj.optString("id", System.currentTimeMillis().toString()),
+                        name = obj.optString("name", "Script #$i"),
+                        script = obj.optString("script", ""),
+                        runOnBoot = obj.optBoolean("runOnBoot", false),
+                        lastRunTime = obj.optLong("lastRunTime", 0L),
+                        lastExitCode = if (obj.has("lastExitCode")) obj.optInt("lastExitCode") else null,
+                        lastOutput = obj.optString("lastOutput", "")
+                    )
+                )
+            }
+            if (list.isEmpty()) getDefaultCustomScripts() else list
+        } catch (e: Exception) {
+            getDefaultCustomScripts()
+        }
+    }
+
+    private fun getDefaultCustomScripts(): List<CustomScriptItem> {
+        return listOf(
+            CustomScriptItem(
+                id = "drop_caches_flush",
+                name = "Drop Caches & Flush Buffers",
+                script = "sync\necho 3 > /proc/sys/vm/drop_caches\necho 'RAM Caches Successfully Flushed'",
+                runOnBoot = false
+            ),
+            CustomScriptItem(
+                id = "fstrim_all",
+                name = "FSTRIM System & Data Partitions",
+                script = "fstrim -v /data\nfstrim -v /cache 2>/dev/null || true\necho 'Storage Blocks Trimmed'",
+                runOnBoot = false
+            ),
+            CustomScriptItem(
+                id = "optimize_tcp",
+                name = "Aggressive TCP Buffer Optimization",
+                script = "echo 3 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null\necho 1 > /proc/sys/net/ipv4/tcp_tw_reuse 2>/dev/null\necho 'TCP Stack Tuned'",
+                runOnBoot = false
+            )
+        )
+    }
+
+    suspend fun saveCustomScripts(scripts: List<CustomScriptItem>): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val path = getCustomScriptsJsonPath()
+            val array = org.json.JSONArray()
+            for (s in scripts) {
+                val obj = JSONObject()
+                obj.put("id", s.id)
+                obj.put("name", s.name)
+                obj.put("script", s.script)
+                obj.put("runOnBoot", s.runOnBoot)
+                obj.put("lastRunTime", s.lastRunTime)
+                if (s.lastExitCode != null) obj.put("lastExitCode", s.lastExitCode)
+                obj.put("lastOutput", s.lastOutput)
+                array.put(obj)
+            }
+            val escaped = array.toString().replace("'", "'\\''")
+            Shell.cmd("echo '$escaped' > '$path' 2>/dev/null").exec().isSuccess
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun executeCustomScript(item: CustomScriptItem): CustomScriptItem = withContext(Dispatchers.IO) {
+        try {
+            val startTime = System.currentTimeMillis()
+            val res = Shell.cmd(item.script).exec()
+            val durationMs = System.currentTimeMillis() - startTime
+            val outText = res.out.joinToString("\n").trim()
+            val errText = res.err.joinToString("\n").trim()
+            val combined = buildString {
+                if (outText.isNotEmpty()) append(outText)
+                if (errText.isNotEmpty()) {
+                    if (isNotEmpty()) append("\n[STDERR]\n")
+                    append(errText)
+                }
+                append("\n[Selesai dalam ${durationMs}ms | Exit: ${res.code}]")
+            }
+            item.copy(
+                lastRunTime = System.currentTimeMillis(),
+                lastExitCode = res.code,
+                lastOutput = combined
+            )
+        } catch (e: Exception) {
+            item.copy(
+                lastRunTime = System.currentTimeMillis(),
+                lastExitCode = -1,
+                lastOutput = "Gagal mengeksekusi skrip: ${e.message}"
+            )
+        }
+    }
+
+    // ============================================================
+    //  FKM ADVANCED SUBSYSTEMS: KERNEL DMESG LOG VIEWER
+    // ============================================================
+
+    suspend fun readDmesgLog(limit: Int = 300, filter: String = ""): List<String> = withContext(Dispatchers.IO) {
+        try {
+            val cmd = if (filter.isBlank()) {
+                "dmesg 2>/dev/null | tail -n $limit"
+            } else {
+                val cleanFilter = filter.replace("'", "").trim()
+                "dmesg 2>/dev/null | grep -i '$cleanFilter' | tail -n $limit"
+            }
+            val res = Shell.cmd(cmd).exec()
+            if (res.out.isEmpty()) listOf("[Dmesg kosong atau tidak ada entri yang cocok dengan filter]") else res.out
+        } catch (e: Exception) {
+            listOf("[Gagal membaca dmesg log: ${e.message}]")
+        }
+    }
+
+    suspend fun exportDmesgToFile(): String? = withContext(Dispatchers.IO) {
+        try {
+            val debugDir = "/storage/emulated/0/Debug"
+            Shell.cmd("mkdir -p '$debugDir' 2>/dev/null").exec()
+            val filename = "dmesg_dump_${System.currentTimeMillis()}.txt"
+            val targetPath = "$debugDir/$filename"
+            val res = Shell.cmd("dmesg > '$targetPath' 2>/dev/null && chmod 666 '$targetPath'").exec()
+            if (res.isSuccess) targetPath else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // ============================================================
+    //  BOOTLOOP PROTECTION & EMERGENCY REVERT TO STOCK
+    // ============================================================
+
+    suspend fun resetKernelToStock(): String = withContext(Dispatchers.IO) {
+        try {
+            // 1. Reset CPU policies to hardware min/max and default governor
+            Shell.cmd(
+                "for p in /sys/devices/system/cpu/cpufreq/policy*; do",
+                "  [ -d \"\$p\" ] || continue",
+                "  hw_min=\$(cat \$p/cpuinfo_min_freq 2>/dev/null)",
+                "  hw_max=\$(cat \$p/cpuinfo_max_freq 2>/dev/null)",
+                "  [ -n \"\$hw_min\" ] && echo \$hw_min > \$p/scaling_min_freq 2>/dev/null",
+                "  [ -n \"\$hw_max\" ] && echo \$hw_max > \$p/scaling_max_freq 2>/dev/null",
+                "  [ -f \$p/scaling_governor ] && echo 'schedutil' > \$p/scaling_governor 2>/dev/null",
+                "done",
+                // 2. Reset GPU boost and limit
+                "echo 0 > /proc/gpufreq/gpufreq_opp_freq 2>/dev/null || true",
+                "echo 0 > /sys/module/ged/parameters/gpu_cust_boost_freq 2>/dev/null || true",
+                "echo 0 > /sys/kernel/ged/hal/custom_boost_gpu_freq 2>/dev/null || true",
+                "echo 0 > /sys/kernel/ged/hal/custom_upbound_gpu_freq 2>/dev/null || true",
+                // 3. Clear any bootloop or watchdog lock files
+                "rm -f /sdcard/Debug/SAFE_MODE 2>/dev/null",
+                "rm -f /data/adb/lynx_boot_watchdog 2>/dev/null",
+                "rm -f /data/adb/service.d/lynx* 2>/dev/null"
+            ).exec()
+            "Semua parameter CPU/GPU dipulihkan ke profil aman bawaan pabrik (Stock)."
+        } catch (e: Exception) {
+            "Gagal reset: ${e.message}"
+        }
+    }
+
+    // ============================================================
+    //  KERNEL SCHEDULER & GOVERNOR DEEP TUNABLES (CFS / EAS / BORE)
+    // ============================================================
+
+    suspend fun readSchedulerInfo(): SchedulerInfo = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                bore="0"
+                [ -f /proc/sys/kernel/sched_bore ] && bore="1"
+                lat=${'$'}(cat /proc/sys/kernel/sched_latency_ns 2>/dev/null || echo 10000000)
+                min_gran=${'$'}(cat /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null || echo 3000000)
+                wake_gran=${'$'}(cat /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null || echo 2000000)
+                mig_cost=${'$'}(cat /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null || echo 200000)
+                nr_mig=${'$'}(cat /proc/sys/kernel/sched_nr_migrate 2>/dev/null || echo 32)
+                child_first=${'$'}(cat /proc/sys/kernel/sched_child_runs_first 2>/dev/null || echo 0)
+                
+                up_rate=1000
+                down_rate=10000
+                for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                    if [ -d "${'$'}p" ]; then
+                        u=${'$'}(cat "${'$'}p/up_rate_limit_us" 2>/dev/null)
+                        d=${'$'}(cat "${'$'}p/down_rate_limit_us" 2>/dev/null)
+                        [ -n "${'$'}u" ] && up_rate="${'$'}u"
+                        [ -n "${'$'}d" ] && down_rate="${'$'}d"
+                        break
+                    fi
+                done
+                echo "bore:${'$'}bore"
+                echo "lat:${'$'}lat"
+                echo "min_gran:${'$'}min_gran"
+                echo "wake_gran:${'$'}wake_gran"
+                echo "mig_cost:${'$'}mig_cost"
+                echo "nr_mig:${'$'}nr_mig"
+                echo "child_first:${'$'}child_first"
+                echo "up_rate:${'$'}up_rate"
+                echo "down_rate:${'$'}down_rate"
+            """.trimIndent()
+            val res = Shell.cmd(script).exec()
+            var bore = false
+            var lat = 10000000L
+            var minGran = 3000000L
+            var wakeGran = 2000000L
+            var migCost = 200000L
+            var nrMig = 32
+            var childFirst = false
+            var upRate = 500L
+            var downRate = 20000L
+
+            res.out.forEach { line ->
+                val parts = line.split(":", limit = 2)
+                if (parts.size == 2) {
+                    val k = parts[0].trim()
+                    val v = parts[1].trim()
+                    when (k) {
+                        "bore" -> bore = v == "1"
+                        "lat" -> lat = v.toLongOrNull() ?: lat
+                        "min_gran" -> minGran = v.toLongOrNull() ?: minGran
+                        "wake_gran" -> wakeGran = v.toLongOrNull() ?: wakeGran
+                        "mig_cost" -> migCost = v.toLongOrNull() ?: migCost
+                        "nr_mig" -> nrMig = v.toIntOrNull() ?: nrMig
+                        "child_first" -> childFirst = v == "1"
+                        "up_rate" -> upRate = v.toLongOrNull() ?: upRate
+                        "down_rate" -> downRate = v.toLongOrNull() ?: downRate
+                    }
+                }
+            }
+            SchedulerInfo(
+                isBoreSupported = bore,
+                schedulerName = if (bore) "BORE (Burst-Oriented Response Enhancer)" else "CFS / EAS",
+                schedLatencyNs = lat,
+                schedMinGranularityNs = minGran,
+                schedWakeupGranularityNs = wakeGran,
+                schedMigrationCostNs = migCost,
+                schedNrMigrate = nrMig,
+                schedChildRunsFirst = childFirst,
+                upRateLimitUs = upRate,
+                downRateLimitUs = downRate,
+                activePreset = if (upRate == 0L && lat <= 5000000L) "gaming" else if (upRate >= 3000L) "battery" else "balanced"
+            )
+        } catch (e: Exception) {
+            SchedulerInfo()
+        }
+    }
+
+    suspend fun setSchedulerTunable(tunable: String, value: Long): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val cmd = when (tunable) {
+                "sched_latency_ns" -> {
+                    val safe = value.coerceIn(1000000L, 24000000L)
+                    "echo $safe > /proc/sys/kernel/sched_latency_ns 2>/dev/null; echo ok"
+                }
+                "sched_min_granularity_ns" -> {
+                    val safe = value.coerceIn(500000L, 8000000L)
+                    "echo $safe > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null; echo ok"
+                }
+                "sched_wakeup_granularity_ns" -> {
+                    val safe = value.coerceIn(500000L, 8000000L)
+                    "echo $safe > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null; echo ok"
+                }
+                "sched_migration_cost_ns" -> {
+                    val safe = value.coerceIn(100000L, 3000000L)
+                    "echo $safe > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null; echo ok"
+                }
+                "sched_nr_migrate" -> {
+                    val safe = value.coerceIn(8L, 128L)
+                    "echo $safe > /proc/sys/kernel/sched_nr_migrate 2>/dev/null; echo ok"
+                }
+                "sched_child_runs_first" -> {
+                    val safe = if (value > 0) 1 else 0
+                    "echo $safe > /proc/sys/kernel/sched_child_runs_first 2>/dev/null; echo ok"
+                }
+                "up_rate_limit_us" -> {
+                    val safe = value.coerceIn(0L, 20000L)
+                    "for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do [ -d \"\$p\" ] && echo $safe > \"\$p/up_rate_limit_us\" 2>/dev/null; done; echo ok"
+                }
+                "down_rate_limit_us" -> {
+                    val safe = value.coerceIn(500L, 40000L)
+                    "for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do [ -d \"\$p\" ] && echo $safe > \"\$p/down_rate_limit_us\" 2>/dev/null; done; echo ok"
+                }
+                else -> return@withContext false
+            }
+            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun applySchedulerPreset(preset: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = when (preset.lowercase()) {
+                "gaming" -> """
+                    echo 4000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
+                    echo 750000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
+                    echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
+                    echo 500000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
+                    echo 64 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                        [ -d "${'$'}p" ] && echo 0 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] && echo 5000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                    done
+                    echo ok
+                """.trimIndent()
+                "battery" -> """
+                    echo 20000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
+                    echo 4000000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
+                    echo 4000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
+                    echo 1000000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
+                    echo 16 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                        [ -d "${'$'}p" ] && echo 4000 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] && echo 20000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                    done
+                    echo ok
+                """.trimIndent()
+                else -> """
+                    echo 10000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
+                    echo 3000000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
+                    echo 2000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
+                    echo 200000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
+                    echo 32 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                        [ -d "${'$'}p" ] && echo 500 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] && echo 20000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                    done
+                    echo ok
+                """.trimIndent()
+            }
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) {
+            false
+        }
+    }
+}
+
 

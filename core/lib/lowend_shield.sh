@@ -18,10 +18,10 @@ get_mem_total_kb() {
 
 # 2. Detect Primary Storage Type (eMMC vs UFS)
 get_storage_type() {
-    if [ -d "/sys/block/mmcblk0" ]; then
-        echo "emmc"
-    elif [ -d "/sys/block/sda" ]; then
+    if [ -d "/sys/block/sda" ]; then
         echo "ufs"
+    elif [ -d "/sys/block/mmcblk0" ]; then
+        echo "emmc"
     else
         echo "unknown"
     fi

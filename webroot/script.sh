@@ -205,6 +205,94 @@ case "$ACTION" in
         echo "TCP Congestion Control disetel ke $PARAM"
         ;;
 
+    get_tcp)
+        cur=$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null)
+        avail=$(cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null)
+        echo "{\"current\":\"${cur:-cubic}\",\"available\":\"${avail:-cubic reno}\"}"
+        ;;
+
+    get_vm_tunables)
+        dr=$(cat /proc/sys/vm/dirty_ratio 2>/dev/null || echo 20)
+        dbr=$(cat /proc/sys/vm/dirty_background_ratio 2>/dev/null || echo 5)
+        vfs=$(cat /proc/sys/vm/vfs_cache_pressure 2>/dev/null || echo 100)
+        sw=$(cat /proc/sys/vm/swappiness 2>/dev/null || echo 100)
+        exp=$(cat /proc/sys/vm/dirty_expire_centisecs 2>/dev/null || echo 3000)
+        wb=$(cat /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null || echo 500)
+        si=$(cat /proc/sys/vm/stat_interval 2>/dev/null || echo 1)
+        echo "{\"dirty_ratio\":$dr,\"dirty_background_ratio\":$dbr,\"vfs_cache_pressure\":$vfs,\"swappiness\":$sw,\"dirty_expire_centisecs\":$exp,\"dirty_writeback_centisecs\":$wb,\"stat_interval\":$si}"
+        ;;
+
+    set_vm_tunable)
+        val=$(echo "$PARAM2" | tr -cd '0-9')
+        case "$PARAM" in
+            dirty_ratio) [ "$val" -ge 1 ] 2>/dev/null && [ "$val" -le 60 ] 2>/dev/null && echo "$val" > /proc/sys/vm/dirty_ratio 2>/dev/null ;;
+            dirty_background_ratio) [ "$val" -ge 1 ] 2>/dev/null && [ "$val" -le 30 ] 2>/dev/null && echo "$val" > /proc/sys/vm/dirty_background_ratio 2>/dev/null ;;
+            vfs_cache_pressure) [ "$val" -ge 10 ] 2>/dev/null && [ "$val" -le 300 ] 2>/dev/null && echo "$val" > /proc/sys/vm/vfs_cache_pressure 2>/dev/null ;;
+            swappiness) [ "$val" -ge 0 ] 2>/dev/null && [ "$val" -le 100 ] 2>/dev/null && echo "$val" > /proc/sys/vm/swappiness 2>/dev/null ;;
+            dirty_expire_centisecs) [ "$val" -ge 100 ] 2>/dev/null && [ "$val" -le 10000 ] 2>/dev/null && echo "$val" > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null ;;
+            dirty_writeback_centisecs) [ "$val" -ge 50 ] 2>/dev/null && [ "$val" -le 5000 ] 2>/dev/null && echo "$val" > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null ;;
+            stat_interval) [ "$val" -ge 1 ] 2>/dev/null && [ "$val" -le 60 ] 2>/dev/null && echo "$val" > /proc/sys/vm/stat_interval 2>/dev/null ;;
+        esac
+        echo "VM $PARAM set to $val"
+        ;;
+
+    apply_vm_preset)
+        case "$PARAM" in
+            gaming)
+                echo 10 > /proc/sys/vm/dirty_ratio 2>/dev/null
+                echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+                echo 150 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                echo 1500 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
+                echo 250 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
+                echo 1 > /proc/sys/vm/stat_interval 2>/dev/null
+                echo "Preset Gaming applied"
+                ;;
+            battery)
+                echo 30 > /proc/sys/vm/dirty_ratio 2>/dev/null
+                echo 15 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+                echo 80 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                echo 6000 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
+                echo 1500 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
+                echo 10 > /proc/sys/vm/stat_interval 2>/dev/null
+                echo "Preset Battery Saver applied"
+                ;;
+            *)
+                echo 20 > /proc/sys/vm/dirty_ratio 2>/dev/null
+                echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+                echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                echo 3000 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
+                echo 500 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
+                echo 1 > /proc/sys/vm/stat_interval 2>/dev/null
+                echo "Preset Balanced applied"
+                ;;
+        esac
+        ;;
+
+    get_boeffla_status)
+        p="/sys/devices/virtual/misc/boeffla_wakelock/wakelock_blocker"
+        [ -f "$p" ] || p="/sys/class/misc/boeffla_wakelock/wakelock_blocker"
+        if [ -f "$p" ]; then
+            echo "{\"supported\":true,\"path\":\"$p\"}"
+        else
+            echo "{\"supported\":false}"
+        fi
+        ;;
+
+    get_doze)
+        st=$(dumpsys deviceidle get deep 2>/dev/null | tr -d ' \r\n')
+        echo "{\"state\":\"${st:-UNKNOWN}\"}"
+        ;;
+
+    set_doze)
+        if [ "$PARAM" = "1" ]; then
+            dumpsys deviceidle force-idle >/dev/null 2>&1
+            echo "Aggressive Doze: Force Idle Active"
+        else
+            dumpsys deviceidle unforce >/dev/null 2>&1
+            echo "Aggressive Doze: Unforced"
+        fi
+        ;;
+
     applist_read)
         APPPATH="$MODULE_DIR/core/applist_perf.txt"
         [ -f "$APPPATH" ] && cat "$APPPATH" | grep -v '^#' | grep -v '^$'

@@ -568,7 +568,7 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
 
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(
-                            text = if (tel.gpuFreq > 0) "${tel.gpuFreq}" else "950",
+                            text = if (tel.gpuFreq > 0) "${tel.gpuFreq}" else "300",
                             fontSize = 26.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = TextPrimary
@@ -589,7 +589,7 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                         color = AccentCyan.copy(alpha = 0.12f)
                     ) {
                         Text(
-                            text = if (tel.gpuBusy > 0) "Load ${tel.gpuBusy}%" else "Fixed OPP Active",
+                            text = if (tel.gpuBusy > 0) "Load ${tel.gpuBusy}%" else "Dynamic DVFS",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = AccentCyan,
@@ -655,12 +655,16 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                     Spacer(modifier = Modifier.height(4.dp))
 
                     val curPrefix = if (tel.battCurrentMa > 0) "+" else ""
+                    val wattText = if (tel.battWatt > 0.05f) {
+                        val sign = if (tel.isCharging) "+" else ""
+                        " • ${sign}${String.format(java.util.Locale.US, "%.1f", tel.battWatt)}W"
+                    } else ""
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = tempColor.copy(alpha = 0.12f)
                     ) {
                         Text(
-                            text = "${tel.battLevel}% • ${curPrefix}${tel.battCurrentMa} mA",
+                            text = "${tel.battLevel}% • ${curPrefix}${tel.battCurrentMa} mA${wattText}",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = tempColor,
@@ -1539,3 +1543,734 @@ fun StandaloneModuleBanner(onInstallModule: () -> Unit) {
         }
     }
 }
+
+// ============================================================
+//  FKM PARITY: UNSUPPORTED BADGE (ZERO ASSUMPTION GUARANTEE)
+// ============================================================
+
+@Composable
+fun UnsupportedBadge(reason: String) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = AccentOrange.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.35f)),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = AccentOrange.copy(alpha = 0.2f),
+                modifier = Modifier.size(28.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = AccentOrange,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "UNSUPPORTED",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = AccentOrange,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    text = reason,
+                    fontSize = 11.5.sp,
+                    color = TextSecondary,
+                    lineHeight = 15.sp
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+//  FKM PARITY: VOLTAGE CONTROL CARD
+// ============================================================
+
+@Composable
+fun VoltageControlCard(
+    voltageInfo: VoltageTableInfo,
+    onApplyOffset: (Int) -> Unit,
+) {
+    var offsetMv by remember(voltageInfo.globalOffsetMv) { mutableStateOf(voltageInfo.globalOffsetMv) }
+
+    LynxCard(
+        title = "VOLTAGE CONTROL (UNDERVOLTING)",
+        icon = Icons.Default.Bolt,
+        accentColor = if (voltageInfo.isSupported) AccentCyan else AccentOrange
+    ) {
+        if (!voltageInfo.isSupported) {
+            UnsupportedBadge(reason = voltageInfo.unsupportedReason)
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(BgElevated.copy(alpha = 0.5f))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Global Voltage Offset", color = TextSecondary, fontSize = 12.sp)
+                    Text("Terkunci (0 mV)", color = TextTertiary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(1.dp, BorderSubtle)
+                ) {
+                    Text("LOCKED", color = TextTertiary, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                }
+            }
+        } else {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Global Undervolt Offset", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(
+                        text = "${if (offsetMv > 0) "+" else ""}$offsetMv mV",
+                        color = if (offsetMv < 0) AccentCyan else if (offsetMv > 0) AccentRed else TextSecondary,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 14.sp
+                    )
+                }
+                Slider(
+                    value = offsetMv.toFloat(),
+                    onValueChange = { offsetMv = it.toInt() },
+                    valueRange = -100f..50f,
+                    steps = 29,
+                    colors = SliderDefaults.colors(
+                        thumbColor = AccentCyan,
+                        activeTrackColor = AccentCyan,
+                        inactiveTrackColor = BgElevated
+                    )
+                )
+                LynxActionButton(
+                    text = "Terapkan Offset Voltase (${offsetMv} mV)",
+                    icon = Icons.Default.Check,
+                    onClick = { onApplyOffset(offsetMv) },
+                    accentColor = AccentCyan
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+//  FKM PARITY: DISPLAY CALIBRATION CARD (KCAL & HBM)
+// ============================================================
+
+@Composable
+fun DisplayCalibrationCard(
+    displayCalibration: DisplayCalibrationInfo,
+    onSetKcal: (Boolean, Int, Int, Int, Int, Int, Int, Int) -> Unit,
+    onSetHbm: (Boolean) -> Unit,
+) {
+    var kcalEnabled by remember(displayCalibration.kcalEnabled) { mutableStateOf(displayCalibration.kcalEnabled) }
+    var red by remember(displayCalibration.red) { mutableStateOf(displayCalibration.red) }
+    var green by remember(displayCalibration.green) { mutableStateOf(displayCalibration.green) }
+    var blue by remember(displayCalibration.blue) { mutableStateOf(displayCalibration.blue) }
+    var saturation by remember(displayCalibration.saturation) { mutableStateOf(displayCalibration.saturation) }
+
+    LynxCard(
+        title = "KALIBRASI LAYAR (KCAL & HBM)",
+        icon = Icons.Default.Palette,
+        accentColor = AccentPurple
+    ) {
+        // --- HBM Section ---
+        Text("High Brightness Mode (HBM)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        if (!displayCalibration.isHbmSupported) {
+            UnsupportedBadge(reason = displayCalibration.hbmUnsupportedReason)
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("HBM Sunlight Booster", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text("Meningkatkan batas kecerahan panel display di luar slider standar", color = TextSecondary, fontSize = 10.5.sp)
+                }
+                Switch(
+                    checked = displayCalibration.hbmEnabled,
+                    onCheckedChange = { onSetHbm(it) },
+                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentPurple)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+        Divider(color = BorderSubtle)
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // --- KCAL Section ---
+        Text("KCAL Color Calibration", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        if (!displayCalibration.isKcalSupported) {
+            UnsupportedBadge(reason = displayCalibration.kcalUnsupportedReason)
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Aktifkan KCAL Engine", color = TextSecondary, fontSize = 12.sp)
+                Switch(
+                    checked = kcalEnabled,
+                    onCheckedChange = { kcalEnabled = it },
+                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentPurple)
+                )
+            }
+            if (kcalEnabled) {
+                Text("Red: $red", color = AccentRed, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                Slider(value = red.toFloat(), onValueChange = { red = it.toInt() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentRed, activeTrackColor = AccentRed))
+
+                Text("Green: $green", color = AccentGreen, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                Slider(value = green.toFloat(), onValueChange = { green = it.toInt() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
+
+                Text("Blue: $blue", color = AccentBlue, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                Slider(value = blue.toFloat(), onValueChange = { blue = it.toInt() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue))
+
+                Text("Saturation: $saturation", color = AccentPurple, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                Slider(value = saturation.toFloat(), onValueChange = { saturation = it.toInt() }, valueRange = 128f..383f, colors = SliderDefaults.colors(thumbColor = AccentPurple, activeTrackColor = AccentPurple))
+
+                LynxActionButton(
+                    text = "Terapkan Kalibrasi Warna",
+                    icon = Icons.Default.Save,
+                    onClick = {
+                        onSetKcal(true, red, green, blue, saturation, displayCalibration.value, displayCalibration.contrast, displayCalibration.hue)
+                    },
+                    accentColor = AccentPurple
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+//  FKM PARITY: SOUND CONTROL CARD
+// ============================================================
+
+@Composable
+fun SoundControlCard(
+    soundControl: SoundControlInfo,
+    onSetGain: (Int, Int, Int, Int, Boolean) -> Unit,
+) {
+    var hpL by remember(soundControl.headphoneGainL) { mutableStateOf(soundControl.headphoneGainL) }
+    var hpR by remember(soundControl.headphoneGainR) { mutableStateOf(soundControl.headphoneGainR) }
+    var spk by remember(soundControl.speakerGain) { mutableStateOf(soundControl.speakerGain) }
+    var mic by remember(soundControl.micGain) { mutableStateOf(soundControl.micGain) }
+    var hpMode by remember(soundControl.highPerfMode) { mutableStateOf(soundControl.highPerfMode) }
+
+    LynxCard(
+        title = "SOUND CONTROL (AUDIO GAIN BOOSTER)",
+        icon = Icons.Default.VolumeUp,
+        accentColor = if (soundControl.isSupported) AccentGreen else AccentOrange
+    ) {
+        if (!soundControl.isSupported) {
+            UnsupportedBadge(reason = soundControl.unsupportedReason)
+        } else {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Headphone Gain (L/R): ${hpL}dB / ${hpR}dB", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Slider(value = hpL.toFloat(), onValueChange = { hpL = it.toInt(); hpR = it.toInt() }, valueRange = -10f..20f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
+
+                Text("Speaker Gain: ${spk}dB", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Slider(value = spk.toFloat(), onValueChange = { spk = it.toInt() }, valueRange = -10f..20f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
+
+                Text("Microphone Gain: ${mic}dB", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Slider(value = mic.toFloat(), onValueChange = { mic = it.toInt() }, valueRange = -10f..20f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("High Performance Audio DAC", color = TextSecondary, fontSize = 12.sp)
+                    Switch(checked = hpMode, onCheckedChange = { hpMode = it }, colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentGreen))
+                }
+
+                LynxActionButton(
+                    text = "Simpan Pengaturan Gain Audio",
+                    icon = Icons.Default.Save,
+                    onClick = { onSetGain(hpL, hpR, spk, mic, hpMode) },
+                    accentColor = AccentGreen
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+//  FKM PARITY: BATTERY HEALTH & DEEP SLEEP CARD
+// ============================================================
+
+@Composable
+fun BatteryHealthStatsCard(
+    batteryHealth: BatteryHealthStats,
+    onRefresh: () -> Unit,
+) {
+    LynxCard(
+        title = "KESEHATAN BATERAI & DEEP SLEEP GUARD",
+        icon = Icons.Default.BatteryChargingFull,
+        accentColor = AccentCyan
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Health % Bento Tile
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = BgElevated,
+                    border = BorderStroke(1.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Favorite, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Health", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text("${batteryHealth.healthPct}%", color = AccentCyan, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(if (batteryHealth.healthPct >= 80) "Kondisi Prima" else "Degradasi Moderat", color = TextTertiary, fontSize = 10.sp)
+                    }
+                }
+
+                // Cycle Count Bento Tile
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = BgElevated,
+                    border = BorderStroke(1.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Refresh, null, tint = AccentOrange, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Siklus Pengisian", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = if (batteryHealth.cycleCount >= 0) "${batteryHealth.cycleCount} Siklus" else "N/A",
+                            color = AccentOrange,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text("Hardware Node Real", color = TextTertiary, fontSize = 10.sp)
+                    }
+                }
+            }
+
+            // Deep Sleep & Drain Metrics Row
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BgSurfaceLowest,
+                border = BorderStroke(1.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Rasio Deep Sleep (Tidur Pulas)", color = TextSecondary, fontSize = 11.5.sp)
+                        Text(
+                            text = "${batteryHealth.deepSleepPct.toInt()}%",
+                            color = if (batteryHealth.deepSleepPct > 70f) AccentGreen else AccentOrange,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { batteryHealth.deepSleepPct / 100f },
+                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                        color = if (batteryHealth.deepSleepPct > 70f) AccentGreen else AccentOrange,
+                        trackColor = BgElevated
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Kapasitas: ${batteryHealth.actualCapacityMah} / ${batteryHealth.designedCapacityMah} mAh", color = TextTertiary, fontSize = 10.5.sp)
+                        Text("Drain: ${String.format("%.1f", batteryHealth.activeDrainRateMh)}%/h (Aktif)", color = TextTertiary, fontSize = 10.5.sp)
+                    }
+                }
+            }
+
+            LynxActionButton(
+                text = "Segarkan Statistik Baterai & Sleep",
+                icon = Icons.Default.Refresh,
+                onClick = onRefresh,
+                accentColor = AccentCyan
+            )
+        }
+    }
+}
+
+// ============================================================
+//  FKM PARITY: MEMORY LMK & ENTROPY TUNER CARD
+// ============================================================
+
+@Composable
+fun MemoryEntropyCard(
+    memoryEntropy: MemoryEntropyInfo,
+    onSetEntropy: (Int, Int) -> Unit,
+) {
+    var readThresh by remember(memoryEntropy.readThreshold) { mutableStateOf(memoryEntropy.readThreshold) }
+    var writeThresh by remember(memoryEntropy.writeThreshold) { mutableStateOf(memoryEntropy.writeThreshold) }
+
+    LynxCard(
+        title = "LMK MINFREE & ENTROPY TUNER",
+        icon = Icons.Default.Memory,
+        accentColor = AccentBlue
+    ) {
+        // LMK Architecture status
+        Text("Low Memory Killer (LMK)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        if (!memoryEntropy.isLmkLegacySupported) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(1.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            ) {
+                Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, null, tint = AccentBlue, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = memoryEntropy.lmkReason,
+                        color = TextSecondary,
+                        fontSize = 11.5.sp,
+                        lineHeight = 15.sp
+                    )
+                }
+            }
+        } else {
+            Text("Legacy Minfree Levels: ${memoryEntropy.minfreeMb.joinToString(", ") { "${it}MB" }}", color = TextSecondary, fontSize = 11.5.sp)
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Divider(color = BorderSubtle)
+        Spacer(Modifier.height(14.dp))
+
+        // Entropy Pool Section
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Linux Kernel Random Entropy", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Text(
+                "${memoryEntropy.entropyAvail} / 4096 bits",
+                color = AccentCyan,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        LinearProgressIndicator(
+            progress = { (memoryEntropy.entropyAvail.toFloat() / 4096f).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+            color = AccentCyan,
+            trackColor = BgElevated
+        )
+
+        Spacer(Modifier.height(10.dp))
+        Text("Read Wakeup Threshold: $readThresh bits", color = TextSecondary, fontSize = 11.5.sp)
+        Slider(
+            value = readThresh.toFloat(),
+            onValueChange = { readThresh = it.toInt() },
+            valueRange = 32f..256f,
+            colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
+        )
+
+        Text("Write Wakeup Threshold: $writeThresh bits", color = TextSecondary, fontSize = 11.5.sp)
+        Slider(
+            value = writeThresh.toFloat(),
+            onValueChange = { writeThresh = it.toInt() },
+            valueRange = 256f..2048f,
+            colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
+        )
+
+        LynxActionButton(
+            text = "Terapkan Threshold Entropi",
+            icon = Icons.Default.Save,
+            onClick = { onSetEntropy(readThresh, writeThresh) },
+            accentColor = AccentBlue
+        )
+    }
+}
+
+// ============================================================
+//  FKM PARITY: CUSTOM SCRIPT MANAGER CARD
+// ============================================================
+
+@Composable
+fun CustomScriptManagerCard(
+    scripts: List<CustomScriptItem>,
+    onExecute: (CustomScriptItem) -> Unit,
+    onSave: (CustomScriptItem) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    var showAddDialog by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf("") }
+    var newScript by remember { mutableStateOf("") }
+    var newRunOnBoot by remember { mutableStateOf(false) }
+
+    if (showAddDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            containerColor = BgCard,
+            title = { Text("Tambah Skrip Shell Baru", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("Nama Skrip") },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentCyan, unfocusedBorderColor = BorderGlass, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary)
+                    )
+                    OutlinedTextField(
+                        value = newScript,
+                        onValueChange = { newScript = it },
+                        label = { Text("Perintah Shell (Root)") },
+                        modifier = Modifier.fillMaxWidth().height(140.dp).padding(bottom = 8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentCyan, unfocusedBorderColor = BorderGlass, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Jalankan Saat Boot", color = TextSecondary, fontSize = 12.sp)
+                        Switch(
+                            checked = newRunOnBoot,
+                            onCheckedChange = { newRunOnBoot = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newName.isNotBlank() && newScript.isNotBlank()) {
+                            onSave(
+                                CustomScriptItem(
+                                    id = System.currentTimeMillis().toString(),
+                                    name = newName.trim(),
+                                    script = newScript.trim(),
+                                    runOnBoot = newRunOnBoot
+                                )
+                            )
+                            newName = ""
+                            newScript = ""
+                            newRunOnBoot = false
+                            showAddDialog = false
+                        }
+                    }
+                ) {
+                    Text("Simpan", color = AccentCyan, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) {
+                    Text("Batal", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    LynxCard(
+        title = "CUSTOM SHELL SCRIPT MANAGER",
+        icon = Icons.Default.Terminal,
+        accentColor = AccentCyan
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Pustaka Skrip Kernel & Sistem (${scripts.size})",
+                    color = TextSecondary,
+                    fontSize = 12.sp
+                )
+                TextButton(
+                    onClick = { showAddDialog = true },
+                    colors = ButtonDefaults.textButtonColors(contentColor = AccentCyan)
+                ) {
+                    Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Tambah", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            scripts.forEach { item ->
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgElevated,
+                    border = BorderStroke(1.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                if (item.runOnBoot) {
+                                    Text("⚡ Run on boot", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                            Row {
+                                IconButton(onClick = { onExecute(item) }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.PlayArrow, null, tint = AccentCyan, modifier = Modifier.size(18.dp))
+                                }
+                                IconButton(onClick = { onDelete(item.id) }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Delete, null, tint = AccentRed, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+
+                        if (item.lastOutput.isNotBlank()) {
+                            Spacer(Modifier.height(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = BgSurfaceLowest,
+                                border = BorderStroke(1.dp, BorderSubtle),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = item.lastOutput,
+                                    color = if (item.lastExitCode == 0) AccentCyan else AccentOrange,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+//  FKM PARITY: KERNEL DMESG VIEWER CARD
+// ============================================================
+
+@Composable
+fun DmesgViewerCard(
+    dmesgState: DmesgLogState,
+    onLoadLogs: (String) -> Unit,
+    onExport: () -> Unit,
+) {
+    var searchFilter by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        if (dmesgState.logs.isEmpty()) {
+            onLoadLogs("")
+        }
+    }
+
+    LynxCard(
+        title = "KERNEL DMESG RING BUFFER VIEWER",
+        icon = Icons.Default.Description,
+        accentColor = AccentBlue
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = searchFilter,
+                    onValueChange = {
+                        searchFilter = it
+                        onLoadLogs(it)
+                    },
+                    placeholder = { Text("Filter dmesg (e.g. cpu, thermal, gpu)...", color = TextSecondary, fontSize = 11.5.sp) },
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentBlue,
+                        unfocusedBorderColor = BorderGlass,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
+                IconButton(onClick = { onLoadLogs(searchFilter) }) {
+                    Icon(Icons.Default.Refresh, null, tint = AccentBlue)
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgSurfaceLowest,
+                border = BorderStroke(1.dp, BorderSubtle),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(260.dp)
+            ) {
+                if (dmesgState.isLoading) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = AccentBlue, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        dmesgState.logs.takeLast(100).forEach { line ->
+                            Text(
+                                text = line,
+                                color = when {
+                                    line.contains("error", ignoreCase = true) || line.contains("fail", ignoreCase = true) -> AccentRed
+                                    line.contains("warn", ignoreCase = true) -> AccentOrange
+                                    else -> TextSecondary
+                                },
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 9.5.sp,
+                                lineHeight = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            LynxActionButton(
+                text = "Ekspor Log Lengkap ke /sdcard/Debug/",
+                icon = Icons.Default.FileDownload,
+                onClick = onExport,
+                accentColor = AccentBlue
+            )
+        }
+    }
+}
+
