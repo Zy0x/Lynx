@@ -186,8 +186,8 @@ case "$PROFILE" in
                     write_node "$peak_f" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
                     write_node "$peak_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
                     write_node "$peak_f" "/sys/module/ged/parameters/gpu_bottom_freq"
-                    # gpufreq_opp_freq uses OPP INDEX not KHz — write index 0 = peak freq
-                    write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+                    # gpufreq_opp_freq: write peak frequency in KHz to lock fixed OPP hardware register
+                    write_node "$peak_f" "/proc/gpufreq/gpufreq_opp_freq"
                     # Lock GPU to peak freq+volt via fixed_freq_volt if available
                     if [ -n "$peak_vgpu" ]; then
                         write_node "${peak_f} ${peak_vgpu}" "/proc/gpufreq/gpufreq_fixed_freq_volt"
@@ -198,6 +198,7 @@ case "$PROFILE" in
             for i in 0 1 2 3 4 5 6 7 8; do
                 write_node "$i 0 0" "/proc/gpufreq/gpufreq_limit_table"
             done
+            write_node "0" "/proc/mali/dvfs_enable"
         else
             # Performance profile: boost to upper OPP range but allow DVFS
             # GED HAL: write OPP index (0=max). Index 5 ≈ 900 MHz for performance
@@ -434,6 +435,11 @@ case "$PROFILE" in
             done
         done
 
+        # ── 9b. Mali GPU Interrupt Routing (SMP Affinity Isolation) ──────────
+        for irq in $(grep -i mali /proc/interrupts 2>/dev/null | awk '{print $1}' | tr -d ':'); do
+            write_node "3f" "/proc/irq/$irq/smp_affinity"
+        done
+
         # ── 10. Kernel Game Library Prioritization & Sched Features ─────────
         GAME_LIBS="com.miHoYo., com.miHoYo.GenshinImpact, com.activision., com.epicgames, com.dts., UnityMain, libunity.so, libil2cpp.so, libmain.so, libcri_vip_unity.so, libopus.so, libxlua.so, libUE4.so, libAsphalt9.so, libnative-lib.so, libRiotGamesApi.so, libResources.so, libagame.so, libapp.so, libflutter.so, libMSDKCore.so, libFIFAMobileNeon.so, libUnreal.so, libEOSSDK.so, libcocos2dcpp.so, libfb.so"
         write_node "$GAME_LIBS" "/proc/sys/kernel/sched_lib_name"
@@ -585,6 +591,11 @@ case "$PROFILE" in
         write_node "0" "/sys/kernel/fpsgo/common/gpu_block_boost"
         write_node "coarse_demand" "/sys/devices/platform/*mali*/power_policy"
         write_node "0" "/proc/mali/always_on"
+        write_node "1" "/proc/mali/dvfs_enable"
+        write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+        for i in 0 1 2 3 4 5 6 7 8; do
+            write_node "$i 1 1" "/proc/gpufreq/gpufreq_limit_table"
+        done
         num_pwr=$(cat "/sys/class/kgsl/kgsl-3d0/num_pwrlevels" 2>/dev/null)
         [ -n "$num_pwr" ] && [ "$num_pwr" -gt 1 ] && write_node "$((num_pwr - 1))" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
         write_node "0" "/sys/class/kgsl/kgsl-3d0/devfreq/adreno_boost"
@@ -756,6 +767,10 @@ case "$PROFILE" in
         write_node "always_on" "/sys/devices/platform/*mali*/power_policy"
         write_node "1" "/proc/mali/always_on"
         write_node "1" "/proc/mali/dvfs_enable"
+        write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+        for i in 0 1 2 3 4 5 6 7 8; do
+            write_node "$i 1 1" "/proc/gpufreq/gpufreq_limit_table"
+        done
 
         # Qualcomm Adreno KGSL
         write_node "1" "/sys/class/kgsl/kgsl-3d0/throttling"

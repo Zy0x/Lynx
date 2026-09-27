@@ -399,6 +399,43 @@ data class LynxUiState(
     val vmAdvanced: VirtualMemoryAdvancedConfig = VirtualMemoryAdvancedConfig(),
     val wakelockBlockerInfo: WakelockBlockerInfo = WakelockBlockerInfo(),
     val schedulerInfo: SchedulerInfo = SchedulerInfo(),
+    // Live Hardware Benchmark & Frame Pacing Profiler
+    val benchmarkResult: LynxBenchmarkResult? = null,
+    val isBenchmarking: Boolean = false,
+    val benchmarkProgressSeconds: Int = 0,
+    val benchmarkTotalSeconds: Int = 10,
+    val benchmarkTargetPackage: String = "",
+    val benchmarkTargetAppName: String = "",
+    val showBenchmarkDialog: Boolean = false,
+)
+
+// ============================================================
+//  LIVE HARDWARE BENCHMARK & FRAME PACING PROFILER
+// ============================================================
+
+data class LynxBenchmarkResult(
+    val appPackage: String = "",
+    val appName: String = "",
+    val durationSeconds: Int = 10,
+    val sampledFrames: Int = 0,
+    val averageFps: Float = 0f,
+    val medianFrametimeMs: Float = 0f,
+    val averageFrametimeMs: Float = 0f,
+    val minFrametimeMs: Float = 0f,
+    val maxFrametimeMs: Float = 0f,
+    val frametimeJitterMs: Float = 0f,
+    val fps1PercentLow: Float = 0f,
+    val fps01PercentLow: Float = 0f,
+    val jankyFramesCount: Int = 0,
+    val jankyFramesPercent: Float = 0f,
+    val frametimes: List<Float> = emptyList(),
+    val avgCpuClockMhz: Int = 0,
+    val avgGpuClockMhz: Int = 0,
+    val avgGpuLoadPct: Int = 0,
+    val avgBatteryTempC: Float = 0f,
+    val avgBatteryWatt: Float = 0f,
+    val activeProfile: String = "extreme",
+    val timestamp: Long = System.currentTimeMillis()
 )
 
 data class VirtualMemoryAdvancedConfig(

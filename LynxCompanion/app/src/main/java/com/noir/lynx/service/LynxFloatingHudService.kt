@@ -162,6 +162,9 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         }
 
         val telemetryFlow = kotlinx.coroutines.flow.MutableStateFlow(LynxRepository.FloatingHudTelemetry())
+        val isHudBenchmarkingFlow = kotlinx.coroutines.flow.MutableStateFlow(false)
+        val hudBenchmarkCountdownFlow = kotlinx.coroutines.flow.MutableStateFlow(10)
+        val hudBenchmarkSummaryFlow = kotlinx.coroutines.flow.MutableStateFlow<com.noir.lynx.data.LynxBenchmarkResult?>(null)
 
         // Start Telemetry Query Loop (500ms for ultra-smooth live HUD)
         serviceScope.launch {
@@ -183,16 +186,41 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             setViewTreeSavedStateRegistryOwner(this@LynxFloatingHudService)
             setContent {
                 val tel by telemetryFlow.collectAsState()
+                val isHudBenchmarking by isHudBenchmarkingFlow.collectAsState()
+                val hudBenchmarkCountdown by hudBenchmarkCountdownFlow.collectAsState()
+                val hudBenchmarkSummary by hudBenchmarkSummaryFlow.collectAsState()
                 var isExpanded by remember { mutableStateOf(false) }
 
                 FloatingHudContent(
                     telemetry = tel,
                     isExpanded = isExpanded,
+                    isHudBenchmarking = isHudBenchmarking,
+                    hudBenchmarkCountdown = hudBenchmarkCountdown,
+                    hudBenchmarkSummary = hudBenchmarkSummary,
                     onToggleExpand = { isExpanded = !isExpanded },
                     onClose = { cleanUpAndStop() },
                     onProfileSelect = { profile ->
                         serviceScope.launch {
                             LynxRepository.setProfile(profile)
+                        }
+                    },
+                    onStartHudBenchmark = {
+                        serviceScope.launch {
+                            if (isHudBenchmarkingFlow.value) return@launch
+                            isHudBenchmarkingFlow.value = true
+                            hudBenchmarkSummaryFlow.value = null
+                            try {
+                                val res = withContext(Dispatchers.IO) {
+                                    LynxRepository.runHardwareBenchmark(durationSeconds = 10) { rem ->
+                                        hudBenchmarkCountdownFlow.value = rem
+                                    }
+                                }
+                                hudBenchmarkSummaryFlow.value = res
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            } finally {
+                                isHudBenchmarkingFlow.value = false
+                            }
                         }
                     },
                     onDrag = { dx, dy ->
@@ -290,9 +318,13 @@ private val NeonRed = Color(0xFFFF5252)
 fun FloatingHudContent(
     telemetry: LynxRepository.FloatingHudTelemetry,
     isExpanded: Boolean,
+    isHudBenchmarking: Boolean = false,
+    hudBenchmarkCountdown: Int = 10,
+    hudBenchmarkSummary: com.noir.lynx.data.LynxBenchmarkResult? = null,
     onToggleExpand: () -> Unit,
     onClose: () -> Unit,
     onProfileSelect: (String) -> Unit,
+    onStartHudBenchmark: () -> Unit = {},
     onDrag: (Float, Float) -> Unit,
 ) {
     Surface(
@@ -349,10 +381,14 @@ fun FloatingHudContent(
                 // Subtle Separator Dot
                 Text("·", color = Color(0x66FFFFFF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
 
-                // Display Refresh Rate Badge
+                // Frame Time Badge (ms) - Replaces 120Hz per user request
+                val ftPillStr = if (telemetry.renderFps > 0) {
+                    val ftVal = 1000f / telemetry.renderFps
+                    String.format(java.util.Locale.US, "%.1fms", ftVal)
+                } else "--ms"
                 Text(
-                    text = "${telemetry.refreshRateHz}Hz",
-                    color = Color(0xCCFFFFFF),
+                    text = ftPillStr,
+                    color = Color(0xEEFFFFFF),
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -583,6 +619,65 @@ fun FloatingHudContent(
                                     color = if (isSel) Color.Black else Color.White,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Live Benchmark Quick Action
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isHudBenchmarking) Color(0x33FFB300) else Color(0x2200E5FF),
+                        border = BorderStroke(1.dp, if (isHudBenchmarking) NeonGold else NeonCyan.copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !isHudBenchmarking) { onStartHudBenchmark() }
+                            .padding(vertical = 2.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Speed,
+                                contentDescription = null,
+                                tint = if (isHudBenchmarking) NeonGold else NeonCyan,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = if (isHudBenchmarking) "Merekam Pacing... (${hudBenchmarkCountdown}s)" else "⚡ Live Benchmark (10s)",
+                                color = if (isHudBenchmarking) NeonGold else NeonCyan,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Benchmark result summary card if available
+                    hudBenchmarkSummary?.let { sum ->
+                        Spacer(Modifier.height(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0x3300E676),
+                            border = BorderStroke(1.dp, NeonGreen.copy(alpha = 0.6f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(6.dp)) {
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("BENCHMARK SELESAI", color = NeonGreen, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                                    Text("${sum.averageFps.roundToInt()} FPS avg", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Text(
+                                    text = "1% Low: ${String.format(java.util.Locale.US, "%.1f", sum.fps1PercentLow)} FPS · Pacing: ${String.format(java.util.Locale.US, "%.1f", sum.medianFrametimeMs)}ms (±${String.format(java.util.Locale.US, "%.1f", sum.frametimeJitterMs)}ms)",
+                                    color = Color(0xEEFFFFFF),
+                                    fontSize = 8.5.sp
                                 )
                             }
                         }

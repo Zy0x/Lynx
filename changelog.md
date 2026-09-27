@@ -1,3 +1,34 @@
+# Lynx [Codename: Deity] 3.0.7
+Released on: 2026-09-28
+> **Versi ini** menghadirkan **Live Hardware Benchmark Studio & Frame Pacing Profiler**, pembaruan ergonomi Floating Game HUD (Frame Time langsung di Mini Pill), penguncian hardware fixed OPP GPU, bypass limit table Mali, dan isolasi SMP Affinity IRQ CPU.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.7)
+
+### 1. ⚡ Live Hardware Benchmark & Frame Pacing Studio
+- **Presisi Hardware Presentation Latency**: Menggunakan ekstraksi timestamp hardware SurfaceFlinger (`dumpsys SurfaceFlinger --latency`) untuk mengukur waktu sesungguhnya saat frame ditampilkan ke panel layar.
+- **Metrik Diagnostik Komprehensif**:
+  - Average FPS & Median Frametime (ms)
+  - 1% Low FPS & 0.1% Low FPS
+  - Frametime Jitter / Standard Deviation (ms)
+  - Peak / Min Latency & Max Spike (ms)
+  - Janky Frames Count & Percentage (>33.3ms)
+  - Hardware Telemetry (CPU Avg, GPU Avg & Load, Suhu Baterai, Konsumsi Daya Watt)
+- **Interactive Canvas Frametime Chart**: Visualisasi kurva latensi per frame secara real-time dengan garis panduan 16.6ms (60 FPS) dan 33.3ms (30 FPS).
+- **Akses Fleksibel**: Dapat dijalankan dari Dashboard (Tab 0), Tools (Tab 3), serta tombol Quick Benchmark (10s) langsung di Floating Game HUD tanpa meninggalkan game.
+
+### 2. 🎮 Ergonomi HUD OSD — Frame Time pada Mini Pill
+- Menggantikan label 120Hz pada Mini Pill HUD dengan nilai **Live Frame Time (ms)** (misal `23.8ms`) yang berdampingan langsung dengan FPS, memberikan informasi instan tentang konsistensi rendering.
+- Nilai Refresh Rate panel (Hz) tetap ditampilkan dengan rapi pada grid telemetri di mode Expanded HUD.
+
+### 3. 🔥 Peak GPU & IRQ Performance Clamping
+- **Hardware Fixed OPP Lock**: Menulis frekuensi puncak KHz ke `/proc/gpufreq/gpufreq_opp_freq` untuk mengunci register OPP GPU Mali di frekuensi tertinggi.
+- **Bypass Limit Table GPU**: Menonaktifkan seluruh pembatas thermal, battery OC, battery low, dan governor policy pada `/proc/gpufreq/gpufreq_limit_table`.
+- **Mali DVFS Disable**: Mematikan DVFS kbase driver di mode Extreme (`/proc/mali/dvfs_enable = 0`) agar GPU tidak pernah mengalami micro-downclock.
+- **Mali GPU IRQ Affinity Isolation**: Mengalihkan interrupt handler Mali ke CPU 0–5 (`0x3F`), mengisolasi Big Cores (Cortex-A78) 100% untuk komputasi render thread game engine.
+- **VFS Cache Pressure Tuning (`vm.vfs_cache_pressure = 40`)**: Mencegah pembuangan cache direktori dan file tekstur di RAM selama transisi scene dan rotasi 3D.
+
+---
+
 # Lynx [Codename: Deity] 3.0.6
 Released on: 2026-09-28
 > **Versi ini** menghadirkan **Frametime & Sustained FPS Optimization Suite** untuk Extreme dan Performance mode — meminimalisir frame delivery jitter, menghilangkan micro-stuttering pada 3D open-world gaming, serta mengoptimalkan SurfaceFlinger buffer latching, MediaTek FPSGO Ultra Rescue, dan Linux CFS low-latency scheduling.
