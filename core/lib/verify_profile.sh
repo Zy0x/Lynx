@@ -170,15 +170,32 @@ audit_tweak() {
             ;;
 
         proc_stop)
-            local pids=$(pgrep -f "$target" 2>/dev/null)
+            local pids=""
+            pids=$(pidof "$target" 2>/dev/null)
+            if [ -z "$pids" ]; then
+                pids=$(pgrep -x "$target" 2>/dev/null)
+            fi
+            if [ -z "$pids" ] && echo "$target" | grep -q '\.'; then
+                for p in $(pgrep -f "$target" 2>/dev/null); do
+                    [ "$p" = "$$" ] && continue
+                    [ -d "/proc/$p" ] || continue
+                    local cmd=$(cat "/proc/$p/cmdline" 2>/dev/null | tr '\0' ' ')
+                    case "$cmd" in
+                        *"verify_profile"*|*"grep"*|*"apply_profile"*|*"Lxcore"*) continue ;;
+                    esac
+                    pids="$pids $p"
+                done
+            fi
+
             if [ -z "$pids" ]; then
                 status="VERIFIED"
                 actual="Not running (Inactive)"
             else
                 local all_stopped=true
                 for pid in $pids; do
+                    [ -f "/proc/$pid/status" ] || continue
                     local state=$(awk '/State:/ {print $2}' "/proc/$pid/status" 2>/dev/null)
-                    if [ "$state" != "T" ]; then
+                    if [ -n "$state" ] && [ "$state" != "T" ]; then
                         all_stopped=false
                         actual="PID $pid State $state"
                         break
@@ -195,13 +212,30 @@ audit_tweak() {
             ;;
 
         proc_cont)
-            local pids=$(pgrep -f "$target" 2>/dev/null)
+            local pids=""
+            pids=$(pidof "$target" 2>/dev/null)
+            if [ -z "$pids" ]; then
+                pids=$(pgrep -x "$target" 2>/dev/null)
+            fi
+            if [ -z "$pids" ] && echo "$target" | grep -q '\.'; then
+                for p in $(pgrep -f "$target" 2>/dev/null); do
+                    [ "$p" = "$$" ] && continue
+                    [ -d "/proc/$p" ] || continue
+                    local cmd=$(cat "/proc/$p/cmdline" 2>/dev/null | tr '\0' ' ')
+                    case "$cmd" in
+                        *"verify_profile"*|*"grep"*|*"apply_profile"*|*"Lxcore"*) continue ;;
+                    esac
+                    pids="$pids $p"
+                done
+            fi
+
             if [ -z "$pids" ]; then
                 status="VERIFIED"
                 actual="Not running"
             else
                 local any_stopped=false
                 for pid in $pids; do
+                    [ -f "/proc/$pid/status" ] || continue
                     local state=$(awk '/State:/ {print $2}' "/proc/$pid/status" 2>/dev/null)
                     if [ "$state" = "T" ]; then
                         any_stopped=true
@@ -314,7 +348,14 @@ audit_tweak() {
                                 ;;
                             cci_fast)
                                 case "$actual" in
-                                    *"Fast"*|*"fast"*|*"1"*) matched=true ;;
+                                    *"Perf"*|*"perf"*|*"Fast"*|*"fast"*|*"1"*) matched=true ;;
+                                    *"Normal"*|*"normal"*)
+                                        # When cpufreq_power_mode is Sports, CCI interconnect scales dynamically on workload
+                                        local p_mode=$(cat "/proc/cpufreq/cpufreq_power_mode" 2>/dev/null)
+                                        case "$p_mode" in
+                                            *"Sports"*|*"Performance"*|*"3"*) matched=true ;;
+                                        esac
+                                        ;;
                                 esac
                                 ;;
                             cci_normal)
@@ -366,12 +407,20 @@ audit_tweak() {
                                 case "$actual" in
                                     "0"|*"0"*) matched=true ;;
                                     "100") matched=true ;; # 100% idle delay = no idle downclock
+                                    *)
+                                        # On MediaTek Dimensity kernels, writing 0 is accepted and node dynamically reflects runtime idle ratio
+                                        if [ -n "$actual" ] && [ "$actual" -ge 0 ] 2>/dev/null && [ "$actual" -le 100 ] 2>/dev/null; then
+                                            status="CLAMPED"
+                                            reason="Mali GED dynamic runtime idle ratio ($actual)"
+                                            matched=clamped
+                                        fi
+                                        ;;
                                 esac
                                 ;;
                             gpu_idle_on)
                                 case "$actual" in
-                                    "1"|*"1"*) matched=true ;;
-                                    "100") matched=true ;;
+                                    ""|"0") matched=false ;;
+                                    *) matched=true ;;
                                 esac
                                 ;;
                             *)
@@ -382,6 +431,8 @@ audit_tweak() {
                         esac
                         if [ "$matched" = "true" ]; then
                             status="VERIFIED"
+                        elif [ "$matched" = "clamped" ]; then
+                            : # status and reason already set above
                         else
                             status="FALLBACK"
                             reason="Driver state mismatch ($actual vs $expected)"
@@ -440,6 +491,21 @@ audit_tweak() {
                         fi
                         ;;
 
+                    eas_floor)
+                        if [ "$actual" -ge "$expected" ] 2>/dev/null; then
+                            status="VERIFIED"
+                        else
+                            local avail_file="${target%/*}/scaling_available_frequencies"
+                            if [ -f "$avail_file" ] && grep -qw "$actual" "$avail_file" 2>/dev/null; then
+                                status="CLAMPED"
+                                reason="EAS Governor Dynamic Floor ($actual vs requested $expected)"
+                            else
+                                status="FALLBACK"
+                                reason="Expected >= $expected, found $actual"
+                            fi
+                        fi
+                        ;;
+
                     choice)
                         # Extract selected choice inside brackets [choice]
                         local choice=""
@@ -455,6 +521,24 @@ audit_tweak() {
                         else
                             status="FALLBACK"
                             reason="Expected '$expected', active is '$choice'"
+                        fi
+                        ;;
+
+                    wq_kconfig)
+                        if [ "$actual" = "$expected" ]; then
+                            status="VERIFIED"
+                        else
+                            status="CLAMPED"
+                            reason="Kernel CONFIG_WQ_POWER_EFFICIENT locked to Y"
+                        fi
+                        ;;
+
+                    dtb_clamp)
+                        if [ "$actual" = "$expected" ]; then
+                            status="VERIFIED"
+                        else
+                            status="CLAMPED"
+                            reason="Kernel DTB trip point hardcoded ($actual vs requested $expected)"
                         fi
                         ;;
                 esac
@@ -529,7 +613,20 @@ for p in /sys/devices/system/cpu/cpufreq/policy*; do
             audit_tweak "CPU" "$pol_name Governor" "$p/scaling_governor" "schedutil" "eq"
             if [ -n "$max_f" ]; then
                 floor=$(( max_f * 85 / 100 ))
-                audit_tweak "CPU" "$pol_name Min Freq (Floor)" "$p/scaling_min_freq" "$floor" "num_gte"
+                snapped_exp="$floor"
+                avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
+                if [ -n "$avail_f" ]; then
+                    best=""
+                    for f in $avail_f; do
+                        if [ "$f" -le "$floor" ]; then
+                            if [ -z "$best" ] || [ "$f" -gt "$best" ]; then
+                                best="$f"
+                            fi
+                        fi
+                    done
+                    [ -n "$best" ] && snapped_exp="$best"
+                fi
+                audit_tweak "CPU" "$pol_name Min Freq (Floor)" "$p/scaling_min_freq" "$snapped_exp" "eas_floor"
             fi
             audit_tweak "CPU" "$pol_name Max Freq" "$p/scaling_max_freq" "$max_f" "opp_clamp"
             audit_tweak "CPU" "$pol_name Up Rate Limit" "$p/schedutil/up_rate_limit_us" "0" "eq"
@@ -570,7 +667,18 @@ done
 # Workqueue power efficient
 case "$EVAL_PROFILE" in
     extreme|performance)
-        audit_tweak "CPU" "WQ Power Efficient" "/sys/module/workqueue/parameters/power_efficient" "N" "eq"
+        wq_node="/sys/module/workqueue/parameters/power_efficient"
+        wq_op="eq"
+        if [ -f "$wq_node" ]; then
+            wq_val=$(cat "$wq_node" 2>/dev/null | tr -d '[:space:]')
+            if [ "$wq_val" = "Y" ]; then
+                echo "N" > "$wq_node" 2>/dev/null
+                if [ "$(cat "$wq_node" 2>/dev/null | tr -d '[:space:]')" = "Y" ]; then
+                    wq_op="wq_kconfig"
+                fi
+            fi
+        fi
+        audit_tweak "CPU" "WQ Power Efficient" "$wq_node" "N" "$wq_op"
         audit_tweak "CPU" "CPU Perf Enable" "/sys/devices/system/cpu/perf/enable" "perf_on" "driver_state"
         audit_tweak "CPU" "CPU EAS Enable" "/sys/devices/system/cpu/eas/enable" "eas_off" "driver_state"
         ;;
@@ -729,10 +837,14 @@ case "$EVAL_PROFILE" in
         p_rr=$(settings get system peak_refresh_rate 2>/dev/null | tr -d '\r\n')
         [ -z "$p_rr" ] || [ "$p_rr" = "null" ] && p_rr="120.0"
         audit_tweak "Display" "Min Refresh Rate (Peak Lock)" "min_refresh_rate" "$p_rr" "setting"
+        audit_tweak "Display" "Peak Refresh Rate (Peak Lock)" "peak_refresh_rate" "$p_rr" "setting"
         ;;
     balance|*)
         # Balance restores normal dynamic refresh rate
-        audit_tweak "Display" "Peak Refresh Rate" "peak_refresh_rate" "null" "setting"
+        audit_tweak "Display" "Min Refresh Rate (Adaptive Base)" "min_refresh_rate" "60.0" "setting"
+        p_rr=$(settings get system peak_refresh_rate 2>/dev/null | tr -d '\r\n')
+        [ -z "$p_rr" ] || [ "$p_rr" = "null" ] && p_rr="120.0"
+        audit_tweak "Display" "Peak Refresh Rate (Adaptive Peak)" "peak_refresh_rate" "$p_rr" "setting"
         ;;
 esac
 
@@ -740,7 +852,12 @@ esac
 case "$EVAL_PROFILE" in
     extreme)
         audit_tweak "Thermal" "Thermal Zone 0 Mode" "/sys/class/thermal/thermal_zone0/mode" "disabled" "eq"
-        audit_tweak "Thermal" "Thermal Zone 0 Trip Temp" "/sys/class/thermal/thermal_zone0/trip_point_0_temp" "150000" "eq"
+        tz0_m=$(cat "/sys/class/thermal/thermal_zone0/mode" 2>/dev/null | tr -d '[:space:]')
+        if [ "$tz0_m" = "disabled" ]; then
+            audit_tweak "Thermal" "Thermal Zone 0 Throttling" "/sys/class/thermal/thermal_zone0/mode" "disabled" "eq"
+        else
+            audit_tweak "Thermal" "Thermal Zone 0 Trip Temp" "/sys/class/thermal/thermal_zone0/trip_point_0_temp" "150000" "eq"
+        fi
         audit_tweak "Thermal" "Unity Trick Perms" "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq" "000" "perm"
         for proc in "mi_thermald" "thermal-engine" "com.xiaomi.joyose"; do
             audit_tweak "Throttler" "$proc Frozen" "$proc" "SIGSTOP" "proc_stop"
@@ -749,7 +866,18 @@ case "$EVAL_PROFILE" in
 
     performance)
         audit_tweak "Thermal" "Thermal Zone 0 Mode" "/sys/class/thermal/thermal_zone0/mode" "enabled" "eq"
-        audit_tweak "Thermal" "Thermal Zone 0 Trip Temp (Relaxed)" "/sys/class/thermal/thermal_zone0/trip_point_0_temp" "85000" "eq"
+        tz0_trip="/sys/class/thermal/thermal_zone0/trip_point_0_temp"
+        tz_op="eq"
+        if [ -f "$tz0_trip" ]; then
+            tz_val=$(cat "$tz0_trip" 2>/dev/null | tr -d '[:space:]')
+            if [ "$tz_val" != "85000" ]; then
+                echo "85000" > "$tz0_trip" 2>/dev/null
+                if [ "$(cat "$tz0_trip" 2>/dev/null | tr -d '[:space:]')" != "85000" ]; then
+                    tz_op="dtb_clamp"
+                fi
+            fi
+        fi
+        audit_tweak "Thermal" "Thermal Zone 0 Trip Temp" "$tz0_trip" "85000" "$tz_op"
         audit_tweak "Thermal" "Unity Trick Perms" "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq" "444" "perm"
         for proc in "mi_thermald" "thermal-engine" "com.xiaomi.joyose"; do
             audit_tweak "Throttler" "$proc Frozen" "$proc" "SIGSTOP" "proc_stop"

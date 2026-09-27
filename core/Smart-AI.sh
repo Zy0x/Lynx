@@ -144,9 +144,9 @@ switch_mode() {
     touch "$LOCK_FILE"
 
     if [ -f "$MODDIR/core/apply_profile.sh" ]; then
-        sh "$MODDIR/core/apply_profile.sh" "$target" >/dev/null 2>&1
+        sh "$MODDIR/core/apply_profile.sh" "$target" "watcher" >/dev/null 2>&1
     elif [ -f "/data/adb/lynx/apply_profile.sh" ]; then
-        sh "/data/adb/lynx/apply_profile.sh" "$target" >/dev/null 2>&1
+        sh "/data/adb/lynx/apply_profile.sh" "$target" "watcher" >/dev/null 2>&1
     else
         if [ "$target" = "performance" ] || [ "$target" = "extreme" ]; then
             [ -f "$MODDIR/core/lib/lowend_shield.sh" ] && . "$MODDIR/core/lib/lowend_shield.sh" && apply_lowend_shield

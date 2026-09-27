@@ -7,8 +7,12 @@
 # ==============================================================================
 
 PROFILE="${1:-balance}"
+CALLER="${2:-user}"
 mkdir -p /data/adb/lynx 2>/dev/null
 echo "$PROFILE" > /data/adb/lynx/active_profile 2>/dev/null
+if [ "$CALLER" != "watcher" ] && [ "$PROFILE" != "auto" ]; then
+    echo "$PROFILE" > /data/adb/lynx/baseline_profile 2>/dev/null
+fi
 
 # Zero-Fork Fast Path: only chmod if direct write failed
 write_node() {
@@ -53,12 +57,12 @@ case "$PROFILE" in
             fi
 
             if [ "$PROFILE" = "extreme" ]; then
+                write_node "performance" "$p/scaling_governor"
                 write_node "$max_freq" "$p/scaling_max_freq"
                 write_node "$max_freq" "$p/scaling_min_freq"
-                write_node "performance" "$p/scaling_governor"
             else
-                write_node "$max_freq" "$p/scaling_max_freq"
                 write_node "schedutil" "$p/scaling_governor"
+                write_node "$max_freq" "$p/scaling_max_freq"
                 write_node "0" "$p/schedutil/up_rate_limit_us"
                 write_node "5000" "$p/schedutil/down_rate_limit_us"
                 write_node "85" "$p/schedutil/hispeed_load"
@@ -67,8 +71,18 @@ case "$PROFILE" in
                 write_node "$max_freq" "$p/schedutil/hispeed_freq"
                 if [ -n "$max_freq" ] && [ -n "$min_freq" ]; then
                     floor=$(( max_freq * 85 / 100 ))
-                    [ "$floor" -lt "$min_freq" ] && floor="$min_freq"
-                    write_node "$floor" "$p/scaling_min_freq"
+                    snapped_floor=""
+                    avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
+                    for f in $avail_f; do
+                        if [ "$f" -le "$floor" ]; then
+                            if [ -z "$snapped_floor" ] || [ "$f" -gt "$snapped_floor" ]; then
+                                snapped_floor="$f"
+                            fi
+                        fi
+                    done
+                    [ -z "$snapped_floor" ] && snapped_floor="$floor"
+                    [ "$snapped_floor" -lt "$min_freq" ] && snapped_floor="$min_freq"
+                    write_node "$snapped_floor" "$p/scaling_min_freq"
                 fi
             fi
         done
@@ -133,6 +147,36 @@ case "$PROFILE" in
                 [ "$perf_floor_idx" -lt 1 ] 2>/dev/null && perf_floor_idx=2
                 write_node "$c 0" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
                 write_node "$c $perf_floor_idx" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+            fi
+        done
+
+        # Re-assert CCI interconnect and CPU min_freq floor after PPM driver re-evaluation
+        write_node "1" "/proc/cpufreq/cpufreq_cci_mode"
+        for p in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ -d "$p" ] || continue
+            if [ "$PROFILE" = "extreme" ]; then
+                max_f=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
+                [ -z "$max_f" ] && max_f=$(cat "$p/scaling_max_freq" 2>/dev/null)
+                [ -n "$max_f" ] && write_node "$max_f" "$p/scaling_min_freq"
+            else
+                max_f=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
+                min_f=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
+                [ -z "$max_f" ] && max_f=$(cat "$p/scaling_max_freq" 2>/dev/null)
+                if [ -n "$max_f" ]; then
+                    floor=$(( max_f * 85 / 100 ))
+                    snapped_floor=""
+                    avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
+                    for f in $avail_f; do
+                        if [ "$f" -le "$floor" ]; then
+                            if [ -z "$snapped_floor" ] || [ "$f" -gt "$snapped_floor" ]; then
+                                snapped_floor="$f"
+                            fi
+                        fi
+                    done
+                    [ -z "$snapped_floor" ] && snapped_floor="$floor"
+                    [ -n "$min_f" ] && [ "$snapped_floor" -lt "$min_f" ] && snapped_floor="$min_f"
+                    write_node "$snapped_floor" "$p/scaling_min_freq"
+                fi
             fi
         done
 
@@ -359,15 +403,30 @@ case "$PROFILE" in
         setprop debug.hwui.fps_divisor 1 2>/dev/null
         setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
 
-        # Lock to peak display refresh rate
-        peak_rr=$(settings get system peak_refresh_rate 2>/dev/null)
-        if [ -n "$peak_rr" ] && [ "$peak_rr" != "null" ]; then
-            if [ ! -f "/dev/lynx_orig_min_rr" ]; then
-                orig_min=$(settings get system min_refresh_rate 2>/dev/null)
-                echo "${orig_min:-60.0}" > "/dev/lynx_orig_min_rr"
-            fi
-            settings put system min_refresh_rate "$peak_rr" 2>/dev/null
+        # Lock to true hardware peak display refresh rate
+        max_hw_rr=""
+        if [ -f "/dev/lynx_orig_peak_rr" ]; then
+            max_hw_rr=$(cat "/dev/lynx_orig_peak_rr" 2>/dev/null | tr -d '[:space:]')
         fi
+        if [ -z "$max_hw_rr" ] || [ "$max_hw_rr" = "60.0" ] || [ "$max_hw_rr" = "60" ] || [ "$max_hw_rr" = "null" ]; then
+            max_hw_rr=$(dumpsys display 2>/dev/null | grep -oE "fps=[0-9.]+" | cut -d'=' -f2 | sort -rn | head -n 1)
+        fi
+        if [ -z "$max_hw_rr" ] || [ "$max_hw_rr" = "null" ]; then
+            max_hw_rr=$(settings get system peak_refresh_rate 2>/dev/null)
+        fi
+        case "$max_hw_rr" in
+            144*|144) max_hw_rr="144.0" ;;
+            120*|120) max_hw_rr="120.0" ;;
+            90*|90)   max_hw_rr="90.0" ;;
+            *)        max_hw_rr="${max_hw_rr:-120.0}" ;;
+        esac
+
+        if [ ! -f "/dev/lynx_orig_min_rr" ]; then
+            orig_min=$(settings get system min_refresh_rate 2>/dev/null)
+            echo "${orig_min:-60.0}" > "/dev/lynx_orig_min_rr"
+        fi
+        settings put system peak_refresh_rate "$max_hw_rr" 2>/dev/null
+        settings put system min_refresh_rate "$max_hw_rr" 2>/dev/null
 
         for tn in /sys/class/touch/touch_dev/touch_game_mode \
                  /sys/devices/virtual/touch/touch_dev/bump_sample_rate \
@@ -487,6 +546,36 @@ case "$PROFILE" in
                 [ -e "$path/topology/physical_package_id" ] && chmod 444 "$path/topology/physical_package_id" 2>/dev/null
             done
         fi
+
+        # Final hardware interlock: ensure MediaTek interconnect is in Perf mode after thermal/HAL callbacks
+        write_node "1" "/proc/cpufreq/cpufreq_cci_mode"
+        for p in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ -d "$p" ] || continue
+            if [ "$PROFILE" = "extreme" ]; then
+                max_f=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
+                [ -z "$max_f" ] && max_f=$(cat "$p/scaling_max_freq" 2>/dev/null)
+                [ -n "$max_f" ] && write_node "$max_f" "$p/scaling_min_freq"
+            else
+                max_f=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
+                min_f=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
+                [ -z "$max_f" ] && max_f=$(cat "$p/scaling_max_freq" 2>/dev/null)
+                if [ -n "$max_f" ]; then
+                    floor=$(( max_f * 85 / 100 ))
+                    snapped_floor=""
+                    avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
+                    for f in $avail_f; do
+                        if [ "$f" -le "$floor" ]; then
+                            if [ -z "$snapped_floor" ] || [ "$f" -gt "$snapped_floor" ]; then
+                                snapped_floor="$f"
+                            fi
+                        fi
+                    done
+                    [ -z "$snapped_floor" ] && snapped_floor="$floor"
+                    [ -n "$min_f" ] && [ "$snapped_floor" -lt "$min_f" ] && snapped_floor="$min_f"
+                    write_node "$snapped_floor" "$p/scaling_min_freq"
+                fi
+            fi
+        done
 
         setprop lynx.mode "$PROFILE"
         ;;
@@ -863,17 +952,32 @@ case "$PROFILE" in
         write_node "" "/proc/sys/kernel/sched_lib_name"
         write_node "0" "/proc/sys/kernel/sched_lib_mask_force"
 
-        # Restore Display Refresh Rates (min and peak)
-        if [ -f "/dev/lynx_orig_min_rr" ]; then
-            orig_min=$(cat "/dev/lynx_orig_min_rr" 2>/dev/null)
-            [ -n "$orig_min" ] && settings put system min_refresh_rate "$orig_min" 2>/dev/null
-            rm -f "/dev/lynx_orig_min_rr" 2>/dev/null
-        fi
+        # Restore Display Refresh Rates (min 60.0, peak panel max)
+        max_hw_rr=""
         if [ -f "/dev/lynx_orig_peak_rr" ]; then
-            orig_peak=$(cat "/dev/lynx_orig_peak_rr" 2>/dev/null)
-            [ -n "$orig_peak" ] && settings put system peak_refresh_rate "$orig_peak" 2>/dev/null
+            max_hw_rr=$(cat "/dev/lynx_orig_peak_rr" 2>/dev/null | tr -d '[:space:]')
             rm -f "/dev/lynx_orig_peak_rr" 2>/dev/null
         fi
+        if [ -z "$max_hw_rr" ] || [ "$max_hw_rr" = "60.0" ] || [ "$max_hw_rr" = "60" ] || [ "$max_hw_rr" = "null" ]; then
+            max_hw_rr=$(dumpsys display 2>/dev/null | grep -oE "fps=[0-9.]+" | cut -d'=' -f2 | sort -rn | head -n 1)
+        fi
+        case "$max_hw_rr" in
+            144*|144) max_hw_rr="144.0" ;;
+            120*|120) max_hw_rr="120.0" ;;
+            90*|90)   max_hw_rr="90.0" ;;
+            *)        max_hw_rr="${max_hw_rr:-120.0}" ;;
+        esac
+
+        orig_min="60.0"
+        if [ -f "/dev/lynx_orig_min_rr" ]; then
+            saved_min=$(cat "/dev/lynx_orig_min_rr" 2>/dev/null | tr -d '[:space:]')
+            rm -f "/dev/lynx_orig_min_rr" 2>/dev/null
+            if [ -n "$saved_min" ] && [ "$saved_min" != "$max_hw_rr" ] && [ "$saved_min" != "null" ]; then
+                orig_min="$saved_min"
+            fi
+        fi
+        settings put system min_refresh_rate "$orig_min" 2>/dev/null
+        settings put system peak_refresh_rate "$max_hw_rr" 2>/dev/null
 
         # Reset Touch Boost Nodes
         for tn in /sys/class/touch/touch_dev/touch_game_mode \
