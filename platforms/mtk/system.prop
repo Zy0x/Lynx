@@ -4,8 +4,6 @@
 # ==============================================================================
 
 # ── 1. MediaTek Display & Compositor Optimization ─────────────────────────────
-debug.hwui.use.partial_updates=true
-sys.hwc.gpu_perf_mode=1
 vendor.display.enable_optimize_refresh=1
 ro.surface_flinger.force_hwc_copy_for_virtual_displays=true
 windowsmgr.max_events_per_sec=120

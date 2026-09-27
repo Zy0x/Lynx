@@ -4,18 +4,12 @@
 # Architecture-exclusive properties are isolated in platforms/<soc>/system.prop
 # ==============================================================================
 
-# ── 1. Universal GPU Hardware UI Acceleration ─────────────────────────────────
-debug.composition.type=gpu
-persist.sys.composition.type=gpu
+# ── 1. Universal Hardware UI Acceleration & Composition ───────────────────────
+# Keep Hardware Composer (HWC) in DEVICE mode; avoid forcing GPU client composition
 debug.egl.hw=1
-persist.sys.ui.hw=1
-ro.config.enable.hw_accel=true
-ro.config.disable.hw_accel=false
-video.accelerate.hw=1
-hw3d.force=1
-hw2d.force=1
 debug.sf.hw=1
 debug.sf.enable_backpressure=1
+
 
 # ── 2. Universal Framework & Rendering Responsiveness ─────────────────────────
 debug.performance.tuning=1

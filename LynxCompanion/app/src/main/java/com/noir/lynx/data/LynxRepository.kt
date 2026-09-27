@@ -3942,22 +3942,23 @@ case "${'$'}PROFILE" in
             write_node "1000" "${'$'}ufs/clkgate_delay_ms_pwr_save"
         done
 
-        # ── 5. Display Vsync Offsets, Frame Pacing & TouchBoost ──────────────
-        setprop debug.sf.latch_unsignaled 1 2>/dev/null
-        setprop debug.sf.enable_gl_backpressure 0 2>/dev/null
-        setprop debug.sf.disable_backpressure 1 2>/dev/null
-        setprop debug.renderengine.backend skiaglthreaded 2>/dev/null
-        setprop debug.hwui.renderer skiagl 2>/dev/null
-        setprop debug.hwui.use_buffer_age false 2>/dev/null
-        setprop persist.sys.sf.native_mode 1 2>/dev/null
-        setprop debug.sf.early_phase_offset_ns 500000 2>/dev/null
-        setprop debug.sf.early_app_phase_offset_ns 500000 2>/dev/null
-        setprop debug.sf.early_gl_phase_offset_ns 3000000 2>/dev/null
-        setprop debug.sf.high_fps_early_phase_offset_ns 1000000 2>/dev/null
-        setprop debug.sf.high_fps_early_gl_phase_offset_ns 1000000 2>/dev/null
-        setprop debug.sf.high_fps_late_app_phase_offset_ns 1000000 2>/dev/null
-        setprop ro.hwui.render_dirty_regions false 2>/dev/null
-        setprop debug.hwui.fps_divisor 1 2>/dev/null
+        # ── 5. Display Refresh Rate & Touch Responsiveness ──────────────
+        setprop debug.sf.latch_unsignaled "" 2>/dev/null
+        setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
+        setprop debug.sf.disable_backpressure "" 2>/dev/null
+        setprop debug.renderengine.backend "" 2>/dev/null
+        setprop debug.hwui.renderer "" 2>/dev/null
+        setprop debug.hwui.use_buffer_age "" 2>/dev/null
+        setprop debug.hwui.fps_divisor "" 2>/dev/null
+        setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.early_gl_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.high_fps_early_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.high_fps_early_gl_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.high_fps_late_app_phase_offset_ns "" 2>/dev/null
+        setprop debug.composition.type "" 2>/dev/null
+        setprop persist.sys.composition.type "" 2>/dev/null
+        which resetprop >/dev/null 2>&1 && resetprop -p --delete ro.hwui.render_dirty_regions 2>/dev/null
         setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
 
         peak_rr=${'$'}(settings get system peak_refresh_rate 2>/dev/null)
@@ -4171,8 +4172,22 @@ case "${'$'}PROFILE" in
         ) >/dev/null 2>&1 &
 
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
+        setprop debug.sf.latch_unsignaled "" 2>/dev/null
+        setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
+        setprop debug.sf.disable_backpressure "" 2>/dev/null
+        setprop debug.renderengine.backend "" 2>/dev/null
+        setprop debug.hwui.renderer "" 2>/dev/null
+        setprop debug.hwui.use_buffer_age "" 2>/dev/null
+        setprop debug.hwui.fps_divisor "" 2>/dev/null
         setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
         setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.early_gl_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.high_fps_early_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.high_fps_early_gl_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.high_fps_late_app_phase_offset_ns "" 2>/dev/null
+        setprop debug.composition.type "" 2>/dev/null
+        setprop persist.sys.composition.type "" 2>/dev/null
+        which resetprop >/dev/null 2>&1 && resetprop -p --delete ro.hwui.render_dirty_regions 2>/dev/null
         setprop af.fast_track_multiplier 2 2>/dev/null
         setprop aaudio.mmap_policy 1 2>/dev/null
         write_node "" "/proc/sys/kernel/sched_lib_name"
@@ -4355,8 +4370,19 @@ case "${'$'}PROFILE" in
         setprop debug.sf.latch_unsignaled "" 2>/dev/null
         setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
         setprop debug.sf.disable_backpressure "" 2>/dev/null
+        setprop debug.renderengine.backend "" 2>/dev/null
+        setprop debug.hwui.renderer "" 2>/dev/null
+        setprop debug.hwui.use_buffer_age "" 2>/dev/null
+        setprop debug.hwui.fps_divisor "" 2>/dev/null
         setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
         setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.early_gl_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.high_fps_early_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.high_fps_early_gl_phase_offset_ns "" 2>/dev/null
+        setprop debug.sf.high_fps_late_app_phase_offset_ns "" 2>/dev/null
+        setprop debug.composition.type "" 2>/dev/null
+        setprop persist.sys.composition.type "" 2>/dev/null
+        which resetprop >/dev/null 2>&1 && resetprop -p --delete ro.hwui.render_dirty_regions 2>/dev/null
         setprop af.fast_track_multiplier 2 2>/dev/null
         setprop aaudio.mmap_policy 1 2>/dev/null
         write_node "" "/proc/sys/kernel/sched_lib_name"
