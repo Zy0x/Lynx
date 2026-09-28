@@ -168,6 +168,7 @@ case "$PROFILE" in
         write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
         write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
         write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+        write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min"
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
         write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle"
@@ -228,7 +229,8 @@ case "$PROFILE" in
             write_node "1" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
             write_node "1" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "2" "/sys/kernel/ged/hal/gpu_boost_level"
-            write_node "100" "/sys/kernel/ged/hal/dvfs_margin_value"
+            write_node "50" "/sys/kernel/ged/hal/dvfs_margin_value"
+            write_node "50" "/sys/module/ged/parameters/gx_fb_dvfs_margin"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/max_pwrlevel"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel"
@@ -508,19 +510,21 @@ case "$PROFILE" in
 
         # ── 6. Display Refresh Rate & Touch Responsiveness ──────────────
         (
-            # SF: extreme mode = latch_unsignaled ON untuk kurangi 1 frame latency
+            # SF: extreme mode = latch_unsignaled ON & disable backpressure untuk kurangi frame latency
             # Mode lain = bersihkan semua SF/HWUI debug overrides
             if [ "$PROFILE" = "extreme" ]; then
                 setprop debug.sf.latch_unsignaled 1
                 setprop debug.sf.early_phase_offset_ns 500000
                 setprop debug.sf.early_app_phase_offset_ns 500000
+                setprop debug.sf.disable_backpressure 1
+                setprop debug.sf.enable_gl_backpressure 0
             else
                 setprop debug.sf.latch_unsignaled ""
                 setprop debug.sf.early_phase_offset_ns ""
                 setprop debug.sf.early_app_phase_offset_ns ""
+                setprop debug.sf.disable_backpressure ""
+                setprop debug.sf.enable_gl_backpressure ""
             fi
-            setprop debug.sf.enable_gl_backpressure ""
-            setprop debug.sf.disable_backpressure ""
             setprop debug.renderengine.backend ""
             setprop debug.hwui.renderer ""
             setprop debug.hwui.use_buffer_age ""
@@ -808,6 +812,7 @@ case "$PROFILE" in
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min"
         write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
 
         # MediaTek PPM All Active
@@ -1048,6 +1053,7 @@ case "$PROFILE" in
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min"
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
         write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
 

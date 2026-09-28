@@ -3719,6 +3719,7 @@ case "${'$'}PROFILE" in
         write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
         write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
         write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+        write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min"
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
         write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
 
@@ -3777,7 +3778,8 @@ case "${'$'}PROFILE" in
             write_node "1" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
             write_node "1" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "2" "/sys/kernel/ged/hal/gpu_boost_level"
-            write_node "100" "/sys/kernel/ged/hal/dvfs_margin_value"
+            write_node "50" "/sys/kernel/ged/hal/dvfs_margin_value"
+            write_node "50" "/sys/module/ged/parameters/gx_fb_dvfs_margin"
             write_node "performance" "/sys/class/kgsl/kgsl-3d0/pwrscale/policy"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/force_no_nap"
             write_node "0" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
@@ -4036,16 +4038,23 @@ case "${'$'}PROFILE" in
         sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
         sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
 
-        # ── 5. Display Refresh Rate & Touch Responsiveness ──────────────
-        setprop debug.sf.latch_unsignaled "" 2>/dev/null
-        setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
-        setprop debug.sf.disable_backpressure "" 2>/dev/null
+        if [ "${'$'}PROFILE" = "extreme" ]; then
+            setprop debug.sf.latch_unsignaled 1 2>/dev/null
+            setprop debug.sf.early_phase_offset_ns 500000 2>/dev/null
+            setprop debug.sf.early_app_phase_offset_ns 500000 2>/dev/null
+            setprop debug.sf.disable_backpressure 1 2>/dev/null
+            setprop debug.sf.enable_gl_backpressure 0 2>/dev/null
+        else
+            setprop debug.sf.latch_unsignaled "" 2>/dev/null
+            setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
+            setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
+            setprop debug.sf.disable_backpressure "" 2>/dev/null
+            setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
+        fi
         setprop debug.renderengine.backend "" 2>/dev/null
         setprop debug.hwui.renderer "" 2>/dev/null
         setprop debug.hwui.use_buffer_age "" 2>/dev/null
         setprop debug.hwui.fps_divisor "" 2>/dev/null
-        setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
         setprop debug.sf.early_gl_phase_offset_ns "" 2>/dev/null
         setprop debug.sf.high_fps_early_phase_offset_ns "" 2>/dev/null
         setprop debug.sf.high_fps_early_gl_phase_offset_ns "" 2>/dev/null
@@ -4340,6 +4349,14 @@ case "${'$'}PROFILE" in
             write_node "enabled" "${'$'}tz/mode"
         done
 
+        # Reset MediaTek EAS perfmgr
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min"
+        write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
+
         setprop lynx.mode powersave
         ;;
 
@@ -4552,6 +4569,15 @@ case "${'$'}PROFILE" in
             [ -d "${'$'}tz" ] || continue
             write_node "enabled" "${'$'}tz/mode"
         done
+
+        # MediaTek EAS perfmgr Balanced
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
+        write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
 
         if [ "${'$'}PROFILE" = "auto" ]; then
             setprop lynx.mode auto

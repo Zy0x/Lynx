@@ -117,7 +117,7 @@ optimize_game_process() {
         echo "1" > /sys/module/ged/parameters/gx_game_mode 2>/dev/null
         echo "1" > /sys/module/ged/parameters/gx_boost_on 2>/dev/null
         echo "1" > /sys/module/ged/parameters/gx_force_cpu_boost 2>/dev/null
-        echo "8333333" > /sys/module/ged/parameters/target_t_cpu_remained 2>/dev/null
+        echo "4166666" > /sys/module/ged/parameters/target_t_cpu_remained 2>/dev/null
         echo "0" > /sys/kernel/fpsgo/fbt/switch_idleprefer 2>/dev/null
         echo "0" > /sys/kernel/fpsgo/fbt/enable_switch_down_throttle 2>/dev/null
         echo "1" > /sys/kernel/fpsgo/fbt/ultra_rescue 2>/dev/null
@@ -137,28 +137,27 @@ optimize_game_process() {
         comm=$(cat "$tid_path/comm" 2>/dev/null)
         [ -z "$comm" ] && continue
 
+        # Ensure thread runs in standard CFS SCHED_OTHER (prevent SCHED_FIFO starvation)
+        chrt -o -p 0 "$tid" 2>/dev/null
+
         case "$comm" in
-            *UnityMain*|*Main*|*main*|*RenderThread*)
-                # Critical main engine loop: Highest priority, pinned to Prime core
+            *UnityMain*|*UnityGfx*|*Main*|*main*|*RenderThread*|*Gfx*|*VKWorker*|*GLWorker*)
+                # Critical main engine loop & graphics submission:
+                # Renice to -20 and allow all cores so Linux CFS & EAS can dynamically schedule across all 8 cores without runqueue bottleneck
                 renice -n -20 -p "$tid" 2>/dev/null
-                taskset -p "$HEX_PRIME" "$tid" 2>/dev/null
-                ;;
-            *Gfx*|*Worker*Device*|*VKWorker*|*GLWorker*)
-                # Graphics draw call submission: Highest priority, pinned to GFX big core
-                renice -n -20 -p "$tid" 2>/dev/null
-                taskset -p "$HEX_GFX" "$tid" 2>/dev/null
-                ;;
-            *mali*|*kgsl*|*adreno*|*gpu*)
-                # GPU kernel/driver threads: Highest priority, run on all Big cores
-                renice -n -20 -p "$tid" 2>/dev/null
-                taskset -p "$HEX_BIG" "$tid" 2>/dev/null
-                ;;
-            *Job.Worker*|*WorkerThread*|*NativeThread*)
-                # Compute/physics/animation jobs: Normal priority, allowed across all cores
-                renice -n 0 -p "$tid" 2>/dev/null
                 taskset -p "$HEX_ALL" "$tid" 2>/dev/null
                 ;;
-            *Audio*|*CRI*|*Thread*|*RxCached*|*PlayBilling*|*OkHttp*)
+            *mali*|*kgsl*|*adreno*|*gpu*)
+                # GPU kernel/driver helper threads: Run across all cores without starving Big cores
+                renice -n -10 -p "$tid" 2>/dev/null
+                taskset -p "$HEX_ALL" "$tid" 2>/dev/null
+                ;;
+            *Job.Worker*|*WorkerThread*|*NativeThread*)
+                # Compute/physics/animation jobs: High priority, allowed across all cores
+                renice -n -5 -p "$tid" 2>/dev/null
+                taskset -p "$HEX_ALL" "$tid" 2>/dev/null
+                ;;
+            *Audio*|*CRI*|*FMOD*|*Sound*|*RxCached*|*PlayBilling*|*OkHttp*)
                 # Background I/O, audio, network: Offload to Little cores to avoid interfering with render
                 renice -n -10 -p "$tid" 2>/dev/null
                 taskset -p "$HEX_LITTLE" "$tid" 2>/dev/null
