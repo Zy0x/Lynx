@@ -325,6 +325,13 @@ class LynxViewModel : ViewModel() {
     fun setZramSizeMb(mb: Int) = setKey("memory.zram_size_mb", mb.toString(), "val")
     fun setSwappiness(value: Int) = setKey("memory.swappiness", value.toString(), "val")
     fun setBypassCharging(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(bypassEnabled = enabled)
+                )
+            )
+        }
         setKey("charging.bypass_enabled", enabled.toString(), "bool")
         viewModelScope.launch {
             val isExtreme = _uiState.value.state.charging.extremeChargingEnabled
@@ -333,6 +340,13 @@ class LynxViewModel : ViewModel() {
         }
     }
     fun setExtremeCharging(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(extremeChargingEnabled = enabled)
+                )
+            )
+        }
         setKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
         viewModelScope.launch {
             val isBypass = _uiState.value.state.charging.bypassEnabled
@@ -340,8 +354,24 @@ class LynxViewModel : ViewModel() {
             LynxRepository.applyChargingMode(bypass = isBypass, extremeCharging = enabled, limitMa = limitMa)
         }
     }
-    fun setTempCutoff(temp: Int) = setKey("charging.temp_cutoff_c", temp.toString(), "val")
+    fun setTempCutoff(temp: Int) {
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(tempCutoffC = temp)
+                )
+            )
+        }
+        setKey("charging.temp_cutoff_c", temp.toString(), "val")
+    }
     fun setChargeCurrentLimit(ma: Int) {
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(limitCurrentMa = ma)
+                )
+            )
+        }
         setKey("charging.limit_current_ma", ma.toString(), "val")
         viewModelScope.launch {
             val isBypass = _uiState.value.state.charging.bypassEnabled

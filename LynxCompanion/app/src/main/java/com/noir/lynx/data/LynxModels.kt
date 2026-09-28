@@ -52,7 +52,7 @@ data class ChargingConfig(
     val bypassEnabled: Boolean = false,
     val extremeChargingEnabled: Boolean = false,
     val tempCutoffC: Int = 45,
-    val limitCurrentMa: Int = 1500,
+    val limitCurrentMa: Int = 4500,
     val autoCutEnabled: Boolean = true,
     val maxBatteryPercent: Int = 80,
 )
@@ -142,6 +142,9 @@ data class BatteryDetails(
     val currentMa: Int = 0,
     val cycleCount: Int = -1,
     val chargeCounterMah: Int = 0,
+    val chargerVoltageMv: Int = 0,
+    val chargerWatt: Float = 0f,
+    val fastChargeProtocol: String = "",
 )
 
 data class BootBackupInfo(

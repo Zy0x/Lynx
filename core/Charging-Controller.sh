@@ -9,6 +9,7 @@ MODPATH="/data/adb/modules/Lynx"
 CONFIG_FILE="$MODPATH/config.json"
 [ -f "$CONFIG_FILE" ] || CONFIG_FILE="/data/adb/lynx/config.json"
 [ -f "$CONFIG_FILE" ] || CONFIG_FILE="/data/user/0/com.noir.lynx/files/config.json"
+[ -f "$CONFIG_FILE" ] || CONFIG_FILE="/data/user/0/com.noir.lynx.debug/files/config.json"
 
 PS_DIR="/sys/class/power_supply"
 BATT_DIR="$PS_DIR/battery"
@@ -237,7 +238,7 @@ while true; do
 
     # Read config.json parameters
     cutoff_c=45
-    limit_ma=1500
+    limit_ma=4500
     max_pct=80
     bypass_on="false"
     extreme_charging_on="false"
@@ -290,15 +291,15 @@ while true; do
             apply_bypass_charging
         else
             # Battery below target threshold: charge up to max_pct
-            if [ "$extreme_charging_on" = "true" ] || [ "$cur_prof" = "extreme" ]; then
+            if [ "$extreme_charging_on" = "true" ] || [ "$cur_prof" = "extreme" ] || [ "$limit_ma" -ge 3000 ]; then
                 apply_extreme_charging
             else
                 apply_regulated_charging "$limit_ma"
             fi
         fi
 
-    elif [ "$extreme_charging_on" = "true" ] || [ "$cur_prof" = "extreme" ]; then
-        # Extreme Charging Mode or Extreme Performance Profile: Unrestricted Max Current
+    elif [ "$extreme_charging_on" = "true" ] || [ "$cur_prof" = "extreme" ] || [ "$limit_ma" -ge 3000 ]; then
+        # Extreme / Fast Charging Mode: Unrestricted Max Current & Pump Express
         in_bypass_latch=false
         apply_extreme_charging
 

@@ -147,7 +147,7 @@ object LynxRepository {
         bypassEnabled = j?.optBoolean("bypass_enabled", false) ?: false,
         extremeChargingEnabled = j?.optBoolean("extreme_charging_enabled", false) ?: false,
         tempCutoffC = j?.optInt("temp_cutoff_c", 45) ?: 45,
-        limitCurrentMa = j?.optInt("limit_current_ma", 1500) ?: 1500,
+        limitCurrentMa = j?.optInt("limit_current_ma", 4500) ?: 4500,
         autoCutEnabled = j?.optBoolean("auto_cut_enabled", true) ?: true,
         maxBatteryPercent = j?.optInt("max_battery_percent", 80) ?: 80,
     )
@@ -1363,7 +1363,7 @@ object LynxRepository {
      * Apply True Hardware Bypass Charging or Extreme Fast Charging directly to sysfs.
      * Supports both MediaTek (Dimensity/Helio) and Qualcomm Snapdragon architectures.
      */
-    suspend fun applyChargingMode(bypass: Boolean, extremeCharging: Boolean, limitMa: Int = 1500): Boolean = withContext(Dispatchers.IO) {
+    suspend fun applyChargingMode(bypass: Boolean, extremeCharging: Boolean, limitMa: Int = 4500): Boolean = withContext(Dispatchers.IO) {
         try {
             val script = if (bypass) {
                 // True Hardware Bypass: Vsys direct power from charger, zero battery current
@@ -1409,10 +1409,15 @@ object LynxRepository {
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
 
                 echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
-                echo 4294967295 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                echo 4294967295 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                echo 5376 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                echo 5376 > /sys/devices/platform/charger/chg2_current 2>/dev/null
                 echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+
+                for c in /sys/class/thermal/cooling_device*; do
+                    type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
+                    case "${'$'}type" in *bcct*|*chg*|*current*) chmod 666 "${'$'}c/cur_state" 2>/dev/null; echo 0 > "${'$'}c/cur_state" 2>/dev/null ;; esac
+                done
 
                 # Universal & Qualcomm Maximum Current (6A headroom)
                 echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
@@ -1442,8 +1447,10 @@ object LynxRepository {
                 echo ok
                 """.trimIndent()
             } else {
-                // Normal Regulated Charging
-                val targetUa = limitMa * 1000
+                // Standard Fast Charge or Manual Regulated Limit
+                val isUnrestricted = limitMa >= 3000
+                val targetMa = if (isUnrestricted) 6000 else limitMa
+                val targetUa = targetMa * 1000
                 """
                 echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
@@ -1451,23 +1458,43 @@ object LynxRepository {
                 echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/store_mode 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
-                echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
 
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
 
-                echo $targetUa > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-                echo $targetUa > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                echo $targetUa > /sys/class/power_supply/main/current_max 2>/dev/null
-                echo $targetUa > /sys/class/power_supply/usb/current_max 2>/dev/null
-                echo $limitMa > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                echo $limitMa > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                echo $limitMa > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                # Enable Pump Express & fast charging hardware
+                echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
+                echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
                 echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
-                echo $targetUa > /sys/class/qcom-battery/restrict_cur 2>/dev/null
-                echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+
+                if [ "$isUnrestricted" = "true" ]; then
+                    echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                    echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                    echo 5376 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                    echo 5376 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                    echo 1 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
+                    echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                    echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+                    echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
+                    echo 6000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+                    echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
+                    echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+                else
+                    echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                    echo $targetMa > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                    echo $targetMa > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                    echo $targetMa > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                    echo 1 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
+                    echo $targetUa > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+                    echo $targetUa > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                    echo $targetUa > /sys/class/power_supply/main/current_max 2>/dev/null
+                    echo $targetUa > /sys/class/power_supply/usb/current_max 2>/dev/null
+                    echo $targetUa > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+                    echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+                fi
                 echo ok
                 """.trimIndent()
             }
@@ -2118,7 +2145,9 @@ object LynxRepository {
                 cur=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null || echo 0)
                 cyc=${'$'}(cat /sys/class/power_supply/battery/cycle_count 2>/dev/null || echo -1)
                 cnt=${'$'}(cat /sys/class/power_supply/battery/charge_counter 2>/dev/null || echo 0)
-                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt"
+                adpv=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null || cat /sys/class/power_supply/usb/voltage_now 2>/dev/null || echo 0)
+                chgtyp=${'$'}(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || cat /sys/class/power_supply/usb/type 2>/dev/null || echo "")
+                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp"
             """.trimIndent()
             val r = Shell.cmd(script).exec()
             val line = r.out.firstOrNull()?.trim() ?: return@withContext null
@@ -2136,6 +2165,18 @@ object LynxRepository {
                 val cyc = parts[6].toIntOrNull() ?: -1
                 val rawCnt = parts[7].toIntOrNull() ?: 0
                 val cntMah = if (rawCnt > 100000) rawCnt / 1000 else rawCnt
+                val rawAdpv = parts.getOrNull(8)?.toIntOrNull() ?: 0
+                val chgTyp = parts.getOrNull(9) ?: ""
+                val adpMv = if (rawAdpv > 100000) rawAdpv / 1000 else rawAdpv
+                val watt = if (curMa > 0 && voltMv > 0) {
+                    (curMa.toFloat() * voltMv.toFloat()) / 1_000_000f
+                } else 0f
+                val protocol = when {
+                    adpMv > 6500 || chgTyp == "9" -> "Pump Express (${String.format(java.util.Locale.US, "%.1f", adpMv / 1000f)}V)"
+                    adpMv > 4500 && curMa >= 2000 -> "Fast Charge (High Current)"
+                    adpMv > 4000 -> "Standard USB (${String.format(java.util.Locale.US, "%.1f", adpMv / 1000f)}V)"
+                    else -> "Battery Power"
+                }
                 BatteryDetails(
                     level = cap,
                     status = stat,
@@ -2144,7 +2185,10 @@ object LynxRepository {
                     voltageMv = voltMv,
                     currentMa = curMa,
                     cycleCount = cyc,
-                    chargeCounterMah = cntMah
+                    chargeCounterMah = cntMah,
+                    chargerVoltageMv = adpMv,
+                    chargerWatt = watt,
+                    fastChargeProtocol = protocol
                 )
             } else null
         } catch (e: Exception) { null }
@@ -4341,6 +4385,58 @@ case "${'$'}PROFILE" in
                 write_node "50" "${'$'}m_dir/js_scheduling_period"
                 write_node "30" "${'$'}m_dir/dvfs_period"
             done
+        fi
+
+        # ── Extreme Charging & Bypass Alignment ─────────────────────────────
+        if [ "${'$'}PROFILE" = "extreme" ]; then
+            cfg_bypass="false"
+            for c_path in "/data/adb/modules/Lynx/config.json" "/data/adb/lynx/config.json" "/data/user/0/com.noir.lynx/files/config.json" "/data/user/0/com.noir.lynx.debug/files/config.json"; do
+                if [ -f "${'$'}c_path" ]; then
+                    cfg_bypass=${'$'}(awk -F': ' '/"bypass_enabled"/ {print ${'$'}2}' "${'$'}c_path" 2>/dev/null | grep -q "true" && echo "true" || echo "false")
+                    break
+                fi
+            done
+
+            if [ "${'$'}cfg_bypass" = "true" ]; then
+                write_node "0" "/sys/class/power_supply/battery/input_suspend"
+                write_node "4294967295" "/sys/devices/platform/charger/input_current"
+                write_node "4500000" "/sys/class/power_supply/usb/current_max"
+                write_node "4500000" "/sys/class/power_supply/main/current_max"
+                write_node "1" "/sys/devices/platform/charger/bypass_charger"
+                write_node "1" "/sys/class/power_supply/battery/device/smart_charging"
+                write_node "1" "/sys/class/power_supply/battery/smart_charging_activation"
+                write_node "1" "/sys/class/qcom-battery/direct_charging"
+                write_node "1" "/sys/class/power_supply/battery/store_mode"
+                write_node "1" "/sys/class/power_supply/battery/batt_slate_mode"
+                cur_cap=${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null)
+                [ -n "${'$'}cur_cap" ] && write_node "1" "/sys/devices/platform/charger/enable_sc" && write_node "${'$'}cur_cap" "/sys/devices/platform/charger/sc_tuisoc"
+                write_node "0" "/sys/devices/platform/charger/sc_ibat_limit"
+                write_node "0" "/sys/devices/platform/charger/chg1_current"
+                write_node "0" "/sys/devices/platform/charger/chg2_current"
+                write_node "0" "/sys/class/power_supply/battery/constant_charge_current"
+                write_node "0" "/sys/class/power_supply/battery/constant_charge_current_max"
+                write_node "0" "/sys/class/power_supply/battery/charging_enabled"
+            else
+                write_node "0" "/sys/devices/platform/charger/sw_jeita"
+                write_node "2" "/sys/devices/platform/charger/Pump_Express"
+                write_node "1" "/sys/devices/platform/charger/pe20"
+                write_node "1" "/sys/devices/platform/charger/pe40"
+                write_node "68" "/sys/devices/platform/charger/pdc_max_watt"
+                write_node "4294967295" "/sys/devices/platform/charger/input_current"
+                write_node "5376" "/sys/devices/platform/charger/chg1_current"
+                write_node "5376" "/sys/devices/platform/charger/chg2_current"
+                write_node "6000" "/sys/devices/platform/charger/sc_ibat_limit"
+                write_node "0" "/sys/devices/platform/charger/enable_sc"
+                write_node "0" "/sys/class/power_supply/battery/input_suspend"
+                write_node "1" "/sys/class/power_supply/battery/charging_enabled"
+                write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current_max"
+                write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current"
+                write_node "6000000" "/sys/class/power_supply/main/current_max"
+                write_node "6000000" "/sys/class/power_supply/usb/current_max"
+                write_node "0" "/sys/class/qcom-battery/restricted_charging"
+                write_node "6000000" "/sys/class/qcom-battery/restrict_cur"
+                write_node "1" "/sys/class/power_supply/battery/fastcharge_mode"
+            fi
         fi
 
         setprop lynx.mode "${'$'}PROFILE"

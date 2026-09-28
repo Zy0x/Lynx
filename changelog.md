@@ -79,7 +79,10 @@ Released on: 2026-09-28
   - **Terverifikasi pada Pengujian Nyata**: Arus pengisian pada perangkat fisik Infinix X698 berhasil dibalikkan dari kondisi terkuras (`-768mA`) menjadi pengisian daya cepat aktif (`+636mA` hingga `+846mA`), dan persentase baterai berhasil bertambah stabil saat gaming berat.
 - **Antarmuka & Kontrol Lynx Companion**:
   - Penambahan toggle **Bypass Charging (Direct Motherboard)** dan **Extreme Fast Charging (High Current)** pada Tab Baterai & Daya.
-  - Dynamic Status Banner visual: Cyan untuk Bypass Mode, Oranye-Merah untuk Extreme Fast Charge, dan Hijau untuk Pengisian Teratur.
+  - **Live Charging Telemetry Strip**: 4 metrik telemetri hardware real-time (Arus Baterai live mA, Daya Masuk live Watts, Tegangan Adapter live Volts, dan Suhu Baterai °C) serta deteksi chip protokol hardware otomatis (seperti `Pump Express (8.8V)`).
+  - **Resolusi Clamping Batas Arus (1500mA -> 4500mA Default)**: Menaikkan batas bawaan dari 1500mA ke 4500mA dengan rentang slider fleksibel 1000–6000mA, mengaktifkan fast charging penuh secara otomatis saat limit >= 3000mA.
+  - **Zero-Collision Touch & Optimistic State UI**: Mengeliminasi tabrakan klik ganda pada `LynxSwitch` di Jetpack Compose Material 3 (`onCheckedChange = null` pada inner Switch) dan mengaplikasikan *optimistic UI state update* untuk respon instan (0ms).
+  - Dynamic Status Banner visual: Cyan untuk Bypass Mode, Oranye-Merah untuk Extreme Fast Charge, Cyan untuk Fast Charging Otomatis, dan Oranye untuk Pengisian Teratur.
   - Eksekusi langsung ke sysfs kernel secara real-time via `LynxRepository.applyChargingMode` baik dalam Standalone Root Mode maupun Module Root Mode.
 
 ---

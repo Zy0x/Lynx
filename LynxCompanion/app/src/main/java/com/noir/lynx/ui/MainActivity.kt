@@ -3059,13 +3059,15 @@ fun MainDashboard(
                         // Live charging mode status badge
                         val currentModeLabel = when {
                             state.charging.bypassEnabled -> "⚡ Bypass Charging Aktif (Baterai Terlatch / Dingin)"
-                            state.charging.extremeChargingEnabled -> "🔥 Extreme Fast Charge (Arus Tinggi Maksimal / JEITA Bypass)"
-                            else -> "⚖️ Pengisian Teratur (Batas ${state.charging.limitCurrentMa} mA)"
+                            state.charging.extremeChargingEnabled -> "🔥 Extreme Fast Charge (Kecepatan Penuh / JEITA Bypass)"
+                            state.charging.limitCurrentMa >= 3000 -> "🚀 Fast Charging Aktif (Kecepatan Penuh / Otomatis)"
+                            else -> "⚖️ Pengisian Dibatasi Manual (Batas ${state.charging.limitCurrentMa} mA)"
                         }
                         val currentModeColor = when {
                             state.charging.bypassEnabled -> AccentCyan
                             state.charging.extremeChargingEnabled -> AccentRed
-                            else -> AccentGreen
+                            state.charging.limitCurrentMa >= 3000 -> AccentCyan
+                            else -> AccentOrange
                         }
                         Surface(
                             shape = RoundedCornerShape(8.dp),
@@ -3090,6 +3092,68 @@ fun MainDashboard(
                                     color = currentModeColor,
                                     fontWeight = FontWeight.SemiBold
                                 )
+                            }
+                        }
+
+                        // Live Charging Telemetry Monitor Strip
+                        val battDetails = uiState.batteryDetails
+                        if (battDetails != null) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = BgElevated.copy(alpha = 0.6f),
+                                border = BorderStroke(1.dp, BorderSubtle),
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Metric 1: Arus (mA)
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("Arus Baterai", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                                            val curColor = if (battDetails.currentMa > 100) AccentGreen else if (state.charging.bypassEnabled) AccentCyan else TextPrimary
+                                            val curText = if (battDetails.currentMa > 0) "+${battDetails.currentMa} mA" else "${battDetails.currentMa} mA"
+                                            Text(curText, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = curColor)
+                                        }
+                                        // Metric 2: Daya (Watt)
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("Daya Masuk", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                                            val wattVal = if (battDetails.chargerWatt > 0.05f) String.format(java.util.Locale.US, "%.1f W", battDetails.chargerWatt) else "--"
+                                            Text(wattVal, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = AccentCyan)
+                                        }
+                                        // Metric 3: Tegangan Adapter
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("Adapter", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                                            val voltVal = if (battDetails.chargerVoltageMv > 1000) String.format(java.util.Locale.US, "%.1f V", battDetails.chargerVoltageMv / 1000f) else "${battDetails.voltageMv / 1000f} V"
+                                            Text(voltVal, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = AccentPurple)
+                                        }
+                                        // Metric 4: Suhu Baterai
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("Suhu", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                                            val tempColor = if (battDetails.tempC >= 43f) AccentRed else if (battDetails.tempC >= 40f) AccentOrange else AccentGreen
+                                            Text(String.format(java.util.Locale.US, "%.1f°C", battDetails.tempC), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = tempColor)
+                                        }
+                                    }
+                                    if (battDetails.fastChargeProtocol.isNotBlank() && battDetails.fastChargeProtocol != "Battery Power") {
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(12.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = battDetails.fastChargeProtocol,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = AccentCyan,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -3129,9 +3193,9 @@ fun MainDashboard(
                             value = currentLimitValue,
                             onValueChange = { currentLimitValue = it },
                             onValueChangeFinished = { viewModel.setChargeCurrentLimit(currentLimitValue.toInt()) },
-                            valueRange = 500f..3500f,
-                            steps = 11,
-                            displayValue = "${currentLimitValue.toInt()} mA",
+                            valueRange = 1000f..6000f,
+                            steps = 9,
+                            displayValue = if (currentLimitValue >= 3500f) "${currentLimitValue.toInt()} mA (Fast Charge)" else "${currentLimitValue.toInt()} mA",
                             accentColor = AccentCyan
                         )
 
