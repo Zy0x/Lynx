@@ -50,6 +50,7 @@ data class MemoryConfig(
 
 data class ChargingConfig(
     val bypassEnabled: Boolean = false,
+    val extremeChargingEnabled: Boolean = false,
     val tempCutoffC: Int = 45,
     val limitCurrentMa: Int = 1500,
     val autoCutEnabled: Boolean = true,

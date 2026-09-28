@@ -324,9 +324,31 @@ class LynxViewModel : ViewModel() {
     fun setCpuFloorRatio(ratio: Int) = setKey("overclock.cpu_floor_ratio", ratio.toString(), "val")
     fun setZramSizeMb(mb: Int) = setKey("memory.zram_size_mb", mb.toString(), "val")
     fun setSwappiness(value: Int) = setKey("memory.swappiness", value.toString(), "val")
-    fun setBypassCharging(enabled: Boolean) = setKey("charging.bypass_enabled", enabled.toString(), "bool")
+    fun setBypassCharging(enabled: Boolean) {
+        setKey("charging.bypass_enabled", enabled.toString(), "bool")
+        viewModelScope.launch {
+            val isExtreme = _uiState.value.state.charging.extremeChargingEnabled
+            val limitMa = _uiState.value.state.charging.limitCurrentMa
+            LynxRepository.applyChargingMode(bypass = enabled, extremeCharging = isExtreme, limitMa = limitMa)
+        }
+    }
+    fun setExtremeCharging(enabled: Boolean) {
+        setKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
+        viewModelScope.launch {
+            val isBypass = _uiState.value.state.charging.bypassEnabled
+            val limitMa = _uiState.value.state.charging.limitCurrentMa
+            LynxRepository.applyChargingMode(bypass = isBypass, extremeCharging = enabled, limitMa = limitMa)
+        }
+    }
     fun setTempCutoff(temp: Int) = setKey("charging.temp_cutoff_c", temp.toString(), "val")
-    fun setChargeCurrentLimit(ma: Int) = setKey("charging.limit_current_ma", ma.toString(), "val")
+    fun setChargeCurrentLimit(ma: Int) {
+        setKey("charging.limit_current_ma", ma.toString(), "val")
+        viewModelScope.launch {
+            val isBypass = _uiState.value.state.charging.bypassEnabled
+            val isExtreme = _uiState.value.state.charging.extremeChargingEnabled
+            LynxRepository.applyChargingMode(bypass = isBypass, extremeCharging = isExtreme, limitMa = ma)
+        }
+    }
     fun setUclampGameMin(ratio: Int) = setKey("uclamp.game_min_ratio", ratio.toString(), "val")
     fun setCustomTempLimit(temp: Int) = setKey("thermal.custom_temp_limit_c", temp.toString(), "val")
     fun setWifiPingStabilizer(enabled: Boolean) = setKey("network.wifi_ping_stabilizer", enabled.toString(), "bool")

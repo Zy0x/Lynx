@@ -28,6 +28,7 @@
   },
   "charging": {
     "bypass_enabled": false,
+    "extreme_charging_enabled": false,
     "temp_cutoff_c": 45,
     "limit_current_ma": 1500,
     "max_battery_percent": 80,

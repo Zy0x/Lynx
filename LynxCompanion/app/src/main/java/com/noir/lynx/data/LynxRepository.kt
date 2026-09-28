@@ -145,6 +145,7 @@ object LynxRepository {
 
     private fun parseCharging(j: JSONObject?) = ChargingConfig(
         bypassEnabled = j?.optBoolean("bypass_enabled", false) ?: false,
+        extremeChargingEnabled = j?.optBoolean("extreme_charging_enabled", false) ?: false,
         tempCutoffC = j?.optInt("temp_cutoff_c", 45) ?: 45,
         limitCurrentMa = j?.optInt("limit_current_ma", 1500) ?: 1500,
         autoCutEnabled = j?.optBoolean("auto_cut_enabled", true) ?: true,
@@ -1356,6 +1357,136 @@ object LynxRepository {
             """.trimIndent()).exec()
             true
         } catch (e: Exception) { false }
+    }
+
+    /**
+     * Apply True Hardware Bypass Charging or Extreme Fast Charging directly to sysfs.
+     * Supports both MediaTek (Dimensity/Helio) and Qualcomm Snapdragon architectures.
+     */
+    suspend fun applyChargingMode(bypass: Boolean, extremeCharging: Boolean, limitMa: Int = 1500): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = if (bypass) {
+                // True Hardware Bypass: Vsys direct power from charger, zero battery current
+                """
+                chmod 666 /sys/class/power_supply/battery/input_suspend 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
+                echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
+                echo 4500000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+                echo 4500000 > /sys/class/power_supply/main/current_max 2>/dev/null
+
+                # OEM Bypass switches
+                echo 1 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
+                echo 1 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/store_mode 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
+
+                # Linux charge control limit
+                echo 1 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
+
+                # MTK Smart Charging lock to current capacity (zero battery current)
+                cur_cap=${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 80)
+                echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                echo "${'$'}cur_cap" > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                echo 0 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
+                echo ok
+                """.trimIndent()
+            } else if (extremeCharging) {
+                // Extreme Fast Charging: Unrestricted Current, Pump Express 2.0/4.0, Disable JEITA
+                """
+                echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
+                echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
+                echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+
+                echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
+                echo 4294967295 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                echo 4294967295 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+
+                # Universal & Qualcomm Maximum Current (6A headroom)
+                echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/battery/current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/main/constant_charge_current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/usb/hw_current_max 2>/dev/null
+
+                echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/fast_charge 2>/dev/null
+                echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+                echo 6000000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+
+                # Release bypass locks
+                echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
+                echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/store_mode 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
+
+                echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
+                echo ok
+                """.trimIndent()
+            } else {
+                // Normal Regulated Charging
+                val targetUa = limitMa * 1000
+                """
+                echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
+                echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/store_mode 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
+
+                echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
+
+                echo $targetUa > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+                echo $targetUa > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                echo $targetUa > /sys/class/power_supply/main/current_max 2>/dev/null
+                echo $targetUa > /sys/class/power_supply/usb/current_max 2>/dev/null
+                echo $limitMa > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                echo $limitMa > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                echo $limitMa > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
+                echo $targetUa > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+                echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+                echo ok
+                """.trimIndent()
+            }
+            Shell.cmd(script).exec()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "applyChargingMode error: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun setExtremeCharging(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            writeStateKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
+            val isBypass = readState().charging.bypassEnabled
+            applyChargingMode(bypass = isBypass, extremeCharging = enabled)
+        } catch (e: Exception) {
+            false
+        }
     }
 
     // ----------------------------------------------------------------

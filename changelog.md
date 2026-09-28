@@ -62,6 +62,26 @@ Released on: 2026-09-28
   - **⏱️ 60s Live Benchmark**: Memicu perekaman pacing hardware 60 detik langsung dari drawer.
 - **Interchangeable Interaction Modes**: Pengguna dapat dengan mudah beralih antara mode **Edge Drawer (Game Bar)** dan **6 Gaya Classic Floating Window** langsung dari HUD maupun via kartu konfigurasi di aplikasi Lynx Companion.
 
+### 6. ⚡ True Bypass Charging & Extreme Fast Charging Suite (Universal Multi-SoC)
+- **Resolusi Akar Masalah Penurunan Baterai Saat Mengisi Daya di Mode Extreme**:
+  - Mengidentifikasi bahwa daemon pengontrol suhu pengisian bawaan kernel MediaTek (`sw_jeita` di `/sys/devices/platform/charger/sw_jeita`) aktif secara default (`1`). Saat temperatur baterai menyentuh 43–45°C dalam gaming beban tinggi di mode Extreme, JEITA memotong arus pengisian (`chg1_current`) menjadi 0 mA. Akibatnya, sistem terpaksa menarik daya dari baterai (`current_now = -768mA` s/d `-1500mA`) meskipun terhubung ke pengisi daya.
+  - Memperbaiki bug pada skrip thermal di mana penulisan `min_state = max_state` pada thermal cooling devices secara tidak sengaja memicu throttling maksimum pada `abcct`/`bcct` (battery charging current throttle).
+  - Merevisi logika bypass terdahulu yang mematikan arus dengan `input_suspend = 1` (yang memutus daya USB dan memaksa konsumsi baterai penuh).
+- **Arsitektur True Bypass Charging (Direct Motherboard Vsys Power Path)**:
+  - Mempertahankan jalur daya USB tetap aktif (`input_suspend = 0`) dan membuka kapasitas arus input adapter ke tingkat maksimum (`input_current = 4294967295`), memungkinkan motherboard dan SoC ditenagai langsung dari adaptor charger.
+  - Mengaktifkan node OEM bypass lintas arsitektur: `bypass_charger`, `direct_charging`, `smart_charging`, `store_mode`, `batt_slate_mode`.
+  - Pada OEM Transsion (Infinix, Tecno): mengaktifkan `enable_sc = 1`, mengunci target persentase SOC (`sc_tuisoc = $cur_cap`), dan membatasi arus pengisian baterai ke nol (`sc_ibat_limit = 0`) tanpa memutus Vsys motherboard.
+  - Baterai terlatch pada persentase konstan, temperatur baterai tetap dingin, dan terbebas dari siklus panas kimiawi saat gaming intensif.
+- **Extreme High-Current Fast Charging Suite**:
+  - **Bypass JEITA Throttler**: Menonaktifkan pembatasan suhu arus pengisian (`sw_jeita = 0`), menjaga suplai arus tetap tinggi dan stabil di mode Extreme.
+  - **Protokol Fast Charging Hardware**: Mengaktifkan Pump Express 2.0 & 4.0 (`Pump_Express = 2`, `pe20 = 1`, `pe40 = 1`, `pdc_max_watt = 68`).
+  - **Arus Maksimal Multi-SoC**: Membuka limit arus pengisian baterai (`chg1_current`, `chg2_current`, `input_current`), Transsion SC (`sc_ibat_limit = 6000`), serta Qualcomm/Universal (`constant_charge_current_max`, `current_max = 6000000`, `fastcharge_mode = 1`, `restricted_charging = 0`).
+  - **Terverifikasi pada Pengujian Nyata**: Arus pengisian pada perangkat fisik Infinix X698 berhasil dibalikkan dari kondisi terkuras (`-768mA`) menjadi pengisian daya cepat aktif (`+636mA` hingga `+846mA`), dan persentase baterai berhasil bertambah stabil saat gaming berat.
+- **Antarmuka & Kontrol Lynx Companion**:
+  - Penambahan toggle **Bypass Charging (Direct Motherboard)** dan **Extreme Fast Charging (High Current)** pada Tab Baterai & Daya.
+  - Dynamic Status Banner visual: Cyan untuk Bypass Mode, Oranye-Merah untuk Extreme Fast Charge, dan Hijau untuk Pengisian Teratur.
+  - Eksekusi langsung ke sysfs kernel secara real-time via `LynxRepository.applyChargingMode` baik dalam Standalone Root Mode maupun Module Root Mode.
+
 ---
 
 # Lynx [Codename: Deity] 3.0.8

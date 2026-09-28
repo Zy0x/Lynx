@@ -15,8 +15,9 @@ write_node() {
 ACTION="$1"
 
 if [ "$ACTION" = "disable" ] || [ "$ACTION" = "0" ]; then
-    # 1. MediaTek CPU Current Thermal Protection
+    # 1. MediaTek CPU & Charging Thermal Protection
     write_node "0" "/proc/cpufreq/cpufreq_imax_thermal_protect"
+    write_node "0" "/sys/devices/platform/charger/sw_jeita"
 
     # 2. Disable PPM Thermal Policies
     write_node "3 0" "/proc/ppm/policy_status"
@@ -37,13 +38,10 @@ if [ "$ACTION" = "disable" ] || [ "$ACTION" = "0" ]; then
         write_node "1" "$tz/sustainable_power"
     done
 
-    # 5. Disable Cooling Devices
+    # 5. Reset Cooling Devices to 0 (Unrestricted state)
     for cooling in /sys/class/thermal/cooling_device*; do
         [ -d "$cooling" ] || continue
-        if [ -f "$cooling/max_state" ]; then
-            max_s=$(cat "$cooling/max_state" 2>/dev/null)
-            [ -n "$max_s" ] && write_node "$max_s" "$cooling/min_state"
-        fi
+        write_node "0" "$cooling/cur_state"
     done
 
     # 6. Stop Vendor Thermal Daemons
@@ -54,8 +52,9 @@ if [ "$ACTION" = "disable" ] || [ "$ACTION" = "0" ]; then
          vendor.thermal-hal-1-0 vendor.thermal-hal-2-0 vendor.thermal-symlinks 2>/dev/null
 
 elif [ "$ACTION" = "enable" ] || [ "$ACTION" = "1" ]; then
-    # 1. Restore MediaTek CPU Current Thermal Protection
+    # 1. Restore MediaTek CPU & Charging Thermal Protection
     write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
+    write_node "1" "/sys/devices/platform/charger/sw_jeita"
 
     # 2. Restore PPM Thermal Policies
     write_node "3 1" "/proc/ppm/policy_status"
@@ -77,7 +76,7 @@ elif [ "$ACTION" = "enable" ] || [ "$ACTION" = "1" ]; then
     # 5. Reset Cooling Devices
     for cooling in /sys/class/thermal/cooling_device*; do
         [ -d "$cooling" ] || continue
-        write_node "0" "$cooling/min_state"
+        write_node "0" "$cooling/cur_state"
     done
 
     # 6. Restart Vendor Thermal Services

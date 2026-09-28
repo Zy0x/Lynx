@@ -3056,11 +3056,55 @@ fun MainDashboard(
                         icon = Icons.Default.BatteryChargingFull,
                         accentColor = AccentCyan
                     ) {
+                        // Live charging mode status badge
+                        val currentModeLabel = when {
+                            state.charging.bypassEnabled -> "⚡ Bypass Charging Aktif (Baterai Terlatch / Dingin)"
+                            state.charging.extremeChargingEnabled -> "🔥 Extreme Fast Charge (Arus Tinggi Maksimal / JEITA Bypass)"
+                            else -> "⚖️ Pengisian Teratur (Batas ${state.charging.limitCurrentMa} mA)"
+                        }
+                        val currentModeColor = when {
+                            state.charging.bypassEnabled -> AccentCyan
+                            state.charging.extremeChargingEnabled -> AccentRed
+                            else -> AccentGreen
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = currentModeColor.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, currentModeColor.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (state.charging.bypassEnabled) Icons.Default.BatteryChargingFull else Icons.Default.Bolt,
+                                    contentDescription = null,
+                                    tint = currentModeColor,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = currentModeLabel,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = currentModeColor,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
                         LynxSwitch(
                             label = "Bypass Charging (Direct Motherboard)",
-                            subLabel = "Arus langsung mengalir ke board tanpa mengisi baterai saat gaming",
+                            subLabel = "Mengalirkan arus charger langsung ke motherboard (Vsys) tanpa mengisi ataupun menguras baterai. Persentase baterai tertahan stabil (latch) dan suhu baterai tetap dingin saat gaming.",
                             checked = state.charging.bypassEnabled,
                             onCheckedChange = { viewModel.setBypassCharging(it) },
+                        )
+
+                        LynxSwitch(
+                            label = "Extreme Fast Charging (High Current)",
+                            subLabel = "Membuka batas arus pengisian tertinggi (hingga 4500-6000mA), mengaktifkan protokol Pump Express/Fast Charge, dan mem-bypass pembatas termal JEITA agar baterai terisi super cepat dan tidak pernah drop saat bermain game.",
+                            checked = state.charging.extremeChargingEnabled,
+                            onCheckedChange = { viewModel.setExtremeCharging(it) },
                         )
 
                         var tempCutoffValue by remember(state.charging.tempCutoffC) {

@@ -29,13 +29,10 @@ if [ "$ACTION" = "disable" ] || [ "$ACTION" = "0" ]; then
         write_node "150000" "$tz/trip_point_0_temp"
     done
 
-    # 4. Disable Cooling Devices
+    # 4. Reset Cooling Devices to 0 (Unrestricted state)
     for cooling in /sys/class/thermal/cooling_device*; do
         [ -d "$cooling" ] || continue
-        if [ -f "$cooling/max_state" ]; then
-            max_s=$(cat "$cooling/max_state" 2>/dev/null)
-            [ -n "$max_s" ] && write_node "$max_s" "$cooling/min_state"
-        fi
+        write_node "0" "$cooling/cur_state"
     done
 
 elif [ "$ACTION" = "enable" ] || [ "$ACTION" = "1" ]; then
@@ -56,6 +53,6 @@ elif [ "$ACTION" = "enable" ] || [ "$ACTION" = "1" ]; then
     # 4. Reset Cooling Devices
     for cooling in /sys/class/thermal/cooling_device*; do
         [ -d "$cooling" ] || continue
-        write_node "0" "$cooling/min_state"
+        write_node "0" "$cooling/cur_state"
     done
 fi
