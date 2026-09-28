@@ -4155,6 +4155,33 @@ case "${'$'}PROFILE" in
             done
         ) >/dev/null 2>&1 &
 
+        # MediaTek DVFSRC / Interconnect & DDR RAM Clock Lock (4.266 GHz peak memory bandwidth)
+        if [ "${'$'}PROFILE" = "extreme" ]; then
+            for dvfsrc_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_force_vcore_dvfs_opp; do
+                write_node "0" "${'$'}dvfsrc_node"
+            done
+            for ddr_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_req_ddr_opp; do
+                write_node "0" "${'$'}ddr_node"
+            done
+            for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+                [ -d "${'$'}m_dir" ] || continue
+                write_node "25" "${'$'}m_dir/js_scheduling_period"
+                write_node "20" "${'$'}m_dir/dvfs_period"
+            done
+        else
+            for ddr_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_req_ddr_opp; do
+                write_node "0" "${'$'}ddr_node"
+            done
+            for dvfsrc_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_force_vcore_dvfs_opp; do
+                write_node "-1" "${'$'}dvfsrc_node"
+            done
+            for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+                [ -d "${'$'}m_dir" ] || continue
+                write_node "50" "${'$'}m_dir/js_scheduling_period"
+                write_node "30" "${'$'}m_dir/dvfs_period"
+            done
+        fi
+
         setprop lynx.mode "${'$'}PROFILE"
         ;;
 
@@ -4197,6 +4224,15 @@ case "${'$'}PROFILE" in
         write_node "0" "/proc/cpufreq/cpufreq_sched_disable"
         write_node "1" "/proc/cpuidle/control/armpll_mode"
         write_node "0" "/proc/cpuidle/control/buck_mode"
+        for dvfsrc_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_force_vcore_dvfs_opp \
+                           /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_req_ddr_opp; do
+            write_node "-1" "${'$'}dvfsrc_node"
+        done
+        for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+            [ -d "${'$'}m_dir" ] || continue
+            write_node "100" "${'$'}m_dir/js_scheduling_period"
+            write_node "100" "${'$'}m_dir/dvfs_period"
+        done
 
         write_node "1" "/proc/ppm/enabled"
         write_node "0 0" "/proc/ppm/policy_status"
@@ -4345,6 +4381,15 @@ case "${'$'}PROFILE" in
         write_node "0" "/proc/cpufreq/cpufreq_sched_disable"
         write_node "1" "/proc/cpuidle/control/armpll_mode"
         write_node "0" "/proc/cpuidle/control/buck_mode"
+        for dvfsrc_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_force_vcore_dvfs_opp \
+                           /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_req_ddr_opp; do
+            write_node "-1" "${'$'}dvfsrc_node"
+        done
+        for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+            [ -d "${'$'}m_dir" ] || continue
+            write_node "100" "${'$'}m_dir/js_scheduling_period"
+            write_node "100" "${'$'}m_dir/dvfs_period"
+        done
 
         write_node "1" "/proc/ppm/enabled"
         write_node "0 0" "/proc/ppm/policy_status"

@@ -696,6 +696,34 @@ case "$PROFILE" in
             done
         fi
 
+        # MediaTek DVFSRC / Interconnect & DDR RAM Clock Lock (4.266 GHz peak memory bandwidth)
+        if [ "$PROFILE" = "extreme" ]; then
+            for dvfsrc_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_force_vcore_dvfs_opp; do
+                write_node "0" "$dvfsrc_node"
+            done
+            for ddr_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_req_ddr_opp; do
+                write_node "0" "$ddr_node"
+            done
+            # Mali G77 Job Scheduling Period & DVFS Period (4x faster dispatch)
+            for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+                [ -d "$m_dir" ] || continue
+                write_node "25" "$m_dir/js_scheduling_period"
+                write_node "20" "$m_dir/dvfs_period"
+            done
+        else
+            for ddr_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_req_ddr_opp; do
+                write_node "0" "$ddr_node"
+            done
+            for dvfsrc_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_force_vcore_dvfs_opp; do
+                write_node "-1" "$dvfsrc_node"
+            done
+            for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+                [ -d "$m_dir" ] || continue
+                write_node "50" "$m_dir/js_scheduling_period"
+                write_node "30" "$m_dir/dvfs_period"
+            done
+        fi
+
         # Final hardware interlock: ensure MediaTek interconnect is in Perf mode after thermal/HAL callbacks
         write_node "1" "/proc/cpufreq/cpufreq_cci_mode"
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
@@ -765,6 +793,15 @@ case "$PROFILE" in
         write_node "0" "/proc/cpufreq/cpufreq_sched_disable"
         write_node "1" "/proc/cpuidle/control/armpll_mode"
         write_node "0" "/proc/cpuidle/control/buck_mode"
+        for dvfsrc_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_force_vcore_dvfs_opp \
+                           /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_req_ddr_opp; do
+            write_node "-1" "$dvfsrc_node"
+        done
+        for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+            [ -d "$m_dir" ] || continue
+            write_node "100" "$m_dir/js_scheduling_period"
+            write_node "100" "$m_dir/dvfs_period"
+        done
 
         # Reset MediaTek EAS perfmgr
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
@@ -996,6 +1033,15 @@ case "$PROFILE" in
         write_node "0" "/proc/cpufreq/cpufreq_sched_disable"
         write_node "1" "/proc/cpuidle/control/armpll_mode"
         write_node "0" "/proc/cpuidle/control/buck_mode"
+        for dvfsrc_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_force_vcore_dvfs_opp \
+                           /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_req_ddr_opp; do
+            write_node "-1" "$dvfsrc_node"
+        done
+        for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+            [ -d "$m_dir" ] || continue
+            write_node "100" "$m_dir/js_scheduling_period"
+            write_node "100" "$m_dir/dvfs_period"
+        done
 
         # MediaTek EAS perfmgr Balanced
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
