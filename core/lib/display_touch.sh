@@ -34,20 +34,34 @@ apply_display_touch_game() {
 }
 
 apply_display_touch_balance() {
-    # 1. Clean Any Dangling SurfaceFlinger/HWUI Overrides
-    setprop debug.sf.latch_unsignaled "" 2>/dev/null
-    setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
-    setprop debug.sf.disable_backpressure "" 2>/dev/null
-    setprop debug.renderengine.backend "" 2>/dev/null
-    setprop debug.hwui.renderer "" 2>/dev/null
-    setprop debug.hwui.use_buffer_age "" 2>/dev/null
-    setprop debug.hwui.fps_divisor "" 2>/dev/null
-    setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
-    setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
-    setprop debug.sf.early_gl_phase_offset_ns "" 2>/dev/null
-    setprop debug.sf.high_fps_early_phase_offset_ns "" 2>/dev/null
-    setprop debug.sf.high_fps_early_gl_phase_offset_ns "" 2>/dev/null
-    setprop debug.sf.high_fps_late_app_phase_offset_ns "" 2>/dev/null
+    # 1. Clean Any Dangling SurfaceFlinger/HWUI Overrides Cleanly
+    if which resetprop >/dev/null 2>&1; then
+        for p in debug.sf.enable_gl_backpressure \
+                 debug.sf.disable_backpressure \
+                 debug.renderengine.backend \
+                 debug.hwui.renderer \
+                 debug.hwui.use_buffer_age \
+                 debug.hwui.fps_divisor \
+                 debug.sf.early_phase_offset_ns \
+                 debug.sf.early_app_phase_offset_ns \
+                 debug.sf.early_gl_phase_offset_ns \
+                 debug.sf.high_fps_early_phase_offset_ns \
+                 debug.sf.high_fps_early_gl_phase_offset_ns \
+                 debug.sf.high_fps_late_app_phase_offset_ns \
+                 debug.composition.type \
+                 persist.sys.composition.type \
+                 ro.hwui.render_dirty_regions; do
+            resetprop -p --delete "$p" 2>/dev/null
+        done
+    else
+        setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
+        setprop debug.sf.disable_backpressure "" 2>/dev/null
+    fi
+
+    # SurfaceFlinger Low-Latency Frame Latching for butter-smooth scrolling
+    setprop debug.sf.latch_unsignaled 1 2>/dev/null
+    setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
+    setprop vendor.perf.gestureflingboost.enable true 2>/dev/null
 
     # 2. Restore Min Refresh Rate
     if [ -f "/dev/lynx_orig_min_rr" ]; then

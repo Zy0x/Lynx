@@ -12,7 +12,7 @@ write_node() {
     fi
 }
 
-# ── 1. CPU Subsystem: Cool & Efficient (power_mode 0 + Schedutil) ─────
+# ── 1. CPU Subsystem: Responsive & Efficient (power_mode 0 + Schedutil) ─────
 write_node "0" "/proc/cpufreq/cpufreq_power_mode"
 write_node "0" "/proc/cpufreq/cpufreq_cci_mode"
 write_node "0" "/proc/cpufreq/cpufreq_imax_enable"
@@ -24,7 +24,7 @@ write_node "Y" "/sys/module/workqueue/parameters/power_efficient"
 write_node "1" "/sys/devices/system/cpu/eas/enable"
 write_node "1" "/sys/devices/system/cpu/perf/enable"
 
-# Restore CPU Cluster Frequencies & Schedutil Defaults
+# Restore CPU Cluster Frequencies & Schedutil Tuning (Zero Latency Ramp)
 for policy in /sys/devices/system/cpu/cpufreq/policy*; do
     [ -d "$policy" ] || continue
     min_freq=$(cat "$policy/cpuinfo_min_freq" 2>/dev/null)
@@ -45,13 +45,28 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
 
     for s_dir in "$policy/schedutil" "$policy/$curr_gov"; do
         if [ -d "$s_dir" ]; then
-            write_node "500" "$s_dir/up_rate_limit_us"
-            write_node "20000" "$s_dir/down_rate_limit_us"
-            write_node "99" "$s_dir/hispeed_load"
+            write_node "0" "$s_dir/up_rate_limit_us"
+            write_node "15000" "$s_dir/down_rate_limit_us"
+            write_node "80" "$s_dir/hispeed_load"
             write_node "1" "$s_dir/pl"
+            write_node "1" "$s_dir/iowait_boost_enable"
+            if [ -n "$max_freq" ] && [ "$max_freq" -gt 0 ] 2>/dev/null; then
+                hi_f=$(( max_freq * 75 / 100 ))
+                write_node "$hi_f" "$s_dir/hispeed_freq"
+            fi
         fi
     done
 done
+
+# MediaTek EAS perfmgr Responsive Balanced
+write_node "15" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
+write_node "10" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
+write_node "10" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
+write_node "5" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min"
+write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
+write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
+write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ext_launch_mon"
 
 # PPM Driver Configuration (Balanced & Unthrottled System)
 write_node "1" "/proc/ppm/enabled"
@@ -111,16 +126,29 @@ write_node "1" "/sys/module/ged/parameters/enable_gpu_boost"
 write_node "60" "/sys/module/ged/parameters/g_fb_dvfs_threshold"
 write_node "0" "/sys/module/ged/parameters/ged_boost_enable"
 write_node "0" "/sys/module/ged/parameters/ged_force_mdp_enable"
-write_node "80" "/sys/module/ged/parameters/ged_smart_boost"
-write_node "20" "/sys/module/ged/parameters/gpu_idle"
-write_node "1" "/sys/module/ged/parameters/gx_boost_on"
+write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
+write_node "1" "/sys/module/ged/parameters/gpu_idle"
+write_node "0" "/sys/module/ged/parameters/gx_boost_on"
 write_node "0" "/sys/module/ged/parameters/gx_force_cpu_boost"
 write_node "0" "/sys/module/ged/parameters/gx_game_mode"
+write_node "36" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+write_node "0" "/sys/kernel/ged/hal/gpu_boost_level"
+write_node "10" "/sys/kernel/ged/hal/dvfs_margin_value"
 write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
 write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
 write_node "1" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
 write_node "1" "/sys/kernel/fpsgo/fbt/enable_switch_down_throttle"
-write_node "16000000" "/sys/module/ged/parameters/target_t_cpu_remained"
+
+cur_peak_rr=$(settings get system peak_refresh_rate 2>/dev/null)
+case "$cur_peak_rr" in
+    144*|144|120*|120|90*|90)
+        write_node "8333333" "/sys/module/ged/parameters/target_t_cpu_remained"
+        ;;
+    *)
+        write_node "16666666" "/sys/module/ged/parameters/target_t_cpu_remained"
+        ;;
+esac
+
 write_node "1" "/proc/gpufreq/gpufreq_aging_enable"
 write_node "1" "/sys/module/ged/parameters/gpu_dvfs_enable"
 
@@ -134,29 +162,67 @@ write_node "0" "/dev/cpuset/restricted/cpus"
 write_node "0-3" "/dev/cpuset/camera-daemon/cpus"
 write_node "0-3" "/dev/cpuset/audio-app/cpus"
 
+# UCLAMP
+for u_node in "/dev/cpuset/top-app/cpu.uclamp.min" "/proc/sys/kernel/sched_util_clamp_min"; do
+    if [ -e "$u_node" ]; then
+        max_sc=100
+        [ -e "/dev/cpuset/top-app/cpu.uclamp.max" ] && max_sc=$(cat "/dev/cpuset/top-app/cpu.uclamp.max" 2>/dev/null)
+        if [ "$max_sc" -gt 100 ] 2>/dev/null; then
+            write_node "100" "$u_node"
+        else
+            write_node "10" "$u_node"
+        fi
+    fi
+done
+write_node "1" "/dev/cpuset/top-app/cpu.uclamp.latency_sensitive"
+write_node "1" "/dev/cpuset/foreground/boost/cpu.uclamp.latency_sensitive"
+
 # SchedTune / Stune
 write_node "1" "/dev/stune/schedtune.sched_boost_enabled"
 write_node "5" "/dev/stune/schedtune.boost"
-write_node "1" "/dev/stune/schedtune.prefer_idle"
-write_node "5" "/dev/stune/foreground/schedtune.boost"
-write_node "5" "/dev/stune/top-app/schedtune.boost"
+write_node "0" "/dev/stune/schedtune.prefer_idle"
+write_node "10" "/dev/stune/foreground/schedtune.boost"
+write_node "1" "/dev/stune/foreground/schedtune.prefer_idle"
+write_node "15" "/dev/stune/top-app/schedtune.boost"
+write_node "1" "/dev/stune/top-app/schedtune.prefer_idle"
+write_node "1" "/proc/sys/kernel/sched_big_task_rotation"
+write_node "1" "/proc/sys/kernel/sched_sync_hint_enable"
 
-# Virtual Memory Latency
-write_node "40" "/proc/sys/vm/vfs_cache_pressure"
+# Virtual Memory Latency & Page Cache
+write_node "60" "/proc/sys/vm/vfs_cache_pressure"
 write_node "1" "/proc/sys/vm/stat_interval"
-write_node "100" "/proc/sys/vm/watermark_scale_factor"
+write_node "16" "/proc/sys/vm/watermark_scale_factor"
 write_node "1500" "/proc/sys/vm/watermark_boost_factor"
+write_node "20" "/proc/sys/vm/dirty_ratio"
+write_node "5" "/proc/sys/vm/dirty_background_ratio"
 write_node "0" "/proc/sys/vm/oom_dump_tasks"
 
-# Scheduler Latency & Event processing
+# Scheduler Latency & Preemption
+write_node "5000000" "/proc/sys/kernel/sched_latency_ns"
+write_node "1000000" "/proc/sys/kernel/sched_min_granularity_ns"
+write_node "800000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
+write_node "200000" "/proc/sys/kernel/sched_migration_cost_ns"
 write_node "32" "/proc/sys/kernel/sched_nr_migrate"
+write_node "0" "/proc/sys/kernel/sched_schedstats"
+write_node "0" "/proc/sys/kernel/sched_child_runs_first"
+write_node "1" "/proc/sys/kernel/sched_cstate_aware"
 write_node "25" "/proc/sys/kernel/perf_cpu_time_max_percent"
 write_node "1" "/proc/sys/kernel/sched_boost"
 write_node "50" "/proc/sys/fs/lease-break-time"
 write_node "64" "/proc/sys/kernel/random/read_wakeup_threshold"
 write_node "512" "/proc/sys/kernel/random/write_wakeup_threshold"
 
-# UFS Clock Gate
+# UFS & Storage Throughput
+for queue in /sys/block/sd[a-z]/queue /sys/block/mmcblk[0-9]/queue; do
+    [ -d "$queue" ] || continue
+    write_node "1" "$queue/rq_affinity"
+done
+for q in /sys/block/sd[a-z]/queue/scheduler /sys/block/mmcblk[0-9]/queue/scheduler; do
+    [ -e "$q" ] && echo deadline > "$q" 2>/dev/null
+done
+for ra in /sys/block/sd[a-z]/queue/read_ahead_kb /sys/block/mmcblk[0-9]/queue/read_ahead_kb; do
+    write_node "512" "$ra"
+done
 for ufs in /sys/devices/platform/soc/*ufshc*; do
     [ -d "$ufs" ] || continue
     write_node "100" "$ufs/clkgate_delay_ms_perf"
@@ -167,6 +233,34 @@ done
 write_node "1" "/sys/kernel/eara_thermal/enable"
 write_node "0" "/sys/kernel/eara_thermal/fake_throttle"
 write_node "100 0" "/proc/driver/thermal/clatm_gpu_threshold"
+
+# SurfaceFlinger Low-Latency Frame Latching for butter-smooth scrolling
+setprop debug.sf.latch_unsignaled 1 2>/dev/null
+setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
+setprop vendor.perf.gestureflingboost.enable true 2>/dev/null
+
+if which resetprop >/dev/null 2>&1; then
+    for p in debug.sf.enable_gl_backpressure \
+             debug.sf.disable_backpressure \
+             debug.renderengine.backend \
+             debug.hwui.renderer \
+             debug.hwui.use_buffer_age \
+             debug.hwui.fps_divisor \
+             debug.sf.early_phase_offset_ns \
+             debug.sf.early_app_phase_offset_ns \
+             debug.sf.early_gl_phase_offset_ns \
+             debug.sf.high_fps_early_phase_offset_ns \
+             debug.sf.high_fps_early_gl_phase_offset_ns \
+             debug.sf.high_fps_late_app_phase_offset_ns \
+             debug.composition.type \
+             persist.sys.composition.type \
+             ro.hwui.render_dirty_regions; do
+        resetprop -p --delete "$p" 2>/dev/null
+    done
+else
+    setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
+    setprop debug.sf.disable_backpressure "" 2>/dev/null
+fi
 
 # Revert Unity Trick if applied
 for cpu in 0 1 2 3 4 5 6 7; do

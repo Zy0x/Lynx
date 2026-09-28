@@ -4242,31 +4242,36 @@ case "${'$'}PROFILE" in
         sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
         sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
 
+        setprop debug.sf.latch_unsignaled 1 2>/dev/null
         if [ "${'$'}PROFILE" = "extreme" ]; then
-            setprop debug.sf.latch_unsignaled 1 2>/dev/null
             setprop debug.sf.early_phase_offset_ns 500000 2>/dev/null
             setprop debug.sf.early_app_phase_offset_ns 500000 2>/dev/null
             setprop debug.sf.disable_backpressure 1 2>/dev/null
             setprop debug.sf.enable_gl_backpressure 0 2>/dev/null
-        else
-            setprop debug.sf.latch_unsignaled "" 2>/dev/null
-            setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
-            setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
-            setprop debug.sf.disable_backpressure "" 2>/dev/null
-            setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
+        elif which resetprop >/dev/null 2>&1; then
+            resetprop -p --delete debug.sf.early_phase_offset_ns 2>/dev/null
+            resetprop -p --delete debug.sf.early_app_phase_offset_ns 2>/dev/null
+            resetprop -p --delete debug.sf.disable_backpressure 2>/dev/null
+            resetprop -p --delete debug.sf.enable_gl_backpressure 2>/dev/null
         fi
-        setprop debug.renderengine.backend "" 2>/dev/null
-        setprop debug.hwui.renderer "" 2>/dev/null
-        setprop debug.hwui.use_buffer_age "" 2>/dev/null
-        setprop debug.hwui.fps_divisor "" 2>/dev/null
-        setprop debug.sf.early_gl_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.high_fps_early_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.high_fps_early_gl_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.high_fps_late_app_phase_offset_ns "" 2>/dev/null
-        setprop debug.composition.type "" 2>/dev/null
-        setprop persist.sys.composition.type "" 2>/dev/null
-        which resetprop >/dev/null 2>&1 && resetprop -p --delete ro.hwui.render_dirty_regions 2>/dev/null
+
+        if which resetprop >/dev/null 2>&1; then
+            for p in debug.renderengine.backend \
+                     debug.hwui.renderer \
+                     debug.hwui.use_buffer_age \
+                     debug.hwui.fps_divisor \
+                     debug.sf.early_gl_phase_offset_ns \
+                     debug.sf.high_fps_early_phase_offset_ns \
+                     debug.sf.high_fps_early_gl_phase_offset_ns \
+                     debug.sf.high_fps_late_app_phase_offset_ns \
+                     debug.composition.type \
+                     persist.sys.composition.type \
+                     ro.hwui.render_dirty_regions; do
+                resetprop -p --delete "${'$'}p" 2>/dev/null
+            done
+        fi
         setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
+        setprop vendor.perf.gestureflingboost.enable true 2>/dev/null
 
         peak_rr=${'$'}(settings get system peak_refresh_rate 2>/dev/null)
         if [ -n "${'$'}peak_rr" ] && [ "${'$'}peak_rr" != "null" ]; then
@@ -4567,22 +4572,30 @@ case "${'$'}PROFILE" in
         ) >/dev/null 2>&1 &
 
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
-        setprop debug.sf.latch_unsignaled "" 2>/dev/null
-        setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
-        setprop debug.sf.disable_backpressure "" 2>/dev/null
-        setprop debug.renderengine.backend "" 2>/dev/null
-        setprop debug.hwui.renderer "" 2>/dev/null
-        setprop debug.hwui.use_buffer_age "" 2>/dev/null
-        setprop debug.hwui.fps_divisor "" 2>/dev/null
-        setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.early_gl_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.high_fps_early_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.high_fps_early_gl_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.high_fps_late_app_phase_offset_ns "" 2>/dev/null
-        setprop debug.composition.type "" 2>/dev/null
-        setprop persist.sys.composition.type "" 2>/dev/null
-        which resetprop >/dev/null 2>&1 && resetprop -p --delete ro.hwui.render_dirty_regions 2>/dev/null
+        if which resetprop >/dev/null 2>&1; then
+            for p in debug.sf.latch_unsignaled \
+                     debug.sf.enable_gl_backpressure \
+                     debug.sf.disable_backpressure \
+                     debug.renderengine.backend \
+                     debug.hwui.renderer \
+                     debug.hwui.use_buffer_age \
+                     debug.hwui.fps_divisor \
+                     debug.sf.early_phase_offset_ns \
+                     debug.sf.early_app_phase_offset_ns \
+                     debug.sf.early_gl_phase_offset_ns \
+                     debug.sf.high_fps_early_phase_offset_ns \
+                     debug.sf.high_fps_early_gl_phase_offset_ns \
+                     debug.sf.high_fps_late_app_phase_offset_ns \
+                     debug.composition.type \
+                     persist.sys.composition.type \
+                     ro.hwui.render_dirty_regions; do
+                resetprop -p --delete "${'$'}p" 2>/dev/null
+            done
+        else
+            setprop debug.sf.latch_unsignaled "" 2>/dev/null
+            setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
+            setprop debug.sf.disable_backpressure "" 2>/dev/null
+        fi
         setprop af.fast_track_multiplier 2 2>/dev/null
         setprop aaudio.mmap_policy 1 2>/dev/null
         write_node "" "/proc/sys/kernel/sched_lib_name"
@@ -4620,9 +4633,9 @@ case "${'$'}PROFILE" in
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "${'$'}p" ] || continue
             write_node "schedutil" "${'$'}p/scaling_governor"
-            write_node "500" "${'$'}p/schedutil/up_rate_limit_us"
-            write_node "20000" "${'$'}p/schedutil/down_rate_limit_us"
-            write_node "99" "${'$'}p/schedutil/hispeed_load"
+            write_node "0" "${'$'}p/schedutil/up_rate_limit_us"
+            write_node "15000" "${'$'}p/schedutil/down_rate_limit_us"
+            write_node "80" "${'$'}p/schedutil/hispeed_load"
             write_node "1" "${'$'}p/schedutil/iowait_boost_enable"
             write_node "1" "${'$'}p/schedutil/pl"
 
@@ -4636,6 +4649,10 @@ case "${'$'}PROFILE" in
             fi
             [ -n "${'$'}min_freq" ] && write_node "${'$'}min_freq" "${'$'}p/scaling_min_freq"
             [ -n "${'$'}max_freq" ] && write_node "${'$'}max_freq" "${'$'}p/scaling_max_freq"
+            if [ -n "${'$'}max_freq" ] && [ "${'$'}max_freq" -gt 0 ] 2>/dev/null; then
+                hi_f=${'$'}(( max_freq * 75 / 100 ))
+                write_node "${'$'}hi_f" "${'$'}p/schedutil/hispeed_freq"
+            fi
         done
 
         for np in /sys/devices/system/cpu/cpu*/core_ctl/not_preferred; do
@@ -4660,9 +4677,19 @@ case "${'$'}PROFILE" in
         done
         for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
             [ -d "${'$'}m_dir" ] || continue
-            write_node "100" "${'$'}m_dir/js_scheduling_period"
-            write_node "100" "${'$'}m_dir/dvfs_period"
+            write_node "50" "${'$'}m_dir/js_scheduling_period"
+            write_node "50" "${'$'}m_dir/dvfs_period"
         done
+
+        # MediaTek EAS perfmgr Responsive Balanced
+        write_node "15" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
+        write_node "10" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
+        write_node "10" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
+        write_node "5" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
+        write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
+        write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ext_launch_mon"
 
         write_node "1" "/proc/ppm/enabled"
         write_node "0 0" "/proc/ppm/policy_status"
@@ -4703,9 +4730,9 @@ case "${'$'}PROFILE" in
             fi
         done
 
-        write_node "48" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+        write_node "36" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
         write_node "0" "/sys/kernel/ged/hal/gpu_boost_level"
-        write_node "0" "/sys/kernel/ged/hal/dvfs_margin_value"
+        write_node "10" "/sys/kernel/ged/hal/dvfs_margin_value"
         write_node "1" "/sys/module/ged/parameters/boost_gpu_enable"
         write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
         write_node "0" "/sys/module/ged/parameters/gx_game_mode"
@@ -4714,6 +4741,16 @@ case "${'$'}PROFILE" in
         write_node "always_on" "/sys/devices/platform/*mali*/power_policy"
         write_node "1" "/proc/mali/always_on"
         write_node "1" "/proc/mali/dvfs_enable"
+
+        cur_peak_rr=${'$'}(settings get system peak_refresh_rate 2>/dev/null)
+        case "${'$'}cur_peak_rr" in
+            144*|144|120*|120|90*|90)
+                write_node "8333333" "/sys/module/ged/parameters/target_t_cpu_remained"
+                ;;
+            *)
+                write_node "16666666" "/sys/module/ged/parameters/target_t_cpu_remained"
+                ;;
+        esac
 
         write_node "1" "/sys/class/kgsl/kgsl-3d0/throttling"
         write_node "0" "/sys/class/kgsl/kgsl-3d0/force_bus_on"
@@ -4725,39 +4762,58 @@ case "${'$'}PROFILE" in
         write_node "0" "/sys/class/kgsl/kgsl-3d0/devfreq/adreno_boost"
 
         for u_node in "/dev/cpuset/top-app/cpu.uclamp.min" "/proc/sys/kernel/sched_util_clamp_min"; do
-            write_node "0" "${'$'}u_node"
+            if [ -e "${'$'}u_node" ]; then
+                max_sc=100
+                [ -e "/dev/cpuset/top-app/cpu.uclamp.max" ] && max_sc=${'$'}(cat "/dev/cpuset/top-app/cpu.uclamp.max" 2>/dev/null)
+                if [ "${'$'}max_sc" -gt 100 ] 2>/dev/null; then
+                    write_node "100" "${'$'}u_node"
+                else
+                    write_node "10" "${'$'}u_node"
+                fi
+            fi
         done
+        write_node "1" "/dev/cpuset/top-app/cpu.uclamp.latency_sensitive"
+        write_node "1" "/dev/cpuset/foreground/boost/cpu.uclamp.latency_sensitive"
+
         write_node "0-7" "/dev/cpuset/foreground/cpus"
         write_node "0-2" "/dev/cpuset/background/cpus"
         write_node "0-5" "/dev/cpuset/system-background/cpus"
         write_node "0-7" "/dev/cpuset/top-app/cpus"
-        write_node "5" "/dev/stune/foreground/schedtune.boost"
-        write_node "5" "/dev/stune/top-app/schedtune.boost"
+        write_node "1" "/dev/stune/schedtune.sched_boost_enabled"
+        write_node "5" "/dev/stune/schedtune.boost"
+        write_node "0" "/dev/stune/schedtune.prefer_idle"
+        write_node "10" "/dev/stune/foreground/schedtune.boost"
+        write_node "1" "/dev/stune/foreground/schedtune.prefer_idle"
+        write_node "15" "/dev/stune/top-app/schedtune.boost"
+        write_node "1" "/dev/stune/top-app/schedtune.prefer_idle"
+        write_node "1" "/proc/sys/kernel/sched_big_task_rotation"
+        write_node "1" "/proc/sys/kernel/sched_sync_hint_enable"
 
         if [ -e "/sys/kernel/mm/lru_gen/enabled" ]; then
             write_node "y" "/sys/kernel/mm/lru_gen/enabled"
         fi
-        write_node "15" "/proc/sys/vm/dirty_ratio"
+        write_node "20" "/proc/sys/vm/dirty_ratio"
         write_node "5" "/proc/sys/vm/dirty_background_ratio"
         write_node "80" "/proc/sys/vm/swappiness"
-        write_node "100" "/proc/sys/vm/vfs_cache_pressure"
+        write_node "16" "/proc/sys/vm/watermark_scale_factor"
+        write_node "60" "/proc/sys/vm/vfs_cache_pressure"
         for q in /sys/block/*/queue/scheduler; do
             [ -e "${'$'}q" ] && echo deadline > "${'$'}q" 2>/dev/null
         done
         for ra in /sys/block/*/queue/read_ahead_kb; do
-            write_node "128" "${'$'}ra"
+            write_node "512" "${'$'}ra"
         done
 
         # Restore Scheduler & VM Balanced Tunables
-        write_node "10000000" "/proc/sys/kernel/sched_latency_ns"
-        write_node "3000000" "/proc/sys/kernel/sched_min_granularity_ns"
-        write_node "2000000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
+        write_node "5000000" "/proc/sys/kernel/sched_latency_ns"
+        write_node "1000000" "/proc/sys/kernel/sched_min_granularity_ns"
+        write_node "800000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
         write_node "200000" "/proc/sys/kernel/sched_migration_cost_ns"
-        write_node "1" "/proc/sys/kernel/sched_schedstats"
+        write_node "32" "/proc/sys/kernel/sched_nr_migrate"
+        write_node "0" "/proc/sys/kernel/sched_schedstats"
         write_node "0" "/proc/sys/kernel/sched_child_runs_first"
         write_node "1" "/proc/sys/kernel/sched_cstate_aware"
         write_node "1" "/proc/sys/vm/stat_interval"
-        write_node "100" "/proc/sys/vm/vfs_cache_pressure"
 
         # Restore FPSGO & GED Parameters
         write_node "1" "/sys/module/ged/parameters/gpu_idle"
@@ -4779,22 +4835,35 @@ case "${'$'}PROFILE" in
         ) >/dev/null 2>&1 &
 
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
-        setprop debug.sf.latch_unsignaled "" 2>/dev/null
-        setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
-        setprop debug.sf.disable_backpressure "" 2>/dev/null
-        setprop debug.renderengine.backend "" 2>/dev/null
-        setprop debug.hwui.renderer "" 2>/dev/null
-        setprop debug.hwui.use_buffer_age "" 2>/dev/null
-        setprop debug.hwui.fps_divisor "" 2>/dev/null
-        setprop debug.sf.early_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.early_app_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.early_gl_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.high_fps_early_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.high_fps_early_gl_phase_offset_ns "" 2>/dev/null
-        setprop debug.sf.high_fps_late_app_phase_offset_ns "" 2>/dev/null
-        setprop debug.composition.type "" 2>/dev/null
-        setprop persist.sys.composition.type "" 2>/dev/null
-        which resetprop >/dev/null 2>&1 && resetprop -p --delete ro.hwui.render_dirty_regions 2>/dev/null
+
+        # SurfaceFlinger Low-Latency Frame Latching for butter-smooth scrolling
+        setprop debug.sf.latch_unsignaled 1 2>/dev/null
+        setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
+        setprop vendor.perf.gestureflingboost.enable true 2>/dev/null
+
+        if which resetprop >/dev/null 2>&1; then
+            for p in debug.sf.enable_gl_backpressure \
+                     debug.sf.disable_backpressure \
+                     debug.renderengine.backend \
+                     debug.hwui.renderer \
+                     debug.hwui.use_buffer_age \
+                     debug.hwui.fps_divisor \
+                     debug.sf.early_phase_offset_ns \
+                     debug.sf.early_app_phase_offset_ns \
+                     debug.sf.early_gl_phase_offset_ns \
+                     debug.sf.high_fps_early_phase_offset_ns \
+                     debug.sf.high_fps_early_gl_phase_offset_ns \
+                     debug.sf.high_fps_late_app_phase_offset_ns \
+                     debug.composition.type \
+                     persist.sys.composition.type \
+                     ro.hwui.render_dirty_regions; do
+                resetprop -p --delete "${'$'}p" 2>/dev/null
+            done
+        else
+            setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
+            setprop debug.sf.disable_backpressure "" 2>/dev/null
+        fi
+
         setprop af.fast_track_multiplier 2 2>/dev/null
         setprop aaudio.mmap_policy 1 2>/dev/null
         write_node "" "/proc/sys/kernel/sched_lib_name"
@@ -4825,15 +4894,6 @@ case "${'$'}PROFILE" in
             [ -d "${'$'}tz" ] || continue
             write_node "enabled" "${'$'}tz/mode"
         done
-
-        # MediaTek EAS perfmgr Balanced
-        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost"
-        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost"
-        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min"
-        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
-        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min"
-        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
-        write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
 
         if [ "${'$'}PROFILE" = "auto" ]; then
             setprop lynx.mode auto

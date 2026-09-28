@@ -44,6 +44,7 @@ if [ -d "$KGSL" ]; then
     if [ -n "$num_pwr" ] && [ "$num_pwr" -gt 1 ]; then
         write_node "$((num_pwr - 1))" "$KGSL/min_pwrlevel"
     fi
+    write_node "0" "$KGSL/devfreq/adreno_boost"
 fi
 
 # ── 3. Restore CPU Frequency Bounds & Schedutil Defaults ─────────────
@@ -56,14 +57,19 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
     
     schedutil="$policy/schedutil"
     if [ -d "$schedutil" ]; then
-        write_node "500" "$schedutil/up_rate_limit_us"
-        write_node "20000" "$schedutil/down_rate_limit_us"
-        write_node "99" "$schedutil/hispeed_load"
+        write_node "0" "$schedutil/up_rate_limit_us"
+        write_node "15000" "$schedutil/down_rate_limit_us"
+        write_node "80" "$schedutil/hispeed_load"
         write_node "1" "$schedutil/pl"
+        write_node "1" "$schedutil/iowait_boost_enable"
+        if [ -n "$max_freq" ] && [ "$max_freq" -gt 0 ] 2>/dev/null; then
+            hi_f=$(( max_freq * 75 / 100 ))
+            write_node "$hi_f" "$schedutil/hispeed_freq"
+        fi
     fi
 done
 
-# Core Ctl & CPU Prefered
+# Core Ctl & CPU Preferred
 for cpu in 0 1 2 3 4 5 6 7; do
     write_node "0 0 0 0" "/sys/devices/system/cpu/cpu${cpu}/core_ctl/not_preferred"
 done
@@ -78,8 +84,86 @@ write_node "0-7" "/dev/cpuset/foreground/cpus"
 write_node "0-2" "/dev/cpuset/background/cpus"
 write_node "0-5" "/dev/cpuset/system-background/cpus"
 write_node "0-7" "/dev/cpuset/top-app/cpus"
-write_node "5" "/dev/stune/foreground/schedtune.boost"
-write_node "5" "/dev/stune/top-app/schedtune.boost"
+
+# UCLAMP
+for u_node in "/dev/cpuset/top-app/cpu.uclamp.min" "/proc/sys/kernel/sched_util_clamp_min"; do
+    if [ -e "$u_node" ]; then
+        max_sc=100
+        [ -e "/dev/cpuset/top-app/cpu.uclamp.max" ] && max_sc=$(cat "/dev/cpuset/top-app/cpu.uclamp.max" 2>/dev/null)
+        if [ "$max_sc" -gt 100 ] 2>/dev/null; then
+            write_node "100" "$u_node"
+        else
+            write_node "10" "$u_node"
+        fi
+    fi
+done
+write_node "1" "/dev/cpuset/top-app/cpu.uclamp.latency_sensitive"
+write_node "1" "/dev/cpuset/foreground/boost/cpu.uclamp.latency_sensitive"
+
+# SchedTune
+write_node "1" "/dev/stune/schedtune.sched_boost_enabled"
+write_node "5" "/dev/stune/schedtune.boost"
+write_node "0" "/dev/stune/schedtune.prefer_idle"
+write_node "10" "/dev/stune/foreground/schedtune.boost"
+write_node "1" "/dev/stune/foreground/schedtune.prefer_idle"
+write_node "15" "/dev/stune/top-app/schedtune.boost"
+write_node "1" "/dev/stune/top-app/schedtune.prefer_idle"
+write_node "1" "/proc/sys/kernel/sched_big_task_rotation"
+write_node "1" "/proc/sys/kernel/sched_sync_hint_enable"
+
+# VM & Scheduler Responsiveness
+write_node "60" "/proc/sys/vm/vfs_cache_pressure"
+write_node "16" "/proc/sys/vm/watermark_scale_factor"
+write_node "20" "/proc/sys/vm/dirty_ratio"
+write_node "5" "/proc/sys/vm/dirty_background_ratio"
+write_node "5000000" "/proc/sys/kernel/sched_latency_ns"
+write_node "1000000" "/proc/sys/kernel/sched_min_granularity_ns"
+write_node "800000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
+write_node "200000" "/proc/sys/kernel/sched_migration_cost_ns"
+write_node "32" "/proc/sys/kernel/sched_nr_migrate"
+write_node "0" "/proc/sys/kernel/sched_schedstats"
+write_node "0" "/proc/sys/kernel/sched_child_runs_first"
+write_node "1" "/proc/sys/kernel/sched_cstate_aware"
+
+# Storage Read Ahead
+for queue in /sys/block/sd[a-z]/queue /sys/block/mmcblk[0-9]/queue; do
+    [ -d "$queue" ] || continue
+    write_node "1" "$queue/rq_affinity"
+done
+for q in /sys/block/sd[a-z]/queue/scheduler /sys/block/mmcblk[0-9]/queue/scheduler; do
+    [ -e "$q" ] && echo deadline > "$q" 2>/dev/null
+done
+for ra in /sys/block/sd[a-z]/queue/read_ahead_kb /sys/block/mmcblk[0-9]/queue/read_ahead_kb; do
+    write_node "512" "$ra"
+done
+
+# SurfaceFlinger Low-Latency Frame Latching for butter-smooth scrolling
+setprop debug.sf.latch_unsignaled 1 2>/dev/null
+setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
+setprop vendor.perf.gestureflingboost.enable true 2>/dev/null
+
+if which resetprop >/dev/null 2>&1; then
+    for p in debug.sf.enable_gl_backpressure \
+             debug.sf.disable_backpressure \
+             debug.renderengine.backend \
+             debug.hwui.renderer \
+             debug.hwui.use_buffer_age \
+             debug.hwui.fps_divisor \
+             debug.sf.early_phase_offset_ns \
+             debug.sf.early_app_phase_offset_ns \
+             debug.sf.early_gl_phase_offset_ns \
+             debug.sf.high_fps_early_phase_offset_ns \
+             debug.sf.high_fps_early_gl_phase_offset_ns \
+             debug.sf.high_fps_late_app_phase_offset_ns \
+             debug.composition.type \
+             persist.sys.composition.type \
+             ro.hwui.render_dirty_regions; do
+        resetprop -p --delete "$p" 2>/dev/null
+    done
+else
+    setprop debug.sf.enable_gl_backpressure "" 2>/dev/null
+    setprop debug.sf.disable_backpressure "" 2>/dev/null
+fi
 
 # Revert Unity Trick if applied
 for cpu in 0 1 2 3 4 5 6 7; do
