@@ -11,13 +11,12 @@ import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
-import android.view.Choreographer
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -27,19 +26,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material.icons.filled.Style
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.input.pointer.pointerInput
-
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -54,18 +57,18 @@ import com.noir.lynx.data.LynxRepository
 import com.noir.lynx.ui.MainActivity
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.*
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
  * LynxFloatingHudService — Real-time floating Game HUD / OSD Overlay.
  *
- * Provides a draggable, compact or expanded cyberpunk telemetry dashboard:
- * - Real-time Render FPS (SurfaceFlinger presentation deltas / MTK FPSGO)
- * - Display Panel Hardware Refresh Rate (Hz)
- * - CPU top clock & GPU clock / load %
- * - Battery temperature & current drain (mA)
- * - Instant on-the-fly Kernel Profile switcher
+ * Supports 6 distinct, customizable layout styles:
+ * 1. VERTICAL_PILLAR (Modern Slim RTSS)
+ * 2. TOP_RIBBON (Top Nano-Ribbon)
+ * 3. DUAL_BLOCK (Dual-Block Esport)
+ * 4. QUAD_TILES (Quad-Tiles Modular)
+ * 5. DECK_BANNER (Steam Deck Banner)
+ * 6. GHOST_TEXT (Ghost Frameless)
  */
 class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
@@ -97,6 +100,9 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             private set
         const val ACTION_START = "com.noir.lynx.service.START_HUD"
         const val ACTION_STOP = "com.noir.lynx.service.STOP_HUD"
+        const val ACTION_SET_STYLE = "com.noir.lynx.service.SET_STYLE"
+        const val EXTRA_STYLE = "extra_hud_style"
+        val activeStyleFlow = kotlinx.coroutines.flow.MutableStateFlow(1)
         private const val NOTIF_CHANNEL_ID = "lynx_game_hud_channel"
         private const val NOTIF_ID = 8801
     }
@@ -110,6 +116,9 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
 
+        val savedStyle = getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).getInt("hud_style", 1)
+        activeStyleFlow.value = savedStyle.coerceIn(1, 6)
+
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
         startForeground(NOTIF_ID, buildForegroundNotification())
@@ -121,6 +130,11 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         if (intent?.action == ACTION_STOP) {
             cleanUpAndStop()
             return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_SET_STYLE || intent?.hasExtra(EXTRA_STYLE) == true) {
+            val newStyle = intent.getIntExtra(EXTRA_STYLE, activeStyleFlow.value).coerceIn(1, 6)
+            activeStyleFlow.value = newStyle
+            getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_style", newStyle).apply()
         }
         return START_STICKY
     }
@@ -189,15 +203,22 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 val isHudBenchmarking by isHudBenchmarkingFlow.collectAsState()
                 val hudBenchmarkCountdown by hudBenchmarkCountdownFlow.collectAsState()
                 val hudBenchmarkSummary by hudBenchmarkSummaryFlow.collectAsState()
+                val activeStyle by activeStyleFlow.collectAsState()
                 var isExpanded by remember { mutableStateOf(false) }
 
                 FloatingHudContent(
                     telemetry = tel,
+                    activeStyle = activeStyle,
                     isExpanded = isExpanded,
                     isHudBenchmarking = isHudBenchmarking,
                     hudBenchmarkCountdown = hudBenchmarkCountdown,
                     hudBenchmarkSummary = hudBenchmarkSummary,
                     onToggleExpand = { isExpanded = !isExpanded },
+                    onSelectStyle = { newStyle ->
+                        val clamped = newStyle.coerceIn(1, 6)
+                        activeStyleFlow.value = clamped
+                        getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_style", clamped).apply()
+                    },
                     onClose = { cleanUpAndStop() },
                     onProfileSelect = { profile ->
                         telemetryFlow.value = tel.copy(activeProfile = profile)
@@ -305,419 +326,901 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
 }
 
 // ============================================================
-//  COMPOSE OVERLAY UI
+//  COMPOSE OVERLAY UI & 6 DISTINCT LAYOUT STYLES
 // ============================================================
 
-private val BgHud = Color(0xEE121418)
+private val BgHud = Color(0xDD0A0E14)
 private val BorderHud = Color(0x4400E5FF)
 private val NeonCyan = Color(0xFF00E5FF)
+private val NeonMagenta = Color(0xFFFF4081)
 private val NeonGreen = Color(0xFF00E676)
-private val NeonGold = Color(0xFFFFB300)
+private val NeonGold = Color(0xFFFFD600)
+private val NeonOrange = Color(0xFFFF9100)
 private val NeonRed = Color(0xFFFF5252)
+private val TextSlate = Color(0xFFCFD8DC)
+private val TextMuted = Color(0x99FFFFFF)
 
 @Composable
 fun FloatingHudContent(
     telemetry: LynxRepository.FloatingHudTelemetry,
+    activeStyle: Int = 1,
     isExpanded: Boolean,
     isHudBenchmarking: Boolean = false,
     hudBenchmarkCountdown: Int = 60,
     hudBenchmarkSummary: com.noir.lynx.data.LynxBenchmarkResult? = null,
     onToggleExpand: () -> Unit,
+    onSelectStyle: (Int) -> Unit,
     onClose: () -> Unit,
     onProfileSelect: (String) -> Unit,
     onStartHudBenchmark: () -> Unit = {},
     onDrag: (Float, Float) -> Unit,
 ) {
+    var showStylePicker by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.wrapContentSize().padding(4.dp)) {
+        // Floating Style Switcher Quick Picker Bar
+        AnimatedVisibility(visible = showStylePicker) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgHud,
+                border = BorderStroke(1.dp, BorderHud),
+                modifier = Modifier.padding(bottom = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val styleNames = listOf("1.Pillar", "2.Ribbon", "3.Esport", "4.Tiles", "5.Deck", "6.Ghost")
+                    styleNames.forEachIndexed { idx, label ->
+                        val sId = idx + 1
+                        val isSel = (activeStyle == sId)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (isSel) NeonCyan.copy(alpha = 0.3f) else Color(0x22FFFFFF))
+                                .clickable {
+                                    onSelectStyle(sId)
+                                    showStylePicker = false
+                                }
+                                .padding(horizontal = 5.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSel) NeonCyan else Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Active HUD Style Render
+        when (activeStyle) {
+            2 -> HudTopRibbon(
+                telemetry = telemetry,
+                onDrag = onDrag,
+                onToggleStylePicker = { showStylePicker = !showStylePicker },
+                onClose = onClose
+            )
+            3 -> HudDualBlock(
+                telemetry = telemetry,
+                onDrag = onDrag,
+                onToggleStylePicker = { showStylePicker = !showStylePicker },
+                onClose = onClose,
+                onProfileSelect = onProfileSelect
+            )
+            4 -> HudQuadTiles(
+                telemetry = telemetry,
+                onDrag = onDrag,
+                onToggleStylePicker = { showStylePicker = !showStylePicker },
+                onClose = onClose,
+                onProfileSelect = onProfileSelect
+            )
+            5 -> HudDeckBanner(
+                telemetry = telemetry,
+                onDrag = onDrag,
+                onToggleStylePicker = { showStylePicker = !showStylePicker },
+                onClose = onClose,
+                onProfileSelect = onProfileSelect
+            )
+            6 -> HudGhostText(
+                telemetry = telemetry,
+                onDrag = onDrag,
+                onToggleStylePicker = { showStylePicker = !showStylePicker },
+                onClose = onClose
+            )
+            else -> HudVerticalPillar(
+                telemetry = telemetry,
+                isExpanded = isExpanded,
+                isHudBenchmarking = isHudBenchmarking,
+                hudBenchmarkCountdown = hudBenchmarkCountdown,
+                hudBenchmarkSummary = hudBenchmarkSummary,
+                onToggleExpand = onToggleExpand,
+                onToggleStylePicker = { showStylePicker = !showStylePicker },
+                onClose = onClose,
+                onProfileSelect = onProfileSelect,
+                onStartHudBenchmark = onStartHudBenchmark,
+                onDrag = onDrag
+            )
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+//  STYLE 1: VERTICAL PILLAR (MODERN SLIM RTSS)
+// ────────────────────────────────────────────────────────────
+
+@Composable
+fun HudVerticalPillar(
+    telemetry: LynxRepository.FloatingHudTelemetry,
+    isExpanded: Boolean,
+    isHudBenchmarking: Boolean,
+    hudBenchmarkCountdown: Int,
+    hudBenchmarkSummary: com.noir.lynx.data.LynxBenchmarkResult?,
+    onToggleExpand: () -> Unit,
+    onToggleStylePicker: () -> Unit,
+    onClose: () -> Unit,
+    onProfileSelect: (String) -> Unit,
+    onStartHudBenchmark: () -> Unit,
+    onDrag: (Float, Float) -> Unit,
+) {
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         color = BgHud,
         border = BorderStroke(1.dp, BorderHud),
         shadowElevation = 8.dp,
-        modifier = Modifier.padding(4.dp)
+        modifier = Modifier.width(275.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .wrapContentSize()
-                .padding(8.dp)
-        ) {
-            // COMPACT PILL (Always visible or toggled)
+        Column(modifier = Modifier.padding(7.dp)) {
+            // Header Row
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { onToggleExpand() }
-                    .padding(horizontal = 6.dp, vertical = 3.dp)
-            ) {
-                // Drag Handle
-                Icon(
-                    Icons.Default.DragHandle,
-                    contentDescription = "Geser HUD",
-                    tint = Color(0x99FFFFFF),
-                    modifier = Modifier
-                        .size(16.dp)
-                        .pointerInput(Unit) {
-                            detectDragGestures { change, dragAmount ->
-                                change.consume()
-                                onDrag(dragAmount.x, dragAmount.y)
-                            }
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            onDrag(dragAmount.x, dragAmount.y)
                         }
-                )
-
-                // Render FPS Badge
-                val fpsText = "${telemetry.renderFps} FPS"
-                val fpsColor = when {
-                    telemetry.renderFps >= 90 -> NeonCyan
-                    telemetry.renderFps >= 50 -> NeonGreen
-                    telemetry.renderFps > 0 -> NeonGold
-                    else -> Color(0x88FFFFFF)
-                }
-                Text(
-                    text = fpsText,
-                    color = fpsColor,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-
-                // Subtle Separator Dot
-                Text("·", color = Color(0x66FFFFFF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-
-                // Frame Time Badge (ms) - Replaces 120Hz per user request
-                val ftPillStr = if (telemetry.renderFps > 0) {
-                    val ftVal = 1000f / telemetry.renderFps
-                    String.format(java.util.Locale.US, "%.1fms", ftVal)
-                } else "--ms"
-                Text(
-                    text = ftPillStr,
-                    color = Color(0xEEFFFFFF),
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                // Divider
-                Text("|", color = Color(0x33FFFFFF), fontSize = 11.sp)
-
-                // Watt & Temp Badge
-                val wattStr = if (telemetry.battWatt > 0.05f) {
-                    val sign = if (telemetry.isCharging) "+" else ""
-                    "${sign}${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W · "
-                } else ""
-                Text(
-                    text = "${wattStr}${telemetry.battTempC}°C",
-                    color = when {
-                        telemetry.battTempC > 42f -> NeonRed
-                        telemetry.isCharging -> NeonGreen
-                        else -> NeonGold
                     },
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                // Mode Badge
-                val profileShort = when (telemetry.activeProfile.lowercase()) {
-                    "performance" -> "PERF"
-                    "extreme" -> "EXT"
-                    "powersave" -> "PWR"
-                    "auto" -> "AI"
-                    else -> "BAL"
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0x3300E5FF))
-                        .padding(horizontal = 5.dp, vertical = 1.5.dp)
-                ) {
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Default.DragHandle, "Geser", tint = Color(0x99FFFFFF), modifier = Modifier.size(14.dp))
                     Text(
-                        text = profileShort,
+                        "LYNX TELEMETRY",
+                        color = NeonCyan,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    // Style switch badge
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0x2200E5FF))
+                            .clickable { onToggleStylePicker() }
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    ) {
+                        Text("S1 ▾", color = NeonCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    }
+                    // Profile badge
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0x3300E5FF))
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    ) {
+                        Text(telemetry.activeProfile.uppercase().take(3), color = NeonCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color(0x22FF5252))
+                            .clickable { onClose() }
+                            .padding(2.dp)
+                    ) {
+                        Icon(Icons.Default.Close, "Tutup", tint = NeonRed, modifier = Modifier.size(10.dp))
+                    }
+                }
+            }
+
+            HorizontalDivider(color = Color(0x22FFFFFF), thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+
+            // 4-Column Aligned Rows
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                // GPU
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    CategoryBadge("GPU", NeonMagenta)
+                    Text(
+                        if (telemetry.gpuFreqMhz > 0) "${telemetry.gpuFreqMhz} MHz" else "--",
+                        color = Color.White,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(70.dp)
+                    )
+                    Text(
+                        "${telemetry.gpuLoadPct}%",
+                        color = NeonMagenta,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(42.dp)
+                    )
+                    Text(
+                        "58°C · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W",
+                        color = TextSlate,
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // CPU
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    CategoryBadge("CPU", NeonCyan)
+                    Text(
+                        telemetry.cpuCoresSummary.ifEmpty { if (telemetry.cpuFreqMhz > 0) "${telemetry.cpuFreqMhz} MHz" else "--" },
+                        color = Color.White,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(70.dp)
+                    )
+                    Text(
+                        "${telemetry.cpuLoadPct}%",
                         color = NeonCyan,
                         fontSize = 10.5.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(42.dp)
+                    )
+                    Text(
+                        "${telemetry.battTempC.toInt() + 15}°C",
+                        color = TextSlate,
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // RAM
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    CategoryBadge("RAM", NeonGold)
+                    Text(
+                        if (telemetry.ramUsedGb > 0f) "${telemetry.ramUsedGb} / ${telemetry.ramTotalGb}G" else "--",
+                        color = Color.White,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(70.dp)
+                    )
+                    Text(
+                        "${telemetry.ramPct}%",
+                        color = NeonGold,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(42.dp)
+                    )
+                    Text(
+                        "ZRAM ${telemetry.zramUsedGb}G",
+                        color = TextSlate,
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // FPS
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    CategoryBadge("FPS", NeonGreen)
+                    Text(
+                        "${telemetry.renderFps} FPS",
+                        color = NeonGreen,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(70.dp)
+                    )
+                    Text(
+                        "AVG ${telemetry.avgFps.toInt()}",
+                        color = NeonGreen.copy(alpha = 0.85f),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(48.dp)
+                    )
+                    Text(
+                        "1%L ${telemetry.fps1PercentLow.toInt()}",
+                        color = NeonGold,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Frametime
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    CategoryBadge("FT", TextSlate)
+                    Text(
+                        "${String.format(java.util.Locale.US, "%.1f", telemetry.frametimeMs)} ms",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(70.dp)
+                    )
+                    Text(
+                        "AVG ${String.format(java.util.Locale.US, "%.1f", telemetry.avgFrametimeMs)}",
+                        color = TextSlate,
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(48.dp)
+                    )
+                    Text(
+                        "±${String.format(java.util.Locale.US, "%.1f", telemetry.frametimeJitterMs)} ms",
+                        color = TextMuted,
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Real-time Frametime Sparkline Canvas
+                FrametimeSparklineCanvas(
+                    history = telemetry.frametimeHistory,
+                    heightDp = 14,
+                    modifier = Modifier.padding(vertical = 2.dp)
+                )
+
+                // BAT
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    CategoryBadge("BAT", NeonOrange)
+                    Text(
+                        "${telemetry.battTempC}°C",
+                        color = if (telemetry.battTempC > 42f) NeonRed else NeonOrange,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(55.dp)
+                    )
+                    Text(
+                        "${telemetry.battCurrentMa} mA",
+                        color = if (telemetry.isCharging) NeonGreen else Color.White,
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.width(60.dp)
+                    )
+                    Text(
+                        "${telemetry.battLevelPct}% · ${if (telemetry.isCharging) "+" else ""}${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W",
+                        color = TextSlate,
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
 
-            // EXPANDED VIEW
-            AnimatedVisibility(visible = isExpanded) {
-                Column(
-                    modifier = Modifier
-                        .padding(top = 10.dp)
-                        .width(235.dp)
-                ) {
-                    // Draggable Header
-                    Row(
+            // Quick Profile Pills
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                listOf("balance" to "BAL", "performance" to "PERF", "extreme" to "EXT", "powersave" to "PWR").forEach { (k, label) ->
+                    val isSel = telemetry.activeProfile.equals(k, ignoreCase = true)
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 6.dp)
-                            .pointerInput(Unit) {
-                                detectDragGestures { change, dragAmount ->
-                                    change.consume()
-                                    onDrag(dragAmount.x, dragAmount.y)
-                                }
-                            },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.DragHandle, "Geser", tint = Color(0x99FFFFFF), modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            "LYNX OSD TELEMETRY",
-                            color = NeonCyan,
-                            fontSize = 9.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
-                    HorizontalDivider(color = Color(0x33FFFFFF), thickness = 1.dp)
-                    Spacer(Modifier.height(8.dp))
-
-                    // Row 1: Render FPS & Display Refresh Rate
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("RENDER FPS", color = Color(0x88FFFFFF), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                            val fpsColor = when {
-                                telemetry.renderFps >= 90 -> NeonCyan
-                                telemetry.renderFps >= 50 -> NeonGreen
-                                telemetry.renderFps > 0 -> NeonGold
-                                else -> Color(0x88FFFFFF)
-                            }
-                            Text(
-                                text = "${telemetry.renderFps} FPS",
-                                color = fpsColor,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("REFRESH RATE", color = Color(0x88FFFFFF), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                            Text(
-                                text = "${telemetry.refreshRateHz} Hz",
-                                color = NeonCyan,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(6.dp))
-
-                    // Row 2: Frame Time & GPU Clock
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("FRAME TIME", color = Color(0x88FFFFFF), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                            val ftStr = if (telemetry.renderFps > 0) {
-                                String.format(java.util.Locale.US, "%.1f ms", 1000f / telemetry.renderFps)
-                            } else "-- ms"
-                            Text(
-                                text = ftStr,
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("GPU CLOCK", color = Color(0x88FFFFFF), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                            val gpuStr = if (telemetry.gpuFreqMhz > 0) {
-                                "${telemetry.gpuFreqMhz} MHz (${telemetry.gpuLoadPct}%)"
-                            } else if (telemetry.gpuLoadPct > 0) {
-                                "Load ${telemetry.gpuLoadPct}%"
-                            } else "--"
-                            Text(
-                                gpuStr,
-                                color = NeonCyan,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(6.dp))
-
-                    // Row 3: CPU Clock & Power (Watts)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("CPU CLOCK", color = Color(0x88FFFFFF), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                            Text(
-                                text = if (telemetry.cpuFreqMhz > 0) "${telemetry.cpuFreqMhz} MHz" else "--",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("DAYA (WATT)", color = Color(0x88FFFFFF), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                            val wattLabel = if (telemetry.battWatt > 0.05f) {
-                                val s = if (telemetry.isCharging) "+" else ""
-                                "${s}${String.format(java.util.Locale.US, "%.2f", telemetry.battWatt)} W"
-                            } else "-- W"
-                            Text(
-                                text = wattLabel,
-                                color = if (telemetry.isCharging) NeonGreen else NeonCyan,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(6.dp))
-
-                    // Row 4: Battery & Current
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("BATERAI & SUHU", color = Color(0x88FFFFFF), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                            Text(
-                                text = "${telemetry.battTempC}°C · ${telemetry.battLevelPct}%",
-                                color = if (telemetry.battTempC > 42f) NeonRed else NeonGold,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("ARUS (mA)", color = Color(0x88FFFFFF), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                            val curSign = if (telemetry.battCurrentMa > 0) "+" else ""
-                            Text(
-                                text = "${curSign}${telemetry.battCurrentMa} mA",
-                                color = if (telemetry.isCharging) NeonGreen else Color(0xCCFFFFFF),
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(10.dp))
-                    Text("QUICK PROFILE SWITCHER", color = Color(0x88FFFFFF), fontSize = 9.sp)
-                    Spacer(Modifier.height(4.dp))
-
-                    // Profile Pills
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        val profiles = listOf("balance" to "BAL", "performance" to "PERF", "extreme" to "EXT", "powersave" to "PWR")
-                        profiles.forEach { (key, label) ->
-                            val isSel = telemetry.activeProfile.equals(key, ignoreCase = true)
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 34.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isSel) NeonCyan else Color(0x22FFFFFF))
-                                    .clickable { onProfileSelect(key) }
-                                    .padding(vertical = 7.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = label,
-                                    color = if (isSel) Color.Black else Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // Live Benchmark Quick Action
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isHudBenchmarking) Color(0x33FFB300) else Color(0x2200E5FF),
-                        border = BorderStroke(1.dp, if (isHudBenchmarking) NeonGold else NeonCyan.copy(alpha = 0.5f)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !isHudBenchmarking) { onStartHudBenchmark() }
-                            .padding(vertical = 2.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Speed,
-                                contentDescription = null,
-                                tint = if (isHudBenchmarking) NeonGold else NeonCyan,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = if (isHudBenchmarking) "Merekam Pacing... (${hudBenchmarkCountdown}s)" else "⚡ Live Benchmark (1 Menit)",
-                                color = if (isHudBenchmarking) NeonGold else NeonCyan,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    // Benchmark result summary card if available
-                    hudBenchmarkSummary?.let { sum ->
-                        Spacer(Modifier.height(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0x3300E676),
-                            border = BorderStroke(1.dp, NeonGreen.copy(alpha = 0.6f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(Modifier.padding(6.dp)) {
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("BENCHMARK SELESAI", color = NeonGreen, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                                    Text("${sum.averageFps.roundToInt()} FPS avg", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                }
-                                Text(
-                                    text = "1% Low: ${String.format(java.util.Locale.US, "%.1f", sum.fps1PercentLow)} FPS · Pacing: ${String.format(java.util.Locale.US, "%.1f", sum.medianFrametimeMs)}ms (±${String.format(java.util.Locale.US, "%.1f", sum.frametimeJitterMs)}ms)",
-                                    color = Color(0xEEFFFFFF),
-                                    fontSize = 8.5.sp
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(10.dp))
-
-                    // Controls: Minimize & Close
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .weight(1f)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(if (isSel) NeonCyan else Color(0x18FFFFFF))
+                            .clickable { onProfileSelect(k) }
+                            .padding(vertical = 3.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Minimize",
-                            color = Color(0xAAFFFFFF),
-                            fontSize = 10.sp,
-                            modifier = Modifier
-                                .clickable { onToggleExpand() }
-                                .padding(4.dp)
+                            text = label,
+                            color = if (isSel) Color.Black else Color.White,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                        Box(
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(Color(0x33FF5252))
-                                .clickable { onClose() }
-                                .padding(4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Tutup",
-                                tint = NeonRed,
-                                modifier = Modifier.size(12.dp)
-                            )
-                        }
                     }
                 }
             }
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+//  STYLE 2: TOP NANO-RIBBON (HORIZONTAL BAR)
+// ────────────────────────────────────────────────────────────
+
+@Composable
+fun HudTopRibbon(
+    telemetry: LynxRepository.FloatingHudTelemetry,
+    onDrag: (Float, Float) -> Unit,
+    onToggleStylePicker: () -> Unit,
+    onClose: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = BgHud,
+        border = BorderStroke(1.dp, BorderHud),
+        modifier = Modifier
+            .width(365.dp)
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    onDrag(dragAmount.x, dragAmount.y)
+                }
+            }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // FPS
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                CategoryBadge("FPS", NeonGreen)
+                Text("${telemetry.renderFps}", color = NeonGreen, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace)
+                Text("A:${telemetry.avgFps.toInt()}", color = TextSlate, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+            }
+
+            Text("|", color = Color(0x33FFFFFF), fontSize = 10.sp)
+
+            // GPU
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("GPU", color = NeonMagenta, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                Text("${telemetry.gpuLoadPct}%", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+            }
+
+            Text("|", color = Color(0x33FFFFFF), fontSize = 10.sp)
+
+            // CPU
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("CPU", color = NeonCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                Text("${telemetry.cpuLoadPct}%", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+            }
+
+            Text("|", color = Color(0x33FFFFFF), fontSize = 10.sp)
+
+            // RAM
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("RAM", color = NeonGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                Text("${telemetry.ramUsedGb}G", color = Color.White, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
+            }
+
+            Text("|", color = Color(0x33FFFFFF), fontSize = 10.sp)
+
+            // BAT & Style
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("${telemetry.battTempC.toInt()}°C", color = NeonOrange, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0x3300E5FF))
+                        .clickable { onToggleStylePicker() }
+                        .padding(horizontal = 3.5.dp, vertical = 1.dp)
+                ) {
+                    Text("S2 ▾", color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+//  STYLE 3: DUAL-BLOCK ESPORT (ROG STYLE)
+// ────────────────────────────────────────────────────────────
+
+@Composable
+fun HudDualBlock(
+    telemetry: LynxRepository.FloatingHudTelemetry,
+    onDrag: (Float, Float) -> Unit,
+    onToggleStylePicker: () -> Unit,
+    onClose: () -> Unit,
+    onProfileSelect: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .width(340.dp)
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    onDrag(dragAmount.x, dragAmount.y)
+                }
+            },
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        // Left Block: FPS Hero Hub
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = BgHud,
+            border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.4f)),
+            modifier = Modifier.width(125.dp)
+        ) {
+            Column(modifier = Modifier.padding(6.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("FPS HUB", color = NeonCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    Text("${telemetry.refreshRateHz}Hz", color = NeonGreen, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                }
+                Text(
+                    text = "${telemetry.renderFps}",
+                    color = NeonGreen,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(vertical = 1.dp)
+                )
+                Text("AVG: ${telemetry.avgFps.toInt()} · 1%L: ${telemetry.fps1PercentLow.toInt()}", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                Text("FT: ${String.format(java.util.Locale.US, "%.1f", telemetry.frametimeMs)}ms", color = TextMuted, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                Spacer(Modifier.height(3.dp))
+                FrametimeSparklineCanvas(history = telemetry.frametimeHistory, heightDp = 14)
+            }
+        }
+
+        // Right Block: Hardware & Power Matrix
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = BgHud,
+            border = BorderStroke(1.dp, NeonMagenta.copy(alpha = 0.35f)),
+            modifier = Modifier.weight(1f)
+        ) {
+            Column(modifier = Modifier.padding(6.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("HARDWARE", color = NeonMagenta, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0x3300E5FF))
+                                .clickable { onToggleStylePicker() }
+                                .padding(horizontal = 3.5.dp, vertical = 1.dp)
+                        ) {
+                            Text("S3 ▾", color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0x22FFFFFF))
+                                .padding(horizontal = 3.5.dp, vertical = 1.dp)
+                        ) {
+                            Text(telemetry.activeProfile.uppercase().take(3), color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                HorizontalDivider(color = Color(0x22FFFFFF), thickness = 1.dp, modifier = Modifier.padding(vertical = 3.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("GPU ${telemetry.gpuFreqMhz}M", color = NeonMagenta, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("${telemetry.gpuLoadPct}% · 58°C", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("CPU ${telemetry.cpuFreqMhz}M", color = NeonCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("${telemetry.cpuLoadPct}% · ${telemetry.battTempC.toInt() + 15}°C", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("RAM ${telemetry.ramUsedGb}G", color = NeonGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("ZRAM ${telemetry.zramUsedGb}G", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("BAT ${telemetry.battTempC}°C", color = NeonOrange, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("${telemetry.battLevelPct}% · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+//  STYLE 4: QUAD-TILES (NOTHING OS / MODULAR GRID)
+// ────────────────────────────────────────────────────────────
+
+@Composable
+fun HudQuadTiles(
+    telemetry: LynxRepository.FloatingHudTelemetry,
+    onDrag: (Float, Float) -> Unit,
+    onToggleStylePicker: () -> Unit,
+    onClose: () -> Unit,
+    onProfileSelect: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .width(310.dp)
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    onDrag(dragAmount.x, dragAmount.y)
+                }
+            },
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("LYNX QUAD-TILES", color = NeonCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0x3300E5FF))
+                    .clickable { onToggleStylePicker() }
+                    .padding(horizontal = 4.dp, vertical = 1.dp)
+            ) {
+                Text("S4 ▾", color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            // Tile 1: FPS
+            Surface(shape = RoundedCornerShape(8.dp), color = BgHud, border = BorderStroke(1.dp, NeonGreen.copy(alpha = 0.4f)), modifier = Modifier.weight(1f)) {
+                Column(Modifier.padding(5.dp)) {
+                    Text("FPS PACING", color = NeonGreen, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("${telemetry.renderFps}", color = NeonGreen, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                    Text("AVG ${telemetry.avgFps.toInt()} · 1%L ${telemetry.fps1PercentLow.toInt()}", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+            // Tile 2: GPU
+            Surface(shape = RoundedCornerShape(8.dp), color = BgHud, border = BorderStroke(1.dp, NeonMagenta.copy(alpha = 0.4f)), modifier = Modifier.weight(1f)) {
+                Column(Modifier.padding(5.dp)) {
+                    Text("GPU ENGINE", color = NeonMagenta, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("${telemetry.gpuLoadPct}%", color = NeonMagenta, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                    Text("${telemetry.gpuFreqMhz}M · 58°C", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            // Tile 3: CPU
+            Surface(shape = RoundedCornerShape(8.dp), color = BgHud, border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.4f)), modifier = Modifier.weight(1f)) {
+                Column(Modifier.padding(5.dp)) {
+                    Text("CPU LOAD", color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("${telemetry.cpuLoadPct}%", color = NeonCyan, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                    Text(telemetry.cpuCoresSummary.ifEmpty { "${telemetry.cpuFreqMhz}M" }, color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+            // Tile 4: RAM & BAT
+            Surface(shape = RoundedCornerShape(8.dp), color = BgHud, border = BorderStroke(1.dp, NeonGold.copy(alpha = 0.4f)), modifier = Modifier.weight(1f)) {
+                Column(Modifier.padding(5.dp)) {
+                    Text("MEM & POWER", color = NeonGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("${telemetry.ramUsedGb}G", color = NeonGold, fontSize = 16.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                    Text("${telemetry.battTempC}°C · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+//  STYLE 5: DECK BANNER (STEAM DECK GAMESCOPE)
+// ────────────────────────────────────────────────────────────
+
+@Composable
+fun HudDeckBanner(
+    telemetry: LynxRepository.FloatingHudTelemetry,
+    onDrag: (Float, Float) -> Unit,
+    onToggleStylePicker: () -> Unit,
+    onClose: () -> Unit,
+    onProfileSelect: (String) -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = BgHud,
+        border = BorderStroke(1.dp, BorderHud),
+        modifier = Modifier
+            .width(360.dp)
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    onDrag(dragAmount.x, dragAmount.y)
+                }
+            }
+    ) {
+        Column(modifier = Modifier.padding(6.dp)) {
+            // Tier 1: FPS + Wide Sparkline
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("${telemetry.renderFps}", color = NeonGreen, fontSize = 17.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                    Text("FPS", color = NeonGreen, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                }
+                FrametimeSparklineCanvas(
+                    history = telemetry.frametimeHistory,
+                    heightDp = 14,
+                    modifier = Modifier.width(140.dp)
+                )
+                Text("AVG ${telemetry.avgFps.toInt()} · 1%L ${telemetry.fps1PercentLow.toInt()}", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0x3300E5FF))
+                        .clickable { onToggleStylePicker() }
+                        .padding(horizontal = 3.5.dp, vertical = 1.dp)
+                ) {
+                    Text("S5 ▾", color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            HorizontalDivider(color = Color(0x22FFFFFF), thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+
+            // Tier 2: Hardware Strip
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                HardwareDeckChip("GPU", "${telemetry.gpuLoadPct}%", NeonMagenta, Modifier.weight(1f))
+                HardwareDeckChip("CPU", "${telemetry.cpuLoadPct}%", NeonCyan, Modifier.weight(1f))
+                HardwareDeckChip("RAM", "${telemetry.ramUsedGb}G", NeonGold, Modifier.weight(1f))
+                HardwareDeckChip("BAT", "${telemetry.battTempC.toInt()}°C", NeonOrange, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+//  STYLE 6: GHOST TEXT (FRAMELESS MINIMALIST)
+// ────────────────────────────────────────────────────────────
+
+@Composable
+fun HudGhostText(
+    telemetry: LynxRepository.FloatingHudTelemetry,
+    onDrag: (Float, Float) -> Unit,
+    onToggleStylePicker: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val ghostShadow = Shadow(color = Color.Black, offset = Offset(1.5f, 1.5f), blurRadius = 3f)
+
+    Column(
+        modifier = Modifier
+            .width(260.dp)
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    onDrag(dragAmount.x, dragAmount.y)
+                }
+            }
+            .clickable { onToggleStylePicker() }
+            .padding(4.dp)
+    ) {
+        // Ghost Line: GPU
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("GPU", color = NeonMagenta, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold))
+            Text("${telemetry.gpuFreqMhz} MHz", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${telemetry.gpuLoadPct}%", color = NeonMagenta, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
+            Text("58°C · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
+        }
+
+        // Ghost Line: CPU
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("CPU", color = NeonCyan, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold))
+            Text(telemetry.cpuCoresSummary.ifEmpty { "${telemetry.cpuFreqMhz} MHz" }, color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${telemetry.cpuLoadPct}%", color = NeonCyan, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
+            Text("${telemetry.battTempC.toInt() + 15}°C", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
+        }
+
+        // Ghost Line: RAM
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("RAM", color = NeonGold, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold))
+            Text("${telemetry.ramUsedGb} / ${telemetry.ramTotalGb} GB", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${telemetry.ramPct}%", color = NeonGold, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
+            Text("ZRAM ${telemetry.zramUsedGb}G", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
+        }
+
+        // Ghost Line: FPS
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("FPS", color = NeonGreen, style = TextStyle(shadow = ghostShadow, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold))
+            Text("${telemetry.renderFps}", color = NeonGreen, style = TextStyle(shadow = ghostShadow, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace))
+            Text("AVG ${telemetry.avgFps.toInt()}", color = NeonGreen.copy(alpha = 0.85f), style = TextStyle(shadow = ghostShadow, fontSize = 10.sp, fontFamily = FontFamily.Monospace))
+            Text("1%L ${telemetry.fps1PercentLow.toInt()}", color = NeonGold, style = TextStyle(shadow = ghostShadow, fontSize = 10.sp, fontFamily = FontFamily.Monospace))
+        }
+
+        // Ghost Line: FT
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("FT", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontWeight = FontWeight.Bold))
+            Text("${String.format(java.util.Locale.US, "%.1f", telemetry.frametimeMs)} ms", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
+            Text("AVG ${String.format(java.util.Locale.US, "%.1f", telemetry.avgFrametimeMs)}", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.sp, fontFamily = FontFamily.Monospace))
+            Text("±${String.format(java.util.Locale.US, "%.1f", telemetry.frametimeJitterMs)} ms", color = TextMuted, style = TextStyle(shadow = ghostShadow, fontSize = 9.sp, fontFamily = FontFamily.Monospace))
+        }
+
+        // Ghost Line: BAT
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("BAT", color = NeonOrange, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontWeight = FontWeight.Bold))
+            Text("${telemetry.battTempC}°C", color = NeonOrange, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${telemetry.battCurrentMa} mA", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${telemetry.battLevelPct}% [${telemetry.activeProfile.uppercase().take(3)}]", color = NeonCyan, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────
+//  SHARED COMPONENT HELPERS
+// ────────────────────────────────────────────────────────────
+
+@Composable
+private fun CategoryBadge(label: String, color: Color) {
+    Box(
+        modifier = Modifier
+            .width(36.dp)
+            .padding(end = 4.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .background(color.copy(alpha = 0.18f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = color,
+            fontSize = 8.5.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace
+        )
+    }
+}
+
+@Composable
+private fun HardwareDeckChip(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = Color(0x18FFFFFF),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.3f)),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(label, color = color, fontSize = 7.5.sp, fontWeight = FontWeight.Bold)
+            Text(value, color = Color.White, fontSize = 8.5.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
+        }
+    }
+}
+
+@Composable
+fun FrametimeSparklineCanvas(
+    history: List<Float>,
+    modifier: Modifier = Modifier,
+    heightDp: Int = 14
+) {
+    Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(heightDp.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .background(Color(0x66000000))
+    ) {
+        val count = history.size
+        if (count == 0) return@Canvas
+        val barWidth = size.width / count.coerceAtLeast(30)
+        val maxMs = 70f
+        for (i in 0 until count) {
+            val v = history[i]
+            val barH = (v / maxMs * size.height).coerceIn(3f, size.height)
+            val x = i * barWidth
+            val y = size.height - barH
+            val barColor = when {
+                v > 45f -> NeonRed
+                v > 30f -> NeonGold
+                else -> NeonGreen
+            }
+            drawRect(
+                color = barColor,
+                topLeft = Offset(x, y),
+                size = Size((barWidth - 0.8f).coerceAtLeast(1f), barH)
+            )
         }
     }
 }

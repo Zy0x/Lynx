@@ -993,11 +993,71 @@ fun MainDashboard(
                                     Icon(Icons.Default.Info, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        "HUD aktif! Sentuh pil HUD di layar untuk membuka detail CPU/GPU atau switch profil seketika.",
+                                        "HUD aktif! Sentuh header HUD di layar atau pilih gaya tampilan di bawah untuk mengubah layout secara instan.",
                                         color = TextPrimary,
                                         fontSize = 10.5.sp,
                                         lineHeight = 14.sp
                                     )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "PILIHAN GAYA TAMPILAN OSD",
+                            color = AccentCyan,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(6.dp))
+
+                        val hudStyleOptions = listOf(
+                            1 to "1. Vertical Pillar (RTSS)",
+                            2 to "2. Top Nano-Ribbon",
+                            3 to "3. Dual-Block Esport",
+                            4 to "4. Quad-Tiles Modular",
+                            5 to "5. Steam Deck Banner",
+                            6 to "6. Ghost Text (Frameless)"
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            hudStyleOptions.chunked(2).forEach { rowStyles ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    rowStyles.forEach { (sId, sLabel) ->
+                                        val isSel = (uiState.hudStyle == sId)
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isSel) AccentCyan.copy(alpha = 0.18f) else BgElevated,
+                                            border = BorderStroke(1.dp, if (isSel) AccentCyan else BorderGlass),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable { viewModel.setHudStyle(context, sId) }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(6.dp)
+                                                        .clip(CircleShape)
+                                                        .background(if (isSel) AccentCyan else Color(0x33FFFFFF))
+                                                )
+                                                Spacer(Modifier.width(6.dp))
+                                                Text(
+                                                    text = sLabel,
+                                                    color = if (isSel) AccentCyan else TextPrimary,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

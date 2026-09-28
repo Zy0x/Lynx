@@ -4902,10 +4902,21 @@ done
         val renderFps: Int = 0,
         val refreshRateHz: Int = 60,
         val fps: Int = 0,
+        val avgFps: Float = 0f,
+        val fps1PercentLow: Float = 0f,
+        val frametimeMs: Float = 0f,
+        val avgFrametimeMs: Float = 0f,
+        val frametimeJitterMs: Float = 0f,
+        val frametimeHistory: List<Float> = emptyList(),
         val cpuFreqMhz: Int = 0,
         val cpuLoadPct: Int = 0,
+        val cpuCoresSummary: String = "",
         val gpuFreqMhz: Int = 0,
         val gpuLoadPct: Int = 0,
+        val ramUsedGb: Float = 0f,
+        val ramTotalGb: Float = 0f,
+        val ramPct: Int = 0,
+        val zramUsedGb: Float = 0f,
         val battTempC: Float = 0f,
         val battCurrentMa: Int = 0,
         val battVoltMv: Int = 0,
@@ -4918,6 +4929,10 @@ done
     private var lastTotalFrames: Long = 0L
     private var lastFrameTimestampMs: Long = 0L
     private var lastCalculatedRenderFps: Int = 0
+    private var lastCpuTotal: Long = 0L
+    private var lastCpuIdle: Long = 0L
+    private val fpsWindow = ArrayDeque<Int>()
+    private val ftHistoryWindow = ArrayDeque<Float>()
 
     suspend fun readFloatingHudTelemetry(displayHz: Int = 60): FloatingHudTelemetry = withContext(Dispatchers.IO) {
         try {
@@ -4993,7 +5008,10 @@ done
                 cur_prof=${'$'}(getprop lynx.mode 2>/dev/null)
                 [ -z "${'$'}cur_prof" ] && cur_prof=${'$'}(cat /data/adb/lynx/active_profile 2>/dev/null || echo balance)
 
-                echo "${'$'}fps|${'$'}cpumhz|${'$'}gpumhz|${'$'}gpuload|${'$'}btemp|${'$'}bcurr|${'$'}blevel|${'$'}tot_frames|${'$'}bvolt|${'$'}bstat|${'$'}cur_prof"
+                cpuline=${'$'}(head -n1 /proc/stat 2>/dev/null)
+                meminfo=${'$'}(awk '/MemTotal/ {t=${'$'}2} /MemAvailable/ {a=${'$'}2} /SwapTotal/ {st=${'$'}2} /SwapFree/ {sf=${'$'}2} END {print t-a, t, st-sf, st}' /proc/meminfo 2>/dev/null)
+
+                echo "${'$'}fps|${'$'}cpumhz|${'$'}gpumhz|${'$'}gpuload|${'$'}btemp|${'$'}bcurr|${'$'}blevel|${'$'}tot_frames|${'$'}bvolt|${'$'}bstat|${'$'}cur_prof|${'$'}cpuline|${'$'}meminfo"
             """.trimIndent()
 
             val res = Shell.cmd(script).exec()
@@ -5050,14 +5068,88 @@ done
                 ?.takeIf { it in setOf("auto", "balance", "performance", "extreme", "powersave", "dormant") }
                 ?: readCurrentProfileFast()
 
+            // Calculate CPU Load % via /proc/stat delta
+            val rawCpuStat = parts.getOrNull(11)?.trim() ?: ""
+            var calculatedCpuLoad = 0
+            if (rawCpuStat.startsWith("cpu ")) {
+                val tokens = rawCpuStat.split("\\s+".toRegex()).drop(1).mapNotNull { it.toLongOrNull() }
+                if (tokens.size >= 4) {
+                    val idle = tokens[3]
+                    val iowait = tokens.getOrElse(4) { 0L }
+                    val curTotal = tokens.sum()
+                    val curIdle = idle + iowait
+                    if (lastCpuTotal > 0L && curTotal > lastCpuTotal) {
+                        val dTot = curTotal - lastCpuTotal
+                        val dIdle = curIdle - lastCpuIdle
+                        calculatedCpuLoad = (((dTot - dIdle) * 100) / dTot).coerceIn(0, 100).toInt()
+                    }
+                    lastCpuTotal = curTotal
+                    lastCpuIdle = curIdle
+                }
+            }
+
+            // Calculate RAM & ZRAM memory
+            val rawMem = parts.getOrNull(12)?.trim() ?: ""
+            var ramUsedGb = 0f
+            var ramTotalGb = 0f
+            var ramPct = 0
+            var zramUsedGb = 0f
+            if (rawMem.isNotEmpty()) {
+                val memTokens = rawMem.split("\\s+".toRegex()).mapNotNull { it.toLongOrNull() }
+                if (memTokens.size >= 2) {
+                    val usedKb = memTokens[0]
+                    val totalKb = memTokens[1]
+                    if (totalKb > 0L) {
+                        ramUsedGb = Math.round((usedKb / 1048576f) * 10f) / 10f
+                        ramTotalGb = Math.round((totalKb / 1048576f) * 10f) / 10f
+                        ramPct = ((usedKb * 100) / totalKb).coerceIn(0, 100).toInt()
+                    }
+                    if (memTokens.size >= 3) {
+                        val zramKb = memTokens[2]
+                        zramUsedGb = Math.round((zramKb / 1048576f) * 10f) / 10f
+                    }
+                }
+            }
+
+            // Real-time FPS & Frametime Ring Buffer
+            if (calculatedRenderFps > 0) {
+                if (fpsWindow.size >= 60) fpsWindow.removeFirst()
+                fpsWindow.addLast(calculatedRenderFps)
+            }
+            val avgFps = if (fpsWindow.isNotEmpty()) fpsWindow.average().toFloat() else calculatedRenderFps.toFloat()
+            val sortedFps = fpsWindow.sorted()
+            val fps1PercentLow = if (sortedFps.isNotEmpty()) {
+                val idx = (sortedFps.size * 0.05).toInt().coerceIn(0, sortedFps.size - 1)
+                sortedFps[idx].toFloat()
+            } else calculatedRenderFps.toFloat()
+
+            val liveFt = if (calculatedRenderFps > 0) 1000f / calculatedRenderFps else 0f
+            if (liveFt > 0f) {
+                if (ftHistoryWindow.size >= 40) ftHistoryWindow.removeFirst()
+                ftHistoryWindow.addLast(liveFt)
+            }
+            val avgFt = if (ftHistoryWindow.isNotEmpty()) ftHistoryWindow.average().toFloat() else liveFt
+            val ftJitter = if (ftHistoryWindow.size > 1) Math.abs(liveFt - avgFt) else 0f
+
             FloatingHudTelemetry(
                 renderFps = calculatedRenderFps,
                 refreshRateHz = if (displayHz > 0) displayHz else 60,
                 fps = calculatedRenderFps,
+                avgFps = Math.round(avgFps * 10f) / 10f,
+                fps1PercentLow = Math.round(fps1PercentLow * 10f) / 10f,
+                frametimeMs = Math.round(liveFt * 10f) / 10f,
+                avgFrametimeMs = Math.round(avgFt * 10f) / 10f,
+                frametimeJitterMs = Math.round(ftJitter * 10f) / 10f,
+                frametimeHistory = ftHistoryWindow.toList(),
                 cpuFreqMhz = cpumhz,
-                cpuLoadPct = 0,
+                cpuLoadPct = calculatedCpuLoad,
+                cpuCoresSummary = if (cpumhz > 0) "${String.format(java.util.Locale.US, "%.2f", cpumhz / 1000f)} GHz" else "--",
                 gpuFreqMhz = gpumhz,
                 gpuLoadPct = gpuload,
+                ramUsedGb = ramUsedGb,
+                ramTotalGb = ramTotalGb,
+                ramPct = ramPct,
+                zramUsedGb = zramUsedGb,
                 battTempC = btemp,
                 battCurrentMa = bcurr,
                 battVoltMv = voltMv,

@@ -1154,6 +1154,22 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun setHudStyle(context: android.content.Context, style: Int) {
+        val clamped = style.coerceIn(1, 6)
+        context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putInt("hud_style", clamped)
+            .apply()
+        _uiState.update { it.copy(hudStyle = clamped) }
+        val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
+            action = com.noir.lynx.service.LynxFloatingHudService.ACTION_SET_STYLE
+            putExtra(com.noir.lynx.service.LynxFloatingHudService.EXTRA_STYLE, clamped)
+        }
+        if (com.noir.lynx.service.LynxFloatingHudService.isRunning) {
+            context.startService(intent)
+        }
+    }
+
     fun toggleAppAutomation(context: android.content.Context, enable: Boolean) {
         viewModelScope.launch {
             if (enable) {

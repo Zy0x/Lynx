@@ -386,6 +386,7 @@ data class LynxUiState(
     // Per-App Profile Rules & Floating Game HUD
     val appProfileRules: List<AppProfileRule> = emptyList(),
     val isGameHudActive: Boolean = false,
+    val hudStyle: Int = 1,
     val isAppAutomationActive: Boolean = false,
     // FKM Feature Parity Subsystems
     val voltageInfo: VoltageTableInfo = VoltageTableInfo(),
