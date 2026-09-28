@@ -50,15 +50,15 @@ class LynxAppAutomationService : Service() {
                     Log.i(TAG, "Screen OFF detected: Pausing app automation polling and applying powersave for deep sleep")
                     isScreenOn = false
                     serviceScope.launch(Dispatchers.IO) {
-                        LynxRepository.setProfile("powersave")
+                        LynxRepository.setProfile("powersave", caller = "watcher")
                     }
                 }
                 Intent.ACTION_SCREEN_ON -> {
                     Log.i(TAG, "Screen ON detected: Resuming app automation polling")
                     isScreenOn = true
                     serviceScope.launch(Dispatchers.IO) {
-                        val base = if (baselineProfile == "auto") "balance" else baselineProfile
-                        LynxRepository.setProfile(base)
+                        val base = if (baselineProfile.isBlank() || baselineProfile == "auto" || baselineProfile == "extreme" || baselineProfile == "performance") "balance" else baselineProfile
+                        LynxRepository.setProfile(base, caller = "watcher")
                     }
                 }
             }
@@ -121,7 +121,7 @@ class LynxAppAutomationService : Service() {
             }
             ACTION_UPDATE_BASELINE -> {
                 val newBase = intent?.getStringExtra("baseline") ?: "balance"
-                baselineProfile = if (newBase == "auto") "balance" else newBase
+                baselineProfile = if (newBase.isBlank() || newBase == "auto" || newBase == "extreme" || newBase == "performance") "balance" else newBase
                 if (activeCustomPkg == null) {
                     updateNotification("Standby: Mode [$baselineProfile] aktif")
                 }
@@ -137,7 +137,8 @@ class LynxAppAutomationService : Service() {
 
         serviceScope.launch {
             rulesCache = LynxRepository.readAppProfileRules()
-            baselineProfile = LynxRepository.readCurrentProfile()
+            val current = LynxRepository.readBaselineProfile()
+            baselineProfile = if (current.isBlank() || current == "auto" || current == "extreme" || current == "performance") "balance" else current
             baselineRefreshRate = LynxRepository.readDisplayRefreshRate()
             Log.i(TAG, "Watcher initialized: ${rulesCache.size} rules loaded, baseline profile=[$baselineProfile], baseline refreshRate=[${baselineRefreshRate}Hz]")
 
@@ -268,7 +269,8 @@ class LynxAppAutomationService : Service() {
             if (activeCustomPkg != pkg) {
                 // If entering custom app from neutral state, capture current baseline
                 if (activeCustomPkg == null) {
-                    baselineProfile = LynxRepository.readCurrentProfile()
+                    val current = LynxRepository.readBaselineProfile()
+                    baselineProfile = if (current.isBlank() || current == "auto" || current == "extreme" || current == "performance") "balance" else current
                     baselineRefreshRate = LynxRepository.readDisplayRefreshRate()
                 }
                 activeCustomPkg = pkg
@@ -303,7 +305,7 @@ class LynxAppAutomationService : Service() {
 
                 // 3. APPLY PERFORMANCE PROFILE ASYNCHRONOUSLY (Non-blocking so foreground loop remains blistering fast)
                 serviceScope.launch(Dispatchers.IO) {
-                    LynxRepository.setProfile(target)
+                    LynxRepository.setProfile(target, caller = "watcher")
                 }
 
                 val hzInfo = matchingRule.targetRefreshRate?.let { " • ${it}Hz" } ?: ""
@@ -318,11 +320,8 @@ class LynxAppAutomationService : Service() {
                     val cooldownMs = if (isHome) 3000L else 4000L // 3s for home screen exit, 4s for app switcher/temporary overlay
                     cooldownJob = serviceScope.launch {
                         delay(cooldownMs)
-                        val diskBase = LynxRepository.readCurrentProfile()
-                        if (diskBase.isNotBlank() && diskBase in listOf("auto", "balance", "performance", "extreme", "powersave")) {
-                            baselineProfile = if (diskBase == "auto") "balance" else diskBase
-                        }
-                        Log.i(TAG, "Cooldown expired (${cooldownMs}ms), restoring baseline profile [$baselineProfile]")
+                        val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "auto" || baselineProfile == "extreme" || baselineProfile == "performance") "balance" else baselineProfile
+                        Log.i(TAG, "Cooldown expired (${cooldownMs}ms), restoring baseline profile [$restoreTarget]")
 
                         // Stop Floating HUD smoothly
                         if (autoStartedHud) {
@@ -342,10 +341,10 @@ class LynxAppAutomationService : Service() {
                         }
 
                         // Restore baseline performance profile
-                        LynxRepository.setProfile(baselineProfile)
+                        LynxRepository.setProfile(restoreTarget, caller = "watcher")
 
                         activeCustomPkg = null
-                        updateNotification("Standby: Mode [$baselineProfile] aktif")
+                        updateNotification("Standby: Mode [$restoreTarget] aktif")
                     }
                 }
             }

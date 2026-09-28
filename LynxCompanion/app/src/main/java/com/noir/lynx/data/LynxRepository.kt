@@ -268,14 +268,17 @@ object LynxRepository {
 
     /**
      * Set the active performance profile.
+     * @param caller "user" for manual selection, "watcher" or "automation" for transient per-app boosts.
      */
-    suspend fun setProfile(profile: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun setProfile(profile: String, caller: String = "user"): Boolean = withContext(Dispatchers.IO) {
         val allowedProfiles = setOf("auto", "balance", "performance", "extreme", "powersave", "dormant")
         if (profile !in allowedProfiles) return@withContext false
 
-        // Background write to config.json without blocking profile execution
-        launch {
-            writeStateKey("active_profile", profile, "str")
+        // Background write to config.json only if manually invoked by user (never for transient app triggers)
+        if (caller != "watcher" && caller != "automation") {
+            launch {
+                writeStateKey("active_profile", profile, "str")
+            }
         }
 
         try {
@@ -284,7 +287,7 @@ object LynxRepository {
                 deployWatcherScripts()
             }
             val res = Shell.cmd(
-                "[ -f /data/adb/modules/Lynx/core/apply_profile.sh ] && sh /data/adb/modules/Lynx/core/apply_profile.sh $profile user || sh /data/adb/lynx/apply_profile.sh $profile user"
+                "[ -f /data/adb/modules/Lynx/core/apply_profile.sh ] && sh /data/adb/modules/Lynx/core/apply_profile.sh $profile $caller || sh /data/adb/lynx/apply_profile.sh $profile $caller"
             ).exec()
 
             if (isModuleInstalled()) {
@@ -3791,9 +3794,14 @@ object LynxRepository {
             val applyScript = """
 #!/system/bin/sh
 PROFILE="${'$'}{1:-balance}"
+CALLER="${'$'}{2:-user}"
+TARGET_APP="${'$'}{3:-}"
 mkdir -p /data/adb/lynx 2>/dev/null
 echo "${'$'}PROFILE" > /data/adb/lynx/active_profile 2>/dev/null
 setprop lynx.mode "${'$'}PROFILE" 2>/dev/null
+if [ "${'$'}CALLER" != "watcher" ] && [ "${'$'}CALLER" != "automation" ] && [ "${'$'}PROFILE" != "auto" ]; then
+    echo "${'$'}PROFILE" > /data/adb/lynx/baseline_profile 2>/dev/null
+fi
 
 # Zero-Fork Fast Path: only chmod if direct write failed
 write_node() {
@@ -4869,7 +4877,7 @@ AUTO_STARTED_HUD=0
 if [ -f "${'$'}WATCHER_DIR/baseline_profile" ]; then
     BASELINE_PROFILE=${'$'}(cat "${'$'}WATCHER_DIR/baseline_profile" 2>/dev/null | tr -d '[:space:]')
 fi
-[ -z "${'$'}BASELINE_PROFILE" ] && BASELINE_PROFILE="balance"
+[ -z "${'$'}BASELINE_PROFILE" ] || [ "${'$'}BASELINE_PROFILE" = "extreme" ] || [ "${'$'}BASELINE_PROFILE" = "performance" ] || [ "${'$'}BASELINE_PROFILE" = "auto" ] && BASELINE_PROFILE="balance"
 
 is_screen_on() {
     dumpsys power 2>/dev/null | grep -q "mHoldingDisplaySuspendBlocker=true"
@@ -4889,7 +4897,7 @@ while true; do
         is_enabled=${'$'}(cat "${'$'}ENABLED_FILE" 2>/dev/null | tr -d '[:space:]')
         if [ "${'$'}is_enabled" != "1" ]; then
             if [ -n "${'$'}CURRENT_ACTIVE_APP" ]; then
-                sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" >/dev/null 2>&1
+                sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" watcher "" >/dev/null 2>&1
                 settings put system min_refresh_rate "${'$'}BASELINE_HZ" 2>/dev/null
                 settings put system peak_refresh_rate "${'$'}BASELINE_HZ" 2>/dev/null
                 if [ "${'$'}AUTO_STARTED_HUD" = "1" ]; then
@@ -4903,7 +4911,7 @@ while true; do
 
     if ! is_screen_on; then
         if [ "${'$'}CURRENT_ACTIVE_APP" != "SCREEN_OFF" ]; then
-            sh "${'$'}APPLY_SCRIPT" "powersave" >/dev/null 2>&1
+            sh "${'$'}APPLY_SCRIPT" "powersave" watcher "" >/dev/null 2>&1
             CURRENT_ACTIVE_APP="SCREEN_OFF"
             COOLDOWN_REMAINING=0
         fi
@@ -4913,7 +4921,7 @@ while true; do
 
     if [ "${'$'}CURRENT_ACTIVE_APP" = "SCREEN_OFF" ]; then
         CURRENT_ACTIVE_APP=""
-        sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" >/dev/null 2>&1
+        sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" watcher "" >/dev/null 2>&1
     fi
 
     top_app=${'$'}(get_top_app)
@@ -4977,14 +4985,16 @@ while true; do
 
         if [ "${'$'}CURRENT_ACTIVE_APP" != "${'$'}top_app" ]; then
             if [ -z "${'$'}CURRENT_ACTIVE_APP" ]; then
-                cur_prof=${'$'}(cat "${'$'}WATCHER_DIR/active_profile" 2>/dev/null | tr -d '[:space:]')
-                [ -n "${'$'}cur_prof" ] && BASELINE_PROFILE="${'$'}cur_prof"
+                cur_prof=${'$'}(cat "${'$'}WATCHER_DIR/baseline_profile" 2>/dev/null | tr -d '[:space:]')
+                [ -z "${'$'}cur_prof" ] && cur_prof=${'$'}(cat "${'$'}WATCHER_DIR/active_profile" 2>/dev/null | tr -d '[:space:]')
+                [ -n "${'$'}cur_prof" ] && [ "${'$'}cur_prof" != "extreme" ] && [ "${'$'}cur_prof" != "performance" ] && [ "${'$'}cur_prof" != "auto" ] && BASELINE_PROFILE="${'$'}cur_prof"
+                [ -z "${'$'}BASELINE_PROFILE" ] || [ "${'$'}BASELINE_PROFILE" = "auto" ] && BASELINE_PROFILE="balance"
                 cur_min_hz=${'$'}(settings get system min_refresh_rate 2>/dev/null | tr -d '[:space:]')
                 [ -n "${'$'}cur_min_hz" ] && [ "${'$'}cur_min_hz" != "null" ] && BASELINE_HZ="${'$'}cur_min_hz"
             fi
 
             CURRENT_ACTIVE_APP="${'$'}top_app"
-            sh "${'$'}APPLY_SCRIPT" "${'$'}target_profile" >/dev/null 2>&1
+            sh "${'$'}APPLY_SCRIPT" "${'$'}target_profile" watcher "${'$'}top_app" >/dev/null 2>&1
 
             gpid=${'$'}(pidof "${'$'}top_app" 2>/dev/null | awk '{print ${'$'}1}')
             if [ -n "${'$'}gpid" ]; then
@@ -5017,9 +5027,10 @@ while true; do
             else
                 if [ -f "${'$'}WATCHER_DIR/baseline_profile" ]; then
                     dyn_base=${'$'}(cat "${'$'}WATCHER_DIR/baseline_profile" 2>/dev/null | tr -d '[:space:]')
-                    [ -n "${'$'}dyn_base" ] && BASELINE_PROFILE="${'$'}dyn_base"
+                    [ -n "${'$'}dyn_base" ] && [ "${'$'}dyn_base" != "extreme" ] && [ "${'$'}dyn_base" != "performance" ] && [ "${'$'}dyn_base" != "auto" ] && BASELINE_PROFILE="${'$'}dyn_base"
                 fi
-                sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" >/dev/null 2>&1
+                [ -z "${'$'}BASELINE_PROFILE" ] || [ "${'$'}BASELINE_PROFILE" = "auto" ] && BASELINE_PROFILE="balance"
+                sh "${'$'}APPLY_SCRIPT" "${'$'}BASELINE_PROFILE" watcher "" >/dev/null 2>&1
                 [ -e /sys/module/ged/parameters/gx_top_app_pid ] && echo "0" > /sys/module/ged/parameters/gx_top_app_pid 2>/dev/null
                 settings put system min_refresh_rate "${'$'}BASELINE_HZ" 2>/dev/null
                 settings put system peak_refresh_rate "${'$'}BASELINE_HZ" 2>/dev/null
@@ -5617,6 +5628,23 @@ done
     }
 
     fun readCurrentProfile(): String = readCurrentProfileFast()
+
+    fun readBaselineProfile(): String {
+        return try {
+            val direct = Shell.cmd("cat /data/adb/lynx/baseline_profile 2>/dev/null").exec()
+            val directProf = direct.out.firstOrNull()?.trim()?.lowercase() ?: ""
+            if (directProf in listOf("balance", "powersave", "dormant")) {
+                return directProf
+            }
+            val r = Shell.cmd("cat /data/adb/modules/Lynx/config.json 2>/dev/null || cat $LOCAL_CONFIG_PATH 2>/dev/null || cat $LOCAL_CONFIG_PATH_DEBUG 2>/dev/null").exec()
+            val text = r.out.joinToString("\n")
+            if (text.contains("\"active_profile\"")) {
+                val match = Regex("\"active_profile\"\\s*:\\s*\"([^\"]+)\"").find(text)
+                val p = match?.groupValues?.get(1)?.lowercase() ?: "balance"
+                if (p in listOf("balance", "powersave", "dormant")) p else "balance"
+            } else "balance"
+        } catch (e: Exception) { "balance" }
+    }
 
     private fun readCurrentProfileFast(): String {
         return try {

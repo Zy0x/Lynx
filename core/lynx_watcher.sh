@@ -41,7 +41,7 @@ AUTO_STARTED_HUD=0
 if [ -f "$WATCHER_DIR/baseline_profile" ]; then
     BASELINE_PROFILE=$(cat "$WATCHER_DIR/baseline_profile" 2>/dev/null | tr -d '[:space:]')
 fi
-[ -z "$BASELINE_PROFILE" ] && BASELINE_PROFILE="balance"
+[ -z "$BASELINE_PROFILE" ] || [ "$BASELINE_PROFILE" = "extreme" ] || [ "$BASELINE_PROFILE" = "performance" ] || [ "$BASELINE_PROFILE" = "auto" ] && BASELINE_PROFILE="balance"
 
 # Helper: check screen power state
 is_screen_on() {
@@ -66,7 +66,7 @@ while true; do
         if [ "$is_enabled" != "1" ]; then
             # Disabled by user: restore baseline profile and exit daemon
             if [ -n "$CURRENT_ACTIVE_APP" ] && [ "$CURRENT_ACTIVE_APP" != "SCREEN_OFF" ]; then
-                sh "$APPLY_SCRIPT" "$BASELINE_PROFILE" >/dev/null 2>&1
+                sh "$APPLY_SCRIPT" "$BASELINE_PROFILE" watcher "" >/dev/null 2>&1
                 settings put system min_refresh_rate "$BASELINE_HZ" 2>/dev/null
                 settings put system peak_refresh_rate "$BASELINE_HZ" 2>/dev/null
                 if [ "$AUTO_STARTED_HUD" = "1" ]; then
@@ -81,7 +81,7 @@ while true; do
     # 2. Deep Sleep Shield: switch to powersave and suspend polling when screen is OFF
     if ! is_screen_on; then
         if [ "$CURRENT_ACTIVE_APP" != "SCREEN_OFF" ]; then
-            sh "$APPLY_SCRIPT" "powersave" >/dev/null 2>&1
+            sh "$APPLY_SCRIPT" "powersave" watcher "" >/dev/null 2>&1
             CURRENT_ACTIVE_APP="SCREEN_OFF"
             COOLDOWN_REMAINING=0
         fi
@@ -92,7 +92,7 @@ while true; do
     # Resuming from Screen OFF
     if [ "$CURRENT_ACTIVE_APP" = "SCREEN_OFF" ]; then
         CURRENT_ACTIVE_APP=""
-        sh "$APPLY_SCRIPT" "$BASELINE_PROFILE" >/dev/null 2>&1
+        sh "$APPLY_SCRIPT" "$BASELINE_PROFILE" watcher "" >/dev/null 2>&1
     fi
 
     # 3. Detect top app
@@ -162,14 +162,16 @@ while true; do
             # New target app opened!
             if [ -z "$CURRENT_ACTIVE_APP" ]; then
                 # Capture baseline before boosting
-                cur_prof=$(cat "$WATCHER_DIR/active_profile" 2>/dev/null | tr -d '[:space:]')
-                [ -n "$cur_prof" ] && BASELINE_PROFILE="$cur_prof"
+                cur_prof=$(cat "$WATCHER_DIR/baseline_profile" 2>/dev/null | tr -d '[:space:]')
+                [ -z "$cur_prof" ] && cur_prof=$(cat "$WATCHER_DIR/active_profile" 2>/dev/null | tr -d '[:space:]')
+                [ -n "$cur_prof" ] && [ "$cur_prof" != "extreme" ] && [ "$cur_prof" != "performance" ] && [ "$cur_prof" != "auto" ] && BASELINE_PROFILE="$cur_prof"
+                [ -z "$BASELINE_PROFILE" ] || [ "$BASELINE_PROFILE" = "auto" ] && BASELINE_PROFILE="balance"
                 cur_min_hz=$(settings get system min_refresh_rate 2>/dev/null | tr -d '[:space:]')
                 [ -n "$cur_min_hz" ] && [ "$cur_min_hz" != "null" ] && BASELINE_HZ="$cur_min_hz"
             fi
 
             CURRENT_ACTIVE_APP="$top_app"
-            sh "$APPLY_SCRIPT" "$target_profile" >/dev/null 2>&1
+            sh "$APPLY_SCRIPT" "$target_profile" watcher "$top_app" >/dev/null 2>&1
 
             # Apply refresh rate if set
             if [ -n "$target_hz" ] && [ "$target_hz" -gt 0 ] 2>/dev/null; then
@@ -193,8 +195,13 @@ while true; do
                 # Hysteresis buffer: hold profile for a few seconds
                 COOLDOWN_REMAINING=$((COOLDOWN_REMAINING - 1))
             else
+                if [ -f "$WATCHER_DIR/baseline_profile" ]; then
+                    dyn_base=$(cat "$WATCHER_DIR/baseline_profile" 2>/dev/null | tr -d '[:space:]')
+                    [ -n "$dyn_base" ] && [ "$dyn_base" != "extreme" ] && [ "$dyn_base" != "performance" ] && [ "$dyn_base" != "auto" ] && BASELINE_PROFILE="$dyn_base"
+                fi
+                [ -z "$BASELINE_PROFILE" ] || [ "$BASELINE_PROFILE" = "auto" ] && BASELINE_PROFILE="balance"
                 # Cooldown expired: restore baseline profile
-                sh "$APPLY_SCRIPT" "$BASELINE_PROFILE" >/dev/null 2>&1
+                sh "$APPLY_SCRIPT" "$BASELINE_PROFILE" watcher "" >/dev/null 2>&1
                 settings put system min_refresh_rate "$BASELINE_HZ" 2>/dev/null
                 settings put system peak_refresh_rate "$BASELINE_HZ" 2>/dev/null
 

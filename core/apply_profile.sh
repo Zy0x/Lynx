@@ -11,7 +11,8 @@ CALLER="${2:-user}"
 TARGET_APP="${3:-}"
 mkdir -p /data/adb/lynx 2>/dev/null
 echo "$PROFILE" > /data/adb/lynx/active_profile 2>/dev/null
-if [ "$CALLER" != "watcher" ] && [ "$PROFILE" != "auto" ]; then
+setprop lynx.mode "$PROFILE" 2>/dev/null
+if [ "$CALLER" != "watcher" ] && [ "$CALLER" != "automation" ] && [ "$PROFILE" != "auto" ]; then
     echo "$PROFILE" > /data/adb/lynx/baseline_profile 2>/dev/null
 fi
 if [ -z "$TARGET_APP" ]; then
