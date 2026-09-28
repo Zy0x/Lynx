@@ -318,7 +318,28 @@ case "$PROFILE" in
             write_node "4166666" "/sys/module/ged/parameters/target_t_cpu_remained"
             # Disable GPU aging (mengurangi voltase/freq saat panas)
             write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
-            # Route Mali IRQ ke big cores (A78, cores 6-7, mask 0xC0) untuk latency rendah
+            # Route Mali IRQ ke big cores secara dinamis untuk latency rendah
+            big_mask=0
+            max_cap=0
+            for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                [ -d "$c" ] || continue
+                cap=$(cat "$c/cpu_capacity" 2>/dev/null)
+                [ -z "$cap" ] && cap=$(cat "$c/cpufreq/cpuinfo_max_freq" 2>/dev/null)
+                [ -z "$cap" ] && cap=0
+                [ "$cap" -gt "$max_cap" ] && max_cap="$cap"
+            done
+            for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                [ -d "$c" ] || continue
+                id=$(basename "$c" | tr -d 'cpu')
+                cap=$(cat "$c/cpu_capacity" 2>/dev/null)
+                [ -z "$cap" ] && cap=$(cat "$c/cpufreq/cpuinfo_max_freq" 2>/dev/null)
+                [ -z "$cap" ] && cap=0
+                if [ "$cap" -ge "$max_cap" ] && [ "$max_cap" -gt 0 ]; then
+                    big_mask=$(( big_mask | (1 << id) ))
+                fi
+            done
+            [ "$big_mask" -eq 0 ] && big_mask=192
+            gpu_irq_mask=$(printf "%x" "$big_mask")
             for irq_dir in /proc/irq/*/actions; do
                 [ -f "$irq_dir" ] || continue
                 irq_name=$(cat "$irq_dir" 2>/dev/null)
@@ -326,7 +347,7 @@ case "$PROFILE" in
                     *mali*|*gpu*|*g3d*)
                         irq_num=$(echo "$irq_dir" | grep -Eo '/[0-9]+/' | tr -d '/')
                         [ -f "/proc/irq/$irq_num/smp_affinity" ] && \
-                            write_node "c0" "/proc/irq/$irq_num/smp_affinity"
+                            write_node "$gpu_irq_mask" "/proc/irq/$irq_num/smp_affinity"
                         ;;
                 esac
             done
@@ -630,9 +651,31 @@ case "$PROFILE" in
             fi
         fi
 
-        # Route GPU Interrupts to Big Cores
+        # Route GPU Interrupts to Big Cores (Dynamic Topology)
+        if [ -z "$gpu_irq_mask" ]; then
+            big_mask=0; max_cap=0
+            for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                [ -d "$c" ] || continue
+                cap=$(cat "$c/cpu_capacity" 2>/dev/null)
+                [ -z "$cap" ] && cap=$(cat "$c/cpufreq/cpuinfo_max_freq" 2>/dev/null)
+                [ -z "$cap" ] && cap=0
+                [ "$cap" -gt "$max_cap" ] && max_cap="$cap"
+            done
+            for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                [ -d "$c" ] || continue
+                id=$(basename "$c" | tr -d 'cpu')
+                cap=$(cat "$c/cpu_capacity" 2>/dev/null)
+                [ -z "$cap" ] && cap=$(cat "$c/cpufreq/cpuinfo_max_freq" 2>/dev/null)
+                [ -z "$cap" ] && cap=0
+                if [ "$cap" -ge "$max_cap" ] && [ "$max_cap" -gt 0 ]; then
+                    big_mask=$(( big_mask | (1 << id) ))
+                fi
+            done
+            [ "$big_mask" -eq 0 ] && big_mask=192
+            gpu_irq_mask=$(printf "%x" "$big_mask")
+        fi
         for irq in $(grep -iE "mali|ged|kgsl|adreno" /proc/interrupts 2>/dev/null | awk '{print $1}' | tr -d ':'); do
-            write_node "3f" "/proc/irq/$irq/smp_affinity" 2>/dev/null || write_node "f0" "/proc/irq/$irq/smp_affinity" 2>/dev/null
+            write_node "$gpu_irq_mask" "/proc/irq/$irq/smp_affinity" 2>/dev/null
         done
 
         # ── 10. Kernel Game Library Prioritization & Sched Features ─────────
@@ -668,8 +711,8 @@ case "$PROFILE" in
             done
 
             # Ensure CPU capabilities and topology are always readable by Game Engines (Unity/Unreal) and EAS
-            for cpu in 0 1 2 3 4 5 6 7; do
-                path="/sys/devices/system/cpu/cpu${cpu}"
+            for path in /sys/devices/system/cpu/cpu[0-9]*; do
+                [ -d "$path" ] || continue
                 [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
                 [ -e "$path/cpu_capacity" ] && chmod 444 "$path/cpu_capacity" 2>/dev/null
                 [ -e "$path/topology/physical_package_id" ] && chmod 444 "$path/topology/physical_package_id" 2>/dev/null
@@ -692,8 +735,8 @@ case "$PROFILE" in
                 write_node "enabled" "$tz/mode"
                 write_node "85000" "$tz/trip_point_0_temp"
             done
-            for cpu in 0 1 2 3 4 5 6 7; do
-                path="/sys/devices/system/cpu/cpu${cpu}"
+            for path in /sys/devices/system/cpu/cpu[0-9]*; do
+                [ -d "$path" ] || continue
                 [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
                 [ -e "$path/cpu_capacity" ] && chmod 444 "$path/cpu_capacity" 2>/dev/null
                 [ -e "$path/topology/physical_package_id" ] && chmod 444 "$path/topology/physical_package_id" 2>/dev/null
@@ -774,8 +817,8 @@ case "$PROFILE" in
         done
 
         # Core Control: allow power saving core sleeping
-        for cpu in 0 1 2 3 4 5 6 7; do
-            write_node "0 0 0 0" "/sys/devices/system/cpu/cpu${cpu}/core_ctl/not_preferred"
+        for np in /sys/devices/system/cpu/cpu*/core_ctl/not_preferred; do
+            [ -f "$np" ] && write_node "0 0 0 0" "$np"
         done
         for ctl in /sys/devices/system/cpu/cpu*/core_ctl; do
             [ -d "$ctl" ] || continue
@@ -972,8 +1015,8 @@ case "$PROFILE" in
         done
 
         # Restore permissions if Unity trick was previously applied
-        for cpu in 0 1 2 3 4 5 6 7; do
-            path="/sys/devices/system/cpu/cpu${cpu}"
+        for path in /sys/devices/system/cpu/cpu[0-9]*; do
+            [ -d "$path" ] || continue
             [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
             [ -e "$path/cpu_capacity" ] && chmod 444 "$path/cpu_capacity" 2>/dev/null
             [ -e "$path/topology/physical_package_id" ] && chmod 444 "$path/topology/physical_package_id" 2>/dev/null
@@ -1013,8 +1056,8 @@ case "$PROFILE" in
         done
 
         # Core Control
-        for cpu in 0 1 2 3 4 5 6 7; do
-            write_node "0 0 0 0" "/sys/devices/system/cpu/cpu${cpu}/core_ctl/not_preferred"
+        for np in /sys/devices/system/cpu/cpu*/core_ctl/not_preferred; do
+            [ -f "$np" ] && write_node "0 0 0 0" "$np"
         done
         for ctl in /sys/devices/system/cpu/cpu*/core_ctl; do
             [ -d "$ctl" ] || continue
@@ -1269,8 +1312,8 @@ case "$PROFILE" in
         done
 
         # Restore permissions if Unity trick was applied
-        for cpu in 0 1 2 3 4 5 6 7; do
-            path="/sys/devices/system/cpu/cpu${cpu}"
+        for path in /sys/devices/system/cpu/cpu[0-9]*; do
+            [ -d "$path" ] || continue
             [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
             [ -e "$path/cpu_capacity" ] && chmod 444 "$path/cpu_capacity" 2>/dev/null
             [ -e "$path/topology/physical_package_id" ] && chmod 444 "$path/topology/physical_package_id" 2>/dev/null

@@ -3863,15 +3863,36 @@ case "${'$'}PROFILE" in
             write_node "0" "/proc/mali/dvfs_enable"
             # CPU response lebih cepat untuk render thread (240Hz budget)
             write_node "4166666" "/sys/module/ged/parameters/target_t_cpu_remained"
-            # Route Mali IRQ ke big cores (A78 core 6-7, mask 0xC0)
+            # Route Mali/GPU IRQ ke big cores secara dinamis
+            big_mask=0
+            max_cap=0
+            for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                [ -d "${'$'}c" ] || continue
+                cap=${'$'}(cat "${'$'}c/cpu_capacity" 2>/dev/null)
+                [ -z "${'$'}cap" ] && cap=${'$'}(cat "${'$'}c/cpufreq/cpuinfo_max_freq" 2>/dev/null)
+                [ -z "${'$'}cap" ] && cap=0
+                [ "${'$'}cap" -gt "${'$'}max_cap" ] && max_cap="${'$'}cap"
+            done
+            for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                [ -d "${'$'}c" ] || continue
+                id=${'$'}(basename "${'$'}c" | tr -d 'cpu')
+                cap=${'$'}(cat "${'$'}c/cpu_capacity" 2>/dev/null)
+                [ -z "${'$'}cap" ] && cap=${'$'}(cat "${'$'}c/cpufreq/cpuinfo_max_freq" 2>/dev/null)
+                [ -z "${'$'}cap" ] && cap=0
+                if [ "${'$'}cap" -ge "${'$'}max_cap" ] && [ "${'$'}max_cap" -gt 0 ]; then
+                    big_mask=${'$'}(( big_mask | (1 << id) ))
+                fi
+            done
+            [ "${'$'}big_mask" -eq 0 ] && big_mask=192
+            gpu_irq_mask=${'$'}(printf "%x" "${'$'}big_mask")
             for irq_dir in /proc/irq/*/actions; do
                 [ -f "${'$'}irq_dir" ] || continue
                 irq_name=${'$'}(cat "${'$'}irq_dir" 2>/dev/null)
                 case "${'$'}irq_name" in
-                    *mali*|*gpu*|*g3d*)
+                    *mali*|*gpu*|*g3d*|*kgsl*)
                         irq_num=${'$'}(echo "${'$'}irq_dir" | grep -Eo '/[0-9]+/' | tr -d '/')
                         [ -f "/proc/irq/${'$'}irq_num/smp_affinity" ] && \
-                            write_node "c0" "/proc/irq/${'$'}irq_num/smp_affinity"
+                            write_node "${'$'}gpu_irq_mask" "/proc/irq/${'$'}irq_num/smp_affinity"
                         ;;
                 esac
             done
@@ -4116,8 +4137,8 @@ case "${'$'}PROFILE" in
                 write_node "150000" "${'$'}tz/trip_point_0_temp"
             done
 
-            for cpu in 0 1 2 3 4 5 6 7; do
-                path="/sys/devices/system/cpu/cpu${'$'}{cpu}"
+            for path in /sys/devices/system/cpu/cpu[0-9]*; do
+                [ -d "${'$'}path" ] || continue
                 [ -e "${'$'}path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "${'$'}path/cpufreq/cpuinfo_max_freq" 2>/dev/null
                 [ -e "${'$'}path/cpu_capacity" ] && chmod 444 "${'$'}path/cpu_capacity" 2>/dev/null
                 [ -e "${'$'}path/topology/physical_package_id" ] && chmod 444 "${'$'}path/topology/physical_package_id" 2>/dev/null
@@ -4129,8 +4150,8 @@ case "${'$'}PROFILE" in
                 write_node "enabled" "${'$'}tz/mode"
                 write_node "85000" "${'$'}tz/trip_point_0_temp"
             done
-            for cpu in 0 1 2 3 4 5 6 7; do
-                path="/sys/devices/system/cpu/cpu${'$'}{cpu}"
+            for path in /sys/devices/system/cpu/cpu[0-9]*; do
+                [ -d "${'$'}path" ] || continue
                 [ -e "${'$'}path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "${'$'}path/cpufreq/cpuinfo_max_freq" 2>/dev/null
                 [ -e "${'$'}path/cpu_capacity" ] && chmod 444 "${'$'}path/cpu_capacity" 2>/dev/null
                 [ -e "${'$'}path/topology/physical_package_id" ] && chmod 444 "${'$'}path/topology/physical_package_id" 2>/dev/null
@@ -4219,8 +4240,8 @@ case "${'$'}PROFILE" in
             fi
         done
 
-        for cpu in 0 1 2 3 4 5 6 7; do
-            write_node "0 0 0 0" "/sys/devices/system/cpu/cpu${'$'}{cpu}/core_ctl/not_preferred"
+        for np in /sys/devices/system/cpu/cpu*/core_ctl/not_preferred; do
+            [ -f "${'$'}np" ] && write_node "0 0 0 0" "${'$'}np"
         done
 
         write_node "Y" "/sys/module/workqueue/parameters/power_efficient"
@@ -4382,8 +4403,8 @@ case "${'$'}PROFILE" in
             [ -n "${'$'}max_freq" ] && write_node "${'$'}max_freq" "${'$'}p/scaling_max_freq"
         done
 
-        for cpu in 0 1 2 3 4 5 6 7; do
-            write_node "0 0 0 0" "/sys/devices/system/cpu/cpu${'$'}{cpu}/core_ctl/not_preferred"
+        for np in /sys/devices/system/cpu/cpu*/core_ctl/not_preferred; do
+            [ -f "${'$'}np" ] && write_node "0 0 0 0" "${'$'}np"
         done
 
         write_node "Y" "/sys/module/workqueue/parameters/power_efficient"

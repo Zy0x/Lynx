@@ -53,9 +53,9 @@ main_cpu() {
     write_node "0" "/dev/cpuset/cpu_exclusive"
 
     # 5. Core Control Jitter Prevention (Universal node loop)
-    for c in 0 1 2 3 4 5 6 7; do
-        if [ -d "/sys/devices/system/cpu/cpu${c}/core_ctl" ]; then
-            write_node "500" "/sys/devices/system/cpu/cpu${c}/core_ctl/offline_delay_ms"
+    for ctl in /sys/devices/system/cpu/cpu*/core_ctl; do
+        if [ -d "$ctl" ]; then
+            write_node "500" "$ctl/offline_delay_ms"
         fi
     done
 

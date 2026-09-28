@@ -19,8 +19,8 @@ help_unity() {
 
 main_unity() {
     log_msg "Ensuring CPU topology and capabilities are properly accessible for game engines..."
-    for cpu in 0 1 2 3 4 5 6 7; do
-        path="/sys/devices/system/cpu/cpu${cpu}"
+    for path in /sys/devices/system/cpu/cpu[0-9]*; do
+        [ -d "$path" ] || continue
         chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
         chmod 444 "$path/cpu_capacity" 2>/dev/null
         chmod 444 "$path/topology/physical_package_id" 2>/dev/null

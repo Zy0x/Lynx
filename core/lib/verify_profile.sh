@@ -675,9 +675,10 @@ for p in /sys/devices/system/cpu/cpufreq/policy*; do
 done
 
 # CPU Cores Online
-for c in 0 1 2 3 4 5 6 7; do
-    [ -d "/sys/devices/system/cpu/cpu$c" ] || continue
-    audit_tweak "CPU" "Core $c Online" "/sys/devices/system/cpu/cpu$c/online" "1" "bool"
+for c_dir in /sys/devices/system/cpu/cpu[0-9]*; do
+    [ -d "$c_dir" ] || continue
+    c=$(basename "$c_dir" | sed 's/cpu//')
+    [ -f "$c_dir/online" ] && audit_tweak "CPU" "Core $c Online" "$c_dir/online" "1" "bool"
 done
 
 # Workqueue power efficient
