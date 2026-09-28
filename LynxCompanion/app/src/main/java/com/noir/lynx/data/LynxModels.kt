@@ -386,7 +386,9 @@ data class LynxUiState(
     // Per-App Profile Rules & Floating Game HUD
     val appProfileRules: List<AppProfileRule> = emptyList(),
     val isGameHudActive: Boolean = false,
+    val hudMode: Int = 0, // 0 = Edge Drawer (Infinix/ROG Game Space), 1 = Classic Floating Window
     val hudStyle: Int = 1,
+    val hudPinMiniFps: Boolean = false,
     val isAppAutomationActive: Boolean = false,
     // FKM Feature Parity Subsystems
     val voltageInfo: VoltageTableInfo = VoltageTableInfo(),

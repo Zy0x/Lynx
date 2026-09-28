@@ -18,6 +18,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -35,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.input.pointer.pointerInput
@@ -102,7 +104,14 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         const val ACTION_STOP = "com.noir.lynx.service.STOP_HUD"
         const val ACTION_SET_STYLE = "com.noir.lynx.service.SET_STYLE"
         const val EXTRA_STYLE = "extra_hud_style"
+        const val ACTION_SET_MODE = "com.noir.lynx.service.SET_MODE"
+        const val EXTRA_MODE = "extra_hud_mode"
+        const val ACTION_SET_PIN_FPS = "com.noir.lynx.service.SET_PIN_FPS"
+        const val EXTRA_PIN_FPS = "extra_pin_fps"
+
         val activeStyleFlow = kotlinx.coroutines.flow.MutableStateFlow(1)
+        val activeModeFlow = kotlinx.coroutines.flow.MutableStateFlow(0) // 0 = Edge Drawer, 1 = Classic Floating
+        val pinMiniFpsFlow = kotlinx.coroutines.flow.MutableStateFlow(false)
         private const val NOTIF_CHANNEL_ID = "lynx_game_hud_channel"
         private const val NOTIF_ID = 8801
     }
@@ -116,8 +125,13 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
 
-        val savedStyle = getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).getInt("hud_style", 1)
+        val prefs = getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
+        val savedStyle = prefs.getInt("hud_style", 1)
         activeStyleFlow.value = savedStyle.coerceIn(1, 6)
+        val savedMode = prefs.getInt("hud_mode", 0)
+        activeModeFlow.value = savedMode.coerceIn(0, 1)
+        val savedPin = prefs.getBoolean("pin_mini_fps", false)
+        pinMiniFpsFlow.value = savedPin
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
@@ -135,6 +149,16 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             val newStyle = intent.getIntExtra(EXTRA_STYLE, activeStyleFlow.value).coerceIn(1, 6)
             activeStyleFlow.value = newStyle
             getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_style", newStyle).apply()
+        }
+        if (intent?.action == ACTION_SET_MODE || intent?.hasExtra(EXTRA_MODE) == true) {
+            val newMode = intent.getIntExtra(EXTRA_MODE, activeModeFlow.value).coerceIn(0, 1)
+            activeModeFlow.value = newMode
+            getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_mode", newMode).apply()
+        }
+        if (intent?.action == ACTION_SET_PIN_FPS || intent?.hasExtra(EXTRA_PIN_FPS) == true) {
+            val newPin = intent.getBooleanExtra(EXTRA_PIN_FPS, pinMiniFpsFlow.value)
+            pinMiniFpsFlow.value = newPin
+            getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putBoolean("pin_mini_fps", newPin).apply()
         }
         return START_STICKY
     }
@@ -163,6 +187,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
 
     @SuppressLint("ClickableViewAccessibility")
     private fun createFloatingHud() {
+        val prefs = getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
+        val initialMode = activeModeFlow.value
+        val initialY = prefs.getInt("hud_y", 280)
+
         val layoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -171,14 +199,15 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 80
-            y = 200
+            x = if (initialMode == 0) 0 else 80
+            y = initialY
         }
 
         val telemetryFlow = kotlinx.coroutines.flow.MutableStateFlow(LynxRepository.FloatingHudTelemetry())
         val isHudBenchmarkingFlow = kotlinx.coroutines.flow.MutableStateFlow(false)
         val hudBenchmarkCountdownFlow = kotlinx.coroutines.flow.MutableStateFlow(60)
         val hudBenchmarkSummaryFlow = kotlinx.coroutines.flow.MutableStateFlow<com.noir.lynx.data.LynxBenchmarkResult?>(null)
+        val currentDisplayHzFlow = kotlinx.coroutines.flow.MutableStateFlow(getDisplayRefreshRate())
 
         // Start Telemetry Query Loop (500ms for ultra-smooth live HUD)
         serviceScope.launch {
@@ -187,6 +216,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             }
             while (isActive) {
                 val displayHz = getDisplayRefreshRate()
+                currentDisplayHzFlow.value = displayHz
                 val tel = withContext(Dispatchers.IO) {
                     LynxRepository.readFloatingHudTelemetry(displayHz)
                 }
@@ -204,26 +234,77 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 val hudBenchmarkCountdown by hudBenchmarkCountdownFlow.collectAsState()
                 val hudBenchmarkSummary by hudBenchmarkSummaryFlow.collectAsState()
                 val activeStyle by activeStyleFlow.collectAsState()
+                val activeMode by activeModeFlow.collectAsState()
+                val pinMiniFps by pinMiniFpsFlow.collectAsState()
+                val currentDisplayHz by currentDisplayHzFlow.collectAsState()
                 var isExpanded by remember { mutableStateOf(false) }
 
                 FloatingHudContent(
                     telemetry = tel,
+                    hudMode = activeMode,
                     activeStyle = activeStyle,
+                    pinMiniFps = pinMiniFps,
+                    currentRefreshRate = currentDisplayHz,
                     isExpanded = isExpanded,
                     isHudBenchmarking = isHudBenchmarking,
                     hudBenchmarkCountdown = hudBenchmarkCountdown,
                     hudBenchmarkSummary = hudBenchmarkSummary,
                     onToggleExpand = { isExpanded = !isExpanded },
+                    onSelectMode = { newMode ->
+                        val clamped = newMode.coerceIn(0, 1)
+                        activeModeFlow.value = clamped
+                        getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_mode", clamped).apply()
+                        if (clamped == 0) {
+                            layoutParams.x = 0
+                        } else {
+                            layoutParams.x = 80
+                            layoutParams.y = 200
+                        }
+                        try {
+                            windowManager.updateViewLayout(this@apply, layoutParams)
+                        } catch (_: Exception) {}
+                    },
                     onSelectStyle = { newStyle ->
                         val clamped = newStyle.coerceIn(1, 6)
                         activeStyleFlow.value = clamped
                         getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_style", clamped).apply()
+                    },
+                    onTogglePinMiniFps = {
+                        val newPin = !pinMiniFpsFlow.value
+                        pinMiniFpsFlow.value = newPin
+                        getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putBoolean("pin_mini_fps", newPin).apply()
                     },
                     onClose = { cleanUpAndStop() },
                     onProfileSelect = { profile ->
                         telemetryFlow.value = tel.copy(activeProfile = profile)
                         serviceScope.launch {
                             LynxRepository.setProfile(profile)
+                        }
+                    },
+                    onBoostRam = {
+                        serviceScope.launch {
+                            withContext(Dispatchers.IO) {
+                                LynxRepository.dropCaches()
+                            }
+                        }
+                    },
+                    onCycleRefreshRate = {
+                        serviceScope.launch {
+                            val supported = withContext(Dispatchers.IO) {
+                                LynxRepository.readSupportedRefreshRates()
+                            }.ifEmpty { listOf(60, 90, 120) }
+                            val cur = currentDisplayHzFlow.value
+                            val next = when {
+                                supported.contains(cur) -> {
+                                    val idx = supported.indexOf(cur)
+                                    supported[(idx + 1) % supported.size]
+                                }
+                                else -> 60
+                            }
+                            withContext(Dispatchers.IO) {
+                                LynxRepository.setDisplayRefreshRate(next)
+                            }
+                            currentDisplayHzFlow.value = next
                         }
                     },
                     onStartHudBenchmark = {
@@ -246,8 +327,22 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                         }
                     },
                     onDrag = { dx, dy ->
-                        layoutParams.x = (layoutParams.x + dx).toInt()
-                        layoutParams.y = (layoutParams.y + dy).toInt()
+                        if (activeMode == 0) {
+                            layoutParams.x = 0
+                            layoutParams.y = (layoutParams.y + dy).toInt().coerceIn(60, 1800)
+                            getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_y", layoutParams.y).apply()
+                        } else {
+                            layoutParams.x = (layoutParams.x + dx).toInt()
+                            layoutParams.y = (layoutParams.y + dy).toInt()
+                        }
+                        try {
+                            windowManager.updateViewLayout(this@apply, layoutParams)
+                        } catch (_: Exception) {}
+                    },
+                    onDragVertical = { dy ->
+                        layoutParams.x = 0
+                        layoutParams.y = (layoutParams.y + dy).toInt().coerceIn(60, 1800)
+                        getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_y", layoutParams.y).apply()
                         try {
                             windowManager.updateViewLayout(this@apply, layoutParams)
                         } catch (_: Exception) {}
@@ -340,111 +435,836 @@ private val NeonRed = Color(0xFFFF5252)
 private val TextSlate = Color(0xFFCFD8DC)
 private val TextMuted = Color(0x99FFFFFF)
 
-@Composable
-fun FloatingHudContent(
-    telemetry: LynxRepository.FloatingHudTelemetry,
-    activeStyle: Int = 1,
-    isExpanded: Boolean,
-    isHudBenchmarking: Boolean = false,
-    hudBenchmarkCountdown: Int = 60,
-    hudBenchmarkSummary: com.noir.lynx.data.LynxBenchmarkResult? = null,
-    onToggleExpand: () -> Unit,
-    onSelectStyle: (Int) -> Unit,
-    onClose: () -> Unit,
-    onProfileSelect: (String) -> Unit,
-    onStartHudBenchmark: () -> Unit = {},
-    onDrag: (Float, Float) -> Unit,
-) {
-    var showStylePicker by remember { mutableStateOf(false) }
+// ────────────────────────────────────────────────────────────
+//  MODE 0: LYNX GAME EDGE DRAWER (INFINIX / ROG GAME SPACE STYLE)
+// ────────────────────────────────────────────────────────────
 
-    Column(modifier = Modifier.wrapContentSize().padding(4.dp)) {
-        // Floating Style Switcher Quick Picker Bar
-        AnimatedVisibility(visible = showStylePicker) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgHud,
-                border = BorderStroke(1.dp, BorderHud),
-                modifier = Modifier.padding(bottom = 4.dp)
+@Composable
+fun HudEdgeDrawer(
+    telemetry: LynxRepository.FloatingHudTelemetry,
+    activeStyle: Int,
+    pinMiniFps: Boolean,
+    currentRefreshRate: Int,
+    isHudBenchmarking: Boolean,
+    hudBenchmarkCountdown: Int,
+    hudBenchmarkSummary: com.noir.lynx.data.LynxBenchmarkResult?,
+    onSelectMode: (Int) -> Unit,
+    onSelectStyle: (Int) -> Unit,
+    onTogglePinMiniFps: () -> Unit,
+    onProfileSelect: (String) -> Unit,
+    onStartHudBenchmark: () -> Unit,
+    onBoostRam: () -> Unit,
+    onCycleRefreshRate: () -> Unit,
+    onClose: () -> Unit,
+    onDragVertical: (Float) -> Unit,
+) {
+    var isDrawerOpen by remember { mutableStateOf(false) }
+    var showStylePicker by remember { mutableStateOf(false) }
+    var isBoosting by remember { mutableStateOf(false) }
+    var boostFeedback by remember { mutableStateOf<String?>(null) }
+    var lastTouchTime by remember { mutableStateOf(System.currentTimeMillis()) }
+
+    // Auto-collapse after 5 seconds of inactivity when drawer is open
+    LaunchedEffect(isDrawerOpen, lastTouchTime) {
+        if (isDrawerOpen) {
+            delay(5000L)
+            isDrawerOpen = false
+            showStylePicker = false
+        }
+    }
+
+    if (!isDrawerOpen) {
+        // ── STATE 1: COLLAPSED EDGE HANDLE (Non-intrusive) ──
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .wrapContentSize()
+                .pointerInput(Unit) {
+                    while (true) {
+                        awaitPointerEventScope {
+                            val down = awaitPointerEvent().changes.firstOrNull { it.pressed } ?: return@awaitPointerEventScope
+                            var isDragging = false
+                            var lastY = down.position.y
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) {
+                                    if (!isDragging) {
+                                        // Tap triggered!
+                                        isDrawerOpen = true
+                                        lastTouchTime = System.currentTimeMillis()
+                                    }
+                                    break
+                                }
+                                val dx = change.position.x - down.position.x
+                                val dy = change.position.y - down.position.y
+                                if (kotlin.math.abs(dx) > 8f || kotlin.math.abs(dy) > 8f) {
+                                    isDragging = true
+                                    change.consume()
+                                    val deltaY = change.position.y - lastY
+                                    lastY = change.position.y
+                                    onDragVertical(deltaY)
+                                    if (dx > 14f) {
+                                        isDrawerOpen = true
+                                        lastTouchTime = System.currentTimeMillis()
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+        ) {
+            // Edge Tab Handle (Docked to bezel)
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp))
+                    .background(Color(0xD90A0E14))
+                    .border(
+                        BorderStroke(1.dp, NeonCyan.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
+                    )
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Sleek Vertical Glowing Bar
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(NeonCyan, Color.White, NeonCyan)
+                            )
+                        )
+                )
+            }
+
+            // Optional Mini FPS Glanceable Pill (Docked next to handle)
+            if (pinMiniFps) {
+                Spacer(Modifier.width(4.dp))
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xEB0A0E16),
+                    border = BorderStroke(1.dp, BorderHud),
+                    shadowElevation = 4.dp,
+                    modifier = Modifier.clickable {
+                        isDrawerOpen = true
+                        lastTouchTime = System.currentTimeMillis()
+                    }
                 ) {
-                    val styleNames = listOf("1.Pillar", "2.Ribbon", "3.Esport", "4.Tiles", "5.Deck", "6.Ghost")
-                    styleNames.forEachIndexed { idx, label ->
-                        val sId = idx + 1
-                        val isSel = (activeStyle == sId)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(if (isSel) NeonCyan.copy(alpha = 0.3f) else Color(0x22FFFFFF))
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(NeonGreen)
+                        )
+                        Text(
+                            text = "${telemetry.renderFps} FPS",
+                            color = NeonGreen,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+            }
+        }
+    } else {
+        // ── STATE 2: SLIDE-OUT GAME BAR (Expanded Drawer) ──
+        Surface(
+            shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp),
+            color = Color(0xF40A0E16),
+            border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.4f)),
+            shadowElevation = 16.dp,
+            modifier = Modifier
+                .width(268.dp)
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            lastTouchTime = System.currentTimeMillis()
+                            // Swiping left closes drawer
+                            if (dragAmount.x < -18f) {
+                                isDrawerOpen = false
+                            } else {
+                                onDragVertical(dragAmount.y)
+                            }
+                        }
+                    )
+                }
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(8.dp)
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        lastTouchTime = System.currentTimeMillis()
+                    },
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // 1. Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(NeonCyan)
+                        )
+                        Text(
+                            "LYNX GAME BAR",
+                            color = NeonCyan,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        // Switch to Classic Floating Window
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0x22FFFFFF))
                                 .clickable {
-                                    onSelectStyle(sId)
-                                    showStylePicker = false
+                                    isDrawerOpen = false
+                                    onSelectMode(1)
                                 }
-                                .padding(horizontal = 5.dp, vertical = 3.dp)
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
                         ) {
+                            Text("🗔 Float", color = TextSlate, fontSize = 8.5.sp)
+                        }
+
+                        // Style Dropdown Trigger
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0x2200E5FF))
+                                .clickable {
+                                    showStylePicker = !showStylePicker
+                                    lastTouchTime = System.currentTimeMillis()
+                                }
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Text("S$activeStyle ▾", color = NeonCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // Close Button
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(Color(0x22FF5252))
+                                .clickable {
+                                    isDrawerOpen = false
+                                }
+                                .padding(3.dp)
+                        ) {
+                            Icon(Icons.Default.Close, "Tutup", tint = NeonRed, modifier = Modifier.size(11.dp))
+                        }
+                    }
+                }
+
+                // Style Picker Dropdown
+                AnimatedVisibility(visible = showStylePicker) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xEE121824),
+                        border = BorderStroke(1.dp, BorderHud),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val styleNames = listOf("1.Pillar", "2.Ribbon", "3.Esport", "4.Tiles", "5.Deck", "6.Ghost")
+                            styleNames.forEachIndexed { idx, label ->
+                                val sId = idx + 1
+                                val isSel = (activeStyle == sId)
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(if (isSel) NeonCyan.copy(alpha = 0.3f) else Color(0x22FFFFFF))
+                                        .clickable {
+                                            onSelectStyle(sId)
+                                            showStylePicker = false
+                                            lastTouchTime = System.currentTimeMillis()
+                                        }
+                                        .padding(vertical = 3.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${idx + 1}",
+                                        color = if (isSel) NeonCyan else Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Telemetry Card
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0x77000000),
+                    border = BorderStroke(1.dp, Color(0x22FFFFFF)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(7.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        // FPS Primary Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    "${telemetry.renderFps}",
+                                    color = NeonGreen,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Black,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Text(
+                                    "FPS",
+                                    color = NeonGreen,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(bottom = 2.dp)
+                                )
+                            }
                             Text(
-                                text = label,
-                                color = if (isSel) NeonCyan else Color.White,
+                                "AVG ${telemetry.avgFps.toInt()} · 1%L ${telemetry.fps1PercentLow.toInt()}",
+                                color = TextSlate,
                                 fontSize = 9.sp,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                "${String.format(java.util.Locale.US, "%.1f", telemetry.frametimeMs)} ms",
+                                color = Color.White,
+                                fontSize = 9.5.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        // Frametime Sparkline
+                        FrametimeSparklineCanvas(
+                            history = telemetry.frametimeHistory,
+                            heightDp = 14,
+                            modifier = Modifier.padding(vertical = 1.dp)
+                        )
+
+                        // Hardware Metrics Grid
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            // GPU
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                CategoryBadge("GPU", NeonMagenta)
+                                Text(
+                                    if (telemetry.gpuFreqMhz > 0) "${telemetry.gpuFreqMhz} MHz" else "--",
+                                    color = Color.White,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(66.dp)
+                                )
+                                Text(
+                                    "${telemetry.gpuLoadPct}%",
+                                    color = NeonMagenta,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(36.dp)
+                                )
+                                Text(
+                                    "58°C · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W",
+                                    color = TextSlate,
+                                    fontSize = 8.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            // CPU
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                CategoryBadge("CPU", NeonCyan)
+                                Text(
+                                    telemetry.cpuCoresSummary.ifEmpty { if (telemetry.cpuFreqMhz > 0) "${telemetry.cpuFreqMhz} MHz" else "--" },
+                                    color = Color.White,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(66.dp)
+                                )
+                                Text(
+                                    "${telemetry.cpuLoadPct}%",
+                                    color = NeonCyan,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(36.dp)
+                                )
+                                Text(
+                                    "${telemetry.battTempC.toInt() + 15}°C",
+                                    color = TextSlate,
+                                    fontSize = 8.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            // RAM
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                CategoryBadge("RAM", NeonGold)
+                                Text(
+                                    if (telemetry.ramUsedGb > 0f) "${telemetry.ramUsedGb} / ${telemetry.ramTotalGb}G" else "--",
+                                    color = Color.White,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(66.dp)
+                                )
+                                Text(
+                                    "${telemetry.ramPct}%",
+                                    color = NeonGold,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(36.dp)
+                                )
+                                Text(
+                                    "ZRAM ${telemetry.zramUsedGb}G",
+                                    color = TextSlate,
+                                    fontSize = 8.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            // BAT
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                CategoryBadge("BAT", NeonOrange)
+                                Text(
+                                    "${telemetry.battTempC}°C",
+                                    color = if (telemetry.battTempC > 42f) NeonRed else NeonOrange,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.width(66.dp)
+                                )
+                                Text(
+                                    "${telemetry.battCurrentMa} mA",
+                                    color = Color.White,
+                                    fontSize = 8.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.width(55.dp)
+                                )
+                                Text(
+                                    "${telemetry.battLevelPct}%",
+                                    color = NeonCyan,
+                                    fontSize = 8.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 3. Kernel Mode Quick Switcher
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        "MODE KERNEL",
+                        color = TextSlate,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val profiles = listOf(
+                            "balance" to "BAL",
+                            "performance" to "PERF",
+                            "extreme" to "EXT",
+                            "powersave" to "PWR"
+                        )
+                        profiles.forEach { (pKey, pLabel) ->
+                            val isSel = telemetry.activeProfile.equals(pKey, ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isSel) NeonCyan.copy(alpha = 0.25f) else Color(0x18FFFFFF),
+                                border = BorderStroke(1.dp, if (isSel) NeonCyan else Color(0x22FFFFFF)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        onProfileSelect(pKey)
+                                        lastTouchTime = System.currentTimeMillis()
+                                    }
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = pLabel,
+                                        color = if (isSel) NeonCyan else Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = if (isSel) FontWeight.ExtraBold else FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 4. Quick Gaming Tools
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        "GAMING TOOLS",
+                        color = TextSlate,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        // Boost RAM
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isBoosting) NeonGreen.copy(alpha = 0.2f) else Color(0x18FFFFFF),
+                            border = BorderStroke(1.dp, if (isBoosting) NeonGreen else Color(0x22FFFFFF)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    if (!isBoosting) {
+                                        isBoosting = true
+                                        boostFeedback = "..."
+                                        onBoostRam()
+                                        lastTouchTime = System.currentTimeMillis()
+                                        kotlinx.coroutines.GlobalScope.launch(Dispatchers.Main) {
+                                            delay(1200L)
+                                            isBoosting = false
+                                            boostFeedback = null
+                                        }
+                                    }
+                                }
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    if (isBoosting) "✓ Bersih" else "⚡ Boost RAM",
+                                    color = if (isBoosting) NeonGreen else NeonCyan,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                                Text("Drop Caches", color = TextMuted, fontSize = 7.sp, maxLines = 1)
+                            }
+                        }
+
+                        // Lock Refresh Rate
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0x18FFFFFF),
+                            border = BorderStroke(1.dp, Color(0x22FFFFFF)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    onCycleRefreshRate()
+                                    lastTouchTime = System.currentTimeMillis()
+                                }
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    "🔒 $currentRefreshRate Hz",
+                                    color = NeonGold,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                                Text("Ganti Hz", color = TextMuted, fontSize = 7.sp, maxLines = 1)
+                            }
+                        }
+
+                        // Pin Mini FPS
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (pinMiniFps) NeonGreen.copy(alpha = 0.2f) else Color(0x18FFFFFF),
+                            border = BorderStroke(1.dp, if (pinMiniFps) NeonGreen else Color(0x22FFFFFF)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    onTogglePinMiniFps()
+                                    lastTouchTime = System.currentTimeMillis()
+                                }
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    "📌 Pin FPS",
+                                    color = if (pinMiniFps) NeonGreen else TextSlate,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                                Text(if (pinMiniFps) "Aktif" else "Off", color = TextMuted, fontSize = 7.sp, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+
+                // 5. Live Benchmark Trigger
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (isHudBenchmarking) NeonMagenta.copy(alpha = 0.2f) else Color(0x12FFFFFF),
+                    border = BorderStroke(1.dp, if (isHudBenchmarking) NeonMagenta else Color(0x1AFFFFFF)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            if (!isHudBenchmarking) {
+                                onStartHudBenchmark()
+                                lastTouchTime = System.currentTimeMillis()
+                            }
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("⏱", fontSize = 9.sp)
+                            Text(
+                                if (isHudBenchmarking) "Benchmarking... ${hudBenchmarkCountdown}s" else "Mulai Benchmark 60s",
+                                color = if (isHudBenchmarking) NeonMagenta else TextSlate,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (hudBenchmarkSummary != null && !isHudBenchmarking) {
+                            val stabPct = (100f - hudBenchmarkSummary.jankyFramesPercent).coerceIn(0f, 100f).toInt()
+                            Text(
+                                "Stab $stabPct% · 1%L ${hudBenchmarkSummary.fps1PercentLow.toInt()}",
+                                color = NeonGreen,
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace
                             )
                         }
                     }
                 }
             }
         }
+    }
+}
 
-        // Active HUD Style Render
-        when (activeStyle) {
-            2 -> HudTopRibbon(
-                telemetry = telemetry,
-                onDrag = onDrag,
-                onToggleStylePicker = { showStylePicker = !showStylePicker },
-                onClose = onClose
-            )
-            3 -> HudDualBlock(
-                telemetry = telemetry,
-                onDrag = onDrag,
-                onToggleStylePicker = { showStylePicker = !showStylePicker },
-                onClose = onClose,
-                onProfileSelect = onProfileSelect
-            )
-            4 -> HudQuadTiles(
-                telemetry = telemetry,
-                onDrag = onDrag,
-                onToggleStylePicker = { showStylePicker = !showStylePicker },
-                onClose = onClose,
-                onProfileSelect = onProfileSelect
-            )
-            5 -> HudDeckBanner(
-                telemetry = telemetry,
-                onDrag = onDrag,
-                onToggleStylePicker = { showStylePicker = !showStylePicker },
-                onClose = onClose,
-                onProfileSelect = onProfileSelect
-            )
-            6 -> HudGhostText(
-                telemetry = telemetry,
-                onDrag = onDrag,
-                onToggleStylePicker = { showStylePicker = !showStylePicker },
-                onClose = onClose
-            )
-            else -> HudVerticalPillar(
-                telemetry = telemetry,
-                isExpanded = isExpanded,
-                isHudBenchmarking = isHudBenchmarking,
-                hudBenchmarkCountdown = hudBenchmarkCountdown,
-                hudBenchmarkSummary = hudBenchmarkSummary,
-                onToggleExpand = onToggleExpand,
-                onToggleStylePicker = { showStylePicker = !showStylePicker },
-                onClose = onClose,
-                onProfileSelect = onProfileSelect,
-                onStartHudBenchmark = onStartHudBenchmark,
-                onDrag = onDrag
-            )
+// ────────────────────────────────────────────────────────────
+//  FLOATING HUD ROUTER & CLASSIC WINDOW RENDERER
+// ────────────────────────────────────────────────────────────
+
+@Composable
+fun FloatingHudContent(
+    telemetry: LynxRepository.FloatingHudTelemetry,
+    hudMode: Int = 0,
+    activeStyle: Int = 1,
+    pinMiniFps: Boolean = false,
+    currentRefreshRate: Int = 120,
+    isExpanded: Boolean,
+    isHudBenchmarking: Boolean = false,
+    hudBenchmarkCountdown: Int = 60,
+    hudBenchmarkSummary: com.noir.lynx.data.LynxBenchmarkResult? = null,
+    onToggleExpand: () -> Unit,
+    onSelectMode: (Int) -> Unit,
+    onSelectStyle: (Int) -> Unit,
+    onTogglePinMiniFps: () -> Unit,
+    onClose: () -> Unit,
+    onProfileSelect: (String) -> Unit,
+    onBoostRam: () -> Unit,
+    onCycleRefreshRate: () -> Unit,
+    onStartHudBenchmark: () -> Unit = {},
+    onDrag: (Float, Float) -> Unit,
+    onDragVertical: (Float) -> Unit,
+) {
+    if (hudMode == 0) {
+        // Mode 0: Edge Drawer (Infinix Game Space / ROG Game Genie Style)
+        HudEdgeDrawer(
+            telemetry = telemetry,
+            activeStyle = activeStyle,
+            pinMiniFps = pinMiniFps,
+            currentRefreshRate = currentRefreshRate,
+            isHudBenchmarking = isHudBenchmarking,
+            hudBenchmarkCountdown = hudBenchmarkCountdown,
+            hudBenchmarkSummary = hudBenchmarkSummary,
+            onSelectMode = onSelectMode,
+            onSelectStyle = onSelectStyle,
+            onTogglePinMiniFps = onTogglePinMiniFps,
+            onProfileSelect = onProfileSelect,
+            onStartHudBenchmark = onStartHudBenchmark,
+            onBoostRam = onBoostRam,
+            onCycleRefreshRate = onCycleRefreshRate,
+            onClose = onClose,
+            onDragVertical = onDragVertical
+        )
+    } else {
+        // Mode 1: Classic Floating Window
+        var showStylePicker by remember { mutableStateOf(false) }
+
+        Column(modifier = Modifier.wrapContentSize().padding(4.dp)) {
+            // Style Picker Dropdown
+            AnimatedVisibility(visible = showStylePicker) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgHud,
+                    border = BorderStroke(1.dp, BorderHud),
+                    modifier = Modifier.padding(bottom = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val styleNames = listOf("1.Pillar", "2.Ribbon", "3.Esport", "4.Tiles", "5.Deck", "6.Ghost")
+                        styleNames.forEachIndexed { idx, label ->
+                            val sId = idx + 1
+                            val isSel = (activeStyle == sId)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isSel) NeonCyan.copy(alpha = 0.3f) else Color(0x22FFFFFF))
+                                    .clickable {
+                                        onSelectStyle(sId)
+                                        showStylePicker = false
+                                    }
+                                    .padding(horizontal = 5.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSel) NeonCyan else Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Quick Dock-To-Edge Header Bar for Classic Floating Window
+            Surface(
+                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+                color = Color(0xAA0A0E14),
+                border = BorderStroke(1.dp, BorderHud),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "🗔 Floating Window",
+                        color = TextSlate,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(NeonCyan.copy(alpha = 0.2f))
+                            .clickable { onSelectMode(0) }
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                    ) {
+                        Text("◄ Kunci ke Tepi (Drawer)", color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // Active Classic HUD Style
+            when (activeStyle) {
+                2 -> HudTopRibbon(
+                    telemetry = telemetry,
+                    onDrag = onDrag,
+                    onToggleStylePicker = { showStylePicker = !showStylePicker },
+                    onClose = onClose
+                )
+                3 -> HudDualBlock(
+                    telemetry = telemetry,
+                    onDrag = onDrag,
+                    onToggleStylePicker = { showStylePicker = !showStylePicker },
+                    onClose = onClose,
+                    onProfileSelect = onProfileSelect
+                )
+                4 -> HudQuadTiles(
+                    telemetry = telemetry,
+                    onDrag = onDrag,
+                    onToggleStylePicker = { showStylePicker = !showStylePicker },
+                    onClose = onClose,
+                    onProfileSelect = onProfileSelect
+                )
+                5 -> HudDeckBanner(
+                    telemetry = telemetry,
+                    onDrag = onDrag,
+                    onToggleStylePicker = { showStylePicker = !showStylePicker },
+                    onClose = onClose,
+                    onProfileSelect = onProfileSelect
+                )
+                6 -> HudGhostText(
+                    telemetry = telemetry,
+                    onDrag = onDrag,
+                    onToggleStylePicker = { showStylePicker = !showStylePicker },
+                    onClose = onClose
+                )
+                else -> HudVerticalPillar(
+                    telemetry = telemetry,
+                    isExpanded = isExpanded,
+                    isHudBenchmarking = isHudBenchmarking,
+                    hudBenchmarkCountdown = hudBenchmarkCountdown,
+                    hudBenchmarkSummary = hudBenchmarkSummary,
+                    onToggleExpand = onToggleExpand,
+                    onToggleStylePicker = { showStylePicker = !showStylePicker },
+                    onClose = onClose,
+                    onProfileSelect = onProfileSelect,
+                    onStartHudBenchmark = onStartHudBenchmark,
+                    onDrag = onDrag
+                )
+            }
         }
     }
 }

@@ -49,6 +49,19 @@ Released on: 2026-09-28
   - Frame presentation time pada skenario pertempuran 3D intensif turun dari **31.30 ms** menjadi **24.93 ms** dengan variasi latensi mendekati nol (<0.01 ms).
   - Health Audit Score mencapai **100%** (48 PASS, 2 CLAMPED, 0 FALLBACK, 0 ERROR) pada mode Extreme dan Balance.
 
+### 5. 🎮 Non-Intrusive Edge Drawer (Infinix Game Space / ROG Game Bar Style HUD)
+- **Arsitektur Dual-State Ergonomis**:
+  - **State 1 (Collapsed Handle)**: Strip vertikal tipis bercahaya cyan docked di tepi layar/bezel saat bermain game sehingga layar tetap bersih 100% tanpa menghalangi pandangan maupun kontrol sentuh game. Handle mendukung penyesuaian posisi vertikal (drag) dan gesture geser ke dalam (swipe inward) atau ketukan (single tap) untuk membuka.
+  - **State 2 (Expanded Game Bar)**: Drawer frosted-glass cyberpunk modern menampilkan matriks telemetri lengkap (Live FPS, AVG, 1% Low, Frametime Sparkline, CPU & GPU load/clock/temp, RAM/ZRAM, dan konsumsi daya Watt baterai).
+- **Auto-Collapse Inactivity Timer**: Drawer otomatis menutup kembali ke tepi layar secara halus setelah 5 detik tanpa sentuhan, mencegah gangguan fokus saat gameplay kembali intensif.
+- **Quick Gaming Tools & Profile Switcher**:
+  - **1-Tap Profile Switcher**: Beralih langsung antara profil `[BAL]`, `[PERF]`, `[EXT]`, dan `[PWR]` tanpa perlu keluar dari game.
+  - **⚡ Boost RAM**: Eksekusi pembersihan cache sistem dan pembebasan memori (drop caches) instan.
+  - **🔒 Lock Refresh Rate**: Penguncian cepat display refresh rate (60 Hz / 90 Hz / 120 Hz).
+  - **📌 Pin Mini FPS**: Opsi menampilkan floating mini FPS pill terpisah yang tetap terlihat saat drawer tertutup.
+  - **⏱️ 60s Live Benchmark**: Memicu perekaman pacing hardware 60 detik langsung dari drawer.
+- **Interchangeable Interaction Modes**: Pengguna dapat dengan mudah beralih antara mode **Edge Drawer (Game Bar)** dan **6 Gaya Classic Floating Window** langsung dari HUD maupun via kartu konfigurasi di aplikasi Lynx Companion.
+
 ---
 
 # Lynx [Codename: Deity] 3.0.8

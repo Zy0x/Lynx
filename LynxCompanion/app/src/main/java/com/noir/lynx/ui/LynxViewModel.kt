@@ -1154,6 +1154,45 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun setHudMode(context: android.content.Context, mode: Int) {
+        val clamped = mode.coerceIn(0, 1)
+        context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putInt("hud_mode", clamped)
+            .apply()
+        _uiState.update { it.copy(hudMode = clamped) }
+        val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
+            action = com.noir.lynx.service.LynxFloatingHudService.ACTION_SET_MODE
+            putExtra(com.noir.lynx.service.LynxFloatingHudService.EXTRA_MODE, clamped)
+        }
+        if (com.noir.lynx.service.LynxFloatingHudService.isRunning) {
+            context.startService(intent)
+        }
+    }
+
+    fun setHudPinMiniFps(context: android.content.Context, pin: Boolean) {
+        context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("pin_mini_fps", pin)
+            .apply()
+        _uiState.update { it.copy(hudPinMiniFps = pin) }
+        val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
+            action = com.noir.lynx.service.LynxFloatingHudService.ACTION_SET_PIN_FPS
+            putExtra(com.noir.lynx.service.LynxFloatingHudService.EXTRA_PIN_FPS, pin)
+        }
+        if (com.noir.lynx.service.LynxFloatingHudService.isRunning) {
+            context.startService(intent)
+        }
+    }
+
+    fun syncHudPrefs(context: android.content.Context) {
+        val prefs = context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
+        val style = prefs.getInt("hud_style", 1)
+        val mode = prefs.getInt("hud_mode", 0)
+        val pin = prefs.getBoolean("pin_mini_fps", false)
+        _uiState.update { it.copy(hudStyle = style, hudMode = mode, hudPinMiniFps = pin) }
+    }
+
     fun setHudStyle(context: android.content.Context, style: Int) {
         val clamped = style.coerceIn(1, 6)
         context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)

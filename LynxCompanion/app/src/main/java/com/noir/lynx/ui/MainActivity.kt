@@ -319,6 +319,9 @@ fun MainDashboard(
     LaunchedEffect(uiState.currentTab) {
         scrollState.scrollTo(0)
     }
+    LaunchedEffect(Unit) {
+        viewModel.syncHudPrefs(context)
+    }
     var showAddAppDialog by remember { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<AppProfileRule?>(null) }
     var addAppFilter by remember { mutableStateOf("ALL") }
@@ -997,6 +1000,139 @@ fun MainDashboard(
                                         color = TextPrimary,
                                         fontSize = 10.5.sp,
                                         lineHeight = 14.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "MODE INTERAKSI OSD",
+                            color = AccentCyan,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            // Option 1: Edge Drawer
+                            val isDrawerSel = (uiState.hudMode == 0)
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isDrawerSel) AccentCyan.copy(alpha = 0.18f) else BgElevated,
+                                border = BorderStroke(1.dp, if (isDrawerSel) AccentCyan else BorderGlass),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { viewModel.setHudMode(context, 0) }
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(if (isDrawerSel) AccentCyan else Color(0x33FFFFFF))
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "🎮 Edge Drawer",
+                                            color = if (isDrawerSel) AccentCyan else TextPrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        "Bilah tipis tepi layar ala Infinix Game Space / ROG. Usap untuk buka Game Bar tanpa menghalangi visual game.",
+                                        color = TextSecondary,
+                                        fontSize = 9.sp,
+                                        lineHeight = 12.sp
+                                    )
+                                }
+                            }
+
+                            // Option 2: Floating Window
+                            val isFloatSel = (uiState.hudMode == 1)
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isFloatSel) AccentCyan.copy(alpha = 0.18f) else BgElevated,
+                                border = BorderStroke(1.dp, if (isFloatSel) AccentCyan else BorderGlass),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { viewModel.setHudMode(context, 1) }
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(if (isFloatSel) AccentCyan else Color(0x33FFFFFF))
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "🗔 Floating Window",
+                                            color = if (isFloatSel) AccentCyan else TextPrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        "Jendela melayang bebas yang selalu tampil di layar. Bebas dipindah ke posisi mana pun.",
+                                        color = TextSecondary,
+                                        fontSize = 9.sp,
+                                        lineHeight = 12.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        // Mini FPS Pin option (if Edge Drawer mode)
+                        if (uiState.hudMode == 0) {
+                            Spacer(Modifier.height(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (uiState.hudPinMiniFps) AccentCyan.copy(alpha = 0.14f) else BgElevated,
+                                border = BorderStroke(1.dp, if (uiState.hudPinMiniFps) AccentCyan else BorderGlass),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { viewModel.setHudPinMiniFps(context, !uiState.hudPinMiniFps) }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("📌", fontSize = 12.sp)
+                                        Spacer(Modifier.width(6.dp))
+                                        Column {
+                                            Text(
+                                                "Pin Mini FPS di Samping Bilah",
+                                                color = if (uiState.hudPinMiniFps) AccentCyan else TextPrimary,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                "Tampilkan tag angka FPS kecil saat bilah samping tertutup",
+                                                color = TextSecondary,
+                                                fontSize = 9.sp
+                                            )
+                                        }
+                                    }
+                                    Switch(
+                                        checked = uiState.hudPinMiniFps,
+                                        onCheckedChange = { viewModel.setHudPinMiniFps(context, it) },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = AccentCyan,
+                                            checkedTrackColor = AccentCyan.copy(alpha = 0.35f)
+                                        ),
+                                        modifier = Modifier.scale(0.75f)
                                     )
                                 }
                             }
