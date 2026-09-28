@@ -878,7 +878,7 @@ class LynxViewModel : ViewModel() {
 
     fun switchTab(tabIndex: Int) {
         _uiState.update { it.copy(currentTab = tabIndex) }
-        if (tabIndex == 3) {
+        if (tabIndex == 2 || tabIndex == 3) {
             refreshBackups()
         }
     }

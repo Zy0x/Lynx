@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -2273,4 +2274,239 @@ fun DmesgViewerCard(
         }
     }
 }
+
+// ============================================================
+//  Option B: Tuning Hub Bento Grid & Category Navigation
+// ============================================================
+
+enum class TuningCategory(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val icon: ImageVector,
+    val accentColor: Color
+) {
+    CPU(
+        id = "cpu",
+        title = "CPU & Governor",
+        subtitle = "Topologi Core, Hotplug & Schedutil",
+        icon = Icons.Default.Memory,
+        accentColor = AccentCyan
+    ),
+    GPU(
+        id = "gpu",
+        title = "GPU & Display",
+        subtitle = "Clock GPU, GED Boost & Refresh Rate",
+        icon = Icons.Default.SportsEsports,
+        accentColor = AccentOrange
+    ),
+    MEMORY(
+        id = "memory",
+        title = "Memory & Storage",
+        subtitle = "ZRAM, Swappiness, LMK & I/O",
+        icon = Icons.Default.Storage,
+        accentColor = AccentPurple
+    ),
+    CHARGING(
+        id = "charging",
+        title = "Battery & Charging",
+        subtitle = "Bypass Charging & Extreme Fast Charge",
+        icon = Icons.Default.BatteryChargingFull,
+        accentColor = AccentGreen
+    ),
+    NETWORK(
+        id = "network",
+        title = "Network & Audio",
+        subtitle = "TCP Congestion, Ping & Audio MMAP",
+        icon = Icons.Default.Wifi,
+        accentColor = AccentBlue
+    ),
+    SYSTEM(
+        id = "system",
+        title = "Subsystem & Deep Tunables",
+        subtitle = "OEM Neutralizer, Otomasi & Sysfs",
+        icon = Icons.Default.Security,
+        accentColor = AccentRed
+    );
+
+    companion object {
+        fun fromId(id: String?): TuningCategory? = values().firstOrNull { it.id == id }
+    }
+}
+
+@Composable
+fun SubsystemCategoryCard(
+    category: TuningCategory,
+    badgeText: String,
+    detailText1: String,
+    detailText2: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 100.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = BgCard,
+        border = BorderStroke(1.dp, BorderGlass),
+        tonalElevation = 2.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            category.accentColor.copy(alpha = 0.12f),
+                            Color.Transparent
+                        ),
+                        startX = 0f,
+                        endX = 500f
+                    )
+                )
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Left Icon Tile (min 48x48 touch visual)
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = category.accentColor.copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, category.accentColor.copy(alpha = 0.4f)),
+                    modifier = Modifier.size(50.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = category.icon,
+                            contentDescription = category.title,
+                            tint = category.accentColor,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+
+                // Middle Info Column
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    // Title + Badge Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = category.title,
+                            color = TextPrimary,
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+
+                        if (badgeText.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = category.accentColor.copy(alpha = 0.15f),
+                                border = BorderStroke(1.dp, category.accentColor.copy(alpha = 0.35f))
+                            ) {
+                                Text(
+                                    text = badgeText,
+                                    color = category.accentColor,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(3.dp))
+
+                    Text(
+                        text = category.subtitle,
+                        color = TextSecondary,
+                        fontSize = 11.5.sp,
+                        lineHeight = 15.sp,
+                        maxLines = 1
+                    )
+
+                    Spacer(Modifier.height(7.dp))
+
+                    // Bottom Row: Status Chips
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (detailText1.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = BgElevated,
+                                border = BorderStroke(0.5.dp, BorderGlass)
+                            ) {
+                                Text(
+                                    text = detailText1,
+                                    color = TextSecondary,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        if (detailText2.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = BgElevated,
+                                border = BorderStroke(0.5.dp, BorderGlass)
+                            ) {
+                                Text(
+                                    text = detailText2,
+                                    color = TextSecondary,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Right Chevron (Indicating navigable into sub-screen)
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = "Buka ${category.title}",
+                    tint = category.accentColor.copy(alpha = 0.7f),
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun TuningBentoCard(
+    category: TuningCategory,
+    badgeText: String,
+    detailText1: String,
+    detailText2: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SubsystemCategoryCard(
+        category = category,
+        badgeText = badgeText,
+        detailText1 = detailText1,
+        detailText2 = detailText2,
+        onClick = onClick,
+        modifier = modifier
+    )
+}
+
 
