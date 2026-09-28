@@ -128,17 +128,8 @@ while true; do
             pkg_dump=$(dumpsys package "$top_app" 2>/dev/null)
             if echo "$pkg_dump" | grep -qE "category=0|category=GAME|appCategory=0"; then
                 cached_mode="performance"
-            elif echo "$pkg_dump" | grep -qE "category=1|category=2|category=AUDIO|category=VIDEO|appCategory=1|appCategory=2"; then
-                cached_mode="powersave"
             else
-                case "$top_app" in
-                    *youtube*|*netflix*|*spotify*|*tiktok*|*twitch*|*vlc*|*mxplayer*|*disney*|*primevideo*|*webtoon*|*kindle*|*manga*|*bilibili*)
-                        cached_mode="powersave"
-                        ;;
-                    *)
-                        cached_mode="balance"
-                        ;;
-                esac
+                cached_mode="balance"
             fi
             echo "$cached_mode" > "/dev/lynx_pkg_cache/$top_app" 2>/dev/null
         fi

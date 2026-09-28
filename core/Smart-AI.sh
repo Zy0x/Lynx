@@ -109,27 +109,10 @@ is_target_app() {
         return 0
     fi
 
-    # 2. Audio/Video/Streaming Category Check
-    if echo "$pkg_dump" | grep -qE "category=1|category=2|category=AUDIO|category=VIDEO|appCategory=1|appCategory=2"; then
-        echo "powersave" > "$cache_dir/$pkg" 2>/dev/null
-        TARGET_APP_MODE="powersave"
-        LAST_IS_TARGET=0
-        return 0
-    fi
-
-    # 3. Known streaming and reading app package patterns
-    case "$pkg" in
-        *youtube*|*netflix*|*spotify*|*tiktok*|*twitch*|*vlc*|*mxplayer*|*disney*|*primevideo*|*webtoon*|*kindle*|*manga*|*bilibili*)
-            echo "powersave" > "$cache_dir/$pkg" 2>/dev/null
-            TARGET_APP_MODE="powersave"
-            LAST_IS_TARGET=0
-            return 0
-            ;;
-    esac
-
+    # 2. Non-gaming applications remain in responsive balance mode by default
     echo "balance" > "$cache_dir/$pkg" 2>/dev/null
     TARGET_APP_MODE="balance"
-    LAST_IS_TARGET=1
+    LAST_IS_TARGET=0
     return 1
 }
 

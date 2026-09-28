@@ -26,6 +26,10 @@ class LynxBootReceiver : BroadcastReceiver() {
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    val baseline = LynxRepository.readBaselineProfile()
+                    Log.i("LynxBootReceiver", "Restoring baseline profile on boot: $baseline")
+                    LynxRepository.setProfile(baseline, "boot")
+
                     val enabledResult = Shell.cmd("cat /data/adb/lynx/automation_enabled 2>/dev/null").exec()
                     val isEnabled = enabledResult.out.firstOrNull()?.trim() == "1"
 
@@ -34,7 +38,7 @@ class LynxBootReceiver : BroadcastReceiver() {
                         LynxRepository.startAppAutomation(context)
                     }
                 } catch (e: Exception) {
-                    Log.e("LynxBootReceiver", "Failed to start automation on boot: ${e.message}")
+                    Log.e("LynxBootReceiver", "Failed to process boot receiver: ${e.message}")
                 } finally {
                     pendingResult.finish()
                 }

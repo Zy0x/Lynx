@@ -62,12 +62,60 @@ object LynxRepository {
         }
     }
 
+    fun getLocalConfigPath(): String {
+        return try {
+            File(LynxApp.instance.filesDir, "config.json").absolutePath
+        } catch (e: Exception) {
+            val res = Shell.cmd("[ -d '/data/user/0/com.noir.lynx.debug/files' ] && echo 1 || echo 0").exec()
+            if (res.out.firstOrNull()?.trim() == "1") LOCAL_CONFIG_PATH_DEBUG else LOCAL_CONFIG_PATH
+        }
+    }
+
     private suspend fun getActiveConfigPath(): String {
         return if (isModuleInstalled()) {
             CONFIG_PATH
         } else {
-            val res = Shell.cmd("[ -d '/data/user/0/com.noir.lynx.debug/files' ] && echo 1 || echo 0").exec()
-            if (res.out.firstOrNull()?.trim() == "1") LOCAL_CONFIG_PATH_DEBUG else LOCAL_CONFIG_PATH
+            getLocalConfigPath()
+        }
+    }
+
+    fun writeTextToFileSafely(targetPath: String, text: String, permissions: String = "660"): Boolean {
+        return try {
+            val localFilesDir = try { LynxApp.instance.filesDir.absolutePath } catch (_: Exception) { "" }
+            val localCacheDir = try { LynxApp.instance.cacheDir.absolutePath } catch (_: Exception) { "" }
+
+            if ((localFilesDir.isNotEmpty() && targetPath.startsWith(localFilesDir)) ||
+                (localCacheDir.isNotEmpty() && targetPath.startsWith(localCacheDir))) {
+                val targetFile = File(targetPath)
+                targetFile.parentFile?.mkdirs()
+                val tmpFile = File("${targetPath}.tmp_${System.currentTimeMillis()}")
+                tmpFile.writeText(text, Charsets.UTF_8)
+                if (tmpFile.renameTo(targetFile)) {
+                    true
+                } else {
+                    targetFile.delete()
+                    if (tmpFile.renameTo(targetFile)) {
+                        true
+                    } else {
+                        targetFile.writeText(text, Charsets.UTF_8)
+                        tmpFile.delete()
+                        true
+                    }
+                }
+            } else {
+                val cacheDir = try { LynxApp.instance.cacheDir } catch (_: Exception) { File("/data/local/tmp") }
+                cacheDir.mkdirs()
+                val cacheFile = File(cacheDir, "lynx_w_${System.currentTimeMillis()}.tmp")
+                cacheFile.writeText(text, Charsets.UTF_8)
+                val dir = targetPath.substringBeforeLast("/")
+                val cmd = "mkdir -p '$dir' 2>/dev/null && cp -f '${cacheFile.absolutePath}' '$targetPath' && chmod $permissions '$targetPath' 2>/dev/null"
+                val res = Shell.cmd(cmd).exec()
+                cacheFile.delete()
+                res.isSuccess
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "writeTextToFileSafely failed for $targetPath: ${e.message}")
+            false
         }
     }
 
@@ -78,14 +126,21 @@ object LynxRepository {
     suspend fun readState(): LynxState = withContext(Dispatchers.IO) {
         try {
             val path = getActiveConfigPath()
-            val jsonResult = Shell.cmd("cat '$path' 2>/dev/null").exec()
-            if (!jsonResult.isSuccess || jsonResult.out.isEmpty()) return@withContext LynxState()
+            val raw = if (File(path).canRead()) {
+                File(path).readText(Charsets.UTF_8)
+            } else {
+                val jsonResult = Shell.cmd("cat '$path' 2>/dev/null").exec()
+                if (jsonResult.isSuccess && jsonResult.out.isNotEmpty()) {
+                    jsonResult.out.joinToString("\n")
+                } else ""
+            }
+            val baseProf = readCurrentProfileFast()
+            if (raw.isBlank()) return@withContext LynxState(activeProfile = baseProf)
 
-            val raw = jsonResult.out.joinToString("\n")
             parseStateJson(raw)
         } catch (e: Exception) {
             Log.e(TAG, "readState failed: ${e.message}")
-            LynxState()
+            LynxState(activeProfile = readCurrentProfileFast())
         }
     }
 
@@ -97,7 +152,8 @@ object LynxRepository {
             val resolvedActiveProfile = if (currentActiveProf in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) {
                 currentActiveProf
             } else {
-                root.optString("active_profile", "balance")
+                val p = root.optString("active_profile", "balance")
+                if (p in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) p else "balance"
             }
 
             LynxState(
@@ -228,8 +284,12 @@ object LynxRepository {
     private suspend fun writeLocalStateKey(key: String, value: String, type: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val path = getActiveConfigPath()
-            val readRes = Shell.cmd("cat '$path' 2>/dev/null").exec()
-            val raw = if (readRes.isSuccess && readRes.out.isNotEmpty()) readRes.out.joinToString("\n") else "{}"
+            val raw = if (File(path).canRead()) {
+                File(path).readText(Charsets.UTF_8)
+            } else {
+                val readRes = Shell.cmd("cat '$path' 2>/dev/null").exec()
+                if (readRes.isSuccess && readRes.out.isNotEmpty()) readRes.out.joinToString("\n") else "{}"
+            }
             val root = try { JSONObject(raw) } catch (e: Exception) { JSONObject() }
 
             val parts = key.split(".")
@@ -255,11 +315,7 @@ object LynxRepository {
             }
 
             val jsonStr = root.toString(2)
-            val encoded = android.util.Base64.encodeToString(jsonStr.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
-            val dir = path.substringBeforeLast("/")
-            val writeCmd = "mkdir -p '$dir' 2>/dev/null; echo '$encoded' | base64 -d > '$path' 2>/dev/null; chmod 660 '$path' 2>/dev/null; echo ok"
-            val writeRes = Shell.cmd(writeCmd).exec()
-            writeRes.isSuccess && writeRes.out.firstOrNull()?.trim() == "ok"
+            writeTextToFileSafely(path, jsonStr, "660")
         } catch (e: Exception) {
             Log.e(TAG, "writeLocalStateKey error: ${e.message}")
             false
@@ -274,11 +330,12 @@ object LynxRepository {
         val allowedProfiles = setOf("auto", "balance", "performance", "extreme", "powersave", "dormant")
         if (profile !in allowedProfiles) return@withContext false
 
-        // Background write to config.json only if manually invoked by user (never for transient app triggers)
+        // Synchronously record to /data/adb/lynx/active_profile and setprop lynx.mode
+        Shell.cmd("mkdir -p /data/adb/lynx 2>/dev/null; echo '$profile' > /data/adb/lynx/active_profile; setprop lynx.mode '$profile'").exec()
+
+        // Write to config.json only if manually invoked by user (never for transient app triggers)
         if (caller != "watcher" && caller != "automation") {
-            launch {
-                writeStateKey("active_profile", profile, "str")
-            }
+            writeStateKey("active_profile", profile, "str")
         }
 
         try {
@@ -895,9 +952,12 @@ object LynxRepository {
 
     suspend fun setKsmEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
+            val check = Shell.cmd("[ -f /sys/kernel/mm/ksm/run ] && echo 1 || echo 0").exec()
+            if (check.out.firstOrNull()?.trim() != "1") return@withContext false
+
             val v = if (enabled) "1" else "0"
-            Shell.cmd("chmod 644 /sys/kernel/mm/ksm/run 2>/dev/null; echo $v > /sys/kernel/mm/ksm/run 2>/dev/null; echo ok")
-                .exec().out.firstOrNull()?.trim() == "ok"
+            val cmd = "chmod 644 /sys/kernel/mm/ksm/run 2>/dev/null && echo $v > /sys/kernel/mm/ksm/run 2>/dev/null && [ \"$(cat /sys/kernel/mm/ksm/run 2>/dev/null)\" = \"$v\" ] && echo ok"
+            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
     }
 
@@ -947,16 +1007,16 @@ object LynxRepository {
         try {
             val d = device.replace(Regex("[^a-zA-Z0-9]"), "")
             val s = scheduler.replace(Regex("[^a-zA-Z0-9\\-]"), "")
-            Shell.cmd("echo '$s' > /sys/block/$d/queue/scheduler 2>/dev/null; echo ok")
-                .exec().out.firstOrNull()?.trim() == "ok"
+            val cmd = "if [ -f '/sys/block/$d/queue/scheduler' ]; then echo '$s' > '/sys/block/$d/queue/scheduler' 2>/dev/null && grep -q '\\[$s\\]' '/sys/block/$d/queue/scheduler' && echo ok; fi"
+            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
     }
 
     suspend fun setReadAheadKb(device: String, kb: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             val d = device.replace(Regex("[^a-zA-Z0-9]"), "")
-            Shell.cmd("echo $kb > /sys/block/$d/queue/read_ahead_kb 2>/dev/null; echo ok")
-                .exec().out.firstOrNull()?.trim() == "ok"
+            val cmd = "if [ -f '/sys/block/$d/queue/read_ahead_kb' ]; then echo $kb > '/sys/block/$d/queue/read_ahead_kb' 2>/dev/null && [ \"$(cat /sys/block/$d/queue/read_ahead_kb 2>/dev/null)\" = \"$kb\" ] && echo ok; fi"
+            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
     }
 
@@ -981,8 +1041,8 @@ object LynxRepository {
     suspend fun setTcpCongestion(algorithm: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val safe = algorithm.replace(Regex("[^a-zA-Z0-9_]"), "")
-            Shell.cmd("echo '$safe' > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null; echo ok")
-                .exec().out.firstOrNull()?.trim() == "ok"
+            val cmd = "echo '$safe' > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null && [ \"$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null)\" = \"$safe\" ] && echo ok"
+            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
     }
 
@@ -1762,14 +1822,7 @@ object LynxRepository {
 
     suspend fun saveCustomRules(script: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val encoded = android.util.Base64.encodeToString(script.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
-            val cmd = """
-                mkdir -p '$MODULE_DIR' 2>/dev/null
-                echo '$encoded' | base64 -d > '$CUSTOM_RULES_PATH'
-                chmod 755 '$CUSTOM_RULES_PATH' 2>/dev/null
-                echo ok
-            """.trimIndent()
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            writeTextToFileSafely(CUSTOM_RULES_PATH, script, "755")
         } catch (e: Exception) { false }
     }
 
@@ -1836,8 +1889,8 @@ object LynxRepository {
 
     suspend fun setDirtyRatio(ratio: Int): Boolean = withContext(Dispatchers.IO) {
         try {
-            Shell.cmd("echo $ratio > /proc/sys/vm/dirty_ratio 2>/dev/null; echo ok")
-                .exec().out.firstOrNull()?.trim() == "ok"
+            val cmd = "echo $ratio > /proc/sys/vm/dirty_ratio 2>/dev/null && [ \"$(cat /proc/sys/vm/dirty_ratio 2>/dev/null)\" = \"$ratio\" ] && echo ok"
+            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
     }
 
@@ -1849,8 +1902,8 @@ object LynxRepository {
 
     suspend fun setVfsCachePressure(pressure: Int): Boolean = withContext(Dispatchers.IO) {
         try {
-            Shell.cmd("echo $pressure > /proc/sys/vm/vfs_cache_pressure 2>/dev/null; echo ok")
-                .exec().out.firstOrNull()?.trim() == "ok"
+            val cmd = "echo $pressure > /proc/sys/vm/vfs_cache_pressure 2>/dev/null && [ \"$(cat /proc/sys/vm/vfs_cache_pressure 2>/dev/null)\" = \"$pressure\" ] && echo ok"
+            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
     }
 
@@ -1862,8 +1915,8 @@ object LynxRepository {
 
     suspend fun setDirtyBackgroundRatio(ratio: Int): Boolean = withContext(Dispatchers.IO) {
         try {
-            Shell.cmd("echo $ratio > /proc/sys/vm/dirty_background_ratio 2>/dev/null; echo ok")
-                .exec().out.firstOrNull()?.trim() == "ok"
+            val cmd = "echo $ratio > /proc/sys/vm/dirty_background_ratio 2>/dev/null && [ \"$(cat /proc/sys/vm/dirty_background_ratio 2>/dev/null)\" = \"$ratio\" ] && echo ok"
+            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (_: Exception) { false }
     }
 
@@ -2063,9 +2116,131 @@ object LynxRepository {
 
     suspend fun setPrintkSilent(silent: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
-            val cmd = if (silent) "echo '0 0 0 0' > /proc/sys/kernel/printk" else "echo '7 4 1 7' > /proc/sys/kernel/printk"
-            Shell.cmd("$cmd; echo ok").exec().out.firstOrNull()?.trim() == "ok"
+            val v = if (silent) "0 0 0 0" else "7 4 1 7"
+            val cmd = "echo '$v' > /proc/sys/kernel/printk 2>/dev/null && [ \"$(cat /proc/sys/kernel/printk 2>/dev/null | awk '{print \$1}')\" = \"${if (silent) "0" else "7"}\" ] && echo ok"
+            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
+    }
+
+    // ----------------------------------------------------------------
+    //  Subsystem Hardware Apply & Active Verification
+    // ----------------------------------------------------------------
+
+    suspend fun applyTouchboost(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val v = if (enabled) "1" else "0"
+            val script = """
+                for node in /sys/module/msm_performance/parameters/touchboost \
+                            /sys/power/pbm/touchboost \
+                            /proc/perfmgr/boost_ctrl/eas_ctrl/touch_boost \
+                            /sys/module/perfmgr/parameters/touch_boost \
+                            /proc/ppm/policy/touch_boost; do
+                    if [ -e "${'$'}node" ]; then
+                        chmod 644 "${'$'}node" 2>/dev/null
+                        echo $v > "${'$'}node" 2>/dev/null
+                    fi
+                done
+                setprop persist.sys.lynx.touchboost $v 2>/dev/null
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applyWifiPingStabilizer(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = if (enabled) {
+                """
+                cmd wifi set-low-latency-mode enabled 2>/dev/null
+                cmd wifi set-wifi-verbose-logging disabled 2>/dev/null
+                setprop net.tcp.delack 0 2>/dev/null
+                echo 1 > /proc/sys/net/ipv4/tcp_low_latency 2>/dev/null
+                echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse 2>/dev/null
+                echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
+                echo ok
+                """.trimIndent()
+            } else {
+                """
+                cmd wifi set-low-latency-mode disabled 2>/dev/null
+                echo 0 > /proc/sys/net/ipv4/tcp_low_latency 2>/dev/null
+                echo ok
+                """.trimIndent()
+            }
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applyAudioMmap(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val p = if (enabled) "2" else "1"
+            val cmd = "setprop aaudio.mmap_policy $p; setprop aaudio.mmap_exclusive_policy $p; [ \"$(getprop aaudio.mmap_policy)\" = \"$p\" ] && echo ok"
+            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applyJoyoseNeutralizer(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = if (enabled) {
+                """
+                killall -STOP com.xiaomi.joyose 2>/dev/null
+                am force-stop com.xiaomi.joyose 2>/dev/null
+                pm disable-user --user 0 com.xiaomi.joyose 2>/dev/null
+                pm disable-user --user 0 com.samsung.android.game.gos 2>/dev/null
+                echo ok
+                """.trimIndent()
+            } else {
+                """
+                pm enable com.xiaomi.joyose 2>/dev/null
+                pm enable com.samsung.android.game.gos 2>/dev/null
+                killall -CONT com.xiaomi.joyose 2>/dev/null
+                echo ok
+                """.trimIndent()
+            }
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applyThermalBypass(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = if (enabled) {
+                """
+                for z in /sys/class/thermal/thermal_zone*; do
+                    [ -f "${'$'}z/mode" ] && echo "disabled" > "${'$'}z/mode" 2>/dev/null
+                done
+                killall -STOP mi_thermald thermal-engine thermal-engine-v2 ituxd 2>/dev/null
+                cmd thermalservice override-status 0 2>/dev/null
+                echo ok
+                """.trimIndent()
+            } else {
+                """
+                for z in /sys/class/thermal/thermal_zone*; do
+                    [ -f "${'$'}z/mode" ] && echo "enabled" > "${'$'}z/mode" 2>/dev/null
+                done
+                killall -CONT mi_thermald thermal-engine thermal-engine-v2 ituxd 2>/dev/null
+                cmd thermalservice reset 2>/dev/null
+                echo ok
+                """.trimIndent()
+            }
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applyOverclock(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = if (enabled) {
+                """
+                for p in /sys/devices/system/cpu/cpufreq/policy*; do
+                    [ -d "${'$'}p" ] || continue
+                    max_f=${'$'}(cat "${'$'}p/cpuinfo_max_freq" 2>/dev/null)
+                    [ -n "${'$'}max_f" ] && echo "${'$'}max_f" > "${'$'}p/scaling_max_freq" 2>/dev/null
+                done
+                echo ok
+                """.trimIndent()
+            } else {
+                "echo ok"
+            }
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
     }
 
     // ----------------------------------------------------------------
@@ -2261,9 +2436,7 @@ object LynxRepository {
             }
             root.put("deep_tunables", arr)
             val jsonStr = root.toString(2)
-            val encoded = android.util.Base64.encodeToString(jsonStr.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
-            val dir = path.substringBeforeLast("/")
-            Shell.cmd("mkdir -p '$dir' 2>/dev/null; echo '$encoded' | base64 -d > '$path' 2>/dev/null; chmod 660 '$path' 2>/dev/null").exec()
+            writeTextToFileSafely(path, jsonStr, "660")
             // Note: Scanned tunables are cached to config.json only; NEVER auto-exported to boot startup scripts!
         } catch (e: Exception) {
             Log.e(TAG, "saveDeepTunablesToConfig error: ${e.message}")
@@ -2354,8 +2527,7 @@ object LynxRepository {
                 }
             }
 
-            val encoded = android.util.Base64.encodeToString(sb.toString().toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
-            Shell.cmd("echo '$encoded' | base64 -d > '$scriptPath' 2>/dev/null; chmod 755 '$scriptPath' 2>/dev/null").exec()
+            writeTextToFileSafely(scriptPath, sb.toString(), "755")
         } catch (e: Exception) {
             Log.w(TAG, "exportCustomTunablesBootScript error: ${e.message}")
         }
@@ -5014,12 +5186,10 @@ while true; do
             pkg_dump=${'$'}(dumpsys package "${'$'}top_app" 2>/dev/null)
             if echo "${'$'}pkg_dump" | grep -qE "category=0|category=GAME|appCategory=0"; then
                 cached_mode="performance"
-            elif echo "${'$'}pkg_dump" | grep -qE "category=1|category=2|category=AUDIO|category=VIDEO|appCategory=1|appCategory=2"; then
-                cached_mode="powersave"
             else
                 case "${'$'}top_app" in
-                    *youtube*|*netflix*|*spotify*|*tiktok*|*twitch*|*vlc*|*mxplayer*|*disney*|*primevideo*|*webtoon*|*kindle*|*manga*|*bilibili*)
-                        cached_mode="powersave"
+                    *game*|*genshin*|*honkai*|*pubg*|*codm*|*mobilelegends*|*freefire*)
+                        cached_mode="performance"
                         ;;
                     *)
                         cached_mode="balance"
@@ -5032,10 +5202,6 @@ while true; do
         if [ "${'$'}cached_mode" = "performance" ]; then
             target_profile="performance"
             target_hz="120"
-            app_label="${'$'}top_app"
-        elif [ "${'$'}cached_mode" = "powersave" ]; then
-            target_profile="powersave"
-            target_hz="60"
             app_label="${'$'}top_app"
         fi
     fi
@@ -5110,12 +5276,12 @@ while true; do
 done
 """.trimIndent()
 
+            writeTextToFileSafely("/data/adb/lynx/apply_profile.sh", applyScript, "755")
+            writeTextToFileSafely("/data/adb/lynx/lynx_watcher.sh", watcherScript, "755")
+
             Shell.cmd(
-                "mkdir -p /data/adb/lynx 2>/dev/null",
-                "if [ -f /data/adb/modules/Lynx/core/apply_profile.sh ]; then cp -f /data/adb/modules/Lynx/core/apply_profile.sh /data/adb/lynx/apply_profile.sh; else cat << 'EOF' > /data/adb/lynx/apply_profile.sh\n$applyScript\nEOF\nfi",
-                "chmod 755 /data/adb/lynx/apply_profile.sh 2>/dev/null",
-                "if [ -f /data/adb/modules/Lynx/core/lynx_watcher.sh ]; then cp -f /data/adb/modules/Lynx/core/lynx_watcher.sh /data/adb/lynx/lynx_watcher.sh; else cat << 'EOF' > /data/adb/lynx/lynx_watcher.sh\n$watcherScript\nEOF\nfi",
-                "chmod 755 /data/adb/lynx/lynx_watcher.sh 2>/dev/null",
+                "if [ -f /data/adb/modules/Lynx/core/apply_profile.sh ]; then cp -f /data/adb/modules/Lynx/core/apply_profile.sh /data/adb/lynx/apply_profile.sh; fi",
+                "if [ -f /data/adb/modules/Lynx/core/lynx_watcher.sh ]; then cp -f /data/adb/modules/Lynx/core/lynx_watcher.sh /data/adb/lynx/lynx_watcher.sh; fi",
                 "if [ -f /data/adb/modules/Lynx/core/lib/verify_profile.sh ]; then cp -f /data/adb/modules/Lynx/core/lib/verify_profile.sh /data/adb/lynx/verify_profile.sh; chmod 755 /data/adb/lynx/verify_profile.sh 2>/dev/null; fi"
             ).exec()
             true
@@ -5696,7 +5862,8 @@ done
             if (directProf in listOf("balance", "powersave", "dormant")) {
                 return directProf
             }
-            val r = Shell.cmd("cat /data/adb/modules/Lynx/config.json 2>/dev/null || cat $LOCAL_CONFIG_PATH 2>/dev/null || cat $LOCAL_CONFIG_PATH_DEBUG 2>/dev/null").exec()
+            val activePath = runCatching { getLocalConfigPath() }.getOrDefault(LOCAL_CONFIG_PATH_DEBUG)
+            val r = Shell.cmd("cat /data/adb/modules/Lynx/config.json 2>/dev/null || cat '$activePath' 2>/dev/null").exec()
             val text = r.out.joinToString("\n")
             if (text.contains("\"active_profile\"")) {
                 val match = Regex("\"active_profile\"\\s*:\\s*\"([^\"]+)\"").find(text)
@@ -5708,16 +5875,18 @@ done
 
     private fun readCurrentProfileFast(): String {
         return try {
-            val direct = Shell.cmd("getprop lynx.mode 2>/dev/null || cat /data/adb/lynx/active_profile 2>/dev/null").exec()
+            val direct = Shell.cmd("m=\$(getprop lynx.mode 2>/dev/null); [ -n \"\$m\" ] && echo \"\$m\" || cat /data/adb/lynx/active_profile 2>/dev/null").exec()
             val directProf = direct.out.firstOrNull()?.trim()?.lowercase() ?: ""
             if (directProf in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) {
                 return directProf
             }
-            val r = Shell.cmd("cat /data/adb/modules/Lynx/config.json 2>/dev/null || cat $LOCAL_CONFIG_PATH 2>/dev/null || cat $LOCAL_CONFIG_PATH_DEBUG 2>/dev/null").exec()
+            val activePath = runCatching { getLocalConfigPath() }.getOrDefault(LOCAL_CONFIG_PATH_DEBUG)
+            val r = Shell.cmd("cat /data/adb/modules/Lynx/config.json 2>/dev/null || cat '$activePath' 2>/dev/null").exec()
             val text = r.out.joinToString("\n")
             if (text.contains("\"active_profile\"")) {
                 val match = Regex("\"active_profile\"\\s*:\\s*\"([^\"]+)\"").find(text)
-                match?.groupValues?.get(1) ?: "balance"
+                val p = match?.groupValues?.get(1)?.lowercase() ?: "balance"
+                if (p in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) p else "balance"
             } else "balance"
         } catch (e: Exception) { "balance" }
     }

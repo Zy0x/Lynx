@@ -204,25 +204,17 @@ class LynxAppAutomationService : Service() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val appInfo = packageManager.getApplicationInfo(pkg, 0)
-                val resolved = when (appInfo.category) {
-                    android.content.pm.ApplicationInfo.CATEGORY_GAME -> "performance"
-                    android.content.pm.ApplicationInfo.CATEGORY_AUDIO,
-                    android.content.pm.ApplicationInfo.CATEGORY_VIDEO -> "powersave"
-                    else -> {
-                        val lower = pkg.lowercase()
-                        if (lower.contains("youtube") || lower.contains("netflix") || lower.contains("spotify") ||
-                            lower.contains("tiktok") || lower.contains("twitch") || lower.contains("vlc") ||
-                            lower.contains("mxplayer") || lower.contains("primevideo") || lower.contains("disney") ||
-                            lower.contains("webtoon") || lower.contains("kindle") || lower.contains("manga") ||
-                            lower.contains("bilibili") || lower.contains("iqiyi")) {
-                            "powersave"
-                        } else if (lower.contains("game") || lower.contains("genshin") || lower.contains("honkai") ||
-                                   lower.contains("pubg") || lower.contains("codm") || lower.contains("mobilelegends") ||
-                                   lower.contains("freefire")) {
-                            "performance"
-                        } else {
-                            "balance"
-                        }
+                val resolved = if (appInfo.category == android.content.pm.ApplicationInfo.CATEGORY_GAME ||
+                    (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0) {
+                    "performance"
+                } else {
+                    val lower = pkg.lowercase()
+                    if (lower.contains("game") || lower.contains("genshin") || lower.contains("honkai") ||
+                        lower.contains("pubg") || lower.contains("codm") || lower.contains("mobilelegends") ||
+                        lower.contains("freefire") || lower.contains("roblox") || lower.contains("minecraft")) {
+                        "performance"
+                    } else {
+                        "balance"
                     }
                 }
                 categoryProfileCache[pkg] = resolved
@@ -230,9 +222,13 @@ class LynxAppAutomationService : Service() {
             }
         } catch (_: Exception) {}
         val lower = pkg.lowercase()
-        val fallback = if (lower.contains("youtube") || lower.contains("netflix") || lower.contains("spotify") || lower.contains("tiktok")) "powersave"
-        else if (lower.contains("game") || lower.contains("genshin") || lower.contains("honkai") || lower.contains("pubg")) "performance"
-        else "balance"
+        val fallback = if (lower.contains("game") || lower.contains("genshin") || lower.contains("honkai") ||
+            lower.contains("pubg") || lower.contains("codm") || lower.contains("mobilelegends") ||
+            lower.contains("freefire") || lower.contains("roblox") || lower.contains("minecraft")) {
+            "performance"
+        } else {
+            "balance"
+        }
         categoryProfileCache[pkg] = fallback
         return fallback
     }

@@ -44,7 +44,7 @@ class LynxViewModel : ViewModel() {
             val moduleInstalled = if (rootAvailable) LynxRepository.isModuleInstalled() else false
 
             if (rootAvailable) {
-                val state = if (moduleInstalled) LynxRepository.readState() else LynxState(targetSoc = "generic")
+                val state = LynxRepository.readState()
                 val clusters = LynxRepository.readClusters()
                 val telemetry = LynxRepository.readTelemetry()
                 val backups = LynxRepository.listBackups()
@@ -157,10 +157,8 @@ class LynxViewModel : ViewModel() {
                     }
                 }
 
-                if (moduleInstalled) {
-                    startFileObserver()
-                    startPeriodicSync()
-                }
+                startFileObserver()
+                startPeriodicSync()
                 startTelemetryPolling()
 
             } else {
@@ -241,9 +239,15 @@ class LynxViewModel : ViewModel() {
     fun refreshState() {
         viewModelScope.launch {
             try {
-                val state = LynxRepository.readState()
-                _uiState.update {
-                    it.copy(state = state, lastSyncedAt = System.currentTimeMillis())
+                val freshState = LynxRepository.readState()
+                _uiState.update { current ->
+                    val finalProfile = if (current.state.activeProfile in listOf("balance", "performance", "extreme", "auto", "powersave") &&
+                        freshState.activeProfile == "dormant") {
+                        current.state.activeProfile
+                    } else {
+                        freshState.activeProfile
+                    }
+                    current.copy(state = freshState.copy(activeProfile = finalProfile), lastSyncedAt = System.currentTimeMillis())
                 }
             } catch (e: Exception) {
                 // Silent refresh failure — don't show error for background syncs
@@ -320,10 +324,43 @@ class LynxViewModel : ViewModel() {
     //  State Key Mutations (All subsystems)
     // ----------------------------------------------------------------
 
-    fun setOverclockEnabled(enabled: Boolean) = setKey("overclock.enabled", enabled.toString(), "bool")
-    fun setCpuFloorRatio(ratio: Int) = setKey("overclock.cpu_floor_ratio", ratio.toString(), "val")
-    fun setZramSizeMb(mb: Int) = setKey("memory.zram_size_mb", mb.toString(), "val")
-    fun setSwappiness(value: Int) = setKey("memory.swappiness", value.toString(), "val")
+    fun setOverclockEnabled(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(overclock = current.state.overclock.copy(enabled = enabled)))
+        }
+        setKey("overclock.enabled", enabled.toString(), "bool")
+        viewModelScope.launch {
+            val ok = LynxRepository.applyOverclock(enabled)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = if (enabled) "Mode Kernel Overclock diaktifkan" else "Mode Kernel Overclock dinonaktifkan") }
+            }
+        }
+    }
+
+    fun setCpuFloorRatio(ratio: Int) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(overclock = current.state.overclock.copy(cpuFloorRatio = ratio)))
+        }
+        setKey("overclock.cpu_floor_ratio", ratio.toString(), "val")
+    }
+
+    fun setZramSizeMb(mb: Int) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(memory = current.state.memory.copy(zramSizeMb = mb)))
+        }
+        setKey("memory.zram_size_mb", mb.toString(), "val")
+    }
+
+    fun setSwappiness(value: Int) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(memory = current.state.memory.copy(swappiness = value)))
+        }
+        setKey("memory.swappiness", value.toString(), "val")
+        viewModelScope.launch {
+            com.topjohnwu.superuser.Shell.cmd("echo $value > /proc/sys/vm/swappiness 2>/dev/null").exec()
+        }
+    }
+
     fun setBypassCharging(enabled: Boolean) {
         _uiState.update { current ->
             current.copy(
@@ -339,6 +376,7 @@ class LynxViewModel : ViewModel() {
             LynxRepository.applyChargingMode(bypass = enabled, extremeCharging = isExtreme, limitMa = limitMa)
         }
     }
+
     fun setExtremeCharging(enabled: Boolean) {
         _uiState.update { current ->
             current.copy(
@@ -354,6 +392,7 @@ class LynxViewModel : ViewModel() {
             LynxRepository.applyChargingMode(bypass = isBypass, extremeCharging = enabled, limitMa = limitMa)
         }
     }
+
     fun setTempCutoff(temp: Int) {
         _uiState.update { current ->
             current.copy(
@@ -364,6 +403,7 @@ class LynxViewModel : ViewModel() {
         }
         setKey("charging.temp_cutoff_c", temp.toString(), "val")
     }
+
     fun setChargeCurrentLimit(ma: Int) {
         _uiState.update { current ->
             current.copy(
@@ -379,14 +419,90 @@ class LynxViewModel : ViewModel() {
             LynxRepository.applyChargingMode(bypass = isBypass, extremeCharging = isExtreme, limitMa = ma)
         }
     }
-    fun setUclampGameMin(ratio: Int) = setKey("uclamp.game_min_ratio", ratio.toString(), "val")
-    fun setCustomTempLimit(temp: Int) = setKey("thermal.custom_temp_limit_c", temp.toString(), "val")
-    fun setWifiPingStabilizer(enabled: Boolean) = setKey("network.wifi_ping_stabilizer", enabled.toString(), "bool")
-    fun setTouchboost(enabled: Boolean) = setKey("display_touch.touchboost", enabled.toString(), "bool")
-    fun setAudioMmap(enabled: Boolean) = setKey("audio.low_latency_mmap", enabled.toString(), "bool")
-    fun setJoyoseNeutralize(enabled: Boolean) = setKey("oem_neutralizer.joyose_neutralize", enabled.toString(), "bool")
-    fun setThermalBypass(enabled: Boolean) = setKey("thermal.full_bypass", enabled.toString(), "bool")
+
+    fun setUclampGameMin(ratio: Int) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(uclamp = current.state.uclamp.copy(gameMinRatio = ratio)))
+        }
+        setKey("uclamp.game_min_ratio", ratio.toString(), "val")
+    }
+
+    fun setCustomTempLimit(temp: Int) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(thermal = current.state.thermal.copy(customTempLimitC = temp)))
+        }
+        setKey("thermal.custom_temp_limit_c", temp.toString(), "val")
+    }
+
+    fun setWifiPingStabilizer(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(network = current.state.network.copy(wifiPingStabilizer = enabled)))
+        }
+        setKey("network.wifi_ping_stabilizer", enabled.toString(), "bool")
+        viewModelScope.launch {
+            val ok = LynxRepository.applyWifiPingStabilizer(enabled)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = if (enabled) "Wi-Fi Ping Stabilizer diaktifkan" else "Wi-Fi Ping Stabilizer dinonaktifkan") }
+            }
+        }
+    }
+
+    fun setTouchboost(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(displayTouch = current.state.displayTouch.copy(touchboost = enabled)))
+        }
+        setKey("display_touch.touchboost", enabled.toString(), "bool")
+        viewModelScope.launch {
+            val ok = LynxRepository.applyTouchboost(enabled)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = if (enabled) "TouchBoost diaktifkan" else "TouchBoost dinonaktifkan") }
+            }
+        }
+    }
+
+    fun setAudioMmap(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(audio = current.state.audio.copy(lowLatencyMmap = enabled)))
+        }
+        setKey("audio.low_latency_mmap", enabled.toString(), "bool")
+        viewModelScope.launch {
+            val ok = LynxRepository.applyAudioMmap(enabled)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = if (enabled) "Audio MMAP Low-Latency diaktifkan" else "Audio MMAP Low-Latency dinonaktifkan") }
+            }
+        }
+    }
+
+    fun setJoyoseNeutralize(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(oemNeutralizer = current.state.oemNeutralizer.copy(joyoseNeutralize = enabled)))
+        }
+        setKey("oem_neutralizer.joyose_neutralize", enabled.toString(), "bool")
+        viewModelScope.launch {
+            val ok = LynxRepository.applyJoyoseNeutralizer(enabled)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = if (enabled) "OEM Neutralizer diaktifkan" else "OEM Neutralizer dinonaktifkan") }
+            }
+        }
+    }
+
+    fun setThermalBypass(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(thermal = current.state.thermal.copy(fullBypass = enabled)))
+        }
+        setKey("thermal.full_bypass", enabled.toString(), "bool")
+        viewModelScope.launch {
+            val ok = LynxRepository.applyThermalBypass(enabled)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = if (enabled) "Thermal Bypass diaktifkan (Unrestricted)" else "Thermal Bypass dinonaktifkan") }
+            }
+        }
+    }
+
     fun setMaxBatteryPercent(percent: Int) {
+        _uiState.update { current ->
+            current.copy(state = current.state.copy(charging = current.state.charging.copy(maxBatteryPercent = percent)))
+        }
         setKey("charging.max_battery_percent", percent.toString(), "val")
         viewModelScope.launch {
             LynxRepository.setMaxBatteryPercent(percent)
@@ -396,8 +512,6 @@ class LynxViewModel : ViewModel() {
     private fun setKey(key: String, value: String, type: String) {
         viewModelScope.launch {
             LynxRepository.writeStateKey(key, value, type)
-            delay(300L)
-            refreshState()
         }
     }
 
@@ -453,8 +567,12 @@ class LynxViewModel : ViewModel() {
 
     fun setKsmEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            LynxRepository.setKsmEnabled(enabled)
-            delay(300L)
+            val ok = LynxRepository.setKsmEnabled(enabled)
+            if (ok) {
+                _uiState.update { it.copy(ksmStats = it.ksmStats.copy(enabled = enabled), successMessage = "KSM ${if (enabled) "diaktifkan" else "dinonaktifkan"}") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Fitur KSM tidak didukung oleh kernel ini") }
+            }
             refreshKsmStats()
         }
     }
