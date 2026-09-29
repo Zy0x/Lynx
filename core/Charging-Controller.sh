@@ -126,6 +126,9 @@ apply_extreme_charging() {
     write_node "95" "$MTK_DIR/sc_tuisoc"
     write_node "1" "$MTK_DIR/enable_sc"
 
+    # Bypass MTK Super Charge DV2_TBAT thermal lockout
+    write_node "28" "/sys/devices/platform/battery/Battery_Temperature"
+
     # Reset adaptive battery charge current throttle (abcct) cooling device
     write_node "0" "/sys/class/thermal/cooling_device56/cur_state"
 

@@ -1515,6 +1515,7 @@ object LynxRepository {
                 echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                 echo 95 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
 
                 for c in /sys/class/thermal/cooling_device*; do
                     type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
