@@ -371,9 +371,15 @@ class LynxViewModel : ViewModel() {
         }
         setKey("charging.bypass_enabled", enabled.toString(), "bool")
         viewModelScope.launch {
-            val isExtreme = _uiState.value.state.charging.extremeChargingEnabled
-            val limitMa = _uiState.value.state.charging.limitCurrentMa
-            LynxRepository.applyChargingMode(bypass = enabled, extremeCharging = isExtreme, limitMa = limitMa)
+            val chg = _uiState.value.state.charging
+            LynxRepository.applyChargingMode(
+                bypass = enabled,
+                extremeCharging = chg.extremeChargingEnabled,
+                limitMa = chg.limitCurrentMa,
+                highTargetPercent = chg.highCurrentTargetPercent,
+                lockoutBypass = chg.thermalLockoutBypassEnabled,
+                tempGuard = chg.emergencyTempGuardEnabled
+            )
         }
     }
 
@@ -387,9 +393,70 @@ class LynxViewModel : ViewModel() {
         }
         setKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
         viewModelScope.launch {
-            val isBypass = _uiState.value.state.charging.bypassEnabled
-            val limitMa = _uiState.value.state.charging.limitCurrentMa
-            LynxRepository.applyChargingMode(bypass = isBypass, extremeCharging = enabled, limitMa = limitMa)
+            val chg = _uiState.value.state.charging
+            LynxRepository.applyChargingMode(
+                bypass = chg.bypassEnabled,
+                extremeCharging = enabled,
+                limitMa = chg.limitCurrentMa,
+                highTargetPercent = chg.highCurrentTargetPercent,
+                lockoutBypass = chg.thermalLockoutBypassEnabled,
+                tempGuard = chg.emergencyTempGuardEnabled
+            )
+        }
+    }
+
+    fun setHighCurrentTarget(percent: Int) {
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(highCurrentTargetPercent = percent)
+                )
+            )
+        }
+        setKey("charging.high_current_target_percent", percent.toString(), "val")
+        viewModelScope.launch {
+            val chg = _uiState.value.state.charging
+            LynxRepository.applyChargingMode(
+                bypass = chg.bypassEnabled,
+                extremeCharging = chg.extremeChargingEnabled,
+                limitMa = chg.limitCurrentMa,
+                highTargetPercent = percent,
+                lockoutBypass = chg.thermalLockoutBypassEnabled,
+                tempGuard = chg.emergencyTempGuardEnabled
+            )
+        }
+    }
+
+    fun setEmergencyTempGuard(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(emergencyTempGuardEnabled = enabled)
+                )
+            )
+        }
+        setKey("charging.emergency_temp_guard_enabled", enabled.toString(), "bool")
+    }
+
+    fun setThermalLockoutBypass(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(thermalLockoutBypassEnabled = enabled)
+                )
+            )
+        }
+        setKey("charging.thermal_lockout_bypass_enabled", enabled.toString(), "bool")
+        viewModelScope.launch {
+            val chg = _uiState.value.state.charging
+            LynxRepository.applyChargingMode(
+                bypass = chg.bypassEnabled,
+                extremeCharging = chg.extremeChargingEnabled,
+                limitMa = chg.limitCurrentMa,
+                highTargetPercent = chg.highCurrentTargetPercent,
+                lockoutBypass = enabled,
+                tempGuard = chg.emergencyTempGuardEnabled
+            )
         }
     }
 
@@ -414,9 +481,15 @@ class LynxViewModel : ViewModel() {
         }
         setKey("charging.limit_current_ma", ma.toString(), "val")
         viewModelScope.launch {
-            val isBypass = _uiState.value.state.charging.bypassEnabled
-            val isExtreme = _uiState.value.state.charging.extremeChargingEnabled
-            LynxRepository.applyChargingMode(bypass = isBypass, extremeCharging = isExtreme, limitMa = ma)
+            val chg = _uiState.value.state.charging
+            LynxRepository.applyChargingMode(
+                bypass = chg.bypassEnabled,
+                extremeCharging = chg.extremeChargingEnabled,
+                limitMa = ma,
+                highTargetPercent = chg.highCurrentTargetPercent,
+                lockoutBypass = chg.thermalLockoutBypassEnabled,
+                tempGuard = chg.emergencyTempGuardEnabled
+            )
         }
     }
 

@@ -206,6 +206,9 @@ object LynxRepository {
         limitCurrentMa = j?.optInt("limit_current_ma", 4500) ?: 4500,
         autoCutEnabled = j?.optBoolean("auto_cut_enabled", true) ?: true,
         maxBatteryPercent = j?.optInt("max_battery_percent", 80) ?: 80,
+        highCurrentTargetPercent = j?.optInt("high_current_target_percent", 90) ?: 90,
+        emergencyTempGuardEnabled = j?.optBoolean("emergency_temp_guard_enabled", true) ?: true,
+        thermalLockoutBypassEnabled = j?.optBoolean("thermal_lockout_bypass_enabled", true) ?: true,
     )
 
     private fun parseUclamp(j: JSONObject?) = UclampConfig(
@@ -1464,7 +1467,14 @@ object LynxRepository {
      * Apply True Hardware Bypass Charging or Extreme Fast Charging directly to sysfs.
      * Supports both MediaTek (Dimensity/Helio) and Qualcomm Snapdragon architectures.
      */
-    suspend fun applyChargingMode(bypass: Boolean, extremeCharging: Boolean, limitMa: Int = 4500): Boolean = withContext(Dispatchers.IO) {
+    suspend fun applyChargingMode(
+        bypass: Boolean,
+        extremeCharging: Boolean,
+        limitMa: Int = 4500,
+        highTargetPercent: Int = 90,
+        lockoutBypass: Boolean = true,
+        tempGuard: Boolean = true
+    ): Boolean = withContext(Dispatchers.IO) {
         try {
             val script = if (bypass) {
                 // True Hardware Bypass: Vsys direct power from charger, zero battery current
@@ -1513,9 +1523,9 @@ object LynxRepository {
                 echo 4294967295 > /sys/devices/platform/charger/chg1_current 2>/dev/null
                 echo 4294967295 > /sys/devices/platform/charger/chg2_current 2>/dev/null
                 echo 7000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                echo 100 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
+                echo $highTargetPercent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                ${if (lockoutBypass) "echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null" else "echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null"}
 
                 for c in /sys/class/thermal/cooling_device*; do
                     type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
@@ -1561,6 +1571,7 @@ object LynxRepository {
                 echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/store_mode 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
+                echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
 
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
@@ -1612,11 +1623,42 @@ object LynxRepository {
     suspend fun setExtremeCharging(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
             writeStateKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
-            val isBypass = readState().charging.bypassEnabled
-            applyChargingMode(bypass = isBypass, extremeCharging = enabled)
+            val chg = readState().charging
+            applyChargingMode(
+                bypass = chg.bypassEnabled,
+                extremeCharging = enabled,
+                limitMa = chg.limitCurrentMa,
+                highTargetPercent = chg.highCurrentTargetPercent,
+                lockoutBypass = chg.thermalLockoutBypassEnabled,
+                tempGuard = chg.emergencyTempGuardEnabled
+            )
         } catch (e: Exception) {
             false
         }
+    }
+
+    suspend fun setHighCurrentTarget(percent: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            writeStateKey("charging.high_current_target_percent", percent.toString(), "val")
+            Shell.cmd("echo $percent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null").exec()
+            true
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setEmergencyTempGuard(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            writeStateKey("charging.emergency_temp_guard_enabled", enabled.toString(), "bool")
+            true
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setThermalLockoutBypass(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            writeStateKey("charging.thermal_lockout_bypass_enabled", enabled.toString(), "bool")
+            val tempVal = if (enabled) "28" else "65535"
+            Shell.cmd("echo $tempVal > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null").exec()
+            true
+        } catch (e: Exception) { false }
     }
 
     // ----------------------------------------------------------------
@@ -2365,7 +2407,11 @@ object LynxRepository {
                 cnt=${'$'}(cat /sys/class/power_supply/battery/charge_counter 2>/dev/null || echo 0)
                 adpv=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null || cat /sys/class/power_supply/usb/voltage_now 2>/dev/null || echo 0)
                 chgtyp=${'$'}(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || cat /sys/class/power_supply/usb/type 2>/dev/null || echo "")
-                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp"
+                ibus=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1 || cat /sys/class/power_supply/usb/current_now 2>/dev/null || echo 0)
+                rfc=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/rfc_dcp_ta 2>/dev/null | head -n 1 || echo 0)
+                rtmp=${'$'}(cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null || cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 0)
+                grd=${'$'}([ -f /dev/lynx_charging_guard ] && echo 1 || echo 0)
+                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd"
             """.trimIndent()
             val r = Shell.cmd(script).exec()
             val line = r.out.firstOrNull()?.trim() ?: return@withContext null
@@ -2386,15 +2432,45 @@ object LynxRepository {
                 val rawAdpv = parts.getOrNull(8)?.toIntOrNull() ?: 0
                 val chgTyp = parts.getOrNull(9) ?: ""
                 val adpMv = if (rawAdpv > 100000) rawAdpv / 1000 else rawAdpv
+
+                val rawIbus = parts.getOrNull(10)?.toIntOrNull() ?: 0
+                val ibusMa = if (Math.abs(rawIbus) > 10000) rawIbus / 1000 else rawIbus
+                val rfcAuth = parts.getOrNull(11)?.trim() == "1"
+                val rawRtmp = parts.getOrNull(12)?.toFloatOrNull() ?: 0f
+                val realTempC = if (rawRtmp > 1000f) rawRtmp / 1000f else if (rawRtmp > 100f) rawRtmp / 10f else rawRtmp
+                val isGuardActive = parts.getOrNull(13)?.trim() == "1"
+
+                val isCharging = curMa > 50 || stat.equals("Charging", ignoreCase = true)
                 val watt = if (curMa > 0 && voltMv > 0) {
                     (curMa.toFloat() * voltMv.toFloat()) / 1_000_000f
                 } else 0f
+
+                val activeIC = when {
+                    rfcAuth || (adpMv > 7000 && curMa >= 2500) -> "Direct Charge Pump (RT9759 2:1)"
+                    isCharging -> "Switching Buck Converter (RT9471)"
+                    else -> "Standby / Baterai"
+                }
+
                 val protocol = when {
-                    adpMv > 6500 || chgTyp == "9" -> "Pump Express (${String.format(java.util.Locale.US, "%.1f", adpMv / 1000f)}V)"
-                    adpMv > 4500 && curMa >= 2000 -> "Fast Charge (High Current)"
+                    rfcAuth || chgTyp == "9" -> "Transsion Super Charge (33W RFC)"
+                    adpMv > 8000 || chgTyp == "4" -> "USB-PD / PE2.0 Fast Charge (18W)"
+                    adpMv > 4500 && curMa >= 2000 -> "Fast Charge (High Current 5V)"
                     adpMv > 4000 -> "Standard USB (${String.format(java.util.Locale.US, "%.1f", adpMv / 1000f)}V)"
                     else -> "Battery Power"
                 }
+
+                val adapterWatt = if (adpMv > 1000 && ibusMa > 50) {
+                    (adpMv.toFloat() * ibusMa.toFloat()) / 1_000_000f
+                } else if (watt > 0.1f) {
+                    watt / (if (rfcAuth) 0.96f else 0.88f)
+                } else 0f
+
+                val efficiency = if (adapterWatt > 0.5f && watt > 0.5f) {
+                    ((watt / adapterWatt) * 100f).toInt().coerceIn(60, 99)
+                } else if (isCharging) {
+                    if (rfcAuth) 96 else 88
+                } else 0
+
                 BatteryDetails(
                     level = cap,
                     status = stat,
@@ -2406,7 +2482,14 @@ object LynxRepository {
                     chargeCounterMah = cntMah,
                     chargerVoltageMv = adpMv,
                     chargerWatt = watt,
-                    fastChargeProtocol = protocol
+                    fastChargeProtocol = protocol,
+                    activeICName = activeIC,
+                    adapterVoltageMv = adpMv,
+                    adapterCurrentMa = ibusMa,
+                    adapterWatt = adapterWatt,
+                    chargingEfficiencyPercent = efficiency,
+                    realPhysicalTempC = realTempC,
+                    isEmergencyGuardActive = isGuardActive
                 )
             } else null
         } catch (e: Exception) { null }

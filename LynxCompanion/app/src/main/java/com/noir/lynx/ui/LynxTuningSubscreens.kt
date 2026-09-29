@@ -1345,22 +1345,30 @@ fun TuningChargingCategory(
     modifier: Modifier = Modifier
 ) {
     val state = uiState.state
+    val battDetails = uiState.batteryDetails
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshBatteryDetails()
+    }
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // ============================================================
+        //  BENTO CARD 1: CHARGING TELEMETRY & HARDWARE INSPECTOR
+        // ============================================================
         LynxCard(
-            title = "Charging Controller & Bypass",
+            title = "Hardware Inspector & Telemetri",
             icon = Icons.Default.BatteryChargingFull,
             accentColor = AccentCyan
         ) {
-            // Live charging mode status badge
+            // Live Charging Status Badge
             val currentModeLabel = when {
-                state.charging.bypassEnabled -> "⚡ Bypass Charging Aktif (Baterai Terlatch / Dingin)"
-                state.charging.extremeChargingEnabled -> "🔥 Extreme Fast Charge (Kecepatan Penuh / JEITA Bypass)"
-                state.charging.limitCurrentMa >= 3000 -> "🚀 Fast Charging Aktif (Kecepatan Penuh / Otomatis)"
-                else -> "⚖️ Pengisian Dibatasi Manual (Batas ${state.charging.limitCurrentMa} mA)"
+                state.charging.bypassEnabled -> "⚡ Bypass Charging Aktif (Baterai Latch)"
+                state.charging.extremeChargingEnabled -> "🔥 Extreme Fast Charge (Lockout Bypass)"
+                state.charging.limitCurrentMa >= 3000 -> "🚀 High-Current Fast Charge (${state.charging.limitCurrentMa} mA)"
+                else -> "⚖️ Pengisian Dibatasi (${state.charging.limitCurrentMa} mA)"
             }
             val currentModeColor = when {
                 state.charging.bypassEnabled -> AccentCyan
@@ -1368,14 +1376,15 @@ fun TuningChargingCategory(
                 state.charging.limitCurrentMa >= 3000 -> AccentCyan
                 else -> AccentOrange
             }
+
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(10.dp),
                 color = currentModeColor.copy(alpha = 0.12f),
                 border = BorderStroke(1.dp, currentModeColor.copy(alpha = 0.35f)),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -1394,80 +1403,325 @@ fun TuningChargingCategory(
                 }
             }
 
-            // Live Charging Telemetry Monitor Strip
-            val battDetails = uiState.batteryDetails
-            if (battDetails != null) {
+            // Emergency Thermal Guard Alert Banner (if tripped)
+            if (battDetails?.isEmergencyGuardActive == true) {
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = BgElevated.copy(alpha = 0.6f),
-                    border = BorderStroke(1.dp, BorderSubtle),
+                    shape = RoundedCornerShape(10.dp),
+                    color = AccentRed.copy(alpha = 0.15f),
+                    border = BorderStroke(1.2.dp, AccentRed.copy(alpha = 0.8f)),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Metric 1: Arus (mA)
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Arus Baterai", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                                val curColor = if (battDetails.currentMa > 100) AccentGreen else if (state.charging.bypassEnabled) AccentCyan else TextPrimary
-                                val curText = if (battDetails.currentMa > 0) "+${battDetails.currentMa} mA" else "${battDetails.currentMa} mA"
-                                Text(curText, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = curColor)
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = AccentRed,
+                            modifier = Modifier.size(20.dp).padding(top = 1.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Emergency Thermal Guard Aktif!",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentRed
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Suhu sensor fisik nyata terdeteksi ≥ 46.0°C. Sistem otomatis mencabut temperature spoofing dan menahan arus di batas aman 2.0A demi melindungi kesehatan baterai dan komponen IC.",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.sp,
+                                color = TextPrimary.copy(alpha = 0.9f),
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Hardware IC & Fast Charge Protocol Badges
+            val icLabel = battDetails?.activeICName?.ifBlank { "Direct Pump 2:1 / PMIC" } ?: "Direct Pump 2:1 / PMIC"
+            val protoLabel = battDetails?.fastChargeProtocol?.ifBlank { "Standard DCP / Battery" } ?: "Standard DCP / Battery"
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Active IC Badge
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Memory, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Column {
+                            Text("Active IC", style = MaterialTheme.typography.labelSmall, fontSize = 9.5.sp, color = TextSecondary)
+                            Text(
+                                text = icLabel,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AccentPurple,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+
+                // Protocol Badge
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Column {
+                            Text("Protokol", style = MaterialTheme.typography.labelSmall, fontSize = 9.5.sp, color = TextSecondary)
+                            Text(
+                                text = protoLabel,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AccentCyan,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Dual Wattmeter & Metrics Matrix
+            if (battDetails != null) {
+                val inputWatt = if (battDetails.adapterWatt > 0.05f) battDetails.adapterWatt else battDetails.chargerWatt
+                val netBattWatt = (battDetails.voltageMv.toFloat() * battDetails.currentMa.coerceAtLeast(0).toFloat()) / 1_000_000f
+                val netWattDisplay = if (netBattWatt > 0.05f) netBattWatt else battDetails.chargerWatt
+                val efficiency = battDetails.chargingEfficiencyPercent.coerceIn(0, 100)
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgElevated.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        // Row 1: Dual Wattmeter (Adapter Input vs Battery Net)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Column A: Adapter Input
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = BgCard,
+                                border = BorderStroke(0.8.dp, BorderGlass),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text("Daya Masuk (Adapter)", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = TextSecondary)
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = if (inputWatt > 0.05f) String.format(java.util.Locale.US, "%.1f W", inputWatt) else "--",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AccentPurple
+                                    )
+                                    val voltVal = if (battDetails.adapterVoltageMv > 1000) battDetails.adapterVoltageMv / 1000f else (if (battDetails.chargerVoltageMv > 1000) battDetails.chargerVoltageMv / 1000f else battDetails.voltageMv / 1000f)
+                                    val curVal = if (battDetails.adapterCurrentMa > 0) battDetails.adapterCurrentMa else battDetails.currentMa.coerceAtLeast(0)
+                                    Text(
+                                        text = String.format(java.util.Locale.US, "%.1f V • %d mA", voltVal, curVal),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 10.sp,
+                                        color = TextSecondary
+                                    )
+                                }
                             }
-                            // Metric 2: Daya (Watt)
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Daya Masuk", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                                val wattVal = if (battDetails.chargerWatt > 0.05f) String.format(java.util.Locale.US, "%.1f W", battDetails.chargerWatt) else "--"
-                                Text(wattVal, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = AccentCyan)
-                            }
-                            // Metric 3: Tegangan Adapter
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Adapter", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                                val voltVal = if (battDetails.chargerVoltageMv > 1000) String.format(java.util.Locale.US, "%.1f V", battDetails.chargerVoltageMv / 1000f) else "${battDetails.voltageMv / 1000f} V"
-                                Text(voltVal, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = AccentPurple)
-                            }
-                            // Metric 4: Suhu Baterai
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Suhu", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                                val tempColor = if (battDetails.tempC >= 43f) AccentRed else if (battDetails.tempC >= 40f) AccentOrange else AccentGreen
-                                Text(String.format(java.util.Locale.US, "%.1f°C", battDetails.tempC), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = tempColor)
+
+                            // Column B: Battery Net Power
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = BgCard,
+                                border = BorderStroke(0.8.dp, BorderGlass),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text("Net Baterai", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = TextSecondary)
+                                    Spacer(Modifier.height(2.dp))
+                                    val curColor = if (battDetails.currentMa > 100) AccentGreen else if (state.charging.bypassEnabled) AccentCyan else TextPrimary
+                                    Text(
+                                        text = if (netWattDisplay > 0.05f) String.format(java.util.Locale.US, "%.1f W", netWattDisplay) else "--",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = curColor
+                                    )
+                                    val bCurText = if (battDetails.currentMa > 0) "+${battDetails.currentMa} mA" else "${battDetails.currentMa} mA"
+                                    Text(
+                                        text = String.format(java.util.Locale.US, "%.1f V • %s", battDetails.voltageMv / 1000f, bCurText),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 10.sp,
+                                        color = TextSecondary
+                                    )
+                                }
                             }
                         }
-                        if (battDetails.fastChargeProtocol.isNotBlank() && battDetails.fastChargeProtocol != "Battery Power") {
-                            Spacer(modifier = Modifier.height(6.dp))
+
+                        // Row 2: Conversion Efficiency Progress Bar
+                        Column(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(12.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Efisiensi Konversi IC Pump", style = MaterialTheme.typography.labelSmall, fontSize = 11.sp, color = TextSecondary)
                                 Text(
-                                    text = battDetails.fastChargeProtocol,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = AccentCyan,
-                                    fontWeight = FontWeight.Medium
+                                    text = if (efficiency > 0) "$efficiency%" else if (state.charging.bypassEnabled) "100% (Bypass)" else "--",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentGreen
                                 )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { if (efficiency > 0) (efficiency / 100f).coerceIn(0f, 1f) else if (state.charging.bypassEnabled) 1f else 0.5f },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                color = AccentGreen,
+                                trackColor = BgElevated
+                            )
+                        }
+
+                        // Row 3: Thermal Duality (Suhu Sensor Fisik Nyata vs Sensor Baterai/Spoof)
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = BgCard,
+                            border = BorderStroke(0.8.dp, BorderGlass),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text("Thermal Duality Sensor", style = MaterialTheme.typography.labelSmall, fontSize = 10.5.sp, color = TextSecondary)
+                                    val isSpoofed = state.charging.thermalLockoutBypassEnabled && (battDetails.tempC in 27.5f..28.5f)
+                                    val spoofLabel = if (isSpoofed) "Spoofed 28°C (Bypass Aktif)" else "${String.format(java.util.Locale.US, "%.1f°C", battDetails.tempC)}"
+                                    Text(
+                                        text = "Sensor Baterai: $spoofLabel",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 10.sp,
+                                        color = if (isSpoofed) AccentCyan else TextSecondary,
+                                        maxLines = 1
+                                    )
+                                }
+                                val physColor = if (battDetails.realPhysicalTempC >= 46f) AccentRed else if (battDetails.realPhysicalTempC >= 42f) AccentOrange else AccentGreen
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("Fisik Nyata", style = MaterialTheme.typography.labelSmall, fontSize = 9.5.sp, color = TextSecondary)
+                                    Text(
+                                        text = String.format(java.util.Locale.US, "%.1f°C", battDetails.realPhysicalTempC),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = physColor,
+                                        maxLines = 1
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
+        }
+
+        // ============================================================
+        //  BENTO CARD 2: HIGH-CURRENT & ACCELERATION CONTROLS
+        // ============================================================
+        LynxCard(
+            title = "Kontrol Arus Tinggi & Akselerasi",
+            icon = Icons.Default.Speed,
+            accentColor = AccentCyan
+        ) {
+            LynxSwitch(
+                label = "Extreme Fast Charging (High Current)",
+                subLabel = "Membuka batas arus tertinggi (hingga 4500-6000mA), mengaktifkan protokol RFC/PD penuh, dan menghapus pembatasan bertahap bawaan kernel.",
+                checked = state.charging.extremeChargingEnabled,
+                onCheckedChange = { viewModel.setExtremeCharging(it) },
+            )
+
+            LynxSwitch(
+                label = "Thermal Lockout Bypass (DV2_TBAT)",
+                subLabel = "Mem-bypass limitasi thermal lockout (Battery_Temperature = 28°C spoofing & abcct disable) agar charger tidak drop ke 500mA saat baterai hangat ketika gaming.",
+                checked = state.charging.thermalLockoutBypassEnabled,
+                onCheckedChange = { viewModel.setThermalLockoutBypass(it) },
+            )
+
+            var highTargetValue by remember(state.charging.highCurrentTargetPercent) {
+                mutableFloatStateOf(state.charging.highCurrentTargetPercent.toFloat())
+            }
+            LynxSlider(
+                label = "Target Kapasitas Arus Tinggi (sc_tuisoc)",
+                value = highTargetValue,
+                onValueChange = { highTargetValue = it },
+                onValueChangeFinished = { viewModel.setHighCurrentTarget(highTargetValue.toInt()) },
+                valueRange = 80f..100f,
+                steps = 19,
+                displayValue = "${highTargetValue.toInt()}% Kapasitas",
+                accentColor = AccentCyan
+            )
+            Text(
+                text = "Menahan pengisian pompa arus tinggi (Direct Charge Pump 2:1) hingga baterai mencapai ${highTargetValue.toInt()}% sebelum beralih ke arus rendah trickle. Default pabrikan biasanya membatasi di 70-80%.",
+                style = MaterialTheme.typography.bodySmall,
+                fontSize = 11.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            var currentLimitValue by remember(state.charging.limitCurrentMa) {
+                mutableFloatStateOf(state.charging.limitCurrentMa.toFloat())
+            }
+            LynxSlider(
+                label = "Batas Arus Pengisian Game",
+                value = currentLimitValue,
+                onValueChange = { currentLimitValue = it },
+                onValueChangeFinished = { viewModel.setChargeCurrentLimit(currentLimitValue.toInt()) },
+                valueRange = 1000f..6000f,
+                steps = 9,
+                displayValue = if (currentLimitValue >= 3500f) "${currentLimitValue.toInt()} mA (Fast Charge)" else "${currentLimitValue.toInt()} mA",
+                accentColor = AccentPurple
+            )
+        }
+
+        // ============================================================
+        //  BENTO CARD 3: SAFETY & BATTERY LONGEVITY
+        // ============================================================
+        LynxCard(
+            title = "Proteksi & Kesehatan Baterai",
+            icon = Icons.Default.Security,
+            accentColor = AccentGreen
+        ) {
+            LynxSwitch(
+                label = "Emergency Thermal Guard (46.0°C)",
+                subLabel = "Failsafe cerdas anti-overheat. Jika sensor termal fisik nyata (mtktsAP/thermal_zone) mencapai ≥ 46°C, temperatur spoofing dicabut otomatis dan arus diturunkan seketika ke level aman.",
+                checked = state.charging.emergencyTempGuardEnabled,
+                onCheckedChange = { viewModel.setEmergencyTempGuard(it) },
+            )
 
             LynxSwitch(
                 label = "Bypass Charging (Direct Motherboard)",
                 subLabel = "Mengalirkan arus charger langsung ke motherboard (Vsys) tanpa mengisi ataupun menguras baterai. Persentase baterai tertahan stabil (latch) dan suhu baterai tetap dingin saat gaming.",
                 checked = state.charging.bypassEnabled,
                 onCheckedChange = { viewModel.setBypassCharging(it) },
-            )
-
-            LynxSwitch(
-                label = "Extreme Fast Charging (High Current)",
-                subLabel = "Membuka batas arus pengisian tertinggi (hingga 4500-6000mA), mengaktifkan protokol Pump Express/Fast Charge, dan mem-bypass pembatas termal JEITA agar baterai terisi super cepat dan tidak pernah drop saat bermain game.",
-                checked = state.charging.extremeChargingEnabled,
-                onCheckedChange = { viewModel.setExtremeCharging(it) },
             )
 
             var tempCutoffValue by remember(state.charging.tempCutoffC) {
@@ -1484,20 +1738,6 @@ fun TuningChargingCategory(
                 accentColor = AccentOrange
             )
 
-            var currentLimitValue by remember(state.charging.limitCurrentMa) {
-                mutableFloatStateOf(state.charging.limitCurrentMa.toFloat())
-            }
-            LynxSlider(
-                label = "Batas Arus Pengisian Game",
-                value = currentLimitValue,
-                onValueChange = { currentLimitValue = it },
-                onValueChangeFinished = { viewModel.setChargeCurrentLimit(currentLimitValue.toInt()) },
-                valueRange = 1000f..6000f,
-                steps = 9,
-                displayValue = if (currentLimitValue >= 3500f) "${currentLimitValue.toInt()} mA (Fast Charge)" else "${currentLimitValue.toInt()} mA",
-                accentColor = AccentCyan
-            )
-
             var maxBatteryValue by remember(state.charging.maxBatteryPercent) {
                 mutableFloatStateOf(state.charging.maxBatteryPercent.toFloat())
             }
@@ -1509,7 +1749,7 @@ fun TuningChargingCategory(
                 valueRange = 70f..95f,
                 steps = 4,
                 displayValue = "${maxBatteryValue.toInt()}%",
-                accentColor = AccentCyan
+                accentColor = AccentGreen
             )
         }
     }

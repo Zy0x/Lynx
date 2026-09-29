@@ -55,6 +55,9 @@ data class ChargingConfig(
     val limitCurrentMa: Int = 4500,
     val autoCutEnabled: Boolean = true,
     val maxBatteryPercent: Int = 80,
+    val highCurrentTargetPercent: Int = 90,
+    val emergencyTempGuardEnabled: Boolean = true,
+    val thermalLockoutBypassEnabled: Boolean = true,
 )
 
 data class UclampConfig(
@@ -149,6 +152,13 @@ data class BatteryDetails(
     val chargerVoltageMv: Int = 0,
     val chargerWatt: Float = 0f,
     val fastChargeProtocol: String = "",
+    val activeICName: String = "",
+    val adapterVoltageMv: Int = 0,
+    val adapterCurrentMa: Int = 0,
+    val adapterWatt: Float = 0f,
+    val chargingEfficiencyPercent: Int = 0,
+    val realPhysicalTempC: Float = 0f,
+    val isEmergencyGuardActive: Boolean = false,
 )
 
 data class BootBackupInfo(
