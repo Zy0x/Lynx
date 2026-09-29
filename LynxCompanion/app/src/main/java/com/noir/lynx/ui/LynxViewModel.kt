@@ -130,6 +130,7 @@ class LynxViewModel : ViewModel() {
                         cpuCores = cpuCores,
                         topCpuProcesses = topCpuProcesses,
                         totalCpuLoadPercent = statLoads.first,
+                        cpuLoadHistory = listOf(statLoads.first),
                         socPlatformName = socPlatformName,
                         socTopology = socTopology,
                         batteryDetails = batteryDetails,
@@ -227,13 +228,18 @@ class LynxViewModel : ViewModel() {
                     val batt = if (counter % 3 == 0) LynxRepository.readBatteryDetails() else null
                     val gpu = if (counter % 2 == 0) LynxRepository.readGpuInfo() else null
                     val therm = if (counter % 4 == 0) LynxRepository.readThermalZones() else null
-                    if (tel != null || cores != null || batt != null || gpu != null || therm != null || procs != null) {
+                    if (tel != null || cores != null || batt != null || gpu != null || therm != null || procs != null || statLoads != null) {
                         _uiState.update { current ->
+                            val newLoad = statLoads?.first ?: current.totalCpuLoadPercent
+                            val newHistory = if (statLoads != null) {
+                                (current.cpuLoadHistory + statLoads.first).takeLast(30)
+                            } else current.cpuLoadHistory
                             current.copy(
                                 telemetry = tel ?: current.telemetry,
                                 cpuCores = if (cores != null && cores.isNotEmpty()) cores else current.cpuCores,
                                 topCpuProcesses = if (procs != null && procs.isNotEmpty()) procs else current.topCpuProcesses,
-                                totalCpuLoadPercent = statLoads?.first ?: current.totalCpuLoadPercent,
+                                totalCpuLoadPercent = newLoad,
+                                cpuLoadHistory = newHistory,
                                 batteryDetails = batt ?: current.batteryDetails,
                                 gpuInfo = gpu ?: current.gpuInfo,
                                 thermalZones = if (therm != null && therm.isNotEmpty()) therm else current.thermalZones,

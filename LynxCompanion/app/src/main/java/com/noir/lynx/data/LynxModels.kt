@@ -405,6 +405,7 @@ data class LynxUiState(
     val cpuCores: List<CpuCoreInfo> = emptyList(),
     val topCpuProcesses: List<CpuProcessInfo> = emptyList(),
     val totalCpuLoadPercent: Int = 0,
+    val cpuLoadHistory: List<Int> = emptyList(),
     val socPlatformName: String = "",
     val socTopology: String = "",
     val batteryDetails: BatteryDetails? = null,

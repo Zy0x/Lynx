@@ -25,8 +25,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import com.noir.lynx.data.*
 
 // ============================================================
@@ -48,92 +52,44 @@ fun TuningCpuCategory(
         // ── Scene-Style Master Hero Card (Top Processes + SoC Info + 4-Column Per-Core Matrix) ──
         if (uiState.cpuCores.isNotEmpty()) {
             LaunchedEffect(Unit) { viewModel.refreshCpuCores() }
-            LynxCard(
-                title = "CPU & Multi-Core Topology",
-                icon = Icons.Default.Speed,
-                accentColor = AccentCyan
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF131417),
+                border = BorderStroke(1.dp, Color(0xFF1E2026)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // Header Action Row
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val onlineCount = uiState.cpuCores.count { it.isOnline }
-                    Text(
-                        "$onlineCount / ${uiState.cpuCores.size} Cores Aktif",
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.5.sp
-                    )
-                    Surface(
-                        onClick = { viewModel.setAllCpuCoresOnline() },
-                        shape = RoundedCornerShape(8.dp),
-                        color = AccentCyan.copy(alpha = 0.15f),
-                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                Column(modifier = Modifier.padding(14.dp)) {
+                    // ── TOP HALF: Processes (Left) + Divider + SoC & 8-Bar Spectrum (Right) ──
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "Semua Online",
-                            color = AccentCyan,
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-
-                // ── Top Split Section (Left: Top 5 CPU Processes, Right: SoC Status & Topology) ──
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Left Column: Top 5 CPU Processes Panel
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = BgElevated,
-                        border = BorderStroke(0.8.dp, BorderSubtle),
-                        modifier = Modifier.weight(1.15f)
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(bottom = 6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Apps,
-                                    contentDescription = null,
-                                    tint = AccentCyan,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(Modifier.width(5.dp))
-                                Text(
-                                    "Top Proses CPU",
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextSecondary
-                                )
-                            }
-
+                        // Left Column: Top 5 CPU Processes
+                        Column(
+                            modifier = Modifier.weight(1.15f).padding(end = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             val procs = uiState.topCpuProcesses.take(5)
                             if (procs.isEmpty()) {
                                 Box(
-                                    modifier = Modifier.fillMaxWidth().height(90.dp),
+                                    modifier = Modifier.fillMaxWidth().height(95.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("Memindai proses...", fontSize = 10.sp, color = TextTertiary)
+                                    Text("Memindai proses...", fontSize = 11.sp, color = Color(0xFF757585))
                                 }
                             } else {
                                 procs.forEach { p ->
-                                    val iconVector = when {
-                                        p.name.contains("Chrome", ignoreCase = true) -> Icons.Default.Language
-                                        p.name.contains("Sistem", ignoreCase = true) || p.name.contains("UI", ignoreCase = true) -> Icons.Default.Widgets
-                                        p.name.contains("Server", ignoreCase = true) -> Icons.Default.Settings
-                                        p.name.contains("Surface", ignoreCase = true) || p.name.contains("composer", ignoreCase = true) -> Icons.Default.Layers
-                                        p.name.contains("audio", ignoreCase = true) -> Icons.Default.VolumeUp
-                                        else -> Icons.Default.Terminal
-                                    }
+                                    val isDaemon = p.name.contains("flinger", ignoreCase = true) ||
+                                            p.name.contains("audio", ignoreCase = true) ||
+                                            p.name.contains("sh", ignoreCase = true) ||
+                                            p.name.contains("hardware", ignoreCase = true) ||
+                                            p.name.contains("server", ignoreCase = true) ||
+                                            p.name.contains("kernel", ignoreCase = true)
+                                    val isGoogle = p.name.contains("google", ignoreCase = true)
+                                    val isSystemUi = p.name.contains("sistem", ignoreCase = true) || p.name.contains("ui", ignoreCase = true)
+
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.5.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
@@ -141,215 +97,222 @@ fun TuningCpuCategory(
                                             modifier = Modifier.weight(1f).padding(end = 4.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Icon(
-                                                imageVector = iconVector,
-                                                contentDescription = null,
-                                                tint = TextSecondary.copy(alpha = 0.8f),
-                                                modifier = Modifier.size(11.dp)
-                                            )
-                                            Spacer(Modifier.width(5.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(16.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFF1E2026)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                when {
+                                                    isDaemon -> Icon(
+                                                        imageVector = Icons.Default.Terminal,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFFFFCC00),
+                                                        modifier = Modifier.size(11.dp)
+                                                    )
+                                                    isGoogle -> Icon(
+                                                        imageVector = Icons.Default.Search,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFF4285F4),
+                                                        modifier = Modifier.size(11.dp)
+                                                    )
+                                                    isSystemUi -> Icon(
+                                                        imageVector = Icons.Default.Android,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFF3DDC84),
+                                                        modifier = Modifier.size(11.dp)
+                                                    )
+                                                    else -> Icon(
+                                                        imageVector = Icons.Default.Widgets,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFF2979FF),
+                                                        modifier = Modifier.size(11.dp)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(Modifier.width(6.dp))
                                             Text(
                                                 text = p.name,
-                                                fontSize = 10.sp,
-                                                color = TextPrimary,
+                                                fontSize = 11.sp,
+                                                color = Color(0xFFD0D0D5),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                         Text(
                                             text = String.format(java.util.Locale.US, "%.1f%%", p.cpuPercent),
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (p.cpuPercent >= 20f) AccentOrange else AccentCyan
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Normal,
+                                            color = Color(0xFFA0A0AB)
                                         )
                                     }
                                 }
                             }
                         }
-                    }
 
-                    // Right Column: SoC Topology, Temperature & Animated Equalizer
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = BgElevated,
-                        border = BorderStroke(0.8.dp, BorderSubtle),
-                        modifier = Modifier.weight(0.85f)
-                    ) {
+                        // Thin Vertical Divider
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .fillMaxHeight()
+                                .background(Color(0xFF22242B))
+                        )
+
+                        // Right Column: Temperature, CPU, 8-Bar Spectrum, SoC Name, Total Load
                         Column(
-                            modifier = Modifier.padding(10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.SpaceBetween
+                            modifier = Modifier.weight(1.0f).padding(start = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Top Row: Temperature
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val tempVal = uiState.telemetry?.temp?.toFloatOrNull() ?: (uiState.batteryDetails?.realPhysicalTempC ?: 0f)
-                                val tempColor = if (tempVal >= 55f) AccentRed else if (tempVal >= 42f) AccentOrange else AccentGreen
+                            // Top Right: Temperature
+                            val tempVal = uiState.telemetry?.temp?.toFloatOrNull() ?: (uiState.batteryDetails?.realPhysicalTempC ?: 28f)
+                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
                                 Text(
                                     text = String.format(java.util.Locale.US, "%.1f°C", tempVal),
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = tempColor
+                                    fontSize = 11.5.sp,
+                                    color = Color(0xFFA0A0AB)
                                 )
                             }
 
-                            // Center: "CPU" and Equalizer Bars
+                            Spacer(Modifier.height(1.dp))
+
+                            // Title: CPU
                             Text(
                                 text = "CPU",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Black,
-                                color = TextPrimary,
-                                letterSpacing = 1.sp
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
                             )
 
-                            // Animated Equalizer Visualizer (5 Bars)
-                            val totalLoad = uiState.totalCpuLoadPercent.coerceIn(0, 100)
+                            Spacer(Modifier.height(8.dp))
+
+                            // The 8-Bar Live Core Spectrum Graph (One bar per core C0..C7)
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                horizontalArrangement = Arrangement.spacedBy(3.5.dp),
                                 verticalAlignment = Alignment.Bottom,
-                                modifier = Modifier.height(20.dp).padding(vertical = 2.dp)
+                                modifier = Modifier.height(26.dp)
                             ) {
-                                val multipliers = listOf(0.7f, 1.2f, 0.9f, 1.3f, 0.8f)
-                                multipliers.forEachIndexed { idx, mul ->
-                                    val barTarget = ((totalLoad * mul).coerceIn(12f, 100f) / 100f)
-                                    val barHeight by animateFloatAsState(
-                                        targetValue = barTarget,
-                                        animationSpec = tween(durationMillis = 300),
-                                        label = "eqBar_$idx"
+                                val allCores = uiState.cpuCores
+                                (0..7).forEach { idx ->
+                                    val core = allCores.getOrNull(idx)
+                                    val isOnline = core?.isOnline ?: true
+                                    val load = (core?.loadPercent ?: 0).coerceIn(0, 100)
+                                    val targetH = if (!isOnline) {
+                                        2.dp
+                                    } else {
+                                        (4f + (load / 100f) * 22f).dp
+                                    }
+                                    val animatedHeight by animateDpAsState(
+                                        targetValue = targetH,
+                                        animationSpec = tween(durationMillis = 250),
+                                        label = "spectrum_$idx"
                                     )
                                     Box(
                                         modifier = Modifier
-                                            .width(4.5.dp)
-                                            .fillMaxHeight(barHeight)
-                                            .clip(RoundedCornerShape(2.dp))
-                                            .background(if (totalLoad > 70) AccentOrange else AccentCyan)
+                                            .width(7.dp)
+                                            .height(animatedHeight)
+                                            .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp, bottomStart = 1.dp, bottomEnd = 1.dp))
+                                            .background(
+                                                if (!isOnline) Color(0xFF33353E)
+                                                else Color(0xFF2979FF)
+                                            )
                                     )
                                 }
                             }
 
-                            // Bottom: SoC Name + Topology & Total Load
-                            val socModel = uiState.socPlatformName.ifBlank { "MT6877" }
-                            val socTopo = uiState.socTopology.ifBlank { "(6+2)" }
+                            Spacer(Modifier.height(8.dp))
+
+                            // SoC Name & Topology (e.g. MT6781 (6+2))
+                            val socText = "${uiState.socPlatformName.ifBlank { "MT6781" }} ${uiState.socTopology.ifBlank { "(6+2)" }}"
                             Text(
-                                text = "$socModel $socTopo",
-                                fontSize = 9.5.sp,
+                                text = socText,
+                                fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TextPrimary,
+                                color = Color.White,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+
                             Spacer(Modifier.height(2.dp))
+
+                            // Total Load
                             Text(
-                                text = "Load: $totalLoad%",
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = AccentCyan
+                                text = "Load: ${uiState.totalCpuLoadPercent}%",
+                                fontSize = 11.5.sp,
+                                color = Color(0xFFA0A0AB)
                             )
                         }
                     }
-                }
 
-                // Divider between Hero Split and Per-Core Matrix
-                HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
+                    // Thin Horizontal Divider across the card
+                    HorizontalDivider(
+                        color = Color(0xFF22242B),
+                        thickness = 1.dp,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
 
-                // ── Bottom Section: 4-Column Per-Core Matrix ──
-                val cores = uiState.cpuCores
-                val rows = cores.chunked(4)
-                rows.forEach { quad ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        quad.forEach { core ->
-                            val matchedCluster = uiState.clusters.firstOrNull { cluster ->
-                                val list = cluster.cpus.trim().split(Regex("[ ,]+")).filter { it.isNotBlank() }
-                                list.any { s ->
-                                    if (s.contains("-")) {
-                                        val p = s.split("-")
-                                        val start = p.getOrNull(0)?.toIntOrNull() ?: 0
-                                        val end = p.getOrNull(1)?.toIntOrNull() ?: start
-                                        core.coreId in start..end
-                                    } else {
-                                        s.toIntOrNull() == core.coreId
-                                    }
-                                }
-                            }
-                            val isBig = (matchedCluster?.id ?: if (core.coreId >= 6) 1 else 0) > 0
-                            val clusterColor = if (isBig) AccentOrange else AccentCyan
-
-                            val minKhz = if (core.minFreqKhz > 0) core.minFreqKhz else (matchedCluster?.curMin?.takeIf { it > 0 } ?: 500000L)
-                            val maxKhz = if (core.maxFreqKhz > 0) core.maxFreqKhz else (matchedCluster?.curMax?.takeIf { it > 0 } ?: 2050000L)
-                            val freqRatio = if (core.isOnline && maxKhz > minKhz) {
-                                ((core.curFreqKhz - minKhz).toFloat() / (maxKhz - minKhz).toFloat()).coerceIn(0.08f, 1f)
-                            } else {
-                                0f
-                            }
-                            val animatedRatio by animateFloatAsState(
-                                targetValue = freqRatio,
-                                animationSpec = tween(durationMillis = 250),
-                                label = "freqRatio_${core.coreId}"
-                            )
-
-                            val isOnline = core.isOnline
-                            val tileBg = if (isOnline) BgElevated else BgCard.copy(alpha = 0.5f)
-                            val tileBorder = if (isOnline) clusterColor.copy(alpha = 0.35f) else BorderGlass
-
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = tileBg,
-                                border = BorderStroke(0.8.dp, tileBorder),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable(enabled = core.isSwitchable) {
-                                        viewModel.setCpuCoreOnline(core.coreId, !core.isOnline)
-                                    }
-                            ) {
+                    // ── BOTTOM HALF: 4 Columns x 2 Rows of Cores (Frameless, Scene-Style) ──
+                    val cores = uiState.cpuCores
+                    val rows = cores.chunked(4)
+                    rows.forEachIndexed { rowIndex, quad ->
+                        if (rowIndex > 0) Spacer(Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            quad.forEach { core ->
                                 Column(
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 7.dp)
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable(enabled = core.isSwitchable && core.coreId > 0) {
+                                            viewModel.setCpuCoreOnline(core.coreId, !core.isOnline)
+                                        },
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    // Row 1: Core ID + Load %
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "C${core.coreId}",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isOnline) clusterColor else TextTertiary
-                                        )
-                                        Text(
-                                            text = if (isOnline) "${core.loadPercent}%" else "--",
-                                            fontSize = 9.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isOnline) TextPrimary else TextTertiary
-                                        )
-                                    }
+                                    // 1. Percentage
+                                    Text(
+                                        text = if (core.isOnline) "${core.loadPercent}%" else "--",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (core.isOnline) Color(0xFFE2E2E8) else Color(0xFF555866)
+                                    )
 
                                     Spacer(Modifier.height(4.dp))
 
-                                    // Row 2: Continuous Smooth Bar
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(3.5.dp)
-                                            .clip(RoundedCornerShape(2.dp))
-                                            .background(BgCard)
+                                    // 2. 5-Bar Vertical Mini Equalizer Graphic
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                        verticalAlignment = Alignment.Bottom,
+                                        modifier = Modifier.height(13.dp)
                                     ) {
-                                        if (isOnline && animatedRatio > 0f) {
+                                        val load = core.loadPercent.coerceIn(0, 100)
+                                        val isOnline = core.isOnline
+
+                                        // 5 natural equalizer height multipliers
+                                        val multipliers = listOf(0.9f, 1.0f, 0.85f, 0.65f, 0.95f)
+                                        multipliers.forEachIndexed { bIdx, mult ->
+                                            val targetH = if (!isOnline) {
+                                                1.5.dp
+                                            } else if (load < 5) {
+                                                2.dp
+                                            } else {
+                                                val ratio = ((load * mult).coerceIn(10f, 100f) / 100f)
+                                                (2.5f + ratio * 10.5f).dp
+                                            }
+                                            val barH by animateDpAsState(
+                                                targetValue = targetH,
+                                                animationSpec = tween(durationMillis = 200),
+                                                label = "miniEq_${core.coreId}_$bIdx"
+                                            )
                                             Box(
                                                 modifier = Modifier
-                                                    .fillMaxWidth(animatedRatio)
-                                                    .fillMaxHeight()
-                                                    .clip(RoundedCornerShape(2.dp))
+                                                    .width(3.5.dp)
+                                                    .height(barH)
+                                                    .clip(RoundedCornerShape(1.dp))
                                                     .background(
-                                                        Brush.horizontalGradient(
-                                                            listOf(clusterColor.copy(alpha = 0.6f), clusterColor)
-                                                        )
+                                                        if (!isOnline) Color(0xFF33353E)
+                                                        else if (load < 5) Color(0xFF2979FF).copy(alpha = 0.45f)
+                                                        else Color(0xFF2979FF)
                                                     )
                                             )
                                         }
@@ -357,40 +320,189 @@ fun TuningCpuCategory(
 
                                     Spacer(Modifier.height(5.dp))
 
-                                    // Row 3: Current Frequency in MHz
+                                    // 3. Live Frequency
                                     Text(
-                                        text = if (isOnline) "${core.curFreqKhz / 1000}MHz" else "OFFLINE",
-                                        fontSize = 10.5.sp,
+                                        text = if (core.isOnline) "${core.curFreqKhz / 1000}MHz" else "OFFLINE",
+                                        fontSize = 13.5.sp,
                                         fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = if (isOnline) TextPrimary else TextTertiary,
+                                        color = if (core.isOnline) Color.White else Color(0xFFFF5252),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
 
-                                    // Row 4: Frequency Range min~max
-                                    val rangeText = if (isOnline) {
-                                        "${minKhz / 1000}~${maxKhz / 1000}M"
-                                    } else if (!core.isSwitchable) {
-                                        "Master"
-                                    } else {
-                                        "Tap ON"
-                                    }
+                                    Spacer(Modifier.height(1.dp))
+
+                                    // 4. Frequency Range (e.g. 500~2000MHz)
+                                    val minKhz = if (core.minFreqKhz > 0) core.minFreqKhz else 500000L
+                                    val maxKhz = if (core.maxFreqKhz > 0) core.maxFreqKhz else 2000000L
                                     Text(
-                                        text = rangeText,
-                                        fontSize = 8.sp,
-                                        color = TextSecondary,
+                                        text = "${minKhz / 1000}~${maxKhz / 1000}MHz",
+                                        fontSize = 9.5.sp,
+                                        color = Color(0xFF757585),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
-                        }
-                        if (quad.size < 4) {
-                            for (i in 0 until (4 - quad.size)) {
-                                Spacer(Modifier.weight(1f))
+                            if (quad.size < 4) {
+                                for (i in 0 until (4 - quad.size)) {
+                                    Spacer(Modifier.weight(1f))
+                                }
                             }
                         }
+                    }
+                }
+            }
+
+            // ── Real-Time CPU Load History Waveform Card (Canvas Graph) ──
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF131417),
+                border = BorderStroke(1.dp, Color(0xFF1E2026)),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    val history = uiState.cpuLoadHistory
+                    val curLoad = uiState.totalCpuLoadPercent.coerceIn(0, 100)
+                    val minVal = if (history.isNotEmpty()) history.minOrNull() ?: curLoad else curLoad
+                    val maxVal = if (history.isNotEmpty()) history.maxOrNull() ?: curLoad else curLoad
+                    val avgVal = if (history.isNotEmpty()) history.average().toInt() else curLoad
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Timeline,
+                                contentDescription = null,
+                                tint = Color(0xFF2979FF),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Grafik Beban CPU (Real-Time)",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
+                        }
+
+                        // Current Load Badge
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF2979FF).copy(alpha = 0.15f),
+                            border = BorderStroke(0.8.dp, Color(0xFF2979FF).copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "$curLoad%",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2979FF),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Smooth Bezier Curve Canvas Waveform
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp)
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val w = size.width
+                            val h = size.height
+                            if (w <= 0 || h <= 0) return@Canvas
+
+                            // Draw subtle horizontal grid lines (25%, 50%, 75%)
+                            val gridColor = Color(0xFF1E2026)
+                            drawLine(gridColor, start = androidx.compose.ui.geometry.Offset(0f, h * 0.25f), end = androidx.compose.ui.geometry.Offset(w, h * 0.25f), strokeWidth = 1f)
+                            drawLine(gridColor, start = androidx.compose.ui.geometry.Offset(0f, h * 0.50f), end = androidx.compose.ui.geometry.Offset(w, h * 0.50f), strokeWidth = 1f)
+                            drawLine(gridColor, start = androidx.compose.ui.geometry.Offset(0f, h * 0.75f), end = androidx.compose.ui.geometry.Offset(w, h * 0.75f), strokeWidth = 1f)
+
+                            val points = if (history.size < 2) {
+                                listOf(curLoad, curLoad)
+                            } else {
+                                history
+                            }
+
+                            val stepX = w / (points.size - 1).coerceAtLeast(1)
+                            val path = Path()
+                            val fillPath = Path()
+
+                            points.forEachIndexed { i, load ->
+                                val normY = (1f - (load.coerceIn(0, 100) / 100f)) * (h - 8f) + 4f
+                                val x = i * stepX
+                                if (i == 0) {
+                                    path.moveTo(x, normY)
+                                    fillPath.moveTo(x, h)
+                                    fillPath.lineTo(x, normY)
+                                } else {
+                                    val prevLoad = points[i - 1]
+                                    val prevNormY = (1f - (prevLoad.coerceIn(0, 100) / 100f)) * (h - 8f) + 4f
+                                    val prevX = (i - 1) * stepX
+                                    val cx1 = prevX + (x - prevX) / 2f
+                                    val cy1 = prevNormY
+                                    val cx2 = prevX + (x - prevX) / 2f
+                                    val cy2 = normY
+                                    path.cubicTo(cx1, cy1, cx2, cy2, x, normY)
+                                    fillPath.cubicTo(cx1, cy1, cx2, cy2, x, normY)
+                                }
+                            }
+
+                            fillPath.lineTo(w, h)
+                            fillPath.close()
+
+                            // Fill with vertical gradient
+                            drawPath(
+                                path = fillPath,
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xFF2979FF).copy(alpha = 0.35f),
+                                        Color(0xFF2979FF).copy(alpha = 0.05f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+
+                            // Draw line stroke
+                            drawPath(
+                                path = path,
+                                color = Color(0xFF2979FF),
+                                style = Stroke(width = 2.5f)
+                            )
+
+                            // Draw glowing pulse dot at the latest point
+                            val lastX = w
+                            val lastY = (1f - (curLoad / 100f)) * (h - 8f) + 4f
+                            drawCircle(
+                                color = Color(0xFF2979FF).copy(alpha = 0.3f),
+                                radius = 7f,
+                                center = androidx.compose.ui.geometry.Offset(lastX, lastY)
+                            )
+                            drawCircle(
+                                color = Color(0xFF2979FF),
+                                radius = 3.5f,
+                                center = androidx.compose.ui.geometry.Offset(lastX, lastY)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    // Stats summary bar (Min, Avg, Max)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Min: $minVal%", fontSize = 10.5.sp, color = Color(0xFF757585))
+                        Text("Rata-rata: $avgVal%", fontSize = 10.5.sp, color = Color(0xFFA0A0AB), fontWeight = FontWeight.Medium)
+                        Text("Puncak: $maxVal%", fontSize = 10.5.sp, color = Color(0xFF2979FF), fontWeight = FontWeight.Bold)
                     }
                 }
             }
