@@ -6,13 +6,27 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -745,58 +759,148 @@ fun MainDashboard(
     Scaffold(
         containerColor = BgDeepOled,
         bottomBar = {
-            // Floating Luxury Pill Navigation Bar
-            Surface(
+            val haptic = LocalHapticFeedback.current
+            val navItems = listOf(
+                Triple("Dashboard", Icons.Default.Speed, 0),
+                Triple("Tuning Engine", Icons.Default.Tune, 1),
+                Triple("Tools", Icons.Default.Build, 2),
+            )
+
+            // Model 1: Floating Dynamic Capsule Dock (Nothing OS / Dynamic Island style with Luxury Translucent Glass)
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
-                shape = RoundedCornerShape(28.dp),
-                color = Color(0xF2121522),
-                border = BorderStroke(1.dp, BorderGlass),
-                tonalElevation = 6.dp,
-                shadowElevation = 10.dp,
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center
             ) {
-                NavigationBar(
-                    containerColor = Color.Transparent,
-                    tonalElevation = 0.dp,
-                    modifier = Modifier.height(68.dp)
-                ) {
-                    val navItems = listOf(
-                        Triple("Dashboard", Icons.Default.Speed, 0),
-                        Triple("Tuning Engine", Icons.Default.Tune, 1),
-                        Triple("Tools", Icons.Default.Build, 2),
-                    )
-                    navItems.forEach { (label, icon, index) ->
-                        val isSelected = uiState.currentTab == index
-                        NavigationBarItem(
-                            selected = isSelected,
-                            onClick = {
-                                if (uiState.currentTab == 1 && index == 1) {
-                                    selectedCategory = null
-                                } else {
-                                    viewModel.switchTab(index)
-                                }
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = label,
-                                    tint = if (isSelected) currentAccent else TextSecondary,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = label,
-                                    fontSize = 10.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) currentAccent else TextSecondary
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                indicatorColor = currentAccent.copy(alpha = 0.16f),
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xD90E121E), // Luxury Translucent OLED Glass (~85% opacity)
+                    border = BorderStroke(
+                        1.dp,
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0x40FFFFFF), // Specular light reflection on top edge
+                                Color(0x18FFFFFF), // Mid translucent edge
+                                Color(0x0AFFFFFF)  // Base glass edge
                             )
                         )
+                    ),
+                    shadowElevation = 12.dp,
+                    modifier = Modifier.shadow(
+                        elevation = 16.dp,
+                        shape = CircleShape,
+                        spotColor = currentAccent.copy(alpha = 0.28f),
+                        ambientColor = currentAccent.copy(alpha = 0.15f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 6.dp, vertical = 6.dp)
+                            .animateContentSize(
+                                animationSpec = spring(
+                                    dampingRatio = 0.76f,
+                                    stiffness = Spring.StiffnessMediumLow
+                                )
+                            ),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        navItems.forEach { (label, icon, index) ->
+                            val isSelected = uiState.currentTab == index
+
+                            val animatedBgColor by animateColorAsState(
+                                targetValue = if (isSelected) currentAccent.copy(alpha = 0.16f) else Color.Transparent,
+                                animationSpec = tween(durationMillis = 220),
+                                label = "nav_bg_$index"
+                            )
+                            val animatedBorderColor by animateColorAsState(
+                                targetValue = if (isSelected) currentAccent.copy(alpha = 0.45f) else Color.Transparent,
+                                animationSpec = tween(durationMillis = 220),
+                                label = "nav_border_$index"
+                            )
+                            val animatedIconTint by animateColorAsState(
+                                targetValue = if (isSelected) currentAccent else TextSecondary.copy(alpha = 0.70f),
+                                animationSpec = tween(durationMillis = 200),
+                                label = "nav_icon_$index"
+                            )
+                            val iconScale by animateFloatAsState(
+                                targetValue = if (isSelected) 1.05f else 0.95f,
+                                animationSpec = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow),
+                                label = "nav_scale_$index"
+                            )
+                            val horizontalPadding by animateDpAsState(
+                                targetValue = if (isSelected) 16.dp else 12.dp,
+                                animationSpec = spring(dampingRatio = 0.76f, stiffness = Spring.StiffnessMediumLow),
+                                label = "nav_pad_$index"
+                            )
+
+                            Surface(
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .defaultMinSize(minWidth = 48.dp)
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        if (uiState.currentTab == 1 && index == 1) {
+                                            selectedCategory = null
+                                        } else {
+                                            viewModel.switchTab(index)
+                                        }
+                                    },
+                                shape = CircleShape,
+                                color = animatedBgColor,
+                                border = BorderStroke(1.dp, animatedBorderColor),
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .padding(horizontal = horizontalPadding)
+                                        .fillMaxHeight(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = label,
+                                        tint = animatedIconTint,
+                                        modifier = Modifier
+                                            .size(21.dp)
+                                            .scale(iconScale)
+                                    )
+                                    AnimatedVisibility(
+                                        visible = isSelected,
+                                        enter = fadeIn(animationSpec = tween(180, delayMillis = 40)) +
+                                                expandHorizontally(
+                                                    animationSpec = spring(
+                                                        dampingRatio = 0.76f,
+                                                        stiffness = Spring.StiffnessMediumLow
+                                                    ),
+                                                    expandFrom = Alignment.Start
+                                                ),
+                                        exit = fadeOut(animationSpec = tween(120)) +
+                                                shrinkHorizontally(
+                                                    animationSpec = spring(
+                                                        dampingRatio = 0.76f,
+                                                        stiffness = Spring.StiffnessMediumLow
+                                                    ),
+                                                    shrinkTowards = Alignment.Start
+                                                )
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = label,
+                                                color = currentAccent,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
