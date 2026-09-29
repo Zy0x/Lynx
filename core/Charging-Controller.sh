@@ -122,8 +122,8 @@ apply_extreme_charging() {
     write_node "4294967295" "$MTK_DIR/input_current"
     write_node "4294967295" "$MTK_DIR/chg1_current"
     write_node "4294967295" "$MTK_DIR/chg2_current"
-    write_node "6000" "$MTK_DIR/sc_ibat_limit"
-    write_node "95" "$MTK_DIR/sc_tuisoc"
+    write_node "7000" "$MTK_DIR/sc_ibat_limit"
+    write_node "100" "$MTK_DIR/sc_tuisoc"
     write_node "1" "$MTK_DIR/enable_sc"
 
     # Bypass MTK Super Charge DV2_TBAT thermal lockout

@@ -1512,8 +1512,8 @@ object LynxRepository {
                 echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
                 echo 4294967295 > /sys/devices/platform/charger/chg1_current 2>/dev/null
                 echo 4294967295 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                echo 95 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
+                echo 7000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                echo 100 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                 echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
 
