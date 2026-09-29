@@ -217,28 +217,26 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             var counter = 0
             while (true) {
-                delay(if (isForeground) 1500L else 12000L)
+                delay(if (isForeground) 1000L else 12000L)
                 if (!isForeground) continue
                 try {
                     val tel = LynxRepository.readTelemetry()
                     counter++
-                    val cores = if (counter % 2 == 0) LynxRepository.readCpuCores() else null
+                    val cores = LynxRepository.readCpuCores()
+                    val totalLoad = LynxRepository.latestTotalCpuLoadPercent
                     val procs = if (counter % 2 == 0) LynxRepository.readTopCpuProcesses() else null
-                    val statLoads = if (counter % 2 == 0) LynxRepository.readCpuStatLoads() else null
                     val batt = if (counter % 3 == 0) LynxRepository.readBatteryDetails() else null
                     val gpu = if (counter % 2 == 0) LynxRepository.readGpuInfo() else null
-                    val therm = if (counter % 4 == 0) LynxRepository.readThermalZones() else null
-                    if (tel != null || cores != null || batt != null || gpu != null || therm != null || procs != null || statLoads != null) {
+                    val therm = if (counter % 3 == 0) LynxRepository.readThermalZones() else null
+
+                    if (tel != null || cores.isNotEmpty() || batt != null || gpu != null || therm != null || procs != null) {
                         _uiState.update { current ->
-                            val newLoad = statLoads?.first ?: current.totalCpuLoadPercent
-                            val newHistory = if (statLoads != null) {
-                                (current.cpuLoadHistory + statLoads.first).takeLast(30)
-                            } else current.cpuLoadHistory
+                            val newHistory = (current.cpuLoadHistory + totalLoad).takeLast(30)
                             current.copy(
                                 telemetry = tel ?: current.telemetry,
-                                cpuCores = if (cores != null && cores.isNotEmpty()) cores else current.cpuCores,
+                                cpuCores = if (cores.isNotEmpty()) cores else current.cpuCores,
                                 topCpuProcesses = if (procs != null && procs.isNotEmpty()) procs else current.topCpuProcesses,
-                                totalCpuLoadPercent = newLoad,
+                                totalCpuLoadPercent = totalLoad,
                                 cpuLoadHistory = newHistory,
                                 batteryDetails = batt ?: current.batteryDetails,
                                 gpuInfo = gpu ?: current.gpuInfo,

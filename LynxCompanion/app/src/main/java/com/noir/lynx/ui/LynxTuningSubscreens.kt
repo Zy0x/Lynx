@@ -44,6 +44,8 @@ fun TuningCpuCategory(
     modifier: Modifier = Modifier
 ) {
     val state = uiState.state
+    var pendingCoreAction by remember { mutableStateOf<CpuCoreInfo?>(null) }
+    var showMasterCoreNotice by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -264,8 +266,12 @@ fun TuningCpuCategory(
                                 Column(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clickable(enabled = core.isSwitchable && core.coreId > 0) {
-                                            viewModel.setCpuCoreOnline(core.coreId, !core.isOnline)
+                                        .clickable {
+                                            if (core.coreId == 0) {
+                                                showMasterCoreNotice = true
+                                            } else if (core.isSwitchable) {
+                                                pendingCoreAction = core
+                                            }
                                         },
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
@@ -506,6 +512,134 @@ fun TuningCpuCategory(
                     }
                 }
             }
+        }
+
+        // ── Dialog Konfirmasi Toggle Core CPU (Hotplug) ──
+        if (pendingCoreAction != null) {
+            val targetCore = pendingCoreAction!!
+            val willEnable = !targetCore.isOnline
+            val clusterType = if (targetCore.coreId >= 6) "Big (Performance)" else "Little (Efficiency)"
+            AlertDialog(
+                onDismissRequest = { pendingCoreAction = null },
+                containerColor = Color(0xFF16181D),
+                titleContentColor = Color.White,
+                textContentColor = Color(0xFFCCCCCC),
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (willEnable) Icons.Default.PowerSettingsNew else Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = if (willEnable) Color(0xFF00E5FF) else Color(0xFFFF5252),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (willEnable) "Aktifkan Core ${targetCore.coreId}?" else "Nonaktifkan Core ${targetCore.coreId}?",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = if (willEnable) {
+                                "Apakah Anda yakin ingin mengaktifkan kembali CPU Core ${targetCore.coreId} ($clusterType)? Core ini akan langsung dialokasikan oleh kernel scheduler untuk menangani beban kerja aplikasi."
+                            } else {
+                                "Apakah Anda yakin ingin mematikan CPU Core ${targetCore.coreId} ($clusterType)? Mematikan core akan menghentikan alokasi proses kernel pada core ini untuk menghemat konsumsi daya baterai."
+                            },
+                            fontSize = 12.5.sp,
+                            lineHeight = 17.sp,
+                            color = Color(0xFFAAAAAA)
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF202228),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Status saat ini:", fontSize = 11.sp, color = Color(0xFF888899))
+                                Text(
+                                    if (targetCore.isOnline) "Aktif (${targetCore.curFreqKhz / 1000}MHz)" else "OFFLINE",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (targetCore.isOnline) Color(0xFF2979FF) else Color(0xFFFF5252)
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.setCpuCoreOnline(targetCore.coreId, willEnable)
+                            pendingCoreAction = null
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (willEnable) Color(0xFF2979FF) else Color(0xFFD32F2F)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = if (willEnable) "Aktifkan Core" else "Nonaktifkan",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = Color.White
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { pendingCoreAction = null }
+                    ) {
+                        Text("Batal", color = Color(0xFFAAAAAA), fontSize = 12.sp)
+                    }
+                }
+            )
+        }
+
+        // ── Dialog Peringatan Core 0 (Master Core Protection) ──
+        if (showMasterCoreNotice) {
+            AlertDialog(
+                onDismissRequest = { showMasterCoreNotice = false },
+                containerColor = Color(0xFF16181D),
+                titleContentColor = Color.White,
+                textContentColor = Color(0xFFCCCCCC),
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = Color(0xFFFFB300),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Core 0 Dilindungi (Master Core)", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                },
+                text = {
+                    Text(
+                        "CPU Core 0 adalah boot processor utama kernel Linux yang menangani interrupt sistem, root scheduler, dan zygote init. Core ini diproteksi agar tidak dapat dinonaktifkan demi mencegah kernel panic atau freeze perangkat.",
+                        fontSize = 12.5.sp,
+                        lineHeight = 17.sp,
+                        color = Color(0xFFAAAAAA)
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showMasterCoreNotice = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2979FF)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Mengerti", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+            )
         }
 
         // ── Cluster Frequency & Governor Tuning Card ────────────

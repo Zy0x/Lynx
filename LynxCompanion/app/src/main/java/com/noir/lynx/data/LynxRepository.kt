@@ -2330,6 +2330,8 @@ object LynxRepository {
     // ----------------------------------------------------------------
 
     private var prevCpuStats: Map<String, Pair<Long, Long>> = emptyMap()
+    var latestTotalCpuLoadPercent: Int = 0
+        private set
 
     suspend fun readCpuStatLoads(): Pair<Int, Map<Int, Int>> = withContext(Dispatchers.IO) {
         try {
@@ -2365,6 +2367,7 @@ object LynxRepository {
 
                         if (tag == "cpu") {
                             totalCpuLoad = load
+                            latestTotalCpuLoadPercent = load
                         } else if (tag.startsWith("cpu")) {
                             val cId = tag.removePrefix("cpu").toIntOrNull()
                             if (cId != null) {
