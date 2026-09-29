@@ -71,6 +71,10 @@ class LynxViewModel : ViewModel() {
                 val dirtyRatio = LynxRepository.readDirtyRatio()
                 val vfsPressure = LynxRepository.readVfsCachePressure()
                 val cpuCores = LynxRepository.readCpuCores()
+                val topCpuProcesses = LynxRepository.readTopCpuProcesses()
+                val statLoads = LynxRepository.readCpuStatLoads()
+                val socPlatformName = LynxRepository.getSocPlatformName()
+                val socTopology = LynxRepository.getSocTopology(clusters, cpuCores.size.coerceAtLeast(8))
                 val batteryDetails = LynxRepository.readBatteryDetails()
                 val topWakelocks = LynxRepository.readTopWakelocks()
                 val cachedTunables = LynxRepository.loadCachedDeepTunables()
@@ -124,6 +128,10 @@ class LynxViewModel : ViewModel() {
                         dirtyRatio = dirtyRatio,
                         vfsCachePressure = vfsPressure,
                         cpuCores = cpuCores,
+                        topCpuProcesses = topCpuProcesses,
+                        totalCpuLoadPercent = statLoads.first,
+                        socPlatformName = socPlatformName,
+                        socTopology = socTopology,
                         batteryDetails = batteryDetails,
                         deepTunables = cachedTunables,
                         appProfileRules = appRules,
@@ -214,14 +222,18 @@ class LynxViewModel : ViewModel() {
                     val tel = LynxRepository.readTelemetry()
                     counter++
                     val cores = if (counter % 2 == 0) LynxRepository.readCpuCores() else null
+                    val procs = if (counter % 2 == 0) LynxRepository.readTopCpuProcesses() else null
+                    val statLoads = if (counter % 2 == 0) LynxRepository.readCpuStatLoads() else null
                     val batt = if (counter % 3 == 0) LynxRepository.readBatteryDetails() else null
                     val gpu = if (counter % 2 == 0) LynxRepository.readGpuInfo() else null
                     val therm = if (counter % 4 == 0) LynxRepository.readThermalZones() else null
-                    if (tel != null || cores != null || batt != null || gpu != null || therm != null) {
+                    if (tel != null || cores != null || batt != null || gpu != null || therm != null || procs != null) {
                         _uiState.update { current ->
                             current.copy(
                                 telemetry = tel ?: current.telemetry,
                                 cpuCores = if (cores != null && cores.isNotEmpty()) cores else current.cpuCores,
+                                topCpuProcesses = if (procs != null && procs.isNotEmpty()) procs else current.topCpuProcesses,
+                                totalCpuLoadPercent = statLoads?.first ?: current.totalCpuLoadPercent,
                                 batteryDetails = batt ?: current.batteryDetails,
                                 gpuInfo = gpu ?: current.gpuInfo,
                                 thermalZones = if (therm != null && therm.isNotEmpty()) therm else current.thermalZones,
@@ -1240,8 +1252,22 @@ class LynxViewModel : ViewModel() {
 
     fun refreshCpuCores() {
         viewModelScope.launch {
-            val cores = LynxRepository.readCpuCores()
-            _uiState.update { it.copy(cpuCores = cores) }
+            try {
+                val cores = LynxRepository.readCpuCores()
+                val procs = LynxRepository.readTopCpuProcesses()
+                val statLoads = LynxRepository.readCpuStatLoads()
+                val socPlatform = LynxRepository.getSocPlatformName()
+                val socTopology = LynxRepository.getSocTopology(_uiState.value.clusters, cores.size.coerceAtLeast(8))
+                _uiState.update {
+                    it.copy(
+                        cpuCores = if (cores.isNotEmpty()) cores else it.cpuCores,
+                        topCpuProcesses = if (procs.isNotEmpty()) procs else it.topCpuProcesses,
+                        totalCpuLoadPercent = statLoads.first,
+                        socPlatformName = if (it.socPlatformName.isBlank()) socPlatform else it.socPlatformName,
+                        socTopology = if (it.socTopology.isBlank()) socTopology else it.socTopology,
+                    )
+                }
+            } catch (_: Exception) {}
         }
     }
 

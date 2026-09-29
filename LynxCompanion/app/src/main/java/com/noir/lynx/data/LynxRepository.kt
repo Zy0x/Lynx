@@ -2329,8 +2329,167 @@ object LynxRepository {
     //  CPU Cores Dynamic Discovery & Hotplug (Zero-Hardcoding)
     // ----------------------------------------------------------------
 
+    private var prevCpuStats: Map<String, Pair<Long, Long>> = emptyMap()
+
+    suspend fun readCpuStatLoads(): Pair<Int, Map<Int, Int>> = withContext(Dispatchers.IO) {
+        try {
+            val lines = Shell.cmd("grep '^cpu' /proc/stat 2>/dev/null").exec().out
+            val currentStats = mutableMapOf<String, Pair<Long, Long>>()
+            val coreLoads = mutableMapOf<Int, Int>()
+            var totalCpuLoad = 0
+
+            for (line in lines) {
+                val tokens = line.trim().split(Regex("\\s+"))
+                if (tokens.size >= 5) {
+                    val tag = tokens[0]
+                    val user = tokens[1].toLongOrNull() ?: 0L
+                    val nice = tokens[2].toLongOrNull() ?: 0L
+                    val sys = tokens[3].toLongOrNull() ?: 0L
+                    val idle = tokens[4].toLongOrNull() ?: 0L
+                    val iowait = tokens.getOrNull(5)?.toLongOrNull() ?: 0L
+                    val irq = tokens.getOrNull(6)?.toLongOrNull() ?: 0L
+                    val softirq = tokens.getOrNull(7)?.toLongOrNull() ?: 0L
+                    val steal = tokens.getOrNull(8)?.toLongOrNull() ?: 0L
+
+                    val total = user + nice + sys + idle + iowait + irq + softirq + steal
+                    val idleAll = idle + iowait
+                    currentStats[tag] = Pair(total, idleAll)
+
+                    val prev = prevCpuStats[tag]
+                    if (prev != null) {
+                        val deltaTotal = total - prev.first
+                        val deltaIdle = idleAll - prev.second
+                        val load = if (deltaTotal > 0L) {
+                            (((deltaTotal - deltaIdle) * 100L) / deltaTotal).toInt().coerceIn(0, 100)
+                        } else 0
+
+                        if (tag == "cpu") {
+                            totalCpuLoad = load
+                        } else if (tag.startsWith("cpu")) {
+                            val cId = tag.removePrefix("cpu").toIntOrNull()
+                            if (cId != null) {
+                                coreLoads[cId] = load
+                            }
+                        }
+                    }
+                }
+            }
+            prevCpuStats = currentStats
+            Pair(totalCpuLoad, coreLoads)
+        } catch (e: Exception) {
+            Pair(0, emptyMap())
+        }
+    }
+
+    suspend fun readTopCpuProcesses(): List<CpuProcessInfo> = withContext(Dispatchers.IO) {
+        try {
+            val lines = Shell.cmd("top -b -n 1 -m 8 2>/dev/null").exec().out
+            val result = mutableListOf<CpuProcessInfo>()
+            var headerPassed = false
+
+            for (line in lines) {
+                val trimmed = line.trim()
+                if (!headerPassed) {
+                    if (trimmed.startsWith("PID")) {
+                        headerPassed = true
+                    }
+                    continue
+                }
+                if (trimmed.isBlank()) continue
+                val parts = trimmed.split(Regex("\\s+"))
+                if (parts.size >= 12) {
+                    val pid = parts[0].toIntOrNull() ?: continue
+                    val rawCpu = parts[8].toFloatOrNull() ?: continue
+                    val cmdRaw = parts.subList(11, parts.size).joinToString(" ")
+                    if (cmdRaw.startsWith("top ") || cmdRaw == "top") continue
+
+                    val pkgName = if (cmdRaw.contains(":")) cmdRaw.split(":")[0] else cmdRaw
+                    val cleanName = when {
+                        pkgName.startsWith("com.android.chrome") -> "Chrome"
+                        pkgName.startsWith("com.google.android.gms") -> "Google Play"
+                        pkgName.startsWith("com.google.android.googlequicksearchbox") -> "Google"
+                        pkgName.startsWith("com.android.systemui") -> "UI Sistem"
+                        pkgName.startsWith("system_server") -> "system_server"
+                        pkgName.startsWith("surfaceflinger") -> "surfaceflinger"
+                        pkgName.contains("composer") -> "graphics.composer"
+                        pkgName.contains("audio.service") -> "audio.service"
+                        pkgName.startsWith("com.instagram.") -> "Instagram"
+                        pkgName.startsWith("com.whatsapp") -> "WhatsApp"
+                        pkgName.startsWith("com.noir.lynx") -> "Lynx Deity"
+                        pkgName.startsWith("com.") -> {
+                            val segments = pkgName.split(".")
+                            segments.getOrNull(segments.size - 1)?.replaceFirstChar { it.uppercase() } ?: pkgName
+                        }
+                        else -> pkgName
+                    }
+
+                    val normalizedCpu = if (rawCpu > 100f) (rawCpu / 8f).coerceIn(0.1f, 100f) else rawCpu
+
+                    result.add(
+                        CpuProcessInfo(
+                            pid = pid,
+                            name = cleanName,
+                            packageName = pkgName,
+                            cpuPercent = normalizedCpu
+                        )
+                    )
+                    if (result.size >= 5) break
+                }
+            }
+            result
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getSocPlatformName(): String = withContext(Dispatchers.IO) {
+        try {
+            val model = Shell.cmd("getprop ro.soc.model 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            if (model.isNotBlank()) return@withContext model
+            val plat = Shell.cmd("getprop ro.board.platform 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            if (plat.isNotBlank()) {
+                return@withContext when {
+                    plat.contains("mt6877", ignoreCase = true) -> "MT6877 (Dimensity 920)"
+                    plat.contains("mt6781", ignoreCase = true) -> "MT6781 (Helio G96)"
+                    plat.contains("mt6785", ignoreCase = true) -> "MT6785 (Helio G90T)"
+                    plat.contains("sm8450", ignoreCase = true) -> "SM8450 (Snapdragon 8 Gen 1)"
+                    plat.contains("sm8550", ignoreCase = true) -> "SM8550 (Snapdragon 8 Gen 2)"
+                    plat.contains("sm8650", ignoreCase = true) -> "SM8650 (Snapdragon 8 Gen 3)"
+                    plat.contains("taro", ignoreCase = true) -> "Snapdragon 8 Gen 1"
+                    plat.contains("kalama", ignoreCase = true) -> "Snapdragon 8 Gen 2"
+                    else -> plat.uppercase()
+                }
+            }
+            val hw = Shell.cmd("getprop ro.hardware 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            if (hw.isNotBlank()) hw.uppercase() else "Generic CPU"
+        } catch (_: Exception) { "Universal SoC" }
+    }
+
+    fun getSocTopology(clusters: List<CpuClusterInfo>, totalCores: Int = 8): String {
+        if (clusters.isEmpty()) return "($totalCores)"
+        val counts = clusters.map { cluster ->
+            val list = cluster.cpus.trim().split(Regex("[ ,]+")).filter { it.isNotBlank() }
+            var count = 0
+            for (s in list) {
+                if (s.contains("-")) {
+                    val p = s.split("-")
+                    val start = p.getOrNull(0)?.toIntOrNull() ?: 0
+                    val end = p.getOrNull(1)?.toIntOrNull() ?: start
+                    count += (end - start + 1)
+                } else if (s.isNotBlank()) {
+                    count += 1
+                }
+            }
+            count
+        }
+        return "(${counts.joinToString("+")})"
+    }
+
     suspend fun readCpuCores(): List<CpuCoreInfo> = withContext(Dispatchers.IO) {
         try {
+            val statLoads = readCpuStatLoads()
+            val perCoreLoads = statLoads.second
+
             val script = """
                 for c in /sys/devices/system/cpu/cpu[0-9]*; do
                     name=${'$'}(basename "${'$'}c")
@@ -2342,19 +2501,39 @@ object LynxRepository {
                         online=${'$'}(cat "${'$'}c/online" 2>/dev/null || echo "1")
                     fi
                     freq="0"
+                    min="0"
+                    max="0"
                     [ -f "${'$'}c/cpufreq/scaling_cur_freq" ] && freq=${'$'}(cat "${'$'}c/cpufreq/scaling_cur_freq" 2>/dev/null || echo "0")
-                    echo "${'$'}id:${'$'}online:${'$'}switchable:${'$'}freq"
+                    [ -f "${'$'}c/cpufreq/cpuinfo_min_freq" ] && min=${'$'}(cat "${'$'}c/cpufreq/cpuinfo_min_freq" 2>/dev/null || echo "0")
+                    [ -f "${'$'}c/cpufreq/cpuinfo_max_freq" ] && max=${'$'}(cat "${'$'}c/cpufreq/cpuinfo_max_freq" 2>/dev/null || echo "0")
+                    echo "${'$'}id:${'$'}online:${'$'}switchable:${'$'}freq:${'$'}min:${'$'}max"
                 done
             """.trimIndent()
             val r = Shell.cmd(script).exec()
             r.out.mapNotNull { line ->
                 val parts = line.trim().split(":")
-                if (parts.size >= 4) {
+                if (parts.size >= 6) {
                     val id = parts[0].toIntOrNull() ?: return@mapNotNull null
                     val online = parts[1] == "1"
                     val switchable = parts[2] == "1"
                     val freq = parts[3].toLongOrNull() ?: 0L
-                    CpuCoreInfo(coreId = id, isOnline = online, isSwitchable = switchable, curFreqKhz = freq)
+                    val minKhz = parts[4].toLongOrNull() ?: 500000L
+                    val maxKhz = parts[5].toLongOrNull() ?: 2000000L
+
+                    var load = if (online) (perCoreLoads[id] ?: 0) else 0
+                    if (online && load == 0 && maxKhz > minKhz && freq > minKhz) {
+                        load = (((freq - minKhz).toFloat() / (maxKhz - minKhz).toFloat()) * 25f).toInt().coerceIn(1, 30)
+                    }
+
+                    CpuCoreInfo(
+                        coreId = id,
+                        isOnline = online,
+                        isSwitchable = switchable,
+                        curFreqKhz = freq,
+                        loadPercent = load,
+                        minFreqKhz = minKhz,
+                        maxFreqKhz = maxKhz
+                    )
                 } else null
             }.sortedBy { it.coreId }
         } catch (e: Exception) { emptyList() }

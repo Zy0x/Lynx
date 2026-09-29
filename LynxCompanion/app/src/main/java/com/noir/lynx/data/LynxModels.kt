@@ -133,11 +133,21 @@ data class CpuClusterInfo(
     val availGovs: List<String> = emptyList(),
 )
 
+data class CpuProcessInfo(
+    val pid: Int = 0,
+    val name: String = "",
+    val packageName: String = "",
+    val cpuPercent: Float = 0f,
+)
+
 data class CpuCoreInfo(
     val coreId: Int = 0,
     val isOnline: Boolean = true,
     val isSwitchable: Boolean = true,
     val curFreqKhz: Long = 0L,
+    val loadPercent: Int = 0,
+    val minFreqKhz: Long = 0L,
+    val maxFreqKhz: Long = 0L,
 )
 
 data class BatteryDetails(
@@ -393,6 +403,10 @@ data class LynxUiState(
     val dirtyRatio: Int = 20,
     val vfsCachePressure: Int = 100,
     val cpuCores: List<CpuCoreInfo> = emptyList(),
+    val topCpuProcesses: List<CpuProcessInfo> = emptyList(),
+    val totalCpuLoadPercent: Int = 0,
+    val socPlatformName: String = "",
+    val socTopology: String = "",
     val batteryDetails: BatteryDetails? = null,
     val topWakelocks: List<WakelockItem> = emptyList(),
     val activeGovernorPreset: String = "balanced",
