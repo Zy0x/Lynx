@@ -93,7 +93,10 @@ fun TuningCpuCategory(
                                         cluster.role.ifBlank { "Cluster ${cluster.id}" },
                                         color = if (isBig) AccentOrange else AccentCyan,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
+                                        fontSize = 11.5.sp,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false).padding(end = 4.dp)
                                     )
                                     Surface(
                                         shape = RoundedCornerShape(4.dp),

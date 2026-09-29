@@ -1357,52 +1357,26 @@ fun MainDashboard(
                                     )
                                 }
 
-                                // Hub Header Surface
-                                Surface(
+                                // Flat Typographic Hub Header (Minimalist & Clean)
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                                    shape = RoundedCornerShape(20.dp),
-                                    color = BgCard,
-                                    border = BorderStroke(0.8.dp, BorderSubtle)
+                                        .padding(horizontal = 20.dp, vertical = 10.dp)
                                 ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                "Pusat Tuning Kernel & Hardware",
-                                                color = TextPrimary,
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                letterSpacing = 0.sp
-                                            )
-                                            Spacer(Modifier.height(2.dp))
-                                            Text(
-                                                "Pilih modul subsistem untuk membuka sub-halaman tuning kontrol",
-                                                color = TextSecondary,
-                                                fontSize = 11.sp,
-                                                lineHeight = 15.sp
-                                            )
-                                        }
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = BgElevated,
-                                            border = BorderStroke(0.8.dp, BorderSubtle)
-                                        ) {
-                                            Text(
-                                                "6 Modul",
-                                                color = TextSecondary,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                            )
-                                        }
-                                    }
+                                    Text(
+                                        "Pusat Tuning",
+                                        color = TextPrimary,
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = (-0.3).sp
+                                    )
+                                    Spacer(Modifier.height(3.dp))
+                                    Text(
+                                        "Pilih modul subsistem untuk konfigurasi hardware & kernel",
+                                        color = TextSecondary,
+                                        fontSize = 12.sp,
+                                        lineHeight = 16.sp
+                                    )
                                 }
 
                                 // Vertical List of Full-width Subsystem Cards
@@ -1473,117 +1447,101 @@ fun MainDashboard(
 
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 Spacer(Modifier.height(8.dp))
-                                // Integrated Header Card (Clean Navigation, NO PILLS!)
-                                Surface(
+                                // Minimalist Large Title Navigation Header (Clean & Flat)
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                                    shape = RoundedCornerShape(20.dp),
-                                    color = BgCard,
-                                    border = BorderStroke(0.8.dp, BorderSubtle)
+                                        .padding(horizontal = 20.dp, vertical = 6.dp)
                                 ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(14.dp)
+                                    // Top Navigation Row: Circular Back Arrow + Status Badge
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        // Top row: Back button (Touch target >= 48dp) + Category Status Badge
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
+                                        Surface(
+                                            onClick = { selectedCategory = null },
+                                            shape = CircleShape,
+                                            color = BgElevated,
+                                            border = BorderStroke(0.8.dp, BorderSubtle),
+                                            modifier = Modifier.size(44.dp)
                                         ) {
-                                            Surface(
-                                                onClick = { selectedCategory = null },
-                                                shape = RoundedCornerShape(12.dp),
-                                                color = BgElevated,
-                                                border = BorderStroke(0.8.dp, BorderSubtle),
-                                                modifier = Modifier.heightIn(min = 44.dp)
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.ArrowBack,
-                                                        contentDescription = "Kembali ke Pusat Tuning",
-                                                        tint = TextPrimary,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                    Spacer(Modifier.width(8.dp))
-                                                    Text(
-                                                        "Pusat Tuning",
-                                                        color = TextPrimary,
-                                                        fontSize = 12.sp,
-                                                        fontWeight = FontWeight.SemiBold
-                                                    )
-                                                }
-                                            }
-
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = BgElevated,
-                                                border = BorderStroke(0.8.dp, BorderSubtle)
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                                ) {
-                                                    Surface(
-                                                        shape = CircleShape,
-                                                        color = cat.accentColor,
-                                                        modifier = Modifier.size(6.dp)
-                                                    ) {}
-                                                    Spacer(Modifier.width(6.dp))
-                                                    Text(
-                                                        text = "Aktif",
-                                                        color = TextSecondary,
-                                                        fontSize = 11.sp,
-                                                        fontWeight = FontWeight.Medium
-                                                    )
-                                                }
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = Icons.Default.ArrowBack,
+                                                    contentDescription = "Kembali ke Pusat Tuning",
+                                                    tint = TextPrimary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
                                             }
                                         }
 
-                                        Spacer(Modifier.height(12.dp))
-
-                                        // Category icon + Title + Subtitle
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = BgElevated,
+                                            border = BorderStroke(0.8.dp, BorderSubtle)
                                         ) {
-                                            Surface(
-                                                shape = RoundedCornerShape(12.dp),
-                                                color = BgElevated,
-                                                border = BorderStroke(0.8.dp, BorderSubtle),
-                                                modifier = Modifier.size(46.dp)
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                             ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        imageVector = cat.icon,
-                                                        contentDescription = cat.title,
-                                                        tint = cat.accentColor,
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
-                                                }
-                                            }
-
-                                            Column(modifier = Modifier.weight(1f)) {
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = cat.accentColor,
+                                                    modifier = Modifier.size(6.dp)
+                                                ) {}
+                                                Spacer(Modifier.width(6.dp))
                                                 Text(
-                                                    text = cat.title,
-                                                    color = TextPrimary,
-                                                    fontSize = 17.sp,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                                Spacer(Modifier.height(2.dp))
-                                                Text(
-                                                    text = cat.subtitle,
+                                                    text = "Aktif",
                                                     color = TextSecondary,
-                                                    fontSize = 12.sp,
-                                                    lineHeight = 16.sp
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Medium
                                                 )
                                             }
+                                        }
+                                    }
+
+                                    Spacer(Modifier.height(14.dp))
+
+                                    // Category icon tile + Large 20.sp Title + Subtitle
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = BgElevated,
+                                            border = BorderStroke(0.8.dp, BorderSubtle),
+                                            modifier = Modifier.size(40.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = cat.icon,
+                                                    contentDescription = cat.title,
+                                                    tint = cat.accentColor,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = cat.title,
+                                                color = TextPrimary,
+                                                fontSize = 20.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = (-0.3).sp
+                                            )
+                                            Spacer(Modifier.height(2.dp))
+                                            Text(
+                                                text = cat.subtitle,
+                                                color = TextSecondary,
+                                                fontSize = 12.sp,
+                                                lineHeight = 16.sp
+                                            )
                                         }
                                     }
                                 }

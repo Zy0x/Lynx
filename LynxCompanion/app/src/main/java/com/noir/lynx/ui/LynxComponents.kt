@@ -668,7 +668,7 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // RAM Allocation Bento
+        // Memory, ZRAM & Swap Allocation Bento (Tiered with Dynamic Discovery)
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -678,8 +678,11 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
             Column(modifier = Modifier.padding(14.dp)) {
                 val ramProgress = if (tel.ramTotalMb > 0) {
                     (tel.ramUsedMb.toFloat() / tel.ramTotalMb.toFloat()).coerceIn(0f, 1f)
-                } else 0.79f
+                } else 0.70f
+                val ramPercent = (ramProgress * 100).toInt()
+                val freeRamMb = (tel.ramTotalMb - tel.ramUsedMb).coerceAtLeast(0)
 
+                // ── 1. BAR RAM FISIK (Dominan & Menonjol) ────────────
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -689,67 +692,244 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                         Icon(
                             imageVector = Icons.Default.Storage,
                             contentDescription = null,
-                            tint = AccentBlue,
+                            tint = AccentCyan,
                             modifier = Modifier
                                 .size(14.dp)
                                 .padding(end = 4.dp)
                         )
                         Text(
-                            text = "RAM Allocation",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextSecondary,
+                            text = "RAM Fisik",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
                             letterSpacing = 0.sp
                         )
                     }
                     Text(
-                        text = "${tel.ramUsedMb} / ${tel.ramTotalMb} MB (${(ramProgress * 100).toInt()}%)",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                        text = "${tel.ramUsedMb} / ${tel.ramTotalMb} MB ($ramPercent%)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentCyan
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(7.dp))
 
+                // Prominent Physical RAM Progress Bar (7.dp)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
+                        .height(7.dp)
+                        .clip(RoundedCornerShape(3.5.dp))
                         .background(Color(0xFF0E121B))
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(ramProgress)
                             .fillMaxHeight()
-                            .clip(RoundedCornerShape(3.dp))
+                            .clip(RoundedCornerShape(3.5.dp))
                             .background(
                                 Brush.horizontalGradient(
-                                    listOf(AccentCyan.copy(alpha = 0.8f), AccentCyan)
+                                    listOf(AccentCyan.copy(alpha = 0.85f), AccentCyan)
                                 )
                             )
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    val freeMb = (tel.ramTotalMb - tel.ramUsedMb).coerceAtLeast(0)
                     Text(
-                        text = "Tersedia: $freeMb MB",
-                        fontSize = 10.5.sp,
+                        text = "Tersedia: $freeRamMb MB",
+                        fontSize = 10.sp,
                         color = TextSecondary
                     )
                     Text(
-                        text = "ZRAM Swap (2048 MB)",
-                        fontSize = 10.5.sp,
+                        text = "Penggunaan: $ramPercent%",
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
                         color = TextSecondary
                     )
+                }
+
+                // ── 2. BAR ZRAM DISK SWAP (Kecerdasan Dinamis) ────────
+                val isZramActive = tel.zramTotalMb > 0
+                if (isZramActive) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(
+                        color = BorderSubtle,
+                        thickness = 0.6.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    val zramProgress = (tel.zramUsedMb.toFloat() / tel.zramTotalMb.toFloat()).coerceIn(0f, 1f)
+                    val zramPercent = (zramProgress * 100).toInt()
+                    val freeZramMb = (tel.zramTotalMb - tel.zramUsedMb).coerceAtLeast(0)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Layers,
+                                contentDescription = null,
+                                tint = AccentBlue,
+                                modifier = Modifier
+                                    .size(13.dp)
+                                    .padding(end = 4.dp)
+                            )
+                            Text(
+                                text = "ZRAM Swap",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary,
+                                letterSpacing = 0.sp
+                            )
+                        }
+                        Text(
+                            text = "${tel.zramUsedMb} / ${tel.zramTotalMb} MB ($zramPercent%)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AccentBlue
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(5.dp))
+
+                    // ZRAM Progress Bar (4.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.5.dp)
+                            .clip(RoundedCornerShape(2.5.dp))
+                            .background(Color(0xFF0E121B))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(zramProgress)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(2.5.dp))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(AccentBlue.copy(alpha = 0.75f), AccentBlue)
+                                    )
+                                )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(5.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Bebas: $freeZramMb MB",
+                            fontSize = 9.5.sp,
+                            color = TextSecondary
+                        )
+                        Text(
+                            text = "Kompresi RAM Kernel",
+                            fontSize = 9.5.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+
+                // ── 3. BAR SWAP MEMORY (Kecerdasan Dinamis Disk Swap) ──
+                val hasDedicatedDiskSwap = (tel.swapTotalMb > tel.zramTotalMb && (tel.swapTotalMb - tel.zramTotalMb) >= 64) ||
+                        (tel.swapTotalMb > 0 && !isZramActive)
+                if (hasDedicatedDiskSwap) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(
+                        color = BorderSubtle,
+                        thickness = 0.6.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    val extraSwapTotal = if (isZramActive) tel.swapTotalMb - tel.zramTotalMb else tel.swapTotalMb
+                    val extraSwapUsed = if (isZramActive) (tel.swapUsedMb - tel.zramUsedMb).coerceAtLeast(0) else tel.swapUsedMb
+                    val swapProgress = if (extraSwapTotal > 0) (extraSwapUsed.toFloat() / extraSwapTotal.toFloat()).coerceIn(0f, 1f) else 0f
+                    val swapPercent = (swapProgress * 100).toInt()
+                    val freeSwapMb = (extraSwapTotal - extraSwapUsed).coerceAtLeast(0)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.SwapHoriz,
+                                contentDescription = null,
+                                tint = AccentPurple,
+                                modifier = Modifier
+                                    .size(13.dp)
+                                    .padding(end = 4.dp)
+                            )
+                            Text(
+                                text = "Swap Virtual Disk",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary,
+                                letterSpacing = 0.sp
+                            )
+                        }
+                        Text(
+                            text = "$extraSwapUsed / $extraSwapTotal MB ($swapPercent%)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AccentPurple
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(5.dp))
+
+                    // Swap Progress Bar (4.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.5.dp)
+                            .clip(RoundedCornerShape(2.5.dp))
+                            .background(Color(0xFF0E121B))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(swapProgress)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(2.5.dp))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(AccentPurple.copy(alpha = 0.75f), AccentPurple)
+                                    )
+                                )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(5.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Bebas: $freeSwapMb MB",
+                            fontSize = 9.5.sp,
+                            color = TextSecondary
+                        )
+                        Text(
+                            text = "Paging Disk File",
+                            fontSize = 9.5.sp,
+                            color = TextSecondary
+                        )
+                    }
                 }
             }
         }

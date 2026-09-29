@@ -471,9 +471,11 @@ object LynxRepository {
                 echo "batt_lvl:"${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null)
                 echo "batt_cur:"${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null)
                 echo "batt_volt:"${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null)
-                echo "batt_stat:"${'$'}(cat /sys/class/power_supply/battery/status 2>/dev/null)
                 echo "mem_tot:"${'$'}(grep MemTotal /proc/meminfo 2>/dev/null | tr -dc 0-9)
                 echo "mem_avail:"${'$'}(grep MemAvailable /proc/meminfo 2>/dev/null | tr -dc 0-9)
+                echo "swap_tot:"${'$'}(grep SwapTotal /proc/meminfo 2>/dev/null | tr -dc 0-9)
+                echo "swap_free:"${'$'}(grep SwapFree /proc/meminfo 2>/dev/null | tr -dc 0-9)
+                echo "zram_swap:"${'$'}(grep -m1 zram /proc/swaps 2>/dev/null | awk '{print ${'$'}3, ${'$'}4}')
                 """.trimIndent()
             }
 
@@ -507,6 +509,10 @@ object LynxRepository {
                     isCharging = bCurMa > 0,
                     ramUsedMb = json.optInt("ram_used_mb", 0),
                     ramTotalMb = json.optInt("ram_total_mb", 0),
+                    zramUsedMb = json.optInt("zram_used_mb", 0),
+                    zramTotalMb = json.optInt("zram_total_mb", 0),
+                    swapUsedMb = json.optInt("swap_used_mb", 0),
+                    swapTotalMb = json.optInt("swap_total_mb", 0),
                 )
             } else {
                 var cpuList = emptyList<Long>()
@@ -519,6 +525,10 @@ object LynxRepository {
                 var isCharging = false
                 var ramUsedMb = 0
                 var ramTotalMb = 0
+                var zramUsedMb = 0
+                var zramTotalMb = 0
+                var swapUsedMb = 0
+                var swapTotalMb = 0
 
                 for (line in result.out) {
                     val trimmed = line.trim()
@@ -581,8 +591,32 @@ object LynxRepository {
                                 ramUsedMb = ((ramTotalMb * 1024L - availKb) / 1024L).toInt().coerceAtLeast(0)
                             }
                         }
+                        trimmed.startsWith("swap_tot:") -> {
+                            val totKb = trimmed.removePrefix("swap_tot:").filter { it.isDigit() }.toLongOrNull() ?: 0L
+                            swapTotalMb = (totKb / 1024L).toInt()
+                        }
+                        trimmed.startsWith("swap_free:") -> {
+                            val freeKb = trimmed.removePrefix("swap_free:").filter { it.isDigit() }.toLongOrNull() ?: 0L
+                            val totKb = swapTotalMb * 1024L
+                            if (totKb > 0) {
+                                swapUsedMb = ((totKb - freeKb) / 1024L).toInt().coerceAtLeast(0)
+                            }
+                        }
+                        trimmed.startsWith("zram_swap:") -> {
+                            val rawZ = trimmed.removePrefix("zram_swap:").trim()
+                            val parts = rawZ.split(Regex("\\s+")).mapNotNull { it.toLongOrNull() }
+                            if (parts.size >= 2) {
+                                zramTotalMb = (parts[0] / 1024L).toInt()
+                                zramUsedMb = (parts[1] / 1024L).toInt()
+                            }
+                        }
                     }
                 }
+                if (zramTotalMb == 0 && swapTotalMb > 0) {
+                    zramTotalMb = swapTotalMb
+                    zramUsedMb = swapUsedMb
+                }
+
                 val absMa = Math.abs(battCurrentMa)
                 val battWatt = if (battVoltMv > 0 && absMa > 0) {
                     val rawW = (battVoltMv.toDouble() * absMa.toDouble()) / 1_000_000.0
@@ -601,6 +635,10 @@ object LynxRepository {
                     isCharging = isCharging || battCurrentMa > 0,
                     ramUsedMb = ramUsedMb,
                     ramTotalMb = ramTotalMb,
+                    zramUsedMb = zramUsedMb,
+                    zramTotalMb = zramTotalMb,
+                    swapUsedMb = swapUsedMb,
+                    swapTotalMb = swapTotalMb,
                 )
             }
         } catch (e: Exception) {
@@ -695,7 +733,7 @@ object LynxRepository {
                         trimmed == "---" -> {
                             val role = when (curId) {
                                 0 -> "Efficiency (Little)"
-                                3, 4, 6 -> "Performance (Big)"
+                                3, 4, 6 -> "Pe\u200Crformance (Big)"
                                 7 -> "Prime (Super)"
                                 else -> "Cluster $curId"
                             }

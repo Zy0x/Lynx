@@ -113,6 +113,10 @@ data class TelemetryData(
     val isCharging: Boolean = false,
     val ramUsedMb: Int = 0,
     val ramTotalMb: Int = 0,
+    val zramUsedMb: Int = 0,
+    val zramTotalMb: Int = 0,
+    val swapUsedMb: Int = 0,
+    val swapTotalMb: Int = 0,
 )
 
 data class CpuClusterInfo(
