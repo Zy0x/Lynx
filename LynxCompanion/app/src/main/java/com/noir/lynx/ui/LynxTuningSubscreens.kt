@@ -44,7 +44,7 @@ fun TuningCpuCategory(
         // ── CPU Topology & Core Architecture Card ───────────────
         if (uiState.clusters.isNotEmpty()) {
             LynxCard(
-                title = "TOPOLOGI CORE & ARSITEKTUR CPU",
+                title = "Topologi Core & Arsitektur CPU",
                 icon = Icons.Default.Memory,
                 accentColor = AccentCyan
             ) {
@@ -141,7 +141,7 @@ fun TuningCpuCategory(
         if (uiState.cpuCores.isNotEmpty()) {
             LaunchedEffect(Unit) { viewModel.refreshCpuCores() }
             LynxCard(
-                title = "MATRIKS CORE CPU & HOTPLUG",
+                title = "Matriks Core CPU & Hotplug",
                 icon = Icons.Default.Speed,
                 accentColor = AccentCyan
             ) {
@@ -270,7 +270,7 @@ fun TuningCpuCategory(
 
         // ── Tuning Governor Inteligen (Schedutil) Card ───────────
         LynxCard(
-            title = "TUNING GOVERNOR INTELIGEN (SCHEDUTIL)",
+            title = "Tuning Governor Inteligen (Schedutil)",
             icon = Icons.Default.Tune,
             accentColor = AccentCyan
         ) {
@@ -313,7 +313,7 @@ fun TuningCpuCategory(
         var schedMigCost by remember(schedInfo.schedMigrationCostNs) { mutableFloatStateOf((schedInfo.schedMigrationCostNs / 1000f)) }
 
         LynxCard(
-            title = "PENJADWAL KERNEL & GUBERNUR",
+            title = "Penjadwal Kernel & Gubernur",
             icon = Icons.Default.Speed,
             accentColor = AccentCyan
         ) {
@@ -515,7 +515,7 @@ fun TuningCpuCategory(
 
         // ── Overclock & Thermal Mitigation Card ─────────────────
         LynxCard(
-            title = "OVERCLOCK & THERMAL MITIGATION",
+            title = "Overclock & Thermal Mitigation",
             icon = Icons.Default.LocalFireDepartment,
             accentColor = AccentRed
         ) {
@@ -610,7 +610,7 @@ fun TuningGpuCategory(
     ) {
         // ── GPU Advanced Control & Live Telemetry Card ──────────
         LynxCard(
-            title = "KONTROL GPU & LIVE TELEMETRI",
+            title = "Kontrol GPU & Live Telemetri",
             icon = Icons.Default.SportsEsports,
             accentColor = AccentOrange
         ) {
@@ -691,7 +691,7 @@ fun TuningGpuCategory(
 
         // ── GPU Advanced Hardware Control Card ───────────────────
         LynxCard(
-            title = "GPU ADVANCED CONTROL",
+            title = "GPU Advanced Control",
             icon = Icons.Default.Devices,
             accentColor = AccentBlue
         ) {
@@ -835,7 +835,7 @@ fun TuningGpuCategory(
             viewModel.refreshDisplayRefreshRate()
         }
         LynxCard(
-            title = "DISPLAY REFRESH RATE & TOUCH",
+            title = "Display Refresh Rate & Touch",
             icon = Icons.Default.Smartphone,
             accentColor = AccentCyan
         ) {
@@ -945,7 +945,7 @@ fun TuningMemoryCategory(
     ) {
         // ── Memory & Swappiness Cache Card ──────────────────────
         LynxCard(
-            title = "MEMORY & SWAPPINESS CACHE",
+            title = "Memory & Swappiness Cache",
             icon = Icons.Default.Storage,
             accentColor = AccentBlue
         ) {
@@ -1173,7 +1173,7 @@ fun TuningMemoryCategory(
         LaunchedEffect(Unit) { viewModel.refreshKsmStats() }
         val ksm = uiState.ksmStats
         LynxCard(
-            title = "KSM — KERNEL MEMORY MERGING",
+            title = "KSM — Kernel Memory Merging",
             icon = Icons.Default.Memory,
             accentColor = AccentBlue
         ) {
@@ -1231,7 +1231,7 @@ fun TuningMemoryCategory(
 
         // ── LMK Minfree Preset Card ──────────────────────────────
         LynxCard(
-            title = "LMK — LOW MEMORY KILLER",
+            title = "LMK — Low Memory Killer",
             icon = Icons.Default.DeleteSweep,
             accentColor = AccentOrange
         ) {
@@ -1284,7 +1284,7 @@ fun TuningMemoryCategory(
         // ── I/O Scheduler Card ───────────────────────────────────
         if (uiState.ioDevices.isNotEmpty()) {
             LynxCard(
-                title = "I/O SCHEDULER MANAGER",
+                title = "I/O Scheduler Manager",
                 icon = Icons.Default.Storage,
                 accentColor = AccentPurple
             ) {
@@ -1355,7 +1355,7 @@ fun TuningChargingCategory(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         LynxCard(
-            title = "CHARGING CONTROLLER & BYPASS",
+            title = "Charging Controller & Bypass",
             icon = Icons.Default.BatteryChargingFull,
             accentColor = AccentCyan
         ) {
@@ -1538,7 +1538,7 @@ fun TuningNetworkCategory(
         // ── TCP Congestion Control Card ──────────────────────────
         LaunchedEffect(Unit) { viewModel.refreshTcpAlgorithms() }
         LynxCard(
-            title = "TCP CONGESTION CONTROL",
+            title = "TCP Congestion Control",
             icon = Icons.Default.NetworkCheck,
             accentColor = AccentCyan
         ) {
@@ -1676,7 +1676,7 @@ fun TuningNetworkCategory(
 
         // ── Subsystem Audio & Wi-Fi Enhancer Card ────────────────
         LynxCard(
-            title = "SUBSYSTEM AUDIO & WI-FI ENHANCER",
+            title = "Subsystem Audio & Wi-Fi Enhancer",
             icon = Icons.Default.Wifi,
             accentColor = AccentBlue
         ) {
@@ -1725,7 +1725,7 @@ fun TuningSystemCategory(
     ) {
         // ── Otomasi Profil Per-Aplikasi Card ────────────────────
         LynxCard(
-            title = "OTOMASI PROFIL PER-APLIKASI",
+            title = "Otomasi Profil Per-Aplikasi",
             icon = Icons.Default.SportsEsports,
             accentColor = AccentGreen
         ) {
@@ -1965,7 +1965,7 @@ fun TuningSystemCategory(
 
         // ── OEM & Framework Neutralizer Card ────────────────────
         LynxCard(
-            title = "OEM & FRAMEWORK NEUTRALIZER",
+            title = "OEM & Framework Neutralizer",
             icon = Icons.Default.Shield,
             accentColor = AccentPurple
         ) {
@@ -1983,7 +1983,7 @@ fun TuningSystemCategory(
         var deepSearchQuery by remember { mutableStateOf("") }
 
         LynxCard(
-            title = "DEEP KERNEL & SYSTEM TUNABLES",
+            title = "Deep Kernel & System Tunables",
             icon = Icons.Default.Search,
             accentColor = AccentCyan
         ) {
@@ -2135,9 +2135,9 @@ fun TuningSystemCategory(
 
                 // Quick Category Filters
                 val detectedCategories = remember(uiState.deepTunables) {
-                    listOf("SEMUA") + uiState.deepTunables.map { it.category }.distinct().sorted()
+                    listOf("Semua") + uiState.deepTunables.map { it.category }.distinct().sorted()
                 }
-                var activeCategoryFilter by remember { mutableStateOf("SEMUA") }
+                var activeCategoryFilter by remember { mutableStateOf("Semua") }
 
                 Spacer(Modifier.height(8.dp))
                 LazyRow(
@@ -2170,7 +2170,7 @@ fun TuningSystemCategory(
 
                 val displayedTunables = remember(uiState.deepTunables, deepSearchQuery, activeCategoryFilter) {
                     uiState.deepTunables.filter { tunable ->
-                        val matchesCat = activeCategoryFilter == "SEMUA" || tunable.category.equals(activeCategoryFilter, ignoreCase = true)
+                        val matchesCat = activeCategoryFilter == "Semua" || tunable.category.equals(activeCategoryFilter, ignoreCase = true)
                         val matchesSearch = deepSearchQuery.isBlank() ||
                                 tunable.name.contains(deepSearchQuery, ignoreCase = true) ||
                                 tunable.rawName.contains(deepSearchQuery, ignoreCase = true) ||

@@ -775,14 +775,14 @@ fun MainDashboard(
             when (uiState.currentTab) {
                 // ── TAB 0: DASHBOARD ────────────────────────────────────────
                 0 -> {
-                    // ── Luxury Top Header (Dashboard Only) ──────────────────────
+                    // ── Clean Minimalist Top Header (Dashboard Only) ────────────
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 10.dp),
                         shape = RoundedCornerShape(22.dp),
                         color = BgCard,
-                        border = BorderStroke(1.dp, BorderGlass)
+                        border = BorderStroke(0.8.dp, BorderSubtle)
                     ) {
                         Column(
                             modifier = Modifier
@@ -800,9 +800,9 @@ fun MainDashboard(
                                     modifier = Modifier.weight(1f, fill = false)
                                 ) {
                                     Surface(
-                                        shape = RoundedCornerShape(14.dp),
-                                        color = currentAccent.copy(alpha = 0.14f),
-                                        border = BorderStroke(1.dp, currentAccent.copy(alpha = 0.35f)),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = BgElevated,
+                                        border = BorderStroke(0.8.dp, BorderSubtle),
                                         modifier = Modifier.size(42.dp)
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
@@ -810,28 +810,19 @@ fun MainDashboard(
                                                 imageVector = Icons.Default.Bolt,
                                                 contentDescription = null,
                                                 tint = currentAccent,
-                                                modifier = Modifier.size(24.dp)
+                                                modifier = Modifier.size(22.dp)
                                             )
                                         }
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                text = "LYNX ",
-                                                fontSize = 17.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = TextPrimary,
-                                                letterSpacing = 1.5.sp,
-                                            )
-                                            Text(
-                                                text = "KERNEL",
-                                                fontSize = 17.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                color = currentAccent,
-                                                letterSpacing = 1.sp,
-                                            )
-                                        }
+                                        Text(
+                                            text = "Lynx Kernel",
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary,
+                                            letterSpacing = 0.sp,
+                                        )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Surface(
@@ -843,8 +834,8 @@ fun MainDashboard(
                                             Text(
                                                 text = if (uiState.isModuleInstalled) "Magisk Deity Active" else "Standalone Root Mode",
                                                 fontSize = 11.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                color = if (uiState.isModuleInstalled) currentAccent else AccentOrange,
+                                                fontWeight = FontWeight.Normal,
+                                                color = if (uiState.isModuleInstalled) TextSecondary else AccentOrange,
                                             )
                                         }
                                     }
@@ -913,7 +904,7 @@ fun MainDashboard(
                     LiveTelemetryCard(telemetry = uiState.telemetry)
 
                     LynxCard(
-                        title = "PROFIL PERFORMA KERNEL",
+                        title = "Profil Performa Kernel",
                         icon = Icons.Default.Speed,
                         accentColor = AccentOrange
                     ) {
@@ -926,7 +917,7 @@ fun MainDashboard(
 
                     // ── Live Floating Game HUD & OSD Card ─────────────────
                     LynxCard(
-                        title = "FLOATING GAME HUD & OSD",
+                        title = "Floating Game HUD & OSD",
                         icon = Icons.Default.Visibility,
                         accentColor = AccentCyan
                     ) {
@@ -1182,7 +1173,7 @@ fun MainDashboard(
 
                     // ── Live Hardware Benchmark & Frame Profiler Studio Card ─
                     LynxCard(
-                        title = "LIVE HARDWARE BENCHMARK & FRAME PACING",
+                        title = "Live Hardware Benchmark & Frame Pacing",
                         icon = Icons.Default.Assessment,
                         accentColor = AccentPurple
                     ) {
@@ -1221,7 +1212,7 @@ fun MainDashboard(
                     // ── Live Battery Wattage & Thermal Power Card ───────────
                     uiState.telemetry?.let { tel ->
                         LynxCard(
-                            title = "ESTIMASI DAYA & KONSUMSI WATT",
+                            title = "Estimasi Daya & Konsumsi Watt",
                             icon = Icons.Default.Bolt,
                             accentColor = AccentBlue
                         ) {
@@ -1248,7 +1239,7 @@ fun MainDashboard(
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
                                     color = BgElevated,
-                                    border = BorderStroke(1.dp, BorderGlass)
+                                    border = BorderStroke(0.8.dp, BorderSubtle)
                                 ) {
                                     Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Default.Thermostat, null, tint = AccentRed, modifier = Modifier.size(14.dp))
@@ -1263,7 +1254,7 @@ fun MainDashboard(
                                 Text("Baterai: ${tel.battLevel}%", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                             uiState.batteryDetails?.let { batt ->
-                                HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 8.dp))
+                                HorizontalDivider(color = BorderSubtle, modifier = Modifier.padding(vertical = 8.dp))
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text("Status: ${batt.health}", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                     if (batt.cycleCount >= 0) {
@@ -1286,7 +1277,7 @@ fun MainDashboard(
                     // ── Live Hardware Thermal Zones Matrix ─────────────────
                     if (uiState.thermalZones.isNotEmpty()) {
                         LynxCard(
-                            title = "MATRIKS SENSOR TERMAL HARDWARE",
+                            title = "Matriks Sensor Termal Hardware",
                             icon = Icons.Default.Thermostat,
                             accentColor = AccentRed
                         ) {
@@ -1373,7 +1364,7 @@ fun MainDashboard(
                                         .padding(horizontal = 16.dp, vertical = 6.dp),
                                     shape = RoundedCornerShape(20.dp),
                                     color = BgCard,
-                                    border = BorderStroke(1.dp, BorderGlass)
+                                    border = BorderStroke(0.8.dp, BorderSubtle)
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -1384,11 +1375,11 @@ fun MainDashboard(
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                "PUSAT TUNING KERNEL & HARDWARE",
+                                                "Pusat Tuning Kernel & Hardware",
                                                 color = TextPrimary,
-                                                fontSize = 13.5.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                letterSpacing = 0.5.sp
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                letterSpacing = 0.sp
                                             )
                                             Spacer(Modifier.height(2.dp))
                                             Text(
@@ -1399,15 +1390,15 @@ fun MainDashboard(
                                             )
                                         }
                                         Surface(
-                                            shape = RoundedCornerShape(10.dp),
-                                            color = currentAccent.copy(alpha = 0.15f),
-                                            border = BorderStroke(1.dp, currentAccent.copy(alpha = 0.35f))
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = BgElevated,
+                                            border = BorderStroke(0.8.dp, BorderSubtle)
                                         ) {
                                             Text(
-                                                "6 MODUL",
-                                                color = currentAccent,
-                                                fontSize = 10.5.sp,
-                                                fontWeight = FontWeight.ExtraBold,
+                                                "6 Modul",
+                                                color = TextSecondary,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Medium,
                                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                             )
                                         }
@@ -1489,7 +1480,7 @@ fun MainDashboard(
                                         .padding(horizontal = 16.dp, vertical = 6.dp),
                                     shape = RoundedCornerShape(20.dp),
                                     color = BgCard,
-                                    border = BorderStroke(1.dp, cat.accentColor.copy(alpha = 0.35f))
+                                    border = BorderStroke(0.8.dp, BorderSubtle)
                                 ) {
                                     Column(
                                         modifier = Modifier
@@ -1506,7 +1497,7 @@ fun MainDashboard(
                                                 onClick = { selectedCategory = null },
                                                 shape = RoundedCornerShape(12.dp),
                                                 color = BgElevated,
-                                                border = BorderStroke(1.dp, BorderGlass),
+                                                border = BorderStroke(0.8.dp, BorderSubtle),
                                                 modifier = Modifier.heightIn(min = 44.dp)
                                             ) {
                                                 Row(
@@ -1516,31 +1507,41 @@ fun MainDashboard(
                                                     Icon(
                                                         imageVector = Icons.Default.ArrowBack,
                                                         contentDescription = "Kembali ke Pusat Tuning",
-                                                        tint = cat.accentColor,
+                                                        tint = TextPrimary,
                                                         modifier = Modifier.size(18.dp)
                                                     )
                                                     Spacer(Modifier.width(8.dp))
                                                     Text(
-                                                        "Kembali ke Pusat Tuning",
-                                                        color = cat.accentColor,
+                                                        "Pusat Tuning",
+                                                        color = TextPrimary,
                                                         fontSize = 12.sp,
-                                                        fontWeight = FontWeight.Bold
+                                                        fontWeight = FontWeight.SemiBold
                                                     )
                                                 }
                                             }
 
                                             Surface(
-                                                shape = RoundedCornerShape(10.dp),
-                                                color = cat.accentColor.copy(alpha = 0.15f),
-                                                border = BorderStroke(1.dp, cat.accentColor.copy(alpha = 0.35f))
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = BgElevated,
+                                                border = BorderStroke(0.8.dp, BorderSubtle)
                                             ) {
-                                                Text(
-                                                    text = "KATEGORI AKTIF",
-                                                    color = cat.accentColor,
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.ExtraBold,
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
                                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                                )
+                                                ) {
+                                                    Surface(
+                                                        shape = CircleShape,
+                                                        color = cat.accentColor,
+                                                        modifier = Modifier.size(6.dp)
+                                                    ) {}
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "Aktif",
+                                                        color = TextSecondary,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                }
                                             }
                                         }
 
@@ -1554,8 +1555,8 @@ fun MainDashboard(
                                         ) {
                                             Surface(
                                                 shape = RoundedCornerShape(12.dp),
-                                                color = cat.accentColor.copy(alpha = 0.15f),
-                                                border = BorderStroke(1.dp, cat.accentColor.copy(alpha = 0.4f)),
+                                                color = BgElevated,
+                                                border = BorderStroke(0.8.dp, BorderSubtle),
                                                 modifier = Modifier.size(46.dp)
                                             ) {
                                                 Box(contentAlignment = Alignment.Center) {
@@ -1573,7 +1574,7 @@ fun MainDashboard(
                                                     text = cat.title,
                                                     color = TextPrimary,
                                                     fontSize = 17.sp,
-                                                    fontWeight = FontWeight.ExtraBold
+                                                    fontWeight = FontWeight.Bold
                                                 )
                                                 Spacer(Modifier.height(2.dp))
                                                 Text(
@@ -1627,7 +1628,7 @@ fun MainDashboard(
                     )
 
                     LynxCard(
-                        title = "PEMELIHARAAN & DIAGNOSTIK 1-KLIK",
+                        title = "Pemeliharaan & Diagnostik 1-Klik",
                         icon = Icons.Default.Build,
                         accentColor = AccentCyan
                     ) {
@@ -1671,7 +1672,7 @@ fun MainDashboard(
 
                     // ── SELinux & Kernel Printk Logging Card ───────────────────
                     LynxCard(
-                        title = "SELINUX & KERNEL PRINTK LOGGING",
+                        title = "SELinux & Kernel Printk Logging",
                         icon = Icons.Default.Security,
                         accentColor = AccentCyan
                     ) {
@@ -1747,7 +1748,7 @@ fun MainDashboard(
                         mutableStateOf(uiState.customRulesScript)
                     }
                     LynxCard(
-                        title = "CUSTOM SYSFS RULES & BOOT TWEAKS",
+                        title = "Custom Sysfs Rules & Boot Tweaks",
                         icon = Icons.Default.Terminal,
                         accentColor = AccentOrange
                     ) {
@@ -1872,7 +1873,7 @@ fun MainDashboard(
                     LaunchedEffect(Unit) { viewModel.refreshThermalZones() }
                     if (uiState.thermalZones.isNotEmpty()) {
                         LynxCard(
-                            title = "MONITOR SENSOR THERMAL HARDWARE",
+                            title = "Monitor Sensor Thermal Hardware",
                             icon = Icons.Default.Thermostat,
                             accentColor = AccentRed
                         ) {
@@ -1941,7 +1942,7 @@ fun MainDashboard(
                     LaunchedEffect(Unit) { viewModel.refreshWakelocks() }
                     val wlInfo = uiState.wakelockBlockerInfo
                     LynxCard(
-                        title = "WAKELOCK BLOCKER & DEEP SLEEP AUDIT",
+                        title = "Wakelock Blocker & Deep Sleep Audit",
                         icon = Icons.Default.Bedtime,
                         accentColor = AccentPurple
                     ) {
@@ -1983,7 +1984,7 @@ fun MainDashboard(
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
                                 color = BgElevated,
-                                border = BorderStroke(1.dp, BorderGlass),
+                                border = BorderStroke(0.8.dp, BorderSubtle),
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
                             ) {
                                 Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -2014,8 +2015,8 @@ fun MainDashboard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "SUMBER WAKEUP TERTINGGI (${uiState.topWakelocks.size})",
-                                color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.Bold
+                                "Sumber Wakeup Tertinggi (${uiState.topWakelocks.size})",
+                                color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold
                             )
                             IconButton(onClick = { viewModel.refreshWakelocks() }) {
                                 Icon(Icons.Default.Refresh, "Refresh", tint = AccentPurple, modifier = Modifier.size(18.dp))
@@ -2098,7 +2099,7 @@ fun MainDashboard(
                     }
                     val capReport = uiState.capabilityReport
                     LynxCard(
-                        title = "KERNEL CAPABILITY MATRIX & NODE INSPECTOR",
+                        title = "Kernel Capability Matrix & Node Inspector",
                         icon = Icons.Default.CheckCircle,
                         accentColor = AccentGreen
                     ) {

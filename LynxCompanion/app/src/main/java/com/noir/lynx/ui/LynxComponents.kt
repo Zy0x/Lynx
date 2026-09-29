@@ -31,14 +31,14 @@ import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.*
 
 // ============================================================
-//  Material 3 Expressive — Luxury Cyberpunk OLED Design Tokens
+//  Material 3 Expressive — Clean Minimalist Obsidian Design Tokens
 // ============================================================
 
 val BgDeepOled       = Color(0xFF07080A) // Midnight Obsidian (True OLED)
-val BgSurfaceLowest  = Color(0xFF0C0E14) // M3 Surface Container Lowest
-val BgCard           = Color(0xFF131722) // M3 Surface Container Low (Rich Slate)
-val BgElevated       = Color(0xFF1B202E) // M3 Surface Container High (Elevated Tile)
-val BgGlassPill      = Color(0x1FFFFFFF) // Frosted Pill Background
+val BgSurfaceLowest  = Color(0xFF090A0F) // Surface Container Lowest
+val BgCard           = Color(0xFF12141D) // Deep Graphite Container (Clean Matte)
+val BgElevated       = Color(0xFF181B26) // Elevated Tile Container
+val BgGlassPill      = Color(0x14FFFFFF) // Subtle Frosted Pill Background
 
 val AccentCyan       = Color(0xFF00F5A0) // Luminous Cyber Mint
 val AccentCyanDim    = Color(0x1F00F5A0)
@@ -53,12 +53,12 @@ val AccentGreen      = Color(0xFF10B981) // Emerald Mint
 
 val TextPrimary      = Color(0xFFF8FAFC) // Ultra Clean Soft White
 val TextSecondary    = Color(0xFF94A3B8) // Cool Slate Grey
-val TextTertiary     = Color(0xFF64748B) // Subtle Metallic
-val BorderSubtle     = Color(0x1AFFFFFF) // 10% white border
-val BorderGlass      = Color(0x28FFFFFF) // 16% white border
+val TextTertiary     = Color(0xFF64748B) // Subtle Metallic Grey
+val BorderSubtle     = Color(0x14FFFFFF) // Hairline 8% Border
+val BorderGlass      = Color(0x1EFFFFFF) // Subtle 12% Border
 
 // ============================================================
-//  LynxCard — Luxury Material 3 Expressive Container
+//  LynxCard — Luxury Minimalist Container (Option A Clean)
 // ============================================================
 
 @Composable
@@ -75,16 +75,7 @@ fun LynxCard(
             .padding(horizontal = 16.dp, vertical = 6.dp),
         shape = RoundedCornerShape(22.dp),
         color = BgCard,
-        border = BorderStroke(
-            1.dp,
-            Brush.verticalGradient(
-                listOf(
-                    BorderGlass,
-                    BorderSubtle,
-                    Color(0x05FFFFFF)
-                )
-            )
-        ),
+        border = BorderStroke(0.8.dp, BorderSubtle),
         tonalElevation = 2.dp,
         shadowElevation = 0.dp,
     ) {
@@ -97,7 +88,8 @@ fun LynxCard(
                     if (icon != null) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = accentColor.copy(alpha = 0.12f),
+                            color = BgElevated,
+                            border = BorderStroke(0.8.dp, BorderSubtle),
                             modifier = Modifier.padding(end = 10.dp)
                         ) {
                             Icon(
@@ -112,10 +104,10 @@ fun LynxCard(
                     }
                     Text(
                         text = title,
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = accentColor,
-                        letterSpacing = 1.2.sp,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary,
+                        letterSpacing = 0.sp,
                     )
                 }
             }
@@ -323,14 +315,10 @@ private fun ProfileBentoTile(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        color = if (isActive) item.color.copy(alpha = 0.14f) else BgElevated,
+        color = if (isActive) item.color.copy(alpha = 0.12f) else BgElevated,
         border = BorderStroke(
-            width = if (isActive) 1.5.dp else 1.dp,
-            brush = if (isActive) {
-                Brush.horizontalGradient(listOf(item.color, item.color.copy(alpha = 0.5f)))
-            } else {
-                Brush.linearGradient(listOf(BorderGlass, BorderSubtle))
-            }
+            width = if (isActive) 1.2.dp else 0.8.dp,
+            color = if (isActive) item.color.copy(alpha = 0.6f) else BorderSubtle
         ),
         modifier = modifier
             .fillMaxWidth()
@@ -349,7 +337,7 @@ private fun ProfileBentoTile(
             ) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = if (isActive) item.color.copy(alpha = 0.25f) else Color(0x1AFFFFFF),
+                    color = if (isActive) item.color.copy(alpha = 0.2f) else Color(0x0FFFFFFF),
                     modifier = Modifier.size(38.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -392,7 +380,7 @@ private fun ProfileBentoTile(
 }
 
 // ============================================================
-//  LynxActionButton — Luxury Action Button with Glow
+//  LynxActionButton — Clean Minimalist Action Button
 // ============================================================
 
 @Composable
@@ -413,10 +401,10 @@ fun LynxActionButton(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
         shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = accentColor.copy(alpha = 0.16f),
+            containerColor = accentColor.copy(alpha = 0.14f),
             contentColor = accentColor,
         ),
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.4f)),
+        border = BorderStroke(0.8.dp, accentColor.copy(alpha = 0.35f)),
     ) {
         if (isLoading) {
             CircularProgressIndicator(
@@ -443,7 +431,7 @@ fun LynxActionButton(
                     text = text,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.3.sp,
+                    letterSpacing = 0.sp,
                     textAlign = TextAlign.Center,
                 )
             }
@@ -458,21 +446,21 @@ fun LynxActionButton(
 @Composable
 fun StatusBadge(profile: String) {
     val (label, color) = when (profile) {
-        "auto"        -> "AUTO (AI)" to AccentCyan
-        "balance"     -> "BALANCE" to AccentBlue
-        "performance" -> "PERFORMANCE" to AccentOrange
-        "extreme"     -> "EXTREME 🔥" to AccentRed
-        "powersave"   -> "POWERSAVE" to Color(0xFF00E676)
-        else          -> "STANDBY" to TextSecondary
+        "auto"        -> "Auto (AI)" to AccentCyan
+        "balance"     -> "Balance" to AccentBlue
+        "performance" -> "Performance" to AccentOrange
+        "extreme"     -> "Extreme 🔥" to AccentRed
+        "powersave"   -> "Powersave" to Color(0xFF00E676)
+        else          -> "Standby" to TextSecondary
     }
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = color.copy(alpha = 0.15f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.4f)),
+        color = BgElevated,
+        border = BorderStroke(0.8.dp, BorderSubtle),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Surface(
                 shape = CircleShape,
@@ -484,10 +472,10 @@ fun StatusBadge(profile: String) {
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = label,
-                fontSize = 10.5.sp,
-                fontWeight = FontWeight.Bold,
-                color = color,
-                letterSpacing = 1.sp,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                letterSpacing = 0.sp,
             )
         }
     }
@@ -528,7 +516,7 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
     val tel = telemetry ?: TelemetryData()
 
     LynxCard(
-        title = "LIVE TELEMETRY & HARDWARE GAUGES",
+        title = "Live Telemetry & Hardware Gauges",
         icon = Icons.Default.Speed,
         accentColor = AccentCyan
     ) {
@@ -542,7 +530,7 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp),
                 color = BgElevated,
-                border = BorderStroke(1.dp, BorderGlass)
+                border = BorderStroke(0.8.dp, BorderSubtle)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Row(
@@ -551,11 +539,11 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "GPU CLOCK",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = "GPU Clock",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
                             color = TextSecondary,
-                            letterSpacing = 1.sp
+                            letterSpacing = 0.sp
                         )
                         Icon(
                             imageVector = Icons.Default.Memory,
@@ -571,14 +559,14 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                         Text(
                             text = if (tel.gpuFreq > 0) "${tel.gpuFreq}" else "300",
                             fontSize = 26.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                         Text(
                             text = " MHz",
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentCyan,
+                            fontWeight = FontWeight.Medium,
+                            color = TextSecondary,
                             modifier = Modifier.padding(bottom = 4.dp, start = 2.dp)
                         )
                     }
@@ -587,13 +575,14 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
 
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = AccentCyan.copy(alpha = 0.12f)
+                        color = BgSurfaceLowest,
+                        border = BorderStroke(0.8.dp, BorderSubtle)
                     ) {
                         Text(
                             text = if (tel.gpuBusy > 0) "Load ${tel.gpuBusy}%" else "Dynamic DVFS",
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AccentCyan,
+                            fontWeight = FontWeight.Medium,
+                            color = TextSecondary,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
@@ -612,7 +601,7 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp),
                 color = BgElevated,
-                border = BorderStroke(1.dp, BorderGlass)
+                border = BorderStroke(0.8.dp, BorderSubtle)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Row(
@@ -621,11 +610,11 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "BATTERY & TEMP",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = "Battery & Temp",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
                             color = TextSecondary,
-                            letterSpacing = 1.sp
+                            letterSpacing = 0.sp
                         )
                         Icon(
                             imageVector = Icons.Default.Thermostat,
@@ -641,13 +630,13 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                         Text(
                             text = tel.temp.ifBlank { "38.7" },
                             fontSize = 26.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Bold,
                             color = tempColor
                         )
                         Text(
                             text = " °C",
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Medium,
                             color = TextSecondary,
                             modifier = Modifier.padding(bottom = 4.dp)
                         )
@@ -662,13 +651,14 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                     } else ""
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = tempColor.copy(alpha = 0.12f)
+                        color = BgSurfaceLowest,
+                        border = BorderStroke(0.8.dp, BorderSubtle)
                     ) {
                         Text(
                             text = "${tel.battLevel}% • ${curPrefix}${tel.battCurrentMa} mA${wattText}",
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = tempColor,
+                            fontWeight = FontWeight.Medium,
+                            color = TextSecondary,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
@@ -683,7 +673,7 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             color = BgElevated,
-            border = BorderStroke(1.dp, BorderGlass)
+            border = BorderStroke(0.8.dp, BorderSubtle)
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 val ramProgress = if (tel.ramTotalMb > 0) {
@@ -705,17 +695,17 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                                 .padding(end = 4.dp)
                         )
                         Text(
-                            text = "RAM ALLOCATION",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = "RAM Allocation",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
                             color = TextSecondary,
-                            letterSpacing = 1.sp
+                            letterSpacing = 0.sp
                         )
                     }
                     Text(
                         text = "${tel.ramUsedMb} / ${tel.ramTotalMb} MB (${(ramProgress * 100).toInt()}%)",
                         fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = TextPrimary
                     )
                 }
@@ -725,18 +715,18 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
                         .background(Color(0xFF0E121B))
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(ramProgress)
                             .fillMaxHeight()
-                            .clip(RoundedCornerShape(4.dp))
+                            .clip(RoundedCornerShape(3.dp))
                             .background(
                                 Brush.horizontalGradient(
-                                    listOf(AccentCyan, AccentBlue)
+                                    listOf(AccentCyan.copy(alpha = 0.8f), AccentCyan)
                                 )
                             )
                     )
@@ -755,10 +745,10 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                         color = TextSecondary
                     )
                     Text(
-                        text = "ZRAM Swap Aktif (2048 MB)",
+                        text = "ZRAM Swap (2048 MB)",
                         fontSize = 10.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AccentCyan
+                        fontWeight = FontWeight.Medium,
+                        color = TextSecondary
                     )
                 }
             }
@@ -782,22 +772,23 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                         .padding(end = 4.dp)
                 )
                 Text(
-                    text = "OCTA-CORE SOC TOPOLOGY",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
+                    text = "Octa-Core SoC Topology",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
                     color = TextPrimary,
-                    letterSpacing = 1.sp
+                    letterSpacing = 0.sp
                 )
             }
             Surface(
                 shape = RoundedCornerShape(6.dp),
-                color = AccentCyan.copy(alpha = 0.12f)
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle)
             ) {
                 Text(
                     text = "ARMv8.2-A",
                     fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = AccentCyan,
+                    fontWeight = FontWeight.Medium,
+                    color = TextSecondary,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }
@@ -811,10 +802,10 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
 
         // Cluster 0: Efficiency Cores (0-5)
         Text(
-            text = "⚡ Cluster 0: Efficiency (6x Cortex-A55)",
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = AccentCyan,
+            text = "Cluster 0: Efficiency (6x Cortex-A55)",
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextSecondary,
             modifier = Modifier.padding(bottom = 6.dp)
         )
         littleCores.chunked(3).forEachIndexed { rowIdx, rowItems ->
@@ -839,10 +830,10 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
 
         // Cluster 1: Performance Cores (6-7)
         Text(
-            text = "🚀 Cluster 1: Performance (2x Cortex-A76)",
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = AccentOrange,
+            text = "Cluster 1: Performance (2x Cortex-A76)",
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextSecondary,
             modifier = Modifier.padding(bottom = 6.dp)
         )
         Row(
@@ -879,10 +870,7 @@ private fun CpuCoreBentoTile(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
         color = BgElevated,
-        border = BorderStroke(
-            1.dp,
-            if (isBigCore) accent.copy(alpha = 0.35f) else BorderGlass
-        )
+        border = BorderStroke(0.8.dp, BorderSubtle)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
@@ -895,14 +883,14 @@ private fun CpuCoreBentoTile(
             ) {
                 Text(
                     text = "CPU $coreIdx",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isBigCore) accent else TextSecondary
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextSecondary
                 )
                 if (isBigCore) {
                     Surface(
                         shape = CircleShape,
-                        color = accent,
+                        color = AccentOrange,
                         modifier = Modifier.size(4.dp)
                     ) {}
                 }
@@ -913,15 +901,14 @@ private fun CpuCoreBentoTile(
             Text(
                 text = if (isOnline) "$mhz" else "OFF",
                 fontSize = 13.sp,
-                fontWeight = FontWeight.ExtraBold,
+                fontWeight = FontWeight.Bold,
                 color = if (isOnline) TextPrimary else TextTertiary,
-                fontFamily = FontFamily.Monospace,
             )
 
             Text(
                 text = "MHz",
                 fontSize = 8.5.sp,
-                color = if (isOnline) accent else TextTertiary,
+                color = TextTertiary,
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -929,16 +916,16 @@ private fun CpuCoreBentoTile(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .height(2.dp)
+                    .clip(RoundedCornerShape(1.dp))
                     .background(Color(0xFF0A0D14))
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(progress)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(accent)
+                        .clip(RoundedCornerShape(1.dp))
+                        .background(accent.copy(alpha = 0.8f))
                 )
             }
         }
@@ -1008,7 +995,7 @@ fun CpuClusterTunerCard(
     }
 
     LynxCard(
-        title = "DYNAMIC CPU CLUSTERS & GOVERNORS",
+        title = "Dynamic CPU Clusters & Governors",
         icon = Icons.Default.Tune,
         accentColor = AccentCyan
     ) {
@@ -1293,7 +1280,7 @@ fun FlasherCard(
     var zipInput by remember { mutableStateOf("/sdcard/Download/kernel.zip") }
 
     LynxCard(
-        title = "ANYKERNEL3 KERNEL FLASHER",
+        title = "AnyKernel3 Kernel Flasher",
         icon = Icons.Default.Bolt,
         accentColor = AccentCyan
     ) {
@@ -1399,7 +1386,7 @@ fun BootBackupCard(
     }
 
     LynxCard(
-        title = "CADANGAN PARTISI BOOT",
+        title = "Cadangan Partisi Boot",
         icon = Icons.Default.Storage,
         accentColor = AccentBlue
     ) {
@@ -1607,7 +1594,7 @@ fun VoltageControlCard(
     var offsetMv by remember(voltageInfo.globalOffsetMv) { mutableStateOf(voltageInfo.globalOffsetMv) }
 
     LynxCard(
-        title = "VOLTAGE CONTROL (UNDERVOLTING)",
+        title = "Voltage Control (Undervolting)",
         icon = Icons.Default.Bolt,
         accentColor = if (voltageInfo.isSupported) AccentCyan else AccentOrange
     ) {
@@ -1689,7 +1676,7 @@ fun DisplayCalibrationCard(
     var saturation by remember(displayCalibration.saturation) { mutableStateOf(displayCalibration.saturation) }
 
     LynxCard(
-        title = "KALIBRASI LAYAR (KCAL & HBM)",
+        title = "Kalibrasi Layar (KCAL & HBM)",
         icon = Icons.Default.Palette,
         accentColor = AccentPurple
     ) {
@@ -1778,7 +1765,7 @@ fun SoundControlCard(
     var hpMode by remember(soundControl.highPerfMode) { mutableStateOf(soundControl.highPerfMode) }
 
     LynxCard(
-        title = "SOUND CONTROL (AUDIO GAIN BOOSTER)",
+        title = "Sound Control (Audio Gain Booster)",
         icon = Icons.Default.VolumeUp,
         accentColor = if (soundControl.isSupported) AccentGreen else AccentOrange
     ) {
@@ -1825,7 +1812,7 @@ fun BatteryHealthStatsCard(
     onRefresh: () -> Unit,
 ) {
     LynxCard(
-        title = "KESEHATAN BATERAI & DEEP SLEEP GUARD",
+        title = "Kesehatan Baterai & Deep Sleep Guard",
         icon = Icons.Default.BatteryChargingFull,
         accentColor = AccentCyan
     ) {
@@ -1939,7 +1926,7 @@ fun MemoryEntropyCard(
     var writeThresh by remember(memoryEntropy.writeThreshold) { mutableStateOf(memoryEntropy.writeThreshold) }
 
     LynxCard(
-        title = "LMK MINFREE & ENTROPY TUNER",
+        title = "LMK Minfree & Entropy Tuner",
         icon = Icons.Default.Memory,
         accentColor = AccentBlue
     ) {
@@ -2101,7 +2088,7 @@ fun CustomScriptManagerCard(
     }
 
     LynxCard(
-        title = "CUSTOM SHELL SCRIPT MANAGER",
+        title = "Custom Shell Script Manager",
         icon = Icons.Default.Terminal,
         accentColor = AccentCyan
     ) {
@@ -2198,7 +2185,7 @@ fun DmesgViewerCard(
     }
 
     LynxCard(
-        title = "KERNEL DMESG RING BUFFER VIEWER",
+        title = "Kernel dmesg Ring Buffer Viewer",
         icon = Icons.Default.Description,
         accentColor = AccentBlue
     ) {
@@ -2347,145 +2334,107 @@ fun SubsystemCategoryCard(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 100.dp),
+            .heightIn(min = 88.dp),
         shape = RoundedCornerShape(20.dp),
         color = BgCard,
-        border = BorderStroke(1.dp, BorderGlass),
+        border = BorderStroke(0.8.dp, BorderSubtle),
         tonalElevation = 2.dp
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            category.accentColor.copy(alpha = 0.12f),
-                            Color.Transparent
-                        ),
-                        startX = 0f,
-                        endX = 500f
-                    )
-                )
-                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            // Left Icon Tile (min 48x48 touch visual)
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier.size(48.dp)
             ) {
-                // Left Icon Tile (min 48x48 touch visual)
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = category.accentColor.copy(alpha = 0.15f),
-                    border = BorderStroke(1.dp, category.accentColor.copy(alpha = 0.4f)),
-                    modifier = Modifier.size(50.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = category.icon,
-                            contentDescription = category.title,
-                            tint = category.accentColor,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = category.icon,
+                        contentDescription = category.title,
+                        tint = category.accentColor,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
+            }
 
-                // Middle Info Column
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center
+            // Middle Info Column
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Title + Subtle Badge Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Title + Badge Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = category.title,
-                            color = TextPrimary,
-                            fontSize = 15.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
-                        )
-
-                        if (badgeText.isNotBlank()) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = category.accentColor.copy(alpha = 0.15f),
-                                border = BorderStroke(1.dp, category.accentColor.copy(alpha = 0.35f))
-                            ) {
-                                Text(
-                                    text = badgeText,
-                                    color = category.accentColor,
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp),
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(3.dp))
-
                     Text(
-                        text = category.subtitle,
-                        color = TextSecondary,
-                        fontSize = 11.5.sp,
-                        lineHeight = 15.sp,
+                        text = category.title,
+                        color = TextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1
                     )
 
-                    Spacer(Modifier.height(7.dp))
-
-                    // Bottom Row: Status Chips
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (detailText1.isNotBlank()) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = BgElevated,
-                                border = BorderStroke(0.5.dp, BorderGlass)
-                            ) {
-                                Text(
-                                    text = detailText1,
-                                    color = TextSecondary,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-
-                        if (detailText2.isNotBlank()) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = BgElevated,
-                                border = BorderStroke(0.5.dp, BorderGlass)
-                            ) {
-                                Text(
-                                    text = detailText2,
-                                    color = TextSecondary,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
+                    if (badgeText.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.8.dp, BorderSubtle)
+                        ) {
+                            Text(
+                                text = badgeText,
+                                color = category.accentColor,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp),
+                                maxLines = 1
+                            )
                         }
                     }
                 }
 
-                // Right Chevron (Indicating navigable into sub-screen)
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "Buka ${category.title}",
-                    tint = category.accentColor.copy(alpha = 0.7f),
-                    modifier = Modifier.size(22.dp)
+                Spacer(Modifier.height(3.dp))
+
+                Text(
+                    text = category.subtitle,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 15.sp,
+                    maxLines = 1
                 )
+
+                // Clean status row (Option A: no badge clutter, clean inline specs)
+                val statusItems = listOfNotNull(
+                    detailText1.takeIf { it.isNotBlank() },
+                    detailText2.takeIf { it.isNotBlank() }
+                )
+                if (statusItems.isNotEmpty()) {
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        text = statusItems.joinToString("  •  "),
+                        color = TextTertiary,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1
+                    )
+                }
             }
+
+            // Right Chevron (Indicating navigable into sub-screen)
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Buka ${category.title}",
+                tint = TextTertiary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
