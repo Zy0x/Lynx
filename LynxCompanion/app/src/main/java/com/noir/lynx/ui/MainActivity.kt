@@ -1447,102 +1447,69 @@ fun MainDashboard(
 
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 Spacer(Modifier.height(8.dp))
-                                // Minimalist Large Title Navigation Header (Clean & Flat)
-                                Column(
+                                // Minimalist Compact Subscreen Header (Single Row, No Pills)
+                                Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    // Top Navigation Row: Circular Back Arrow + Status Badge
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                    // Circular Back Arrow
+                                    Surface(
+                                        onClick = { selectedCategory = null },
+                                        shape = CircleShape,
+                                        color = BgElevated,
+                                        border = BorderStroke(0.8.dp, BorderSubtle),
+                                        modifier = Modifier.size(42.dp)
                                     ) {
-                                        Surface(
-                                            onClick = { selectedCategory = null },
-                                            shape = CircleShape,
-                                            color = BgElevated,
-                                            border = BorderStroke(0.8.dp, BorderSubtle),
-                                            modifier = Modifier.size(44.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(
-                                                    imageVector = Icons.Default.ArrowBack,
-                                                    contentDescription = "Kembali ke Pusat Tuning",
-                                                    tint = TextPrimary,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                            }
-                                        }
-
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = BgElevated,
-                                            border = BorderStroke(0.8.dp, BorderSubtle)
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                            ) {
-                                                Surface(
-                                                    shape = CircleShape,
-                                                    color = cat.accentColor,
-                                                    modifier = Modifier.size(6.dp)
-                                                ) {}
-                                                Spacer(Modifier.width(6.dp))
-                                                Text(
-                                                    text = "Aktif",
-                                                    color = TextSecondary,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                            }
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowBack,
+                                                contentDescription = "Kembali ke Pusat Tuning",
+                                                tint = TextPrimary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
                                         }
                                     }
 
-                                    Spacer(Modifier.height(14.dp))
-
-                                    // Category icon tile + Large 20.sp Title + Subtitle
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    // Category Icon Tile
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = BgElevated,
+                                        border = BorderStroke(0.8.dp, BorderSubtle),
+                                        modifier = Modifier.size(38.dp)
                                     ) {
-                                        Surface(
-                                            shape = RoundedCornerShape(12.dp),
-                                            color = BgElevated,
-                                            border = BorderStroke(0.8.dp, BorderSubtle),
-                                            modifier = Modifier.size(40.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(
-                                                    imageVector = cat.icon,
-                                                    contentDescription = cat.title,
-                                                    tint = cat.accentColor,
-                                                    modifier = Modifier.size(22.dp)
-                                                )
-                                            }
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = cat.icon,
+                                                contentDescription = cat.title,
+                                                tint = cat.accentColor,
+                                                modifier = Modifier.size(20.dp)
+                                            )
                                         }
+                                    }
 
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = cat.title,
-                                                color = TextPrimary,
-                                                fontSize = 20.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                letterSpacing = (-0.3).sp
-                                            )
-                                            Spacer(Modifier.height(2.dp))
-                                            Text(
-                                                text = cat.subtitle,
-                                                color = TextSecondary,
-                                                fontSize = 12.sp,
-                                                lineHeight = 16.sp
-                                            )
-                                        }
+                                    // Category Title & Subtitle
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = cat.title,
+                                            color = TextPrimary,
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = (-0.3).sp,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                        Spacer(Modifier.height(1.dp))
+                                        Text(
+                                            text = cat.subtitle,
+                                            color = TextSecondary,
+                                            fontSize = 11.sp,
+                                            lineHeight = 14.sp,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
                                     }
                                 }
 

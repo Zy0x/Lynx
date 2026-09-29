@@ -23,6 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.Brush
 import com.noir.lynx.data.*
 
 // ============================================================
@@ -41,129 +44,27 @@ fun TuningCpuCategory(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ── CPU Topology & Core Architecture Card ───────────────
-        if (uiState.clusters.isNotEmpty()) {
-            LynxCard(
-                title = "Topologi Core & Arsitektur CPU",
-                icon = Icons.Default.Memory,
-                accentColor = AccentCyan
-            ) {
-                val totalCores = uiState.clusters.sumOf { cluster ->
-                    cluster.cpus.trim().split(Regex("[ ,]+")).filter { it.isNotBlank() }.sumOf { s ->
-                        if (s.contains("-")) {
-                            val p = s.split("-")
-                            val start = p.getOrNull(0)?.toIntOrNull() ?: 0
-                            val end = p.getOrNull(1)?.toIntOrNull() ?: start
-                            (end - start + 1).coerceAtLeast(1)
-                        } else 1
-                    }
-                }
-                Text(
-                    "$totalCores Cores Total (${uiState.clusters.size} Hardware Clusters)",
-                    color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    uiState.clusters.forEach { cluster ->
-                        val isBig = cluster.id > 0
-                        val clusterCores = cluster.cpus.trim().split(Regex("[ ,]+")).filter { it.isNotBlank() }.sumOf { s ->
-                            if (s.contains("-")) {
-                                val p = s.split("-")
-                                val start = p.getOrNull(0)?.toIntOrNull() ?: 0
-                                val end = p.getOrNull(1)?.toIntOrNull() ?: start
-                                (end - start + 1).coerceAtLeast(1)
-                            } else 1
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = BgElevated,
-                            border = BorderStroke(1.dp, if (isBig) AccentOrange.copy(alpha = 0.35f) else AccentCyan.copy(alpha = 0.35f)),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Column(Modifier.padding(10.dp)) {
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        cluster.role.ifBlank { "Cluster ${cluster.id}" },
-                                        color = if (isBig) AccentOrange else AccentCyan,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.5.sp,
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false).padding(end = 4.dp)
-                                    )
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = (if (isBig) AccentOrange else AccentCyan).copy(alpha = 0.15f)
-                                    ) {
-                                        Text(
-                                            if (isBig) "PERF" else "EFF",
-                                            color = if (isBig) AccentOrange else AccentCyan,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    "$clusterCores Cores (${cluster.cpus})",
-                                    color = TextSecondary,
-                                    fontSize = 11.sp
-                                )
-                                val maxGhz = (cluster.curMax / 1000000.0)
-                                val minGhz = (cluster.curMin / 1000000.0)
-                                Text(
-                                    String.format("%.2f - %.2f GHz", minGhz, maxGhz),
-                                    color = TextPrimary,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 11.5.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
-                                Text(
-                                    "Gov: ${cluster.curGov}",
-                                    color = TextSecondary,
-                                    fontSize = 10.sp,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // ── Matriks Core CPU & Hotplug Card ─────────────────────
+        // ── Per-Core CPU Monitor & Hotplug Card ─────────────────
         if (uiState.cpuCores.isNotEmpty()) {
             LaunchedEffect(Unit) { viewModel.refreshCpuCores() }
             LynxCard(
-                title = "Matriks Core CPU & Hotplug",
+                title = "Monitor & Hotplug Core CPU",
                 icon = Icons.Default.Speed,
                 accentColor = AccentCyan
             ) {
+                // Header Row (Compact & Clean, No Gimmicks!)
                 Row(
-                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    Modifier.fillMaxWidth().padding(bottom = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        val onlineCount = uiState.cpuCores.count { it.isOnline }
-                        Text(
-                            "$onlineCount / ${uiState.cpuCores.size} Cores Aktif",
-                            color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp
-                        )
-                        Text(
-                            "Kontrol on/off per core untuk uji performa, termal, & daya",
-                            color = TextSecondary, fontSize = 11.sp
-                        )
-                    }
+                    val onlineCount = uiState.cpuCores.count { it.isOnline }
+                    Text(
+                        "$onlineCount / ${uiState.cpuCores.size} Cores Aktif",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.5.sp
+                    )
                     Surface(
                         onClick = { viewModel.setAllCpuCoresOnline() },
                         shape = RoundedCornerShape(8.dp),
@@ -188,27 +89,62 @@ fun TuningCpuCategory(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         pair.forEach { core ->
+                            // Determine cluster and accent color dynamically
+                            val matchedCluster = uiState.clusters.firstOrNull { cluster ->
+                                val list = cluster.cpus.trim().split(Regex("[ ,]+")).filter { it.isNotBlank() }
+                                list.any { s ->
+                                    if (s.contains("-")) {
+                                        val p = s.split("-")
+                                        val start = p.getOrNull(0)?.toIntOrNull() ?: 0
+                                        val end = p.getOrNull(1)?.toIntOrNull() ?: start
+                                        core.coreId in start..end
+                                    } else {
+                                        s.toIntOrNull() == core.coreId
+                                    }
+                                }
+                            }
+                            val isBig = (matchedCluster?.id ?: if (core.coreId >= 6) 1 else 0) > 0
+                            val clusterColor = if (isBig) AccentOrange else AccentCyan
+                            val clusterLabel = if (isBig) "PERF" else "EFF"
+
+                            // Calculate frequency percentage for dynamic bar
+                            val minKhz = if (matchedCluster != null && matchedCluster.curMin > 0) matchedCluster.curMin else 500000L
+                            val maxKhz = if (matchedCluster != null && matchedCluster.curMax > 0) matchedCluster.curMax else 2050000L
+                            val freqRatio = if (core.isOnline && maxKhz > minKhz) {
+                                ((core.curFreqKhz * 1000 - minKhz).toFloat() / (maxKhz - minKhz).toFloat()).coerceIn(0.08f, 1f)
+                            } else {
+                                0f
+                            }
+                            val animatedRatio by animateFloatAsState(
+                                targetValue = freqRatio,
+                                animationSpec = tween(durationMillis = 250),
+                                label = "freqRatio_${core.coreId}"
+                            )
+
                             Surface(
-                                shape = RoundedCornerShape(10.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 color = BgElevated,
                                 border = BorderStroke(
                                     1.dp,
-                                    if (core.isOnline) AccentCyan.copy(alpha = 0.35f) else BorderGlass
+                                    if (core.isOnline) clusterColor.copy(alpha = 0.35f) else BorderGlass
                                 ),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Row(
-                                    Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp)
                                 ) {
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    // Row 1: Core ID + Cluster Tag + Hotplug Switch
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Box(
                                                 modifier = Modifier
                                                     .size(7.dp)
                                                     .background(
-                                                        if (core.isOnline) AccentGreen else AccentRed,
+                                                        if (core.isOnline) clusterColor else AccentRed,
                                                         shape = CircleShape
                                                     )
                                             )
@@ -217,38 +153,95 @@ fun TuningCpuCategory(
                                                 "CPU ${core.coreId}",
                                                 color = TextPrimary,
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 12.sp
+                                                fontSize = 12.5.sp
+                                            )
+                                            Spacer(Modifier.width(6.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = clusterColor.copy(alpha = 0.15f)
+                                            ) {
+                                                Text(
+                                                    clusterLabel,
+                                                    color = clusterColor,
+                                                    fontSize = 8.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+
+                                        if (core.isSwitchable) {
+                                            Switch(
+                                                checked = core.isOnline,
+                                                onCheckedChange = { viewModel.setCpuCoreOnline(core.coreId, it) },
+                                                colors = SwitchDefaults.colors(
+                                                    checkedThumbColor = clusterColor,
+                                                    checkedTrackColor = clusterColor.copy(alpha = 0.3f),
+                                                    uncheckedThumbColor = TextSecondary,
+                                                    uncheckedTrackColor = BgCard
+                                                ),
+                                                modifier = Modifier.scale(0.75f)
+                                            )
+                                        } else {
+                                            Text(
+                                                "Master",
+                                                color = TextSecondary,
+                                                fontSize = 9.5.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
-                                        Spacer(Modifier.height(2.dp))
+                                    }
+
+                                    Spacer(Modifier.height(4.dp))
+
+                                    // Row 2: Live Frequency + GHz
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Text(
                                             if (core.isOnline) {
                                                 if (core.curFreqKhz > 0) "${core.curFreqKhz / 1000} MHz" else "Aktif"
                                             } else "Offline",
-                                            color = if (core.isOnline) AccentCyan else TextSecondary,
-                                            fontSize = 10.5.sp,
+                                            color = if (core.isOnline) TextPrimary else TextSecondary,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
                                             fontFamily = FontFamily.Monospace
                                         )
+                                        if (core.isOnline && core.curFreqKhz > 0) {
+                                            Text(
+                                                String.format("%.2f GHz", core.curFreqKhz / 1000000.0),
+                                                color = TextSecondary,
+                                                fontSize = 10.sp,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
                                     }
-                                    if (core.isSwitchable) {
-                                        Switch(
-                                            checked = core.isOnline,
-                                            onCheckedChange = { viewModel.setCpuCoreOnline(core.coreId, it) },
-                                            colors = SwitchDefaults.colors(
-                                                checkedThumbColor = AccentCyan,
-                                                checkedTrackColor = AccentCyan.copy(alpha = 0.3f),
-                                                uncheckedThumbColor = TextSecondary,
-                                                uncheckedTrackColor = BgCard
-                                            ),
-                                            modifier = Modifier.scale(0.8f)
-                                        )
-                                    } else {
-                                        Text(
-                                            "Master",
-                                            color = TextSecondary,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+
+                                    Spacer(Modifier.height(6.dp))
+
+                                    // Row 3: Live Frequency Bar Graph
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(3.5.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(BgCard)
+                                    ) {
+                                        if (core.isOnline && animatedRatio > 0f) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(animatedRatio)
+                                                    .fillMaxHeight()
+                                                    .clip(RoundedCornerShape(2.dp))
+                                                    .background(
+                                                        Brush.horizontalGradient(
+                                                            listOf(clusterColor.copy(alpha = 0.6f), clusterColor)
+                                                        )
+                                                    )
+                                            )
+                                        }
                                     }
                                 }
                             }
