@@ -1510,14 +1510,15 @@ object LynxRepository {
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
 
                 echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
-                echo 5376 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                echo 5376 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                echo 4294967295 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                echo 4294967295 > /sys/devices/platform/charger/chg2_current 2>/dev/null
                 echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                echo 95 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
 
                 for c in /sys/class/thermal/cooling_device*; do
                     type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
-                    case "${'$'}type" in *bcct*|*chg*|*current*) chmod 666 "${'$'}c/cur_state" 2>/dev/null; echo 0 > "${'$'}c/cur_state" 2>/dev/null ;; esac
+                    case "${'$'}type" in *bcct*|*chg*|*current*|*abcct*) chmod 666 "${'$'}c/cur_state" 2>/dev/null; echo 0 > "${'$'}c/cur_state" 2>/dev/null ;; esac
                 done
 
                 # Universal & Qualcomm Maximum Current (6A headroom)

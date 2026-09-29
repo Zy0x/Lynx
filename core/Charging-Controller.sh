@@ -123,7 +123,11 @@ apply_extreme_charging() {
     write_node "4294967295" "$MTK_DIR/chg1_current"
     write_node "4294967295" "$MTK_DIR/chg2_current"
     write_node "6000" "$MTK_DIR/sc_ibat_limit"
-    write_node "0" "$MTK_DIR/enable_sc"
+    write_node "95" "$MTK_DIR/sc_tuisoc"
+    write_node "1" "$MTK_DIR/enable_sc"
+
+    # Reset adaptive battery charge current throttle (abcct) cooling device
+    write_node "0" "/sys/class/thermal/cooling_device56/cur_state"
 
     # 4. Universal & Qualcomm Maximum Current (6000mA = 6A max headroom)
     write_node "6000000" "$BATT_DIR/constant_charge_current_max"

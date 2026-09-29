@@ -18,6 +18,11 @@ if [ "$ACTION" = "disable" ] || [ "$ACTION" = "0" ]; then
     # 1. MediaTek CPU & Charging Thermal Protection
     write_node "0" "/proc/cpufreq/cpufreq_imax_thermal_protect"
     write_node "0" "/sys/devices/platform/charger/sw_jeita"
+    write_node "1" "/sys/devices/platform/charger/enable_sc"
+    write_node "6000" "/sys/devices/platform/charger/sc_ibat_limit"
+    write_node "95" "/sys/devices/platform/charger/sc_tuisoc"
+    write_node "1" "/sys/devices/platform/charger/pe40"
+    write_node "68" "/sys/devices/platform/charger/pdc_max_watt"
 
     # 2. Disable PPM Thermal Policies
     write_node "3 0" "/proc/ppm/policy_status"
