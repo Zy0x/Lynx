@@ -1200,7 +1200,6 @@ fun CpuClusterTunerCard(
                 clusters.forEach { cluster ->
                     val isPerfCluster = cluster.id > 0
                     val clusterAccent = if (isPerfCluster) AccentOrange else AccentCyan
-                    val freqs = cluster.availFreqs.sorted()
                     val minMhz = (cluster.curMin / 1000).toInt()
                     val maxMhz = (cluster.curMax / 1000).toInt()
 
@@ -1263,83 +1262,9 @@ fun CpuClusterTunerCard(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                            // 2. Mini Range Bar (Spectrum Indicator)
-                            if (freqs.isNotEmpty()) {
-                                val minLimit = freqs.first()
-                                val maxLimit = freqs.last()
-                                val span = (maxLimit - minLimit).coerceAtLeast(1L).toFloat()
-                                val startFraction = ((cluster.curMin.coerceAtLeast(minLimit) - minLimit).toFloat() / span).coerceIn(0f, 1f)
-                                val endFraction = ((cluster.curMax.coerceAtMost(maxLimit) - minLimit).toFloat() / span).coerceIn(startFraction, 1f)
-                                val isPinned = cluster.curMin >= cluster.curMax
-
-                                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                                    // Custom visual spectrum track with precision bounds
-                                    BoxWithConstraints(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .clip(RoundedCornerShape(3.dp))
-                                            .background(Color(0xFF0F1219))
-                                    ) {
-                                        val totalWidth = maxWidth
-                                        if (isPinned) {
-                                            // Saat frekuensi terkunci/pinned: tampilkan pin indicator di posisi titik frekuensi
-                                            val pinWidth = 10.dp
-                                            val pinOffset = ((totalWidth - pinWidth) * startFraction).coerceIn(0.dp, totalWidth - pinWidth)
-                                            Box(
-                                                modifier = Modifier
-                                                    .offset(x = pinOffset)
-                                                    .width(pinWidth)
-                                                    .fillMaxHeight()
-                                                    .clip(RoundedCornerShape(3.dp))
-                                                    .background(clusterAccent)
-                                            )
-                                        } else {
-                                            // Rentang dinamis dari startFraction ke endFraction
-                                            val barStart = totalWidth * startFraction
-                                            val barEnd = totalWidth * endFraction
-                                            val barWidth = (barEnd - barStart).coerceAtLeast(6.dp)
-                                            val clampedOffset = barStart.coerceIn(0.dp, totalWidth - barWidth)
-
-                                            Box(
-                                                modifier = Modifier
-                                                    .offset(x = clampedOffset)
-                                                    .width(barWidth)
-                                                    .fillMaxHeight()
-                                                    .clip(RoundedCornerShape(3.dp))
-                                                    .background(
-                                                        Brush.horizontalGradient(
-                                                            listOf(
-                                                                clusterAccent.copy(alpha = 0.6f),
-                                                                clusterAccent
-                                                            )
-                                                        )
-                                                    )
-                                            )
-                                        }
-                                    }
-                                    Spacer(Modifier.height(4.dp))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("${minLimit / 1000} MHz", fontSize = 9.sp, color = TextTertiary)
-                                        Text(
-                                            text = if (isPinned) "Terkunci: ${cluster.curMin / 1000} MHz" else "Rentang Operasi Aktif",
-                                            fontSize = 9.sp,
-                                            color = clusterAccent.copy(alpha = 0.85f),
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        Text("${maxLimit / 1000} MHz", fontSize = 9.sp, color = TextTertiary)
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // 3. Dual Pill Dropdown Selector (Min & Max Freq)
+                            // 2. Dual Pill Dropdown Selector (Min & Max Freq)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1417,7 +1342,7 @@ fun CpuClusterTunerCard(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // 4. Governor Pill & Quick Tunables Row
+                            // 3. Governor Pill & Quick Tunables Row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
