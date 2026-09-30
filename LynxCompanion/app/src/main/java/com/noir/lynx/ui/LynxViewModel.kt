@@ -193,6 +193,7 @@ class LynxViewModel : ViewModel() {
         isForeground = foreground
         if (foreground) {
             refreshState()
+            refreshClusters()
         }
     }
 
@@ -208,6 +209,7 @@ class LynxViewModel : ViewModel() {
                 delay(if (isForeground) 3000L else 20000L)
                 if (isForeground) {
                     refreshState()
+                    refreshClusters()
                 }
             }
         }
@@ -231,8 +233,9 @@ class LynxViewModel : ViewModel() {
                     val batt = if (counter % 3 == 0) LynxRepository.readBatteryDetails() else null
                     val gpu = if (counter % 2 == 0) LynxRepository.readGpuInfo() else null
                     val therm = if (counter % 3 == 0) LynxRepository.readThermalZones() else null
+                    val freshClusters = if (counter % 3 == 0) LynxRepository.readClusters() else null
 
-                    if (tel != null || cores.isNotEmpty() || batt != null || gpu != null || therm != null || procs.isNotEmpty()) {
+                    if (tel != null || cores.isNotEmpty() || batt != null || gpu != null || therm != null || procs.isNotEmpty() || (freshClusters != null && freshClusters.isNotEmpty())) {
                         _uiState.update { current ->
                             val newHistory = if (current.cpuLoadHistory.isEmpty()) {
                                 List(15) { totalLoad }
@@ -248,6 +251,7 @@ class LynxViewModel : ViewModel() {
                                 batteryDetails = batt ?: current.batteryDetails,
                                 gpuInfo = gpu ?: current.gpuInfo,
                                 thermalZones = if (therm != null && therm.isNotEmpty()) therm else current.thermalZones,
+                                clusters = if (freshClusters != null && freshClusters.isNotEmpty()) freshClusters else current.clusters,
                             )
                         }
                     }
@@ -266,6 +270,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val freshState = LynxRepository.readState()
+                val freshClusters = LynxRepository.readClusters()
                 _uiState.update { current ->
                     val finalProfile = if (current.state.activeProfile in listOf("balance", "performance", "extreme", "auto", "powersave") &&
                         freshState.activeProfile == "dormant") {
@@ -273,7 +278,11 @@ class LynxViewModel : ViewModel() {
                     } else {
                         freshState.activeProfile
                     }
-                    current.copy(state = freshState.copy(activeProfile = finalProfile), lastSyncedAt = System.currentTimeMillis())
+                    current.copy(
+                        state = freshState.copy(activeProfile = finalProfile),
+                        clusters = if (freshClusters.isNotEmpty()) freshClusters else current.clusters,
+                        lastSyncedAt = System.currentTimeMillis()
+                    )
                 }
             } catch (e: Exception) {
                 // Silent refresh failure — don't show error for background syncs
@@ -285,7 +294,9 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val clusters = LynxRepository.readClusters()
-                _uiState.update { it.copy(clusters = clusters) }
+                if (clusters.isNotEmpty()) {
+                    _uiState.update { it.copy(clusters = clusters) }
+                }
             } catch (e: Exception) {
                 // Silent failure
             }
@@ -298,6 +309,18 @@ class LynxViewModel : ViewModel() {
 
     fun setClusterFrequency(policyId: Int, minFreq: Long?, maxFreq: Long?) {
         viewModelScope.launch {
+            // Optimistic update for zero-latency touch response
+            _uiState.update { current ->
+                val updated = current.clusters.map { c ->
+                    if (c.id == policyId) {
+                        c.copy(
+                            curMin = minFreq ?: c.curMin,
+                            curMax = maxFreq ?: c.curMax
+                        )
+                    } else c
+                }
+                current.copy(clusters = updated)
+            }
             LynxRepository.setClusterFreq(policyId, minFreq, maxFreq)
             refreshClusters()
         }
@@ -305,6 +328,13 @@ class LynxViewModel : ViewModel() {
 
     fun setClusterGovernor(policyId: Int, gov: String) {
         viewModelScope.launch {
+            // Optimistic update for zero-latency touch response
+            _uiState.update { current ->
+                val updated = current.clusters.map { c ->
+                    if (c.id == policyId) c.copy(curGov = gov) else c
+                }
+                current.copy(clusters = updated)
+            }
             LynxRepository.setClusterGov(policyId, gov)
             refreshClusters()
         }

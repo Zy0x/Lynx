@@ -261,9 +261,15 @@ async function runCCleaner() {
 let clusterMaxFreqs = {};
 let clusterTopology = [];
 
+let telemetryPollTick = 0;
+
 async function pollTelemetry() {
     pollGpuInfo();
     pollThermalZones();
+    telemetryPollTick++;
+    if (telemetryPollTick % 3 === 0) {
+        loadClusterTopology(false);
+    }
     try {
         const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh telemetry");
         if (res.errno === 0 && res.stdout) {
@@ -334,7 +340,7 @@ async function pollTelemetry() {
     }
 }
 
-async function loadClusterTopology() {
+async function loadClusterTopology(forceRebuild = false) {
     const container = document.getElementById('clusters-container');
     if (!container) return;
     try {
@@ -343,10 +349,9 @@ async function loadClusterTopology() {
             const data = JSON.parse(res.stdout);
             if (data.clusters && data.clusters.length > 0) {
                 clusterTopology = data.clusters;
-                container.innerHTML = '';
 
+                // Cache max freqs for core meter bar calculations
                 data.clusters.forEach(c => {
-                    // Cache max freqs for core meter bar calculations
                     if (c.cpus) {
                         const parts = c.cpus.split('-');
                         const start = parseInt(parts[0], 10);
@@ -355,9 +360,36 @@ async function loadClusterTopology() {
                             clusterMaxFreqs[i] = c.cur_max || 2500000;
                         }
                     }
+                });
 
+                // In-place 2-way update if already rendered and not forced
+                if (container.children.length > 0 && !forceRebuild) {
+                    data.clusters.forEach(c => {
+                        const item = document.getElementById(`cluster-item-${c.id}`);
+                        if (!item) return;
+                        const badge = item.querySelector('.cluster-badge');
+                        if (badge) badge.textContent = c.cur_gov;
+                        const minSelect = item.querySelector('.select-min-freq');
+                        if (minSelect && document.activeElement !== minSelect) {
+                            minSelect.value = c.cur_min;
+                        }
+                        const maxSelect = item.querySelector('.select-max-freq');
+                        if (maxSelect && document.activeElement !== maxSelect) {
+                            maxSelect.value = c.cur_max;
+                        }
+                        const govSelect = item.querySelector('.select-gov-name');
+                        if (govSelect && document.activeElement !== govSelect) {
+                            govSelect.value = c.cur_gov;
+                        }
+                    });
+                    return;
+                }
+
+                container.innerHTML = '';
+                data.clusters.forEach(c => {
                     const item = document.createElement('div');
                     item.className = 'cluster-item';
+                    item.id = `cluster-item-${c.id}`;
 
                     // Governor dropdown options
                     const govOptions = (c.avail_govs || []).map(g => 
@@ -386,20 +418,20 @@ async function loadClusterTopology() {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">
                             <div>
                                 <label style="font-size:11px; color:var(--text-secondary); font-weight:600;">Min Frequency</label>
-                                <select class="select-gov" onchange="setClusterFreq(${c.id}, this.value, null)">
+                                <select class="select-gov select-min-freq" onchange="setClusterFreq(${c.id}, this.value, null)">
                                     ${minOptions}
                                 </select>
                             </div>
                             <div>
                                 <label style="font-size:11px; color:var(--text-secondary); font-weight:600;">Max Frequency</label>
-                                <select class="select-gov" onchange="setClusterFreq(${c.id}, null, this.value)">
+                                <select class="select-gov select-max-freq" onchange="setClusterFreq(${c.id}, null, this.value)">
                                     ${maxOptions}
                                 </select>
                             </div>
                         </div>
                         <div style="margin-top: 10px;">
                             <label style="font-size:11px; color:var(--text-secondary); font-weight:600;">Governor</label>
-                            <select class="select-gov" onchange="setClusterGov(${c.id}, this.value)">
+                            <select class="select-gov select-gov-name" onchange="setClusterGov(${c.id}, this.value)">
                                 ${govOptions}
                             </select>
                         </div>
@@ -427,6 +459,7 @@ async function setClusterFreq(policyId, minFreq, maxFreq) {
             if (minFreq !== null) cluster.cur_min = parseInt(minFreq, 10);
             if (maxFreq !== null) cluster.cur_max = parseInt(maxFreq, 10);
         }
+        await loadClusterTopology(false);
     } else {
         logToConsole(`Failed setting policy ${policyId} frequency: ${res.stderr}`, 'error');
     }
@@ -438,7 +471,7 @@ async function setClusterGov(policyId, gov) {
     const res = await execCmd(cmd);
     if (res.errno === 0) {
         logToConsole(`Policy ${policyId} governor set to ${gov}.`, 'success');
-        loadClusterTopology();
+        await loadClusterTopology(false);
     } else {
         logToConsole(`Failed setting governor: ${res.stderr}`, 'error');
     }

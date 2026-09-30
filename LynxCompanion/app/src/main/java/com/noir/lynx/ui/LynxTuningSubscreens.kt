@@ -53,7 +53,10 @@ fun TuningCpuCategory(
     ) {
         // ── Scene-Style Master Hero Card (Top Processes + SoC Info + 4-Column Per-Core Matrix) ──
         if (uiState.cpuCores.isNotEmpty()) {
-            LaunchedEffect(Unit) { viewModel.refreshCpuCores() }
+            LaunchedEffect(Unit) {
+                viewModel.refreshCpuCores()
+                viewModel.refreshClusters()
+            }
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = Color(0xFF131417),

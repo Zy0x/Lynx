@@ -72,9 +72,33 @@ set_cluster_freq() {
 
     if [ -d "$policy" ]; then
         hw_max=$(cat "$policy/cpuinfo_max_freq" 2>/dev/null)
+        hw_min=$(cat "$policy/cpuinfo_min_freq" 2>/dev/null)
+        cur_min=$(cat "$policy/scaling_min_freq" 2>/dev/null)
+        cur_max=$(cat "$policy/scaling_max_freq" 2>/dev/null)
+
+        [ -z "$min_freq" ] && min_freq="$cur_min"
+        [ -z "$max_freq" ] && max_freq="$cur_max"
+
+        [ -n "$hw_min" ] && [ "$min_freq" -lt "$hw_min" ] 2>/dev/null && min_freq="$hw_min"
+        [ -n "$hw_max" ] && [ "$max_freq" -gt "$hw_max" ] 2>/dev/null && max_freq="$hw_max"
+
+        if [ "$min_freq" -gt "$max_freq" ] 2>/dev/null; then
+            max_freq="$min_freq"
+        fi
+
+        chmod 644 "$policy/scaling_min_freq" "$policy/scaling_max_freq" 2>/dev/null
         [ -n "$hw_max" ] && write_node "$hw_max" "$policy/scaling_max_freq"
         [ -n "$min_freq" ] && [ "$min_freq" -gt 0 ] 2>/dev/null && write_node "$min_freq" "$policy/scaling_min_freq"
         [ -n "$max_freq" ] && [ "$max_freq" -gt 0 ] 2>/dev/null && write_node "$max_freq" "$policy/scaling_max_freq"
+
+        # MediaTek PPM hard limit sync
+        if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then
+            local mtk_cluster=0
+            [ "$p_num" -ge 6 ] && mtk_cluster=1
+            write_node "$mtk_cluster $max_freq" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+            write_node "$mtk_cluster $min_freq" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+        fi
+
         echo "Cluster policy$p_num frequencies updated (Min: $min_freq, Max: $max_freq)."
     else
         echo "Error: Policy policy$p_num does not exist."

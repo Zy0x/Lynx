@@ -770,33 +770,37 @@ object LynxRepository {
     suspend fun setClusterFreq(policyId: Int, minFreq: Long?, maxFreq: Long?): Boolean = withContext(Dispatchers.IO) {
         try {
             // Safety Bounds Regulation: clamp to kernel cpuinfo limits
-            val minNode = "/sys/devices/system/cpu/cpufreq/policy$policyId/cpuinfo_min_freq"
-            val maxNode = "/sys/devices/system/cpu/cpufreq/policy$policyId/cpuinfo_max_freq"
+            val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
+            val minNode = "$pDir/cpuinfo_min_freq"
+            val maxNode = "$pDir/cpuinfo_max_freq"
             val hwMin = Shell.cmd("cat $minNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 300000L
             val hwMax = Shell.cmd("cat $maxNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 2400000L
 
-            var safeMin = minFreq?.coerceIn(hwMin, hwMax)
-            var safeMax = maxFreq?.coerceIn(hwMin, hwMax)
+            val curMin = Shell.cmd("cat $pDir/scaling_min_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMin
+            val curMax = Shell.cmd("cat $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMax
+
+            var safeMin = (minFreq ?: curMin).coerceIn(hwMin, hwMax)
+            var safeMax = (maxFreq ?: curMax).coerceIn(hwMin, hwMax)
 
             // Regulation: min cannot exceed max
-            if (safeMin != null && safeMax != null && safeMin > safeMax) {
-                safeMin = safeMax
+            if (safeMin > safeMax) {
+                if (minFreq != null) safeMax = safeMin else safeMin = safeMax
             }
 
             val cmd = if (isModuleInstalled()) {
-                val minArg = safeMin?.toString() ?: ""
-                val maxArg = safeMax?.toString() ?: ""
-                "sh '$MODULE_DIR/core/lib/cluster_manager.sh' set_freq $policyId '$minArg' '$maxArg'"
+                "sh '$MODULE_DIR/core/lib/cluster_manager.sh' set_freq $policyId '$safeMin' '$safeMax'"
             } else {
                 buildString {
-                    val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
                     append("chmod 644 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
-                    val curMax = Shell.cmd("cat $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMax
-                    val finalMax = safeMax ?: curMax
-                    // Kernel safety: temporarily relax scaling_max_freq to hwMax so setting new min never fails EINVAL
                     append("echo $hwMax > $pDir/scaling_max_freq 2>/dev/null; ")
-                    if (safeMin != null) append("echo $safeMin > $pDir/scaling_min_freq 2>/dev/null; ")
-                    append("echo $finalMax > $pDir/scaling_max_freq 2>/dev/null; ")
+                    append("echo $safeMin > $pDir/scaling_min_freq 2>/dev/null; ")
+                    append("echo $safeMax > $pDir/scaling_max_freq 2>/dev/null; ")
+                    // MediaTek PPM hardware sync if node exists
+                    val mtkCluster = if (policyId >= 6) 1 else 0
+                    append("if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then ")
+                    append("echo '$mtkCluster $safeMax' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
+                    append("echo '$mtkCluster $safeMin' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
+                    append("fi; ")
                 }
             }
             Shell.cmd(cmd).exec().isSuccess
