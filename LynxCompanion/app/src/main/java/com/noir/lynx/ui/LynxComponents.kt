@@ -1237,8 +1237,7 @@ fun CpuClusterTunerCard(
                                         Text(
                                             text = "Policy ${cluster.id}: ${cluster.role}",
                                             fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            letterSpacing = 0.2.sp,
+                                            fontWeight = FontWeight.SemiBold,
                                             color = TextPrimary
                                         )
                                         Text(
