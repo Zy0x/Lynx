@@ -40,7 +40,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
-            val rootAvailable = LynxRepository.isRootAvailable()
+            val rootAvailable = LynxRepository.isRootAvailable() || com.noir.lynx.BuildConfig.DEBUG
             val moduleInstalled = if (rootAvailable) LynxRepository.isModuleInstalled() else false
 
             if (rootAvailable) {
@@ -217,25 +217,32 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             var counter = 0
             while (true) {
-                delay(if (isForeground) 1000L else 12000L)
-                if (!isForeground) continue
+                val startMs = System.currentTimeMillis()
+                if (!isForeground) {
+                    delay(12000L)
+                    continue
+                }
                 try {
                     val tel = LynxRepository.readTelemetry()
                     counter++
                     val cores = LynxRepository.readCpuCores()
                     val totalLoad = LynxRepository.latestTotalCpuLoadPercent
-                    val procs = if (counter % 2 == 0) LynxRepository.readTopCpuProcesses() else null
+                    val procs = LynxRepository.readTopCpuProcesses()
                     val batt = if (counter % 3 == 0) LynxRepository.readBatteryDetails() else null
                     val gpu = if (counter % 2 == 0) LynxRepository.readGpuInfo() else null
                     val therm = if (counter % 3 == 0) LynxRepository.readThermalZones() else null
 
-                    if (tel != null || cores.isNotEmpty() || batt != null || gpu != null || therm != null || procs != null) {
+                    if (tel != null || cores.isNotEmpty() || batt != null || gpu != null || therm != null || procs.isNotEmpty()) {
                         _uiState.update { current ->
-                            val newHistory = (current.cpuLoadHistory + totalLoad).takeLast(30)
+                            val newHistory = if (current.cpuLoadHistory.isEmpty()) {
+                                List(15) { totalLoad }
+                            } else {
+                                (current.cpuLoadHistory + totalLoad).takeLast(30)
+                            }
                             current.copy(
                                 telemetry = tel ?: current.telemetry,
                                 cpuCores = if (cores.isNotEmpty()) cores else current.cpuCores,
-                                topCpuProcesses = if (procs != null && procs.isNotEmpty()) procs else current.topCpuProcesses,
+                                topCpuProcesses = if (procs.isNotEmpty()) procs else current.topCpuProcesses,
                                 totalCpuLoadPercent = totalLoad,
                                 cpuLoadHistory = newHistory,
                                 batteryDetails = batt ?: current.batteryDetails,
@@ -247,6 +254,9 @@ class LynxViewModel : ViewModel() {
                 } catch (e: Exception) {
                     // Ignore transient read errors
                 }
+                val elapsed = System.currentTimeMillis() - startMs
+                val nextDelay = (1000L - elapsed).coerceAtLeast(150L)
+                delay(nextDelay)
             }
         }
     }

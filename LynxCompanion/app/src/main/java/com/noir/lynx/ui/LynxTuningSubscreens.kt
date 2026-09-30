@@ -58,7 +58,7 @@ fun TuningCpuCategory(
                 shape = RoundedCornerShape(16.dp),
                 color = Color(0xFF131417),
                 border = BorderStroke(1.dp, Color(0xFF1E2026)),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     // ── TOP HALF: Processes (Left) + Divider + SoC & 8-Bar Spectrum (Right) ──
@@ -365,7 +365,7 @@ fun TuningCpuCategory(
                 shape = RoundedCornerShape(16.dp),
                 color = Color(0xFF131417),
                 border = BorderStroke(1.dp, Color(0xFF1E2026)),
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     val history = uiState.cpuLoadHistory

@@ -20,6 +20,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -66,6 +68,9 @@ import com.noir.lynx.data.AppProfileRule
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 
 
 /**
@@ -339,18 +344,46 @@ fun MainDashboard(
     val state = uiState.state
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val subscreenScrollState = rememberScrollState()
+    var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
+    val isSubscreenActive = uiState.currentTab == 1 && selectedCategory != null
+    var isNavbarVisible by rememberSaveable { mutableStateOf(true) }
+
     LaunchedEffect(uiState.currentTab) {
         scrollState.scrollTo(0)
+        isNavbarVisible = true
     }
     LaunchedEffect(Unit) {
         viewModel.syncHudPrefs(context)
     }
-    var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
     BackHandler(enabled = uiState.currentTab == 1 && selectedCategory != null) {
         selectedCategory = null
     }
     LaunchedEffect(selectedCategory) {
+        subscreenScrollState.scrollTo(0)
         scrollState.scrollTo(0)
+        isNavbarVisible = true
+    }
+
+    val activeScrollValue = if (isSubscreenActive) subscreenScrollState.value else scrollState.value
+    LaunchedEffect(activeScrollValue) {
+        if (activeScrollValue <= 10 && !isNavbarVisible) {
+            isNavbarVisible = true
+        }
+    }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val delta = available.y
+                if (delta < -12f) {
+                    if (isNavbarVisible) isNavbarVisible = false
+                } else if (delta > 12f) {
+                    if (!isNavbarVisible) isNavbarVisible = true
+                }
+                return Offset.Zero
+            }
+        }
     }
     var showAddAppDialog by remember { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<AppProfileRule?>(null) }
@@ -760,13 +793,22 @@ fun MainDashboard(
         modifier = Modifier
             .fillMaxSize()
             .background(BgDeepOled)
+            .nestedScroll(nestedScrollConnection)
     ) {
         // ── 1. Full Edge-to-Edge Scrollable Content (Glides behind Navbar) ────
-        Column(
-            modifier = Modifier
+        val contentModifier = if (isSubscreenActive) {
+            Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .verticalScroll(scrollState),
+        } else {
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .verticalScroll(scrollState)
+        }
+
+        Column(
+            modifier = contentModifier,
         ) {
             LaunchedEffect(uiState.currentTab) {
                 scrollState.scrollTo(0)
@@ -1334,6 +1376,7 @@ fun MainDashboard(
                 1 -> {
                     AnimatedContent(
                         targetState = selectedCategory,
+                        modifier = if (isSubscreenActive) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
                         transitionSpec = {
                             if (targetState != null) {
                                 (slideInHorizontally(animationSpec = tween(220)) { it / 3 } + fadeIn(animationSpec = tween(200)))
@@ -1442,94 +1485,113 @@ fun MainDashboard(
                                 }
                             }
                         } else {
-                            // ── SUB-PAGE VIEW ──
+                            // ── SUB-PAGE VIEW WITH PERMANENT STICKY PINNED HEADER ──
                             val cat = TuningCategory.fromId(currentCategory) ?: TuningCategory.CPU
 
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Spacer(Modifier.height(8.dp))
-                                // Minimalist Compact Subscreen Header (Single Row, No Pills)
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                // 1. Sticky Header (Pinned outside scrollable area, never sinks)
+                                Surface(
+                                    color = Color(0xF20B0C10),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    // Circular Back Arrow
-                                    Surface(
-                                        onClick = { selectedCategory = null },
-                                        shape = CircleShape,
-                                        color = BgElevated,
-                                        border = BorderStroke(0.8.dp, BorderSubtle),
-                                        modifier = Modifier.size(42.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = Icons.Default.ArrowBack,
-                                                contentDescription = "Kembali ke Pusat Tuning",
-                                                tint = TextPrimary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            // Circular Back Arrow
+                                            Surface(
+                                                onClick = { selectedCategory = null },
+                                                shape = CircleShape,
+                                                color = BgElevated,
+                                                border = BorderStroke(0.8.dp, BorderSubtle),
+                                                modifier = Modifier.size(42.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.ArrowBack,
+                                                        contentDescription = "Kembali ke Pusat Tuning",
+                                                        tint = TextPrimary,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
 
-                                    // Category Icon Tile
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = BgElevated,
-                                        border = BorderStroke(0.8.dp, BorderSubtle),
-                                        modifier = Modifier.size(38.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = cat.icon,
-                                                contentDescription = cat.title,
-                                                tint = cat.accentColor,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
+                                            // Category Icon Tile
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = BgElevated,
+                                                border = BorderStroke(0.8.dp, BorderSubtle),
+                                                modifier = Modifier.size(38.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = cat.icon,
+                                                        contentDescription = cat.title,
+                                                        tint = cat.accentColor,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
 
-                                    // Category Title & Subtitle
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = cat.title,
-                                            color = TextPrimary,
-                                            fontSize = 17.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            letterSpacing = (-0.3).sp,
-                                            maxLines = 1,
-                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                        )
-                                        Spacer(Modifier.height(1.dp))
-                                        Text(
-                                            text = cat.subtitle,
-                                            color = TextSecondary,
-                                            fontSize = 11.sp,
-                                            lineHeight = 14.sp,
-                                            maxLines = 1,
-                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                            // Category Title & Subtitle
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = cat.title,
+                                                    color = TextPrimary,
+                                                    fontSize = 17.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    letterSpacing = (-0.3).sp,
+                                                    maxLines = 1,
+                                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                )
+                                                Spacer(Modifier.height(1.dp))
+                                                Text(
+                                                    text = cat.subtitle,
+                                                    color = TextSecondary,
+                                                    fontSize = 11.sp,
+                                                    lineHeight = 14.sp,
+                                                    maxLines = 1,
+                                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                        HorizontalDivider(
+                                            color = Color(0xFF1E2026),
+                                            thickness = 0.8.dp
                                         )
                                     }
                                 }
 
-                                // Subscreen Router
-                                when (currentCategory) {
-                                    "cpu" -> TuningCpuCategory(uiState = uiState, viewModel = viewModel)
-                                    "gpu" -> TuningGpuCategory(uiState = uiState, viewModel = viewModel)
-                                    "memory" -> TuningMemoryCategory(uiState = uiState, viewModel = viewModel)
-                                    "charging" -> TuningChargingCategory(uiState = uiState, viewModel = viewModel)
-                                    "network" -> TuningNetworkCategory(uiState = uiState, viewModel = viewModel)
-                                    "system" -> TuningSystemCategory(
-                                        uiState = uiState,
-                                        viewModel = viewModel,
-                                        onAddAppClick = {
-                                            viewModel.refreshInstalledApps()
-                                            showAddAppDialog = true
-                                        },
-                                        onEditRuleClick = { editingRule = it }
-                                    )
-                                    else -> TuningCpuCategory(uiState = uiState, viewModel = viewModel)
+                                // 2. Scrollable Subscreen Content Area
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .verticalScroll(subscreenScrollState)
+                                ) {
+                                    Spacer(Modifier.height(8.dp))
+                                    when (currentCategory) {
+                                        "cpu" -> TuningCpuCategory(uiState = uiState, viewModel = viewModel)
+                                        "gpu" -> TuningGpuCategory(uiState = uiState, viewModel = viewModel)
+                                        "memory" -> TuningMemoryCategory(uiState = uiState, viewModel = viewModel)
+                                        "charging" -> TuningChargingCategory(uiState = uiState, viewModel = viewModel)
+                                        "network" -> TuningNetworkCategory(uiState = uiState, viewModel = viewModel)
+                                        "system" -> TuningSystemCategory(
+                                            uiState = uiState,
+                                            viewModel = viewModel,
+                                            onAddAppClick = {
+                                                viewModel.refreshInstalledApps()
+                                                showAddAppDialog = true
+                                            },
+                                            onEditRuleClick = { editingRule = it }
+                                        )
+                                        else -> TuningCpuCategory(uiState = uiState, viewModel = viewModel)
+                                    }
+                                    Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
                                 }
                             }
                         }
@@ -2127,26 +2189,34 @@ fun MainDashboard(
 
                 }
             }
-            // Bottom spacer so content can scroll completely clear of the floating dock
-            Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
+            if (!isSubscreenActive) {
+                // Bottom spacer so content can scroll completely clear of the floating dock
+                Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
+            }
         }
 
         // ── 2. Subtle Bottom Atmospheric Vignette (Soft content pass-through) ──
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(125.dp)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Transparent,
-                            BgDeepOled.copy(alpha = 0.55f),
-                            BgDeepOled.copy(alpha = 0.92f)
+        AnimatedVisibility(
+            visible = isNavbarVisible,
+            enter = fadeIn(animationSpec = tween(180)),
+            exit = fadeOut(animationSpec = tween(150)),
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(125.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Transparent,
+                                BgDeepOled.copy(alpha = 0.55f),
+                                BgDeepOled.copy(alpha = 0.92f)
+                            )
                         )
                     )
-                )
-        )
+            )
+        }
 
         // ── 3. Model 1: Floating Dynamic Capsule Dock (True Overlay) ────────
         val haptic = LocalHapticFeedback.current
@@ -2156,13 +2226,24 @@ fun MainDashboard(
             Triple("Tools", Icons.Default.Build, 2),
         )
 
-        Box(
+        AnimatedVisibility(
+            visible = isNavbarVisible,
+            enter = slideInVertically(
+                initialOffsetY = { it * 2 },
+                animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)
+            ) + fadeIn(animationSpec = tween(180)),
+            exit = slideOutVertically(
+                targetOffsetY = { it * 2 },
+                animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)
+            ) + fadeOut(animationSpec = tween(150)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 14.dp),
-            contentAlignment = Alignment.Center
+                .padding(bottom = 14.dp)
         ) {
+            Box(
+                contentAlignment = Alignment.Center
+            ) {
             Surface(
                 shape = CircleShape,
                 color = Color(0xD90E121E), // Luxury Translucent OLED Glass (~85% opacity)
@@ -2295,6 +2376,7 @@ fun MainDashboard(
             }
         }
     }
+}
 }
 
 // ============================================================
