@@ -791,10 +791,12 @@ object LynxRepository {
                 buildString {
                     val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
                     append("chmod 644 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
+                    val curMax = Shell.cmd("cat $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMax
+                    val finalMax = safeMax ?: curMax
                     // Kernel safety: temporarily relax scaling_max_freq to hwMax so setting new min never fails EINVAL
                     append("echo $hwMax > $pDir/scaling_max_freq 2>/dev/null; ")
                     if (safeMin != null) append("echo $safeMin > $pDir/scaling_min_freq 2>/dev/null; ")
-                    if (safeMax != null) append("echo $safeMax > $pDir/scaling_max_freq 2>/dev/null; ")
+                    append("echo $finalMax > $pDir/scaling_max_freq 2>/dev/null; ")
                 }
             }
             Shell.cmd(cmd).exec().isSuccess

@@ -1432,7 +1432,8 @@ fun CpuClusterTunerCard(
 
     // ── Translucent Frosted Glass Modal Bottom Sheet: Frequency Picker ──
     if (freqPickerTarget != null) {
-        val (targetCluster, isMinPicker) = freqPickerTarget!!
+        val (initCluster, isMinPicker) = freqPickerTarget!!
+        val targetCluster = clusters.find { it.id == initCluster.id } ?: initCluster
         val clusterAccent = if (targetCluster.id > 0) AccentOrange else AccentCyan
         val freqs = targetCluster.availFreqs.sorted()
         val curFreq = if (isMinPicker) targetCluster.curMin else targetCluster.curMax
@@ -1506,7 +1507,7 @@ fun CpuClusterTunerCard(
                         ) {
                             rowFreqs.forEach { f ->
                                 val mhz = (f / 1000).toInt()
-                                val isSelected = f == curFreq
+                                val isSelected = f == curFreq || (f / 1000) == (curFreq / 1000) || Math.abs(f - curFreq) < 5000
                                 val isAutoAdjust = if (isMinPicker) f > targetCluster.curMax else f < targetCluster.curMin
 
                                 Surface(
