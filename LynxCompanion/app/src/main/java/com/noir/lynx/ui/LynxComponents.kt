@@ -1127,6 +1127,7 @@ fun CpuClusterTunerCard(
     onTunableChange: (policyId: Int, gov: String, key: String, value: String) -> Unit = { _, _, _, _ -> },
     activeGovernorPreset: String = "balanced",
     onApplyGovernorPreset: ((preset: String) -> Unit)? = null,
+    onLockToggle: (policyId: Int, isLock: Boolean, minFreq: Long, maxFreq: Long) -> Unit = { _, _, _, _ -> },
 ) {
     // ── Bottom Sheet States ──
     var freqPickerTarget by remember { mutableStateOf<Pair<CpuClusterInfo, Boolean>?>(null) }
@@ -1326,18 +1327,57 @@ fun CpuClusterTunerCard(
                                     }
                                 }
 
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = clusterAccent.copy(alpha = 0.14f),
-                                    border = BorderStroke(0.8.dp, clusterAccent.copy(alpha = 0.35f))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Text(
-                                        text = cluster.curGov,
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = clusterAccent,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = clusterAccent.copy(alpha = 0.14f),
+                                        border = BorderStroke(0.8.dp, clusterAccent.copy(alpha = 0.35f))
+                                    ) {
+                                        Text(
+                                            text = cluster.curGov,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = clusterAccent,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+
+                                    // Lock Toggle Action Button
+                                    val isLocked = cluster.isLocked
+                                    val lockColor = if (isLocked) Color(0xFF00E676) else TextSecondary
+                                    val lockBg = if (isLocked) Color(0xFF0D2818) else Color(0xFF141722)
+                                    val lockBorder = if (isLocked) Color(0xFF00E676).copy(alpha = 0.5f) else BorderGlass
+
+                                    Surface(
+                                        onClick = {
+                                            onLockToggle(cluster.id, !isLocked, cluster.curMin, cluster.curMax)
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = lockBg,
+                                        border = BorderStroke(0.9.dp, lockBorder)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                                                contentDescription = if (isLocked) "Terkunci" else "Buka Kunci",
+                                                tint = lockColor,
+                                                modifier = Modifier.size(11.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                text = if (isLocked) "LOCKED" else "UNLOCK",
+                                                fontSize = 9.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = lockColor
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
@@ -1414,6 +1454,35 @@ fun CpuClusterTunerCard(
                                             contentDescription = null,
                                             tint = clusterAccent,
                                             modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (cluster.isLocked) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFF0A1F13),
+                                    border = BorderStroke(0.7.dp, Color(0xFF00E676).copy(alpha = 0.35f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Security,
+                                            contentDescription = null,
+                                            tint = Color(0xFF00E676),
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = "Proteksi Read-Only Aktif • Clock terkunci di $minMhz ~ $maxMhz MHz",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color(0xFF81C784)
                                         )
                                     }
                                 }

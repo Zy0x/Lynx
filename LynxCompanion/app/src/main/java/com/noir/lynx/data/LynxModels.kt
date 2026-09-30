@@ -132,6 +132,7 @@ data class CpuClusterInfo(
     val curGov: String = "schedutil",
     val availFreqs: List<Long> = emptyList(),
     val availGovs: List<String> = emptyList(),
+    val isLocked: Boolean = false,
 )
 
 data class CpuProcessInfo(

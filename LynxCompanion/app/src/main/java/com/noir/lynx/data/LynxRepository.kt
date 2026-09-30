@@ -688,6 +688,7 @@ object LynxRepository {
                             curGov = c.optString("cur_gov", "schedutil"),
                             availFreqs = freqs,
                             availGovs = govs,
+                            isLocked = c.optBoolean("is_locked", false),
                         )
                     )
                 }
@@ -704,6 +705,8 @@ object LynxRepository {
                       echo "gov:${'$'}(cat "${'$'}p/scaling_governor" 2>/dev/null)"
                       echo "freqs:${'$'}(cat "${'$'}p/scaling_available_frequencies" 2>/dev/null)"
                       echo "govs:${'$'}(cat "${'$'}p/scaling_available_governors" 2>/dev/null)"
+                      perms=${'$'}(ls -ld "${'$'}p/scaling_max_freq" 2>/dev/null | awk '{print ${'$'}1}')
+                      echo "locked:${'$'}(case "${'$'}perms" in -r--*|-r-xr-x*|*r--r--r--*) echo 1 ;; *) echo 0 ;; esac)"
                       echo "---"
                     done
                 """.trimIndent()
@@ -717,6 +720,7 @@ object LynxRepository {
                 var curGov = "schedutil"
                 var curFreqs = emptyList<Long>()
                 var curGovs = emptyList<String>()
+                var curLocked = false
 
                 for (line in result.out) {
                     val trimmed = line.trim()
@@ -733,6 +737,9 @@ object LynxRepository {
                         trimmed.startsWith("govs:") -> {
                             val raw = trimmed.removePrefix("govs:").trim()
                             curGovs = raw.split(Regex("\\s+")).filter { it.isNotBlank() }
+                        }
+                        trimmed.startsWith("locked:") -> {
+                            curLocked = trimmed.removePrefix("locked:").trim() == "1"
                         }
                         trimmed == "---" -> {
                             val role = when (curId) {
@@ -751,6 +758,7 @@ object LynxRepository {
                                     curGov = curGov,
                                     availFreqs = curFreqs,
                                     availGovs = curGovs,
+                                    isLocked = curLocked,
                                 )
                             )
                         }
@@ -787,6 +795,10 @@ object LynxRepository {
                 if (minFreq != null) safeMax = safeMin else safeMin = safeMax
             }
 
+            val wasLocked = Shell.cmd("ls -ld $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.let {
+                it.startsWith("-r--") || it.contains("r--r--r--")
+            } ?: false
+
             val cmd = if (isModuleInstalled()) {
                 "sh '$MODULE_DIR/core/lib/cluster_manager.sh' set_freq $policyId '$safeMin' '$safeMax'"
             } else {
@@ -801,9 +813,72 @@ object LynxRepository {
                     append("echo '$mtkCluster $safeMax' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
                     append("echo '$mtkCluster $safeMin' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
                     append("fi; ")
+                    if (wasLocked) {
+                        append("chmod 444 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
+                    }
                 }
             }
             Shell.cmd(cmd).exec().isSuccess
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Lock or unlock CPU cluster frequency range.
+     * When locked, permissions are set to 0444 (read-only) to protect against OEM thermal throttling.
+     * When unlocked, permissions are restored to 0644 and limits are reset to OEM defaults.
+     */
+    suspend fun setClusterLock(policyId: Int, lock: Boolean, minFreq: Long? = null, maxFreq: Long? = null): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
+            val minNode = "$pDir/cpuinfo_min_freq"
+            val maxNode = "$pDir/cpuinfo_max_freq"
+            val hwMin = Shell.cmd("cat $minNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 300000L
+            val hwMax = Shell.cmd("cat $maxNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 2400000L
+            val mtkCluster = if (policyId >= 6) 1 else 0
+
+            if (lock) {
+                val curMin = Shell.cmd("cat $pDir/scaling_min_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMin
+                val curMax = Shell.cmd("cat $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMax
+
+                var safeMin = (minFreq ?: curMin).coerceIn(hwMin, hwMax)
+                var safeMax = (maxFreq ?: curMax).coerceIn(hwMin, hwMax)
+                if (safeMin > safeMax) safeMax = safeMin
+
+                val cmd = if (isModuleInstalled()) {
+                    "sh '$MODULE_DIR/core/lib/cluster_manager.sh' lock_freq $policyId '$safeMin' '$safeMax'"
+                } else {
+                    buildString {
+                        append("chmod 644 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
+                        append("echo $hwMax > $pDir/scaling_max_freq 2>/dev/null; ")
+                        append("echo $safeMin > $pDir/scaling_min_freq 2>/dev/null; ")
+                        append("echo $safeMax > $pDir/scaling_max_freq 2>/dev/null; ")
+                        append("if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then ")
+                        append("echo '$mtkCluster $safeMax' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
+                        append("echo '$mtkCluster $safeMin' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
+                        append("fi; ")
+                        // READ-ONLY GUARD: Protect nodes from OEM thermal-engine / powerhal overwrite
+                        append("chmod 444 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
+                    }
+                }
+                Shell.cmd(cmd).exec().isSuccess
+            } else {
+                val cmd = if (isModuleInstalled()) {
+                    "sh '$MODULE_DIR/core/lib/cluster_manager.sh' unlock_freq $policyId"
+                } else {
+                    buildString {
+                        append("chmod 644 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
+                        append("echo $hwMax > $pDir/scaling_max_freq 2>/dev/null; ")
+                        append("echo $hwMin > $pDir/scaling_min_freq 2>/dev/null; ")
+                        append("if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then ")
+                        append("echo '$mtkCluster -1' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
+                        append("echo '$mtkCluster -1' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
+                        append("fi; ")
+                    }
+                }
+                Shell.cmd(cmd).exec().isSuccess
+            }
         } catch (e: Exception) {
             false
         }

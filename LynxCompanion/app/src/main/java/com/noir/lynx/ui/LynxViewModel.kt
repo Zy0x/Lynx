@@ -340,6 +340,26 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun setClusterLock(policyId: Int, lock: Boolean, minFreq: Long? = null, maxFreq: Long? = null) {
+        viewModelScope.launch {
+            // Optimistic update for zero-latency touch response
+            _uiState.update { current ->
+                val updated = current.clusters.map { c ->
+                    if (c.id == policyId) {
+                        c.copy(
+                            isLocked = lock,
+                            curMin = minFreq ?: c.curMin,
+                            curMax = maxFreq ?: c.curMax
+                        )
+                    } else c
+                }
+                current.copy(clusters = updated)
+            }
+            LynxRepository.setClusterLock(policyId, lock, minFreq, maxFreq)
+            refreshClusters()
+        }
+    }
+
     // ----------------------------------------------------------------
     //  Profile Management
     // ----------------------------------------------------------------

@@ -369,6 +369,14 @@ async function loadClusterTopology(forceRebuild = false) {
                         if (!item) return;
                         const badge = item.querySelector('.cluster-badge');
                         if (badge) badge.textContent = c.cur_gov;
+                        const lockBtn = item.querySelector('.btn-lock-cluster');
+                        if (lockBtn) {
+                            lockBtn.textContent = c.is_locked ? '🔒 LOCKED' : '🔓 UNLOCK';
+                            lockBtn.style.color = c.is_locked ? '#00e676' : 'var(--text-secondary)';
+                            lockBtn.style.background = c.is_locked ? 'rgba(0,230,118,0.2)' : 'rgba(255,255,255,0.08)';
+                            lockBtn.style.borderColor = c.is_locked ? '#00e676' : 'var(--border-subtle)';
+                            lockBtn.onclick = () => toggleClusterLock(c.id, !c.is_locked);
+                        }
                         const minSelect = item.querySelector('.select-min-freq');
                         if (minSelect && document.activeElement !== minSelect) {
                             minSelect.value = c.cur_min;
@@ -413,7 +421,14 @@ async function loadClusterTopology(forceRebuild = false) {
                                 <span class="cluster-name">Policy ${c.id}: ${c.role}</span>
                                 <div style="font-size: 11px; color: var(--text-secondary); margin-top:2px;">Cores: ${c.cpus}</div>
                             </div>
-                            <span class="cluster-badge">${c.cur_gov}</span>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span class="cluster-badge">${c.cur_gov}</span>
+                                <button class="btn-lock-cluster" 
+                                    style="cursor:pointer; background:${c.is_locked ? 'rgba(0,230,118,0.2)' : 'rgba(255,255,255,0.08)'}; color:${c.is_locked ? '#00e676' : 'var(--text-secondary)'}; border: 1px solid ${c.is_locked ? '#00e676' : 'var(--border-subtle)'}; border-radius:6px; padding:2px 8px; font-size:10px; font-weight:700;"
+                                    onclick="toggleClusterLock(${c.id}, ${!c.is_locked})">
+                                    ${c.is_locked ? '🔒 LOCKED' : '🔓 UNLOCK'}
+                                </button>
+                            </div>
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">
                             <div>
@@ -442,6 +457,22 @@ async function loadClusterTopology(forceRebuild = false) {
         }
     } catch (e) {
         console.warn("Failed loading cluster topology", e);
+    }
+}
+
+async function toggleClusterLock(policyId, shouldLock) {
+    const cluster = clusterTopology.find(c => c.id === policyId);
+    const min = cluster ? cluster.cur_min : 0;
+    const max = cluster ? cluster.cur_max : 0;
+    const cmd = shouldLock 
+        ? `sh /data/adb/modules/Lynx/core/lib/cluster_manager.sh lock_freq ${policyId} ${min} ${max}`
+        : `sh /data/adb/modules/Lynx/core/lib/cluster_manager.sh unlock_freq ${policyId}`;
+    const res = await execCmd(cmd);
+    if (res.errno === 0) {
+        logToConsole(`Cluster ${policyId} ${shouldLock ? 'locked' : 'unlocked'}.`, 'success');
+        await loadClusterTopology(true);
+    } else {
+        logToConsole(`Failed to change cluster lock: ${res.stderr}`, 'error');
     }
 }
 
