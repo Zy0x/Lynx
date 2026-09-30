@@ -1752,14 +1752,21 @@ fun TuningChargingCategory(
             accentColor = AccentCyan
         ) {
             // Live Charging Status Badge
+            val isOvernightLatched = battDetails?.isOvernightBypassLatched == true || (battDetails?.level ?: 0) >= 100
+            val isSmartTapering = battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled
+
             val currentModeLabel = when {
+                isOvernightLatched -> "🔒 100% Full: Hardware Bypass Aktif (Net 0mA - Aman Tidur)"
                 state.charging.bypassEnabled -> "⚡ Bypass Charging Aktif (Baterai Latch)"
+                isSmartTapering -> "🍃 Smart Tapering Aktif (Mendinginkan Baterai 90%+)"
                 state.charging.extremeChargingEnabled -> "🔥 Extreme Fast Charge (Lockout Bypass)"
                 state.charging.limitCurrentMa >= 3000 -> "🚀 High-Current Fast Charge (${state.charging.limitCurrentMa} mA)"
                 else -> "⚖️ Pengisian Dibatasi (${state.charging.limitCurrentMa} mA)"
             }
             val currentModeColor = when {
+                isOvernightLatched -> AccentCyan
                 state.charging.bypassEnabled -> AccentCyan
+                isSmartTapering -> AccentGreen
                 state.charging.extremeChargingEnabled -> AccentRed
                 state.charging.limitCurrentMa >= 3000 -> AccentCyan
                 else -> AccentOrange
@@ -1776,7 +1783,7 @@ fun TuningChargingCategory(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = if (state.charging.bypassEnabled) Icons.Default.BatteryChargingFull else Icons.Default.Bolt,
+                        imageVector = if (isOvernightLatched || state.charging.bypassEnabled) Icons.Default.BatteryChargingFull else if (isSmartTapering) Icons.Default.Shield else Icons.Default.Bolt,
                         contentDescription = null,
                         tint = currentModeColor,
                         modifier = Modifier.size(16.dp)
@@ -1788,6 +1795,82 @@ fun TuningChargingCategory(
                         color = currentModeColor,
                         fontWeight = FontWeight.SemiBold
                     )
+                }
+            }
+
+            // Overnight 100% Bypass Latch In-App Banner
+            if (isOvernightLatched) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(1.2.dp, AccentCyan.copy(alpha = 0.7f)),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(20.dp).padding(top = 1.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Overnight Guard Aktif (100% Full Latch)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentCyan
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Baterai telah terisi penuh 100%. Sistem otomatis mengunci sirkuit ke True Hardware Bypass (Net 0mA). Daya operasional HP disuplai langsung oleh adaptor charger via Vsys sehingga baterai tidak akan drop dan sangat aman ditinggal tidur semalaman di kasur.",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.sp,
+                                color = TextPrimary.copy(alpha = 0.9f),
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                }
+            } else if (isSmartTapering) {
+                // Smart Tapering In-App Banner (90%+)
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = AccentGreen.copy(alpha = 0.12f),
+                    border = BorderStroke(1.2.dp, AccentGreen.copy(alpha = 0.7f)),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = AccentGreen,
+                            modifier = Modifier.size(20.dp).padding(top = 1.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Smart Tapering Aktif (Pendinginan 90%+)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentGreen
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Baterai mencapai 90%+. Arus masuk diturunkan bertahap dan sensor termal dikembalikan normal untuk mendinginkan suhu baterai & bodi HP secara optimal sebelum mencapai 100%. Beban sistem tetap terjamin aman tanpa defisit daya.",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.sp,
+                                color = TextPrimary.copy(alpha = 0.9f),
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
                 }
             }
 
@@ -2099,6 +2182,13 @@ fun TuningChargingCategory(
             accentColor = AccentGreen
         ) {
             LynxSwitch(
+                label = "Smart Tapering & Overnight Guard",
+                subLabel = "Menurunkan arus bertahap di atas 90% (90-95% 1500mA, 95-99% 750mA) demi mendinginkan baterai, serta mengunci True Hardware Bypass di 100% (Net 0mA) agar baterai tidak drop dan mustahil overcharge saat ditinggal tidur di kasur.",
+                checked = state.charging.smartTaperingEnabled,
+                onCheckedChange = { viewModel.setSmartTapering(it) },
+            )
+
+            LynxSwitch(
                 label = "Emergency Thermal Guard (46.0°C)",
                 subLabel = "Failsafe cerdas anti-overheat. Jika sensor termal fisik nyata (mtktsAP/thermal_zone) mencapai ≥ 46°C, temperatur spoofing dicabut otomatis dan arus diturunkan seketika ke level aman.",
                 checked = state.charging.emergencyTempGuardEnabled,
@@ -2116,7 +2206,7 @@ fun TuningChargingCategory(
                 mutableFloatStateOf(state.charging.tempCutoffC.toFloat())
             }
             LynxSlider(
-                label = "Batas Suhu Thermal AutoCut",
+                label = "Batas Suhu Thermal AutoCut (Kasur / Pelindung Suhu)",
                 value = tempCutoffValue,
                 onValueChange = { tempCutoffValue = it },
                 onValueChangeFinished = { viewModel.setTempCutoff(tempCutoffValue.toInt()) },
@@ -2124,6 +2214,13 @@ fun TuningChargingCategory(
                 steps = 9,
                 displayValue = "${tempCutoffValue.toInt()}°C",
                 accentColor = AccentOrange
+            )
+            Text(
+                text = "Ambang batas suhu pemotong arus jika panas terperangkap (misal saat HP ditaruh di kasur/bantal). Arus otomatis dipangkas ke 1200mA saat menyentuh suhu ini hingga bodi kembali dingin.",
+                style = MaterialTheme.typography.bodySmall,
+                fontSize = 11.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
             )
 
             var maxBatteryValue by remember(state.charging.maxBatteryPercent) {
@@ -2134,9 +2231,9 @@ fun TuningChargingCategory(
                 value = maxBatteryValue,
                 onValueChange = { maxBatteryValue = it },
                 onValueChangeFinished = { viewModel.setMaxBatteryPercent(maxBatteryValue.toInt()) },
-                valueRange = 70f..95f,
-                steps = 4,
-                displayValue = "${maxBatteryValue.toInt()}%",
+                valueRange = 70f..100f,
+                steps = 5,
+                displayValue = if (maxBatteryValue >= 99.5f) "100% (Penuh & Auto-Bypass)" else "${maxBatteryValue.toInt()}%",
                 accentColor = AccentGreen
             )
         }

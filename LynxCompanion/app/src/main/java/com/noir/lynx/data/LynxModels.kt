@@ -58,6 +58,7 @@ data class ChargingConfig(
     val highCurrentTargetPercent: Int = 90,
     val emergencyTempGuardEnabled: Boolean = true,
     val thermalLockoutBypassEnabled: Boolean = true,
+    val smartTaperingEnabled: Boolean = true,
 )
 
 data class UclampConfig(
@@ -169,6 +170,8 @@ data class BatteryDetails(
     val chargingEfficiencyPercent: Int = 0,
     val realPhysicalTempC: Float = 0f,
     val isEmergencyGuardActive: Boolean = false,
+    val isOvernightBypassLatched: Boolean = false,
+    val isSmartTaperingActive: Boolean = false,
 )
 
 data class BootBackupInfo(

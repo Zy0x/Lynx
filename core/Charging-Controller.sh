@@ -199,6 +199,28 @@ apply_regulated_charging() {
     write_node "1" "$BATT_DIR/charging_enabled"
     write_node "0" "$BATT_DIR/charge_control_limit_max"
 
+    # Unlock charger input current so motherboard draws operating power from charger
+    write_node "4294967295" "$MTK_DIR/input_current"
+    write_node "4500000" "$USB_DIR/current_max"
+    write_node "4500000" "$USB_DIR/hw_current_max"
+    write_node "4500000" "$MAIN_DIR/current_max"
+
+    # Dynamic Headroom Guard: Ensure net current is not negative
+    local cur_now
+    cur_now=$(read_node "$BATT_DIR/current_now")
+    if [ -n "$cur_now" ]; then
+        if [ "$cur_now" -gt 100000 ] || [ "$cur_now" -lt -100000 ]; then
+            cur_now=$(( cur_now / 1000 ))
+        fi
+        # If discharging while plugged in (< 0 mA), bump target_ma to compensate load + 300mA margin
+        if [ "$cur_now" -lt 0 ]; then
+            local deficit=$(( 0 - cur_now ))
+            target_ma=$(( target_ma + deficit + 300 ))
+            [ "$target_ma" -gt 3500 ] && target_ma=3500
+            target_ua=$(( target_ma * 1000 ))
+        fi
+    fi
+
     # Apply target currents
     write_node "$target_ua" "$BATT_DIR/constant_charge_current"
     write_node "$target_ua" "$BATT_DIR/constant_charge_current_max"
@@ -213,7 +235,6 @@ apply_regulated_charging() {
     write_node "$target_ma" "$MTK_DIR/chg1_current"
     write_node "$target_ma" "$MTK_DIR/chg2_current"
     write_node "$target_ma" "$MTK_DIR/sc_ibat_limit"
-    write_node "4294967295" "$MTK_DIR/input_current"
 
     # Qualcomm specific nodes
     write_node "$target_ua" "$QC_DIR/restrict_cur"
@@ -293,6 +314,18 @@ dump_telemetry_json() {
     local guard_state="false"
     [ -f "/dev/lynx_charging_guard" ] && guard_state="true"
 
+    local chg_state
+    chg_state=$(cat /dev/lynx_charging_state 2>/dev/null)
+    local is_overnight_latch="false"
+    local is_tapering="false"
+    case "$chg_state" in
+        *bypass_100*) is_overnight_latch="true" ;;
+        *tapering*) is_tapering="true" ;;
+    esac
+    if [ "${cap:-0}" -ge 100 ] || [ "$stat" = "Full" ]; then
+        is_overnight_latch="true"
+    fi
+
     cat <<EOF
 {
   "capacity": ${cap:-0},
@@ -307,7 +340,9 @@ dump_telemetry_json() {
   "active_ic": "${active_ic}",
   "fast_charge_protocol": "${protocol}",
   "rfc_authenticated": $( [ "$rfc_status" = "1" ] && echo "true" || echo "false" ),
-  "emergency_guard_active": ${guard_state}
+  "emergency_guard_active": ${guard_state},
+  "overnight_bypass_latched": ${is_overnight_latch},
+  "smart_tapering_active": ${is_tapering}
 }
 EOF
 }
@@ -340,6 +375,7 @@ case "$1" in
         c_byp="false"
         c_ext="false"
         c_lock="true"
+        c_taper="true"
         if [ -f "$CONFIG_FILE" ]; then
             c_limit=$(awk -F': ' '/"limit_current_ma"/ {gsub(/[^0-9]/,"",$2); print $2}' "$CONFIG_FILE" 2>/dev/null)
             c_max=$(awk -F': ' '/"max_battery_percent"/ {gsub(/[^0-9]/,"",$2); print $2}' "$CONFIG_FILE" 2>/dev/null)
@@ -347,13 +383,33 @@ case "$1" in
             c_byp=$(awk -F': ' '/"bypass_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "true" && echo "true" || echo "false")
             c_ext=$(awk -F': ' '/"extreme_charging_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "true" && echo "true" || echo "false")
             c_lock=$(awk -F': ' '/"thermal_lockout_bypass_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "false" && echo "false" || echo "true")
+            c_taper=$(awk -F': ' '/"smart_tapering_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "false" && echo "false" || echo "true")
             [ -z "$c_target" ] && c_target=90
         fi
-        if [ "$c_byp" = "true" ]; then
+
+        cur_cap=$(read_node "$BATT_DIR/capacity")
+        [ -z "$cur_cap" ] && cur_cap=50
+        cur_stat=$(read_node "$BATT_DIR/status")
+
+        if [ "$cur_cap" -ge 100 ] || [ "$cur_stat" = "Full" ]; then
+            echo "state=bypass_100 cap=$cur_cap" > /dev/lynx_charging_state
             apply_bypass_charging
+        elif [ "$c_byp" = "true" ] && [ "$cur_cap" -ge "$c_max" ]; then
+            echo "state=bypass_custom cap=$cur_cap max=$c_max" > /dev/lynx_charging_state
+            apply_bypass_charging
+        elif [ "$c_taper" = "true" ] && [ "$cur_cap" -ge 90 ]; then
+            if [ "$cur_cap" -ge 95 ]; then
+                echo "state=tapering_95 cap=$cur_cap" > /dev/lynx_charging_state
+                apply_regulated_charging 750
+            else
+                echo "state=tapering_90 cap=$cur_cap" > /dev/lynx_charging_state
+                apply_regulated_charging 1500
+            fi
         elif [ "$c_ext" = "true" ]; then
+            echo "state=extreme cap=$cur_cap" > /dev/lynx_charging_state
             apply_extreme_charging "$c_target" "$c_lock"
         else
+            echo "state=regulated cap=$cur_cap" > /dev/lynx_charging_state
             apply_regulated_charging "$c_limit"
         fi
         exit 0
@@ -416,6 +472,7 @@ while true; do
     extreme_charging_on="false"
     temp_guard_on="true"
     lockout_byp_on="true"
+    smart_taper_on="true"
 
     if [ -f "$CONFIG_FILE" ]; then
         c_temp=$(awk -F': ' '/"temp_cutoff_c"/ {gsub(/[^0-9]/,"",$2); print $2}' "$CONFIG_FILE" 2>/dev/null)
@@ -426,6 +483,7 @@ while true; do
         c_ext=$(awk -F': ' '/"extreme_charging_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "true" && echo "true" || echo "false")
         c_guard=$(awk -F': ' '/"emergency_temp_guard_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "false" && echo "false" || echo "true")
         c_lock=$(awk -F': ' '/"thermal_lockout_bypass_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "false" && echo "false" || echo "true")
+        c_taper=$(awk -F': ' '/"smart_tapering_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "false" && echo "false" || echo "true")
 
         [ -n "$c_temp" ] && cutoff_c="$c_temp"
         [ -n "$c_limit" ] && limit_ma="$c_limit"
@@ -435,6 +493,7 @@ while true; do
         [ -n "$c_ext" ] && extreme_charging_on="$c_ext"
         [ -n "$c_guard" ] && temp_guard_on="$c_guard"
         [ -n "$c_lock" ] && lockout_byp_on="$c_lock"
+        [ -n "$c_taper" ] && smart_taper_on="$c_taper"
     fi
 
     # 1. Emergency Thermal Guard (>46.0°C real physical temperature)
@@ -453,25 +512,35 @@ while true; do
     cutoff_dC=$(( cutoff_c * 10 ))
     emergency_dC=$(( cutoff_dC + 35 )) # ~3.5C buffer before critical protection
 
-    # 2. Hardware Thermal Protection from battery temp node
-    if [ "$temp" -ge "$emergency_dC" ]; then
+    # 2. Hardware Thermal Protection & Bed Insulation Guard
+    if [ "$temp" -ge "$emergency_dC" ] || [ "$real_dC" -ge "$emergency_dC" ]; then
         # Critical Cutoff: suspend charging to prevent hardware damage, keep system running
         write_node "0" "$BATT_DIR/charging_enabled"
         write_node "1000000" "$BATT_DIR/constant_charge_current_max"
         sleep 8
         continue
-    elif [ "$temp" -ge "$cutoff_dC" ]; then
-        # Soft Thermal Throttling: clamp to 1000mA if not in bypass mode
-        if [ "$bypass_on" != "true" ]; then
-            apply_regulated_charging 1000
+    elif [ "$temp" -ge "$cutoff_dC" ] || [ "$real_dC" -ge "$cutoff_dC" ]; then
+        # Soft Thermal Throttling / Bed Insulation Guard from user slider:
+        # Clamp to 1200mA if not in bypass mode and battery < 100%
+        if [ "$bypass_on" != "true" ] && [ "$capacity" -lt 100 ]; then
+            apply_regulated_charging 1200
             sleep 6
             continue
         fi
     fi
 
-    # 3. Bypass Charging vs Extreme Charging vs Normal Charging
+    # 3. 100% Full Latch (Overnight Hardware Bypass - Zero Drain & Zero Overcharge)
+    # Always engage True Hardware Bypass when 100% or kernel reports "Full",
+    # so phone remains cold and stays at 100% without micro-cycling.
+    if [ "$capacity" -ge 100 ] || [ "$batt_status" = "Full" ]; then
+        echo "state=bypass_100 cap=$capacity" > /dev/lynx_charging_state
+        apply_bypass_charging
+        sleep 8
+        continue
+    fi
+
+    # 4. User-Configured Custom Bypass Latch (e.g. Stop-At-% like 80% or 90%)
     if [ "$bypass_on" = "true" ]; then
-        # Check capacity vs max_pct with 3% hysteresis latch
         if [ "$capacity" -ge "$max_pct" ]; then
             in_bypass_latch=true
         elif [ "$capacity" -le $(( max_pct - 3 )) ]; then
@@ -479,32 +548,35 @@ while true; do
         fi
 
         if [ "$in_bypass_latch" = "true" ]; then
-            # Target battery percentage reached: Engage true bypass
+            echo "state=bypass_custom cap=$capacity max=$max_pct" > /dev/lynx_charging_state
             apply_bypass_charging
-        else
-            # Battery below target threshold: charge up to max_pct
-            if [ "$extreme_charging_on" = "true" ] || [ "$cur_prof" = "extreme" ] || [ "$limit_ma" -ge 3000 ]; then
-                apply_extreme_charging "$high_target_pct" "$lockout_byp_on"
-            else
-                apply_regulated_charging "$limit_ma"
-            fi
+            sleep 6
+            continue
         fi
+    fi
 
-    elif [ "$extreme_charging_on" = "true" ] || [ "$cur_prof" = "extreme" ] || [ "$limit_ma" -ge 3000 ]; then
-        in_bypass_latch=false
+    # 5. Charging In Progress (0% to 99%)
+    in_bypass_latch=false
 
-        # High-Current Target Check: If target is reached and not 100%, transition to trickle charge
-        if [ "$capacity" -ge "$high_target_pct" ] && [ "$high_target_pct" -lt 100 ]; then
-            # Target capacity reached: transition to safe trickle charge
+    # Smart Tapering check (90% to 99%)
+    if [ "$smart_taper_on" = "true" ] && [ "$capacity" -ge 90 ]; then
+        # Smart Tapering Active: Revoke spoofing to restore genuine battery cooling
+        write_node "65535" "/sys/devices/platform/battery/Battery_Temperature"
+
+        if [ "$capacity" -ge 95 ]; then
+            # Stage 2: Gentle Inflow (750mA)
+            echo "state=tapering_95 cap=$capacity" > /dev/lynx_charging_state
+            apply_regulated_charging 750
+        else
+            # Stage 1: Smooth Step-Down (1500mA)
+            echo "state=tapering_90 cap=$capacity" > /dev/lynx_charging_state
             apply_regulated_charging 1500
-        else
-            # Sustain full high-current Super Charge
-            apply_extreme_charging "$high_target_pct" "$lockout_byp_on"
         fi
-
+    elif [ "$extreme_charging_on" = "true" ] || [ "$cur_prof" = "extreme" ] || [ "$limit_ma" -ge 3000 ]; then
+        echo "state=extreme cap=$capacity" > /dev/lynx_charging_state
+        apply_extreme_charging "$high_target_pct" "$lockout_byp_on"
     else
-        # Standard Regulated Charging
-        in_bypass_latch=false
+        echo "state=regulated cap=$capacity" > /dev/lynx_charging_state
         apply_regulated_charging "$limit_ma"
     fi
 

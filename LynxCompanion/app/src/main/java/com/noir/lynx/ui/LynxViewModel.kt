@@ -476,6 +476,20 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun setSmartTapering(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(smartTaperingEnabled = enabled)
+                )
+            )
+        }
+        setKey("charging.smart_tapering_enabled", enabled.toString(), "bool")
+        viewModelScope.launch {
+            LynxRepository.setSmartTapering(enabled)
+        }
+    }
+
     fun setTempCutoff(temp: Int) {
         _uiState.update { current ->
             current.copy(

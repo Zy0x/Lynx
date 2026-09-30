@@ -209,6 +209,7 @@ object LynxRepository {
         highCurrentTargetPercent = j?.optInt("high_current_target_percent", 90) ?: 90,
         emergencyTempGuardEnabled = j?.optBoolean("emergency_temp_guard_enabled", true) ?: true,
         thermalLockoutBypassEnabled = j?.optBoolean("thermal_lockout_bypass_enabled", true) ?: true,
+        smartTaperingEnabled = j?.optBoolean("smart_tapering_enabled", true) ?: true,
     )
 
     private fun parseUclamp(j: JSONObject?) = UclampConfig(
@@ -1661,6 +1662,14 @@ object LynxRepository {
         } catch (e: Exception) { false }
     }
 
+    suspend fun setSmartTapering(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            writeStateKey("charging.smart_tapering_enabled", enabled.toString(), "bool")
+            Shell.cmd("sh /data/adb/modules/Lynx/core/Charging-Controller.sh apply 2>/dev/null").exec()
+            true
+        } catch (e: Exception) { false }
+    }
+
     // ----------------------------------------------------------------
     //  Modern M3 & Multi-SoC Flexibility
     // ----------------------------------------------------------------
@@ -2593,7 +2602,8 @@ object LynxRepository {
                 rfc=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/rfc_dcp_ta 2>/dev/null | head -n 1 || echo 0)
                 rtmp=${'$'}(cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null || cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 0)
                 grd=${'$'}([ -f /dev/lynx_charging_guard ] && echo 1 || echo 0)
-                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd"
+                cst=${'$'}(cat /dev/lynx_charging_state 2>/dev/null || echo "")
+                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst"
             """.trimIndent()
             val r = Shell.cmd(script).exec()
             val line = r.out.firstOrNull()?.trim() ?: return@withContext null
@@ -2621,8 +2631,12 @@ object LynxRepository {
                 val rawRtmp = parts.getOrNull(12)?.toFloatOrNull() ?: 0f
                 val realTempC = if (rawRtmp > 1000f) rawRtmp / 1000f else if (rawRtmp > 100f) rawRtmp / 10f else rawRtmp
                 val isGuardActive = parts.getOrNull(13)?.trim() == "1"
+                val chgState = parts.getOrNull(14)?.trim() ?: ""
 
                 val isCharging = curMa > 50 || stat.equals("Charging", ignoreCase = true)
+                val isOvernightLatched = cap >= 100 || stat.equals("Full", ignoreCase = true) || chgState.contains("bypass_100")
+                val isTapering = chgState.contains("tapering") || (cap in 90..99 && isCharging)
+
                 val watt = if (curMa > 0 && voltMv > 0) {
                     (curMa.toFloat() * voltMv.toFloat()) / 1_000_000f
                 } else 0f
@@ -2671,7 +2685,9 @@ object LynxRepository {
                     adapterWatt = adapterWatt,
                     chargingEfficiencyPercent = efficiency,
                     realPhysicalTempC = realTempC,
-                    isEmergencyGuardActive = isGuardActive
+                    isEmergencyGuardActive = isGuardActive,
+                    isOvernightBypassLatched = isOvernightLatched,
+                    isSmartTaperingActive = isTapering
                 )
             } else null
         } catch (e: Exception) { null }
