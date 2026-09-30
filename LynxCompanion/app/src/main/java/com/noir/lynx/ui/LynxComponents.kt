@@ -1238,6 +1238,7 @@ fun CpuClusterTunerCard(
                                             text = "Policy ${cluster.id}: ${cluster.role}",
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.2.sp,
                                             color = TextPrimary
                                         )
                                         Text(
@@ -1272,31 +1273,53 @@ fun CpuClusterTunerCard(
                                 val span = (maxLimit - minLimit).coerceAtLeast(1L).toFloat()
                                 val startFraction = ((cluster.curMin.coerceAtLeast(minLimit) - minLimit).toFloat() / span).coerceIn(0f, 1f)
                                 val endFraction = ((cluster.curMax.coerceAtMost(maxLimit) - minLimit).toFloat() / span).coerceIn(startFraction, 1f)
+                                val isPinned = cluster.curMin >= cluster.curMax
 
                                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                                    // Custom visual spectrum track
-                                    Box(
+                                    // Custom visual spectrum track with precision bounds
+                                    BoxWithConstraints(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(6.dp)
                                             .clip(RoundedCornerShape(3.dp))
                                             .background(Color(0xFF0F1219))
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxHeight()
-                                                .fillMaxWidth(fraction = endFraction)
-                                                .padding(start = ((startFraction * 100).toInt()).dp) // subtle visual approximation
-                                                .clip(RoundedCornerShape(3.dp))
-                                                .background(
-                                                    Brush.horizontalGradient(
-                                                        listOf(
-                                                            clusterAccent.copy(alpha = 0.6f),
-                                                            clusterAccent
+                                        val totalWidth = maxWidth
+                                        if (isPinned) {
+                                            // Saat frekuensi terkunci/pinned: tampilkan pin indicator di posisi titik frekuensi
+                                            val pinWidth = 10.dp
+                                            val pinOffset = ((totalWidth - pinWidth) * startFraction).coerceIn(0.dp, totalWidth - pinWidth)
+                                            Box(
+                                                modifier = Modifier
+                                                    .offset(x = pinOffset)
+                                                    .width(pinWidth)
+                                                    .fillMaxHeight()
+                                                    .clip(RoundedCornerShape(3.dp))
+                                                    .background(clusterAccent)
+                                            )
+                                        } else {
+                                            // Rentang dinamis dari startFraction ke endFraction
+                                            val barStart = totalWidth * startFraction
+                                            val barEnd = totalWidth * endFraction
+                                            val barWidth = (barEnd - barStart).coerceAtLeast(6.dp)
+                                            val clampedOffset = barStart.coerceIn(0.dp, totalWidth - barWidth)
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .offset(x = clampedOffset)
+                                                    .width(barWidth)
+                                                    .fillMaxHeight()
+                                                    .clip(RoundedCornerShape(3.dp))
+                                                    .background(
+                                                        Brush.horizontalGradient(
+                                                            listOf(
+                                                                clusterAccent.copy(alpha = 0.6f),
+                                                                clusterAccent
+                                                            )
                                                         )
                                                     )
-                                                )
-                                        )
+                                            )
+                                        }
                                     }
                                     Spacer(Modifier.height(4.dp))
                                     Row(
@@ -1304,7 +1327,12 @@ fun CpuClusterTunerCard(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text("${minLimit / 1000} MHz", fontSize = 9.sp, color = TextTertiary)
-                                        Text("Rentang Operasi Aktif", fontSize = 9.sp, color = clusterAccent.copy(alpha = 0.8f), fontWeight = FontWeight.Medium)
+                                        Text(
+                                            text = if (isPinned) "Terkunci: ${cluster.curMin / 1000} MHz" else "Rentang Operasi Aktif",
+                                            fontSize = 9.sp,
+                                            color = clusterAccent.copy(alpha = 0.85f),
+                                            fontWeight = FontWeight.Medium
+                                        )
                                         Text("${maxLimit / 1000} MHz", fontSize = 9.sp, color = TextTertiary)
                                     }
                                 }
@@ -1555,30 +1583,30 @@ fun CpuClusterTunerCard(
                             rowFreqs.forEach { f ->
                                 val mhz = (f / 1000).toInt()
                                 val isSelected = f == curFreq
-                                val isDisabled = if (isMinPicker) f > targetCluster.curMax else f < targetCluster.curMin
+                                val isAutoAdjust = if (isMinPicker) f > targetCluster.curMax else f < targetCluster.curMin
 
                                 Surface(
                                     onClick = {
-                                        if (!isDisabled) {
-                                            if (isMinPicker) {
-                                                onFreqChange(targetCluster.id, f, null)
-                                            } else {
-                                                onFreqChange(targetCluster.id, null, f)
-                                            }
-                                            freqPickerTarget = null
+                                        if (isMinPicker) {
+                                            val newMax = if (f > targetCluster.curMax) f else targetCluster.curMax
+                                            onFreqChange(targetCluster.id, f, newMax)
+                                        } else {
+                                            val newMin = if (f < targetCluster.curMin) f else targetCluster.curMin
+                                            onFreqChange(targetCluster.id, newMin, f)
                                         }
+                                        freqPickerTarget = null
                                     },
                                     shape = RoundedCornerShape(12.dp),
                                     color = when {
                                         isSelected -> clusterAccent.copy(alpha = 0.22f)
-                                        isDisabled -> Color(0xFF0A0C12)
+                                        isAutoAdjust -> Color(0xFF1C1914)
                                         else -> Color(0xFF141722)
                                     },
                                     border = BorderStroke(
                                         1.dp,
                                         when {
                                             isSelected -> clusterAccent
-                                            isDisabled -> Color(0xFF161922)
+                                            isAutoAdjust -> Color(0x66E5A93C)
                                             else -> BorderGlass
                                         }
                                     ),
@@ -1596,14 +1624,14 @@ fun CpuClusterTunerCard(
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                                 color = when {
                                                     isSelected -> clusterAccent
-                                                    isDisabled -> Color(0xFF555966)
+                                                    isAutoAdjust -> Color(0xFFE5C158)
                                                     else -> TextPrimary
                                                 }
                                             )
                                             Text(
                                                 text = "$mhz MHz",
                                                 fontSize = 9.sp,
-                                                color = if (isDisabled) Color(0xFF444855) else TextSecondary
+                                                color = if (isAutoAdjust) Color(0xFF998855) else TextSecondary
                                             )
                                         }
                                         if (isSelected) {
@@ -1613,13 +1641,19 @@ fun CpuClusterTunerCard(
                                                 tint = clusterAccent,
                                                 modifier = Modifier.size(16.dp)
                                             )
-                                        } else if (isDisabled) {
-                                            Text(
-                                                text = if (isMinPicker) "> Max" else "< Min",
-                                                fontSize = 8.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF666978)
-                                            )
+                                        } else if (isAutoAdjust) {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = Color(0x33E5A93C)
+                                            ) {
+                                                Text(
+                                                    text = if (isMinPicker) "Auto Max" else "Auto Min",
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFFE5C158),
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }

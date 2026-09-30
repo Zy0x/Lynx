@@ -71,6 +71,8 @@ set_cluster_freq() {
     local policy="/sys/devices/system/cpu/cpufreq/policy$p_num"
 
     if [ -d "$policy" ]; then
+        hw_max=$(cat "$policy/cpuinfo_max_freq" 2>/dev/null)
+        [ -n "$hw_max" ] && write_node "$hw_max" "$policy/scaling_max_freq"
         [ -n "$min_freq" ] && [ "$min_freq" -gt 0 ] 2>/dev/null && write_node "$min_freq" "$policy/scaling_min_freq"
         [ -n "$max_freq" ] && [ "$max_freq" -gt 0 ] 2>/dev/null && write_node "$max_freq" "$policy/scaling_max_freq"
         echo "Cluster policy$p_num frequencies updated (Min: $min_freq, Max: $max_freq)."

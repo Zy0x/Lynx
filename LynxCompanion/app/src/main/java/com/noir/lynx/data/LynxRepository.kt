@@ -737,7 +737,7 @@ object LynxRepository {
                         trimmed == "---" -> {
                             val role = when (curId) {
                                 0 -> "Efficiency (Little)"
-                                3, 4, 6 -> "Pe\u200Crformance (Big)"
+                                3, 4, 6 -> "Performance (Big)"
                                 7 -> "Prime (Super)"
                                 else -> "Cluster $curId"
                             }
@@ -789,8 +789,12 @@ object LynxRepository {
                 "sh '$MODULE_DIR/core/lib/cluster_manager.sh' set_freq $policyId '$minArg' '$maxArg'"
             } else {
                 buildString {
-                    if (safeMin != null) append("chmod 644 /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_min_freq 2>/dev/null; echo $safeMin > /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_min_freq 2>/dev/null; ")
-                    if (safeMax != null) append("chmod 644 /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_max_freq 2>/dev/null; echo $safeMax > /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_max_freq 2>/dev/null; ")
+                    val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
+                    append("chmod 644 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
+                    // Kernel safety: temporarily relax scaling_max_freq to hwMax so setting new min never fails EINVAL
+                    append("echo $hwMax > $pDir/scaling_max_freq 2>/dev/null; ")
+                    if (safeMin != null) append("echo $safeMin > $pDir/scaling_min_freq 2>/dev/null; ")
+                    if (safeMax != null) append("echo $safeMax > $pDir/scaling_max_freq 2>/dev/null; ")
                 }
             }
             Shell.cmd(cmd).exec().isSuccess
