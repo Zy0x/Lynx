@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.*
@@ -1296,7 +1297,10 @@ fun CpuClusterTunerCard(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    modifier = Modifier.weight(1f, fill = false),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Surface(
                                         shape = CircleShape,
                                         color = clusterAccent.copy(alpha = 0.16f),
@@ -1312,17 +1316,20 @@ fun CpuClusterTunerCard(
                                         }
                                     }
                                     Spacer(Modifier.width(8.dp))
-                                    Column {
+                                    Column(modifier = Modifier.padding(end = 4.dp)) {
                                         Text(
                                             text = "Policy ${cluster.id}: ${cluster.role}",
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = TextPrimary
+                                            color = TextPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
                                             text = "Cores: ${cluster.cpus}",
                                             fontSize = 10.5.sp,
-                                            color = TextSecondary
+                                            color = TextSecondary,
+                                            maxLines = 1
                                         )
                                     }
                                 }
@@ -1341,6 +1348,8 @@ fun CpuClusterTunerCard(
                                             fontSize = 10.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = clusterAccent,
+                                            maxLines = 1,
+                                            softWrap = false,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                         )
                                     }
@@ -1374,7 +1383,9 @@ fun CpuClusterTunerCard(
                                                 text = if (isLocked) "LOCKED" else "UNLOCK",
                                                 fontSize = 9.5.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = lockColor
+                                                color = lockColor,
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                         }
                                     }
