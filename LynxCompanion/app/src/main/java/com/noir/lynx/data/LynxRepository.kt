@@ -1148,7 +1148,10 @@ object LynxRepository {
                     else -> ""
                 }
 
-                val isBool = value == "0" || value == "1"
+                val isBool = (value == "0" || value == "1") &&
+                    unit.isEmpty() &&
+                    (key.contains("enable") || key.startsWith("is_") || key.endsWith("_mode")) &&
+                    !key.contains("rate") && !key.contains("limit") && !key.contains("time") && !key.contains("delay") && !key.contains("freq")
                 val floatVal = value.toFloatOrNull() ?: 0f
                 val maxVal = when (unit) {
                     "%" -> 100f

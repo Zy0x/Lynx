@@ -1125,6 +1125,8 @@ fun CpuClusterTunerCard(
     onGovChange: (policyId: Int, gov: String) -> Unit,
     onLoadTunables: (policyId: Int, gov: String) -> Unit = { _, _ -> },
     onTunableChange: (policyId: Int, gov: String, key: String, value: String) -> Unit = { _, _, _, _ -> },
+    activeGovernorPreset: String = "balanced",
+    onApplyGovernorPreset: ((preset: String) -> Unit)? = null,
 ) {
     // ── Bottom Sheet States ──
     var freqPickerTarget by remember { mutableStateOf<Pair<CpuClusterInfo, Boolean>?>(null) }
@@ -1137,6 +1139,48 @@ fun CpuClusterTunerCard(
 
     if (editingTunable != null) {
         val (pId, gov, tunable) = editingTunable!!
+        val isPerfCluster = pId > 0
+        val clusterAccent = if (isPerfCluster) AccentOrange else AccentCyan
+        val quickSuggestions = when (tunable.key) {
+            "up_rate_limit_us", "rate_limit_us" -> listOf(
+                "0" to "0µs (Gaming)",
+                "500" to "500µs",
+                "1000" to "1000µs (Default)",
+                "2000" to "2000µs",
+                "4000" to "4000µs (Hemat)"
+            )
+            "down_rate_limit_us" -> listOf(
+                "1000" to "1000µs",
+                "5000" to "5000µs (Gaming)",
+                "10000" to "10000µs (Default)",
+                "20000" to "20000µs (Hemat)"
+            )
+            "iowait_boost_enable" -> listOf(
+                "1" to "1 (Aktif)",
+                "0" to "0 (Nonaktif)"
+            )
+            "up_threshold", "go_hispeed_load" -> listOf(
+                "70" to "70%",
+                "80" to "80%",
+                "85" to "85%",
+                "90" to "90%",
+                "95" to "95%"
+            )
+            "down_threshold" -> listOf(
+                "20" to "20%",
+                "30" to "30%",
+                "40" to "40%",
+                "50" to "50%"
+            )
+            "sampling_down_factor" -> listOf(
+                "1" to "1 (Normal)",
+                "2" to "2x",
+                "4" to "4x (Responsif)",
+                "10" to "10x (Performa)"
+            )
+            else -> emptyList()
+        }
+
         AlertDialog(
             onDismissRequest = { editingTunable = null },
             containerColor = BgCard,
@@ -1156,12 +1200,47 @@ fun CpuClusterTunerCard(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentCyan,
+                            focusedBorderColor = clusterAccent,
                             unfocusedBorderColor = BorderGlass,
                             focusedTextColor = TextPrimary,
                             unfocusedTextColor = TextPrimary,
                         )
                     )
+
+                    if (quickSuggestions.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = "Rekomendasi Nilai Cepat:",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextSecondary
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            quickSuggestions.forEach { (valStr, labelStr) ->
+                                val isSelected = editValueText.trim() == valStr
+                                Surface(
+                                    onClick = { editValueText = valStr },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) clusterAccent.copy(alpha = 0.2f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSelected) clusterAccent else BorderGlass)
+                                ) {
+                                    Text(
+                                        text = labelStr,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) clusterAccent else TextPrimary,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -1171,7 +1250,7 @@ fun CpuClusterTunerCard(
                         editingTunable = null
                     }
                 }) {
-                    Text("Terapkan", color = AccentCyan, fontWeight = FontWeight.Bold)
+                    Text("Terapkan", color = clusterAccent, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -1792,6 +1871,87 @@ fun CpuClusterTunerCard(
 
                 HorizontalDivider(color = BorderGlass.copy(alpha = 0.5f), modifier = Modifier.padding(bottom = 12.dp))
 
+                // ── Schedutil Quick Presets (Rate Limits) ──
+                if (targetCluster.curGov.equals("schedutil", ignoreCase = true)) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = BgElevated,
+                        border = BorderStroke(1.dp, BorderGlass),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                    ) {
+                        Column(Modifier.padding(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Tune,
+                                        contentDescription = null,
+                                        tint = clusterAccent,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = "Preset Cepat Schedutil (Rate Limits)",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextPrimary
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "Terapkan profil latensi transisi frekuensi CPU secara instan:",
+                                fontSize = 10.sp,
+                                color = TextSecondary
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                listOf(
+                                    Triple("responsive", "🚀 Responsif", "0µs • 5000µs"),
+                                    Triple("balanced", "⚖️ Seimbang", "1000µs • 10000µs"),
+                                    Triple("powersave", "🍃 Hemat Daya", "4000µs • 20000µs")
+                                ).forEach { (preset, label, note) ->
+                                    val isActive = activeGovernorPreset == preset
+                                    Surface(
+                                        onClick = {
+                                            onApplyGovernorPreset?.invoke(preset)
+                                            onLoadTunables(targetCluster.id, targetCluster.curGov)
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isActive) clusterAccent.copy(alpha = 0.2f) else Color(0xFF141722),
+                                        border = BorderStroke(1.dp, if (isActive) clusterAccent else BorderSubtle)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 7.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                color = if (isActive) clusterAccent else TextPrimary,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(Modifier.height(2.dp))
+                                            Text(
+                                                text = note,
+                                                color = if (isActive) clusterAccent.copy(alpha = 0.85f) else TextSecondary,
+                                                fontSize = 8.5.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (tunables.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
@@ -1808,7 +1968,7 @@ fun CpuClusterTunerCard(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 380.dp)
+                            .heightIn(max = 400.dp)
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -1824,7 +1984,7 @@ fun CpuClusterTunerCard(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column(Modifier.weight(1f)) {
+                                    Column(Modifier.weight(1f).padding(end = 8.dp)) {
                                         Text(
                                             text = tunable.displayName,
                                             fontSize = 12.sp,
@@ -1837,6 +1997,28 @@ fun CpuClusterTunerCard(
                                             color = TextSecondary,
                                             fontFamily = FontFamily.Monospace
                                         )
+                                        val hint = when (tunable.key) {
+                                            "up_rate_limit_us", "rate_limit_us" -> "Rekomendasi: 0µs (Gaming) • 1000µs (Default) • 4000µs (Hemat)"
+                                            "down_rate_limit_us" -> "Rekomendasi: 5000µs (Gaming) • 10000µs (Default) • 20000µs (Hemat)"
+                                            "iowait_boost_enable" -> "Rekomendasi: 1 (Boost I/O aktif) • 0 (Hemat daya)"
+                                            "hispeed_freq" -> "Frekuensi lompatan instan saat beban mendadak"
+                                            "go_hispeed_load", "up_threshold" -> "Rekomendasi: 80%–95% (Ambang beban naik frekuensi)"
+                                            "down_threshold" -> "Rekomendasi: 20%–40% (Ambang beban turun frekuensi)"
+                                            "target_loads" -> "Target beban utilisasi CPU per frekuensi"
+                                            "sampling_rate", "timer_rate" -> "Interval polling kernel dalam mikrodetik (µs)"
+                                            "sampling_down_factor" -> "Faktor pengali durasi clock bertahan pada frekuensi tinggi"
+                                            "min_sample_time" -> "Waktu minimum kernel bertahan pada suatu frekuensi (µs)"
+                                            else -> null
+                                        }
+                                        if (hint != null) {
+                                            Text(
+                                                text = hint,
+                                                fontSize = 9.5.sp,
+                                                color = clusterAccent.copy(alpha = 0.85f),
+                                                lineHeight = 13.sp,
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            )
+                                        }
                                     }
                                     if (tunable.isBoolean) {
                                         Switch(

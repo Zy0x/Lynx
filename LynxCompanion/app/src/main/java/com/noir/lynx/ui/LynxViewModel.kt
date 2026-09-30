@@ -1358,6 +1358,16 @@ class LynxViewModel : ViewModel() {
                         successMessage = "Preset Governor disetel ke: $label"
                     )
                 }
+                val currentTunables = _uiState.value.governorTunables
+                if (currentTunables.isNotEmpty()) {
+                    currentTunables.keys.forEach { pId ->
+                        val gov = _uiState.value.clusters.find { it.id == pId }?.curGov ?: "schedutil"
+                        val updated = LynxRepository.readGovernorTunables(pId, gov)
+                        _uiState.update { state ->
+                            state.copy(governorTunables = state.governorTunables + (pId to updated))
+                        }
+                    }
+                }
             }
         }
     }

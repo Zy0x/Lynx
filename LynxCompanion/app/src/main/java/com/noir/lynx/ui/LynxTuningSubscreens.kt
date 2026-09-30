@@ -649,43 +649,10 @@ fun TuningCpuCategory(
             onFreqChange = { policyId, min, max -> viewModel.setClusterFrequency(policyId, min, max) },
             onGovChange = { policyId, gov -> viewModel.setClusterGovernor(policyId, gov) },
             onLoadTunables = { policyId, gov -> viewModel.loadGovernorTunables(policyId, gov) },
-            onTunableChange = { policyId, gov, key, value -> viewModel.setGovernorTunable(policyId, gov, key, value) }
+            onTunableChange = { policyId, gov, key, value -> viewModel.setGovernorTunable(policyId, gov, key, value) },
+            activeGovernorPreset = uiState.activeGovernorPreset,
+            onApplyGovernorPreset = { preset -> viewModel.applyGovernorPreset(preset) }
         )
-
-        // ── Tuning Governor Inteligen (Schedutil) Card ───────────
-        LynxCard(
-            title = "Tuning Governor Inteligen (Schedutil)",
-            icon = Icons.Default.Tune,
-            accentColor = AccentCyan
-        ) {
-            Text(
-                "Optimasi waktu respon transisi frekuensi CPU (rate limit). Preset gaming mempercepat kenaikan clock ke frekuensi puncak (0µs ramp-up).",
-                color = TextSecondary, fontSize = 11.5.sp, lineHeight = 16.sp,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            val currentGovPreset = uiState.activeGovernorPreset
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(
-                    Triple("responsive", "🚀 Responsif", "0µs ramp-up"),
-                    Triple("balanced", "⚖️ Seimbang", "1000µs default"),
-                    Triple("powersave", "🍃 Hemat Daya", "4000µs hemat")
-                ).forEach { (preset, label, note) ->
-                    val isActive = currentGovPreset == preset
-                    Surface(
-                        onClick = { viewModel.applyGovernorPreset(preset) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isActive) AccentCyan.copy(alpha = 0.2f) else BgElevated,
-                        border = BorderStroke(1.dp, if (isActive) AccentCyan else BorderGlass)
-                    ) {
-                        Column(Modifier.padding(horizontal = 6.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(label, color = if (isActive) AccentCyan else TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text(note, color = TextSecondary, fontSize = 9.sp)
-                        }
-                    }
-                }
-            }
-        }
 
         // ── Penjadwal Kernel & Gubernur (CFS / EAS / BORE) ──────
         val schedInfo = uiState.schedulerInfo
