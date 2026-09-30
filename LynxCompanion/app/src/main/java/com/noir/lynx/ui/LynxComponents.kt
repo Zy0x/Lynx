@@ -1116,6 +1116,7 @@ private fun CpuCoreBentoTile(
 //  CpuClusterTunerCard — Luxury Cluster & Governor Tuner
 // ============================================================
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CpuClusterTunerCard(
     clusters: List<CpuClusterInfo>,
@@ -1125,6 +1126,12 @@ fun CpuClusterTunerCard(
     onLoadTunables: (policyId: Int, gov: String) -> Unit = { _, _ -> },
     onTunableChange: (policyId: Int, gov: String, key: String, value: String) -> Unit = { _, _, _, _ -> },
 ) {
+    // ── Bottom Sheet States ──
+    var freqPickerTarget by remember { mutableStateOf<Pair<CpuClusterInfo, Boolean>?>(null) }
+    var govPickerTarget by remember { mutableStateOf<CpuClusterInfo?>(null) }
+    var tunablesTarget by remember { mutableStateOf<CpuClusterInfo?>(null) }
+
+    // ── Edit Single Tunable Value Dialog ──
     var editingTunable by remember { mutableStateOf<Triple<Int, String, GovernorTunable>?>(null) }
     var editValueText by remember { mutableStateOf("") }
 
@@ -1134,12 +1141,13 @@ fun CpuClusterTunerCard(
             onDismissRequest = { editingTunable = null },
             containerColor = BgCard,
             titleContentColor = TextPrimary,
-            title = { Text("Edit Tunable: ${tunable.displayName}") },
+            title = { Text("Edit Tunable: ${tunable.displayName}", fontSize = 15.sp, fontWeight = FontWeight.Bold) },
             text = {
                 Column(Modifier.fillMaxWidth()) {
                     Text(
                         "Sysfs Key: ${tunable.key}",
-                        color = TextSecondary, fontSize = 11.5.sp, modifier = Modifier.padding(bottom = 6.dp)
+                        color = TextSecondary, fontSize = 11.5.sp, fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(bottom = 6.dp)
                     )
                     OutlinedTextField(
                         value = editValueText,
@@ -1174,6 +1182,7 @@ fun CpuClusterTunerCard(
         )
     }
 
+    // ── Main Card: Dynamic CPU Clusters ──
     LynxCard(
         title = "Dynamic CPU Clusters & Governors",
         icon = Icons.Default.Tune,
@@ -1187,254 +1196,717 @@ fun CpuClusterTunerCard(
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 clusters.forEach { cluster ->
                     val isPerfCluster = cluster.id > 0
                     val clusterAccent = if (isPerfCluster) AccentOrange else AccentCyan
+                    val freqs = cluster.availFreqs.sorted()
+                    val minMhz = (cluster.curMin / 1000).toInt()
+                    val maxMhz = (cluster.curMax / 1000).toInt()
 
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(14.dp),
                         color = BgElevated,
-                        border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.25f)),
+                        border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.22f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            // Cluster Header
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            // 1. Cluster Header Row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
-                                    Text(
-                                        text = "Policy ${cluster.id}: ${cluster.role}",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = TextPrimary
-                                    )
-                                    Text(
-                                        text = "Cores: ${cluster.cpus}",
-                                        fontSize = 11.sp,
-                                        color = TextSecondary
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = clusterAccent.copy(alpha = 0.16f),
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = "${cluster.id}",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = clusterAccent
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = "Policy ${cluster.id}: ${cluster.role}",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary
+                                        )
+                                        Text(
+                                            text = "Cores: ${cluster.cpus}",
+                                            fontSize = 10.5.sp,
+                                            color = TextSecondary
+                                        )
+                                    }
                                 }
+
                                 Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = clusterAccent.copy(alpha = 0.15f),
-                                    border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.35f))
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = clusterAccent.copy(alpha = 0.14f),
+                                    border = BorderStroke(0.8.dp, clusterAccent.copy(alpha = 0.35f))
                                 ) {
                                     Text(
                                         text = cluster.curGov,
-                                        fontSize = 11.sp,
+                                        fontSize = 10.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = clusterAccent,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                     )
                                 }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Min / Max Freq Display & Sliders
-                            val minMhz = (cluster.curMin / 1000).toInt()
-                            val maxMhz = (cluster.curMax / 1000).toInt()
-
-                            val freqs = cluster.availFreqs.sorted()
-                            if (freqs.isNotEmpty()) {
-                                val minLimit = (freqs.first() / 1000).toFloat()
-                                val rawMax = (freqs.last() / 1000).toFloat()
-                                val maxLimit = if (rawMax <= minLimit) minLimit + 100f else rawMax
-
-                                var minSlider by remember(cluster.curMin) {
-                                    mutableFloatStateOf(minMhz.toFloat().coerceIn(minLimit, maxLimit))
-                                }
-                                var maxSlider by remember(cluster.curMax) {
-                                    mutableFloatStateOf(maxMhz.toFloat().coerceIn(minLimit, maxLimit))
-                                }
-
-                                // Min Slider
-                                LynxSlider(
-                                    label = "Min Frequency",
-                                    value = minSlider,
-                                    onValueChange = { minSlider = it.coerceIn(minLimit, maxSlider) },
-                                    onValueChangeFinished = {
-                                        val targetHz = freqs.minByOrNull { Math.abs(it - (minSlider.toLong() * 1000L)) }
-                                        onFreqChange(cluster.id, targetHz, null)
-                                    },
-                                    valueRange = minLimit..maxLimit,
-                                    displayValue = "${minSlider.toInt()} MHz",
-                                    accentColor = clusterAccent
-                                )
-
-                                Spacer(modifier = Modifier.height(6.dp))
-
-                                // Max Slider
-                                LynxSlider(
-                                    label = "Max Frequency",
-                                    value = maxSlider,
-                                    onValueChange = { maxSlider = it.coerceIn(minSlider, maxLimit) },
-                                    onValueChangeFinished = {
-                                        val targetHz = freqs.minByOrNull { Math.abs(it - (maxSlider.toLong() * 1000L)) }
-                                        onFreqChange(cluster.id, null, targetHz)
-                                    },
-                                    valueRange = minLimit..maxLimit,
-                                    displayValue = "${maxSlider.toInt()} MHz",
-                                    accentColor = clusterAccent
-                                )
-                            } else {
-                                Text(
-                                    text = "Current: $minMhz MHz - $maxMhz MHz",
-                                    fontSize = 12.sp,
-                                    color = TextSecondary
-                                )
                             }
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            // Governor Selector Chips
-                            if (cluster.availGovs.isNotEmpty()) {
-                                Text(
-                                    text = "SCALING GOVERNOR",
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextSecondary,
-                                    letterSpacing = 1.sp,
-                                    modifier = Modifier.padding(bottom = 8.dp)
-                                )
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .horizontalScroll(rememberScrollState()),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            // 2. Mini Range Bar (Spectrum Indicator)
+                            if (freqs.isNotEmpty()) {
+                                val minLimit = freqs.first()
+                                val maxLimit = freqs.last()
+                                val span = (maxLimit - minLimit).coerceAtLeast(1L).toFloat()
+                                val startFraction = ((cluster.curMin.coerceAtLeast(minLimit) - minLimit).toFloat() / span).coerceIn(0f, 1f)
+                                val endFraction = ((cluster.curMax.coerceAtMost(maxLimit) - minLimit).toFloat() / span).coerceIn(startFraction, 1f)
+
+                                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                    // Custom visual spectrum track
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(Color(0xFF0F1219))
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .fillMaxWidth(fraction = endFraction)
+                                                .padding(start = ((startFraction * 100).toInt()).dp) // subtle visual approximation
+                                                .clip(RoundedCornerShape(3.dp))
+                                                .background(
+                                                    Brush.horizontalGradient(
+                                                        listOf(
+                                                            clusterAccent.copy(alpha = 0.6f),
+                                                            clusterAccent
+                                                        )
+                                                    )
+                                                )
+                                        )
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("${minLimit / 1000} MHz", fontSize = 9.sp, color = TextTertiary)
+                                        Text("Rentang Operasi Aktif", fontSize = 9.sp, color = clusterAccent.copy(alpha = 0.8f), fontWeight = FontWeight.Medium)
+                                        Text("${maxLimit / 1000} MHz", fontSize = 9.sp, color = TextTertiary)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 3. Dual Pill Dropdown Selector (Min & Max Freq)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Min Frequency Pill
+                                Surface(
+                                    onClick = { freqPickerTarget = Pair(cluster, true) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF10121A),
+                                    border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.25f)),
+                                    modifier = Modifier.weight(1f)
                                 ) {
-                                    cluster.availGovs.forEach { gov ->
-                                        val isSelected = gov == cluster.curGov
-                                        Surface(
-                                            shape = RoundedCornerShape(10.dp),
-                                            color = if (isSelected) clusterAccent.copy(alpha = 0.2f) else Color(0xFF0F121B),
-                                            border = BorderStroke(
-                                                1.dp,
-                                                if (isSelected) clusterAccent else BorderSubtle
-                                            ),
-                                            modifier = Modifier.clickable {
-                                                onGovChange(cluster.id, gov)
-                                            }
-                                        ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
                                             Text(
-                                                text = gov,
-                                                fontSize = 11.5.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (isSelected) clusterAccent else TextSecondary,
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                                                text = "Batas Bawah",
+                                                fontSize = 9.5.sp,
+                                                color = TextSecondary
+                                            )
+                                            Text(
+                                                text = "$minMhz MHz",
+                                                fontSize = 12.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextPrimary
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = null,
+                                            tint = clusterAccent,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                // Max Frequency Pill
+                                Surface(
+                                    onClick = { freqPickerTarget = Pair(cluster, false) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF10121A),
+                                    border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.25f)),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = "Batas Puncak",
+                                                fontSize = 9.5.sp,
+                                                color = TextSecondary
+                                            )
+                                            Text(
+                                                text = "$maxMhz MHz",
+                                                fontSize = 12.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = clusterAccent
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = null,
+                                            tint = clusterAccent,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 4. Governor Pill & Quick Tunables Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Governor Selector Pill
+                                Surface(
+                                    onClick = { govPickerTarget = cluster },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF10121A),
+                                    border = BorderStroke(1.dp, BorderSubtle),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Speed,
+                                                contentDescription = null,
+                                                tint = clusterAccent,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(6.dp))
+                                            Column {
+                                                Text(
+                                                    text = "Governor",
+                                                    fontSize = 9.sp,
+                                                    color = TextSecondary
+                                                )
+                                                Text(
+                                                    text = cluster.curGov,
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = TextPrimary
+                                                )
+                                            }
+                                        }
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = null,
+                                            tint = TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+
+                                // Quick Tunables Button
+                                Surface(
+                                    onClick = {
+                                        tunablesTarget = cluster
+                                        onLoadTunables(cluster.id, cluster.curGov)
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = clusterAccent.copy(alpha = 0.12f),
+                                    border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.3f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Tune,
+                                            contentDescription = null,
+                                            tint = clusterAccent,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            text = "Tunables",
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = clusterAccent
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Translucent Frosted Glass Modal Bottom Sheet: Frequency Picker ──
+    if (freqPickerTarget != null) {
+        val (targetCluster, isMinPicker) = freqPickerTarget!!
+        val clusterAccent = if (targetCluster.id > 0) AccentOrange else AccentCyan
+        val freqs = targetCluster.availFreqs.sorted()
+        val curFreq = if (isMinPicker) targetCluster.curMin else targetCluster.curMax
+
+        ModalBottomSheet(
+            onDismissRequest = { freqPickerTarget = null },
+            containerColor = Color(0xFA0D1017),
+            scrimColor = Color.Black.copy(alpha = 0.65f),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = {
+                Surface(
+                    color = Color(0x33FFFFFF),
+                    shape = CircleShape,
+                    modifier = Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 38.dp, height = 4.dp)
+                ) {}
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = if (isMinPicker) "Pilih Batas Minimum" else "Pilih Batas Puncak",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Policy ${targetCluster.id}: ${targetCluster.role} (${targetCluster.cpus})",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = clusterAccent.copy(alpha = 0.16f),
+                        border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            text = "${curFreq / 1000} MHz",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = clusterAccent,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.5f), modifier = Modifier.padding(bottom = 12.dp))
+
+                // Stepped frequencies grid (2 columns)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    freqs.chunked(2).forEach { rowFreqs ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowFreqs.forEach { f ->
+                                val mhz = (f / 1000).toInt()
+                                val isSelected = f == curFreq
+                                val isDisabled = if (isMinPicker) f > targetCluster.curMax else f < targetCluster.curMin
+
+                                Surface(
+                                    onClick = {
+                                        if (!isDisabled) {
+                                            if (isMinPicker) {
+                                                onFreqChange(targetCluster.id, f, null)
+                                            } else {
+                                                onFreqChange(targetCluster.id, null, f)
+                                            }
+                                            freqPickerTarget = null
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = when {
+                                        isSelected -> clusterAccent.copy(alpha = 0.22f)
+                                        isDisabled -> Color(0xFF0A0C12)
+                                        else -> Color(0xFF141722)
+                                    },
+                                    border = BorderStroke(
+                                        1.dp,
+                                        when {
+                                            isSelected -> clusterAccent
+                                            isDisabled -> Color(0xFF161922)
+                                            else -> BorderGlass
+                                        }
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = if (mhz >= 1000) String.format(java.util.Locale.US, "%.2f GHz", mhz / 1000f) else "$mhz MHz",
+                                                fontSize = 12.5.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = when {
+                                                    isSelected -> clusterAccent
+                                                    isDisabled -> Color(0xFF555966)
+                                                    else -> TextPrimary
+                                                }
+                                            )
+                                            Text(
+                                                text = "$mhz MHz",
+                                                fontSize = 9.sp,
+                                                color = if (isDisabled) Color(0xFF444855) else TextSecondary
+                                            )
+                                        }
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = clusterAccent,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        } else if (isDisabled) {
+                                            Text(
+                                                text = if (isMinPicker) "> Max" else "< Min",
+                                                fontSize = 8.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF666978)
                                             )
                                         }
                                     }
                                 }
                             }
+                            if (rowFreqs.size == 1) {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-                            // Expandable Governor Tunables Section
-                            var showTunables by remember { mutableStateOf(false) }
-                            Spacer(Modifier.height(12.dp))
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = clusterAccent.copy(alpha = 0.12f),
-                                border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.35f)),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        showTunables = !showTunables
-                                        if (showTunables) {
-                                            onLoadTunables(cluster.id, cluster.curGov)
+    // ── Translucent Frosted Glass Modal Bottom Sheet: Governor Picker ──
+    if (govPickerTarget != null) {
+        val targetCluster = govPickerTarget!!
+        val clusterAccent = if (targetCluster.id > 0) AccentOrange else AccentCyan
+
+        ModalBottomSheet(
+            onDismissRequest = { govPickerTarget = null },
+            containerColor = Color(0xFA0D1017),
+            scrimColor = Color.Black.copy(alpha = 0.65f),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = {
+                Surface(
+                    color = Color(0x33FFFFFF),
+                    shape = CircleShape,
+                    modifier = Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 38.dp, height = 4.dp)
+                ) {}
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Pilih Scaling Governor",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Policy ${targetCluster.id}: ${targetCluster.role} • Algoritma Respon Jam CPU",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = clusterAccent.copy(alpha = 0.16f),
+                        border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            text = targetCluster.curGov,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = clusterAccent,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.5f), modifier = Modifier.padding(bottom = 12.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    targetCluster.availGovs.forEach { gov ->
+                        val isSelected = gov == targetCluster.curGov
+                        val (tag, desc) = when (gov.lowercase()) {
+                            "schedutil" -> Pair("Direkomendasikan", "EAS energy-aware scheduler bawaan kernel Linux modern")
+                            "performance" -> Pair("Performa Maksimal", "Kunci frekuensi tertinggi setiap saat tanpa throttling")
+                            "powersave" -> Pair("Ekstrem Hemat", "Kunci clock terendah untuk memaksimalkan daya tahan baterai")
+                            "ondemand" -> Pair("Tradisional", "Naik instan ke batas atas saat CPU terdeteksi sibuk")
+                            "conservative" -> Pair("Bertahap", "Menaikkan dan menurunkan frekuensi secara halus")
+                            "userspace" -> Pair("Manual", "Frekuensi dikontrol langsung oleh aplikasi ruang pengguna")
+                            else -> Pair("Alternatif", "Algoritma pengontrol frekuensi OEM")
+                        }
+
+                        Surface(
+                            onClick = {
+                                onGovChange(targetCluster.id, gov)
+                                govPickerTarget = null
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) clusterAccent.copy(alpha = 0.2f) else Color(0xFF141722),
+                            border = BorderStroke(1.dp, if (isSelected) clusterAccent else BorderGlass),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = gov,
+                                            fontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) clusterAccent else TextPrimary
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = if (isSelected) clusterAccent.copy(alpha = 0.2f) else Color(0xFF1C1F2B)
+                                        ) {
+                                            Text(
+                                                text = tag,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) clusterAccent else TextSecondary,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
                                         }
                                     }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Tune, null, tint = clusterAccent, modifier = Modifier.size(15.dp))
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            "Tunables Governor: ${cluster.curGov}",
-                                            color = clusterAccent,
-                                            fontSize = 11.5.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
+                                    Spacer(Modifier.height(3.dp))
+                                    Text(
+                                        text = desc,
+                                        fontSize = 10.5.sp,
+                                        color = TextSecondary,
+                                        lineHeight = 14.sp
+                                    )
+                                }
+                                if (isSelected) {
                                     Icon(
-                                        if (showTunables) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                        null,
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
                                         tint = clusterAccent,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-                            if (showTunables) {
-                                val tunables = governorTunables[cluster.id] ?: emptyList()
-                                LaunchedEffect(cluster.id, cluster.curGov) {
-                                    onLoadTunables(cluster.id, cluster.curGov)
-                                }
-                                if (tunables.isEmpty()) {
-                                    Text(
-                                        "Memuat parameter sysfs atau tidak tersedia untuk ${cluster.curGov}...",
-                                        color = TextSecondary, fontSize = 11.sp, modifier = Modifier.padding(vertical = 8.dp)
-                                    )
-                                } else {
-                                    Column(
-                                        modifier = Modifier.padding(top = 8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        tunables.forEach { tunable ->
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = Color(0xFF0F121B),
-                                                border = BorderStroke(1.dp, BorderSubtle),
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Column(Modifier.weight(1f)) {
-                                                        Text(tunable.displayName, color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                                                        Text(tunable.key, color = TextSecondary, fontSize = 9.5.sp)
-                                                    }
-                                                    if (tunable.isBoolean) {
-                                                        Switch(
-                                                            checked = tunable.currentValue == "1",
-                                                            onCheckedChange = { isChecked ->
-                                                                onTunableChange(cluster.id, cluster.curGov, tunable.key, if (isChecked) "1" else "0")
-                                                            },
-                                                            colors = SwitchDefaults.colors(
-                                                                checkedThumbColor = clusterAccent,
-                                                                checkedTrackColor = clusterAccent.copy(alpha = 0.4f)
-                                                            )
-                                                        )
-                                                    } else {
-                                                        Surface(
-                                                            shape = RoundedCornerShape(6.dp),
-                                                            color = clusterAccent.copy(alpha = 0.16f),
-                                                            border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.4f)),
-                                                            modifier = Modifier.clickable {
-                                                                editingTunable = Triple(cluster.id, cluster.curGov, tunable)
-                                                                editValueText = tunable.currentValue
-                                                            }
-                                                        ) {
-                                                            Text(
-                                                                "${tunable.currentValue} ${tunable.unit}".trim(),
-                                                                color = clusterAccent,
-                                                                fontSize = 11.sp,
-                                                                fontWeight = FontWeight.Bold,
-                                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
+    // ── Translucent Frosted Glass Modal Bottom Sheet: Governor Tunables ──
+    if (tunablesTarget != null) {
+        val targetCluster = tunablesTarget!!
+        val clusterAccent = if (targetCluster.id > 0) AccentOrange else AccentCyan
+        val tunables = governorTunables[targetCluster.id] ?: emptyList()
+
+        ModalBottomSheet(
+            onDismissRequest = { tunablesTarget = null },
+            containerColor = Color(0xFA0D1017),
+            scrimColor = Color.Black.copy(alpha = 0.65f),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = {
+                Surface(
+                    color = Color(0x33FFFFFF),
+                    shape = CircleShape,
+                    modifier = Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 38.dp, height = 4.dp)
+                ) {}
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Governor Tunables: ${targetCluster.curGov}",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Policy ${targetCluster.id}: ${targetCluster.role} • Sysfs Kernel Tweaks",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = clusterAccent.copy(alpha = 0.16f),
+                        border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            text = "${tunables.size} Tunable",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = clusterAccent,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.5f), modifier = Modifier.padding(bottom = 12.dp))
+
+                if (tunables.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Tidak ada tunable sysfs yang terdeteksi untuk governor ${targetCluster.curGov}",
+                            fontSize = 12.sp,
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 380.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        tunables.forEach { tunable ->
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFF141722),
+                                border = BorderStroke(1.dp, BorderSubtle),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(
+                                            text = tunable.displayName,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = TextPrimary
+                                        )
+                                        Text(
+                                            text = tunable.key,
+                                            fontSize = 9.5.sp,
+                                            color = TextSecondary,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                    if (tunable.isBoolean) {
+                                        Switch(
+                                            checked = tunable.currentValue == "1",
+                                            onCheckedChange = { isChecked ->
+                                                onTunableChange(targetCluster.id, targetCluster.curGov, tunable.key, if (isChecked) "1" else "0")
+                                            },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = clusterAccent,
+                                                checkedTrackColor = clusterAccent.copy(alpha = 0.4f)
+                                            )
+                                        )
+                                    } else {
+                                        Surface(
+                                            onClick = {
+                                                editingTunable = Triple(targetCluster.id, targetCluster.curGov, tunable)
+                                                editValueText = tunable.currentValue
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = clusterAccent.copy(alpha = 0.16f),
+                                            border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.4f))
+                                        ) {
+                                            Text(
+                                                text = "${tunable.currentValue} ${tunable.unit}".trim(),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = clusterAccent,
+                                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                                            )
                                         }
                                     }
                                 }
