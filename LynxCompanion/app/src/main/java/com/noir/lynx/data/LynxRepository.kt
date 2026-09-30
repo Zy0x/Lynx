@@ -2603,10 +2603,19 @@ object LynxRepository {
                     freq="0"
                     min="0"
                     max="0"
+                    locked="0"
                     [ -f "${'$'}c/cpufreq/scaling_cur_freq" ] && freq=${'$'}(cat "${'$'}c/cpufreq/scaling_cur_freq" 2>/dev/null || echo "0")
-                    [ -f "${'$'}c/cpufreq/cpuinfo_min_freq" ] && min=${'$'}(cat "${'$'}c/cpufreq/cpuinfo_min_freq" 2>/dev/null || echo "0")
-                    [ -f "${'$'}c/cpufreq/cpuinfo_max_freq" ] && max=${'$'}(cat "${'$'}c/cpufreq/cpuinfo_max_freq" 2>/dev/null || echo "0")
-                    echo "${'$'}id:${'$'}online:${'$'}switchable:${'$'}freq:${'$'}min:${'$'}max"
+                    [ "${'$'}freq" = "0" ] && [ -f "${'$'}c/cpufreq/cpuinfo_cur_freq" ] && freq=${'$'}(cat "${'$'}c/cpufreq/cpuinfo_cur_freq" 2>/dev/null || echo "0")
+
+                    [ -f "${'$'}c/cpufreq/scaling_min_freq" ] && min=${'$'}(cat "${'$'}c/cpufreq/scaling_min_freq" 2>/dev/null || echo "0")
+                    [ "${'$'}min" = "0" ] && [ -f "${'$'}c/cpufreq/cpuinfo_min_freq" ] && min=${'$'}(cat "${'$'}c/cpufreq/cpuinfo_min_freq" 2>/dev/null || echo "0")
+
+                    [ -f "${'$'}c/cpufreq/scaling_max_freq" ] && max=${'$'}(cat "${'$'}c/cpufreq/scaling_max_freq" 2>/dev/null || echo "0")
+                    [ "${'$'}max" = "0" ] && [ -f "${'$'}c/cpufreq/cpuinfo_max_freq" ] && max=${'$'}(cat "${'$'}c/cpufreq/cpuinfo_max_freq" 2>/dev/null || echo "0")
+
+                    [ -f "${'$'}c/cpufreq/scaling_max_freq" ] && case ${'$'}(ls -ld "${'$'}c/cpufreq/scaling_max_freq" 2>/dev/null) in -r--*) locked="1";; esac
+
+                    echo "${'$'}id:${'$'}online:${'$'}switchable:${'$'}freq:${'$'}min:${'$'}max:${'$'}locked"
                 done
             """.trimIndent()
             val r = Shell.cmd(script).exec()
@@ -2619,6 +2628,7 @@ object LynxRepository {
                     val freq = parts[3].toLongOrNull() ?: 0L
                     val minKhz = parts[4].toLongOrNull() ?: 500000L
                     val maxKhz = parts[5].toLongOrNull() ?: 2000000L
+                    val locked = parts.getOrNull(6) == "1"
 
                     var load = if (online) (perCoreLoads[id] ?: 0) else 0
                     if (online && load == 0 && maxKhz > minKhz && freq > minKhz) {
@@ -2632,7 +2642,8 @@ object LynxRepository {
                         curFreqKhz = freq,
                         loadPercent = load,
                         minFreqKhz = minKhz,
-                        maxFreqKhz = maxKhz
+                        maxFreqKhz = maxKhz,
+                        isLocked = locked
                     )
                 } else null
             }.sortedBy { it.coreId }

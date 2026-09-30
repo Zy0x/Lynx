@@ -323,6 +323,7 @@ class LynxViewModel : ViewModel() {
             }
             LynxRepository.setClusterFreq(policyId, minFreq, maxFreq)
             refreshClusters()
+            refreshCpuCores()
         }
     }
 
@@ -337,6 +338,7 @@ class LynxViewModel : ViewModel() {
             }
             LynxRepository.setClusterGov(policyId, gov)
             refreshClusters()
+            refreshCpuCores()
         }
     }
 
@@ -357,6 +359,7 @@ class LynxViewModel : ViewModel() {
             }
             LynxRepository.setClusterLock(policyId, lock, minFreq, maxFreq)
             refreshClusters()
+            refreshCpuCores()
         }
     }
 

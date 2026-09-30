@@ -150,6 +150,7 @@ data class CpuCoreInfo(
     val loadPercent: Int = 0,
     val minFreqKhz: Long = 0L,
     val maxFreqKhz: Long = 0L,
+    val isLocked: Boolean = false,
 )
 
 data class BatteryDetails(

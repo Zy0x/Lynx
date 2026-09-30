@@ -1298,7 +1298,6 @@ fun CpuClusterTunerCard(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(
-                                    modifier = Modifier.weight(1f, fill = false),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Surface(
@@ -1316,7 +1315,7 @@ fun CpuClusterTunerCard(
                                         }
                                     }
                                     Spacer(Modifier.width(8.dp))
-                                    Column(modifier = Modifier.padding(end = 4.dp)) {
+                                    Column {
                                         Text(
                                             text = "Policy ${cluster.id}: ${cluster.role}",
                                             fontSize = 13.sp,
@@ -1333,71 +1332,15 @@ fun CpuClusterTunerCard(
                                         )
                                     }
                                 }
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = clusterAccent.copy(alpha = 0.14f),
-                                        border = BorderStroke(0.8.dp, clusterAccent.copy(alpha = 0.35f))
-                                    ) {
-                                        Text(
-                                            text = cluster.curGov,
-                                            fontSize = 10.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = clusterAccent,
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                        )
-                                    }
-
-                                    // Lock Toggle Action Button
-                                    val isLocked = cluster.isLocked
-                                    val lockColor = if (isLocked) Color(0xFF00E676) else TextSecondary
-                                    val lockBg = if (isLocked) Color(0xFF0D2818) else Color(0xFF141722)
-                                    val lockBorder = if (isLocked) Color(0xFF00E676).copy(alpha = 0.5f) else BorderGlass
-
-                                    Surface(
-                                        onClick = {
-                                            onLockToggle(cluster.id, !isLocked, cluster.curMin, cluster.curMax)
-                                        },
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = lockBg,
-                                        border = BorderStroke(0.9.dp, lockBorder)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                                                contentDescription = if (isLocked) "Terkunci" else "Buka Kunci",
-                                                tint = lockColor,
-                                                modifier = Modifier.size(11.dp)
-                                            )
-                                            Spacer(Modifier.width(4.dp))
-                                            Text(
-                                                text = if (isLocked) "LOCKED" else "UNLOCK",
-                                                fontSize = 9.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = lockColor,
-                                                maxLines = 1,
-                                                softWrap = false
-                                            )
-                                        }
-                                    }
-                                }
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // 2. Dual Pill Dropdown Selector (Min & Max Freq)
+                            // 2. Dual Pill Dropdown Selector + Compact Lock Button Row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 // Min Frequency Pill
                                 Surface(
@@ -1468,32 +1411,31 @@ fun CpuClusterTunerCard(
                                         )
                                     }
                                 }
-                            }
 
-                            if (cluster.isLocked) {
-                                Spacer(modifier = Modifier.height(8.dp))
+                                // Lock Action Button (Icon Only, aligned on the right)
+                                val isLocked = cluster.isLocked
+                                val lockColor = if (isLocked) Color(0xFF00E676) else TextSecondary
+                                val lockBg = if (isLocked) Color(0xFF0D2818) else Color(0xFF10121A)
+                                val lockBorder = if (isLocked) Color(0xFF00E676).copy(alpha = 0.5f) else BorderGlass
+
                                 Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFF0A1F13),
-                                    border = BorderStroke(0.7.dp, Color(0xFF00E676).copy(alpha = 0.35f)),
-                                    modifier = Modifier.fillMaxWidth()
+                                    onClick = {
+                                        onLockToggle(cluster.id, !isLocked, cluster.curMin, cluster.curMax)
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = lockBg,
+                                    border = BorderStroke(1.dp, lockBorder),
+                                    modifier = Modifier.size(46.dp)
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.fillMaxSize()
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Security,
-                                            contentDescription = null,
-                                            tint = Color(0xFF00E676),
-                                            modifier = Modifier.size(13.dp)
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            text = "Proteksi Read-Only Aktif • Clock terkunci di $minMhz ~ $maxMhz MHz",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = Color(0xFF81C784)
+                                            imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                                            contentDescription = if (isLocked) "Terkunci" else "Buka Kunci",
+                                            tint = lockColor,
+                                            modifier = Modifier.size(19.dp)
                                         )
                                     }
                                 }

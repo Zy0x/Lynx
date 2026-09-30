@@ -367,11 +367,9 @@ async function loadClusterTopology(forceRebuild = false) {
                     data.clusters.forEach(c => {
                         const item = document.getElementById(`cluster-item-${c.id}`);
                         if (!item) return;
-                        const badge = item.querySelector('.cluster-badge');
-                        if (badge) badge.textContent = c.cur_gov;
                         const lockBtn = item.querySelector('.btn-lock-cluster');
                         if (lockBtn) {
-                            lockBtn.textContent = c.is_locked ? '🔒 LOCKED' : '🔓 UNLOCK';
+                            lockBtn.textContent = c.is_locked ? '🔒' : '🔓';
                             lockBtn.style.color = c.is_locked ? '#00e676' : 'var(--text-secondary)';
                             lockBtn.style.background = c.is_locked ? 'rgba(0,230,118,0.2)' : 'rgba(255,255,255,0.08)';
                             lockBtn.style.borderColor = c.is_locked ? '#00e676' : 'var(--border-subtle)';
@@ -421,28 +419,26 @@ async function loadClusterTopology(forceRebuild = false) {
                                 <span class="cluster-name">Policy ${c.id}: ${c.role}</span>
                                 <div style="font-size: 11px; color: var(--text-secondary); margin-top:2px;">Cores: ${c.cpus}</div>
                             </div>
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <span class="cluster-badge">${c.cur_gov}</span>
-                                <button class="btn-lock-cluster" 
-                                    style="cursor:pointer; background:${c.is_locked ? 'rgba(0,230,118,0.2)' : 'rgba(255,255,255,0.08)'}; color:${c.is_locked ? '#00e676' : 'var(--text-secondary)'}; border: 1px solid ${c.is_locked ? '#00e676' : 'var(--border-subtle)'}; border-radius:6px; padding:2px 8px; font-size:10px; font-weight:700;"
-                                    onclick="toggleClusterLock(${c.id}, ${!c.is_locked})">
-                                    ${c.is_locked ? '🔒 LOCKED' : '🔓 UNLOCK'}
-                                </button>
-                            </div>
                         </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">
-                            <div>
-                                <label style="font-size:11px; color:var(--text-secondary); font-weight:600;">Min Frequency</label>
+                        <div style="display: flex; gap: 8px; align-items: flex-end; margin-top: 10px;">
+                            <div style="flex: 1;">
+                                <label style="font-size:11px; color:var(--text-secondary); font-weight:600;">Batas Bawah</label>
                                 <select class="select-gov select-min-freq" onchange="setClusterFreq(${c.id}, this.value, null)">
                                     ${minOptions}
                                 </select>
                             </div>
-                            <div>
-                                <label style="font-size:11px; color:var(--text-secondary); font-weight:600;">Max Frequency</label>
+                            <div style="flex: 1;">
+                                <label style="font-size:11px; color:var(--text-secondary); font-weight:600;">Batas Puncak</label>
                                 <select class="select-gov select-max-freq" onchange="setClusterFreq(${c.id}, null, this.value)">
                                     ${maxOptions}
                                 </select>
                             </div>
+                            <button class="btn-lock-cluster" 
+                                style="cursor:pointer; width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:${c.is_locked ? 'rgba(0,230,118,0.2)' : 'rgba(255,255,255,0.08)'}; color:${c.is_locked ? '#00e676' : 'var(--text-secondary)'}; border: 1px solid ${c.is_locked ? '#00e676' : 'var(--border-subtle)'}; border-radius:8px; font-size:16px;"
+                                title="${c.is_locked ? 'Terkunci (Proteksi Aktif)' : 'Buka Kunci'}"
+                                onclick="toggleClusterLock(${c.id}, ${!c.is_locked})">
+                                ${c.is_locked ? '🔒' : '🔓'}
+                            </button>
                         </div>
                         <div style="margin-top: 10px;">
                             <label style="font-size:11px; color:var(--text-secondary); font-weight:600;">Governor</label>
