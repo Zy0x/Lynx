@@ -688,6 +688,7 @@ fun TuningCpuCategory(
         var initTaskLoadVal by remember(schedInfo.schedInitTaskLoad) { mutableFloatStateOf(schedInfo.schedInitTaskLoad.toFloat()) }
         var spillNrRunVal by remember(schedInfo.schedSpillNrRun) { mutableFloatStateOf(schedInfo.schedSpillNrRun.toFloat()) }
         var spillLoadVal by remember(schedInfo.schedSpillLoad) { mutableFloatStateOf(schedInfo.schedSpillLoad.toFloat()) }
+        var activeTweakConfig by remember { mutableStateOf<TweakConfig?>(null) }
 
         LynxCard(
             title = "Penjadwal Kernel & Arsitektur Multicore",
@@ -932,38 +933,62 @@ fun TuningCpuCategory(
 
                         // uclamp if supported
                         if (schedInfo.isUclampSupported) {
-                            LynxSlider(
-                                label = "Uclamp Util Min (Task Clamp Floor)",
-                                value = uclampMinVal,
-                                onValueChange = { uclampMinVal = it },
-                                onValueChangeFinished = { viewModel.setSchedulerTunable("uclamp_min", uclampMinVal.toLong(), context) },
-                                valueRange = 0f..1024f,
-                                steps = 31,
+                            LynxTweakTile(
+                                title = "Uclamp Util Min (Task Clamp Floor)",
+                                subtitle = "Kapasitas CPU minimum thread aktif (anti-delay)",
                                 displayValue = if (uclampMinVal == 0f) "0 (Default)" else "${uclampMinVal.toInt()} (${(uclampMinVal / 1024f * 100).toInt()}%)",
-                                accentColor = AccentCyan
-                            )
-                            Text(
-                                "Kapasitas CPU minimum yang dijamin untuk thread aktif. Menghilangkan delay ramp-up pada game.",
-                                color = TextSecondary,
-                                fontSize = 9.sp,
-                                modifier = Modifier.padding(bottom = 6.dp)
+                                statusBadge = if (uclampMinVal >= 512f) "⚡ Prioritas" else if (uclampMinVal > 0f) "⚖️ Normal" else "Bawaan",
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "uclamp_min",
+                                        title = "Uclamp Util Min (Task Clamp Floor)",
+                                        category = "EAS",
+                                        description = "Kapasitas komputasi CPU minimum yang dijamin untuk thread aktif. Menghilangkan jeda/delay ramp-up pada game saat frame tiba-tiba membutuhkan daya komputasi tinggi.",
+                                        currentValue = uclampMinVal,
+                                        defaultValue = 0f,
+                                        valueRange = 0f..1024f,
+                                        steps = 31,
+                                        formatDisplay = { v -> if (v == 0f) "0 (Default / Bawaan)" else "${v.toInt()} (${(v / 1024f * 100).toInt()}%)" },
+                                        recommendations = listOf(
+                                            TweakRecommendation("🎮 Game", "512 (Prioritas Tinggi)", 512f),
+                                            TweakRecommendation("⚖️ Seimbang", "128 (Dorongan Halus)", 128f),
+                                            TweakRecommendation("🔋 Hemat", "0 (Bawaan Hemat)", 0f)
+                                        ),
+                                        onApply = { v ->
+                                            uclampMinVal = v
+                                            viewModel.setSchedulerTunable("uclamp_min", v.toLong(), context)
+                                        }
+                                    )
+                                }
                             )
 
-                            LynxSlider(
-                                label = "Uclamp Util Max (Task Clamp Ceiling)",
-                                value = uclampMaxVal,
-                                onValueChange = { uclampMaxVal = it },
-                                onValueChangeFinished = { viewModel.setSchedulerTunable("uclamp_max", uclampMaxVal.toLong(), context) },
-                                valueRange = 128f..1024f,
-                                steps = 27,
-                                displayValue = if (uclampMaxVal == 1024f) "1024 (Maksimal)" else "${uclampMaxVal.toInt()} (${(uclampMaxVal / 1024f * 100).toInt()}%)",
-                                accentColor = AccentBlue
-                            )
-                            Text(
-                                "Batas atas utilisasi task latar belakang untuk mencegah lonjakan daya berlebih.",
-                                color = TextSecondary,
-                                fontSize = 9.sp,
-                                modifier = Modifier.padding(bottom = 4.dp)
+                            LynxTweakTile(
+                                title = "Uclamp Util Max (Task Clamp Ceiling)",
+                                subtitle = "Batas atas utilisasi task latar belakang",
+                                displayValue = if (uclampMaxVal >= 1024f) "1024 (Maksimal)" else "${uclampMaxVal.toInt()} (${(uclampMaxVal / 1024f * 100).toInt()}%)",
+                                statusBadge = if (uclampMaxVal >= 1024f) "Maksimal" else "Dibatasi",
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "uclamp_max",
+                                        title = "Uclamp Util Max (Task Clamp Ceiling)",
+                                        category = "EAS",
+                                        description = "Batas atas utilisasi task latar belakang untuk mencegah lonjakan konsumsi daya berlebih yang tidak diperlukan.",
+                                        currentValue = uclampMaxVal,
+                                        defaultValue = 1024f,
+                                        valueRange = 128f..1024f,
+                                        steps = 27,
+                                        formatDisplay = { v -> if (v >= 1024f) "1024 (100% Maksimal)" else "${v.toInt()} (${(v / 1024f * 100).toInt()}%)" },
+                                        recommendations = listOf(
+                                            TweakRecommendation("🎮 Game", "1024 (Kapasitas Penuh)", 1024f),
+                                            TweakRecommendation("⚖️ Seimbang", "1024 (Standar)", 1024f),
+                                            TweakRecommendation("🔋 Hemat", "640 (Batasi Daya)", 640f)
+                                        ),
+                                        onApply = { v ->
+                                            uclampMaxVal = v
+                                            viewModel.setSchedulerTunable("uclamp_max", v.toLong(), context)
+                                        }
+                                    )
+                                }
                             )
                         }
                     }
@@ -1030,112 +1055,156 @@ fun TuningCpuCategory(
                             }
                         }
 
-                        // Sched Upmigrate Slider
-                        LynxSlider(
-                            label = "Sched Upmigrate (Little → Big)",
-                            value = upmigrateVal,
-                            onValueChange = { newUp ->
-                                upmigrateVal = newUp
-                                if (downmigrateVal > newUp - 5f) {
-                                    downmigrateVal = (newUp - 5f).coerceAtLeast(20f)
-                                }
-                            },
-                            onValueChangeFinished = {
-                                viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
-                            },
-                            valueRange = 40f..100f,
-                            steps = 11,
+                        // Sched Upmigrate Tile
+                        LynxTweakTile(
+                            title = "Sched Upmigrate (Little → Big)",
+                            subtitle = "Ambang batas beban promosi task ke Big Core",
                             displayValue = "${upmigrateVal.toInt()}%",
-                            accentColor = AccentOrange
-                        )
-                        Text(
-                            "Ambang batas beban Little core sebelum task dipromosikan ke Big core. Nilai lebih rendah = task lebih cepat naik ke Big core.",
-                            color = TextSecondary,
-                            fontSize = 9.sp,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            statusBadge = if (upmigrateVal <= 70f) "⚡ Agresif" else if (upmigrateVal >= 90f) "🔋 Hemat" else "⚖️ Seimbang",
+                            onClick = {
+                                activeTweakConfig = TweakConfig(
+                                    id = "sched_upmigrate",
+                                    title = "Sched Upmigrate (Little → Big)",
+                                    category = "HMP",
+                                    description = "Ambang batas persentase beban di Little Core sebelum task dipromosikan ke Big Core. Nilai lebih rendah membuat CPU lebih agresif memindahkan beban berat ke Big Core demi kelancaran aplikasi/game.",
+                                    currentValue = upmigrateVal,
+                                    defaultValue = 85f,
+                                    valueRange = 40f..100f,
+                                    steps = 11,
+                                    formatDisplay = { v -> "${v.toInt()}%" },
+                                    recommendations = listOf(
+                                        TweakRecommendation("🎮 Game", "65% (Promosi Agresif)", 65f),
+                                        TweakRecommendation("⚖️ Seimbang", "85% (Standar OEM)", 85f),
+                                        TweakRecommendation("🔋 Hemat", "95% (Tahan di Little)", 95f)
+                                    ),
+                                    onApply = { v ->
+                                        upmigrateVal = v
+                                        if (downmigrateVal > v - 5f) {
+                                            downmigrateVal = (v - 5f).coerceAtLeast(20f)
+                                        }
+                                        viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
+                                    }
+                                )
+                            }
                         )
 
-                        // Sched Downmigrate Slider
-                        LynxSlider(
-                            label = "Sched Downmigrate (Big → Little)",
-                            value = downmigrateVal,
-                            onValueChange = { newDown ->
-                                val maxAllowed = (upmigrateVal - 5f).coerceAtLeast(20f)
-                                downmigrateVal = newDown.coerceAtMost(maxAllowed)
-                            },
-                            onValueChangeFinished = {
-                                viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
-                            },
-                            valueRange = 20f..95f,
-                            steps = 14,
+                        // Sched Downmigrate Tile
+                        LynxTweakTile(
+                            title = "Sched Downmigrate (Big → Little)",
+                            subtitle = "Ambang batas penurunan task kembali ke Little Core",
                             displayValue = "${downmigrateVal.toInt()}%",
-                            accentColor = AccentBlue
-                        )
-                        Text(
-                            "Ambang batas beban Big core sebelum task diturunkan kembali ke Little core untuk hemat daya (Terkunci: down <= up - 5%).",
-                            color = TextSecondary,
-                            fontSize = 9.sp,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            statusBadge = if (downmigrateVal <= 50f) "Tahan Big" else "⚖️ Seimbang",
+                            onClick = {
+                                activeTweakConfig = TweakConfig(
+                                    id = "sched_downmigrate",
+                                    title = "Sched Downmigrate (Big → Little)",
+                                    category = "HMP",
+                                    description = "Ambang batas beban Big Core sebelum task diturunkan kembali ke Little Core demi penghematan daya (Sistem otomatis mengunci downmigrate <= upmigrate - 5% agar bebas stutter).",
+                                    currentValue = downmigrateVal,
+                                    defaultValue = 65f,
+                                    valueRange = 20f..95f,
+                                    steps = 14,
+                                    formatDisplay = { v -> "${v.toInt()}%" },
+                                    recommendations = listOf(
+                                        TweakRecommendation("🎮 Game", "50% (Tahan di Big Core)", 50f),
+                                        TweakRecommendation("⚖️ Seimbang", "65% (Standar OEM)", 65f),
+                                        TweakRecommendation("🔋 Hemat", "80% (Cepat Hemat)", 80f)
+                                    ),
+                                    onApply = { v ->
+                                        val maxAllowed = (upmigrateVal - 5f).coerceAtLeast(20f)
+                                        downmigrateVal = v.coerceAtMost(maxAllowed)
+                                        viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
+                                    }
+                                )
+                            }
                         )
 
-                        // Sched Init Task Load Slider
-                        LynxSlider(
-                            label = "Sched Init Task Load (Fork Initial Load)",
-                            value = initTaskLoadVal,
-                            onValueChange = { initTaskLoadVal = it },
-                            onValueChangeFinished = {
-                                viewModel.setSchedulerTunable("sched_init_task_load", initTaskLoadVal.toLong(), context)
-                            },
-                            valueRange = 5f..100f,
-                            steps = 18,
+                        // Sched Init Task Load Tile
+                        LynxTweakTile(
+                            title = "Sched Init Task Load (Fork Initial)",
+                            subtitle = "Estimasi beban awal proses baru saat fork",
                             displayValue = "${initTaskLoadVal.toInt()}%",
-                            accentColor = AccentPurple
-                        )
-                        Text(
-                            "Estimasi beban awal proses baru saat fork. Nilai tinggi langsung mengeksekusi proses baru di Big Core demi kecepatan startup.",
-                            color = TextSecondary,
-                            fontSize = 9.sp,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            statusBadge = if (initTaskLoadVal >= 50f) "Start Big" else "Standar",
+                            onClick = {
+                                activeTweakConfig = TweakConfig(
+                                    id = "sched_init_task_load",
+                                    title = "Sched Init Task Load (Fork Initial Load)",
+                                    category = "HMP",
+                                    description = "Estimasi beban awal proses baru saat pertama kali dibuat (fork). Nilai tinggi langsung mengeksekusi proses baru di Big Core demi kecepatan startup aplikasi/game.",
+                                    currentValue = initTaskLoadVal,
+                                    defaultValue = 35f,
+                                    valueRange = 5f..100f,
+                                    steps = 18,
+                                    formatDisplay = { v -> "${v.toInt()}%" },
+                                    recommendations = listOf(
+                                        TweakRecommendation("🎮 Game", "60% (Start Cepat Big)", 60f),
+                                        TweakRecommendation("⚖️ Seimbang", "35% (Standar Android)", 35f),
+                                        TweakRecommendation("🔋 Hemat", "15% (Start di Little)", 15f)
+                                    ),
+                                    onApply = { v ->
+                                        initTaskLoadVal = v
+                                        viewModel.setSchedulerTunable("sched_init_task_load", v.toLong(), context)
+                                    }
+                                )
+                            }
                         )
 
                         // Spilling controls if supported
                         if (schedInfo.isSpillSupported) {
-                            LynxSlider(
-                                label = "Sched Spill Nr Run (Queue Spill Threshold)",
-                                value = spillNrRunVal,
-                                onValueChange = { spillNrRunVal = it },
-                                onValueChangeFinished = {
-                                    viewModel.setSchedulerTunable("sched_spill_nr_run", spillNrRunVal.toLong(), context)
-                                },
-                                valueRange = 1f..10f,
-                                steps = 8,
+                            LynxTweakTile(
+                                title = "Sched Spill Nr Run (Queue Threshold)",
+                                subtitle = "Batas antrean task sebelum dialihkan ke core lain",
                                 displayValue = "${spillNrRunVal.toInt()} Task",
-                                accentColor = AccentCyan
-                            )
-                            Text(
-                                "Maksimum jumlah antrean task pada satu CPU core sebelum dialihkan (spillover) ke core lain.",
-                                color = TextSecondary,
-                                fontSize = 9.sp,
-                                modifier = Modifier.padding(bottom = 6.dp)
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_spill_nr_run",
+                                        title = "Sched Spill Nr Run (Queue Spill Threshold)",
+                                        category = "HMP",
+                                        description = "Maksimum jumlah antrean task pada satu CPU core sebelum dialihkan (spillover) ke core lain yang lebih senggang.",
+                                        currentValue = spillNrRunVal,
+                                        defaultValue = 3f,
+                                        valueRange = 1f..10f,
+                                        steps = 8,
+                                        formatDisplay = { v -> "${v.toInt()} Task" },
+                                        recommendations = listOf(
+                                            TweakRecommendation("🎮 Game", "2 Task (Spillover Cepat)", 2f),
+                                            TweakRecommendation("⚖️ Seimbang", "3 Task (Standar)", 3f),
+                                            TweakRecommendation("🔋 Hemat", "5 Task (Minim Migrasi)", 5f)
+                                        ),
+                                        onApply = { v ->
+                                            spillNrRunVal = v
+                                            viewModel.setSchedulerTunable("sched_spill_nr_run", v.toLong(), context)
+                                        }
+                                    )
+                                }
                             )
 
-                            LynxSlider(
-                                label = "Sched Spill Load Threshold",
-                                value = spillLoadVal,
-                                onValueChange = { spillLoadVal = it },
-                                onValueChangeFinished = {
-                                    viewModel.setSchedulerTunable("sched_spill_load", spillLoadVal.toLong(), context)
-                                },
-                                valueRange = 50f..100f,
-                                steps = 10,
+                            LynxTweakTile(
+                                title = "Sched Spill Load Threshold",
+                                subtitle = "Ambang batas beban core untuk spillover",
                                 displayValue = "${spillLoadVal.toInt()}%",
-                                accentColor = AccentOrange
-                            )
-                            Text(
-                                "Ambang batas beban CPU sebelum mengizinkan spillover ke core lain.",
-                                color = TextSecondary,
-                                fontSize = 9.sp,
-                                modifier = Modifier.padding(bottom = 4.dp)
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_spill_load",
+                                        title = "Sched Spill Load Threshold",
+                                        category = "HMP",
+                                        description = "Ambang batas beban CPU sebelum mengizinkan spillover ke core lain.",
+                                        currentValue = spillLoadVal,
+                                        defaultValue = 90f,
+                                        valueRange = 50f..100f,
+                                        steps = 10,
+                                        formatDisplay = { v -> "${v.toInt()}%" },
+                                        recommendations = listOf(
+                                            TweakRecommendation("🎮 Game", "75% (Distribusi Cepat)", 75f),
+                                            TweakRecommendation("⚖️ Seimbang", "90% (Standar)", 90f),
+                                            TweakRecommendation("🔋 Hemat", "98% (Core Penuh)", 98f)
+                                        ),
+                                        onApply = { v ->
+                                            spillLoadVal = v
+                                            viewModel.setSchedulerTunable("sched_spill_load", v.toLong(), context)
+                                        }
+                                    )
+                                }
                             )
                         }
                     }
@@ -1159,112 +1228,181 @@ fun TuningCpuCategory(
                     Text("Time-slice scheduling, latensi preemption, dan kecepatan respon frekuensi", color = TextSecondary, fontSize = 9.5.sp)
                     Spacer(Modifier.height(8.dp))
 
-                    // Schedutil Up Rate Limit
-                    LynxSlider(
-                        label = "Schedutil Ramp-Up Rate Limit",
-                        value = schedUpRate,
-                        onValueChange = { schedUpRate = it },
-                        onValueChangeFinished = { viewModel.setSchedulerTunable("up_rate_limit_us", schedUpRate.toLong(), context) },
-                        valueRange = 0f..10000f,
-                        steps = 19,
-                        displayValue = if (schedUpRate == 0f) "0 µs (Instant Jump)" else "${schedUpRate.toInt()} µs",
-                        accentColor = AccentOrange
-                    )
-                    Text(
-                        "Waktu tunggu sebelum CPU menaikkan frekuensi. 0µs langsung melompat ke frekuensi puncak saat game membutuhkan daya.",
-                        color = TextSecondary,
-                        fontSize = 9.sp,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
-
-                    // Schedutil Down Rate Limit
-                    LynxSlider(
-                        label = "Schedutil Ramp-Down Rate Limit",
-                        value = schedDownRate,
-                        onValueChange = { schedDownRate = it },
-                        onValueChangeFinished = { viewModel.setSchedulerTunable("down_rate_limit_us", schedDownRate.toLong(), context) },
-                        valueRange = 1000f..40000f,
-                        steps = 38,
-                        displayValue = "${schedDownRate.toInt() / 1000} ms (${schedDownRate.toInt()} µs)",
-                        accentColor = AccentBlue
-                    )
-                    Text(
-                        "Waktu tahan sebelum CPU menurunkan clock. Mempertahankan frekuensi tinggi lebih lama mencegah micro-stutter saat frame drop.",
-                        color = TextSecondary,
-                        fontSize = 9.sp,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                    // Schedutil Up Rate Tile
+                    LynxTweakTile(
+                        title = "Schedutil Ramp-Up Rate Limit",
+                        subtitle = "Waktu tunggu sebelum CPU menaikkan frekuensi",
+                        displayValue = if (schedUpRate == 0f) "0 µs (Instant)" else "${schedUpRate.toInt()} µs",
+                        statusBadge = if (schedUpRate == 0f) "🚀 Instan" else if (schedUpRate >= 1500f) "🔋 Hemat" else "⚖️ Seimbang",
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "up_rate_limit_us",
+                                title = "Schedutil Ramp-Up Rate Limit",
+                                category = "Schedutil",
+                                description = "Waktu tunggu sebelum CPU menaikkan frekuensi clock. Nilai 0 µs membuat CPU langsung melompat ke frekuensi puncak seketika saat game membutuhkan komputasi berat.",
+                                currentValue = schedUpRate,
+                                defaultValue = 500f,
+                                valueRange = 0f..10000f,
+                                steps = 19,
+                                formatDisplay = { v -> if (v == 0f) "0 µs (Instant Jump)" else "${v.toInt()} µs" },
+                                recommendations = listOf(
+                                    TweakRecommendation("🎮 Game", "0 µs (Jump Instan)", 0f),
+                                    TweakRecommendation("⚖️ Seimbang", "500 µs (Stabil)", 500f),
+                                    TweakRecommendation("🔋 Hemat", "2000 µs (Cegah Spike)", 2000f)
+                                ),
+                                onApply = { v ->
+                                    schedUpRate = v
+                                    viewModel.setSchedulerTunable("up_rate_limit_us", v.toLong(), context)
+                                }
+                            )
+                        }
                     )
 
-                    // CFS Latency
-                    LynxSlider(
-                        label = "CFS Target Scheduling Latency",
-                        value = schedLatency,
-                        onValueChange = { schedLatency = it },
-                        onValueChangeFinished = { viewModel.setSchedulerTunable("sched_latency_ns", (schedLatency * 1000000).toLong(), context) },
-                        valueRange = 2f..24f,
-                        steps = 21,
+                    // Schedutil Down Rate Tile
+                    LynxTweakTile(
+                        title = "Schedutil Ramp-Down Rate Limit",
+                        subtitle = "Waktu tahan sebelum CPU menurunkan clock",
+                        displayValue = "${schedDownRate.toInt() / 1000} ms",
+                        statusBadge = if (schedDownRate >= 20000f) "Tahan Tinggi" else "⚖️ Normal",
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "down_rate_limit_us",
+                                title = "Schedutil Ramp-Down Rate Limit",
+                                category = "Schedutil",
+                                description = "Waktu tahan sebelum CPU menurunkan clock kembali ke frekuensi idle. Mempertahankan frekuensi tinggi lebih lama mencegah micro-stutter saat frame drop.",
+                                currentValue = schedDownRate,
+                                defaultValue = 20000f,
+                                valueRange = 1000f..40000f,
+                                steps = 38,
+                                formatDisplay = { v -> "${v.toInt() / 1000} ms (${v.toInt()} µs)" },
+                                recommendations = listOf(
+                                    TweakRecommendation("🎮 Game", "30 ms (Tahan Clock)", 30000f),
+                                    TweakRecommendation("⚖️ Seimbang", "10 ms (Standar)", 10000f),
+                                    TweakRecommendation("🔋 Hemat", "2 ms (Cepat Turun)", 2000f)
+                                ),
+                                onApply = { v ->
+                                    schedDownRate = v
+                                    viewModel.setSchedulerTunable("down_rate_limit_us", v.toLong(), context)
+                                }
+                            )
+                        }
+                    )
+
+                    // CFS Latency Tile
+                    LynxTweakTile(
+                        title = "CFS Target Scheduling Latency",
+                        subtitle = "Target periode siklus eksekusi seluruh task",
                         displayValue = "${schedLatency.toInt()} ms",
-                        accentColor = AccentPurple
-                    )
-                    Text(
-                        "Periode target di mana seluruh task yang siap dieksekusi dijamin mendapat giliran CPU. Latensi lebih kecil meningkatkan kehalusan UI/game.",
-                        color = TextSecondary,
-                        fontSize = 9.sp,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        statusBadge = if (schedLatency <= 6f) "⚡ Responsif" else "⚖️ Standar",
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "sched_latency_ns",
+                                title = "CFS Target Scheduling Latency",
+                                category = "CFS",
+                                description = "Periode target di mana seluruh task yang siap dieksekusi dijamin mendapat giliran CPU. Latensi lebih kecil meningkatkan kehalusan animasi UI dan konsistensi frame game.",
+                                currentValue = schedLatency,
+                                defaultValue = 10f,
+                                valueRange = 2f..24f,
+                                steps = 21,
+                                formatDisplay = { v -> "${v.toInt()} ms" },
+                                recommendations = listOf(
+                                    TweakRecommendation("🎮 Game", "4 ms (Eksekusi Cepat)", 4f),
+                                    TweakRecommendation("⚖️ Seimbang", "10 ms (Standar Linux)", 10f),
+                                    TweakRecommendation("🔋 Hemat", "18 ms (Minim Switch)", 18f)
+                                ),
+                                onApply = { v ->
+                                    schedLatency = v
+                                    viewModel.setSchedulerTunable("sched_latency_ns", (v * 1000000).toLong(), context)
+                                }
+                            )
+                        }
                     )
 
-                    // CFS Min Granularity
-                    LynxSlider(
-                        label = "CFS Min Preemption Granularity",
-                        value = schedMinGran,
-                        onValueChange = { schedMinGran = it },
-                        onValueChangeFinished = { viewModel.setSchedulerTunable("sched_min_granularity_ns", (schedMinGran * 1000000).toLong(), context) },
-                        valueRange = 0.5f..8f,
-                        steps = 14,
+                    // CFS Min Granularity Tile
+                    LynxTweakTile(
+                        title = "CFS Min Preemption Granularity",
+                        subtitle = "Jatah waktu minimum yang dijamin untuk setiap task",
                         displayValue = "${String.format("%.1f", schedMinGran)} ms",
-                        accentColor = AccentCyan
-                    )
-                    Text(
-                        "Jatah waktu minimum yang dijamin untuk setiap task sebelum kernel mengizinkan preemption oleh task lain.",
-                        color = TextSecondary,
-                        fontSize = 9.sp,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "sched_min_granularity_ns",
+                                title = "CFS Min Preemption Granularity",
+                                category = "CFS",
+                                description = "Jatah waktu minimum yang dijamin untuk setiap task sebelum kernel mengizinkan preemption (pemotongan giliran) oleh task lain.",
+                                currentValue = schedMinGran,
+                                defaultValue = 3f,
+                                valueRange = 0.5f..8f,
+                                steps = 14,
+                                formatDisplay = { v -> "${String.format("%.1f", v)} ms" },
+                                recommendations = listOf(
+                                    TweakRecommendation("🎮 Game", "1.0 ms (Preemption Cepat)", 1.0f),
+                                    TweakRecommendation("⚖️ Seimbang", "3.0 ms (Standar)", 3.0f),
+                                    TweakRecommendation("🔋 Hemat", "5.0 ms (Throughput Maks)", 5.0f)
+                                ),
+                                onApply = { v ->
+                                    schedMinGran = v
+                                    viewModel.setSchedulerTunable("sched_min_granularity_ns", (v * 1000000).toLong(), context)
+                                }
+                            )
+                        }
                     )
 
-                    // CFS Wakeup Granularity
-                    LynxSlider(
-                        label = "CFS Wakeup Granularity",
-                        value = schedWakeGran,
-                        onValueChange = { schedWakeGran = it },
-                        onValueChangeFinished = { viewModel.setSchedulerTunable("sched_wakeup_granularity_ns", (schedWakeGran * 1000000).toLong(), context) },
-                        valueRange = 0.5f..8f,
-                        steps = 14,
+                    // CFS Wakeup Granularity Tile
+                    LynxTweakTile(
+                        title = "CFS Wakeup Granularity",
+                        subtitle = "Keuntungan latensi task yang baru bangun",
                         displayValue = "${String.format("%.1f", schedWakeGran)} ms",
-                        accentColor = AccentGreen
-                    )
-                    Text(
-                        "Keuntungan latensi yang dibutuhkan task yang baru bangun untuk menggeser task yang sedang berjalan di CPU.",
-                        color = TextSecondary,
-                        fontSize = 9.sp,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "sched_wakeup_granularity_ns",
+                                title = "CFS Wakeup Granularity",
+                                category = "CFS",
+                                description = "Keuntungan latensi yang dibutuhkan task yang baru bangun untuk menggeser task yang sedang berjalan di CPU.",
+                                currentValue = schedWakeGran,
+                                defaultValue = 2f,
+                                valueRange = 0.5f..8f,
+                                steps = 14,
+                                formatDisplay = { v -> "${String.format("%.1f", v)} ms" },
+                                recommendations = listOf(
+                                    TweakRecommendation("🎮 Game", "1.0 ms (Bangun Instan)", 1.0f),
+                                    TweakRecommendation("⚖️ Seimbang", "2.0 ms (Standar)", 2.0f),
+                                    TweakRecommendation("🔋 Hemat", "4.0 ms (Minim Interupsi)", 4.0f)
+                                ),
+                                onApply = { v ->
+                                    schedWakeGran = v
+                                    viewModel.setSchedulerTunable("sched_wakeup_granularity_ns", (v * 1000000).toLong(), context)
+                                }
+                            )
+                        }
                     )
 
-                    // Task Migration Cost
-                    LynxSlider(
-                        label = "Task Migration Cost (Cache-Hot)",
-                        value = schedMigCost,
-                        onValueChange = { schedMigCost = it },
-                        onValueChangeFinished = { viewModel.setSchedulerTunable("sched_migration_cost_ns", (schedMigCost * 1000).toLong(), context) },
-                        valueRange = 100f..3000f,
-                        steps = 28,
+                    // Task Migration Cost Tile
+                    LynxTweakTile(
+                        title = "Task Migration Cost (Cache-Hot)",
+                        subtitle = "Proteksi cache L1/L2 sebelum diizinkan migrasi",
                         displayValue = "${schedMigCost.toInt()} µs",
-                        accentColor = AccentOrange
-                    )
-                    Text(
-                        "Waktu task dianggap masih berada dalam cache L1/L2 sebelum diizinkan migrasi ke inti CPU lain.",
-                        color = TextSecondary,
-                        fontSize = 9.sp,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "sched_migration_cost_ns",
+                                title = "Task Migration Cost (Cache-Hot)",
+                                category = "CFS",
+                                description = "Waktu task dianggap masih berada dalam cache L1/L2 sebelum diizinkan migrasi ke inti CPU lain.",
+                                currentValue = schedMigCost,
+                                defaultValue = 200f,
+                                valueRange = 100f..3000f,
+                                steps = 28,
+                                formatDisplay = { v -> "${v.toInt()} µs" },
+                                recommendations = listOf(
+                                    TweakRecommendation("🎮 Game", "100 µs (Migrasi Lincah)", 100f),
+                                    TweakRecommendation("⚖️ Seimbang", "200 µs (Standar)", 200f),
+                                    TweakRecommendation("🔋 Hemat", "600 µs (Proteksi Cache)", 600f)
+                                ),
+                                onApply = { v ->
+                                    schedMigCost = v
+                                    viewModel.setSchedulerTunable("sched_migration_cost_ns", (v * 1000).toLong(), context)
+                                }
+                            )
+                        }
                     )
 
                     // Child Process Runs First
@@ -1304,21 +1442,33 @@ fun TuningCpuCategory(
             var floorValue by remember(state.overclock.cpuFloorRatio) {
                 mutableFloatStateOf(state.overclock.cpuFloorRatio.toFloat())
             }
-            LynxSlider(
-                label = "Ambang Bawah Frekuensi CPU (Clock Floor)",
-                value = floorValue,
-                onValueChange = { floorValue = it },
-                onValueChangeFinished = { viewModel.setCpuFloorRatio(floorValue.toInt()) },
-                valueRange = 60f..100f,
-                steps = 7,
+            LynxTweakTile(
+                title = "Ambang Bawah Frekuensi CPU (Clock Floor)",
+                subtitle = "Menahan frekuensi CPU agar tidak drop saat gameplay",
                 displayValue = "${floorValue.toInt()}%",
-                accentColor = AccentOrange
-            )
-            Text(
-                "Menahan frekuensi CPU agar tidak turun di bawah persentase ini saat aplikasi atau game berjalan.",
-                color = TextSecondary,
-                fontSize = 9.sp,
-                modifier = Modifier.padding(bottom = 6.dp)
+                statusBadge = if (floorValue >= 80f) "⚡ Agresif" else "⚖️ Standar",
+                onClick = {
+                    activeTweakConfig = TweakConfig(
+                        id = "cpu_floor",
+                        title = "Ambang Bawah Frekuensi CPU (Clock Floor)",
+                        category = "Termal & Clock",
+                        description = "Menahan frekuensi CPU agar tidak turun di bawah persentase ini saat aplikasi atau game sedang berjalan di foreground.",
+                        currentValue = floorValue,
+                        defaultValue = 60f,
+                        valueRange = 60f..100f,
+                        steps = 7,
+                        formatDisplay = { v -> "${v.toInt()}%" },
+                        recommendations = listOf(
+                            TweakRecommendation("🎮 Game", "85% (Tahan Clock)", 85f),
+                            TweakRecommendation("⚖️ Seimbang", "70% (Standar)", 70f),
+                            TweakRecommendation("🔋 Hemat", "60% (Batas Aman)", 60f)
+                        ),
+                        onApply = { v ->
+                            floorValue = v
+                            viewModel.setCpuFloorRatio(v.toInt())
+                        }
+                    )
+                }
             )
 
             LynxSwitch(
@@ -1331,21 +1481,33 @@ fun TuningCpuCategory(
             var tempLimitValue by remember(state.thermal.customTempLimitC) {
                 mutableFloatStateOf(state.thermal.customTempLimitC.toFloat())
             }
-            LynxSlider(
-                label = "Batas Suhu Thermal Custom",
-                value = tempLimitValue,
-                onValueChange = { tempLimitValue = it },
-                onValueChangeFinished = { viewModel.setCustomTempLimit(tempLimitValue.toInt()) },
-                valueRange = 45f..60f,
-                steps = 14,
+            LynxTweakTile(
+                title = "Batas Suhu Thermal Custom",
+                subtitle = "Ambang batas trip point termal SoC sebelum throttling",
                 displayValue = "${tempLimitValue.toInt()}°C",
-                accentColor = AccentRed
-            )
-            Text(
-                "Ambang batas trip point termal SoC sebelum thermal daemon mengambil tindakan pengamanan.",
-                color = TextSecondary,
-                fontSize = 9.sp,
-                modifier = Modifier.padding(bottom = 4.dp)
+                statusBadge = if (tempLimitValue >= 55f) "Tinggi" else "Aman",
+                onClick = {
+                    activeTweakConfig = TweakConfig(
+                        id = "temp_limit",
+                        title = "Batas Suhu Thermal Custom",
+                        category = "Termal",
+                        description = "Ambang batas temperatur trip point termal SoC sebelum thermal daemon mengambil tindakan perlindungan atau pemotongan performa.",
+                        currentValue = tempLimitValue,
+                        defaultValue = 50f,
+                        valueRange = 45f..60f,
+                        steps = 14,
+                        formatDisplay = { v -> "${v.toInt()}°C" },
+                        recommendations = listOf(
+                            TweakRecommendation("🎮 Game", "58°C (Tinggi)", 58f),
+                            TweakRecommendation("⚖️ Seimbang", "50°C (Standar)", 50f),
+                            TweakRecommendation("🔋 Hemat", "45°C (Dingin)", 45f)
+                        ),
+                        onApply = { v ->
+                            tempLimitValue = v
+                            viewModel.setCustomTempLimit(v.toInt())
+                        }
+                    )
+                }
             )
         }
 
@@ -1354,6 +1516,14 @@ fun TuningCpuCategory(
             voltageInfo = uiState.voltageInfo,
             onApplyOffset = { viewModel.applyVoltageOffset(it) }
         )
+
+        // ── Universal Tweak Bottom Sheet Drawer (iOS / Nothing Phone Style) ──
+        if (activeTweakConfig != null) {
+            LynxTweakSheet(
+                config = activeTweakConfig!!,
+                onDismiss = { activeTweakConfig = null }
+            )
+        }
     }
 }
 

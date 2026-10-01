@@ -241,6 +241,328 @@ fun LynxSlider(
 }
 
 // ============================================================
+//  LynxTweakTile & LynxTweakSheet — Modern Drawer-Based Tuning (iOS / Nothing Phone Style)
+// ============================================================
+
+data class TweakRecommendation(
+    val label: String,
+    val sublabel: String,
+    val value: Float
+)
+
+data class TweakConfig(
+    val id: String,
+    val title: String,
+    val category: String,
+    val description: String,
+    val currentValue: Float,
+    val defaultValue: Float,
+    val valueRange: ClosedFloatingPointRange<Float>,
+    val steps: Int = 0,
+    val formatDisplay: (Float) -> String,
+    val recommendations: List<TweakRecommendation> = emptyList(),
+    val onApply: (Float) -> Unit
+)
+
+@Composable
+fun LynxTweakTile(
+    title: String,
+    subtitle: String? = null,
+    displayValue: String,
+    accentColor: Color = Color(0xFFE0E0E0),
+    statusBadge: String? = null,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF10131B),
+        border = BorderStroke(1.dp, BorderSubtle),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 11.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 10.dp)
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        fontSize = 9.5.sp,
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Right side: Pill with value + Chevron arrow
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF181B26),
+                    border = BorderStroke(0.8.dp, BorderGlass)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (!statusBadge.isNullOrBlank()) {
+                            Text(
+                                text = statusBadge,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = accentColor
+                            )
+                        }
+                        Text(
+                            text = displayValue,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
+                }
+
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = TextTertiary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LynxTweakSheet(
+    config: TweakConfig,
+    onDismiss: () -> Unit
+) {
+    var sliderValue by remember(config.id, config.currentValue) {
+        mutableFloatStateOf(config.currentValue)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFA0D1017),
+        scrimColor = Color.Black.copy(alpha = 0.65f),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = {
+            Surface(
+                color = Color(0x33FFFFFF),
+                shape = CircleShape,
+                modifier = Modifier
+                    .padding(top = 10.dp, bottom = 6.dp)
+                    .size(width = 38.dp, height = 4.dp)
+            ) {}
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 36.dp)
+        ) {
+            // Header: Category Tag & Reset to Default Button
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        text = config.category.uppercase(),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentCyan,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                    )
+                }
+
+                TextButton(
+                    onClick = {
+                        sliderValue = config.defaultValue
+                        config.onApply(config.defaultValue)
+                    },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.height(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("Pulihkan Bawaan", fontSize = 10.5.sp, color = TextSecondary)
+                }
+            }
+
+            // Title
+            Text(
+                text = config.title,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+
+            // Current Value Card (Nothing/iOS High Contrast)
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF12151F),
+                border = BorderStroke(1.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Nilai Diterapkan", fontSize = 11.5.sp, color = TextSecondary)
+                    Text(
+                        text = config.formatDisplay(sliderValue),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentCyan
+                    )
+                }
+            }
+
+            // Description
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = config.description,
+                fontSize = 10.5.sp,
+                color = TextSecondary,
+                lineHeight = 15.sp
+            )
+
+            // Recommendations (Kerja Berat / Seimbang / Ringan)
+            if (config.recommendations.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    text = "REKOMENDASI SKENARIO",
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextTertiary,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    config.recommendations.forEach { rec ->
+                        val isRecSelected = Math.abs(sliderValue - rec.value) < 0.01f
+                        val recColor = when {
+                            rec.label.contains("Game", ignoreCase = true) || rec.label.contains("Agresif", ignoreCase = true) -> AccentOrange
+                            rec.label.contains("Hemat", ignoreCase = true) || rec.label.contains("Baterai", ignoreCase = true) -> AccentGreen
+                            else -> AccentCyan
+                        }
+
+                        Surface(
+                            onClick = {
+                                sliderValue = rec.value
+                                config.onApply(rec.value)
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isRecSelected) recColor.copy(alpha = 0.18f) else Color(0xFF141722),
+                            border = BorderStroke(1.dp, if (isRecSelected) recColor else BorderGlass),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = rec.label,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isRecSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                    color = if (isRecSelected) recColor else TextPrimary,
+                                    maxLines = 1
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = rec.sublabel,
+                                    fontSize = 9.sp,
+                                    color = if (isRecSelected) TextPrimary else TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Slider Penyetelan Manual Presisi
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Penyetelan Manual Presisi", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                Text(
+                    text = "${config.formatDisplay(config.valueRange.start)} — ${config.formatDisplay(config.valueRange.endInclusive)}",
+                    fontSize = 9.5.sp,
+                    color = TextTertiary
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+
+            Slider(
+                value = sliderValue.coerceIn(config.valueRange),
+                onValueChange = { sliderValue = it },
+                onValueChangeFinished = {
+                    config.onApply(sliderValue)
+                },
+                valueRange = config.valueRange,
+                steps = config.steps,
+                colors = SliderDefaults.colors(
+                    thumbColor = AccentCyan,
+                    activeTrackColor = AccentCyan,
+                    inactiveTrackColor = Color(0xFF1C202E)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+// ============================================================
 //  ProfileGrid — Luxury Bento Profile Selector
 // ============================================================
 
