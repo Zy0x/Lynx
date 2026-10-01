@@ -659,19 +659,28 @@ object LynxRepository {
         if (explicitlyUnlockedClusters.contains(policyId)) return
         try {
             val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
-            val mtkCluster = if (policyId >= 6) 1 else 0
+            val hwMax = Shell.cmd("cat $pDir/cpuinfo_max_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 2400000L
             val cmd = buildString {
                 append("chmod 644 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
-                append("echo $maxFreq > $pDir/scaling_max_freq 2>/dev/null; ")
+                append("echo $hwMax > $pDir/scaling_max_freq 2>/dev/null; ")
                 append("echo $minFreq > $pDir/scaling_min_freq 2>/dev/null; ")
+                append("echo $maxFreq > $pDir/scaling_max_freq 2>/dev/null; ")
+                // Dynamic MTK cluster discovery:
+                append("c_idx=0; ")
+                append("for p in /sys/devices/system/cpu/cpufreq/policy*; do ")
+                append("if [ \"\${p##*policy}\" = \"$policyId\" ]; then ")
                 append("if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then ")
-                append("echo '$mtkCluster $maxFreq' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
-                append("echo '$mtkCluster $minFreq' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
+                append("echo \"\$c_idx $maxFreq\" > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
+                append("echo \"\$c_idx $minFreq\" > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
                 append("fi; ")
                 append("if [ -f /proc/ppm/policy/userlimit_max_cpu_freq ]; then ")
-                append("echo '$mtkCluster $maxFreq' > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
-                append("echo '$mtkCluster $minFreq' > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
+                append("echo \"\$c_idx $maxFreq\" > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
+                append("echo \"\$c_idx $minFreq\" > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
                 append("fi; ")
+                append("break; ")
+                append("fi; ")
+                append("c_idx=\$((c_idx + 1)); ")
+                append("done; ")
                 if (minFreq == maxFreq) {
                     append("if [ -f /proc/ppm/policy_status ]; then echo '2 0' > /proc/ppm/policy_status 2>/dev/null; fi; ")
                 }
@@ -854,7 +863,7 @@ object LynxRepository {
                 it.startsWith("-r--") || it.contains("r--r--r--")
             } ?: false))
 
-            if (!explicitlyUnlockedClusters.contains(policyId) && lockedClusterBounds.containsKey(policyId)) {
+            if (wasLocked) {
                 lockedClusterBounds[policyId] = Pair(safeMin, safeMax)
             }
 
@@ -866,16 +875,22 @@ object LynxRepository {
                     append("echo $hwMax > $pDir/scaling_max_freq 2>/dev/null; ")
                     append("echo $safeMin > $pDir/scaling_min_freq 2>/dev/null; ")
                     append("echo $safeMax > $pDir/scaling_max_freq 2>/dev/null; ")
-                    // MediaTek PPM hardware sync if node exists
-                    val mtkCluster = if (policyId >= 6) 1 else 0
+                    // Dynamic MediaTek PPM hardware sync if node exists
+                    append("c_idx=0; ")
+                    append("for p in /sys/devices/system/cpu/cpufreq/policy*; do ")
+                    append("if [ \"\${p##*policy}\" = \"$policyId\" ]; then ")
                     append("if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then ")
-                    append("echo '$mtkCluster $safeMax' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
-                    append("echo '$mtkCluster $safeMin' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
+                    append("echo \"\$c_idx $safeMax\" > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
+                    append("echo \"\$c_idx $safeMin\" > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
                     append("fi; ")
                     append("if [ -f /proc/ppm/policy/userlimit_max_cpu_freq ]; then ")
-                    append("echo '$mtkCluster $safeMax' > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
-                    append("echo '$mtkCluster $safeMin' > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
+                    append("echo \"\$c_idx $safeMax\" > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
+                    append("echo \"\$c_idx $safeMin\" > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
                     append("fi; ")
+                    append("break; ")
+                    append("fi; ")
+                    append("c_idx=\$((c_idx + 1)); ")
+                    append("done; ")
                     if (safeMin == safeMax) {
                         append("if [ -f /proc/ppm/policy_status ]; then echo '2 0' > /proc/ppm/policy_status 2>/dev/null; fi; ")
                     }
@@ -902,7 +917,6 @@ object LynxRepository {
             val maxNode = "$pDir/cpuinfo_max_freq"
             val hwMin = Shell.cmd("cat $minNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 300000L
             val hwMax = Shell.cmd("cat $maxNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 2400000L
-            val mtkCluster = if (policyId >= 6) 1 else 0
 
             if (lock) {
                 explicitlyUnlockedClusters.remove(policyId)
@@ -923,14 +937,21 @@ object LynxRepository {
                         append("echo $hwMax > $pDir/scaling_max_freq 2>/dev/null; ")
                         append("echo $safeMin > $pDir/scaling_min_freq 2>/dev/null; ")
                         append("echo $safeMax > $pDir/scaling_max_freq 2>/dev/null; ")
+                        append("c_idx=0; ")
+                        append("for p in /sys/devices/system/cpu/cpufreq/policy*; do ")
+                        append("if [ \"\${p##*policy}\" = \"$policyId\" ]; then ")
                         append("if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then ")
-                        append("echo '$mtkCluster $safeMax' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
-                        append("echo '$mtkCluster $safeMin' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
+                        append("echo \"\$c_idx $safeMax\" > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
+                        append("echo \"\$c_idx $safeMin\" > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
                         append("fi; ")
                         append("if [ -f /proc/ppm/policy/userlimit_max_cpu_freq ]; then ")
-                        append("echo '$mtkCluster $safeMax' > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
-                        append("echo '$mtkCluster $safeMin' > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
+                        append("echo \"\$c_idx $safeMax\" > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
+                        append("echo \"\$c_idx $safeMin\" > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
                         append("fi; ")
+                        append("break; ")
+                        append("fi; ")
+                        append("c_idx=\$((c_idx + 1)); ")
+                        append("done; ")
                         if (safeMin == safeMax) {
                             append("if [ -f /proc/ppm/policy_status ]; then echo '2 0' > /proc/ppm/policy_status 2>/dev/null; fi; ")
                         }
@@ -949,14 +970,21 @@ object LynxRepository {
                         append("chmod 644 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
                         append("echo $hwMax > $pDir/scaling_max_freq 2>/dev/null; ")
                         append("echo $hwMin > $pDir/scaling_min_freq 2>/dev/null; ")
+                        append("c_idx=0; ")
+                        append("for p in /sys/devices/system/cpu/cpufreq/policy*; do ")
+                        append("if [ \"\${p##*policy}\" = \"$policyId\" ]; then ")
                         append("if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then ")
-                        append("echo '$mtkCluster -1' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
-                        append("echo '$mtkCluster -1' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
+                        append("echo \"\$c_idx -1\" > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
+                        append("echo \"\$c_idx -1\" > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
                         append("fi; ")
                         append("if [ -f /proc/ppm/policy/userlimit_max_cpu_freq ]; then ")
-                        append("echo '$mtkCluster -1' > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
-                        append("echo '$mtkCluster -1' > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
+                        append("echo \"\$c_idx -1\" > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
+                        append("echo \"\$c_idx -1\" > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
                         append("fi; ")
+                        append("break; ")
+                        append("fi; ")
+                        append("c_idx=\$((c_idx + 1)); ")
+                        append("done; ")
                         append("if [ -f /proc/ppm/policy_status ]; then echo '2 1' > /proc/ppm/policy_status 2>/dev/null; fi; ")
                     }
                 }
@@ -2687,6 +2715,12 @@ object LynxRepository {
                     min="0"
                     max="0"
                     locked="0"
+                    policy_id=""
+                    if [ -L "${'$'}c/cpufreq" ]; then
+                        target=${'$'}(readlink "${'$'}c/cpufreq" 2>/dev/null)
+                        policy_id=${'$'}{target##*policy}
+                    fi
+                    [ -z "${'$'}policy_id" ] && policy_id="0"
                     [ -f "${'$'}c/cpufreq/scaling_cur_freq" ] && freq=${'$'}(cat "${'$'}c/cpufreq/scaling_cur_freq" 2>/dev/null || echo "0")
                     [ "${'$'}freq" = "0" ] && [ -f "${'$'}c/cpufreq/cpuinfo_cur_freq" ] && freq=${'$'}(cat "${'$'}c/cpufreq/cpuinfo_cur_freq" 2>/dev/null || echo "0")
 
@@ -2698,7 +2732,7 @@ object LynxRepository {
 
                     [ -f "${'$'}c/cpufreq/scaling_max_freq" ] && case ${'$'}(ls -ld "${'$'}c/cpufreq/scaling_max_freq" 2>/dev/null) in -r--*) locked="1";; esac
 
-                    echo "${'$'}id:${'$'}online:${'$'}switchable:${'$'}freq:${'$'}min:${'$'}max:${'$'}locked"
+                    echo "${'$'}id:${'$'}online:${'$'}switchable:${'$'}freq:${'$'}min:${'$'}max:${'$'}locked:${'$'}policy_id"
                 done
             """.trimIndent()
             val r = Shell.cmd(script).exec()
@@ -2713,8 +2747,8 @@ object LynxRepository {
                     val rawMaxKhz = parts[5].toLongOrNull() ?: 2000000L
                     val rawLocked = parts.getOrNull(6) == "1"
 
-                    // Resolve cluster lock domain for this core (e.g. policy0 for cores 0..5, policy6 for cores 6..7)
-                    val policyId = if (id >= 6) 6 else 0
+                    // Resolve cluster lock domain for this core dynamically from policyId
+                    val policyId = parts.getOrNull(7)?.toIntOrNull() ?: (if (id >= 6) 6 else 0)
                     val isExplicitlyUnlocked = explicitlyUnlockedClusters.contains(policyId)
                     val lockedRange = if (isExplicitlyUnlocked) null else lockedClusterBounds[policyId]
                     val isCoreLocked = !isExplicitlyUnlocked && (lockedRange != null || rawLocked)

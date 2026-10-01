@@ -530,7 +530,8 @@ fun TuningCpuCategory(
         if (pendingCoreAction != null) {
             val targetCore = pendingCoreAction!!
             val willEnable = !targetCore.isOnline
-            val clusterType = if (targetCore.coreId >= 6) "Big (Performance)" else "Little (Efficiency)"
+            val parentCluster = uiState.clusters.find { it.containsCore(targetCore.coreId) }
+            val clusterType = parentCluster?.role ?: if (targetCore.coreId >= 4) "Performance" else "Efficiency"
             AlertDialog(
                 onDismissRequest = { pendingCoreAction = null },
                 containerColor = Color(0xFF16181D),

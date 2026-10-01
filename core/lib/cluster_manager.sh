@@ -105,7 +105,17 @@ set_cluster_freq() {
 
         # MediaTek PPM hard limit and user limit sync
         local mtk_cluster=0
-        [ "$p_num" -ge 6 ] && mtk_cluster=1
+        local c_idx=0
+        for p in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ -d "$p" ] || continue
+            local p_base=$(basename "$p")
+            local p_id=${p_base#policy}
+            if [ "$p_id" = "$p_num" ]; then
+                mtk_cluster=$c_idx
+                break
+            fi
+            c_idx=$((c_idx + 1))
+        done
         if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then
             write_node "$mtk_cluster $max_freq" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
             write_node "$mtk_cluster $min_freq" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
@@ -163,7 +173,17 @@ unlock_cluster_freq() {
 
         # MediaTek PPM release
         local mtk_cluster=0
-        [ "$p_num" -ge 6 ] && mtk_cluster=1
+        local c_idx=0
+        for p in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ -d "$p" ] || continue
+            local p_base=$(basename "$p")
+            local p_id=${p_base#policy}
+            if [ "$p_id" = "$p_num" ]; then
+                mtk_cluster=$c_idx
+                break
+            fi
+            c_idx=$((c_idx + 1))
+        done
         if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then
             write_node "$mtk_cluster -1" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
             write_node "$mtk_cluster -1" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"

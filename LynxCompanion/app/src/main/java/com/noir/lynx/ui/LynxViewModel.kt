@@ -634,15 +634,24 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setZramSizeMb(mb: Int) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(memory = current.state.memory.copy(zramSizeMb = mb)))
         }
         setKey("memory.zram_size_mb", mb.toString(), "val")
+        viewModelScope.launch {
+            val algo = _uiState.value.zramCompAlgorithm
+            LynxRepository.setZramCompAlgorithm(algo, mb)
+        }
     }
 
     fun setSwappiness(value: Int) {
+        recordStateMutation()
         _uiState.update { current ->
-            current.copy(state = current.state.copy(memory = current.state.memory.copy(swappiness = value)))
+            current.copy(
+                state = current.state.copy(memory = current.state.memory.copy(swappiness = value)),
+                vmAdvanced = current.vmAdvanced.copy(swappiness = value)
+            )
         }
         setKey("memory.swappiness", value.toString(), "val")
         viewModelScope.launch {
