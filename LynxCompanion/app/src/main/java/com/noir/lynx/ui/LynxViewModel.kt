@@ -3,6 +3,7 @@ package com.noir.lynx.ui
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.noir.lynx.data.CpuClusterInfo
 import com.noir.lynx.data.LynxRepository
 import com.noir.lynx.data.LynxState
 import com.noir.lynx.data.LynxUiState
@@ -197,9 +198,52 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    // ----------------------------------------------------------------
+    //  Mutation Intent Guard: Prevents background polling overwrite glitches
+    // ----------------------------------------------------------------
+    private data class ClusterIntent(
+        val minFreq: Long? = null,
+        val maxFreq: Long? = null,
+        val gov: String? = null,
+        val isLocked: Boolean? = null,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+
+    private val activeClusterIntents = java.util.concurrent.ConcurrentHashMap<Int, ClusterIntent>()
+    private var lastStateMutationTime = 0L
+
+    fun recordStateMutation() {
+        lastStateMutationTime = System.currentTimeMillis()
+    }
+
+    private fun mergeClustersWithActiveIntents(rawClusters: List<CpuClusterInfo>): List<CpuClusterInfo> {
+        val now = System.currentTimeMillis()
+        return rawClusters.map { c ->
+            val intent = activeClusterIntents[c.id]
+            if (intent != null && (now - intent.timestamp) < 3000L) {
+                c.copy(
+                    curMin = intent.minFreq ?: c.curMin,
+                    curMax = intent.maxFreq ?: c.curMax,
+                    curGov = intent.gov ?: c.curGov,
+                    isLocked = intent.isLocked ?: c.isLocked
+                )
+            } else {
+                if (intent != null && (now - intent.timestamp) >= 3000L) {
+                    activeClusterIntents.remove(c.id)
+                }
+                c
+            }
+        }
+    }
+
     private fun startFileObserver() {
         fileObserver?.stopWatching()
-        fileObserver = StateFileObserver { refreshState() }
+        fileObserver = StateFileObserver {
+            viewModelScope.launch {
+                delay(300L)
+                refreshState()
+            }
+        }
         fileObserver?.startWatching()
     }
 
@@ -242,7 +286,8 @@ class LynxViewModel : ViewModel() {
                             } else {
                                 (current.cpuLoadHistory + totalLoad).takeLast(30)
                             }
-                            val activeClusters = if (freshClusters != null && freshClusters.isNotEmpty()) freshClusters else current.clusters
+                            val rawClusters = if (freshClusters != null && freshClusters.isNotEmpty()) freshClusters else current.clusters
+                            val activeClusters = mergeClustersWithActiveIntents(rawClusters)
                             val rawCores = if (cores.isNotEmpty()) cores else current.cpuCores
                             val syncedCores = rawCores.map { core ->
                                 val parent = activeClusters.find { it.containsCore(core.coreId) }
@@ -281,8 +326,12 @@ class LynxViewModel : ViewModel() {
     fun refreshState() {
         viewModelScope.launch {
             try {
+                if (System.currentTimeMillis() - lastStateMutationTime < 2500L) {
+                    return@launch
+                }
                 val freshState = LynxRepository.readState()
                 val freshClusters = LynxRepository.readClusters()
+                val mergedClusters = if (freshClusters.isNotEmpty()) mergeClustersWithActiveIntents(freshClusters) else emptyList()
                 _uiState.update { current ->
                     val finalProfile = if (current.state.activeProfile in listOf("balance", "performance", "extreme", "auto", "powersave") &&
                         freshState.activeProfile == "dormant") {
@@ -290,9 +339,21 @@ class LynxViewModel : ViewModel() {
                     } else {
                         freshState.activeProfile
                     }
+                    val finalClusters = if (mergedClusters.isNotEmpty()) mergedClusters else current.clusters
+                    val syncedCores = current.cpuCores.map { core ->
+                        val parent = finalClusters.find { it.containsCore(core.coreId) }
+                        if (parent != null) {
+                            core.copy(
+                                minFreqKhz = parent.curMin,
+                                maxFreqKhz = parent.curMax,
+                                isLocked = parent.isLocked
+                            )
+                        } else core
+                    }
                     current.copy(
                         state = freshState.copy(activeProfile = finalProfile),
-                        clusters = if (freshClusters.isNotEmpty()) freshClusters else current.clusters,
+                        clusters = finalClusters,
+                        cpuCores = syncedCores,
                         lastSyncedAt = System.currentTimeMillis()
                     )
                 }
@@ -307,9 +368,10 @@ class LynxViewModel : ViewModel() {
             try {
                 val clusters = LynxRepository.readClusters()
                 if (clusters.isNotEmpty()) {
+                    val mergedClusters = mergeClustersWithActiveIntents(clusters)
                     _uiState.update { current ->
                         val syncedCores = current.cpuCores.map { core ->
-                            val parent = clusters.find { it.containsCore(core.coreId) }
+                            val parent = mergedClusters.find { it.containsCore(core.coreId) }
                             if (parent != null) {
                                 core.copy(
                                     minFreqKhz = parent.curMin,
@@ -318,7 +380,7 @@ class LynxViewModel : ViewModel() {
                                 )
                             } else core
                         }
-                        current.copy(clusters = clusters, cpuCores = syncedCores)
+                        current.copy(clusters = mergedClusters, cpuCores = syncedCores)
                     }
                 }
             } catch (e: Exception) {
@@ -332,14 +394,26 @@ class LynxViewModel : ViewModel() {
     // ----------------------------------------------------------------
 
     fun setClusterFrequency(policyId: Int, minFreq: Long?, maxFreq: Long?) {
+        recordStateMutation()
+        val curCluster = _uiState.value.clusters.find { it.id == policyId }
+        val newMin = minFreq ?: curCluster?.curMin
+        val newMax = maxFreq ?: curCluster?.curMax
+        val prev = activeClusterIntents[policyId]
+        activeClusterIntents[policyId] = ClusterIntent(
+            minFreq = newMin,
+            maxFreq = newMax,
+            gov = prev?.gov ?: curCluster?.curGov,
+            isLocked = prev?.isLocked ?: curCluster?.isLocked,
+            timestamp = System.currentTimeMillis()
+        )
         viewModelScope.launch {
             // Optimistic update for zero-latency touch response
             _uiState.update { current ->
                 val updatedClusters = current.clusters.map { c ->
                     if (c.id == policyId) {
                         c.copy(
-                            curMin = minFreq ?: c.curMin,
-                            curMax = maxFreq ?: c.curMax
+                            curMin = newMin ?: c.curMin,
+                            curMax = newMax ?: c.curMax
                         )
                     } else c
                 }
@@ -362,6 +436,16 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setClusterGovernor(policyId: Int, gov: String) {
+        recordStateMutation()
+        val curCluster = _uiState.value.clusters.find { it.id == policyId }
+        val prev = activeClusterIntents[policyId]
+        activeClusterIntents[policyId] = ClusterIntent(
+            minFreq = prev?.minFreq ?: curCluster?.curMin,
+            maxFreq = prev?.maxFreq ?: curCluster?.curMax,
+            gov = gov,
+            isLocked = prev?.isLocked ?: curCluster?.isLocked,
+            timestamp = System.currentTimeMillis()
+        )
         viewModelScope.launch {
             // Optimistic update for zero-latency touch response
             _uiState.update { current ->
@@ -377,6 +461,18 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setClusterLock(policyId: Int, lock: Boolean, minFreq: Long? = null, maxFreq: Long? = null) {
+        recordStateMutation()
+        val curCluster = _uiState.value.clusters.find { it.id == policyId }
+        val effectiveMin = minFreq ?: curCluster?.curMin
+        val effectiveMax = maxFreq ?: curCluster?.curMax
+        val prev = activeClusterIntents[policyId]
+        activeClusterIntents[policyId] = ClusterIntent(
+            minFreq = effectiveMin,
+            maxFreq = effectiveMax,
+            gov = prev?.gov ?: curCluster?.curGov,
+            isLocked = lock,
+            timestamp = System.currentTimeMillis()
+        )
         viewModelScope.launch {
             // Optimistic update for zero-latency touch response
             _uiState.update { current ->
@@ -384,8 +480,8 @@ class LynxViewModel : ViewModel() {
                     if (c.id == policyId) {
                         c.copy(
                             isLocked = lock,
-                            curMin = minFreq ?: c.curMin,
-                            curMax = maxFreq ?: c.curMax
+                            curMin = effectiveMin ?: c.curMin,
+                            curMax = effectiveMax ?: c.curMax
                         )
                     } else c
                 }
@@ -401,7 +497,7 @@ class LynxViewModel : ViewModel() {
                 }
                 current.copy(clusters = updatedClusters, cpuCores = updatedCores)
             }
-            LynxRepository.setClusterLock(policyId, lock, minFreq, maxFreq)
+            LynxRepository.setClusterLock(policyId, lock, effectiveMin, effectiveMax)
             refreshClusters()
             refreshCpuCores()
         }
@@ -412,6 +508,7 @@ class LynxViewModel : ViewModel() {
     // ----------------------------------------------------------------
 
     fun setProfile(profile: String, context: Context? = null) {
+        recordStateMutation()
         viewModelScope.launch {
             // Optimistically update activeProfile in UI state for immediate visual responsiveness
             _uiState.update {
@@ -429,11 +526,12 @@ class LynxViewModel : ViewModel() {
             // Eliminates heavy 35-query refreshState() on profile switch for instant sub-200ms transitions
             try {
                 val freshClusters = LynxRepository.readClusters()
+                val mergedClusters = if (freshClusters.isNotEmpty()) mergeClustersWithActiveIntents(freshClusters) else emptyList()
                 val freshGpu = LynxRepository.readGpuInfo()
                 val freshRr = LynxRepository.readDisplayRefreshRate()
                 _uiState.update {
                     it.copy(
-                        clusters = freshClusters,
+                        clusters = if (mergedClusters.isNotEmpty()) mergedClusters else it.clusters,
                         gpuInfo = freshGpu,
                         displayRefreshRate = freshRr
                     )
@@ -720,6 +818,7 @@ class LynxViewModel : ViewModel() {
     }
 
     private fun setKey(key: String, value: String, type: String) {
+        recordStateMutation()
         viewModelScope.launch {
             LynxRepository.writeStateKey(key, value, type)
         }

@@ -653,8 +653,10 @@ object LynxRepository {
 
     // Authoritative registry of user-locked cluster policies: policyId -> Pair(minFreq, maxFreq)
     val lockedClusterBounds = java.util.concurrent.ConcurrentHashMap<Int, Pair<Long, Long>>()
+    val explicitlyUnlockedClusters = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
 
     fun reapplyClusterLock(policyId: Int, minFreq: Long, maxFreq: Long) {
+        if (explicitlyUnlockedClusters.contains(policyId)) return
         try {
             val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
             val mtkCluster = if (policyId >= 6) 1 else 0
@@ -797,8 +799,12 @@ object LynxRepository {
 
             // Enforce locked cluster bounds single source of truth:
             rawList.map { cluster ->
-                val lockedRange = lockedClusterBounds[cluster.id]
-                if (lockedRange != null) {
+                val isExplicitlyUnlocked = explicitlyUnlockedClusters.contains(cluster.id)
+                val lockedRange = if (isExplicitlyUnlocked) null else lockedClusterBounds[cluster.id]
+
+                if (isExplicitlyUnlocked) {
+                    cluster.copy(isLocked = false)
+                } else if (lockedRange != null) {
                     val (lMin, lMax) = lockedRange
                     if (cluster.curMin != lMin || cluster.curMax != lMax || !cluster.isLocked) {
                         reapplyClusterLock(cluster.id, lMin, lMax)
@@ -844,11 +850,11 @@ object LynxRepository {
                 if (minFreq != null) safeMax = safeMin else safeMin = safeMax
             }
 
-            val wasLocked = Shell.cmd("ls -ld $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.let {
+            val wasLocked = !explicitlyUnlockedClusters.contains(policyId) && (lockedClusterBounds.containsKey(policyId) || (Shell.cmd("ls -ld $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.let {
                 it.startsWith("-r--") || it.contains("r--r--r--")
-            } ?: false || lockedClusterBounds.containsKey(policyId)
+            } ?: false))
 
-            if (lockedClusterBounds.containsKey(policyId)) {
+            if (!explicitlyUnlockedClusters.contains(policyId) && lockedClusterBounds.containsKey(policyId)) {
                 lockedClusterBounds[policyId] = Pair(safeMin, safeMax)
             }
 
@@ -899,6 +905,7 @@ object LynxRepository {
             val mtkCluster = if (policyId >= 6) 1 else 0
 
             if (lock) {
+                explicitlyUnlockedClusters.remove(policyId)
                 val curMin = Shell.cmd("cat $pDir/scaling_min_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMin
                 val curMax = Shell.cmd("cat $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMax
 
@@ -933,6 +940,7 @@ object LynxRepository {
                 }
                 Shell.cmd(cmd).exec().isSuccess
             } else {
+                explicitlyUnlockedClusters.add(policyId)
                 lockedClusterBounds.remove(policyId)
                 val cmd = if (isModuleInstalled()) {
                     "sh '$MODULE_DIR/core/lib/cluster_manager.sh' unlock_freq $policyId"
@@ -2707,8 +2715,9 @@ object LynxRepository {
 
                     // Resolve cluster lock domain for this core (e.g. policy0 for cores 0..5, policy6 for cores 6..7)
                     val policyId = if (id >= 6) 6 else 0
-                    val lockedRange = lockedClusterBounds[policyId]
-                    val isCoreLocked = lockedRange != null || rawLocked
+                    val isExplicitlyUnlocked = explicitlyUnlockedClusters.contains(policyId)
+                    val lockedRange = if (isExplicitlyUnlocked) null else lockedClusterBounds[policyId]
+                    val isCoreLocked = !isExplicitlyUnlocked && (lockedRange != null || rawLocked)
                     val minKhz = lockedRange?.first ?: rawMinKhz
                     val maxKhz = lockedRange?.second ?: rawMaxKhz
 
