@@ -688,6 +688,7 @@ fun TuningCpuCategory(
         var initTaskLoadVal by remember(schedInfo.schedInitTaskLoad) { mutableFloatStateOf(schedInfo.schedInitTaskLoad.toFloat()) }
         var spillNrRunVal by remember(schedInfo.schedSpillNrRun) { mutableFloatStateOf(schedInfo.schedSpillNrRun.toFloat()) }
         var spillLoadVal by remember(schedInfo.schedSpillLoad) { mutableFloatStateOf(schedInfo.schedSpillLoad.toFloat()) }
+        var showAdvancedSched by remember { mutableStateOf(false) }
         var activeTweakConfig by remember { mutableStateOf<TweakConfig?>(null) }
 
         LynxCard(
@@ -697,7 +698,7 @@ fun TuningCpuCategory(
         ) {
             // Header info & Architecture badges
             Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -709,12 +710,12 @@ fun TuningCpuCategory(
                         fontSize = 13.sp
                     )
                     Text(
-                        text = "EAS Energy Model, HMP / WALT Task Migration, & CFS Granularity",
+                        text = "EAS Energy Model & CFS Granularity",
                         color = TextSecondary,
                         fontSize = 10.sp
                     )
                 }
-                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = AccentCyan.copy(alpha = 0.15f),
@@ -728,33 +729,26 @@ fun TuningCpuCategory(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (schedInfo.isBoreSupported) AccentGreen.copy(alpha = 0.18f) else BgElevated,
-                        border = BorderStroke(1.dp, if (schedInfo.isBoreSupported) AccentGreen else BorderGlass)
-                    ) {
-                        Text(
-                            text = if (schedInfo.isBoreSupported) "BORE: ACTIVE" else "BORE: UNSUPPORTED",
-                            color = if (schedInfo.isBoreSupported) AccentGreen else TextSecondary,
-                            fontSize = 8.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                    if (schedInfo.isBoreSupported) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = AccentGreen.copy(alpha = 0.18f),
+                            border = BorderStroke(1.dp, AccentGreen.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "BORE",
+                                color = AccentGreen,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            // ── Mode Arsitektur Penjadwal (Architecture Mode Switcher: EAS vs HMP vs Hybrid) ──
+            // ── Mode Arsitektur Penjadwal (Architecture Mode Selector: EAS vs HMP vs Hybrid) ──
             if (schedInfo.isModeSwitchSupported) {
-                Text("Mode Arsitektur Penjadwal", color = AccentCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    "Pilih model penempatan task CPU: EAS (Energy Model), HMP (Load Migration), atau Hybrid.",
-                    color = TextSecondary,
-                    fontSize = 9.5.sp
-                )
-                Spacer(Modifier.height(6.dp))
-
                 val modes = mutableListOf(
                     Triple("eas", "⚡ EAS", AccentCyan),
                     Triple("hmp", "🏛️ HMP", AccentOrange)
@@ -764,7 +758,7 @@ fun TuningCpuCategory(
                 }
 
                 Row(
-                    Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    Modifier.fillMaxWidth().padding(bottom = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     modes.forEach { (modeKey, modeLabel, modeColor) ->
@@ -777,11 +771,11 @@ fun TuningCpuCategory(
                                 viewModel.setSchedulerArchitectureMode(modeKey, context)
                             }
                         ) {
-                            Box(Modifier.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
                                 Text(
                                     text = modeLabel,
                                     color = if (isModeSel) modeColor else TextSecondary,
-                                    fontSize = 10.5.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = if (isModeSel) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
@@ -790,36 +784,9 @@ fun TuningCpuCategory(
                 }
             }
 
-            // Terapkan saat Boot Switch
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderSubtle),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                        Text("Terapkan saat Boot", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                        Text("Simpan konfigurasi penjadwal & pulihkan otomatis saat ponsel menyala", color = TextSecondary, fontSize = 9.5.sp)
-                    }
-                    Switch(
-                        checked = schedInfo.applyOnBoot,
-                        onCheckedChange = { viewModel.setSchedulerApplyOnBoot(it, context) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
-                        modifier = Modifier.scale(0.85f)
-                    )
-                }
-            }
-
-            // 3 Quick Presets
-            Text("Preset Penjadwal Cepat", color = AccentCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(6.dp))
+            // ── 3 Quick Presets Bar ──
             Row(
-                Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                Modifier.fillMaxWidth().padding(bottom = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 listOf(
@@ -836,7 +803,7 @@ fun TuningCpuCategory(
                             viewModel.applySchedulerPreset(preset, context)
                         }
                     ) {
-                        Box(Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
                             Text(
                                 text = label,
                                 color = if (isSel) color else TextSecondary,
@@ -848,445 +815,430 @@ fun TuningCpuCategory(
                 }
             }
 
-            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(bottom = 10.dp))
+            // ── Terapkan saat Boot Switch (Clean Flat Row) ──
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text("Terapkan saat Boot", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp)
+                    Text("Pulihkan setelan penjadwal otomatis saat boot", color = TextSecondary, fontSize = 9.sp)
+                }
+                Switch(
+                    checked = schedInfo.applyOnBoot,
+                    onCheckedChange = { viewModel.setSchedulerApplyOnBoot(it, context) },
+                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
+                    modifier = Modifier.scale(0.8f)
+                )
+            }
 
-            // ── SUB-CARD 1: EAS & ENERGY MODEL (Jika didukung) ──
-            val showEasSubcard = if (schedInfo.isModeSwitchSupported) {
+            // ── EAS & ENERGY MODEL ──────────────────────────────
+            val showEas = if (schedInfo.isModeSwitchSupported) {
                 schedInfo.activeArchitectureMode.equals("eas", ignoreCase = true) || schedInfo.activeArchitectureMode.equals("hybrid", ignoreCase = true)
             } else {
                 schedInfo.isEasSupported
             }
-            if (showEasSubcard) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = BgElevated,
-                    border = BorderStroke(0.8.dp, BorderSubtle),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+            if (showEas) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)
                 ) {
-                    Column(Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("EAS & Model Energi Kernel", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text("Penjadwalan cerdas berbasis efisiensi daya & kapasitas komputasi cluster CPU", color = TextSecondary, fontSize = 9.5.sp)
-                        Spacer(Modifier.height(8.dp))
+                    Text("EAS ENERGY MODEL", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                    Spacer(Modifier.width(8.dp))
+                    HorizontalDivider(color = AccentCyan.copy(alpha = 0.25f), modifier = Modifier.weight(1f))
+                }
 
-                        // sched_energy_aware
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                                Text("Energy Aware Scheduling (EAS)", color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 12.sp)
-                                Text("Hitung kurva daya SoC sebelum menempatkan task ke CPU core", color = TextSecondary, fontSize = 9.5.sp)
-                            }
-                            Switch(
-                                checked = schedInfo.schedEnergyAware,
-                                onCheckedChange = { viewModel.setSchedulerTunable("sched_energy_aware", if (it) 1L else 0L, context) },
-                                colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
-                                modifier = Modifier.scale(0.85f)
-                            )
-                        }
-
-                        // sched_boost if supported
-                        if (schedInfo.isSchedBoostSupported) {
-                            Spacer(Modifier.height(6.dp))
-                            Text("EAS Sched Boost Level", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                            Spacer(Modifier.height(4.dp))
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf(
-                                    0 to "0: Off",
-                                    1 to "1: Minor",
-                                    2 to "2: Game",
-                                    3 to "3: Max"
-                                ).forEach { (lvl, title) ->
-                                    val isSel = schedInfo.schedBoost == lvl
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isSel) AccentCyan.copy(alpha = 0.22f) else BgCard,
-                                        border = BorderStroke(1.dp, if (isSel) AccentCyan else BorderGlass),
-                                        modifier = Modifier.weight(1f).clickable {
-                                            viewModel.setSchedulerTunable("sched_boost", lvl.toLong(), context)
-                                        }
-                                    ) {
-                                        Box(Modifier.padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
-                                            Text(
-                                                title,
-                                                color = if (isSel) AccentCyan else TextSecondary,
-                                                fontSize = 10.sp,
-                                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
-                                            )
-                                        }
-                                    }
+                // sched_boost if supported
+                if (schedInfo.isSchedBoostSupported) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Boost:", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        listOf(
+                            0 to "0: Off",
+                            1 to "1: Minor",
+                            2 to "2: Game",
+                            3 to "3: Max"
+                        ).forEach { (lvl, title) ->
+                            val isSel = schedInfo.schedBoost == lvl
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isSel) AccentCyan.copy(alpha = 0.22f) else BgElevated,
+                                border = BorderStroke(1.dp, if (isSel) AccentCyan else BorderGlass),
+                                modifier = Modifier.weight(1f).clickable {
+                                    viewModel.setSchedulerTunable("sched_boost", lvl.toLong(), context)
                                 }
-                            }
-                            Text(
-                                "Meningkatkan prioritas penempatan task ke Big Core saat render grafis/frame game.",
-                                color = TextSecondary,
-                                fontSize = 9.sp,
-                                modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
-                            )
-                        }
-
-                        // uclamp if supported
-                        if (schedInfo.isUclampSupported) {
-                            LynxTweakTile(
-                                title = "Uclamp Util Min (Task Clamp Floor)",
-                                subtitle = "Kapasitas CPU minimum thread aktif (anti-delay)",
-                                displayValue = if (uclampMinVal == 0f) "0 (Default)" else "${uclampMinVal.toInt()} (${(uclampMinVal / 1024f * 100).toInt()}%)",
-                                statusBadge = if (uclampMinVal >= 512f) "⚡ Prioritas" else if (uclampMinVal > 0f) "⚖️ Normal" else "Bawaan",
-                                onClick = {
-                                    activeTweakConfig = TweakConfig(
-                                        id = "uclamp_min",
-                                        title = "Uclamp Util Min (Task Clamp Floor)",
-                                        category = "EAS",
-                                        description = "Kapasitas komputasi CPU minimum yang dijamin untuk thread aktif. Menghilangkan jeda/delay ramp-up pada game saat frame tiba-tiba membutuhkan daya komputasi tinggi.",
-                                        currentValue = uclampMinVal,
-                                        defaultValue = 0f,
-                                        valueRange = 0f..1024f,
-                                        steps = 31,
-                                        formatDisplay = { v -> if (v == 0f) "0 (Default / Bawaan)" else "${v.toInt()} (${(v / 1024f * 100).toInt()}%)" },
-                                        recommendations = listOf(
-                                            TweakRecommendation("🎮 Game", "512 (Prioritas Tinggi)", 512f),
-                                            TweakRecommendation("⚖️ Seimbang", "128 (Dorongan Halus)", 128f),
-                                            TweakRecommendation("🔋 Hemat", "0 (Bawaan Hemat)", 0f)
-                                        ),
-                                        onApply = { v ->
-                                            uclampMinVal = v
-                                            viewModel.setSchedulerTunable("uclamp_min", v.toLong(), context)
-                                        }
+                            ) {
+                                Box(Modifier.padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        title,
+                                        color = if (isSel) AccentCyan else TextSecondary,
+                                        fontSize = 9.5.sp,
+                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
                                     )
                                 }
-                            )
-
-                            LynxTweakTile(
-                                title = "Uclamp Util Max (Task Clamp Ceiling)",
-                                subtitle = "Batas atas utilisasi task latar belakang",
-                                displayValue = if (uclampMaxVal >= 1024f) "1024 (Maksimal)" else "${uclampMaxVal.toInt()} (${(uclampMaxVal / 1024f * 100).toInt()}%)",
-                                statusBadge = if (uclampMaxVal >= 1024f) "Maksimal" else "Dibatasi",
-                                onClick = {
-                                    activeTweakConfig = TweakConfig(
-                                        id = "uclamp_max",
-                                        title = "Uclamp Util Max (Task Clamp Ceiling)",
-                                        category = "EAS",
-                                        description = "Batas atas utilisasi task latar belakang untuk mencegah lonjakan konsumsi daya berlebih yang tidak diperlukan.",
-                                        currentValue = uclampMaxVal,
-                                        defaultValue = 1024f,
-                                        valueRange = 128f..1024f,
-                                        steps = 27,
-                                        formatDisplay = { v -> if (v >= 1024f) "1024 (100% Maksimal)" else "${v.toInt()} (${(v / 1024f * 100).toInt()}%)" },
-                                        recommendations = listOf(
-                                            TweakRecommendation("🎮 Game", "1024 (Kapasitas Penuh)", 1024f),
-                                            TweakRecommendation("⚖️ Seimbang", "1024 (Standar)", 1024f),
-                                            TweakRecommendation("🔋 Hemat", "640 (Batasi Daya)", 640f)
-                                        ),
-                                        onApply = { v ->
-                                            uclampMaxVal = v
-                                            viewModel.setSchedulerTunable("uclamp_max", v.toLong(), context)
-                                        }
-                                    )
-                                }
-                            )
+                            }
                         }
                     }
                 }
+
+                // uclamp if supported
+                if (schedInfo.isUclampSupported) {
+                    LynxTweakTile(
+                        title = "Uclamp Floor (Anti-Delay)",
+                        subtitle = "Jaminan kapasitas CPU minimum task aktif",
+                        displayValue = if (uclampMinVal == 0f) "0 (Bawaan)" else "${uclampMinVal.toInt()} (${(uclampMinVal / 1024f * 100).toInt()}%)",
+                        statusBadge = if (uclampMinVal >= 512f) "⚡ Prioritas" else if (uclampMinVal > 0f) "⚖️ Normal" else "Bawaan",
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "uclamp_min",
+                                title = "Uclamp Task Floor (Anti-Delay)",
+                                category = "EAS",
+                                description = "Kapasitas komputasi CPU minimum yang dijamin untuk thread aktif. Menghilangkan jeda/delay ramp-up pada game saat frame tiba-tiba membutuhkan daya komputasi tinggi.",
+                                currentValue = uclampMinVal,
+                                defaultValue = 0f,
+                                valueRange = 0f..1024f,
+                                steps = 31,
+                                formatDisplay = { v -> if (v == 0f) "0 (Default / Bawaan)" else "${v.toInt()} (${(v / 1024f * 100).toInt()}%)" },
+                                recommendations = listOf(
+                                    TweakRecommendation("🎮 Game", "512 (Prioritas Tinggi)", 512f),
+                                    TweakRecommendation("⚖️ Seimbang", "128 (Dorongan Halus)", 128f),
+                                    TweakRecommendation("🔋 Hemat", "0 (Bawaan Hemat)", 0f)
+                                ),
+                                onApply = { v ->
+                                    uclampMinVal = v
+                                    viewModel.setSchedulerTunable("uclamp_min", v.toLong(), context)
+                                }
+                            )
+                        }
+                    )
+
+                    LynxTweakTile(
+                        title = "Uclamp Ceiling (Batas Atas)",
+                        subtitle = "Batas daya maksimum task latar belakang",
+                        displayValue = if (uclampMaxVal >= 1024f) "1024 (100%)" else "${uclampMaxVal.toInt()} (${(uclampMaxVal / 1024f * 100).toInt()}%)",
+                        statusBadge = if (uclampMaxVal >= 1024f) "Maksimal" else "Dibatasi",
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "uclamp_max",
+                                title = "Uclamp Task Ceiling (Batas Atas)",
+                                category = "EAS",
+                                description = "Batas atas utilisasi task latar belakang untuk mencegah lonjakan konsumsi daya berlebih yang tidak diperlukan.",
+                                currentValue = uclampMaxVal,
+                                defaultValue = 1024f,
+                                valueRange = 128f..1024f,
+                                steps = 27,
+                                formatDisplay = { v -> if (v >= 1024f) "1024 (100% Maksimal)" else "${v.toInt()} (${(v / 1024f * 100).toInt()}%)" },
+                                recommendations = listOf(
+                                    TweakRecommendation("🎮 Game", "1024 (Kapasitas Penuh)", 1024f),
+                                    TweakRecommendation("⚖️ Seimbang", "1024 (Standar)", 1024f),
+                                    TweakRecommendation("🔋 Hemat", "640 (Batasi Daya)", 640f)
+                                ),
+                                onApply = { v ->
+                                    uclampMaxVal = v
+                                    viewModel.setSchedulerTunable("uclamp_max", v.toLong(), context)
+                                }
+                            )
+                        }
+                    )
+                }
             }
 
-            // ── SUB-CARD 2: HMP MULTI-CORE & HYSTERESIS (Jika didukung) ──
-            val showHmpSubcard = if (schedInfo.isModeSwitchSupported) {
+            // ── HMP TASK MIGRATION ──────────────────────────────
+            val showHmp = if (schedInfo.isModeSwitchSupported) {
                 schedInfo.activeArchitectureMode.equals("hmp", ignoreCase = true) || schedInfo.activeArchitectureMode.equals("hybrid", ignoreCase = true)
             } else {
                 schedInfo.isHmpSupported
             }
-            if (showHmpSubcard) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = BgElevated,
-                    border = BorderStroke(0.8.dp, BorderSubtle),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+            if (showHmp) {
+                val hystBuffer = (upmigrateVal - downmigrateVal).toInt()
+                val isBufferSafe = hystBuffer >= 5
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)
                 ) {
-                    Column(Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Speed, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("HMP Multi-Core Distribution & WALT", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text("Pengendali migrasi task Little Core ⇄ Big Core dengan proteksi osilasi", color = TextSecondary, fontSize = 9.5.sp)
-                        Spacer(Modifier.height(8.dp))
+                    Text("HMP TASK MIGRATION", color = AccentOrange, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                    Spacer(Modifier.width(8.dp))
+                    HorizontalDivider(color = AccentOrange.copy(alpha = 0.25f), modifier = Modifier.weight(1f))
+                    Text(
+                        text = "Buffer: +$hystBuffer%",
+                        color = if (isBufferSafe) AccentGreen else AccentOrange,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 6.dp)
+                    )
+                }
 
-                        // Live Hysteresis Status Chip
-                        val hystBuffer = (upmigrateVal - downmigrateVal).toInt()
-                        val isBufferSafe = hystBuffer >= 5
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isBufferSafe) AccentGreen.copy(alpha = 0.12f) else AccentOrange.copy(alpha = 0.12f),
-                            border = BorderStroke(1.dp, if (isBufferSafe) AccentGreen.copy(alpha = 0.3f) else AccentOrange.copy(alpha = 0.3f)),
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        ) {
-                            Row(
-                                Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Shield,
-                                        contentDescription = null,
-                                        tint = if (isBufferSafe) AccentGreen else AccentOrange,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = "Hysteresis Buffer: +$hystBuffer%",
-                                        color = if (isBufferSafe) AccentGreen else AccentOrange,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Text(
-                                    text = if (isBufferSafe) "Bebas Osilasi Stutter" else "Buffer Minimum!",
-                                    color = TextSecondary,
-                                    fontSize = 9.5.sp
-                                )
-                            }
-                        }
-
-                        // Sched Upmigrate Tile
-                        LynxTweakTile(
+                // Sched Upmigrate Tile
+                LynxTweakTile(
+                    title = "Upmigrate (Little → Big)",
+                    subtitle = "Ambang beban promosi task ke Big Core",
+                    displayValue = "${upmigrateVal.toInt()}%",
+                    statusBadge = if (upmigrateVal <= 70f) "⚡ Agresif" else if (upmigrateVal >= 90f) "🔋 Hemat" else "⚖️ Seimbang",
+                    onClick = {
+                        activeTweakConfig = TweakConfig(
+                            id = "sched_upmigrate",
                             title = "Sched Upmigrate (Little → Big)",
-                            subtitle = "Ambang batas beban promosi task ke Big Core",
-                            displayValue = "${upmigrateVal.toInt()}%",
-                            statusBadge = if (upmigrateVal <= 70f) "⚡ Agresif" else if (upmigrateVal >= 90f) "🔋 Hemat" else "⚖️ Seimbang",
-                            onClick = {
-                                activeTweakConfig = TweakConfig(
-                                    id = "sched_upmigrate",
-                                    title = "Sched Upmigrate (Little → Big)",
-                                    category = "HMP",
-                                    description = "Ambang batas persentase beban di Little Core sebelum task dipromosikan ke Big Core. Nilai lebih rendah membuat CPU lebih agresif memindahkan beban berat ke Big Core demi kelancaran aplikasi/game.",
-                                    currentValue = upmigrateVal,
-                                    defaultValue = 85f,
-                                    valueRange = 40f..100f,
-                                    steps = 11,
-                                    formatDisplay = { v -> "${v.toInt()}%" },
-                                    recommendations = listOf(
-                                        TweakRecommendation("🎮 Game", "65% (Promosi Agresif)", 65f),
-                                        TweakRecommendation("⚖️ Seimbang", "85% (Standar OEM)", 85f),
-                                        TweakRecommendation("🔋 Hemat", "95% (Tahan di Little)", 95f)
-                                    ),
-                                    onApply = { v ->
-                                        upmigrateVal = v
-                                        if (downmigrateVal > v - 5f) {
-                                            downmigrateVal = (v - 5f).coerceAtLeast(20f)
-                                        }
-                                        viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
-                                    }
-                                )
-                            }
-                        )
-
-                        // Sched Downmigrate Tile
-                        LynxTweakTile(
-                            title = "Sched Downmigrate (Big → Little)",
-                            subtitle = "Ambang batas penurunan task kembali ke Little Core",
-                            displayValue = "${downmigrateVal.toInt()}%",
-                            statusBadge = if (downmigrateVal <= 50f) "Tahan Big" else "⚖️ Seimbang",
-                            onClick = {
-                                activeTweakConfig = TweakConfig(
-                                    id = "sched_downmigrate",
-                                    title = "Sched Downmigrate (Big → Little)",
-                                    category = "HMP",
-                                    description = "Ambang batas beban Big Core sebelum task diturunkan kembali ke Little Core demi penghematan daya (Sistem otomatis mengunci downmigrate <= upmigrate - 5% agar bebas stutter).",
-                                    currentValue = downmigrateVal,
-                                    defaultValue = 65f,
-                                    valueRange = 20f..95f,
-                                    steps = 14,
-                                    formatDisplay = { v -> "${v.toInt()}%" },
-                                    recommendations = listOf(
-                                        TweakRecommendation("🎮 Game", "50% (Tahan di Big Core)", 50f),
-                                        TweakRecommendation("⚖️ Seimbang", "65% (Standar OEM)", 65f),
-                                        TweakRecommendation("🔋 Hemat", "80% (Cepat Hemat)", 80f)
-                                    ),
-                                    onApply = { v ->
-                                        val maxAllowed = (upmigrateVal - 5f).coerceAtLeast(20f)
-                                        downmigrateVal = v.coerceAtMost(maxAllowed)
-                                        viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
-                                    }
-                                )
-                            }
-                        )
-
-                        // Sched Init Task Load Tile
-                        LynxTweakTile(
-                            title = "Sched Init Task Load (Fork Initial)",
-                            subtitle = "Estimasi beban awal proses baru saat fork",
-                            displayValue = "${initTaskLoadVal.toInt()}%",
-                            statusBadge = if (initTaskLoadVal >= 50f) "Start Big" else "Standar",
-                            onClick = {
-                                activeTweakConfig = TweakConfig(
-                                    id = "sched_init_task_load",
-                                    title = "Sched Init Task Load (Fork Initial Load)",
-                                    category = "HMP",
-                                    description = "Estimasi beban awal proses baru saat pertama kali dibuat (fork). Nilai tinggi langsung mengeksekusi proses baru di Big Core demi kecepatan startup aplikasi/game.",
-                                    currentValue = initTaskLoadVal,
-                                    defaultValue = 35f,
-                                    valueRange = 5f..100f,
-                                    steps = 18,
-                                    formatDisplay = { v -> "${v.toInt()}%" },
-                                    recommendations = listOf(
-                                        TweakRecommendation("🎮 Game", "60% (Start Cepat Big)", 60f),
-                                        TweakRecommendation("⚖️ Seimbang", "35% (Standar Android)", 35f),
-                                        TweakRecommendation("🔋 Hemat", "15% (Start di Little)", 15f)
-                                    ),
-                                    onApply = { v ->
-                                        initTaskLoadVal = v
-                                        viewModel.setSchedulerTunable("sched_init_task_load", v.toLong(), context)
-                                    }
-                                )
-                            }
-                        )
-
-                        // Spilling controls if supported
-                        if (schedInfo.isSpillSupported) {
-                            LynxTweakTile(
-                                title = "Sched Spill Nr Run (Queue Threshold)",
-                                subtitle = "Batas antrean task sebelum dialihkan ke core lain",
-                                displayValue = "${spillNrRunVal.toInt()} Task",
-                                onClick = {
-                                    activeTweakConfig = TweakConfig(
-                                        id = "sched_spill_nr_run",
-                                        title = "Sched Spill Nr Run (Queue Spill Threshold)",
-                                        category = "HMP",
-                                        description = "Maksimum jumlah antrean task pada satu CPU core sebelum dialihkan (spillover) ke core lain yang lebih senggang.",
-                                        currentValue = spillNrRunVal,
-                                        defaultValue = 3f,
-                                        valueRange = 1f..10f,
-                                        steps = 8,
-                                        formatDisplay = { v -> "${v.toInt()} Task" },
-                                        recommendations = listOf(
-                                            TweakRecommendation("🎮 Game", "2 Task (Spillover Cepat)", 2f),
-                                            TweakRecommendation("⚖️ Seimbang", "3 Task (Standar)", 3f),
-                                            TweakRecommendation("🔋 Hemat", "5 Task (Minim Migrasi)", 5f)
-                                        ),
-                                        onApply = { v ->
-                                            spillNrRunVal = v
-                                            viewModel.setSchedulerTunable("sched_spill_nr_run", v.toLong(), context)
-                                        }
-                                    )
+                            category = "HMP",
+                            description = "Ambang batas persentase beban di Little Core sebelum task dipromosikan ke Big Core. Nilai lebih rendah membuat CPU lebih agresif memindahkan beban berat ke Big Core demi kelancaran aplikasi/game.",
+                            currentValue = upmigrateVal,
+                            defaultValue = 85f,
+                            valueRange = 40f..100f,
+                            steps = 11,
+                            formatDisplay = { v -> "${v.toInt()}%" },
+                            recommendations = listOf(
+                                TweakRecommendation("🎮 Game", "65% (Promosi Agresif)", 65f),
+                                TweakRecommendation("⚖️ Seimbang", "85% (Standar OEM)", 85f),
+                                TweakRecommendation("🔋 Hemat", "95% (Tahan di Little)", 95f)
+                            ),
+                            onApply = { v ->
+                                upmigrateVal = v
+                                if (downmigrateVal > v - 5f) {
+                                    downmigrateVal = (v - 5f).coerceAtLeast(20f)
                                 }
-                            )
-
-                            LynxTweakTile(
-                                title = "Sched Spill Load Threshold",
-                                subtitle = "Ambang batas beban core untuk spillover",
-                                displayValue = "${spillLoadVal.toInt()}%",
-                                onClick = {
-                                    activeTweakConfig = TweakConfig(
-                                        id = "sched_spill_load",
-                                        title = "Sched Spill Load Threshold",
-                                        category = "HMP",
-                                        description = "Ambang batas beban CPU sebelum mengizinkan spillover ke core lain.",
-                                        currentValue = spillLoadVal,
-                                        defaultValue = 90f,
-                                        valueRange = 50f..100f,
-                                        steps = 10,
-                                        formatDisplay = { v -> "${v.toInt()}%" },
-                                        recommendations = listOf(
-                                            TweakRecommendation("🎮 Game", "75% (Distribusi Cepat)", 75f),
-                                            TweakRecommendation("⚖️ Seimbang", "90% (Standar)", 90f),
-                                            TweakRecommendation("🔋 Hemat", "98% (Core Penuh)", 98f)
-                                        ),
-                                        onApply = { v ->
-                                            spillLoadVal = v
-                                            viewModel.setSchedulerTunable("sched_spill_load", v.toLong(), context)
-                                        }
-                                    )
-                                }
-                            )
-                        }
+                                viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
+                            }
+                        )
                     }
+                )
+
+                // Sched Downmigrate Tile
+                LynxTweakTile(
+                    title = "Downmigrate (Big → Little)",
+                    subtitle = "Ambang beban penurunan ke Little Core",
+                    displayValue = "${downmigrateVal.toInt()}%",
+                    statusBadge = if (downmigrateVal <= 50f) "Tahan Big" else "⚖️ Seimbang",
+                    onClick = {
+                        activeTweakConfig = TweakConfig(
+                            id = "sched_downmigrate",
+                            title = "Sched Downmigrate (Big → Little)",
+                            category = "HMP",
+                            description = "Ambang batas beban Big Core sebelum task diturunkan kembali ke Little Core demi penghematan daya (Sistem otomatis mengunci downmigrate <= upmigrate - 5% agar bebas stutter).",
+                            currentValue = downmigrateVal,
+                            defaultValue = 65f,
+                            valueRange = 20f..95f,
+                            steps = 14,
+                            formatDisplay = { v -> "${v.toInt()}%" },
+                            recommendations = listOf(
+                                TweakRecommendation("🎮 Game", "50% (Tahan di Big Core)", 50f),
+                                TweakRecommendation("⚖️ Seimbang", "65% (Standar OEM)", 65f),
+                                TweakRecommendation("🔋 Hemat", "80% (Cepat Hemat)", 80f)
+                            ),
+                            onApply = { v ->
+                                val maxAllowed = (upmigrateVal - 5f).coerceAtLeast(20f)
+                                downmigrateVal = v.coerceAtMost(maxAllowed)
+                                viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
+                            }
+                        )
+                    }
+                )
+            }
+
+            // ── SCHEDUTIL & FREQUENCY ───────────────────────────
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)
+            ) {
+                Text("SCHEDUTIL & FREQUENCY", color = AccentBlue, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+                Spacer(Modifier.width(8.dp))
+                HorizontalDivider(color = AccentBlue.copy(alpha = 0.25f), modifier = Modifier.weight(1f))
+            }
+
+            // Schedutil Up Rate Tile
+            LynxTweakTile(
+                title = "Ramp-Up Rate (Naik Clock)",
+                subtitle = "Waktu tunggu sebelum CPU menaikkan clock",
+                displayValue = if (schedUpRate == 0f) "0 µs (Instan)" else "${schedUpRate.toInt()} µs",
+                statusBadge = if (schedUpRate == 0f) "🚀 Instan" else if (schedUpRate >= 1500f) "🔋 Hemat" else "⚖️ Seimbang",
+                onClick = {
+                    activeTweakConfig = TweakConfig(
+                        id = "up_rate_limit_us",
+                        title = "Schedutil Ramp-Up Rate Limit",
+                        category = "Schedutil",
+                        description = "Waktu tunggu sebelum CPU menaikkan frekuensi clock. Nilai 0 µs membuat CPU langsung melompat ke frekuensi puncak seketika saat game membutuhkan komputasi berat.",
+                        currentValue = schedUpRate,
+                        defaultValue = 500f,
+                        valueRange = 0f..10000f,
+                        steps = 19,
+                        formatDisplay = { v -> if (v == 0f) "0 µs (Instant Jump)" else "${v.toInt()} µs" },
+                        recommendations = listOf(
+                            TweakRecommendation("🎮 Game", "0 µs (Jump Instan)", 0f),
+                            TweakRecommendation("⚖️ Seimbang", "500 µs (Stabil)", 500f),
+                            TweakRecommendation("🔋 Hemat", "2000 µs (Cegah Spike)", 2000f)
+                        ),
+                        onApply = { v ->
+                            schedUpRate = v
+                            viewModel.setSchedulerTunable("up_rate_limit_us", v.toLong(), context)
+                        }
+                    )
+                }
+            )
+
+            // Schedutil Down Rate Tile
+            LynxTweakTile(
+                title = "Ramp-Down Rate (Tahan Clock)",
+                subtitle = "Waktu tahan frekuensi sebelum turun ke idle",
+                displayValue = "${schedDownRate.toInt() / 1000} ms",
+                statusBadge = if (schedDownRate >= 20000f) "Tahan Tinggi" else "⚖️ Normal",
+                onClick = {
+                    activeTweakConfig = TweakConfig(
+                        id = "down_rate_limit_us",
+                        title = "Schedutil Ramp-Down Rate Limit",
+                        category = "Schedutil",
+                        description = "Waktu tahan sebelum CPU menurunkan clock kembali ke frekuensi idle. Mempertahankan frekuensi tinggi lebih lama mencegah micro-stutter saat frame drop.",
+                        currentValue = schedDownRate,
+                        defaultValue = 20000f,
+                        valueRange = 1000f..40000f,
+                        steps = 38,
+                        formatDisplay = { v -> "${v.toInt() / 1000} ms (${v.toInt()} µs)" },
+                        recommendations = listOf(
+                            TweakRecommendation("🎮 Game", "30 ms (Tahan Clock)", 30000f),
+                            TweakRecommendation("⚖️ Seimbang", "10 ms (Standar)", 10000f),
+                            TweakRecommendation("🔋 Hemat", "2 ms (Cepat Turun)", 2000f)
+                        ),
+                        onApply = { v ->
+                            schedDownRate = v
+                            viewModel.setSchedulerTunable("down_rate_limit_us", v.toLong(), context)
+                        }
+                    )
+                }
+            )
+
+            // ── EXPANDABLE ACCORDION FOR ADVANCED / MICRO TUNABLES ──
+            Spacer(Modifier.height(4.dp))
+            val advancedCount = 5 + (if (schedInfo.isSpillSupported) 2 else 0)
+
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(1.dp, if (showAdvancedSched) AccentCyan.copy(alpha = 0.5f) else BorderGlass),
+                modifier = Modifier.fillMaxWidth().clickable { showAdvancedSched = !showAdvancedSched }
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = if (showAdvancedSched) AccentCyan else TextSecondary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Parameter Granularitas Lanjutan ($advancedCount)",
+                            color = if (showAdvancedSched) TextPrimary else TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Icon(
+                        imageVector = if (showAdvancedSched) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = if (showAdvancedSched) AccentCyan else TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
 
-            // ── SUB-CARD 3: CFS & SCHEDUTIL CORE GRANULARITY ──
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderSubtle),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
-            ) {
-                Column(Modifier.padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Speed, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("CFS & Schedutil Core Granularity", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            if (showAdvancedSched) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Sched Init Task Load Tile
+                    LynxTweakTile(
+                        title = "Init Task Load (Fork Initial)",
+                        subtitle = "Estimasi beban awal proses baru saat fork",
+                        displayValue = "${initTaskLoadVal.toInt()}%",
+                        statusBadge = if (initTaskLoadVal >= 50f) "Start Big" else "Standar",
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "sched_init_task_load",
+                                title = "Sched Init Task Load (Fork Initial Load)",
+                                category = "HMP",
+                                description = "Estimasi beban awal proses baru saat pertama kali dibuat (fork). Nilai tinggi langsung mengeksekusi proses baru di Big Core demi kecepatan startup aplikasi/game.",
+                                currentValue = initTaskLoadVal,
+                                defaultValue = 35f,
+                                valueRange = 5f..100f,
+                                steps = 18,
+                                formatDisplay = { v -> "${v.toInt()}%" },
+                                recommendations = listOf(
+                                    TweakRecommendation("🎮 Game", "60% (Start Cepat Big)", 60f),
+                                    TweakRecommendation("⚖️ Seimbang", "35% (Standar Android)", 35f),
+                                    TweakRecommendation("🔋 Hemat", "15% (Start di Little)", 15f)
+                                ),
+                                onApply = { v ->
+                                    initTaskLoadVal = v
+                                    viewModel.setSchedulerTunable("sched_init_task_load", v.toLong(), context)
+                                }
+                            )
+                        }
+                    )
+
+                    // Spilling controls if supported
+                    if (schedInfo.isSpillSupported) {
+                        LynxTweakTile(
+                            title = "Sched Spill Nr Run",
+                            subtitle = "Batas antrean task sebelum dialihkan ke core lain",
+                            displayValue = "${spillNrRunVal.toInt()} Task",
+                            onClick = {
+                                activeTweakConfig = TweakConfig(
+                                    id = "sched_spill_nr_run",
+                                    title = "Sched Spill Nr Run (Queue Spill Threshold)",
+                                    category = "HMP",
+                                    description = "Maksimum jumlah antrean task pada satu CPU core sebelum dialihkan (spillover) ke core lain yang lebih senggang.",
+                                    currentValue = spillNrRunVal,
+                                    defaultValue = 3f,
+                                    valueRange = 1f..10f,
+                                    steps = 8,
+                                    formatDisplay = { v -> "${v.toInt()} Task" },
+                                    recommendations = listOf(
+                                        TweakRecommendation("🎮 Game", "2 Task (Spillover Cepat)", 2f),
+                                        TweakRecommendation("⚖️ Seimbang", "3 Task (Standar)", 3f),
+                                        TweakRecommendation("🔋 Hemat", "5 Task (Minim Migrasi)", 5f)
+                                    ),
+                                    onApply = { v ->
+                                        spillNrRunVal = v
+                                        viewModel.setSchedulerTunable("sched_spill_nr_run", v.toLong(), context)
+                                    }
+                                )
+                            }
+                        )
+
+                        LynxTweakTile(
+                            title = "Sched Spill Load Threshold",
+                            subtitle = "Ambang batas beban core untuk spillover",
+                            displayValue = "${spillLoadVal.toInt()}%",
+                            onClick = {
+                                activeTweakConfig = TweakConfig(
+                                    id = "sched_spill_load",
+                                    title = "Sched Spill Load Threshold",
+                                    category = "HMP",
+                                    description = "Ambang batas beban CPU sebelum mengizinkan spillover ke core lain.",
+                                    currentValue = spillLoadVal,
+                                    defaultValue = 90f,
+                                    valueRange = 50f..100f,
+                                    steps = 10,
+                                    formatDisplay = { v -> "${v.toInt()}%" },
+                                    recommendations = listOf(
+                                        TweakRecommendation("🎮 Game", "75% (Distribusi Cepat)", 75f),
+                                        TweakRecommendation("⚖️ Seimbang", "90% (Standar)", 90f),
+                                        TweakRecommendation("🔋 Hemat", "98% (Core Penuh)", 98f)
+                                    ),
+                                    onApply = { v ->
+                                        spillLoadVal = v
+                                        viewModel.setSchedulerTunable("sched_spill_load", v.toLong(), context)
+                                    }
+                                )
+                            }
+                        )
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text("Time-slice scheduling, latensi preemption, dan kecepatan respon frekuensi", color = TextSecondary, fontSize = 9.5.sp)
-                    Spacer(Modifier.height(8.dp))
-
-                    // Schedutil Up Rate Tile
-                    LynxTweakTile(
-                        title = "Schedutil Ramp-Up Rate Limit",
-                        subtitle = "Waktu tunggu sebelum CPU menaikkan frekuensi",
-                        displayValue = if (schedUpRate == 0f) "0 µs (Instant)" else "${schedUpRate.toInt()} µs",
-                        statusBadge = if (schedUpRate == 0f) "🚀 Instan" else if (schedUpRate >= 1500f) "🔋 Hemat" else "⚖️ Seimbang",
-                        onClick = {
-                            activeTweakConfig = TweakConfig(
-                                id = "up_rate_limit_us",
-                                title = "Schedutil Ramp-Up Rate Limit",
-                                category = "Schedutil",
-                                description = "Waktu tunggu sebelum CPU menaikkan frekuensi clock. Nilai 0 µs membuat CPU langsung melompat ke frekuensi puncak seketika saat game membutuhkan komputasi berat.",
-                                currentValue = schedUpRate,
-                                defaultValue = 500f,
-                                valueRange = 0f..10000f,
-                                steps = 19,
-                                formatDisplay = { v -> if (v == 0f) "0 µs (Instant Jump)" else "${v.toInt()} µs" },
-                                recommendations = listOf(
-                                    TweakRecommendation("🎮 Game", "0 µs (Jump Instan)", 0f),
-                                    TweakRecommendation("⚖️ Seimbang", "500 µs (Stabil)", 500f),
-                                    TweakRecommendation("🔋 Hemat", "2000 µs (Cegah Spike)", 2000f)
-                                ),
-                                onApply = { v ->
-                                    schedUpRate = v
-                                    viewModel.setSchedulerTunable("up_rate_limit_us", v.toLong(), context)
-                                }
-                            )
-                        }
-                    )
-
-                    // Schedutil Down Rate Tile
-                    LynxTweakTile(
-                        title = "Schedutil Ramp-Down Rate Limit",
-                        subtitle = "Waktu tahan sebelum CPU menurunkan clock",
-                        displayValue = "${schedDownRate.toInt() / 1000} ms",
-                        statusBadge = if (schedDownRate >= 20000f) "Tahan Tinggi" else "⚖️ Normal",
-                        onClick = {
-                            activeTweakConfig = TweakConfig(
-                                id = "down_rate_limit_us",
-                                title = "Schedutil Ramp-Down Rate Limit",
-                                category = "Schedutil",
-                                description = "Waktu tahan sebelum CPU menurunkan clock kembali ke frekuensi idle. Mempertahankan frekuensi tinggi lebih lama mencegah micro-stutter saat frame drop.",
-                                currentValue = schedDownRate,
-                                defaultValue = 20000f,
-                                valueRange = 1000f..40000f,
-                                steps = 38,
-                                formatDisplay = { v -> "${v.toInt() / 1000} ms (${v.toInt()} µs)" },
-                                recommendations = listOf(
-                                    TweakRecommendation("🎮 Game", "30 ms (Tahan Clock)", 30000f),
-                                    TweakRecommendation("⚖️ Seimbang", "10 ms (Standar)", 10000f),
-                                    TweakRecommendation("🔋 Hemat", "2 ms (Cepat Turun)", 2000f)
-                                ),
-                                onApply = { v ->
-                                    schedDownRate = v
-                                    viewModel.setSchedulerTunable("down_rate_limit_us", v.toLong(), context)
-                                }
-                            )
-                        }
-                    )
 
                     // CFS Latency Tile
                     LynxTweakTile(
@@ -1407,19 +1359,19 @@ fun TuningCpuCategory(
 
                     // Child Process Runs First
                     Row(
-                        Modifier.fillMaxWidth().padding(top = 4.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                            Text("Child Process Runs First", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Text("Prioritaskan eksekusi child process saat fork untuk mempercepat buka aplikasi", color = TextSecondary, fontSize = 9.5.sp)
+                            Text("Child Process Runs First", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp)
+                            Text("Prioritaskan eksekusi child process saat fork", color = TextSecondary, fontSize = 9.sp)
                         }
                         Switch(
                             checked = schedInfo.schedChildRunsFirst,
                             onCheckedChange = { viewModel.setSchedulerTunable("sched_child_runs_first", if (it) 1L else 0L, context) },
                             colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
-                            modifier = Modifier.scale(0.85f)
+                            modifier = Modifier.scale(0.8f)
                         )
                     }
                 }
