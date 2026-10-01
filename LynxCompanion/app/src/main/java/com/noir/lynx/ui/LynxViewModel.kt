@@ -242,16 +242,28 @@ class LynxViewModel : ViewModel() {
                             } else {
                                 (current.cpuLoadHistory + totalLoad).takeLast(30)
                             }
+                            val activeClusters = if (freshClusters != null && freshClusters.isNotEmpty()) freshClusters else current.clusters
+                            val rawCores = if (cores.isNotEmpty()) cores else current.cpuCores
+                            val syncedCores = rawCores.map { core ->
+                                val parent = activeClusters.find { it.containsCore(core.coreId) }
+                                if (parent != null) {
+                                    core.copy(
+                                        minFreqKhz = parent.curMin,
+                                        maxFreqKhz = parent.curMax,
+                                        isLocked = parent.isLocked
+                                    )
+                                } else core
+                            }
                             current.copy(
                                 telemetry = tel ?: current.telemetry,
-                                cpuCores = if (cores.isNotEmpty()) cores else current.cpuCores,
+                                cpuCores = syncedCores,
                                 topCpuProcesses = if (procs.isNotEmpty()) procs else current.topCpuProcesses,
                                 totalCpuLoadPercent = totalLoad,
                                 cpuLoadHistory = newHistory,
                                 batteryDetails = batt ?: current.batteryDetails,
                                 gpuInfo = gpu ?: current.gpuInfo,
                                 thermalZones = if (therm != null && therm.isNotEmpty()) therm else current.thermalZones,
-                                clusters = if (freshClusters != null && freshClusters.isNotEmpty()) freshClusters else current.clusters,
+                                clusters = activeClusters,
                             )
                         }
                     }
@@ -295,7 +307,19 @@ class LynxViewModel : ViewModel() {
             try {
                 val clusters = LynxRepository.readClusters()
                 if (clusters.isNotEmpty()) {
-                    _uiState.update { it.copy(clusters = clusters) }
+                    _uiState.update { current ->
+                        val syncedCores = current.cpuCores.map { core ->
+                            val parent = clusters.find { it.containsCore(core.coreId) }
+                            if (parent != null) {
+                                core.copy(
+                                    minFreqKhz = parent.curMin,
+                                    maxFreqKhz = parent.curMax,
+                                    isLocked = parent.isLocked
+                                )
+                            } else core
+                        }
+                        current.copy(clusters = clusters, cpuCores = syncedCores)
+                    }
                 }
             } catch (e: Exception) {
                 // Silent failure
@@ -311,7 +335,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             // Optimistic update for zero-latency touch response
             _uiState.update { current ->
-                val updated = current.clusters.map { c ->
+                val updatedClusters = current.clusters.map { c ->
                     if (c.id == policyId) {
                         c.copy(
                             curMin = minFreq ?: c.curMin,
@@ -319,7 +343,17 @@ class LynxViewModel : ViewModel() {
                         )
                     } else c
                 }
-                current.copy(clusters = updated)
+                val updatedCores = current.cpuCores.map { core ->
+                    val parent = updatedClusters.find { it.containsCore(core.coreId) }
+                    if (parent != null) {
+                        core.copy(
+                            minFreqKhz = parent.curMin,
+                            maxFreqKhz = parent.curMax,
+                            isLocked = parent.isLocked
+                        )
+                    } else core
+                }
+                current.copy(clusters = updatedClusters, cpuCores = updatedCores)
             }
             LynxRepository.setClusterFreq(policyId, minFreq, maxFreq)
             refreshClusters()
@@ -346,7 +380,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             // Optimistic update for zero-latency touch response
             _uiState.update { current ->
-                val updated = current.clusters.map { c ->
+                val updatedClusters = current.clusters.map { c ->
                     if (c.id == policyId) {
                         c.copy(
                             isLocked = lock,
@@ -355,7 +389,17 @@ class LynxViewModel : ViewModel() {
                         )
                     } else c
                 }
-                current.copy(clusters = updated)
+                val updatedCores = current.cpuCores.map { core ->
+                    val parent = updatedClusters.find { it.containsCore(core.coreId) }
+                    if (parent != null) {
+                        core.copy(
+                            minFreqKhz = parent.curMin,
+                            maxFreqKhz = parent.curMax,
+                            isLocked = parent.isLocked
+                        )
+                    } else core
+                }
+                current.copy(clusters = updatedClusters, cpuCores = updatedCores)
             }
             LynxRepository.setClusterLock(policyId, lock, minFreq, maxFreq)
             refreshClusters()
@@ -1339,9 +1383,20 @@ class LynxViewModel : ViewModel() {
                 val statLoads = LynxRepository.readCpuStatLoads()
                 val socPlatform = LynxRepository.getSocPlatformName()
                 val socTopology = LynxRepository.getSocTopology(_uiState.value.clusters, cores.size.coerceAtLeast(8))
+                val activeClusters = _uiState.value.clusters
+                val syncedCores = cores.map { core ->
+                    val parent = activeClusters.find { it.containsCore(core.coreId) }
+                    if (parent != null) {
+                        core.copy(
+                            minFreqKhz = parent.curMin,
+                            maxFreqKhz = parent.curMax,
+                            isLocked = parent.isLocked
+                        )
+                    } else core
+                }
                 _uiState.update {
                     it.copy(
-                        cpuCores = if (cores.isNotEmpty()) cores else it.cpuCores,
+                        cpuCores = if (syncedCores.isNotEmpty()) syncedCores else it.cpuCores,
                         topCpuProcesses = if (procs.isNotEmpty()) procs else it.topCpuProcesses,
                         totalCpuLoadPercent = statLoads.first,
                         socPlatformName = if (it.socPlatformName.isBlank()) socPlatform else it.socPlatformName,

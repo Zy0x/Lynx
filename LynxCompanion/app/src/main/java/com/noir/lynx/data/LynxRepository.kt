@@ -651,13 +651,41 @@ object LynxRepository {
         }
     }
 
+    // Authoritative registry of user-locked cluster policies: policyId -> Pair(minFreq, maxFreq)
+    val lockedClusterBounds = java.util.concurrent.ConcurrentHashMap<Int, Pair<Long, Long>>()
+
+    fun reapplyClusterLock(policyId: Int, minFreq: Long, maxFreq: Long) {
+        try {
+            val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
+            val mtkCluster = if (policyId >= 6) 1 else 0
+            val cmd = buildString {
+                append("chmod 644 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
+                append("echo $maxFreq > $pDir/scaling_max_freq 2>/dev/null; ")
+                append("echo $minFreq > $pDir/scaling_min_freq 2>/dev/null; ")
+                append("if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then ")
+                append("echo '$mtkCluster $maxFreq' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
+                append("echo '$mtkCluster $minFreq' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
+                append("fi; ")
+                append("if [ -f /proc/ppm/policy/userlimit_max_cpu_freq ]; then ")
+                append("echo '$mtkCluster $maxFreq' > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
+                append("echo '$mtkCluster $minFreq' > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
+                append("fi; ")
+                if (minFreq == maxFreq) {
+                    append("if [ -f /proc/ppm/policy_status ]; then echo '2 0' > /proc/ppm/policy_status 2>/dev/null; fi; ")
+                }
+                append("chmod 444 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
+            }
+            Shell.cmd(cmd).submit()
+        } catch (_: Exception) {}
+    }
+
     /**
      * Discover dynamic CPU cluster topology.
      * Works both with module and standalone root.
      */
     suspend fun readClusters(): List<CpuClusterInfo> = withContext(Dispatchers.IO) {
         try {
-            if (isModuleInstalled()) {
+            val rawList = if (isModuleInstalled()) {
                 val cmd = "sh '$MODULE_DIR/core/lib/cluster_manager.sh' topology 2>/dev/null"
                 val result = Shell.cmd(cmd).exec()
                 if (!result.isSuccess || result.out.isEmpty()) return@withContext emptyList()
@@ -766,6 +794,27 @@ object LynxRepository {
                 }
                 list
             }
+
+            // Enforce locked cluster bounds single source of truth:
+            rawList.map { cluster ->
+                val lockedRange = lockedClusterBounds[cluster.id]
+                if (lockedRange != null) {
+                    val (lMin, lMax) = lockedRange
+                    if (cluster.curMin != lMin || cluster.curMax != lMax || !cluster.isLocked) {
+                        reapplyClusterLock(cluster.id, lMin, lMax)
+                    }
+                    cluster.copy(
+                        isLocked = true,
+                        curMin = lMin,
+                        curMax = lMax
+                    )
+                } else {
+                    if (cluster.isLocked && cluster.curMin > 0 && cluster.curMax > 0) {
+                        lockedClusterBounds.putIfAbsent(cluster.id, Pair(cluster.curMin, cluster.curMax))
+                    }
+                    cluster
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "readClusters failed: ${e.message}")
             emptyList()
@@ -797,7 +846,11 @@ object LynxRepository {
 
             val wasLocked = Shell.cmd("ls -ld $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.let {
                 it.startsWith("-r--") || it.contains("r--r--r--")
-            } ?: false
+            } ?: false || lockedClusterBounds.containsKey(policyId)
+
+            if (lockedClusterBounds.containsKey(policyId)) {
+                lockedClusterBounds[policyId] = Pair(safeMin, safeMax)
+            }
 
             val cmd = if (isModuleInstalled()) {
                 "sh '$MODULE_DIR/core/lib/cluster_manager.sh' set_freq $policyId '$safeMin' '$safeMax'"
@@ -813,6 +866,13 @@ object LynxRepository {
                     append("echo '$mtkCluster $safeMax' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
                     append("echo '$mtkCluster $safeMin' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
                     append("fi; ")
+                    append("if [ -f /proc/ppm/policy/userlimit_max_cpu_freq ]; then ")
+                    append("echo '$mtkCluster $safeMax' > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
+                    append("echo '$mtkCluster $safeMin' > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
+                    append("fi; ")
+                    if (safeMin == safeMax) {
+                        append("if [ -f /proc/ppm/policy_status ]; then echo '2 0' > /proc/ppm/policy_status 2>/dev/null; fi; ")
+                    }
                     if (wasLocked) {
                         append("chmod 444 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
                     }
@@ -846,6 +906,8 @@ object LynxRepository {
                 var safeMax = (maxFreq ?: curMax).coerceIn(hwMin, hwMax)
                 if (safeMin > safeMax) safeMax = safeMin
 
+                lockedClusterBounds[policyId] = Pair(safeMin, safeMax)
+
                 val cmd = if (isModuleInstalled()) {
                     "sh '$MODULE_DIR/core/lib/cluster_manager.sh' lock_freq $policyId '$safeMin' '$safeMax'"
                 } else {
@@ -858,12 +920,20 @@ object LynxRepository {
                         append("echo '$mtkCluster $safeMax' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
                         append("echo '$mtkCluster $safeMin' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
                         append("fi; ")
+                        append("if [ -f /proc/ppm/policy/userlimit_max_cpu_freq ]; then ")
+                        append("echo '$mtkCluster $safeMax' > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
+                        append("echo '$mtkCluster $safeMin' > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
+                        append("fi; ")
+                        if (safeMin == safeMax) {
+                            append("if [ -f /proc/ppm/policy_status ]; then echo '2 0' > /proc/ppm/policy_status 2>/dev/null; fi; ")
+                        }
                         // READ-ONLY GUARD: Protect nodes from OEM thermal-engine / powerhal overwrite
                         append("chmod 444 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
                     }
                 }
                 Shell.cmd(cmd).exec().isSuccess
             } else {
+                lockedClusterBounds.remove(policyId)
                 val cmd = if (isModuleInstalled()) {
                     "sh '$MODULE_DIR/core/lib/cluster_manager.sh' unlock_freq $policyId"
                 } else {
@@ -875,6 +945,11 @@ object LynxRepository {
                         append("echo '$mtkCluster -1' > /proc/ppm/policy/hard_userlimit_max_cpu_freq 2>/dev/null; ")
                         append("echo '$mtkCluster -1' > /proc/ppm/policy/hard_userlimit_min_cpu_freq 2>/dev/null; ")
                         append("fi; ")
+                        append("if [ -f /proc/ppm/policy/userlimit_max_cpu_freq ]; then ")
+                        append("echo '$mtkCluster -1' > /proc/ppm/policy/userlimit_max_cpu_freq 2>/dev/null; ")
+                        append("echo '$mtkCluster -1' > /proc/ppm/policy/userlimit_min_cpu_freq 2>/dev/null; ")
+                        append("fi; ")
+                        append("if [ -f /proc/ppm/policy_status ]; then echo '2 1' > /proc/ppm/policy_status 2>/dev/null; fi; ")
                     }
                 }
                 Shell.cmd(cmd).exec().isSuccess
@@ -2626,9 +2701,16 @@ object LynxRepository {
                     val online = parts[1] == "1"
                     val switchable = parts[2] == "1"
                     val freq = parts[3].toLongOrNull() ?: 0L
-                    val minKhz = parts[4].toLongOrNull() ?: 500000L
-                    val maxKhz = parts[5].toLongOrNull() ?: 2000000L
-                    val locked = parts.getOrNull(6) == "1"
+                    val rawMinKhz = parts[4].toLongOrNull() ?: 500000L
+                    val rawMaxKhz = parts[5].toLongOrNull() ?: 2000000L
+                    val rawLocked = parts.getOrNull(6) == "1"
+
+                    // Resolve cluster lock domain for this core (e.g. policy0 for cores 0..5, policy6 for cores 6..7)
+                    val policyId = if (id >= 6) 6 else 0
+                    val lockedRange = lockedClusterBounds[policyId]
+                    val isCoreLocked = lockedRange != null || rawLocked
+                    val minKhz = lockedRange?.first ?: rawMinKhz
+                    val maxKhz = lockedRange?.second ?: rawMaxKhz
 
                     var load = if (online) (perCoreLoads[id] ?: 0) else 0
                     if (online && load == 0 && maxKhz > minKhz && freq > minKhz) {
@@ -2643,7 +2725,7 @@ object LynxRepository {
                         loadPercent = load,
                         minFreqKhz = minKhz,
                         maxFreqKhz = maxKhz,
-                        isLocked = locked
+                        isLocked = isCoreLocked
                     )
                 } else null
             }.sortedBy { it.coreId }

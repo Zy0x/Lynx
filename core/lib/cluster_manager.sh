@@ -103,12 +103,19 @@ set_cluster_freq() {
         [ -n "$min_freq" ] && [ "$min_freq" -gt 0 ] 2>/dev/null && write_node "$min_freq" "$policy/scaling_min_freq"
         [ -n "$max_freq" ] && [ "$max_freq" -gt 0 ] 2>/dev/null && write_node "$max_freq" "$policy/scaling_max_freq"
 
-        # MediaTek PPM hard limit sync
+        # MediaTek PPM hard limit and user limit sync
+        local mtk_cluster=0
+        [ "$p_num" -ge 6 ] && mtk_cluster=1
         if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then
-            local mtk_cluster=0
-            [ "$p_num" -ge 6 ] && mtk_cluster=1
             write_node "$mtk_cluster $max_freq" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
             write_node "$mtk_cluster $min_freq" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+        fi
+        if [ -f /proc/ppm/policy/userlimit_max_cpu_freq ]; then
+            write_node "$mtk_cluster $max_freq" "/proc/ppm/policy/userlimit_max_cpu_freq"
+            write_node "$mtk_cluster $min_freq" "/proc/ppm/policy/userlimit_min_cpu_freq"
+        fi
+        if [ "$min_freq" = "$max_freq" ] && [ -f /proc/ppm/policy_status ]; then
+            write_node "2 0" "/proc/ppm/policy_status"
         fi
 
         # If previously locked, re-lock read-only permissions
@@ -155,11 +162,18 @@ unlock_cluster_freq() {
         [ -n "$hw_min" ] && write_node "$hw_min" "$policy/scaling_min_freq"
 
         # MediaTek PPM release
+        local mtk_cluster=0
+        [ "$p_num" -ge 6 ] && mtk_cluster=1
         if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then
-            local mtk_cluster=0
-            [ "$p_num" -ge 6 ] && mtk_cluster=1
             write_node "$mtk_cluster -1" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
             write_node "$mtk_cluster -1" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+        fi
+        if [ -f /proc/ppm/policy/userlimit_max_cpu_freq ]; then
+            write_node "$mtk_cluster -1" "/proc/ppm/policy/userlimit_max_cpu_freq"
+            write_node "$mtk_cluster -1" "/proc/ppm/policy/userlimit_min_cpu_freq"
+        fi
+        if [ -f /proc/ppm/policy_status ]; then
+            write_node "2 1" "/proc/ppm/policy_status"
         fi
 
         echo "Cluster policy$p_num frequency lock released (Restored Min: $hw_min, Max: $hw_max)."

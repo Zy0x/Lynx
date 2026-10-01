@@ -133,7 +133,20 @@ data class CpuClusterInfo(
     val availFreqs: List<Long> = emptyList(),
     val availGovs: List<String> = emptyList(),
     val isLocked: Boolean = false,
-)
+) {
+    fun containsCore(coreId: Int): Boolean {
+        return cpus.split(Regex("[\\s,]+")).any { token ->
+            if (token.contains("-")) {
+                val parts = token.split("-")
+                val start = parts.getOrNull(0)?.toIntOrNull() ?: -1
+                val end = parts.getOrNull(1)?.toIntOrNull() ?: -1
+                coreId in start..end
+            } else {
+                token.toIntOrNull() == coreId
+            }
+        }
+    }
+}
 
 data class CpuProcessInfo(
     val pid: Int = 0,

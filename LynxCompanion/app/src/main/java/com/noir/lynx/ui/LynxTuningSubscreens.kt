@@ -341,19 +341,21 @@ fun TuningCpuCategory(
 
                                     Spacer(Modifier.height(1.dp))
 
-                                    // 4. Frequency Range (e.g. 500~2000MHz or 1500MHz / 1500MHz 🔒)
-                                    val minKhz = if (core.minFreqKhz > 0) core.minFreqKhz else 500000L
-                                    val maxKhz = if (core.maxFreqKhz > 0) core.maxFreqKhz else 2000000L
+                                    // 4. Frequency Range (Guaranteed Synchronized with Parent Cluster Domain)
+                                    val parentCluster = uiState.clusters.find { it.containsCore(core.coreId) }
+                                    val minKhz = parentCluster?.curMin ?: if (core.minFreqKhz > 0) core.minFreqKhz else 500000L
+                                    val maxKhz = parentCluster?.curMax ?: if (core.maxFreqKhz > 0) core.maxFreqKhz else 2000000L
+                                    val isLocked = parentCluster?.isLocked ?: core.isLocked
                                     val rangeText = if (minKhz == maxKhz) {
-                                        if (core.isLocked) "${minKhz / 1000}MHz 🔒" else "${minKhz / 1000}MHz"
+                                        if (isLocked) "${minKhz / 1000}MHz 🔒" else "${minKhz / 1000}MHz"
                                     } else {
-                                        if (core.isLocked) "${minKhz / 1000}~${maxKhz / 1000}MHz 🔒" else "${minKhz / 1000}~${maxKhz / 1000}MHz"
+                                        if (isLocked) "${minKhz / 1000}~${maxKhz / 1000}MHz 🔒" else "${minKhz / 1000}~${maxKhz / 1000}MHz"
                                     }
-                                    val rangeColor = if (core.isLocked) Color(0xFF00E676) else Color(0xFF757585)
+                                    val rangeColor = if (isLocked) Color(0xFF00E676) else Color(0xFF757585)
                                     Text(
                                         text = rangeText,
                                         fontSize = 9.sp,
-                                        fontWeight = if (core.isLocked) FontWeight.SemiBold else FontWeight.Normal,
+                                        fontWeight = if (isLocked) FontWeight.SemiBold else FontWeight.Normal,
                                         color = rangeColor,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
