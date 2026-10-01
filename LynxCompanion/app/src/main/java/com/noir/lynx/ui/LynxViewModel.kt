@@ -3,10 +3,7 @@ package com.noir.lynx.ui
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.noir.lynx.data.CpuClusterInfo
-import com.noir.lynx.data.LynxRepository
-import com.noir.lynx.data.LynxState
-import com.noir.lynx.data.LynxUiState
+import com.noir.lynx.data.*
 import com.noir.lynx.service.LynxAppAutomationService
 import com.noir.lynx.sync.StateFileObserver
 import kotlinx.coroutines.delay
@@ -210,6 +207,22 @@ class LynxViewModel : ViewModel() {
     )
 
     private val activeClusterIntents = java.util.concurrent.ConcurrentHashMap<Int, ClusterIntent>()
+    private val activeCoreIntents = java.util.concurrent.ConcurrentHashMap<Int, Pair<Boolean, Long>>() // coreId -> (isOnline, timestamp)
+
+    private data class GpuIntent(
+        val adrenoBoost: Int? = null,
+        val gedBoost: Int? = null,
+        val minMhz: Int? = null,
+        val maxMhz: Int? = null,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+    @Volatile private var activeGpuIntent: GpuIntent? = null
+
+    @Volatile private var activeRefreshRateIntent: Pair<Int, Long>? = null // (hz, timestamp)
+
+    private val activeIoSchedulerIntents = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>() // dev -> (scheduler, timestamp)
+    private val activeReadAheadIntents = java.util.concurrent.ConcurrentHashMap<String, Pair<Int, Long>>() // dev -> (kb, timestamp)
+
     private var lastStateMutationTime = 0L
 
     fun recordStateMutation() {
@@ -233,6 +246,59 @@ class LynxViewModel : ViewModel() {
                 }
                 c
             }
+        }
+    }
+
+    private fun mergeCoresWithActiveIntents(rawCores: List<CpuCoreInfo>): List<CpuCoreInfo> {
+        val now = System.currentTimeMillis()
+        return rawCores.map { core ->
+            val intent = activeCoreIntents[core.coreId]
+            if (intent != null && (now - intent.second) < 3000L) {
+                core.copy(isOnline = intent.first)
+            } else {
+                if (intent != null && (now - intent.second) >= 3000L) {
+                    activeCoreIntents.remove(core.coreId)
+                }
+                core
+            }
+        }
+    }
+
+    private fun mergeGpuInfoWithIntent(rawGpu: GpuInfo): GpuInfo {
+        val intent = activeGpuIntent ?: return rawGpu
+        val now = System.currentTimeMillis()
+        return if (now - intent.timestamp < 3000L) {
+            rawGpu.copy(
+                adrenoBoostLevel = if (rawGpu.platform == "adreno" && intent.adrenoBoost != null) intent.adrenoBoost else rawGpu.adrenoBoostLevel,
+                gedBoostLevel = if (rawGpu.platform == "mali_ged" && intent.gedBoost != null) intent.gedBoost else rawGpu.gedBoostLevel,
+                minFreqMhz = intent.minMhz ?: rawGpu.minFreqMhz,
+                maxFreqMhz = intent.maxMhz ?: rawGpu.maxFreqMhz
+            )
+        } else {
+            activeGpuIntent = null
+            rawGpu
+        }
+    }
+
+    private fun mergeRefreshRateWithIntent(rawHz: Int): Int {
+        val intent = activeRefreshRateIntent ?: return rawHz
+        val now = System.currentTimeMillis()
+        return if (now - intent.second < 3000L) {
+            intent.first
+        } else {
+            activeRefreshRateIntent = null
+            rawHz
+        }
+    }
+
+    private fun mergeIoDevicesWithIntents(rawDevices: List<IoDeviceInfo>): List<IoDeviceInfo> {
+        val now = System.currentTimeMillis()
+        return rawDevices.map { dev ->
+            val schedIntent = activeIoSchedulerIntents[dev.device]
+            val raIntent = activeReadAheadIntents[dev.device]
+            val effectiveSched = if (schedIntent != null && (now - schedIntent.second) < 3000L) schedIntent.first else dev.currentScheduler
+            val effectiveRa = if (raIntent != null && (now - raIntent.second) < 3000L) raIntent.first else dev.readAheadKb
+            dev.copy(currentScheduler = effectiveSched, readAheadKb = effectiveRa)
         }
     }
 
@@ -271,11 +337,13 @@ class LynxViewModel : ViewModel() {
                 try {
                     val tel = LynxRepository.readTelemetry()
                     counter++
-                    val cores = LynxRepository.readCpuCores()
+                    val rawCores = LynxRepository.readCpuCores()
+                    val cores = if (rawCores.isNotEmpty()) mergeCoresWithActiveIntents(rawCores) else emptyList()
                     val totalLoad = LynxRepository.latestTotalCpuLoadPercent
                     val procs = LynxRepository.readTopCpuProcesses()
                     val batt = if (counter % 3 == 0) LynxRepository.readBatteryDetails() else null
-                    val gpu = if (counter % 2 == 0) LynxRepository.readGpuInfo() else null
+                    val rawGpu = if (counter % 2 == 0) LynxRepository.readGpuInfo() else null
+                    val gpu = rawGpu?.let { mergeGpuInfoWithIntent(it) }
                     val therm = if (counter % 3 == 0) LynxRepository.readThermalZones() else null
                     val freshClusters = if (counter % 3 == 0) LynxRepository.readClusters() else null
 
@@ -288,8 +356,8 @@ class LynxViewModel : ViewModel() {
                             }
                             val rawClusters = if (freshClusters != null && freshClusters.isNotEmpty()) freshClusters else current.clusters
                             val activeClusters = mergeClustersWithActiveIntents(rawClusters)
-                            val rawCores = if (cores.isNotEmpty()) cores else current.cpuCores
-                            val syncedCores = rawCores.map { core ->
+                            val rawCoresList: List<CpuCoreInfo> = if (cores.isNotEmpty()) cores else current.cpuCores
+                            val syncedCores: List<CpuCoreInfo> = rawCoresList.map { core: CpuCoreInfo ->
                                 val parent = activeClusters.find { it.containsCore(core.coreId) }
                                 if (parent != null) {
                                     core.copy(
@@ -326,7 +394,7 @@ class LynxViewModel : ViewModel() {
     fun refreshState() {
         viewModelScope.launch {
             try {
-                if (System.currentTimeMillis() - lastStateMutationTime < 2500L) {
+                if (System.currentTimeMillis() - lastStateMutationTime < 3000L) {
                     return@launch
                 }
                 val freshState = LynxRepository.readState()
@@ -527,8 +595,8 @@ class LynxViewModel : ViewModel() {
             try {
                 val freshClusters = LynxRepository.readClusters()
                 val mergedClusters = if (freshClusters.isNotEmpty()) mergeClustersWithActiveIntents(freshClusters) else emptyList()
-                val freshGpu = LynxRepository.readGpuInfo()
-                val freshRr = LynxRepository.readDisplayRefreshRate()
+                val freshGpu = mergeGpuInfoWithIntent(LynxRepository.readGpuInfo())
+                val freshRr = mergeRefreshRateWithIntent(LynxRepository.readDisplayRefreshRate())
                 _uiState.update {
                     it.copy(
                         clusters = if (mergedClusters.isNotEmpty()) mergedClusters else it.clusters,
@@ -831,32 +899,57 @@ class LynxViewModel : ViewModel() {
     fun refreshGpuInfo() {
         viewModelScope.launch {
             try {
-                val gpu = LynxRepository.readGpuInfo()
+                val raw = LynxRepository.readGpuInfo()
+                val gpu = mergeGpuInfoWithIntent(raw)
                 _uiState.update { it.copy(gpuInfo = gpu) }
             } catch (_: Exception) {}
         }
     }
 
     fun setGpuBoostLevel(level: Int) {
+        recordStateMutation()
+        val curPlat = _uiState.value.gpuInfo.platform
+        activeGpuIntent = GpuIntent(
+            adrenoBoost = if (curPlat == "adreno") level else activeGpuIntent?.adrenoBoost,
+            gedBoost = if (curPlat == "mali_ged") level else activeGpuIntent?.gedBoost,
+            minMhz = activeGpuIntent?.minMhz,
+            maxMhz = activeGpuIntent?.maxMhz,
+            timestamp = System.currentTimeMillis()
+        )
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(
+            adrenoBoostLevel = if (curPlat == "adreno") level else it.gpuInfo.adrenoBoostLevel,
+            gedBoostLevel = if (curPlat == "mali_ged") level else it.gpuInfo.gedBoostLevel,
+        )) }
         viewModelScope.launch {
             val ok = LynxRepository.setGpuBoostLevel(level)
-            if (ok) {
-                _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(
-                    adrenoBoostLevel = if (it.gpuInfo.platform == "adreno") level else it.gpuInfo.adrenoBoostLevel,
-                    gedBoostLevel = if (it.gpuInfo.platform == "mali_ged") level else it.gpuInfo.gedBoostLevel,
-                )) }
-            } else {
+            if (!ok) {
                 _uiState.update { it.copy(errorMessage = "GPU Boost tidak didukung kernel ini") }
             }
+            delay(200L)
+            refreshGpuInfo()
         }
     }
 
     fun setGpuFreq(minMhz: Int?, maxMhz: Int?) {
+        recordStateMutation()
+        activeGpuIntent = GpuIntent(
+            adrenoBoost = activeGpuIntent?.adrenoBoost,
+            gedBoost = activeGpuIntent?.gedBoost,
+            minMhz = minMhz ?: activeGpuIntent?.minMhz ?: _uiState.value.gpuInfo.minFreqMhz,
+            maxMhz = maxMhz ?: activeGpuIntent?.maxMhz ?: _uiState.value.gpuInfo.maxFreqMhz,
+            timestamp = System.currentTimeMillis()
+        )
+        _uiState.update { current ->
+            current.copy(gpuInfo = current.gpuInfo.copy(
+                minFreqMhz = minMhz ?: current.gpuInfo.minFreqMhz,
+                maxFreqMhz = maxMhz ?: current.gpuInfo.maxFreqMhz,
+            ))
+        }
         viewModelScope.launch {
             val minHz = minMhz?.let { it.toLong() * 1_000_000L }
             val maxHz = maxMhz?.let { it.toLong() * 1_000_000L }
             LynxRepository.setGpuFreq(minHz, maxHz)
-            delay(500L)
+            delay(200L)
             refreshGpuInfo()
         }
     }
@@ -875,21 +968,26 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setKsmEnabled(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(ksmStats = it.ksmStats.copy(enabled = enabled)) }
         viewModelScope.launch {
             val ok = LynxRepository.setKsmEnabled(enabled)
             if (ok) {
-                _uiState.update { it.copy(ksmStats = it.ksmStats.copy(enabled = enabled), successMessage = "KSM ${if (enabled) "diaktifkan" else "dinonaktifkan"}") }
+                _uiState.update { it.copy(successMessage = "KSM ${if (enabled) "diaktifkan" else "dinonaktifkan"}") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Fitur KSM tidak didukung oleh kernel ini") }
             }
+            delay(200L)
             refreshKsmStats()
         }
     }
 
     fun setKsmTunables(pagesToScan: Int, sleepMs: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(ksmStats = it.ksmStats.copy(pagesToScan = pagesToScan, sleepMs = sleepMs)) }
         viewModelScope.launch {
             LynxRepository.setKsmTunables(pagesToScan, sleepMs)
-            delay(300L)
+            delay(200L)
             refreshKsmStats()
         }
     }
@@ -901,24 +999,39 @@ class LynxViewModel : ViewModel() {
     fun refreshIoDevices() {
         viewModelScope.launch {
             try {
-                val devices = LynxRepository.readIoDevices()
+                val raw = LynxRepository.readIoDevices()
+                val devices = mergeIoDevicesWithIntents(raw)
                 _uiState.update { it.copy(ioDevices = devices) }
             } catch (_: Exception) {}
         }
     }
 
     fun setIoScheduler(device: String, scheduler: String) {
+        recordStateMutation()
+        activeIoSchedulerIntents[device] = Pair(scheduler, System.currentTimeMillis())
+        _uiState.update { current ->
+            current.copy(ioDevices = current.ioDevices.map {
+                if (it.device == device) it.copy(currentScheduler = scheduler) else it
+            })
+        }
         viewModelScope.launch {
             LynxRepository.setIoScheduler(device, scheduler)
-            delay(400L)
+            delay(250L)
             refreshIoDevices()
         }
     }
 
     fun setReadAheadKb(device: String, kb: Int) {
+        recordStateMutation()
+        activeReadAheadIntents[device] = Pair(kb, System.currentTimeMillis())
+        _uiState.update { current ->
+            current.copy(ioDevices = current.ioDevices.map {
+                if (it.device == device) it.copy(readAheadKb = kb) else it
+            })
+        }
         viewModelScope.launch {
             LynxRepository.setReadAheadKb(device, kb)
-            delay(300L)
+            delay(250L)
             refreshIoDevices()
         }
     }
@@ -942,6 +1055,11 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setTcpCongestion(algorithm: String) {
+        recordStateMutation()
+        _uiState.update { it.copy(
+            currentTcpCongestion = algorithm,
+            state = it.state.copy(network = it.state.network.copy(tcpCongestion = algorithm))
+        ) }
         viewModelScope.launch {
             val ok = LynxRepository.setTcpCongestion(algorithm)
             if (ok) {
@@ -975,9 +1093,15 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setGovernorTunable(policyId: Int, governor: String, key: String, value: String) {
+        recordStateMutation()
+        _uiState.update { state ->
+            val curList = state.governorTunables[policyId] ?: emptyList()
+            val updatedList = curList.map { if (it.key == key) it.copy(currentValue = value) else it }
+            state.copy(governorTunables = state.governorTunables + (policyId to updatedList))
+        }
         viewModelScope.launch {
             LynxRepository.setGovernorTunable(policyId, governor, key, value)
-            delay(300L)
+            delay(200L)
             loadGovernorTunables(policyId, governor)
         }
     }
@@ -987,6 +1111,7 @@ class LynxViewModel : ViewModel() {
     // ----------------------------------------------------------------
 
     fun applyLmkPreset(preset: String) {
+        recordStateMutation()
         viewModelScope.launch {
             val ok = LynxRepository.applyLmkPreset(preset)
             _uiState.update {
@@ -1064,6 +1189,12 @@ class LynxViewModel : ViewModel() {
     }
 
     fun toggleWakelockBlocked(name: String, blocked: Boolean) {
+        recordStateMutation()
+        _uiState.update { current ->
+            val blocker = current.wakelockBlockerInfo
+            val updated = if (blocked) blocker.blockedWakelocks + name else blocker.blockedWakelocks - name
+            current.copy(wakelockBlockerInfo = blocker.copy(blockedWakelocks = updated))
+        }
         viewModelScope.launch {
             val ok = LynxRepository.setWakelockBlocked(name, blocked)
             if (ok) {
@@ -1079,6 +1210,11 @@ class LynxViewModel : ViewModel() {
     }
 
     fun toggleAggressiveDoze(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { current ->
+            val blocker = current.wakelockBlockerInfo
+            current.copy(wakelockBlockerInfo = blocker.copy(aggressiveDozeEnabled = enabled))
+        }
         viewModelScope.launch {
             val ok = LynxRepository.toggleAggressiveDoze(enabled)
             if (ok) {
@@ -1105,17 +1241,21 @@ class LynxViewModel : ViewModel() {
     fun refreshDisplayRefreshRate() {
         viewModelScope.launch {
             try {
-                val hz = LynxRepository.readDisplayRefreshRate()
+                val raw = LynxRepository.readDisplayRefreshRate()
+                val hz = mergeRefreshRateWithIntent(raw)
                 _uiState.update { it.copy(displayRefreshRate = hz) }
             } catch (_: Exception) {}
         }
     }
 
     fun setDisplayRefreshRate(hz: Int) {
+        recordStateMutation()
+        activeRefreshRateIntent = Pair(hz, System.currentTimeMillis())
+        _uiState.update { it.copy(displayRefreshRate = hz) }
         viewModelScope.launch {
             val ok = LynxRepository.setDisplayRefreshRate(hz)
             if (ok) {
-                _uiState.update { it.copy(displayRefreshRate = hz, successMessage = "Refresh rate diatur ke ${hz}Hz") }
+                _uiState.update { it.copy(successMessage = "Refresh rate diatur ke ${hz}Hz") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal mengatur refresh rate layar") }
             }
@@ -1123,10 +1263,12 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setSocOverride(soc: String) {
+        recordStateMutation()
+        _uiState.update { it.copy(socOverride = soc) }
         viewModelScope.launch {
             LynxRepository.setSocOverride(soc)
             val gpu = LynxRepository.readGpuInfo()
-            _uiState.update { it.copy(socOverride = soc, gpuInfo = gpu, successMessage = "Engine SoC diubah ke: $soc") }
+            _uiState.update { it.copy(gpuInfo = gpu, successMessage = "Engine SoC diubah ke: $soc") }
         }
     }
 
@@ -1270,11 +1412,13 @@ class LynxViewModel : ViewModel() {
     // ----------------------------------------------------------------
 
     fun setZramCompAlgorithm(algo: String) {
+        recordStateMutation()
+        _uiState.update { it.copy(zramCompAlgorithm = algo) }
         viewModelScope.launch {
             val zramMb = _uiState.value.state.memory.zramSizeMb
             val ok = LynxRepository.setZramCompAlgorithm(algo, zramMb)
             if (ok) {
-                _uiState.update { it.copy(zramCompAlgorithm = algo, successMessage = "Algoritma ZRAM berhasil diubah ke $algo") }
+                _uiState.update { it.copy(successMessage = "Algoritma ZRAM berhasil diubah ke $algo") }
                 refreshState()
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal mengubah algoritma ZRAM ke $algo") }
@@ -1328,80 +1472,88 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setDirtyRatio(ratio: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(
+            dirtyRatio = ratio,
+            vmAdvanced = it.vmAdvanced.copy(dirtyRatio = ratio, activePreset = "custom")
+        ) }
         viewModelScope.launch {
             val ok = LynxRepository.setDirtyRatio(ratio)
             if (ok) {
-                _uiState.update { it.copy(
-                    dirtyRatio = ratio,
-                    vmAdvanced = it.vmAdvanced.copy(dirtyRatio = ratio, activePreset = "custom"),
-                    successMessage = "VM Dirty Ratio diatur ke $ratio%"
-                ) }
+                _uiState.update { it.copy(successMessage = "VM Dirty Ratio diatur ke $ratio%") }
             }
         }
     }
 
     fun setDirtyBackgroundRatio(ratio: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(
+            vmAdvanced = it.vmAdvanced.copy(dirtyBackgroundRatio = ratio, activePreset = "custom")
+        ) }
         viewModelScope.launch {
             val ok = LynxRepository.setDirtyBackgroundRatio(ratio)
             if (ok) {
-                _uiState.update { it.copy(
-                    vmAdvanced = it.vmAdvanced.copy(dirtyBackgroundRatio = ratio, activePreset = "custom"),
-                    successMessage = "VM Dirty Background: $ratio%"
-                ) }
+                _uiState.update { it.copy(successMessage = "VM Dirty Background: $ratio%") }
             }
         }
     }
 
     fun setVfsCachePressure(pressure: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(
+            vfsCachePressure = pressure,
+            vmAdvanced = it.vmAdvanced.copy(vfsCachePressure = pressure, activePreset = "custom")
+        ) }
         viewModelScope.launch {
             val ok = LynxRepository.setVfsCachePressure(pressure)
             if (ok) {
-                _uiState.update { it.copy(
-                    vfsCachePressure = pressure,
-                    vmAdvanced = it.vmAdvanced.copy(vfsCachePressure = pressure, activePreset = "custom"),
-                    successMessage = "VFS Cache Pressure diatur ke $pressure"
-                ) }
+                _uiState.update { it.copy(successMessage = "VFS Cache Pressure diatur ke $pressure") }
             }
         }
     }
 
     fun setDirtyExpireCentisecs(cs: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(
+            vmAdvanced = it.vmAdvanced.copy(dirtyExpireCentisecs = cs, activePreset = "custom")
+        ) }
         viewModelScope.launch {
             val ok = LynxRepository.setDirtyExpireCentisecs(cs)
             if (ok) {
-                _uiState.update { it.copy(
-                    vmAdvanced = it.vmAdvanced.copy(dirtyExpireCentisecs = cs, activePreset = "custom"),
-                    successMessage = "VM Expire Time: ${cs / 100}s"
-                ) }
+                _uiState.update { it.copy(successMessage = "VM Expire Time: ${cs / 100}s") }
             }
         }
     }
 
     fun setDirtyWritebackCentisecs(cs: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(
+            vmAdvanced = it.vmAdvanced.copy(dirtyWritebackCentisecs = cs, activePreset = "custom")
+        ) }
         viewModelScope.launch {
             val ok = LynxRepository.setDirtyWritebackCentisecs(cs)
             if (ok) {
-                _uiState.update { it.copy(
-                    vmAdvanced = it.vmAdvanced.copy(dirtyWritebackCentisecs = cs, activePreset = "custom"),
-                    successMessage = "VM Writeback Interval: ${cs / 100}s"
-                ) }
+                _uiState.update { it.copy(successMessage = "VM Writeback Interval: ${cs / 100}s") }
             }
         }
     }
 
     fun setVmStatInterval(interval: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(
+            vmAdvanced = it.vmAdvanced.copy(statInterval = interval, activePreset = "custom")
+        ) }
         viewModelScope.launch {
             val ok = LynxRepository.setVmStatInterval(interval)
             if (ok) {
-                _uiState.update { it.copy(
-                    vmAdvanced = it.vmAdvanced.copy(statInterval = interval, activePreset = "custom"),
-                    successMessage = "VM Stat Interval: ${interval}s"
-                ) }
+                _uiState.update { it.copy(successMessage = "VM Stat Interval: ${interval}s") }
             }
         }
     }
 
     fun applyVmPreset(preset: String) {
+        recordStateMutation()
+        _uiState.update { it.copy(vmAdvanced = it.vmAdvanced.copy(activePreset = preset)) }
         viewModelScope.launch {
             val ok = LynxRepository.applyVmPreset(preset)
             if (ok) {
@@ -1426,11 +1578,24 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setSchedulerTunable(tunable: String, value: Long) {
+        recordStateMutation()
+        _uiState.update { current ->
+            val updated = when (tunable) {
+                "up_rate_limit_us" -> current.schedulerInfo.copy(upRateLimitUs = value)
+                "down_rate_limit_us" -> current.schedulerInfo.copy(downRateLimitUs = value)
+                "sched_latency_ns" -> current.schedulerInfo.copy(schedLatencyNs = value)
+                "sched_min_granularity_ns" -> current.schedulerInfo.copy(schedMinGranularityNs = value)
+                "sched_wakeup_granularity_ns" -> current.schedulerInfo.copy(schedWakeupGranularityNs = value)
+                "sched_migration_cost_ns" -> current.schedulerInfo.copy(schedMigrationCostNs = value)
+                "sched_child_runs_first" -> current.schedulerInfo.copy(schedChildRunsFirst = value == 1L)
+                else -> current.schedulerInfo
+            }
+            current.copy(schedulerInfo = updated)
+        }
         viewModelScope.launch {
             val ok = LynxRepository.setSchedulerTunable(tunable, value)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo()
-                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Parameter $tunable diperbarui") }
+                _uiState.update { it.copy(successMessage = "Parameter $tunable diperbarui") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal memperbarui $tunable") }
             }
@@ -1438,6 +1603,8 @@ class LynxViewModel : ViewModel() {
     }
 
     fun applySchedulerPreset(preset: String) {
+        recordStateMutation()
+        _uiState.update { it.copy(schedulerInfo = it.schedulerInfo.copy(activePreset = preset)) }
         viewModelScope.launch {
             val ok = LynxRepository.applySchedulerPreset(preset)
             if (ok) {
@@ -1450,6 +1617,8 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setSelinuxMode(enforcing: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(selinuxMode = if (enforcing) "Enforcing" else "Permissive") }
         viewModelScope.launch {
             val ok = LynxRepository.setSelinuxMode(enforcing)
             if (ok) {
@@ -1462,10 +1631,12 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setPrintkSilent(silent: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(isPrintkSilent = silent) }
         viewModelScope.launch {
             val ok = LynxRepository.setPrintkSilent(silent)
             if (ok) {
-                _uiState.update { it.copy(isPrintkSilent = silent, successMessage = if (silent) "Kernel Printk dimatikan (Zero Overhead)" else "Kernel Printk diaktifkan (Verbose)") }
+                _uiState.update { it.copy(successMessage = if (silent) "Kernel Printk dimatikan (Zero Overhead)" else "Kernel Printk diaktifkan (Verbose)") }
             }
         }
     }
@@ -1477,13 +1648,14 @@ class LynxViewModel : ViewModel() {
     fun refreshCpuCores() {
         viewModelScope.launch {
             try {
-                val cores = LynxRepository.readCpuCores()
+                val rawCores = LynxRepository.readCpuCores()
+                val cores: List<CpuCoreInfo> = mergeCoresWithActiveIntents(rawCores)
                 val procs = LynxRepository.readTopCpuProcesses()
                 val statLoads = LynxRepository.readCpuStatLoads()
                 val socPlatform = LynxRepository.getSocPlatformName()
                 val socTopology = LynxRepository.getSocTopology(_uiState.value.clusters, cores.size.coerceAtLeast(8))
                 val activeClusters = _uiState.value.clusters
-                val syncedCores = cores.map { core ->
+                val syncedCores: List<CpuCoreInfo> = cores.map { core: CpuCoreInfo ->
                     val parent = activeClusters.find { it.containsCore(core.coreId) }
                     if (parent != null) {
                         core.copy(
@@ -1507,36 +1679,41 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setCpuCoreOnline(coreId: Int, online: Boolean) {
+        recordStateMutation()
+        activeCoreIntents[coreId] = Pair(online, System.currentTimeMillis())
+        _uiState.update { current ->
+            current.copy(cpuCores = current.cpuCores.map { if (it.coreId == coreId) it.copy(isOnline = online) else it })
+        }
         viewModelScope.launch {
             val ok = LynxRepository.setCpuCoreOnline(coreId, online)
             if (ok) {
-                delay(150L)
-                val cores = LynxRepository.readCpuCores()
                 _uiState.update {
-                    it.copy(
-                        cpuCores = cores,
-                        successMessage = "Core CPU $coreId ${if (online) "diaktifkan (Online)" else "dimatikan (Offline)"}"
-                    )
+                    it.copy(successMessage = "Core CPU $coreId ${if (online) "diaktifkan (Online)" else "dimatikan (Offline)"}")
                 }
             } else {
+                activeCoreIntents.remove(coreId)
                 _uiState.update { it.copy(errorMessage = "Gagal mengubah status Core $coreId.") }
             }
+            delay(150L)
+            refreshCpuCores()
         }
     }
 
     fun setAllCpuCoresOnline() {
+        recordStateMutation()
+        _uiState.update { current ->
+            current.cpuCores.forEach { activeCoreIntents[it.coreId] = Pair(true, System.currentTimeMillis()) }
+            current.copy(cpuCores = current.cpuCores.map { it.copy(isOnline = true) })
+        }
         viewModelScope.launch {
             val ok = LynxRepository.setAllCpuCoresOnline()
             if (ok) {
-                delay(150L)
-                val cores = LynxRepository.readCpuCores()
                 _uiState.update {
-                    it.copy(
-                        cpuCores = cores,
-                        successMessage = "Semua Core CPU berhasil diaktifkan!"
-                    )
+                    it.copy(successMessage = "Semua Core CPU berhasil diaktifkan!")
                 }
             }
+            delay(150L)
+            refreshCpuCores()
         }
     }
 
@@ -1551,6 +1728,8 @@ class LynxViewModel : ViewModel() {
 
 
     fun applyGovernorPreset(preset: String) {
+        recordStateMutation()
+        _uiState.update { it.copy(activeGovernorPreset = preset) }
         viewModelScope.launch {
             val ok = LynxRepository.applyGovernorPreset(preset)
             if (ok) {
@@ -1602,27 +1781,27 @@ class LynxViewModel : ViewModel() {
     }
 
     fun applyDeepTunable(path: String, value: String) {
+        recordStateMutation()
+        _uiState.update { state ->
+            val updated = state.deepTunables.map { t ->
+                if (t.path == path) t.copy(value = value) else t
+            }
+            val updatedManual = if (state.manualInspectResult?.path == path) {
+                state.manualInspectResult.copy(value = value)
+            } else state.manualInspectResult
+
+            state.copy(
+                deepTunables = updated,
+                manualInspectResult = updatedManual
+            )
+        }
         viewModelScope.launch {
             val ok = LynxRepository.setDeepTunable(path, value)
             if (ok) {
                 _uiState.update { state ->
-                    val updated = state.deepTunables.map { t ->
-                        if (t.path == path) t.copy(value = value) else t
-                    }
-                    val updatedManual = if (state.manualInspectResult?.path == path) {
-                        state.manualInspectResult.copy(value = value)
-                    } else state.manualInspectResult
-
-                    viewModelScope.launch {
-                        LynxRepository.saveDeepTunablesToConfig(updated)
-                    }
-
-                    state.copy(
-                        deepTunables = updated,
-                        manualInspectResult = updatedManual,
-                        successMessage = "Parameter diterapkan: $path = $value"
-                    )
+                    state.copy(successMessage = "Parameter diterapkan: $path = $value")
                 }
+                LynxRepository.saveDeepTunablesToConfig(_uiState.value.deepTunables)
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal menerapkan parameter ke $path") }
             }
@@ -1646,6 +1825,8 @@ class LynxViewModel : ViewModel() {
     // ----------------------------------------------------------------
 
     fun toggleGameHud(context: android.content.Context, enable: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(isGameHudActive = enable) }
         viewModelScope.launch {
             if (enable) {
                 LynxRepository.grantOverlayPermission()
@@ -1657,13 +1838,13 @@ class LynxViewModel : ViewModel() {
                 } else {
                     context.startService(intent)
                 }
-                _uiState.update { it.copy(isGameHudActive = true, successMessage = "🎮 Floating Game HUD Diaktifkan!") }
+                _uiState.update { it.copy(successMessage = "🎮 Floating Game HUD Diaktifkan!") }
             } else {
                 val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
                     action = com.noir.lynx.service.LynxFloatingHudService.ACTION_STOP
                 }
                 context.stopService(intent)
-                _uiState.update { it.copy(isGameHudActive = false, successMessage = "Floating Game HUD Dinonaktifkan") }
+                _uiState.update { it.copy(successMessage = "Floating Game HUD Dinonaktifkan") }
             }
         }
     }
@@ -1685,11 +1866,11 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setHudPinMiniFps(context: android.content.Context, pin: Boolean) {
+        _uiState.update { it.copy(hudPinMiniFps = pin) }
         context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
             .edit()
             .putBoolean("pin_mini_fps", pin)
             .apply()
-        _uiState.update { it.copy(hudPinMiniFps = pin) }
         val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
             action = com.noir.lynx.service.LynxFloatingHudService.ACTION_SET_PIN_FPS
             putExtra(com.noir.lynx.service.LynxFloatingHudService.EXTRA_PIN_FPS, pin)
@@ -1724,23 +1905,29 @@ class LynxViewModel : ViewModel() {
     }
 
     fun toggleAppAutomation(context: android.content.Context, enable: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(isAppAutomationActive = enable) }
         viewModelScope.launch {
             if (enable) {
-                val ok = LynxRepository.startAppAutomation(context)
-                _uiState.update { it.copy(isAppAutomationActive = true, successMessage = "⚡ Otomasi Profil Per-App Diaktifkan!") }
+                LynxRepository.startAppAutomation(context)
+                _uiState.update { it.copy(successMessage = "⚡ Otomasi Profil Per-App Diaktifkan!") }
             } else {
-                val ok = LynxRepository.stopAppAutomation(context)
-                _uiState.update { it.copy(isAppAutomationActive = false, successMessage = "Otomasi Profil Dinonaktifkan") }
+                LynxRepository.stopAppAutomation(context)
+                _uiState.update { it.copy(successMessage = "Otomasi Profil Dinonaktifkan") }
             }
         }
     }
 
     fun addOrUpdateAppProfileRule(context: android.content.Context, rule: com.noir.lynx.data.AppProfileRule) {
+        recordStateMutation()
+        _uiState.update { current ->
+            val updated = current.appProfileRules.filter { it.packageName != rule.packageName } + rule
+            current.copy(appProfileRules = updated)
+        }
         viewModelScope.launch {
             val ok = LynxRepository.saveAppProfileRule(rule)
             if (ok) {
-                val updated = LynxRepository.readAppProfileRules()
-                _uiState.update { it.copy(appProfileRules = updated, successMessage = "Aturan profil untuk ${rule.appName} disimpan!") }
+                _uiState.update { it.copy(successMessage = "Aturan profil untuk ${rule.appName} disimpan!") }
                 if (_uiState.value.isAppAutomationActive) {
                     val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
                         action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
@@ -1754,11 +1941,14 @@ class LynxViewModel : ViewModel() {
     }
 
     fun deleteAppProfileRule(context: android.content.Context, packageName: String) {
+        recordStateMutation()
+        _uiState.update { current ->
+            current.copy(appProfileRules = current.appProfileRules.filter { it.packageName != packageName })
+        }
         viewModelScope.launch {
             val ok = LynxRepository.deleteAppProfileRule(packageName)
             if (ok) {
-                val updated = LynxRepository.readAppProfileRules()
-                _uiState.update { it.copy(appProfileRules = updated, successMessage = "Aturan aplikasi dihapus") }
+                _uiState.update { it.copy(successMessage = "Aturan aplikasi dihapus") }
                 if (_uiState.value.isAppAutomationActive) {
                     val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
                         action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
@@ -1770,11 +1960,15 @@ class LynxViewModel : ViewModel() {
     }
 
     fun toggleAppProfileRule(context: android.content.Context, packageName: String, enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { current ->
+            current.copy(appProfileRules = current.appProfileRules.map {
+                if (it.packageName == packageName) it.copy(enabled = enabled) else it
+            })
+        }
         viewModelScope.launch {
             val ok = LynxRepository.toggleAppProfileRule(packageName, enabled)
             if (ok) {
-                val updated = LynxRepository.readAppProfileRules()
-                _uiState.update { it.copy(appProfileRules = updated) }
                 if (_uiState.value.isAppAutomationActive) {
                     val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
                         action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
@@ -1790,6 +1984,8 @@ class LynxViewModel : ViewModel() {
     // ============================================================
 
     fun applyVoltageOffset(offsetMv: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(voltageInfo = it.voltageInfo.copy(globalOffsetMv = offsetMv)) }
         viewModelScope.launch {
             if (!_uiState.value.voltageInfo.isSupported) {
                 _uiState.update { it.copy(errorMessage = "Tegangan terkunci: Driver undervolt tidak didukung oleh kernel ini") }
@@ -1797,8 +1993,7 @@ class LynxViewModel : ViewModel() {
             }
             val ok = LynxRepository.applyVoltageOffset(offsetMv)
             if (ok) {
-                val updated = LynxRepository.readVoltageInfo()
-                _uiState.update { it.copy(voltageInfo = updated.copy(globalOffsetMv = offsetMv), successMessage = "Offset voltase ${offsetMv}mV diaplikasikan") }
+                _uiState.update { it.copy(successMessage = "Offset voltase ${offsetMv}mV diaplikasikan") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal menerapkan offset voltase") }
             }
@@ -1813,6 +2008,10 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setKcalParams(enabled: Boolean, r: Int, g: Int, b: Int, sat: Int, v: Int, cont: Int, hue: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(displayCalibration = it.displayCalibration.copy(
+            kcalEnabled = enabled, red = r, green = g, blue = b, saturation = sat, value = v, contrast = cont, hue = hue
+        )) }
         viewModelScope.launch {
             if (!_uiState.value.displayCalibration.isKcalSupported) {
                 _uiState.update { it.copy(errorMessage = "KCAL tidak didukung oleh kernel perangkat ini") }
@@ -1820,8 +2019,7 @@ class LynxViewModel : ViewModel() {
             }
             val ok = LynxRepository.setKcalParams(enabled, r, g, b, sat, v, cont, hue)
             if (ok) {
-                val updated = LynxRepository.readDisplayCalibration()
-                _uiState.update { it.copy(displayCalibration = updated, successMessage = "Kalibrasi KCAL diperbarui") }
+                _uiState.update { it.copy(successMessage = "Kalibrasi KCAL diperbarui") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal menerapkan parameter KCAL") }
             }
@@ -1829,6 +2027,8 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setHbmEnabled(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(displayCalibration = it.displayCalibration.copy(hbmEnabled = enabled)) }
         viewModelScope.launch {
             if (!_uiState.value.displayCalibration.isHbmSupported) {
                 _uiState.update { it.copy(errorMessage = "HBM tidak didukung oleh panel display perangkat ini") }
@@ -1836,8 +2036,7 @@ class LynxViewModel : ViewModel() {
             }
             val ok = LynxRepository.setHbmEnabled(enabled)
             if (ok) {
-                val updated = LynxRepository.readDisplayCalibration()
-                _uiState.update { it.copy(displayCalibration = updated, successMessage = if (enabled) "HBM Outdoor Aktif" else "HBM Dimatikan") }
+                _uiState.update { it.copy(successMessage = if (enabled) "HBM Outdoor Aktif" else "HBM Dimatikan") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal mengubah status HBM") }
             }
@@ -1845,6 +2044,10 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setSoundGain(hpL: Int, hpR: Int, spk: Int, mic: Int, highPerf: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(soundControl = it.soundControl.copy(
+            headphoneGainL = hpL, headphoneGainR = hpR, speakerGain = spk, micGain = mic, highPerfMode = highPerf
+        )) }
         viewModelScope.launch {
             if (!_uiState.value.soundControl.isSupported) {
                 _uiState.update { it.copy(errorMessage = "Sound Control tidak didukung oleh kernel perangkat ini") }
@@ -1852,8 +2055,7 @@ class LynxViewModel : ViewModel() {
             }
             val ok = LynxRepository.setSoundGain(hpL, hpR, spk, mic, highPerf)
             if (ok) {
-                val updated = LynxRepository.readSoundControl()
-                _uiState.update { it.copy(soundControl = updated, successMessage = "Gain audio diperbarui") }
+                _uiState.update { it.copy(successMessage = "Gain audio diperbarui") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal menerapkan gain audio") }
             }
@@ -1861,11 +2063,12 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setEntropyThresholds(readThresh: Int, writeThresh: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(memoryEntropy = it.memoryEntropy.copy(readThreshold = readThresh, writeThreshold = writeThresh)) }
         viewModelScope.launch {
             val ok = LynxRepository.setEntropyThresholds(readThresh, writeThresh)
             if (ok) {
-                val updated = LynxRepository.readMemoryEntropy()
-                _uiState.update { it.copy(memoryEntropy = updated, successMessage = "Threshold entropi disimpan ($readThresh / $writeThresh)") }
+                _uiState.update { it.copy(successMessage = "Threshold entropi disimpan ($readThresh / $writeThresh)") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal mengubah threshold entropi") }
             }
