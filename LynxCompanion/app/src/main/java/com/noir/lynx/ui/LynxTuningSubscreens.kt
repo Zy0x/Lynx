@@ -850,7 +850,12 @@ fun TuningCpuCategory(
             HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(bottom = 10.dp))
 
             // ── SUB-CARD 1: EAS & ENERGY MODEL (Jika didukung) ──
-            if (schedInfo.isEasSupported || schedInfo.activeArchitectureMode == "eas" || schedInfo.activeArchitectureMode == "hybrid") {
+            val showEasSubcard = if (schedInfo.isModeSwitchSupported) {
+                schedInfo.activeArchitectureMode.equals("eas", ignoreCase = true) || schedInfo.activeArchitectureMode.equals("hybrid", ignoreCase = true)
+            } else {
+                schedInfo.isEasSupported
+            }
+            if (showEasSubcard) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = BgElevated,
@@ -966,7 +971,12 @@ fun TuningCpuCategory(
             }
 
             // ── SUB-CARD 2: HMP MULTI-CORE & HYSTERESIS (Jika didukung) ──
-            if (schedInfo.isHmpSupported || schedInfo.activeArchitectureMode == "hmp" || schedInfo.activeArchitectureMode == "hybrid") {
+            val showHmpSubcard = if (schedInfo.isModeSwitchSupported) {
+                schedInfo.activeArchitectureMode.equals("hmp", ignoreCase = true) || schedInfo.activeArchitectureMode.equals("hybrid", ignoreCase = true)
+            } else {
+                schedInfo.isHmpSupported
+            }
+            if (showHmpSubcard) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = BgElevated,
@@ -1278,15 +1288,15 @@ fun TuningCpuCategory(
             }
         }
 
-        // ── Overclock & Thermal Mitigation Card ─────────────────
+        // ── Bypass Throttling & Kontrol Termal Card ─────────────────
         LynxCard(
-            title = "Overclock & Thermal Mitigation",
+            title = "Bypass Throttling & Kontrol Termal",
             icon = Icons.Default.LocalFireDepartment,
             accentColor = AccentRed
         ) {
             LynxSwitch(
-                label = "Mode Kernel Overclock (OC)",
-                subLabel = "Aktifkan batas frekuensi tertinggi tanpa throttling awal",
+                label = "CPU Anti-Throttling (Max Clock Lock)",
+                subLabel = "Kunci frekuensi maksimum CPU ke batas pabrik tertinggi tanpa pemotongan thermal",
                 checked = state.overclock.enabled,
                 onCheckedChange = { viewModel.setOverclockEnabled(it) },
             )
@@ -1295,7 +1305,7 @@ fun TuningCpuCategory(
                 mutableFloatStateOf(state.overclock.cpuFloorRatio.toFloat())
             }
             LynxSlider(
-                label = "Floor Frekuensi CPU Gaming (Anti-Droop)",
+                label = "Ambang Bawah Frekuensi CPU (Clock Floor)",
                 value = floorValue,
                 onValueChange = { floorValue = it },
                 onValueChangeFinished = { viewModel.setCpuFloorRatio(floorValue.toInt()) },
@@ -1303,6 +1313,12 @@ fun TuningCpuCategory(
                 steps = 7,
                 displayValue = "${floorValue.toInt()}%",
                 accentColor = AccentOrange
+            )
+            Text(
+                "Menahan frekuensi CPU agar tidak turun di bawah persentase ini saat aplikasi atau game berjalan.",
+                color = TextSecondary,
+                fontSize = 9.sp,
+                modifier = Modifier.padding(bottom = 6.dp)
             )
 
             LynxSwitch(
@@ -1325,19 +1341,11 @@ fun TuningCpuCategory(
                 displayValue = "${tempLimitValue.toInt()}°C",
                 accentColor = AccentRed
             )
-
-            var uclampValue by remember(state.uclamp.gameMinRatio) {
-                mutableFloatStateOf(state.uclamp.gameMinRatio.toFloat())
-            }
-            LynxSlider(
-                label = "UCLAMP Task Clamping Min (Gaming)",
-                value = uclampValue,
-                onValueChange = { uclampValue = it },
-                onValueChangeFinished = { viewModel.setUclampGameMin(uclampValue.toInt()) },
-                valueRange = 30f..100f,
-                steps = 13,
-                displayValue = "${uclampValue.toInt()}%",
-                accentColor = AccentCyan
+            Text(
+                "Ambang batas trip point termal SoC sebelum thermal daemon mengambil tindakan pengamanan.",
+                color = TextSecondary,
+                fontSize = 9.sp,
+                modifier = Modifier.padding(bottom = 4.dp)
             )
         }
 

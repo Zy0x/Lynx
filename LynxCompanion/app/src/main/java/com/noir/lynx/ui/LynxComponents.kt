@@ -2426,7 +2426,7 @@ fun VoltageControlCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Global Voltage Offset", color = TextSecondary, fontSize = 12.sp)
+                    Text("Global Undervolt Offset", color = TextSecondary, fontSize = 12.sp)
                     Text("Terkunci (0 mV)", color = TextTertiary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
                 Surface(
