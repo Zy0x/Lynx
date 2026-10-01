@@ -7070,8 +7070,27 @@ done
                 [ -f /proc/sys/kernel/sched_bore ] && bore="1"
 
                 eas_hybrid="0"
+                has_eas_file="0"
+                eas_mode="none"
                 if [ -f /sys/devices/system/cpu/eas/enable ]; then
-                    eas_hybrid=${'$'}(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | grep -i "hybrid" >/dev/null && echo "1" || echo "0")
+                    has_eas_file="1"
+                    raw_eas=${'$'}(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                    if [[ "${'$'}raw_eas" == *"hybrid"* ]]; then
+                        eas_hybrid="1"
+                        eas_mode="hybrid"
+                    elif [[ "${'$'}raw_eas" == *"eas"* ]]; then
+                        eas_mode="eas"
+                    elif [[ "${'$'}raw_eas" == *"hmp"* ]]; then
+                        eas_mode="hmp"
+                    fi
+                elif [ -f /proc/sys/kernel/sched_energy_aware ]; then
+                    has_eas_file="1"
+                    val_ea=${'$'}(cat /proc/sys/kernel/sched_energy_aware 2>/dev/null)
+                    if [ "${'$'}val_ea" = "1" ]; then
+                        eas_mode="eas"
+                    elif [ "${'$'}val_ea" = "0" ]; then
+                        eas_mode="hmp"
+                    fi
                 fi
 
                 energy_aware="-1"
@@ -7140,6 +7159,8 @@ done
                 done
 
                 echo "bore:${'$'}bore"
+                echo "has_eas_file:${'$'}has_eas_file"
+                echo "eas_mode:${'$'}eas_mode"
                 echo "eas_hybrid:${'$'}eas_hybrid"
                 echo "energy_aware:${'$'}energy_aware"
                 echo "has_sched_boost:${'$'}has_sched_boost"
@@ -7165,6 +7186,8 @@ done
             """.trimIndent()
             val res = Shell.cmd(script).exec()
             var bore = false
+            var hasEasFile = false
+            var easMode = "none"
             var easHybrid = false
             var energyAwareVal = -1
             var hasSchedBoost = false
@@ -7195,6 +7218,8 @@ done
                     val v = parts[1].trim()
                     when (k) {
                         "bore" -> bore = v == "1"
+                        "has_eas_file" -> hasEasFile = v == "1"
+                        "eas_mode" -> easMode = v
                         "eas_hybrid" -> easHybrid = v == "1"
                         "energy_aware" -> energyAwareVal = v.toIntOrNull() ?: -1
                         "has_sched_boost" -> hasSchedBoost = v == "1"
@@ -7221,14 +7246,34 @@ done
                 }
             }
 
-            val isEasSupported = easHybrid || (energyAwareVal != -1) || hasUclamp
-            val isHmpSupported = hasHmp || hasSpill
-            val schedType = when {
-                easHybrid -> "EAS Hybrid (Arctic)"
-                energyAwareVal != -1 -> "EAS (Energy Aware)"
-                hasHmp -> "HMP / WALT"
-                bore -> "BORE (Burst-Oriented)"
-                else -> "CFS (Completely Fair)"
+            val isEasSupported = easHybrid || (energyAwareVal != -1) || hasUclamp || easMode == "eas"
+            val isHmpSupported = hasHmp || hasSpill || easMode == "hmp" || easHybrid
+            val isModeSwitchSupported = hasEasFile || (energyAwareVal != -1)
+            val isHybridSupported = hasEasFile
+
+            val activeArchMode = when {
+                easMode == "hybrid" -> "hybrid"
+                easMode == "hmp" -> "hmp"
+                easMode == "eas" -> "eas"
+                energyAwareVal == 1 -> "eas"
+                energyAwareVal == 0 -> "hmp"
+                hasHmp -> "hmp"
+                isEasSupported -> "eas"
+                else -> "cfs"
+            }
+
+            val schedType = when (activeArchMode) {
+                "hybrid" -> "EAS Hybrid (Arctic)"
+                "hmp" -> "HMP / WALT"
+                "eas" -> "EAS (Energy Aware)"
+                else -> if (bore) "BORE (Burst-Oriented)" else "CFS (Completely Fair)"
+            }
+
+            val schedName = when (activeArchMode) {
+                "hybrid" -> "EAS Hybrid (Arctic Engine)"
+                "hmp" -> "HMP (Heterogeneous Multi-Processing)"
+                "eas" -> "EAS (Energy Aware Scheduling)"
+                else -> if (bore) "BORE (Burst-Oriented Response Enhancer)" else "CFS (Completely Fair Scheduler)"
             }
 
             val applyOnBoot = context?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
@@ -7236,12 +7281,15 @@ done
 
             SchedulerInfo(
                 schedulerType = schedType,
-                schedulerName = if (bore) "BORE (Burst-Oriented Response Enhancer)" else if (easHybrid) "EAS Hybrid (Arctic Engine)" else if (isEasSupported) "EAS (Energy Aware Scheduling)" else if (hasHmp) "HMP (Heterogeneous Multi-Processing)" else "CFS (Completely Fair Scheduler)",
+                schedulerName = schedName,
                 isBoreSupported = bore,
                 isEasSupported = isEasSupported,
                 isHmpSupported = isHmpSupported,
                 isUclampSupported = hasUclamp,
                 isSchedBoostSupported = hasSchedBoost,
+                activeArchitectureMode = activeArchMode,
+                isHybridSupported = isHybridSupported,
+                isModeSwitchSupported = isModeSwitchSupported,
                 schedLatencyNs = lat,
                 schedMinGranularityNs = minGran,
                 schedWakeupGranularityNs = wakeGran,
@@ -7250,7 +7298,7 @@ done
                 schedChildRunsFirst = childFirst,
                 upRateLimitUs = upRate,
                 downRateLimitUs = downRate,
-                schedEnergyAware = energyAwareVal != 0,
+                schedEnergyAware = (activeArchMode == "eas" || activeArchMode == "hybrid" || energyAwareVal != 0),
                 schedBoost = schedBoost,
                 uclampMin = uclampMin,
                 uclampMax = uclampMax,
@@ -7266,6 +7314,56 @@ done
         } catch (e: Exception) {
             SchedulerInfo()
         }
+    }
+
+    suspend fun setSchedulerArchitectureMode(mode: String, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = when (mode.lowercase()) {
+                "hmp" -> """
+                    if [ -f /sys/devices/system/cpu/eas/enable ]; then
+                        chmod 644 /sys/devices/system/cpu/eas/enable 2>/dev/null
+                        echo 0 > /sys/devices/system/cpu/eas/enable 2>/dev/null
+                    fi
+                    if [ -f /proc/sys/kernel/sched_energy_aware ]; then
+                        chmod 644 /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                        echo 0 > /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                    fi
+                    echo ok
+                """.trimIndent()
+                "eas" -> """
+                    if [ -f /sys/devices/system/cpu/eas/enable ]; then
+                        chmod 644 /sys/devices/system/cpu/eas/enable 2>/dev/null
+                        echo 1 > /sys/devices/system/cpu/eas/enable 2>/dev/null
+                    fi
+                    if [ -f /proc/sys/kernel/sched_energy_aware ]; then
+                        chmod 644 /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                        echo 1 > /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                    fi
+                    echo ok
+                """.trimIndent()
+                "hybrid" -> """
+                    if [ -f /sys/devices/system/cpu/eas/enable ]; then
+                        chmod 644 /sys/devices/system/cpu/eas/enable 2>/dev/null
+                        echo 2 > /sys/devices/system/cpu/eas/enable 2>/dev/null
+                    fi
+                    if [ -f /proc/sys/kernel/sched_energy_aware ]; then
+                        chmod 644 /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                        echo 1 > /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                    fi
+                    echo ok
+                """.trimIndent()
+                else -> return@withContext false
+            }
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess || res.out.any { it.trim() == "ok" }
+            if (ok && context != null) {
+                context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("active_sched_mode", mode.lowercase())
+                    .apply()
+            }
+            ok
+        } catch (_: Exception) { false }
     }
 
     suspend fun setSchedulerTunable(tunable: String, value: Long, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
@@ -7389,6 +7487,11 @@ done
             val prefs = context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
             val applyOnBoot = prefs.getBoolean("apply_on_boot", false)
             if (!applyOnBoot) return@withContext false
+
+            val savedMode = prefs.getString("active_sched_mode", null)
+            if (savedMode != null) {
+                setSchedulerArchitectureMode(savedMode, null)
+            }
 
             val up = prefs.getInt("sched_upmigrate", -1)
             val down = prefs.getInt("sched_downmigrate", -1)

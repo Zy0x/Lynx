@@ -743,6 +743,52 @@ fun TuningCpuCategory(
                 }
             }
 
+            // ── Mode Arsitektur Penjadwal (Architecture Mode Switcher: EAS vs HMP vs Hybrid) ──
+            if (schedInfo.isModeSwitchSupported) {
+                Text("Mode Arsitektur Penjadwal", color = AccentCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    "Pilih model penempatan task CPU: EAS (Energy Model), HMP (Load Migration), atau Hybrid.",
+                    color = TextSecondary,
+                    fontSize = 9.5.sp
+                )
+                Spacer(Modifier.height(6.dp))
+
+                val modes = mutableListOf(
+                    Triple("eas", "⚡ EAS", AccentCyan),
+                    Triple("hmp", "🏛️ HMP", AccentOrange)
+                )
+                if (schedInfo.isHybridSupported) {
+                    modes.add(Triple("hybrid", "🔀 Hybrid", AccentPurple))
+                }
+
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    modes.forEach { (modeKey, modeLabel, modeColor) ->
+                        val isModeSel = schedInfo.activeArchitectureMode.equals(modeKey, ignoreCase = true)
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isModeSel) modeColor.copy(alpha = 0.22f) else BgElevated,
+                            border = BorderStroke(1.dp, if (isModeSel) modeColor else BorderGlass),
+                            modifier = Modifier.weight(1f).clickable {
+                                viewModel.setSchedulerArchitectureMode(modeKey, context)
+                            }
+                        ) {
+                            Box(Modifier.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = modeLabel,
+                                    color = if (isModeSel) modeColor else TextSecondary,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = if (isModeSel) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Terapkan saat Boot Switch
             Surface(
                 shape = RoundedCornerShape(10.dp),
@@ -804,7 +850,7 @@ fun TuningCpuCategory(
             HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(bottom = 10.dp))
 
             // ── SUB-CARD 1: EAS & ENERGY MODEL (Jika didukung) ──
-            if (schedInfo.isEasSupported) {
+            if (schedInfo.isEasSupported || schedInfo.activeArchitectureMode == "eas" || schedInfo.activeArchitectureMode == "hybrid") {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = BgElevated,
@@ -920,7 +966,7 @@ fun TuningCpuCategory(
             }
 
             // ── SUB-CARD 2: HMP MULTI-CORE & HYSTERESIS (Jika didukung) ──
-            if (schedInfo.isHmpSupported) {
+            if (schedInfo.isHmpSupported || schedInfo.activeArchitectureMode == "hmp" || schedInfo.activeArchitectureMode == "hybrid") {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = BgElevated,

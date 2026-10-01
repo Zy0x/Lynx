@@ -539,6 +539,11 @@ data class SchedulerInfo(
     val schedSpillNrRun: Int = 3,
     val schedSpillLoad: Int = 90,
 
+    // Architecture Mode Switcher
+    val activeArchitectureMode: String = "eas", // "eas", "hmp", "hybrid", "cfs"
+    val isHybridSupported: Boolean = false,
+    val isModeSwitchSupported: Boolean = false,
+
     // Preset & Persistence
     val activePreset: String = "balanced", // "gaming", "balanced", "battery", "custom"
     val applyOnBoot: Boolean = false,

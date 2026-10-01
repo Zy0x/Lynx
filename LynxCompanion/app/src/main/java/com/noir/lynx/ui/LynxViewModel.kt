@@ -1650,6 +1650,22 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun setSchedulerArchitectureMode(mode: String, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update { current ->
+            current.copy(schedulerInfo = current.schedulerInfo.copy(activeArchitectureMode = mode))
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setSchedulerArchitectureMode(mode, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Mode arsitektur ${mode.uppercase()} berhasil diaktifkan") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah mode ke ${mode.uppercase()}") }
+            }
+        }
+    }
+
     fun applySchedulerPreset(preset: String, context: Context? = null) {
         recordStateMutation()
         _uiState.update { it.copy(schedulerInfo = it.schedulerInfo.copy(activePreset = preset)) }
