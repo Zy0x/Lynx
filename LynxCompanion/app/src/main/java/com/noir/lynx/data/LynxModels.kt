@@ -504,17 +504,44 @@ data class VirtualMemoryAdvancedConfig(
 )
 
 data class SchedulerInfo(
-    val isBoreSupported: Boolean = false,
+    // Architecture Detection & Status
+    val schedulerType: String = "CFS", // "CFS", "EAS", "EAS Hybrid (Arctic)", "HMP / WALT", "BORE"
     val schedulerName: String = "CFS / EAS",
+    val isBoreSupported: Boolean = false,
+    val isEasSupported: Boolean = false,
+    val isHmpSupported: Boolean = false,
+    val isUclampSupported: Boolean = false,
+    val isSchedBoostSupported: Boolean = false,
+
+    // CFS / BORE Core Tunables
     val schedLatencyNs: Long = 10000000L,
     val schedMinGranularityNs: Long = 3000000L,
     val schedWakeupGranularityNs: Long = 2000000L,
     val schedMigrationCostNs: Long = 200000L,
     val schedNrMigrate: Int = 32,
     val schedChildRunsFirst: Boolean = false,
+
+    // Schedutil cpufreq rate limits
     val upRateLimitUs: Long = 500L,
     val downRateLimitUs: Long = 20000L,
+
+    // EAS & WALT Tunables
+    val schedEnergyAware: Boolean = true,
+    val schedBoost: Int = 0, // 0: None, 1: All to Big, 2: ON_ALL, 3: ON_MIGRATE
+    val uclampMin: Int = 0,  // 0..1024
+    val uclampMax: Int = 1024,
+
+    // HMP & Migration Thresholds
+    val schedUpmigrate: Int = 85,    // 0..100%
+    val schedDownmigrate: Int = 65,  // 0..100% (must be <= schedUpmigrate)
+    val schedInitTaskLoad: Int = 35, // 0..100%
+    val isSpillSupported: Boolean = false,
+    val schedSpillNrRun: Int = 3,
+    val schedSpillLoad: Int = 90,
+
+    // Preset & Persistence
     val activePreset: String = "balanced", // "gaming", "balanced", "battery", "custom"
+    val applyOnBoot: Boolean = false,
 )
 
 data class WakelockBlockerInfo(

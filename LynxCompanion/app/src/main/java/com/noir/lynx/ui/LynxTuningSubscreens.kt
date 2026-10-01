@@ -43,6 +43,7 @@ fun TuningCpuCategory(
     viewModel: LynxViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val state = uiState.state
     var pendingCoreAction by remember { mutableStateOf<CpuCoreInfo?>(null) }
     var showMasterCoreNotice by remember { mutableStateOf(false) }
@@ -668,7 +669,7 @@ fun TuningCpuCategory(
             onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) }
         )
 
-        // ── Penjadwal Kernel & Gubernur (CFS / EAS / BORE) ──────
+        // ── Penjadwal Kernel & Arsitektur Multicore (CFS / EAS / HMP / BORE) ──────
         val schedInfo = uiState.schedulerInfo
         var schedUpRate by remember(schedInfo.upRateLimitUs) { mutableFloatStateOf(schedInfo.upRateLimitUs.toFloat()) }
         var schedDownRate by remember(schedInfo.downRateLimitUs) { mutableFloatStateOf(schedInfo.downRateLimitUs.toFloat()) }
@@ -677,18 +678,29 @@ fun TuningCpuCategory(
         var schedWakeGran by remember(schedInfo.schedWakeupGranularityNs) { mutableFloatStateOf((schedInfo.schedWakeupGranularityNs / 1000000f)) }
         var schedMigCost by remember(schedInfo.schedMigrationCostNs) { mutableFloatStateOf((schedInfo.schedMigrationCostNs / 1000f)) }
 
+        // EAS states
+        var uclampMinVal by remember(schedInfo.uclampMin) { mutableFloatStateOf(schedInfo.uclampMin.toFloat()) }
+        var uclampMaxVal by remember(schedInfo.uclampMax) { mutableFloatStateOf(schedInfo.uclampMax.toFloat()) }
+
+        // HMP states with live hysteresis protection
+        var upmigrateVal by remember(schedInfo.schedUpmigrate) { mutableFloatStateOf(schedInfo.schedUpmigrate.toFloat()) }
+        var downmigrateVal by remember(schedInfo.schedDownmigrate) { mutableFloatStateOf(schedInfo.schedDownmigrate.toFloat()) }
+        var initTaskLoadVal by remember(schedInfo.schedInitTaskLoad) { mutableFloatStateOf(schedInfo.schedInitTaskLoad.toFloat()) }
+        var spillNrRunVal by remember(schedInfo.schedSpillNrRun) { mutableFloatStateOf(schedInfo.schedSpillNrRun.toFloat()) }
+        var spillLoadVal by remember(schedInfo.schedSpillLoad) { mutableFloatStateOf(schedInfo.schedSpillLoad.toFloat()) }
+
         LynxCard(
-            title = "Penjadwal Kernel & Gubernur",
+            title = "Penjadwal Kernel & Arsitektur Multicore",
             icon = Icons.Default.Speed,
             accentColor = AccentCyan
         ) {
-            // Header info & BORE Status badge
+            // Header info & Architecture badges
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(Modifier.weight(1f)) {
+                Column(Modifier.weight(1f).padding(end = 8.dp)) {
                     Text(
                         text = schedInfo.schedulerName,
                         color = TextPrimary,
@@ -696,22 +708,62 @@ fun TuningCpuCategory(
                         fontSize = 13.sp
                     )
                     Text(
-                        text = "Optimasi latensi context-switch & responsivitas cpufreq",
+                        text = "EAS Energy Model, HMP / WALT Task Migration, & CFS Granularity",
                         color = TextSecondary,
-                        fontSize = 10.5.sp
+                        fontSize = 10.sp
                     )
                 }
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (schedInfo.isBoreSupported) AccentGreen.copy(alpha = 0.18f) else BgElevated,
-                    border = BorderStroke(1.dp, if (schedInfo.isBoreSupported) AccentGreen else BorderGlass)
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = AccentCyan.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = schedInfo.schedulerType,
+                            color = AccentCyan,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (schedInfo.isBoreSupported) AccentGreen.copy(alpha = 0.18f) else BgElevated,
+                        border = BorderStroke(1.dp, if (schedInfo.isBoreSupported) AccentGreen else BorderGlass)
+                    ) {
+                        Text(
+                            text = if (schedInfo.isBoreSupported) "BORE: ACTIVE" else "BORE: UNSUPPORTED",
+                            color = if (schedInfo.isBoreSupported) AccentGreen else TextSecondary,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            // Terapkan saat Boot Switch
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (schedInfo.isBoreSupported) "BORE: ACTIVE" else "BORE: UNSUPPORTED",
-                        color = if (schedInfo.isBoreSupported) AccentGreen else TextSecondary,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                    Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                        Text("Terapkan saat Boot", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                        Text("Simpan konfigurasi penjadwal & pulihkan otomatis saat ponsel menyala", color = TextSecondary, fontSize = 9.5.sp)
+                    }
+                    Switch(
+                        checked = schedInfo.applyOnBoot,
+                        onCheckedChange = { viewModel.setSchedulerApplyOnBoot(it, context) },
+                        colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
+                        modifier = Modifier.scale(0.85f)
                     )
                 }
             }
@@ -734,7 +786,7 @@ fun TuningCpuCategory(
                         color = if (isSel) color.copy(alpha = 0.22f) else BgElevated,
                         border = BorderStroke(1.dp, if (isSel) color else BorderGlass),
                         modifier = Modifier.weight(1f).clickable {
-                            viewModel.applySchedulerPreset(preset)
+                            viewModel.applySchedulerPreset(preset, context)
                         }
                     ) {
                         Box(Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
@@ -751,130 +803,432 @@ fun TuningCpuCategory(
 
             HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(bottom = 10.dp))
 
-            // Schedutil Up Rate Limit
-            LynxSlider(
-                label = "Schedutil Ramp-Up Rate Limit",
-                value = schedUpRate,
-                onValueChange = { schedUpRate = it },
-                onValueChangeFinished = { viewModel.setSchedulerTunable("up_rate_limit_us", schedUpRate.toLong()) },
-                valueRange = 0f..10000f,
-                steps = 19,
-                displayValue = if (schedUpRate == 0f) "0 µs (Instant Jump)" else "${schedUpRate.toInt()} µs",
-                accentColor = AccentOrange
-            )
-            Text(
-                "Waktu tunggu sebelum CPU menaikkan frekuensi. 0µs langsung melompat ke frekuensi puncak saat game membutuhkan daya.",
-                color = TextSecondary,
-                fontSize = 10.sp,
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
+            // ── SUB-CARD 1: EAS & ENERGY MODEL (Jika didukung) ──
+            if (schedInfo.isEasSupported) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("EAS & Model Energi Kernel", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text("Penjadwalan cerdas berbasis efisiensi daya & kapasitas komputasi cluster CPU", color = TextSecondary, fontSize = 9.5.sp)
+                        Spacer(Modifier.height(8.dp))
 
-            // Schedutil Down Rate Limit
-            LynxSlider(
-                label = "Schedutil Ramp-Down Rate Limit",
-                value = schedDownRate,
-                onValueChange = { schedDownRate = it },
-                onValueChangeFinished = { viewModel.setSchedulerTunable("down_rate_limit_us", schedDownRate.toLong()) },
-                valueRange = 1000f..40000f,
-                steps = 38,
-                displayValue = "${schedDownRate.toInt() / 1000} ms (${schedDownRate.toInt()} µs)",
-                accentColor = AccentBlue
-            )
-            Text(
-                "Waktu tahan sebelum CPU menurunkan clock. Mempertahankan frekuensi tinggi lebih lama mencegah micro-stutter saat frame drop.",
-                color = TextSecondary,
-                fontSize = 10.sp,
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
+                        // sched_energy_aware
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text("Energy Aware Scheduling (EAS)", color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                                Text("Hitung kurva daya SoC sebelum menempatkan task ke CPU core", color = TextSecondary, fontSize = 9.5.sp)
+                            }
+                            Switch(
+                                checked = schedInfo.schedEnergyAware,
+                                onCheckedChange = { viewModel.setSchedulerTunable("sched_energy_aware", if (it) 1L else 0L, context) },
+                                colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
+                                modifier = Modifier.scale(0.85f)
+                            )
+                        }
 
-            // CFS Latency
-            LynxSlider(
-                label = "CFS Target Scheduling Latency",
-                value = schedLatency,
-                onValueChange = { schedLatency = it },
-                onValueChangeFinished = { viewModel.setSchedulerTunable("sched_latency_ns", (schedLatency * 1000000).toLong()) },
-                valueRange = 2f..24f,
-                steps = 21,
-                displayValue = "${schedLatency.toInt()} ms",
-                accentColor = AccentPurple
-            )
-            Text(
-                "Periode target di mana seluruh task yang siap dieksekusi dijamin mendapat giliran CPU. Latensi lebih kecil meningkatkan kehalusan UI/game.",
-                color = TextSecondary,
-                fontSize = 10.sp,
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
+                        // sched_boost if supported
+                        if (schedInfo.isSchedBoostSupported) {
+                            Spacer(Modifier.height(6.dp))
+                            Text("EAS Sched Boost Level", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.height(4.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf(
+                                    0 to "0: Off",
+                                    1 to "1: Minor",
+                                    2 to "2: Game",
+                                    3 to "3: Max"
+                                ).forEach { (lvl, title) ->
+                                    val isSel = schedInfo.schedBoost == lvl
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSel) AccentCyan.copy(alpha = 0.22f) else BgCard,
+                                        border = BorderStroke(1.dp, if (isSel) AccentCyan else BorderGlass),
+                                        modifier = Modifier.weight(1f).clickable {
+                                            viewModel.setSchedulerTunable("sched_boost", lvl.toLong(), context)
+                                        }
+                                    ) {
+                                        Box(Modifier.padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                                            Text(
+                                                title,
+                                                color = if (isSel) AccentCyan else TextSecondary,
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            Text(
+                                "Meningkatkan prioritas penempatan task ke Big Core saat render grafis/frame game.",
+                                color = TextSecondary,
+                                fontSize = 9.sp,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
+                            )
+                        }
 
-            // CFS Min Granularity
-            LynxSlider(
-                label = "CFS Min Preemption Granularity",
-                value = schedMinGran,
-                onValueChange = { schedMinGran = it },
-                onValueChangeFinished = { viewModel.setSchedulerTunable("sched_min_granularity_ns", (schedMinGran * 1000000).toLong()) },
-                valueRange = 0.5f..8f,
-                steps = 14,
-                displayValue = "${String.format("%.1f", schedMinGran)} ms",
-                accentColor = AccentCyan
-            )
-            Text(
-                "Jatah waktu minimum yang dijamin untuk setiap task sebelum kernel mengizinkan preemption oleh task lain.",
-                color = TextSecondary,
-                fontSize = 10.sp,
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
+                        // uclamp if supported
+                        if (schedInfo.isUclampSupported) {
+                            LynxSlider(
+                                label = "Uclamp Util Min (Task Clamp Floor)",
+                                value = uclampMinVal,
+                                onValueChange = { uclampMinVal = it },
+                                onValueChangeFinished = { viewModel.setSchedulerTunable("uclamp_min", uclampMinVal.toLong(), context) },
+                                valueRange = 0f..1024f,
+                                steps = 31,
+                                displayValue = if (uclampMinVal == 0f) "0 (Default)" else "${uclampMinVal.toInt()} (${(uclampMinVal / 1024f * 100).toInt()}%)",
+                                accentColor = AccentCyan
+                            )
+                            Text(
+                                "Kapasitas CPU minimum yang dijamin untuk thread aktif. Menghilangkan delay ramp-up pada game.",
+                                color = TextSecondary,
+                                fontSize = 9.sp,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
 
-            // CFS Wakeup Granularity
-            LynxSlider(
-                label = "CFS Wakeup Granularity",
-                value = schedWakeGran,
-                onValueChange = { schedWakeGran = it },
-                onValueChangeFinished = { viewModel.setSchedulerTunable("sched_wakeup_granularity_ns", (schedWakeGran * 1000000).toLong()) },
-                valueRange = 0.5f..8f,
-                steps = 14,
-                displayValue = "${String.format("%.1f", schedWakeGran)} ms",
-                accentColor = AccentGreen
-            )
-            Text(
-                "Keuntungan latensi yang dibutuhkan task yang baru bangun untuk menggeser task yang sedang berjalan di CPU.",
-                color = TextSecondary,
-                fontSize = 10.sp,
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
-
-            // Task Migration Cost
-            LynxSlider(
-                label = "Task Migration Cost (Cache-Hot)",
-                value = schedMigCost,
-                onValueChange = { schedMigCost = it },
-                onValueChangeFinished = { viewModel.setSchedulerTunable("sched_migration_cost_ns", (schedMigCost * 1000).toLong()) },
-                valueRange = 100f..3000f,
-                steps = 28,
-                displayValue = "${schedMigCost.toInt()} µs",
-                accentColor = AccentOrange
-            )
-            Text(
-                "Waktu task dianggap masih berada dalam cache L1/L2 sebelum diizinkan migrasi ke inti CPU lain.",
-                color = TextSecondary,
-                fontSize = 10.sp,
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
-
-            // Child Process Runs First
-            Row(
-                Modifier.fillMaxWidth().padding(top = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Child Process Runs First", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text("Prioritaskan eksekusi child process saat fork untuk mempercepat buka aplikasi", color = TextSecondary, fontSize = 10.sp)
+                            LynxSlider(
+                                label = "Uclamp Util Max (Task Clamp Ceiling)",
+                                value = uclampMaxVal,
+                                onValueChange = { uclampMaxVal = it },
+                                onValueChangeFinished = { viewModel.setSchedulerTunable("uclamp_max", uclampMaxVal.toLong(), context) },
+                                valueRange = 128f..1024f,
+                                steps = 27,
+                                displayValue = if (uclampMaxVal == 1024f) "1024 (Maksimal)" else "${uclampMaxVal.toInt()} (${(uclampMaxVal / 1024f * 100).toInt()}%)",
+                                accentColor = AccentBlue
+                            )
+                            Text(
+                                "Batas atas utilisasi task latar belakang untuk mencegah lonjakan daya berlebih.",
+                                color = TextSecondary,
+                                fontSize = 9.sp,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                        }
+                    }
                 }
-                Switch(
-                    checked = schedInfo.schedChildRunsFirst,
-                    onCheckedChange = { viewModel.setSchedulerTunable("sched_child_runs_first", if (it) 1L else 0L) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
-                    modifier = Modifier.scale(0.85f)
-                )
+            }
+
+            // ── SUB-CARD 2: HMP MULTI-CORE & HYSTERESIS (Jika didukung) ──
+            if (schedInfo.isHmpSupported) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Speed, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("HMP Multi-Core Distribution & WALT", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text("Pengendali migrasi task Little Core ⇄ Big Core dengan proteksi osilasi", color = TextSecondary, fontSize = 9.5.sp)
+                        Spacer(Modifier.height(8.dp))
+
+                        // Live Hysteresis Status Chip
+                        val hystBuffer = (upmigrateVal - downmigrateVal).toInt()
+                        val isBufferSafe = hystBuffer >= 5
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isBufferSafe) AccentGreen.copy(alpha = 0.12f) else AccentOrange.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, if (isBufferSafe) AccentGreen.copy(alpha = 0.3f) else AccentOrange.copy(alpha = 0.3f)),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                        ) {
+                            Row(
+                                Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Shield,
+                                        contentDescription = null,
+                                        tint = if (isBufferSafe) AccentGreen else AccentOrange,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = "Hysteresis Buffer: +$hystBuffer%",
+                                        color = if (isBufferSafe) AccentGreen else AccentOrange,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Text(
+                                    text = if (isBufferSafe) "Bebas Osilasi Stutter" else "Buffer Minimum!",
+                                    color = TextSecondary,
+                                    fontSize = 9.5.sp
+                                )
+                            }
+                        }
+
+                        // Sched Upmigrate Slider
+                        LynxSlider(
+                            label = "Sched Upmigrate (Little → Big)",
+                            value = upmigrateVal,
+                            onValueChange = { newUp ->
+                                upmigrateVal = newUp
+                                if (downmigrateVal > newUp - 5f) {
+                                    downmigrateVal = (newUp - 5f).coerceAtLeast(20f)
+                                }
+                            },
+                            onValueChangeFinished = {
+                                viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
+                            },
+                            valueRange = 40f..100f,
+                            steps = 11,
+                            displayValue = "${upmigrateVal.toInt()}%",
+                            accentColor = AccentOrange
+                        )
+                        Text(
+                            "Ambang batas beban Little core sebelum task dipromosikan ke Big core. Nilai lebih rendah = task lebih cepat naik ke Big core.",
+                            color = TextSecondary,
+                            fontSize = 9.sp,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+
+                        // Sched Downmigrate Slider
+                        LynxSlider(
+                            label = "Sched Downmigrate (Big → Little)",
+                            value = downmigrateVal,
+                            onValueChange = { newDown ->
+                                val maxAllowed = (upmigrateVal - 5f).coerceAtLeast(20f)
+                                downmigrateVal = newDown.coerceAtMost(maxAllowed)
+                            },
+                            onValueChangeFinished = {
+                                viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
+                            },
+                            valueRange = 20f..95f,
+                            steps = 14,
+                            displayValue = "${downmigrateVal.toInt()}%",
+                            accentColor = AccentBlue
+                        )
+                        Text(
+                            "Ambang batas beban Big core sebelum task diturunkan kembali ke Little core untuk hemat daya (Terkunci: down <= up - 5%).",
+                            color = TextSecondary,
+                            fontSize = 9.sp,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+
+                        // Sched Init Task Load Slider
+                        LynxSlider(
+                            label = "Sched Init Task Load (Fork Initial Load)",
+                            value = initTaskLoadVal,
+                            onValueChange = { initTaskLoadVal = it },
+                            onValueChangeFinished = {
+                                viewModel.setSchedulerTunable("sched_init_task_load", initTaskLoadVal.toLong(), context)
+                            },
+                            valueRange = 5f..100f,
+                            steps = 18,
+                            displayValue = "${initTaskLoadVal.toInt()}%",
+                            accentColor = AccentPurple
+                        )
+                        Text(
+                            "Estimasi beban awal proses baru saat fork. Nilai tinggi langsung mengeksekusi proses baru di Big Core demi kecepatan startup.",
+                            color = TextSecondary,
+                            fontSize = 9.sp,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+
+                        // Spilling controls if supported
+                        if (schedInfo.isSpillSupported) {
+                            LynxSlider(
+                                label = "Sched Spill Nr Run (Queue Spill Threshold)",
+                                value = spillNrRunVal,
+                                onValueChange = { spillNrRunVal = it },
+                                onValueChangeFinished = {
+                                    viewModel.setSchedulerTunable("sched_spill_nr_run", spillNrRunVal.toLong(), context)
+                                },
+                                valueRange = 1f..10f,
+                                steps = 8,
+                                displayValue = "${spillNrRunVal.toInt()} Task",
+                                accentColor = AccentCyan
+                            )
+                            Text(
+                                "Maksimum jumlah antrean task pada satu CPU core sebelum dialihkan (spillover) ke core lain.",
+                                color = TextSecondary,
+                                fontSize = 9.sp,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+
+                            LynxSlider(
+                                label = "Sched Spill Load Threshold",
+                                value = spillLoadVal,
+                                onValueChange = { spillLoadVal = it },
+                                onValueChangeFinished = {
+                                    viewModel.setSchedulerTunable("sched_spill_load", spillLoadVal.toLong(), context)
+                                },
+                                valueRange = 50f..100f,
+                                steps = 10,
+                                displayValue = "${spillLoadVal.toInt()}%",
+                                accentColor = AccentOrange
+                            )
+                            Text(
+                                "Ambang batas beban CPU sebelum mengizinkan spillover ke core lain.",
+                                color = TextSecondary,
+                                fontSize = 9.sp,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── SUB-CARD 3: CFS & SCHEDUTIL CORE GRANULARITY ──
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Speed, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("CFS & Schedutil Core Granularity", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text("Time-slice scheduling, latensi preemption, dan kecepatan respon frekuensi", color = TextSecondary, fontSize = 9.5.sp)
+                    Spacer(Modifier.height(8.dp))
+
+                    // Schedutil Up Rate Limit
+                    LynxSlider(
+                        label = "Schedutil Ramp-Up Rate Limit",
+                        value = schedUpRate,
+                        onValueChange = { schedUpRate = it },
+                        onValueChangeFinished = { viewModel.setSchedulerTunable("up_rate_limit_us", schedUpRate.toLong(), context) },
+                        valueRange = 0f..10000f,
+                        steps = 19,
+                        displayValue = if (schedUpRate == 0f) "0 µs (Instant Jump)" else "${schedUpRate.toInt()} µs",
+                        accentColor = AccentOrange
+                    )
+                    Text(
+                        "Waktu tunggu sebelum CPU menaikkan frekuensi. 0µs langsung melompat ke frekuensi puncak saat game membutuhkan daya.",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+
+                    // Schedutil Down Rate Limit
+                    LynxSlider(
+                        label = "Schedutil Ramp-Down Rate Limit",
+                        value = schedDownRate,
+                        onValueChange = { schedDownRate = it },
+                        onValueChangeFinished = { viewModel.setSchedulerTunable("down_rate_limit_us", schedDownRate.toLong(), context) },
+                        valueRange = 1000f..40000f,
+                        steps = 38,
+                        displayValue = "${schedDownRate.toInt() / 1000} ms (${schedDownRate.toInt()} µs)",
+                        accentColor = AccentBlue
+                    )
+                    Text(
+                        "Waktu tahan sebelum CPU menurunkan clock. Mempertahankan frekuensi tinggi lebih lama mencegah micro-stutter saat frame drop.",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+
+                    // CFS Latency
+                    LynxSlider(
+                        label = "CFS Target Scheduling Latency",
+                        value = schedLatency,
+                        onValueChange = { schedLatency = it },
+                        onValueChangeFinished = { viewModel.setSchedulerTunable("sched_latency_ns", (schedLatency * 1000000).toLong(), context) },
+                        valueRange = 2f..24f,
+                        steps = 21,
+                        displayValue = "${schedLatency.toInt()} ms",
+                        accentColor = AccentPurple
+                    )
+                    Text(
+                        "Periode target di mana seluruh task yang siap dieksekusi dijamin mendapat giliran CPU. Latensi lebih kecil meningkatkan kehalusan UI/game.",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+
+                    // CFS Min Granularity
+                    LynxSlider(
+                        label = "CFS Min Preemption Granularity",
+                        value = schedMinGran,
+                        onValueChange = { schedMinGran = it },
+                        onValueChangeFinished = { viewModel.setSchedulerTunable("sched_min_granularity_ns", (schedMinGran * 1000000).toLong(), context) },
+                        valueRange = 0.5f..8f,
+                        steps = 14,
+                        displayValue = "${String.format("%.1f", schedMinGran)} ms",
+                        accentColor = AccentCyan
+                    )
+                    Text(
+                        "Jatah waktu minimum yang dijamin untuk setiap task sebelum kernel mengizinkan preemption oleh task lain.",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+
+                    // CFS Wakeup Granularity
+                    LynxSlider(
+                        label = "CFS Wakeup Granularity",
+                        value = schedWakeGran,
+                        onValueChange = { schedWakeGran = it },
+                        onValueChangeFinished = { viewModel.setSchedulerTunable("sched_wakeup_granularity_ns", (schedWakeGran * 1000000).toLong(), context) },
+                        valueRange = 0.5f..8f,
+                        steps = 14,
+                        displayValue = "${String.format("%.1f", schedWakeGran)} ms",
+                        accentColor = AccentGreen
+                    )
+                    Text(
+                        "Keuntungan latensi yang dibutuhkan task yang baru bangun untuk menggeser task yang sedang berjalan di CPU.",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+
+                    // Task Migration Cost
+                    LynxSlider(
+                        label = "Task Migration Cost (Cache-Hot)",
+                        value = schedMigCost,
+                        onValueChange = { schedMigCost = it },
+                        onValueChangeFinished = { viewModel.setSchedulerTunable("sched_migration_cost_ns", (schedMigCost * 1000).toLong(), context) },
+                        valueRange = 100f..3000f,
+                        steps = 28,
+                        displayValue = "${schedMigCost.toInt()} µs",
+                        accentColor = AccentOrange
+                    )
+                    Text(
+                        "Waktu task dianggap masih berada dalam cache L1/L2 sebelum diizinkan migrasi ke inti CPU lain.",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+
+                    // Child Process Runs First
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text("Child Process Runs First", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("Prioritaskan eksekusi child process saat fork untuk mempercepat buka aplikasi", color = TextSecondary, fontSize = 9.5.sp)
+                        }
+                        Switch(
+                            checked = schedInfo.schedChildRunsFirst,
+                            onCheckedChange = { viewModel.setSchedulerTunable("sched_child_runs_first", if (it) 1L else 0L, context) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
+                            modifier = Modifier.scale(0.85f)
+                        )
+                    }
+                }
             }
         }
 

@@ -1579,14 +1579,14 @@ class LynxViewModel : ViewModel() {
         }
     }
 
-    fun refreshSchedulerInfo() {
+    fun refreshSchedulerInfo(context: Context? = null) {
         viewModelScope.launch {
-            val sched = LynxRepository.readSchedulerInfo()
+            val sched = LynxRepository.readSchedulerInfo(context)
             _uiState.update { it.copy(schedulerInfo = sched) }
         }
     }
 
-    fun setSchedulerTunable(tunable: String, value: Long) {
+    fun setSchedulerTunable(tunable: String, value: Long, context: Context? = null) {
         recordStateMutation()
         _uiState.update { current ->
             val updated = when (tunable) {
@@ -1597,12 +1597,21 @@ class LynxViewModel : ViewModel() {
                 "sched_wakeup_granularity_ns" -> current.schedulerInfo.copy(schedWakeupGranularityNs = value)
                 "sched_migration_cost_ns" -> current.schedulerInfo.copy(schedMigrationCostNs = value)
                 "sched_child_runs_first" -> current.schedulerInfo.copy(schedChildRunsFirst = value == 1L)
+                "sched_energy_aware" -> current.schedulerInfo.copy(schedEnergyAware = value == 1L)
+                "sched_boost" -> current.schedulerInfo.copy(schedBoost = value.toInt())
+                "uclamp_min" -> current.schedulerInfo.copy(uclampMin = value.toInt())
+                "uclamp_max" -> current.schedulerInfo.copy(uclampMax = value.toInt())
+                "sched_upmigrate" -> current.schedulerInfo.copy(schedUpmigrate = value.toInt())
+                "sched_downmigrate" -> current.schedulerInfo.copy(schedDownmigrate = value.toInt())
+                "sched_init_task_load" -> current.schedulerInfo.copy(schedInitTaskLoad = value.toInt())
+                "sched_spill_nr_run" -> current.schedulerInfo.copy(schedSpillNrRun = value.toInt())
+                "sched_spill_load" -> current.schedulerInfo.copy(schedSpillLoad = value.toInt())
                 else -> current.schedulerInfo
             }
             current.copy(schedulerInfo = updated)
         }
         viewModelScope.launch {
-            val ok = LynxRepository.setSchedulerTunable(tunable, value)
+            val ok = LynxRepository.setSchedulerTunable(tunable, value, context)
             if (ok) {
                 _uiState.update { it.copy(successMessage = "Parameter $tunable diperbarui") }
             } else {
@@ -1611,13 +1620,43 @@ class LynxViewModel : ViewModel() {
         }
     }
 
-    fun applySchedulerPreset(preset: String) {
+    fun setSchedulerHysteresis(upmigrate: Int, downmigrate: Int, context: Context? = null) {
+        recordStateMutation()
+        val safeUp = upmigrate.coerceIn(40, 100)
+        val safeDown = downmigrate.coerceIn(20, safeUp - 5)
+        _uiState.update { current ->
+            current.copy(schedulerInfo = current.schedulerInfo.copy(
+                schedUpmigrate = safeUp,
+                schedDownmigrate = safeDown,
+                activePreset = "custom"
+            ))
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setSchedulerHysteresis(safeUp, safeDown, context)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = "Hysteresis migrasi diperbarui ($safeUp% / $safeDown%)") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal memperbarui hysteresis migrasi") }
+            }
+        }
+    }
+
+    fun setSchedulerApplyOnBoot(enabled: Boolean, context: Context? = null) {
+        _uiState.update { current ->
+            current.copy(schedulerInfo = current.schedulerInfo.copy(applyOnBoot = enabled))
+        }
+        viewModelScope.launch {
+            LynxRepository.setSchedulerTunable("apply_on_boot", if (enabled) 1L else 0L, context)
+        }
+    }
+
+    fun applySchedulerPreset(preset: String, context: Context? = null) {
         recordStateMutation()
         _uiState.update { it.copy(schedulerInfo = it.schedulerInfo.copy(activePreset = preset)) }
         viewModelScope.launch {
-            val ok = LynxRepository.applySchedulerPreset(preset)
+            val ok = LynxRepository.applySchedulerPreset(preset, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo()
+                val fresh = LynxRepository.readSchedulerInfo(context)
                 _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Preset Penjadwal '$preset' berhasil diterapkan") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset penjadwal '$preset'") }

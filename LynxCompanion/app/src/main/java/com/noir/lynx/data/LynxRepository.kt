@@ -7063,18 +7063,70 @@ done
     //  KERNEL SCHEDULER & GOVERNOR DEEP TUNABLES (CFS / EAS / BORE)
     // ============================================================
 
-    suspend fun readSchedulerInfo(): SchedulerInfo = withContext(Dispatchers.IO) {
+    suspend fun readSchedulerInfo(context: Context? = null): SchedulerInfo = withContext(Dispatchers.IO) {
         try {
             val script = """
                 bore="0"
                 [ -f /proc/sys/kernel/sched_bore ] && bore="1"
+
+                eas_hybrid="0"
+                if [ -f /sys/devices/system/cpu/eas/enable ]; then
+                    eas_hybrid=${'$'}(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | grep -i "hybrid" >/dev/null && echo "1" || echo "0")
+                fi
+
+                energy_aware="-1"
+                [ -f /proc/sys/kernel/sched_energy_aware ] && energy_aware=${'$'}(cat /proc/sys/kernel/sched_energy_aware 2>/dev/null || echo "1")
+
+                sched_boost="0"
+                has_sched_boost="0"
+                if [ -f /proc/sys/kernel/sched_boost ]; then
+                    has_sched_boost="1"
+                    sched_boost=${'$'}(cat /proc/sys/kernel/sched_boost 2>/dev/null || echo "0")
+                fi
+
+                has_uclamp="0"
+                uclamp_min="0"
+                uclamp_max="1024"
+                if [ -f /proc/sys/kernel/sched_uclamp_util_min ]; then
+                    has_uclamp="1"
+                    uclamp_min=${'$'}(cat /proc/sys/kernel/sched_uclamp_util_min 2>/dev/null || echo "0")
+                    uclamp_max=${'$'}(cat /proc/sys/kernel/sched_uclamp_util_max 2>/dev/null || echo "1024")
+                elif [ -f /proc/sys/kernel/sched_util_clamp_min ]; then
+                    has_uclamp="1"
+                    uclamp_min=${'$'}(cat /proc/sys/kernel/sched_util_clamp_min 2>/dev/null || echo "0")
+                    uclamp_max=${'$'}(cat /proc/sys/kernel/sched_util_clamp_max 2>/dev/null || echo "1024")
+                fi
+
+                has_hmp="0"
+                upmigrate="85"
+                downmigrate="65"
+                if [ -f /proc/sys/kernel/sched_upmigrate ]; then
+                    has_hmp="1"
+                    raw_up=${'$'}(cat /proc/sys/kernel/sched_upmigrate 2>/dev/null | awk '{print ${'$'}1}')
+                    [ -n "${'$'}raw_up" ] && upmigrate="${'$'}raw_up"
+                    raw_down=${'$'}(cat /proc/sys/kernel/sched_downmigrate 2>/dev/null | awk '{print ${'$'}1}')
+                    [ -n "${'$'}raw_down" ] && downmigrate="${'$'}raw_down"
+                fi
+
+                init_task_load="35"
+                [ -f /proc/sys/kernel/sched_init_task_load ] && init_task_load=${'$'}(cat /proc/sys/kernel/sched_init_task_load 2>/dev/null || echo "35")
+
+                has_spill="0"
+                spill_nr_run="3"
+                spill_load="90"
+                if [ -f /proc/sys/kernel/sched_spill_nr_run ]; then
+                    has_spill="1"
+                    spill_nr_run=${'$'}(cat /proc/sys/kernel/sched_spill_nr_run 2>/dev/null || echo "3")
+                    spill_load=${'$'}(cat /proc/sys/kernel/sched_spill_load 2>/dev/null || echo "90")
+                fi
+
                 lat=${'$'}(cat /proc/sys/kernel/sched_latency_ns 2>/dev/null || echo 10000000)
                 min_gran=${'$'}(cat /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null || echo 3000000)
                 wake_gran=${'$'}(cat /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null || echo 2000000)
                 mig_cost=${'$'}(cat /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null || echo 200000)
                 nr_mig=${'$'}(cat /proc/sys/kernel/sched_nr_migrate 2>/dev/null || echo 32)
                 child_first=${'$'}(cat /proc/sys/kernel/sched_child_runs_first 2>/dev/null || echo 0)
-                
+
                 up_rate=1000
                 down_rate=10000
                 for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
@@ -7086,7 +7138,22 @@ done
                         break
                     fi
                 done
+
                 echo "bore:${'$'}bore"
+                echo "eas_hybrid:${'$'}eas_hybrid"
+                echo "energy_aware:${'$'}energy_aware"
+                echo "has_sched_boost:${'$'}has_sched_boost"
+                echo "sched_boost:${'$'}sched_boost"
+                echo "has_uclamp:${'$'}has_uclamp"
+                echo "uclamp_min:${'$'}uclamp_min"
+                echo "uclamp_max:${'$'}uclamp_max"
+                echo "has_hmp:${'$'}has_hmp"
+                echo "upmigrate:${'$'}upmigrate"
+                echo "downmigrate:${'$'}downmigrate"
+                echo "init_task_load:${'$'}init_task_load"
+                echo "has_spill:${'$'}has_spill"
+                echo "spill_nr_run:${'$'}spill_nr_run"
+                echo "spill_load:${'$'}spill_load"
                 echo "lat:${'$'}lat"
                 echo "min_gran:${'$'}min_gran"
                 echo "wake_gran:${'$'}wake_gran"
@@ -7098,6 +7165,20 @@ done
             """.trimIndent()
             val res = Shell.cmd(script).exec()
             var bore = false
+            var easHybrid = false
+            var energyAwareVal = -1
+            var hasSchedBoost = false
+            var schedBoost = 0
+            var hasUclamp = false
+            var uclampMin = 0
+            var uclampMax = 1024
+            var hasHmp = false
+            var upmigrate = 85
+            var downmigrate = 65
+            var initTaskLoad = 35
+            var hasSpill = false
+            var spillNrRun = 3
+            var spillLoad = 90
             var lat = 10000000L
             var minGran = 3000000L
             var wakeGran = 2000000L
@@ -7114,6 +7195,20 @@ done
                     val v = parts[1].trim()
                     when (k) {
                         "bore" -> bore = v == "1"
+                        "eas_hybrid" -> easHybrid = v == "1"
+                        "energy_aware" -> energyAwareVal = v.toIntOrNull() ?: -1
+                        "has_sched_boost" -> hasSchedBoost = v == "1"
+                        "sched_boost" -> schedBoost = v.toIntOrNull() ?: 0
+                        "has_uclamp" -> hasUclamp = v == "1"
+                        "uclamp_min" -> uclampMin = v.toIntOrNull() ?: 0
+                        "uclamp_max" -> uclampMax = v.toIntOrNull() ?: 1024
+                        "has_hmp" -> hasHmp = v == "1"
+                        "upmigrate" -> upmigrate = v.toIntOrNull() ?: 85
+                        "downmigrate" -> downmigrate = v.toIntOrNull() ?: 65
+                        "init_task_load" -> initTaskLoad = v.toIntOrNull() ?: 35
+                        "has_spill" -> hasSpill = v == "1"
+                        "spill_nr_run" -> spillNrRun = v.toIntOrNull() ?: 3
+                        "spill_load" -> spillLoad = v.toIntOrNull() ?: 90
                         "lat" -> lat = v.toLongOrNull() ?: lat
                         "min_gran" -> minGran = v.toLongOrNull() ?: minGran
                         "wake_gran" -> wakeGran = v.toLongOrNull() ?: wakeGran
@@ -7125,9 +7220,28 @@ done
                     }
                 }
             }
+
+            val isEasSupported = easHybrid || (energyAwareVal != -1) || hasUclamp
+            val isHmpSupported = hasHmp || hasSpill
+            val schedType = when {
+                easHybrid -> "EAS Hybrid (Arctic)"
+                energyAwareVal != -1 -> "EAS (Energy Aware)"
+                hasHmp -> "HMP / WALT"
+                bore -> "BORE (Burst-Oriented)"
+                else -> "CFS (Completely Fair)"
+            }
+
+            val applyOnBoot = context?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                ?.getBoolean("apply_on_boot", false) ?: false
+
             SchedulerInfo(
+                schedulerType = schedType,
+                schedulerName = if (bore) "BORE (Burst-Oriented Response Enhancer)" else if (easHybrid) "EAS Hybrid (Arctic Engine)" else if (isEasSupported) "EAS (Energy Aware Scheduling)" else if (hasHmp) "HMP (Heterogeneous Multi-Processing)" else "CFS (Completely Fair Scheduler)",
                 isBoreSupported = bore,
-                schedulerName = if (bore) "BORE (Burst-Oriented Response Enhancer)" else "CFS / EAS",
+                isEasSupported = isEasSupported,
+                isHmpSupported = isHmpSupported,
+                isUclampSupported = hasUclamp,
+                isSchedBoostSupported = hasSchedBoost,
                 schedLatencyNs = lat,
                 schedMinGranularityNs = minGran,
                 schedWakeupGranularityNs = wakeGran,
@@ -7136,14 +7250,25 @@ done
                 schedChildRunsFirst = childFirst,
                 upRateLimitUs = upRate,
                 downRateLimitUs = downRate,
-                activePreset = if (upRate == 0L && lat <= 5000000L) "gaming" else if (upRate >= 3000L) "battery" else "balanced"
+                schedEnergyAware = energyAwareVal != 0,
+                schedBoost = schedBoost,
+                uclampMin = uclampMin,
+                uclampMax = uclampMax,
+                schedUpmigrate = upmigrate,
+                schedDownmigrate = downmigrate,
+                schedInitTaskLoad = initTaskLoad,
+                isSpillSupported = hasSpill,
+                schedSpillNrRun = spillNrRun,
+                schedSpillLoad = spillLoad,
+                activePreset = if (upRate == 0L && lat <= 5000000L) "gaming" else if (upRate >= 3000L) "battery" else "balanced",
+                applyOnBoot = applyOnBoot
             )
         } catch (e: Exception) {
             SchedulerInfo()
         }
     }
 
-    suspend fun setSchedulerTunable(tunable: String, value: Long): Boolean = withContext(Dispatchers.IO) {
+    suspend fun setSchedulerTunable(tunable: String, value: Long, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
         try {
             val cmd = when (tunable) {
                 "sched_latency_ns" -> {
@@ -7178,55 +7303,196 @@ done
                     val safe = value.coerceIn(500L, 40000L)
                     "for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do [ -d \"\$p\" ] && echo $safe > \"\$p/down_rate_limit_us\" 2>/dev/null; done; echo ok"
                 }
+                "sched_energy_aware" -> {
+                    val safe = if (value > 0) 1 else 0
+                    "[ -f /proc/sys/kernel/sched_energy_aware ] && echo $safe > /proc/sys/kernel/sched_energy_aware 2>/dev/null; [ -f /sys/devices/system/cpu/eas/enable ] && echo $safe > /sys/devices/system/cpu/eas/enable 2>/dev/null; echo ok"
+                }
+                "sched_boost" -> {
+                    val safe = value.coerceIn(0L, 3L)
+                    "[ -f /proc/sys/kernel/sched_boost ] && echo $safe > /proc/sys/kernel/sched_boost 2>/dev/null; echo ok"
+                }
+                "uclamp_min" -> {
+                    val safe = value.coerceIn(0L, 1024L)
+                    "[ -f /proc/sys/kernel/sched_uclamp_util_min ] && echo $safe > /proc/sys/kernel/sched_uclamp_util_min 2>/dev/null; [ -f /proc/sys/kernel/sched_util_clamp_min ] && echo $safe > /proc/sys/kernel/sched_util_clamp_min 2>/dev/null; echo ok"
+                }
+                "uclamp_max" -> {
+                    val safe = value.coerceIn(0L, 1024L)
+                    "[ -f /proc/sys/kernel/sched_uclamp_util_max ] && echo $safe > /proc/sys/kernel/sched_uclamp_util_max 2>/dev/null; [ -f /proc/sys/kernel/sched_util_clamp_max ] && echo $safe > /proc/sys/kernel/sched_util_clamp_max 2>/dev/null; echo ok"
+                }
+                "sched_upmigrate" -> {
+                    val safe = value.coerceIn(40L, 100L)
+                    "[ -f /proc/sys/kernel/sched_upmigrate ] && echo $safe > /proc/sys/kernel/sched_upmigrate 2>/dev/null; echo ok"
+                }
+                "sched_downmigrate" -> {
+                    val safe = value.coerceIn(20L, 95L)
+                    "[ -f /proc/sys/kernel/sched_downmigrate ] && echo $safe > /proc/sys/kernel/sched_downmigrate 2>/dev/null; echo ok"
+                }
+                "sched_init_task_load" -> {
+                    val safe = value.coerceIn(5L, 100L)
+                    "[ -f /proc/sys/kernel/sched_init_task_load ] && echo $safe > /proc/sys/kernel/sched_init_task_load 2>/dev/null; echo ok"
+                }
+                "sched_spill_nr_run" -> {
+                    val safe = value.coerceIn(1L, 20L)
+                    "[ -f /proc/sys/kernel/sched_spill_nr_run ] && echo $safe > /proc/sys/kernel/sched_spill_nr_run 2>/dev/null; echo ok"
+                }
+                "sched_spill_load" -> {
+                    val safe = value.coerceIn(50L, 100L)
+                    "[ -f /proc/sys/kernel/sched_spill_load ] && echo $safe > /proc/sys/kernel/sched_spill_load 2>/dev/null; echo ok"
+                }
+                "apply_on_boot" -> {
+                    context?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                        ?.edit()
+                        ?.putBoolean("apply_on_boot", value == 1L)
+                        ?.apply()
+                    return@withContext true
+                }
                 else -> return@withContext false
             }
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok && context != null) {
+                context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putLong(tunable, value)
+                    .apply()
+            }
+            ok
         } catch (e: Exception) {
             false
         }
     }
 
-    suspend fun applySchedulerPreset(preset: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun setSchedulerHysteresis(upmigrate: Int, downmigrate: Int, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val safeUp = upmigrate.coerceIn(40, 100)
+            val safeDown = downmigrate.coerceIn(20, safeUp - 5)
+            val script = """
+                [ -f /proc/sys/kernel/sched_upmigrate ] && echo $safeUp > /proc/sys/kernel/sched_upmigrate 2>/dev/null
+                [ -f /proc/sys/kernel/sched_downmigrate ] && echo $safeDown > /proc/sys/kernel/sched_downmigrate 2>/dev/null
+                echo ok
+            """.trimIndent()
+            val ok = Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok && context != null) {
+                context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putInt("sched_upmigrate", safeUp)
+                    .putInt("sched_downmigrate", safeDown)
+                    .apply()
+            }
+            ok
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun applySavedSchedulerConfig(context: Context): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val prefs = context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+            val applyOnBoot = prefs.getBoolean("apply_on_boot", false)
+            if (!applyOnBoot) return@withContext false
+
+            val up = prefs.getInt("sched_upmigrate", -1)
+            val down = prefs.getInt("sched_downmigrate", -1)
+            if (up > 0 && down > 0) {
+                setSchedulerHysteresis(up, down, null)
+            }
+            val allKeys = prefs.all
+            allKeys.forEach { (k, v) ->
+                if (k != "apply_on_boot" && k != "sched_upmigrate" && k != "sched_downmigrate") {
+                    val lVal = when (v) {
+                        is Long -> v
+                        is Int -> v.toLong()
+                        is Boolean -> if (v) 1L else 0L
+                        else -> null
+                    }
+                    if (lVal != null) {
+                        setSchedulerTunable(k, lVal, null)
+                    }
+                }
+            }
+            true
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applySchedulerPreset(preset: String, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
         try {
             val script = when (preset.lowercase()) {
                 "gaming" -> """
-                    echo 4000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
-                    echo 750000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
-                    echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
-                    echo 500000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
-                    echo 64 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    # CFS
+                    [ -f /proc/sys/kernel/sched_latency_ns ] && echo 4000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_min_granularity_ns ] && echo 750000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 500000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_nr_migrate ] && echo 64 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    # Schedutil
                     for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
                         [ -d "${'$'}p" ] && echo 0 > "${'$'}p/up_rate_limit_us" 2>/dev/null
-                        [ -d "${'$'}p" ] && echo 5000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] && echo 20000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
                     done
+                    # EAS
+                    [ -f /proc/sys/kernel/sched_boost ] && echo 1 > /proc/sys/kernel/sched_boost 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_uclamp_util_min ] && echo 128 > /proc/sys/kernel/sched_uclamp_util_min 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_util_clamp_min ] && echo 128 > /proc/sys/kernel/sched_util_clamp_min 2>/dev/null
+                    # HMP / WALT
+                    [ -f /proc/sys/kernel/sched_upmigrate ] && echo 60 > /proc/sys/kernel/sched_upmigrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_downmigrate ] && echo 40 > /proc/sys/kernel/sched_downmigrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_init_task_load ] && echo 70 > /proc/sys/kernel/sched_init_task_load 2>/dev/null
                     echo ok
                 """.trimIndent()
                 "battery" -> """
-                    echo 20000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
-                    echo 4000000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
-                    echo 4000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
-                    echo 1000000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
-                    echo 16 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    # CFS
+                    [ -f /proc/sys/kernel/sched_latency_ns ] && echo 20000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_min_granularity_ns ] && echo 4000000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 4000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 1000000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_nr_migrate ] && echo 16 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    # Schedutil
                     for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
                         [ -d "${'$'}p" ] && echo 4000 > "${'$'}p/up_rate_limit_us" 2>/dev/null
-                        [ -d "${'$'}p" ] && echo 20000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] && echo 2000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
                     done
+                    # EAS
+                    [ -f /proc/sys/kernel/sched_boost ] && echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_energy_aware ] && echo 1 > /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_uclamp_util_min ] && echo 0 > /proc/sys/kernel/sched_uclamp_util_min 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_util_clamp_min ] && echo 0 > /proc/sys/kernel/sched_util_clamp_min 2>/dev/null
+                    # HMP / WALT
+                    [ -f /proc/sys/kernel/sched_upmigrate ] && echo 95 > /proc/sys/kernel/sched_upmigrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_downmigrate ] && echo 80 > /proc/sys/kernel/sched_downmigrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_init_task_load ] && echo 20 > /proc/sys/kernel/sched_init_task_load 2>/dev/null
                     echo ok
                 """.trimIndent()
                 else -> """
-                    echo 10000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
-                    echo 3000000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
-                    echo 2000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
-                    echo 200000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
-                    echo 32 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    # Balanced
+                    [ -f /proc/sys/kernel/sched_latency_ns ] && echo 10000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_min_granularity_ns ] && echo 3000000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 2000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 200000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_nr_migrate ] && echo 32 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    # Schedutil
                     for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
-                        [ -d "${'$'}p" ] && echo 500 > "${'$'}p/up_rate_limit_us" 2>/dev/null
-                        [ -d "${'$'}p" ] && echo 20000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] && echo 1000 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] && echo 10000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
                     done
+                    # EAS
+                    [ -f /proc/sys/kernel/sched_boost ] && echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_energy_aware ] && echo 1 > /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_uclamp_util_min ] && echo 0 > /proc/sys/kernel/sched_uclamp_util_min 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_util_clamp_min ] && echo 0 > /proc/sys/kernel/sched_util_clamp_min 2>/dev/null
+                    # HMP / WALT
+                    [ -f /proc/sys/kernel/sched_upmigrate ] && echo 85 > /proc/sys/kernel/sched_upmigrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_downmigrate ] && echo 65 > /proc/sys/kernel/sched_downmigrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_init_task_load ] && echo 35 > /proc/sys/kernel/sched_init_task_load 2>/dev/null
                     echo ok
                 """.trimIndent()
             }
-            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+            val ok = Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok && context != null) {
+                context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("active_preset", preset.lowercase())
+                    .apply()
+            }
+            ok
         } catch (e: Exception) {
             false
         }

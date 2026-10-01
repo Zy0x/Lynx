@@ -30,6 +30,9 @@ class LynxBootReceiver : BroadcastReceiver() {
                     Log.i("LynxBootReceiver", "Restoring baseline profile on boot: $baseline")
                     LynxRepository.setProfile(baseline, "boot")
 
+                    // Restore custom kernel scheduler / HMP / EAS settings if apply_on_boot is enabled
+                    LynxRepository.applySavedSchedulerConfig(context)
+
                     val enabledResult = Shell.cmd("cat /data/adb/lynx/automation_enabled 2>/dev/null").exec()
                     val isEnabled = enabledResult.out.firstOrNull()?.trim() == "1"
 
