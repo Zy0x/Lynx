@@ -536,6 +536,7 @@ data class SchedulerInfo(
     val schedDownmigrate: Int = 65,  // 0..100% (must be <= schedUpmigrate)
     val schedInitTaskLoad: Int = 35, // 0..100%
     val isSpillSupported: Boolean = false,
+    val isInitTaskLoadSupported: Boolean = false,
     val schedSpillNrRun: Int = 3,
     val schedSpillLoad: Int = 90,
 

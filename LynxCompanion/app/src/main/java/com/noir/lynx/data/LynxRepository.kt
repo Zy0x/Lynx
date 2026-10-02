@@ -7071,16 +7071,18 @@ done
 
                 eas_hybrid="0"
                 has_eas_file="0"
+                has_mtk_eas="0"
                 eas_mode="none"
                 if [ -f /sys/devices/system/cpu/eas/enable ]; then
                     has_eas_file="1"
+                    has_mtk_eas="1"
                     raw_eas=${'$'}(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
-                    if [[ "${'$'}raw_eas" == *"hybrid"* ]]; then
+                    if [[ "${'$'}raw_eas" == *"hybrid"* ]] || [ "${'$'}raw_eas" = "2" ]; then
                         eas_hybrid="1"
                         eas_mode="hybrid"
-                    elif [[ "${'$'}raw_eas" == *"eas"* ]]; then
+                    elif [[ "${'$'}raw_eas" == *"eas"* ]] || [ "${'$'}raw_eas" = "1" ]; then
                         eas_mode="eas"
-                    elif [[ "${'$'}raw_eas" == *"hmp"* ]]; then
+                    elif [[ "${'$'}raw_eas" == *"hmp"* ]] || [ "${'$'}raw_eas" = "0" ]; then
                         eas_mode="hmp"
                     fi
                 elif [ -f /proc/sys/kernel/sched_energy_aware ]; then
@@ -7127,8 +7129,12 @@ done
                     [ -n "${'$'}raw_down" ] && downmigrate="${'$'}raw_down"
                 fi
 
+                has_init_load="0"
                 init_task_load="35"
-                [ -f /proc/sys/kernel/sched_init_task_load ] && init_task_load=${'$'}(cat /proc/sys/kernel/sched_init_task_load 2>/dev/null || echo "35")
+                if [ -f /proc/sys/kernel/sched_init_task_load ]; then
+                    has_init_load="1"
+                    init_task_load=${'$'}(cat /proc/sys/kernel/sched_init_task_load 2>/dev/null || echo "35")
+                fi
 
                 has_spill="0"
                 spill_nr_run="3"
@@ -7160,6 +7166,7 @@ done
 
                 echo "bore:${'$'}bore"
                 echo "has_eas_file:${'$'}has_eas_file"
+                echo "has_mtk_eas:${'$'}has_mtk_eas"
                 echo "eas_mode:${'$'}eas_mode"
                 echo "eas_hybrid:${'$'}eas_hybrid"
                 echo "energy_aware:${'$'}energy_aware"
@@ -7171,6 +7178,7 @@ done
                 echo "has_hmp:${'$'}has_hmp"
                 echo "upmigrate:${'$'}upmigrate"
                 echo "downmigrate:${'$'}downmigrate"
+                echo "has_init_load:${'$'}has_init_load"
                 echo "init_task_load:${'$'}init_task_load"
                 echo "has_spill:${'$'}has_spill"
                 echo "spill_nr_run:${'$'}spill_nr_run"
@@ -7187,6 +7195,7 @@ done
             val res = Shell.cmd(script).exec()
             var bore = false
             var hasEasFile = false
+            var hasMtkEas = false
             var easMode = "none"
             var easHybrid = false
             var energyAwareVal = -1
@@ -7198,6 +7207,7 @@ done
             var hasHmp = false
             var upmigrate = 85
             var downmigrate = 65
+            var hasInitLoad = false
             var initTaskLoad = 35
             var hasSpill = false
             var spillNrRun = 3
@@ -7219,6 +7229,7 @@ done
                     when (k) {
                         "bore" -> bore = v == "1"
                         "has_eas_file" -> hasEasFile = v == "1"
+                        "has_mtk_eas" -> hasMtkEas = v == "1"
                         "eas_mode" -> easMode = v
                         "eas_hybrid" -> easHybrid = v == "1"
                         "energy_aware" -> energyAwareVal = v.toIntOrNull() ?: -1
@@ -7230,6 +7241,7 @@ done
                         "has_hmp" -> hasHmp = v == "1"
                         "upmigrate" -> upmigrate = v.toIntOrNull() ?: 85
                         "downmigrate" -> downmigrate = v.toIntOrNull() ?: 65
+                        "has_init_load" -> hasInitLoad = v == "1"
                         "init_task_load" -> initTaskLoad = v.toIntOrNull() ?: 35
                         "has_spill" -> hasSpill = v == "1"
                         "spill_nr_run" -> spillNrRun = v.toIntOrNull() ?: 3
@@ -7248,8 +7260,8 @@ done
 
             val isEasSupported = easHybrid || (energyAwareVal != -1) || hasUclamp || easMode == "eas"
             val isHmpSupported = hasHmp || hasSpill || easMode == "hmp" || easHybrid
-            val isModeSwitchSupported = hasEasFile || (energyAwareVal != -1)
-            val isHybridSupported = hasEasFile
+            val isModeSwitchSupported = hasMtkEas || (energyAwareVal != -1)
+            val isHybridSupported = hasMtkEas
 
             val activeArchMode = when {
                 easMode == "hybrid" -> "hybrid"
@@ -7304,6 +7316,7 @@ done
                 uclampMax = uclampMax,
                 schedUpmigrate = upmigrate,
                 schedDownmigrate = downmigrate,
+                isInitTaskLoadSupported = hasInitLoad,
                 schedInitTaskLoad = initTaskLoad,
                 isSpillSupported = hasSpill,
                 schedSpillNrRun = spillNrRun,

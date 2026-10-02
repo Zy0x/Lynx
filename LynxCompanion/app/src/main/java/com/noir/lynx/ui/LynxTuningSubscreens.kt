@@ -1088,7 +1088,7 @@ fun TuningCpuCategory(
 
             // ── EXPANDABLE ACCORDION FOR ADVANCED / MICRO TUNABLES ──
             Spacer(Modifier.height(4.dp))
-            val advancedCount = 5 + (if (schedInfo.isSpillSupported) 2 else 0)
+            val advancedCount = 5 + (if (schedInfo.isSpillSupported) 2 else 0) + (if (schedInfo.isInitTaskLoadSupported) 1 else 0)
 
             Surface(
                 shape = RoundedCornerShape(10.dp),
@@ -1130,31 +1130,33 @@ fun TuningCpuCategory(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Sched Init Task Load Tile
-                    LynxTweakTile(
-                        title = "Init Task Load (Fork Initial)",
-                        subtitle = "Estimasi beban awal proses baru saat fork",
-                        displayValue = "${initTaskLoadVal.toInt()}%",
-                        onClick = {
-                            activeTweakConfig = TweakConfig(
-                                id = "sched_init_task_load",
-                                title = "Sched Init Task Load (Fork Initial Load)",
-                                category = "HMP",
-                                description = "Estimasi beban awal proses baru saat pertama kali dibuat (fork). Nilai tinggi langsung mengeksekusi proses baru di Big Core demi kecepatan startup aplikasi/game.",
-                                currentValue = initTaskLoadVal,
-                                defaultValue = 35f,
-                                valueRange = 5f..100f,
-                                steps = 18,
-                                formatDisplay = { v -> "${v.toInt()}%" },
-                                guideNote = "• Gaming/Berat: 60% (Start langsung di Big Core)\n• Seimbang: 35% (Standar Android)\n• Ringan/Hemat: 15% (Start di Little Core)",
-                                statusInfo = if (initTaskLoadVal >= 50f) "🚀 Start Big Core" else "⚖️ Standar Little Core",
-                                onApply = { v ->
-                                    initTaskLoadVal = v
-                                    viewModel.setSchedulerTunable("sched_init_task_load", v.toLong(), context)
-                                }
-                            )
-                        }
-                    )
+                    // Sched Init Task Load Tile (if supported by kernel)
+                    if (schedInfo.isInitTaskLoadSupported) {
+                        LynxTweakTile(
+                            title = "Init Task Load (Fork Initial)",
+                            subtitle = "Estimasi beban awal proses baru saat fork",
+                            displayValue = "${initTaskLoadVal.toInt()}%",
+                            onClick = {
+                                activeTweakConfig = TweakConfig(
+                                    id = "sched_init_task_load",
+                                    title = "Sched Init Task Load (Fork Initial Load)",
+                                    category = "HMP",
+                                    description = "Estimasi beban awal proses baru saat pertama kali dibuat (fork). Nilai tinggi langsung mengeksekusi proses baru di Big Core demi kecepatan startup aplikasi/game.",
+                                    currentValue = initTaskLoadVal,
+                                    defaultValue = 35f,
+                                    valueRange = 5f..100f,
+                                    steps = 18,
+                                    formatDisplay = { v -> "${v.toInt()}%" },
+                                    guideNote = "• Gaming/Berat: 60% (Start langsung di Big Core)\n• Seimbang: 35% (Standar Android)\n• Ringan/Hemat: 15% (Start di Little Core)",
+                                    statusInfo = if (initTaskLoadVal >= 50f) "🚀 Start Big Core" else "⚖️ Standar Little Core",
+                                    onApply = { v ->
+                                        initTaskLoadVal = v
+                                        viewModel.setSchedulerTunable("sched_init_task_load", v.toLong(), context)
+                                    }
+                                )
+                            }
+                        )
+                    }
 
                     // Spilling controls if supported
                     if (schedInfo.isSpillSupported) {
