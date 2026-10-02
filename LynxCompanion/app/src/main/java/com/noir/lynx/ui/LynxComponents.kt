@@ -261,7 +261,33 @@ data class TweakConfig(
     val steps: Int = 0,
     val formatDisplay: (Float) -> String,
     val recommendations: List<TweakRecommendation> = emptyList(),
+    val guideNote: String? = null,
+    val statusInfo: String? = null,
     val onApply: (Float) -> Unit
+)
+
+data class DualTweakItem(
+    val id: String,
+    val label: String,
+    val guideNote: String,
+    val currentValue: Float,
+    val defaultValue: Float,
+    val valueRange: ClosedFloatingPointRange<Float>,
+    val steps: Int = 0,
+    val formatDisplay: (Float) -> String,
+    val onApply: (Float) -> Unit
+)
+
+data class DualTweakConfig(
+    val id: String,
+    val title: String,
+    val category: String,
+    val description: String,
+    val item1: DualTweakItem,
+    val item2: DualTweakItem,
+    val liveStatus: String? = null,
+    val liveStatusSafe: Boolean = true,
+    val onResetAll: () -> Unit
 )
 
 @Composable
@@ -340,6 +366,109 @@ fun LynxTweakTile(
                         }
                         Text(
                             text = displayValue,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
+                }
+
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = TextTertiary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LynxDualTweakTile(
+    title: String,
+    subtitle: String? = null,
+    val1Display: String,
+    val2Display: String,
+    val1Label: String = "",
+    val2Label: String = "",
+    separator: String = " / ",
+    statusBadge: String? = null,
+    accentColor: Color = AccentCyan,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF10131B),
+        border = BorderStroke(1.dp, BorderSubtle),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 11.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 10.dp)
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        fontSize = 9.5.sp,
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Right side: Minimal clean pill with dual values + Chevron arrow
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF181B26),
+                    border = BorderStroke(0.8.dp, BorderGlass)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (!statusBadge.isNullOrBlank()) {
+                            Text(
+                                text = statusBadge,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = accentColor
+                            )
+                        }
+                        val displayText = if (val1Label.isNotBlank() && val2Label.isNotBlank()) {
+                            "$val1Label $val1Display$separator$val2Label $val2Display"
+                        } else {
+                            "$val1Display$separator$val2Display"
+                        }
+                        Text(
+                            text = displayText,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
@@ -449,7 +578,25 @@ fun LynxTweakSheet(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Nilai Diterapkan", fontSize = 11.5.sp, color = TextSecondary)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Nilai Diterapkan", fontSize = 11.5.sp, color = TextSecondary)
+                        if (!config.statusInfo.isNullOrBlank()) {
+                            Spacer(Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = AccentCyan.copy(alpha = 0.12f),
+                                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.3f))
+                            ) {
+                                Text(
+                                    text = config.statusInfo,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentCyan,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
                     Text(
                         text = config.formatDisplay(sliderValue),
                         fontSize = 16.sp,
@@ -468,61 +615,32 @@ fun LynxTweakSheet(
                 lineHeight = 15.sp
             )
 
-            // Recommendations (Kerja Berat / Seimbang / Ringan)
-            if (config.recommendations.isNotEmpty()) {
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    text = "REKOMENDASI SKENARIO",
-                    fontSize = 9.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextTertiary,
-                    letterSpacing = 0.5.sp
-                )
-                Spacer(Modifier.height(6.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Petunjuk dan Panduan Nilai (Clean Guidance Card without preset buttons)
+            if (!config.guideNote.isNullOrBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF141722),
+                    border = BorderStroke(0.8.dp, BorderGlass),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    config.recommendations.forEach { rec ->
-                        val isRecSelected = Math.abs(sliderValue - rec.value) < 0.01f
-                        val recColor = when {
-                            rec.label.contains("Game", ignoreCase = true) || rec.label.contains("Agresif", ignoreCase = true) -> AccentOrange
-                            rec.label.contains("Hemat", ignoreCase = true) || rec.label.contains("Baterai", ignoreCase = true) -> AccentGreen
-                            else -> AccentCyan
-                        }
-
-                        Surface(
-                            onClick = {
-                                sliderValue = rec.value
-                                config.onApply(rec.value)
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isRecSelected) recColor.copy(alpha = 0.18f) else Color(0xFF141722),
-                            border = BorderStroke(1.dp, if (isRecSelected) recColor else BorderGlass),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = rec.label,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isRecSelected) FontWeight.Bold else FontWeight.SemiBold,
-                                    color = if (isRecSelected) recColor else TextPrimary,
-                                    maxLines = 1
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = rec.sublabel,
-                                    fontSize = 9.sp,
-                                    color = if (isRecSelected) TextPrimary else TextSecondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = config.guideNote,
+                            fontSize = 10.sp,
+                            color = TextSecondary,
+                            lineHeight = 14.sp
+                        )
                     }
                 }
             }
@@ -558,6 +676,246 @@ fun LynxTweakSheet(
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LynxDualTweakSheet(
+    config: DualTweakConfig,
+    onDismiss: () -> Unit
+) {
+    var val1 by remember(config.id, config.item1.currentValue) {
+        mutableFloatStateOf(config.item1.currentValue)
+    }
+    var val2 by remember(config.id, config.item2.currentValue) {
+        mutableFloatStateOf(config.item2.currentValue)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFA0D1017),
+        scrimColor = Color.Black.copy(alpha = 0.65f),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = {
+            Surface(
+                color = Color(0x33FFFFFF),
+                shape = CircleShape,
+                modifier = Modifier
+                    .padding(top = 10.dp, bottom = 6.dp)
+                    .size(width = 38.dp, height = 4.dp)
+            ) {}
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 36.dp)
+        ) {
+            // Header: Category Tag & Reset to Default Button
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        text = config.category.uppercase(),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentCyan,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                    )
+                }
+
+                TextButton(
+                    onClick = {
+                        val1 = config.item1.defaultValue
+                        val2 = config.item2.defaultValue
+                        config.onResetAll()
+                    },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.height(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("Pulihkan Bawaan", fontSize = 10.5.sp, color = TextSecondary)
+                }
+            }
+
+            // Title
+            Text(
+                text = config.title,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+
+            // Description
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = config.description,
+                fontSize = 10.5.sp,
+                color = TextSecondary,
+                lineHeight = 15.sp
+            )
+
+            // Optional Live Status Badge (e.g. Hysteresis Buffer)
+            if (!config.liveStatus.isNullOrBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (config.liveStatusSafe) AccentGreen.copy(alpha = 0.12f) else AccentOrange.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, if (config.liveStatusSafe) AccentGreen.copy(alpha = 0.3f) else AccentOrange.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = if (config.liveStatusSafe) AccentGreen else AccentOrange,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = config.liveStatus,
+                            color = if (config.liveStatusSafe) AccentGreen else AccentOrange,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // ── ITEM 1 SLIDER SECTION ──
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xFF12151F),
+                border = BorderStroke(1.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = config.item1.label,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = config.item1.formatDisplay(val1),
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentCyan
+                        )
+                    }
+
+                    if (config.item1.guideNote.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = config.item1.guideNote,
+                            fontSize = 9.5.sp,
+                            color = TextSecondary,
+                            lineHeight = 14.sp
+                        )
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+                    Slider(
+                        value = val1.coerceIn(config.item1.valueRange),
+                        onValueChange = { val1 = it },
+                        onValueChangeFinished = {
+                            config.item1.onApply(val1)
+                        },
+                        valueRange = config.item1.valueRange,
+                        steps = config.item1.steps,
+                        colors = SliderDefaults.colors(
+                            thumbColor = AccentCyan,
+                            activeTrackColor = AccentCyan,
+                            inactiveTrackColor = Color(0xFF1C202E)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // ── ITEM 2 SLIDER SECTION ──
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xFF12151F),
+                border = BorderStroke(1.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = config.item2.label,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = config.item2.formatDisplay(val2),
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentCyan
+                        )
+                    }
+
+                    if (config.item2.guideNote.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = config.item2.guideNote,
+                            fontSize = 9.5.sp,
+                            color = TextSecondary,
+                            lineHeight = 14.sp
+                        )
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+                    Slider(
+                        value = val2.coerceIn(config.item2.valueRange),
+                        onValueChange = { val2 = it },
+                        onValueChangeFinished = {
+                            config.item2.onApply(val2)
+                        },
+                        valueRange = config.item2.valueRange,
+                        steps = config.item2.steps,
+                        colors = SliderDefaults.colors(
+                            thumbColor = AccentCyan,
+                            activeTrackColor = AccentCyan,
+                            inactiveTrackColor = Color(0xFF1C202E)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
     }
 }

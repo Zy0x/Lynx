@@ -690,6 +690,7 @@ fun TuningCpuCategory(
         var spillLoadVal by remember(schedInfo.schedSpillLoad) { mutableFloatStateOf(schedInfo.schedSpillLoad.toFloat()) }
         var showAdvancedSched by remember { mutableStateOf(false) }
         var activeTweakConfig by remember { mutableStateOf<TweakConfig?>(null) }
+        var activeDualTweakConfig by remember { mutableStateOf<DualTweakConfig?>(null) }
 
         LynxCard(
             title = "Penjadwal Kernel & Arsitektur Multicore",
@@ -885,61 +886,54 @@ fun TuningCpuCategory(
                     }
                 }
 
-                // uclamp if supported
+                // uclamp if supported (Unified Dual Tile)
                 if (schedInfo.isUclampSupported) {
-                    LynxTweakTile(
-                        title = "Uclamp Floor (Anti-Delay)",
-                        subtitle = "Jaminan kapasitas CPU minimum task aktif",
-                        displayValue = if (uclampMinVal == 0f) "0 (Bawaan)" else "${uclampMinVal.toInt()} (${(uclampMinVal / 1024f * 100).toInt()}%)",
-                        statusBadge = if (uclampMinVal >= 512f) "⚡ Prioritas" else if (uclampMinVal > 0f) "⚖️ Normal" else "Bawaan",
+                    LynxDualTweakTile(
+                        title = "Rentang Utilisasi Uclamp",
+                        subtitle = "Kapasitas minimum task aktif & batas atas background",
+                        val1Display = if (uclampMinVal == 0f) "0" else "${uclampMinVal.toInt()}",
+                        val2Display = "${uclampMaxVal.toInt()}",
                         onClick = {
-                            activeTweakConfig = TweakConfig(
-                                id = "uclamp_min",
-                                title = "Uclamp Task Floor (Anti-Delay)",
+                            activeDualTweakConfig = DualTweakConfig(
+                                id = "uclamp_range",
+                                title = "Rentang Utilisasi Uclamp (EAS)",
                                 category = "EAS",
-                                description = "Kapasitas komputasi CPU minimum yang dijamin untuk thread aktif. Menghilangkan jeda/delay ramp-up pada game saat frame tiba-tiba membutuhkan daya komputasi tinggi.",
-                                currentValue = uclampMinVal,
-                                defaultValue = 0f,
-                                valueRange = 0f..1024f,
-                                steps = 31,
-                                formatDisplay = { v -> if (v == 0f) "0 (Default / Bawaan)" else "${v.toInt()} (${(v / 1024f * 100).toInt()}%)" },
-                                recommendations = listOf(
-                                    TweakRecommendation("🎮 Game", "512 (Prioritas Tinggi)", 512f),
-                                    TweakRecommendation("⚖️ Seimbang", "128 (Dorongan Halus)", 128f),
-                                    TweakRecommendation("🔋 Hemat", "0 (Bawaan Hemat)", 0f)
+                                description = "Kontrol komprehensif alokasi kapasitas CPU thread aktif (Floor) untuk menghilangkan jeda/delay tiba-tiba, serta pembatasan daya task latar belakang (Ceiling).",
+                                item1 = DualTweakItem(
+                                    id = "uclamp_min",
+                                    label = "Uclamp Floor (Anti-Delay)",
+                                    guideNote = "• Gaming/Berat: 512 (Prioritas tinggi, instan responsif)\n• Seimbang: 128 (Dorongan halus, hemat daya)\n• Ringan/Hemat: 0 (Bawaan sistem kernel)",
+                                    currentValue = uclampMinVal,
+                                    defaultValue = 0f,
+                                    valueRange = 0f..1024f,
+                                    steps = 31,
+                                    formatDisplay = { v -> if (v == 0f) "0 (Bawaan / Hemat)" else "${v.toInt()} (${(v / 1024f * 100).toInt()}%)" },
+                                    onApply = { v ->
+                                        uclampMinVal = v
+                                        viewModel.setSchedulerTunable("uclamp_min", v.toLong(), context)
+                                    }
                                 ),
-                                onApply = { v ->
-                                    uclampMinVal = v
-                                    viewModel.setSchedulerTunable("uclamp_min", v.toLong(), context)
-                                }
-                            )
-                        }
-                    )
-
-                    LynxTweakTile(
-                        title = "Uclamp Ceiling (Batas Atas)",
-                        subtitle = "Batas daya maksimum task latar belakang",
-                        displayValue = if (uclampMaxVal >= 1024f) "1024 (100%)" else "${uclampMaxVal.toInt()} (${(uclampMaxVal / 1024f * 100).toInt()}%)",
-                        statusBadge = if (uclampMaxVal >= 1024f) "Maksimal" else "Dibatasi",
-                        onClick = {
-                            activeTweakConfig = TweakConfig(
-                                id = "uclamp_max",
-                                title = "Uclamp Task Ceiling (Batas Atas)",
-                                category = "EAS",
-                                description = "Batas atas utilisasi task latar belakang untuk mencegah lonjakan konsumsi daya berlebih yang tidak diperlukan.",
-                                currentValue = uclampMaxVal,
-                                defaultValue = 1024f,
-                                valueRange = 128f..1024f,
-                                steps = 27,
-                                formatDisplay = { v -> if (v >= 1024f) "1024 (100% Maksimal)" else "${v.toInt()} (${(v / 1024f * 100).toInt()}%)" },
-                                recommendations = listOf(
-                                    TweakRecommendation("🎮 Game", "1024 (Kapasitas Penuh)", 1024f),
-                                    TweakRecommendation("⚖️ Seimbang", "1024 (Standar)", 1024f),
-                                    TweakRecommendation("🔋 Hemat", "640 (Batasi Daya)", 640f)
+                                item2 = DualTweakItem(
+                                    id = "uclamp_max",
+                                    label = "Uclamp Ceiling (Batas Atas)",
+                                    guideNote = "• Gaming/Berat: 1024 (Kapasitas penuh 100% tanpa limitasi)\n• Seimbang: 1024 (Standar Linux)\n• Ringan/Hemat: 640 (Batasi daya latar belakang)",
+                                    currentValue = uclampMaxVal,
+                                    defaultValue = 1024f,
+                                    valueRange = 128f..1024f,
+                                    steps = 27,
+                                    formatDisplay = { v -> if (v >= 1024f) "1024 (100% Maksimal)" else "${v.toInt()} (${(v / 1024f * 100).toInt()}%)" },
+                                    onApply = { v ->
+                                        uclampMaxVal = v
+                                        viewModel.setSchedulerTunable("uclamp_max", v.toLong(), context)
+                                    }
                                 ),
-                                onApply = { v ->
-                                    uclampMaxVal = v
-                                    viewModel.setSchedulerTunable("uclamp_max", v.toLong(), context)
+                                liveStatus = if (uclampMinVal >= 512f) "Status: ⚡ Prioritas Tinggi (Anti-Delay Aktif)" else if (uclampMinVal > 0f) "Status: ⚖️ Dorongan Halus (Seimbang)" else "Status: 🛡️ Bawaan Kernel (EAS Standar)",
+                                liveStatusSafe = true,
+                                onResetAll = {
+                                    uclampMinVal = 0f
+                                    uclampMaxVal = 1024f
+                                    viewModel.setSchedulerTunable("uclamp_min", 0L, context)
+                                    viewModel.setSchedulerTunable("uclamp_max", 1024L, context)
                                 }
                             )
                         }
@@ -972,65 +966,57 @@ fun TuningCpuCategory(
                     )
                 }
 
-                // Sched Upmigrate Tile
-                LynxTweakTile(
-                    title = "Upmigrate (Little → Big)",
-                    subtitle = "Ambang beban promosi task ke Big Core",
-                    displayValue = "${upmigrateVal.toInt()}%",
-                    statusBadge = if (upmigrateVal <= 70f) "⚡ Agresif" else if (upmigrateVal >= 90f) "🔋 Hemat" else "⚖️ Seimbang",
+                // Sched Migration Hysteresis Pair (Unified Dual Tile)
+                LynxDualTweakTile(
+                    title = "Ambang Migrasi HMP",
+                    subtitle = "Ambang batas promosi Little → Big & penurunan Big → Little",
+                    val1Display = "${upmigrateVal.toInt()}%",
+                    val2Display = "${downmigrateVal.toInt()}%",
+                    accentColor = AccentOrange,
                     onClick = {
-                        activeTweakConfig = TweakConfig(
-                            id = "sched_upmigrate",
-                            title = "Sched Upmigrate (Little → Big)",
+                        activeDualTweakConfig = DualTweakConfig(
+                            id = "hmp_migration",
+                            title = "Ambang Migrasi HMP (Hysteresis)",
                             category = "HMP",
-                            description = "Ambang batas persentase beban di Little Core sebelum task dipromosikan ke Big Core. Nilai lebih rendah membuat CPU lebih agresif memindahkan beban berat ke Big Core demi kelancaran aplikasi/game.",
-                            currentValue = upmigrateVal,
-                            defaultValue = 85f,
-                            valueRange = 40f..100f,
-                            steps = 11,
-                            formatDisplay = { v -> "${v.toInt()}%" },
-                            recommendations = listOf(
-                                TweakRecommendation("🎮 Game", "65% (Promosi Agresif)", 65f),
-                                TweakRecommendation("⚖️ Seimbang", "85% (Standar OEM)", 85f),
-                                TweakRecommendation("🔋 Hemat", "95% (Tahan di Little)", 95f)
-                            ),
-                            onApply = { v ->
-                                upmigrateVal = v
-                                if (downmigrateVal > v - 5f) {
-                                    downmigrateVal = (v - 5f).coerceAtLeast(20f)
+                            description = "Mengatur sensitivitas perpindahan task antara Little Core dan Big Core. Buffer histeresis otomatis dikunci (Up > Down + 5%) untuk mencegah task bolak-balik (ping-pong stutter).",
+                            item1 = DualTweakItem(
+                                id = "sched_upmigrate",
+                                label = "Sched Upmigrate (Little → Big)",
+                                guideNote = "• Gaming/Berat: 60% - 65% (Cepat lompat ke Big Core)\n• Seimbang: 85% (Bawaan standar pabrikan)\n• Ringan/Hemat: 95% (Tahan beban di Little Core)",
+                                currentValue = upmigrateVal,
+                                defaultValue = 85f,
+                                valueRange = 40f..100f,
+                                steps = 11,
+                                formatDisplay = { v -> "${v.toInt()}%" },
+                                onApply = { v ->
+                                    upmigrateVal = v
+                                    if (downmigrateVal > v - 5f) {
+                                        downmigrateVal = (v - 5f).coerceAtLeast(20f)
+                                    }
+                                    viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
                                 }
-                                viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
-                            }
-                        )
-                    }
-                )
-
-                // Sched Downmigrate Tile
-                LynxTweakTile(
-                    title = "Downmigrate (Big → Little)",
-                    subtitle = "Ambang beban penurunan ke Little Core",
-                    displayValue = "${downmigrateVal.toInt()}%",
-                    statusBadge = if (downmigrateVal <= 50f) "Tahan Big" else "⚖️ Seimbang",
-                    onClick = {
-                        activeTweakConfig = TweakConfig(
-                            id = "sched_downmigrate",
-                            title = "Sched Downmigrate (Big → Little)",
-                            category = "HMP",
-                            description = "Ambang batas beban Big Core sebelum task diturunkan kembali ke Little Core demi penghematan daya (Sistem otomatis mengunci downmigrate <= upmigrate - 5% agar bebas stutter).",
-                            currentValue = downmigrateVal,
-                            defaultValue = 65f,
-                            valueRange = 20f..95f,
-                            steps = 14,
-                            formatDisplay = { v -> "${v.toInt()}%" },
-                            recommendations = listOf(
-                                TweakRecommendation("🎮 Game", "50% (Tahan di Big Core)", 50f),
-                                TweakRecommendation("⚖️ Seimbang", "65% (Standar OEM)", 65f),
-                                TweakRecommendation("🔋 Hemat", "80% (Cepat Hemat)", 80f)
                             ),
-                            onApply = { v ->
-                                val maxAllowed = (upmigrateVal - 5f).coerceAtLeast(20f)
-                                downmigrateVal = v.coerceAtMost(maxAllowed)
-                                viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
+                            item2 = DualTweakItem(
+                                id = "sched_downmigrate",
+                                label = "Sched Downmigrate (Big → Little)",
+                                guideNote = "• Gaming/Berat: 45% - 50% (Tahan task di Big Core lebih lama)\n• Seimbang: 65% (Bawaan standar)\n• Ringan/Hemat: 80% (Cepat turun ke Little Core)",
+                                currentValue = downmigrateVal,
+                                defaultValue = 65f,
+                                valueRange = 20f..95f,
+                                steps = 14,
+                                formatDisplay = { v -> "${v.toInt()}%" },
+                                onApply = { v ->
+                                    val maxAllowed = (upmigrateVal - 5f).coerceAtLeast(20f)
+                                    downmigrateVal = v.coerceAtMost(maxAllowed)
+                                    viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
+                                }
+                            ),
+                            liveStatus = "Buffer Histeresis: +$hystBuffer% (${if (isBufferSafe) "Aman / Bebas Stutter" else "Terlalu Sempit"}) • ${if (upmigrateVal <= 70f) "⚡ Agresif" else if (upmigrateVal >= 90f) "🔋 Hemat" else "⚖️ Seimbang"}",
+                            liveStatusSafe = isBufferSafe,
+                            onResetAll = {
+                                upmigrateVal = 85f
+                                downmigrateVal = 65f
+                                viewModel.setSchedulerHysteresis(85, 65, context)
                             }
                         )
                     }
@@ -1047,61 +1033,54 @@ fun TuningCpuCategory(
                 HorizontalDivider(color = AccentBlue.copy(alpha = 0.25f), modifier = Modifier.weight(1f))
             }
 
-            // Schedutil Up Rate Tile
-            LynxTweakTile(
-                title = "Ramp-Up Rate (Naik Clock)",
-                subtitle = "Waktu tunggu sebelum CPU menaikkan clock",
-                displayValue = if (schedUpRate == 0f) "0 µs (Instan)" else "${schedUpRate.toInt()} µs",
-                statusBadge = if (schedUpRate == 0f) "🚀 Instan" else if (schedUpRate >= 1500f) "🔋 Hemat" else "⚖️ Seimbang",
+            // Schedutil Rate Limit Pair (Unified Dual Tile)
+            LynxDualTweakTile(
+                title = "Rate Limit Respons Clock",
+                subtitle = "Kecepatan lompatan clock naik & durasi penahanan clock turun",
+                val1Display = if (schedUpRate == 0f) "0 µs" else "${schedUpRate.toInt()} µs",
+                val2Display = "${schedDownRate.toInt() / 1000} ms",
+                accentColor = AccentBlue,
                 onClick = {
-                    activeTweakConfig = TweakConfig(
-                        id = "up_rate_limit_us",
-                        title = "Schedutil Ramp-Up Rate Limit",
+                    activeDualTweakConfig = DualTweakConfig(
+                        id = "schedutil_rate_limits",
+                        title = "Rate Limit Respons Clock (Schedutil)",
                         category = "Schedutil",
-                        description = "Waktu tunggu sebelum CPU menaikkan frekuensi clock. Nilai 0 µs membuat CPU langsung melompat ke frekuensi puncak seketika saat game membutuhkan komputasi berat.",
-                        currentValue = schedUpRate,
-                        defaultValue = 500f,
-                        valueRange = 0f..10000f,
-                        steps = 19,
-                        formatDisplay = { v -> if (v == 0f) "0 µs (Instant Jump)" else "${v.toInt()} µs" },
-                        recommendations = listOf(
-                            TweakRecommendation("🎮 Game", "0 µs (Jump Instan)", 0f),
-                            TweakRecommendation("⚖️ Seimbang", "500 µs (Stabil)", 500f),
-                            TweakRecommendation("🔋 Hemat", "2000 µs (Cegah Spike)", 2000f)
+                        description = "Mengatur dinamika transisi frekuensi CPU. Ramp-up menentukan jeda sebelum clock dinaikkan, sementara Ramp-down mengontrol berapa lama frekuensi tinggi ditahan sebelum turun.",
+                        item1 = DualTweakItem(
+                            id = "up_rate_limit_us",
+                            label = "Ramp-Up Rate Limit (Naik Clock)",
+                            guideNote = "• Gaming/Berat: 0 µs (Lompatan instan ke frekuensi puncak)\n• Seimbang: 500 µs (Transisi halus & stabil)\n• Ringan/Hemat: 2000 µs (Cegah lonjakan clock singkat)",
+                            currentValue = schedUpRate,
+                            defaultValue = 500f,
+                            valueRange = 0f..10000f,
+                            steps = 19,
+                            formatDisplay = { v -> if (v == 0f) "0 µs (Instan / Tanpa Jeda)" else "${v.toInt()} µs" },
+                            onApply = { v ->
+                                schedUpRate = v
+                                viewModel.setSchedulerTunable("up_rate_limit_us", v.toLong(), context)
+                            }
                         ),
-                        onApply = { v ->
-                            schedUpRate = v
-                            viewModel.setSchedulerTunable("up_rate_limit_us", v.toLong(), context)
-                        }
-                    )
-                }
-            )
-
-            // Schedutil Down Rate Tile
-            LynxTweakTile(
-                title = "Ramp-Down Rate (Tahan Clock)",
-                subtitle = "Waktu tahan frekuensi sebelum turun ke idle",
-                displayValue = "${schedDownRate.toInt() / 1000} ms",
-                statusBadge = if (schedDownRate >= 20000f) "Tahan Tinggi" else "⚖️ Normal",
-                onClick = {
-                    activeTweakConfig = TweakConfig(
-                        id = "down_rate_limit_us",
-                        title = "Schedutil Ramp-Down Rate Limit",
-                        category = "Schedutil",
-                        description = "Waktu tahan sebelum CPU menurunkan clock kembali ke frekuensi idle. Mempertahankan frekuensi tinggi lebih lama mencegah micro-stutter saat frame drop.",
-                        currentValue = schedDownRate,
-                        defaultValue = 20000f,
-                        valueRange = 1000f..40000f,
-                        steps = 38,
-                        formatDisplay = { v -> "${v.toInt() / 1000} ms (${v.toInt()} µs)" },
-                        recommendations = listOf(
-                            TweakRecommendation("🎮 Game", "30 ms (Tahan Clock)", 30000f),
-                            TweakRecommendation("⚖️ Seimbang", "10 ms (Standar)", 10000f),
-                            TweakRecommendation("🔋 Hemat", "2 ms (Cepat Turun)", 2000f)
+                        item2 = DualTweakItem(
+                            id = "down_rate_limit_us",
+                            label = "Ramp-Down Rate Limit (Tahan Clock)",
+                            guideNote = "• Gaming/Berat: 30 ms - 40 ms (Tahan clock tinggi cegah micro-stutter)\n• Seimbang: 10 ms - 20 ms (Standar responsif)\n• Ringan/Hemat: 1 ms - 2 ms (Segera turunkan clock demi hemat baterai)",
+                            currentValue = schedDownRate,
+                            defaultValue = 20000f,
+                            valueRange = 1000f..40000f,
+                            steps = 38,
+                            formatDisplay = { v -> "${v.toInt() / 1000} ms (${v.toInt()} µs)" },
+                            onApply = { v ->
+                                schedDownRate = v
+                                viewModel.setSchedulerTunable("down_rate_limit_us", v.toLong(), context)
+                            }
                         ),
-                        onApply = { v ->
-                            schedDownRate = v
-                            viewModel.setSchedulerTunable("down_rate_limit_us", v.toLong(), context)
+                        liveStatus = if (schedUpRate == 0f) "Status: 🚀 Mode Instan (Performa Maksimum)" else if (schedUpRate >= 1500f) "Status: 🔋 Mode Efisiensi (Hemat Daya)" else "Status: ⚖️ Mode Seimbang (Rekomendasi)",
+                        liveStatusSafe = true,
+                        onResetAll = {
+                            schedUpRate = 500f
+                            schedDownRate = 20000f
+                            viewModel.setSchedulerTunable("up_rate_limit_us", 500L, context)
+                            viewModel.setSchedulerTunable("down_rate_limit_us", 20000L, context)
                         }
                     )
                 }
@@ -1156,7 +1135,6 @@ fun TuningCpuCategory(
                         title = "Init Task Load (Fork Initial)",
                         subtitle = "Estimasi beban awal proses baru saat fork",
                         displayValue = "${initTaskLoadVal.toInt()}%",
-                        statusBadge = if (initTaskLoadVal >= 50f) "Start Big" else "Standar",
                         onClick = {
                             activeTweakConfig = TweakConfig(
                                 id = "sched_init_task_load",
@@ -1168,11 +1146,8 @@ fun TuningCpuCategory(
                                 valueRange = 5f..100f,
                                 steps = 18,
                                 formatDisplay = { v -> "${v.toInt()}%" },
-                                recommendations = listOf(
-                                    TweakRecommendation("🎮 Game", "60% (Start Cepat Big)", 60f),
-                                    TweakRecommendation("⚖️ Seimbang", "35% (Standar Android)", 35f),
-                                    TweakRecommendation("🔋 Hemat", "15% (Start di Little)", 15f)
-                                ),
+                                guideNote = "• Gaming/Berat: 60% (Start langsung di Big Core)\n• Seimbang: 35% (Standar Android)\n• Ringan/Hemat: 15% (Start di Little Core)",
+                                statusInfo = if (initTaskLoadVal >= 50f) "🚀 Start Big Core" else "⚖️ Standar Little Core",
                                 onApply = { v ->
                                     initTaskLoadVal = v
                                     viewModel.setSchedulerTunable("sched_init_task_load", v.toLong(), context)
@@ -1198,11 +1173,7 @@ fun TuningCpuCategory(
                                     valueRange = 1f..10f,
                                     steps = 8,
                                     formatDisplay = { v -> "${v.toInt()} Task" },
-                                    recommendations = listOf(
-                                        TweakRecommendation("🎮 Game", "2 Task (Spillover Cepat)", 2f),
-                                        TweakRecommendation("⚖️ Seimbang", "3 Task (Standar)", 3f),
-                                        TweakRecommendation("🔋 Hemat", "5 Task (Minim Migrasi)", 5f)
-                                    ),
+                                    guideNote = "• Gaming/Berat: 2 Task (Spillover cepat ke core lain)\n• Seimbang: 3 Task (Standar distribusi)\n• Ringan/Hemat: 5 Task (Minim migrasi antar core)",
                                     onApply = { v ->
                                         spillNrRunVal = v
                                         viewModel.setSchedulerTunable("sched_spill_nr_run", v.toLong(), context)
@@ -1226,11 +1197,7 @@ fun TuningCpuCategory(
                                     valueRange = 50f..100f,
                                     steps = 10,
                                     formatDisplay = { v -> "${v.toInt()}%" },
-                                    recommendations = listOf(
-                                        TweakRecommendation("🎮 Game", "75% (Distribusi Cepat)", 75f),
-                                        TweakRecommendation("⚖️ Seimbang", "90% (Standar)", 90f),
-                                        TweakRecommendation("🔋 Hemat", "98% (Core Penuh)", 98f)
-                                    ),
+                                    guideNote = "• Gaming/Berat: 75% (Distribusi beban cepat)\n• Seimbang: 90% (Standar)\n• Ringan/Hemat: 98% (Tunggu core penuh)",
                                     onApply = { v ->
                                         spillLoadVal = v
                                         viewModel.setSchedulerTunable("sched_spill_load", v.toLong(), context)
@@ -1245,7 +1212,6 @@ fun TuningCpuCategory(
                         title = "CFS Target Scheduling Latency",
                         subtitle = "Target periode siklus eksekusi seluruh task",
                         displayValue = "${schedLatency.toInt()} ms",
-                        statusBadge = if (schedLatency <= 6f) "⚡ Responsif" else "⚖️ Standar",
                         onClick = {
                             activeTweakConfig = TweakConfig(
                                 id = "sched_latency_ns",
@@ -1257,11 +1223,8 @@ fun TuningCpuCategory(
                                 valueRange = 2f..24f,
                                 steps = 21,
                                 formatDisplay = { v -> "${v.toInt()} ms" },
-                                recommendations = listOf(
-                                    TweakRecommendation("🎮 Game", "4 ms (Eksekusi Cepat)", 4f),
-                                    TweakRecommendation("⚖️ Seimbang", "10 ms (Standar Linux)", 10f),
-                                    TweakRecommendation("🔋 Hemat", "18 ms (Minim Switch)", 18f)
-                                ),
+                                guideNote = "• Gaming/Berat: 4 ms (Eksekusi cepat & responsif)\n• Seimbang: 10 ms (Standar Linux CFS)\n• Ringan/Hemat: 18 ms (Minim context switch)",
+                                statusInfo = if (schedLatency <= 6f) "⚡ Responsif" else "⚖️ Standar CFS",
                                 onApply = { v ->
                                     schedLatency = v
                                     viewModel.setSchedulerTunable("sched_latency_ns", (v * 1000000).toLong(), context)
@@ -1286,11 +1249,7 @@ fun TuningCpuCategory(
                                 valueRange = 0.5f..8f,
                                 steps = 14,
                                 formatDisplay = { v -> "${String.format("%.1f", v)} ms" },
-                                recommendations = listOf(
-                                    TweakRecommendation("🎮 Game", "1.0 ms (Preemption Cepat)", 1.0f),
-                                    TweakRecommendation("⚖️ Seimbang", "3.0 ms (Standar)", 3.0f),
-                                    TweakRecommendation("🔋 Hemat", "5.0 ms (Throughput Maks)", 5.0f)
-                                ),
+                                guideNote = "• Gaming/Berat: 1.0 ms (Preemption cepat)\n• Seimbang: 3.0 ms (Standar CFS)\n• Ringan/Hemat: 5.0 ms (Throughput maksimal)",
                                 onApply = { v ->
                                     schedMinGran = v
                                     viewModel.setSchedulerTunable("sched_min_granularity_ns", (v * 1000000).toLong(), context)
@@ -1315,11 +1274,7 @@ fun TuningCpuCategory(
                                 valueRange = 0.5f..8f,
                                 steps = 14,
                                 formatDisplay = { v -> "${String.format("%.1f", v)} ms" },
-                                recommendations = listOf(
-                                    TweakRecommendation("🎮 Game", "1.0 ms (Bangun Instan)", 1.0f),
-                                    TweakRecommendation("⚖️ Seimbang", "2.0 ms (Standar)", 2.0f),
-                                    TweakRecommendation("🔋 Hemat", "4.0 ms (Minim Interupsi)", 4.0f)
-                                ),
+                                guideNote = "• Gaming/Berat: 1.0 ms (Task bangun instan jalan)\n• Seimbang: 2.0 ms (Standar CFS)\n• Ringan/Hemat: 4.0 ms (Minim interupsi task berjalan)",
                                 onApply = { v ->
                                     schedWakeGran = v
                                     viewModel.setSchedulerTunable("sched_wakeup_granularity_ns", (v * 1000000).toLong(), context)
@@ -1344,11 +1299,7 @@ fun TuningCpuCategory(
                                 valueRange = 100f..3000f,
                                 steps = 28,
                                 formatDisplay = { v -> "${v.toInt()} µs" },
-                                recommendations = listOf(
-                                    TweakRecommendation("🎮 Game", "100 µs (Migrasi Lincah)", 100f),
-                                    TweakRecommendation("⚖️ Seimbang", "200 µs (Standar)", 200f),
-                                    TweakRecommendation("🔋 Hemat", "600 µs (Proteksi Cache)", 600f)
-                                ),
+                                guideNote = "• Gaming/Berat: 100 µs (Migrasi lincah)\n• Seimbang: 200 µs (Standar CFS)\n• Ringan/Hemat: 600 µs (Proteksi cache L1/L2)",
                                 onApply = { v ->
                                     schedMigCost = v
                                     viewModel.setSchedulerTunable("sched_migration_cost_ns", (v * 1000).toLong(), context)
@@ -1398,7 +1349,6 @@ fun TuningCpuCategory(
                 title = "Ambang Bawah Frekuensi CPU (Clock Floor)",
                 subtitle = "Menahan frekuensi CPU agar tidak drop saat gameplay",
                 displayValue = "${floorValue.toInt()}%",
-                statusBadge = if (floorValue >= 80f) "⚡ Agresif" else "⚖️ Standar",
                 onClick = {
                     activeTweakConfig = TweakConfig(
                         id = "cpu_floor",
@@ -1410,11 +1360,8 @@ fun TuningCpuCategory(
                         valueRange = 60f..100f,
                         steps = 7,
                         formatDisplay = { v -> "${v.toInt()}%" },
-                        recommendations = listOf(
-                            TweakRecommendation("🎮 Game", "85% (Tahan Clock)", 85f),
-                            TweakRecommendation("⚖️ Seimbang", "70% (Standar)", 70f),
-                            TweakRecommendation("🔋 Hemat", "60% (Batas Aman)", 60f)
-                        ),
+                        guideNote = "• Gaming/Berat: 85% (Tahan clock tinggi saat gameplay)\n• Seimbang: 70% (Standar harian)\n• Ringan/Hemat: 60% (Batas aman efisiensi daya)",
+                        statusInfo = if (floorValue >= 80f) "⚡ Agresif" else "⚖️ Standar",
                         onApply = { v ->
                             floorValue = v
                             viewModel.setCpuFloorRatio(v.toInt())
@@ -1437,7 +1384,6 @@ fun TuningCpuCategory(
                 title = "Batas Suhu Thermal Custom",
                 subtitle = "Ambang batas trip point termal SoC sebelum throttling",
                 displayValue = "${tempLimitValue.toInt()}°C",
-                statusBadge = if (tempLimitValue >= 55f) "Tinggi" else "Aman",
                 onClick = {
                     activeTweakConfig = TweakConfig(
                         id = "temp_limit",
@@ -1449,11 +1395,8 @@ fun TuningCpuCategory(
                         valueRange = 45f..60f,
                         steps = 14,
                         formatDisplay = { v -> "${v.toInt()}°C" },
-                        recommendations = listOf(
-                            TweakRecommendation("🎮 Game", "58°C (Tinggi)", 58f),
-                            TweakRecommendation("⚖️ Seimbang", "50°C (Standar)", 50f),
-                            TweakRecommendation("🔋 Hemat", "45°C (Dingin)", 45f)
-                        ),
+                        guideNote = "• Gaming/Berat: 58°C (Toleransi tinggi, disarankan pakai cooler)\n• Seimbang: 50°C (Standar harian aman)\n• Ringan/Hemat: 45°C (Perangkat dingin, baterai awet)",
+                        statusInfo = if (tempLimitValue >= 55f) "🔥 Suhu Tinggi (Cooler Disarankan)" else "🛡️ Suhu Aman",
                         onApply = { v ->
                             tempLimitValue = v
                             viewModel.setCustomTempLimit(v.toInt())
@@ -1469,11 +1412,17 @@ fun TuningCpuCategory(
             onApplyOffset = { viewModel.applyVoltageOffset(it) }
         )
 
-        // ── Universal Tweak Bottom Sheet Drawer (iOS / Nothing Phone Style) ──
+        // ── Universal Tweak Bottom Sheet Drawer (Single & Dual) ──
         if (activeTweakConfig != null) {
             LynxTweakSheet(
                 config = activeTweakConfig!!,
                 onDismiss = { activeTweakConfig = null }
+            )
+        }
+        if (activeDualTweakConfig != null) {
+            LynxDualTweakSheet(
+                config = activeDualTweakConfig!!,
+                onDismiss = { activeDualTweakConfig = null }
             )
         }
     }
