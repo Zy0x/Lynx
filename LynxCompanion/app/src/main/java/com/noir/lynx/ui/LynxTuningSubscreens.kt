@@ -41,11 +41,9 @@ import com.noir.lynx.data.*
 fun TuningCpuCategory(
     uiState: LynxUiState,
     viewModel: LynxViewModel,
-    modifier: Modifier = Modifier,
-    onNavigateToThermal: (() -> Unit)? = null
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val state = uiState.state
     var pendingCoreAction by remember { mutableStateOf<CpuCoreInfo?>(null) }
     var showMasterCoreNotice by remember { mutableStateOf(false) }
 
@@ -1418,71 +1416,6 @@ fun TuningCpuCategory(
             }
         }
 
-        // ── Status Termal & Pintasan ke Sub-Halaman Thermal ─────────
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = BgCard,
-            border = BorderStroke(0.8.dp, BorderSubtle),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .clickable { onNavigateToThermal?.invoke() }
-        ) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(AccentRedDim),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocalFireDepartment,
-                            contentDescription = null,
-                            tint = AccentRed,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            "Thermal & Anti-Throttling",
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.5.sp
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            if (state.thermal.fullBypass) "Mode Bypass Aktif (Tanpa Batas)" else "Limit Trip Point: ${state.thermal.customTempLimitC}°C • Floor: ${state.overclock.cpuFloorRatio}%",
-                            color = if (state.thermal.fullBypass) AccentRed else TextSecondary,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = AccentRedDim,
-                    border = BorderStroke(0.8.dp, AccentRed.copy(alpha = 0.4f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Buka Modul", color = AccentRed, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(2.dp))
-                        Icon(Icons.Default.ChevronRight, null, tint = AccentRed, modifier = Modifier.size(14.dp))
-                    }
-                }
-            }
-        }
 
         // ── Voltage Control (Undervolting) Card ─────────────────
         VoltageControlCard(

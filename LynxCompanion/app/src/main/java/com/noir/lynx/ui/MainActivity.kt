@@ -1586,11 +1586,7 @@ fun MainDashboard(
                                 ) {
                                     Spacer(Modifier.height(8.dp))
                                     when (currentCategory) {
-                                        "cpu" -> TuningCpuCategory(
-                                            uiState = uiState,
-                                            viewModel = viewModel,
-                                            onNavigateToThermal = { selectedCategory = "thermal" }
-                                        )
+                                        "cpu" -> TuningCpuCategory(uiState = uiState, viewModel = viewModel)
                                         "gpu" -> TuningGpuCategory(uiState = uiState, viewModel = viewModel)
                                         "thermal" -> TuningThermalCategory(uiState = uiState, viewModel = viewModel)
                                         "memory" -> TuningMemoryCategory(uiState = uiState, viewModel = viewModel)
@@ -1605,11 +1601,7 @@ fun MainDashboard(
                                             },
                                             onEditRuleClick = { editingRule = it }
                                         )
-                                        else -> TuningCpuCategory(
-                                            uiState = uiState,
-                                            viewModel = viewModel,
-                                            onNavigateToThermal = { selectedCategory = "thermal" }
-                                        )
+                                        else -> TuningCpuCategory(uiState = uiState, viewModel = viewModel)
                                     }
                                     Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
                                 }
