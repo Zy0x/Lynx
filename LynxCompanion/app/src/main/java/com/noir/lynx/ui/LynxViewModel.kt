@@ -223,7 +223,7 @@ class LynxViewModel : ViewModel() {
     private val activeIoSchedulerIntents = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>() // dev -> (scheduler, timestamp)
     private val activeReadAheadIntents = java.util.concurrent.ConcurrentHashMap<String, Pair<Int, Long>>() // dev -> (kb, timestamp)
 
-    private var lastStateMutationTime = 0L
+    @Volatile private var lastStateMutationTime = 0L
 
     fun recordStateMutation() {
         lastStateMutationTime = System.currentTimeMillis()
@@ -307,7 +307,9 @@ class LynxViewModel : ViewModel() {
         fileObserver = StateFileObserver {
             viewModelScope.launch {
                 delay(300L)
-                refreshState()
+                if (System.currentTimeMillis() - lastStateMutationTime >= 4000L) {
+                    refreshState()
+                }
             }
         }
         fileObserver?.startWatching()
@@ -318,8 +320,10 @@ class LynxViewModel : ViewModel() {
             while (true) {
                 delay(if (isForeground) 3000L else 20000L)
                 if (isForeground) {
-                    refreshState()
-                    refreshClusters()
+                    if (System.currentTimeMillis() - lastStateMutationTime >= 4000L) {
+                        refreshState()
+                        refreshClusters()
+                    }
                 }
             }
         }
@@ -394,7 +398,7 @@ class LynxViewModel : ViewModel() {
     fun refreshState() {
         viewModelScope.launch {
             try {
-                if (System.currentTimeMillis() - lastStateMutationTime < 3000L) {
+                if (System.currentTimeMillis() - lastStateMutationTime < 4000L) {
                     return@launch
                 }
                 val freshState = LynxRepository.readState()
@@ -614,6 +618,7 @@ class LynxViewModel : ViewModel() {
     // ----------------------------------------------------------------
 
     fun setOverclockEnabled(enabled: Boolean) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(overclock = current.state.overclock.copy(enabled = enabled)))
         }
@@ -627,6 +632,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setCpuFloorRatio(ratio: Int) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(overclock = current.state.overclock.copy(cpuFloorRatio = ratio)))
         }
@@ -660,6 +666,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setBypassCharging(enabled: Boolean) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(
                 state = current.state.copy(
@@ -683,6 +690,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setExtremeCharging(enabled: Boolean) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(
                 state = current.state.copy(
@@ -729,6 +737,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setHighCurrentTarget(percent: Int) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(
                 state = current.state.copy(
@@ -752,6 +761,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setEmergencyTempGuard(enabled: Boolean) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(
                 state = current.state.copy(
@@ -763,6 +773,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setThermalLockoutBypass(enabled: Boolean) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(
                 state = current.state.copy(
@@ -786,6 +797,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setSmartTapering(enabled: Boolean) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(
                 state = current.state.copy(
@@ -800,6 +812,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setTempCutoff(temp: Int) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(
                 state = current.state.copy(
@@ -811,6 +824,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setChargeCurrentLimit(ma: Int) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(
                 state = current.state.copy(
@@ -834,6 +848,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setUclampGameMin(ratio: Int) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(uclamp = current.state.uclamp.copy(gameMinRatio = ratio)))
         }
@@ -841,6 +856,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setCustomTempLimit(temp: Int) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(thermal = current.state.thermal.copy(customTempLimitC = temp)))
         }
@@ -848,6 +864,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setWifiPingStabilizer(enabled: Boolean) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(network = current.state.network.copy(wifiPingStabilizer = enabled)))
         }
@@ -861,6 +878,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setTouchboost(enabled: Boolean) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(displayTouch = current.state.displayTouch.copy(touchboost = enabled)))
         }
@@ -874,6 +892,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setAudioMmap(enabled: Boolean) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(audio = current.state.audio.copy(lowLatencyMmap = enabled)))
         }
@@ -887,6 +906,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setJoyoseNeutralize(enabled: Boolean) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(oemNeutralizer = current.state.oemNeutralizer.copy(joyoseNeutralize = enabled)))
         }
@@ -900,6 +920,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setThermalBypass(enabled: Boolean) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(thermal = current.state.thermal.copy(fullBypass = enabled)))
         }
@@ -913,6 +934,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setMaxBatteryPercent(percent: Int) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(charging = current.state.charging.copy(maxBatteryPercent = percent)))
         }
@@ -1683,6 +1705,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun setSchedulerApplyOnBoot(enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
         _uiState.update { current ->
             current.copy(schedulerInfo = current.schedulerInfo.copy(applyOnBoot = enabled))
         }

@@ -3782,12 +3782,23 @@ fun DeepTunableItemCard(
     tunable: DeepTunable,
     onApply: (String, String) -> Unit
 ) {
-    var editValue by remember(tunable.value) { mutableStateOf(tunable.value) }
-    var sliderValue by remember(tunable.value, tunable.min, tunable.max) {
+    var editValue by remember(tunable.path) { mutableStateOf(tunable.value) }
+    var sliderValue by remember(tunable.path) {
         val fVal = tunable.value.toFloatOrNull() ?: tunable.min
-        mutableStateOf(fVal.coerceIn(tunable.min, tunable.max))
+        mutableFloatStateOf(fVal.coerceIn(tunable.min, tunable.max))
     }
+    var isDraggingSlider by remember { mutableStateOf(false) }
+    var lastSliderInteraction by remember { mutableLongStateOf(0L) }
     var showPathDetails by remember { mutableStateOf(false) }
+
+    LaunchedEffect(tunable.path, tunable.value) {
+        val now = System.currentTimeMillis()
+        if (!isDraggingSlider && (now - lastSliderInteraction > 2000L)) {
+            val fVal = tunable.value.toFloatOrNull() ?: tunable.min
+            sliderValue = fVal.coerceIn(tunable.min, tunable.max)
+            editValue = tunable.value
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -4114,7 +4125,15 @@ fun DeepTunableItemCard(
 
                             Slider(
                                 value = sliderValue,
-                                onValueChange = { sliderValue = it },
+                                onValueChange = {
+                                    isDraggingSlider = true
+                                    lastSliderInteraction = System.currentTimeMillis()
+                                    sliderValue = it
+                                },
+                                onValueChangeFinished = {
+                                    isDraggingSlider = false
+                                    lastSliderInteraction = System.currentTimeMillis()
+                                },
                                 valueRange = tunable.min..tunable.max,
                                 steps = if (tunable.step > 0 && (tunable.max - tunable.min) / tunable.step > 1) {
                                     ((tunable.max - tunable.min) / tunable.step).toInt() - 1
@@ -4139,7 +4158,11 @@ fun DeepTunableItemCard(
                                 )
 
                                 Button(
-                                    onClick = { onApply(tunable.path, sliderValue.toInt().toString()) },
+                                    onClick = {
+                                        isDraggingSlider = false
+                                        lastSliderInteraction = System.currentTimeMillis()
+                                        onApply(tunable.path, sliderValue.toInt().toString())
+                                    },
                                     shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = AccentCyan.copy(alpha = 0.2f),

@@ -187,6 +187,7 @@ fun LynxSlider(
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int = 0,
     displayValue: String,
+    formatDisplay: ((Float) -> String)? = null,
     accentColor: Color = AccentCyan,
     modifier: Modifier = Modifier,
 ) {
@@ -197,6 +198,22 @@ fun LynxSlider(
     val safeRange = safeStart..safeEnd
     val safeValue = if (value.isFinite()) value.coerceIn(safeStart, safeEnd) else safeStart
     val safeSteps = steps.coerceAtLeast(0)
+
+    // Interaction-shielded state: prevents jitter and rubberbanding caused by background polling
+    var localValue by remember { mutableFloatStateOf(safeValue) }
+    var isDragging by remember { mutableStateOf(false) }
+    var lastInteractionTime by remember { mutableLongStateOf(0L) }
+
+    // Synchronize incoming external changes ONLY when the user is NOT dragging
+    // and after a 2000ms grace period has elapsed since the last touch/drag
+    LaunchedEffect(safeValue) {
+        val now = System.currentTimeMillis()
+        if (!isDragging && (now - lastInteractionTime > 2000L)) {
+            localValue = safeValue
+        }
+    }
+
+    val activeDisplay = formatDisplay?.invoke(localValue) ?: displayValue
 
     Column(modifier = modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Row(
@@ -216,7 +233,7 @@ fun LynxSlider(
                 border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
             ) {
                 Text(
-                    text = displayValue,
+                    text = activeDisplay,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = accentColor,
@@ -225,9 +242,18 @@ fun LynxSlider(
             }
         }
         Slider(
-            value = safeValue,
-            onValueChange = onValueChange,
-            onValueChangeFinished = onValueChangeFinished,
+            value = localValue.coerceIn(safeRange),
+            onValueChange = { newVal ->
+                isDragging = true
+                lastInteractionTime = System.currentTimeMillis()
+                localValue = newVal
+                onValueChange(newVal)
+            },
+            onValueChangeFinished = {
+                isDragging = false
+                lastInteractionTime = System.currentTimeMillis()
+                onValueChangeFinished?.invoke()
+            },
             valueRange = safeRange,
             steps = safeSteps,
             colors = SliderDefaults.colors(
@@ -493,8 +519,17 @@ fun LynxTweakSheet(
     config: TweakConfig,
     onDismiss: () -> Unit
 ) {
-    var sliderValue by remember(config.id, config.currentValue) {
+    var sliderValue by remember(config.id) {
         mutableFloatStateOf(config.currentValue)
+    }
+    var isDragging by remember { mutableStateOf(false) }
+    var lastInteractionTime by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(config.id, config.currentValue) {
+        val now = System.currentTimeMillis()
+        if (!isDragging && (now - lastInteractionTime > 2000L)) {
+            sliderValue = config.currentValue
+        }
     }
 
     ModalBottomSheet(
@@ -540,6 +575,7 @@ fun LynxTweakSheet(
 
                 TextButton(
                     onClick = {
+                        lastInteractionTime = System.currentTimeMillis()
                         sliderValue = config.defaultValue
                         config.onApply(config.defaultValue)
                     },
@@ -663,8 +699,14 @@ fun LynxTweakSheet(
 
             Slider(
                 value = sliderValue.coerceIn(config.valueRange),
-                onValueChange = { sliderValue = it },
+                onValueChange = {
+                    isDragging = true
+                    lastInteractionTime = System.currentTimeMillis()
+                    sliderValue = it
+                },
                 onValueChangeFinished = {
+                    isDragging = false
+                    lastInteractionTime = System.currentTimeMillis()
                     config.onApply(sliderValue)
                 },
                 valueRange = config.valueRange,
@@ -686,11 +728,28 @@ fun LynxDualTweakSheet(
     config: DualTweakConfig,
     onDismiss: () -> Unit
 ) {
-    var val1 by remember(config.id, config.item1.currentValue) {
+    var val1 by remember(config.id) {
         mutableFloatStateOf(config.item1.currentValue)
     }
-    var val2 by remember(config.id, config.item2.currentValue) {
+    var val2 by remember(config.id) {
         mutableFloatStateOf(config.item2.currentValue)
+    }
+    var isDragging1 by remember { mutableStateOf(false) }
+    var lastInteractionTime1 by remember { mutableLongStateOf(0L) }
+    var isDragging2 by remember { mutableStateOf(false) }
+    var lastInteractionTime2 by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(config.id, config.item1.currentValue) {
+        val now = System.currentTimeMillis()
+        if (!isDragging1 && (now - lastInteractionTime1 > 2000L)) {
+            val1 = config.item1.currentValue
+        }
+    }
+    LaunchedEffect(config.id, config.item2.currentValue) {
+        val now = System.currentTimeMillis()
+        if (!isDragging2 && (now - lastInteractionTime2 > 2000L)) {
+            val2 = config.item2.currentValue
+        }
     }
 
     ModalBottomSheet(
@@ -738,6 +797,9 @@ fun LynxDualTweakSheet(
                     onClick = {
                         val1 = config.item1.defaultValue
                         val2 = config.item2.defaultValue
+                        val now = System.currentTimeMillis()
+                        lastInteractionTime1 = now
+                        lastInteractionTime2 = now
                         config.onResetAll()
                     },
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
@@ -843,8 +905,14 @@ fun LynxDualTweakSheet(
                     Spacer(Modifier.height(6.dp))
                     Slider(
                         value = val1.coerceIn(config.item1.valueRange),
-                        onValueChange = { val1 = it },
+                        onValueChange = {
+                            isDragging1 = true
+                            lastInteractionTime1 = System.currentTimeMillis()
+                            val1 = it
+                        },
                         onValueChangeFinished = {
+                            isDragging1 = false
+                            lastInteractionTime1 = System.currentTimeMillis()
                             config.item1.onApply(val1)
                         },
                         valueRange = config.item1.valueRange,
@@ -901,8 +969,14 @@ fun LynxDualTweakSheet(
                     Spacer(Modifier.height(6.dp))
                     Slider(
                         value = val2.coerceIn(config.item2.valueRange),
-                        onValueChange = { val2 = it },
+                        onValueChange = {
+                            isDragging2 = true
+                            lastInteractionTime2 = System.currentTimeMillis()
+                            val2 = it
+                        },
                         onValueChangeFinished = {
+                            isDragging2 = false
+                            lastInteractionTime2 = System.currentTimeMillis()
                             config.item2.onApply(val2)
                         },
                         valueRange = config.item2.valueRange,
@@ -3313,7 +3387,14 @@ fun VoltageControlCard(
     voltageInfo: VoltageTableInfo,
     onApplyOffset: (Int) -> Unit,
 ) {
-    var offsetMv by remember(voltageInfo.globalOffsetMv) { mutableStateOf(voltageInfo.globalOffsetMv) }
+    var offsetMv by remember { mutableIntStateOf(voltageInfo.globalOffsetMv) }
+    var lastVoltageTouch by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(voltageInfo.globalOffsetMv) {
+        if (System.currentTimeMillis() - lastVoltageTouch > 2000L) {
+            offsetMv = voltageInfo.globalOffsetMv
+        }
+    }
 
     LynxCard(
         title = "Voltage Control (Undervolting)",
@@ -3361,7 +3442,10 @@ fun VoltageControlCard(
                 }
                 Slider(
                     value = offsetMv.toFloat(),
-                    onValueChange = { offsetMv = it.toInt() },
+                    onValueChange = {
+                        offsetMv = it.toInt()
+                        lastVoltageTouch = System.currentTimeMillis()
+                    },
                     valueRange = -100f..50f,
                     steps = 29,
                     colors = SliderDefaults.colors(
@@ -3373,7 +3457,10 @@ fun VoltageControlCard(
                 LynxActionButton(
                     text = "Terapkan Offset Voltase (${offsetMv} mV)",
                     icon = Icons.Default.Check,
-                    onClick = { onApplyOffset(offsetMv) },
+                    onClick = {
+                        lastVoltageTouch = System.currentTimeMillis()
+                        onApplyOffset(offsetMv)
+                    },
                     accentColor = AccentCyan
                 )
             }
@@ -3391,11 +3478,22 @@ fun DisplayCalibrationCard(
     onSetKcal: (Boolean, Int, Int, Int, Int, Int, Int, Int) -> Unit,
     onSetHbm: (Boolean) -> Unit,
 ) {
-    var kcalEnabled by remember(displayCalibration.kcalEnabled) { mutableStateOf(displayCalibration.kcalEnabled) }
-    var red by remember(displayCalibration.red) { mutableStateOf(displayCalibration.red) }
-    var green by remember(displayCalibration.green) { mutableStateOf(displayCalibration.green) }
-    var blue by remember(displayCalibration.blue) { mutableStateOf(displayCalibration.blue) }
-    var saturation by remember(displayCalibration.saturation) { mutableStateOf(displayCalibration.saturation) }
+    var kcalEnabled by remember { mutableStateOf(displayCalibration.kcalEnabled) }
+    var red by remember { mutableIntStateOf(displayCalibration.red) }
+    var green by remember { mutableIntStateOf(displayCalibration.green) }
+    var blue by remember { mutableIntStateOf(displayCalibration.blue) }
+    var saturation by remember { mutableIntStateOf(displayCalibration.saturation) }
+    var lastCalibrationTouch by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(displayCalibration) {
+        if (System.currentTimeMillis() - lastCalibrationTouch > 2000L) {
+            kcalEnabled = displayCalibration.kcalEnabled
+            red = displayCalibration.red
+            green = displayCalibration.green
+            blue = displayCalibration.blue
+            saturation = displayCalibration.saturation
+        }
+    }
 
     LynxCard(
         title = "Kalibrasi Layar (KCAL & HBM)",
@@ -3447,21 +3545,22 @@ fun DisplayCalibrationCard(
             }
             if (kcalEnabled) {
                 Text("Red: $red", color = AccentRed, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Slider(value = red.toFloat(), onValueChange = { red = it.toInt() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentRed, activeTrackColor = AccentRed))
+                Slider(value = red.toFloat(), onValueChange = { red = it.toInt(); lastCalibrationTouch = System.currentTimeMillis() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentRed, activeTrackColor = AccentRed))
 
                 Text("Green: $green", color = AccentGreen, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Slider(value = green.toFloat(), onValueChange = { green = it.toInt() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
+                Slider(value = green.toFloat(), onValueChange = { green = it.toInt(); lastCalibrationTouch = System.currentTimeMillis() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
 
                 Text("Blue: $blue", color = AccentBlue, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Slider(value = blue.toFloat(), onValueChange = { blue = it.toInt() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue))
+                Slider(value = blue.toFloat(), onValueChange = { blue = it.toInt(); lastCalibrationTouch = System.currentTimeMillis() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue))
 
                 Text("Saturation: $saturation", color = AccentPurple, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Slider(value = saturation.toFloat(), onValueChange = { saturation = it.toInt() }, valueRange = 128f..383f, colors = SliderDefaults.colors(thumbColor = AccentPurple, activeTrackColor = AccentPurple))
+                Slider(value = saturation.toFloat(), onValueChange = { saturation = it.toInt(); lastCalibrationTouch = System.currentTimeMillis() }, valueRange = 128f..383f, colors = SliderDefaults.colors(thumbColor = AccentPurple, activeTrackColor = AccentPurple))
 
                 LynxActionButton(
                     text = "Terapkan Kalibrasi Warna",
                     icon = Icons.Default.Save,
                     onClick = {
+                        lastCalibrationTouch = System.currentTimeMillis()
                         onSetKcal(true, red, green, blue, saturation, displayCalibration.value, displayCalibration.contrast, displayCalibration.hue)
                     },
                     accentColor = AccentPurple
@@ -3480,11 +3579,22 @@ fun SoundControlCard(
     soundControl: SoundControlInfo,
     onSetGain: (Int, Int, Int, Int, Boolean) -> Unit,
 ) {
-    var hpL by remember(soundControl.headphoneGainL) { mutableStateOf(soundControl.headphoneGainL) }
-    var hpR by remember(soundControl.headphoneGainR) { mutableStateOf(soundControl.headphoneGainR) }
-    var spk by remember(soundControl.speakerGain) { mutableStateOf(soundControl.speakerGain) }
-    var mic by remember(soundControl.micGain) { mutableStateOf(soundControl.micGain) }
-    var hpMode by remember(soundControl.highPerfMode) { mutableStateOf(soundControl.highPerfMode) }
+    var hpL by remember { mutableIntStateOf(soundControl.headphoneGainL) }
+    var hpR by remember { mutableIntStateOf(soundControl.headphoneGainR) }
+    var spk by remember { mutableIntStateOf(soundControl.speakerGain) }
+    var mic by remember { mutableIntStateOf(soundControl.micGain) }
+    var hpMode by remember { mutableStateOf(soundControl.highPerfMode) }
+    var lastSoundTouch by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(soundControl) {
+        if (System.currentTimeMillis() - lastSoundTouch > 2000L) {
+            hpL = soundControl.headphoneGainL
+            hpR = soundControl.headphoneGainR
+            spk = soundControl.speakerGain
+            mic = soundControl.micGain
+            hpMode = soundControl.highPerfMode
+        }
+    }
 
     LynxCard(
         title = "Sound Control (Audio Gain Booster)",
@@ -3496,13 +3606,13 @@ fun SoundControlCard(
         } else {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Headphone Gain (L/R): ${hpL}dB / ${hpR}dB", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Slider(value = hpL.toFloat(), onValueChange = { hpL = it.toInt(); hpR = it.toInt() }, valueRange = -10f..20f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
+                Slider(value = hpL.toFloat(), onValueChange = { hpL = it.toInt(); hpR = it.toInt(); lastSoundTouch = System.currentTimeMillis() }, valueRange = -10f..20f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
 
                 Text("Speaker Gain: ${spk}dB", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Slider(value = spk.toFloat(), onValueChange = { spk = it.toInt() }, valueRange = -10f..20f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
+                Slider(value = spk.toFloat(), onValueChange = { spk = it.toInt(); lastSoundTouch = System.currentTimeMillis() }, valueRange = -10f..20f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
 
                 Text("Microphone Gain: ${mic}dB", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Slider(value = mic.toFloat(), onValueChange = { mic = it.toInt() }, valueRange = -10f..20f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
+                Slider(value = mic.toFloat(), onValueChange = { mic = it.toInt(); lastSoundTouch = System.currentTimeMillis() }, valueRange = -10f..20f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
 
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -3516,7 +3626,10 @@ fun SoundControlCard(
                 LynxActionButton(
                     text = "Simpan Pengaturan Gain Audio",
                     icon = Icons.Default.Save,
-                    onClick = { onSetGain(hpL, hpR, spk, mic, hpMode) },
+                    onClick = {
+                        lastSoundTouch = System.currentTimeMillis()
+                        onSetGain(hpL, hpR, spk, mic, hpMode)
+                    },
                     accentColor = AccentGreen
                 )
             }
@@ -3644,8 +3757,16 @@ fun MemoryEntropyCard(
     memoryEntropy: MemoryEntropyInfo,
     onSetEntropy: (Int, Int) -> Unit,
 ) {
-    var readThresh by remember(memoryEntropy.readThreshold) { mutableStateOf(memoryEntropy.readThreshold) }
-    var writeThresh by remember(memoryEntropy.writeThreshold) { mutableStateOf(memoryEntropy.writeThreshold) }
+    var readThresh by remember { mutableIntStateOf(memoryEntropy.readThreshold) }
+    var writeThresh by remember { mutableIntStateOf(memoryEntropy.writeThreshold) }
+    var lastEntropyTouch by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(memoryEntropy.readThreshold, memoryEntropy.writeThreshold) {
+        if (System.currentTimeMillis() - lastEntropyTouch > 2000L) {
+            readThresh = memoryEntropy.readThreshold
+            writeThresh = memoryEntropy.writeThreshold
+        }
+    }
 
     LynxCard(
         title = "LMK Minfree & Entropy Tuner",
@@ -3706,7 +3827,10 @@ fun MemoryEntropyCard(
         Text("Read Wakeup Threshold: $readThresh bits", color = TextSecondary, fontSize = 11.5.sp)
         Slider(
             value = readThresh.toFloat(),
-            onValueChange = { readThresh = it.toInt() },
+            onValueChange = {
+                readThresh = it.toInt()
+                lastEntropyTouch = System.currentTimeMillis()
+            },
             valueRange = 32f..256f,
             colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
         )
@@ -3714,7 +3838,10 @@ fun MemoryEntropyCard(
         Text("Write Wakeup Threshold: $writeThresh bits", color = TextSecondary, fontSize = 11.5.sp)
         Slider(
             value = writeThresh.toFloat(),
-            onValueChange = { writeThresh = it.toInt() },
+            onValueChange = {
+                writeThresh = it.toInt()
+                lastEntropyTouch = System.currentTimeMillis()
+            },
             valueRange = 256f..2048f,
             colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
         )
@@ -3722,7 +3849,10 @@ fun MemoryEntropyCard(
         LynxActionButton(
             text = "Terapkan Threshold Entropi",
             icon = Icons.Default.Save,
-            onClick = { onSetEntropy(readThresh, writeThresh) },
+            onClick = {
+                lastEntropyTouch = System.currentTimeMillis()
+                onSetEntropy(readThresh, writeThresh)
+            },
             accentColor = AccentBlue
         )
     }
