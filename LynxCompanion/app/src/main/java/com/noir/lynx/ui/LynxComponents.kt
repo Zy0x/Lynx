@@ -978,10 +978,10 @@ fun LynxSchedulerPresetSheet(
                     border = BorderStroke(0.8.dp, BorderSubtle)
                 ) {
                     Text(
-                        text = "3 Profil Teruji",
+                        text = if (activePreset.equals("custom", true)) "Mode Kustom Aktif" else "4 Profil Teruji",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Medium,
-                        color = TextSecondary,
+                        color = if (activePreset.equals("custom", true)) AccentPurple else TextSecondary,
                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                     )
                 }
@@ -1001,16 +1001,61 @@ fun LynxSchedulerPresetSheet(
                 lineHeight = 15.sp
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
 
-            // 3 Preset Options
+            if (activePreset.equals("custom", true)) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentPurple.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, AccentPurple.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = AccentPurple,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Mode Kustom Sedang Aktif",
+                                color = AccentPurple,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Salah satu atau beberapa parameter telah disetel secara manual. Memilih salah satu preset di bawah akan menerapkan nilai profil terpadu.",
+                                color = TextSecondary,
+                                fontSize = 10.sp,
+                                lineHeight = 13.5.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 4 Preset Options
             listOf(
                 Triple(
-                    "gaming",
-                    "⚡ Responsif (Gaming / Berat)",
+                    "extreme",
+                    "🔥 Extreme (Unrestricted)",
                     Triple(
-                        "Clock CPU melompat instan tanpa jeda (0 µs ramp-up), latensi task ditekan ke 4 ms untuk mengeliminasi micro-stutter saat game kompetitif.",
-                        "Ramp-up: 0 µs • Latensi: 4 ms • Uclamp: 512",
+                        "Performa puncak tanpa kompromi: Latensi CFS ditekan ke 3 ms, migrasi instan 50 µs, uclamp 512, RT throttling dimatikan (-1), dan C-State sleep disabled.",
+                        "Ramp-up: 0 µs • Latensi: 3 ms • RT Throttling: Off • Uclamp: 512",
+                        AccentRed
+                    )
+                ),
+                Triple(
+                    "gaming",
+                    "⚡ Responsif (Gaming Stabil)",
+                    Triple(
+                        "Clock CPU melompat instan tanpa jeda (0 µs ramp-up), latensi task 4 ms, preemption 0.75 ms, migrasi 200 µs, uclamp 128. Sangat stabil untuk gaming tanpa panas berlebih.",
+                        "Ramp-up: 0 µs • Latensi: 4 ms • Uclamp: 128",
                         AccentOrange
                     )
                 ),
@@ -1018,8 +1063,8 @@ fun LynxSchedulerPresetSheet(
                     "balanced",
                     "⚖️ Seimbang (Rekomendasi Harian)",
                     Triple(
-                        "Transisi frekuensi halus dan dinamis (500 µs), latensi 10 ms. Sangat stabil, responsif untuk multitasking harian dengan efisiensi daya optimal.",
-                        "Ramp-up: 500 µs • Latensi: 10 ms • Uclamp: 0",
+                        "Transisi frekuensi halus dan dinamis (1000 µs), latensi 10 ms. Sangat stabil, responsif untuk multitasking harian dengan efisiensi daya optimal.",
+                        "Ramp-up: 1000 µs • Latensi: 10 ms • Uclamp: 0",
                         AccentBlue
                     )
                 ),
@@ -1027,8 +1072,8 @@ fun LynxSchedulerPresetSheet(
                     "battery",
                     "🔋 Efisiensi Daya (Hemat Baterai)",
                     Triple(
-                        "Mencegah lonjakan frekuensi singkat yang boros daya (2000 µs ramp-up), latensi santai 15 ms. Menghemat konsumsi daya baterai maksimal.",
-                        "Ramp-up: 2000 µs • Latensi: 15 ms • Uclamp Cap: 640",
+                        "Mencegah lonjakan frekuensi singkat yang boros daya (4000 µs ramp-up), latensi santai 20 ms, migrasi 1000 µs, uclamp cap 640. Menghemat konsumsi baterai maksimal.",
+                        "Ramp-up: 4000 µs • Latensi: 20 ms • Uclamp Cap: 640",
                         AccentGreen
                     )
                 )

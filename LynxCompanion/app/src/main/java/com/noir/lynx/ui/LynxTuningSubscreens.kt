@@ -805,14 +805,19 @@ fun TuningCpuCategory(
 
             // ── Profil Respon Penjadwal (Clean Single Tile with Bottom Sheet) ──
             val (presetLabel, presetColor) = when (schedInfo.activePreset.lowercase()) {
+                "extreme" -> "🔥 Extreme" to AccentRed
                 "gaming" -> "⚡ Responsif" to AccentOrange
                 "battery" -> "🔋 Efisiensi" to AccentGreen
+                "custom" -> "🛠️ Kustom" to AccentPurple
                 else -> "⚖️ Seimbang" to AccentBlue
             }
 
             LynxTweakTile(
                 title = "Profil Respon Penjadwal",
-                subtitle = "Dinamika lompatan clock CPU & latensi task",
+                subtitle = if (schedInfo.activePreset.equals("custom", true))
+                    "Penyetelan manual aktif (Mode Kustom)"
+                else
+                    "Dinamika lompatan clock CPU & latensi task",
                 displayValue = presetLabel,
                 accentColor = presetColor,
                 onClick = { showPresetSheet = true }

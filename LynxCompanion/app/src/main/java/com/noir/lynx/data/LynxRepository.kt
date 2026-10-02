@@ -7442,7 +7442,14 @@ done
                 isSpillSupported = hasSpill,
                 schedSpillNrRun = spillNrRun,
                 schedSpillLoad = spillLoad,
-                activePreset = if (upRate == 0L && lat <= 5000000L) "gaming" else if (upRate >= 3000L) "battery" else "balanced",
+                activePreset = context?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    ?.getString("active_preset", null)
+                    ?: when {
+                        upRate == 0L && lat <= 3000000L -> "extreme"
+                        upRate == 0L && lat <= 5000000L -> "gaming"
+                        upRate >= 3000L -> "battery"
+                        else -> "balanced"
+                    },
                 applyOnBoot = applyOnBoot
             )
         } catch (e: Exception) {
@@ -7494,6 +7501,7 @@ done
                 context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
                     .edit()
                     .putString("active_sched_mode", mode.lowercase())
+                    .putString("active_preset", "custom")
                     .apply()
             }
             ok
@@ -7582,10 +7590,12 @@ done
             }
             val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
             if (ok && context != null) {
-                context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
-                    .edit()
-                    .putLong(tunable, value)
-                    .apply()
+                val editor = context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE).edit()
+                editor.putLong(tunable, value)
+                if (tunable != "apply_on_boot") {
+                    editor.putString("active_preset", "custom")
+                }
+                editor.apply()
             }
             ok
         } catch (e: Exception) {
@@ -7608,6 +7618,7 @@ done
                     .edit()
                     .putInt("sched_upmigrate", safeUp)
                     .putInt("sched_downmigrate", safeDown)
+                    .putString("active_preset", "custom")
                     .apply()
             }
             ok
@@ -7653,13 +7664,51 @@ done
     suspend fun applySchedulerPreset(preset: String, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
         try {
             val script = when (preset.lowercase()) {
+                "extreme" -> """
+                    # CFS Latency & Preemption (Extreme Responsiveness)
+                    [ -f /proc/sys/kernel/sched_latency_ns ] && echo 3000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_min_granularity_ns ] && echo 500000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 50000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_nr_migrate ] && echo 32 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_child_runs_first ] && echo 1 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 0 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_schedstats ] && echo 0 > /proc/sys/kernel/sched_schedstats 2>/dev/null
+                    # Unrestricted Real-Time Throttling (Never throttle render/game threads)
+                    [ -f /proc/sys/kernel/sched_rt_runtime_us ] && echo -1 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_rt_period_us ] && echo 1000000 > /proc/sys/kernel/sched_rt_period_us 2>/dev/null
+                    # Schedutil Clock Dynamics (0µs instant ramp-up, 30ms hold)
+                    for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                        [ -d "${'$'}p" ] && echo 0 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] && echo 30000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        [ -f "${'$'}p/rate_limit_us" ] && echo 500 > "${'$'}p/rate_limit_us" 2>/dev/null
+                    done
+                    # EAS / Schedtune Boost & Uclamp Floor 512
+                    [ -f /proc/sys/kernel/sched_boost ] && echo 2 > /proc/sys/kernel/sched_boost 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_uclamp_util_min ] && echo 512 > /proc/sys/kernel/sched_uclamp_util_min 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_util_clamp_min ] && echo 512 > /proc/sys/kernel/sched_util_clamp_min 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_uclamp_util_max ] && echo 1024 > /proc/sys/kernel/sched_uclamp_util_max 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_util_clamp_max ] && echo 1024 > /proc/sys/kernel/sched_util_clamp_max 2>/dev/null
+                    # HMP / WALT (Immediate big core dispatch & aggressive spillover)
+                    [ -f /proc/sys/kernel/sched_upmigrate ] && echo 50 > /proc/sys/kernel/sched_upmigrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_downmigrate ] && echo 30 > /proc/sys/kernel/sched_downmigrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_init_task_load ] && echo 85 > /proc/sys/kernel/sched_init_task_load 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_spill_nr_run ] && echo 2 > /proc/sys/kernel/sched_spill_nr_run 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_spill_load ] && echo 75 > /proc/sys/kernel/sched_spill_load 2>/dev/null
+                    echo ok
+                """.trimIndent()
                 "gaming" -> """
                     # CFS
                     [ -f /proc/sys/kernel/sched_latency_ns ] && echo 4000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
                     [ -f /proc/sys/kernel/sched_min_granularity_ns ] && echo 750000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
                     [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
-                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 500000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
-                    [ -f /proc/sys/kernel/sched_nr_migrate ] && echo 64 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 200000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_nr_migrate ] && echo 32 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_child_runs_first ] && echo 1 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 0 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_schedstats ] && echo 0 > /proc/sys/kernel/sched_schedstats 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_rt_runtime_us ] && echo 980000 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_rt_period_us ] && echo 1000000 > /proc/sys/kernel/sched_rt_period_us 2>/dev/null
                     # Schedutil
                     for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
                         [ -d "${'$'}p" ] && echo 0 > "${'$'}p/up_rate_limit_us" 2>/dev/null
@@ -7669,10 +7718,14 @@ done
                     [ -f /proc/sys/kernel/sched_boost ] && echo 1 > /proc/sys/kernel/sched_boost 2>/dev/null
                     [ -f /proc/sys/kernel/sched_uclamp_util_min ] && echo 128 > /proc/sys/kernel/sched_uclamp_util_min 2>/dev/null
                     [ -f /proc/sys/kernel/sched_util_clamp_min ] && echo 128 > /proc/sys/kernel/sched_util_clamp_min 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_uclamp_util_max ] && echo 1024 > /proc/sys/kernel/sched_uclamp_util_max 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_util_clamp_max ] && echo 1024 > /proc/sys/kernel/sched_util_clamp_max 2>/dev/null
                     # HMP / WALT
                     [ -f /proc/sys/kernel/sched_upmigrate ] && echo 60 > /proc/sys/kernel/sched_upmigrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_downmigrate ] && echo 40 > /proc/sys/kernel/sched_downmigrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_init_task_load ] && echo 70 > /proc/sys/kernel/sched_init_task_load 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_spill_nr_run ] && echo 2 > /proc/sys/kernel/sched_spill_nr_run 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_spill_load ] && echo 75 > /proc/sys/kernel/sched_spill_load 2>/dev/null
                     echo ok
                 """.trimIndent()
                 "battery" -> """
@@ -7682,6 +7735,9 @@ done
                     [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 4000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
                     [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 1000000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
                     [ -f /proc/sys/kernel/sched_nr_migrate ] && echo 16 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_child_runs_first ] && echo 0 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 1 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_rt_runtime_us ] && echo 950000 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
                     # Schedutil
                     for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
                         [ -d "${'$'}p" ] && echo 4000 > "${'$'}p/up_rate_limit_us" 2>/dev/null
@@ -7692,10 +7748,14 @@ done
                     [ -f /proc/sys/kernel/sched_energy_aware ] && echo 1 > /proc/sys/kernel/sched_energy_aware 2>/dev/null
                     [ -f /proc/sys/kernel/sched_uclamp_util_min ] && echo 0 > /proc/sys/kernel/sched_uclamp_util_min 2>/dev/null
                     [ -f /proc/sys/kernel/sched_util_clamp_min ] && echo 0 > /proc/sys/kernel/sched_util_clamp_min 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_uclamp_util_max ] && echo 640 > /proc/sys/kernel/sched_uclamp_util_max 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_util_clamp_max ] && echo 640 > /proc/sys/kernel/sched_util_clamp_max 2>/dev/null
                     # HMP / WALT
                     [ -f /proc/sys/kernel/sched_upmigrate ] && echo 95 > /proc/sys/kernel/sched_upmigrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_downmigrate ] && echo 80 > /proc/sys/kernel/sched_downmigrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_init_task_load ] && echo 20 > /proc/sys/kernel/sched_init_task_load 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_spill_nr_run ] && echo 5 > /proc/sys/kernel/sched_spill_nr_run 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_spill_load ] && echo 98 > /proc/sys/kernel/sched_spill_load 2>/dev/null
                     echo ok
                 """.trimIndent()
                 else -> """
@@ -7705,6 +7765,9 @@ done
                     [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 2000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
                     [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 200000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
                     [ -f /proc/sys/kernel/sched_nr_migrate ] && echo 32 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_child_runs_first ] && echo 0 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 1 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_rt_runtime_us ] && echo 950000 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
                     # Schedutil
                     for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
                         [ -d "${'$'}p" ] && echo 1000 > "${'$'}p/up_rate_limit_us" 2>/dev/null
@@ -7715,10 +7778,14 @@ done
                     [ -f /proc/sys/kernel/sched_energy_aware ] && echo 1 > /proc/sys/kernel/sched_energy_aware 2>/dev/null
                     [ -f /proc/sys/kernel/sched_uclamp_util_min ] && echo 0 > /proc/sys/kernel/sched_uclamp_util_min 2>/dev/null
                     [ -f /proc/sys/kernel/sched_util_clamp_min ] && echo 0 > /proc/sys/kernel/sched_util_clamp_min 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_uclamp_util_max ] && echo 1024 > /proc/sys/kernel/sched_uclamp_util_max 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_util_clamp_max ] && echo 1024 > /proc/sys/kernel/sched_util_clamp_max 2>/dev/null
                     # HMP / WALT
                     [ -f /proc/sys/kernel/sched_upmigrate ] && echo 85 > /proc/sys/kernel/sched_upmigrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_downmigrate ] && echo 65 > /proc/sys/kernel/sched_downmigrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_init_task_load ] && echo 35 > /proc/sys/kernel/sched_init_task_load 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_spill_nr_run ] && echo 3 > /proc/sys/kernel/sched_spill_nr_run 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_spill_load ] && echo 90 > /proc/sys/kernel/sched_spill_load 2>/dev/null
                     echo ok
                 """.trimIndent()
             }

@@ -1648,12 +1648,13 @@ class LynxViewModel : ViewModel() {
                 "sched_spill_load" -> current.schedulerInfo.copy(schedSpillLoad = value.toInt())
                 else -> current.schedulerInfo
             }
-            current.copy(schedulerInfo = updated)
+            val finalSched = if (tunable != "apply_on_boot") updated.copy(activePreset = "custom") else updated
+            current.copy(schedulerInfo = finalSched)
         }
         viewModelScope.launch {
             val ok = LynxRepository.setSchedulerTunable(tunable, value, context)
             if (ok) {
-                _uiState.update { it.copy(successMessage = "Parameter $tunable diperbarui") }
+                _uiState.update { it.copy(successMessage = if (tunable != "apply_on_boot") "Parameter $tunable diperbarui (Mode Kustom)" else "Pengaturan boot diperbarui") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal memperbarui $tunable") }
             }
@@ -1674,7 +1675,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setSchedulerHysteresis(safeUp, safeDown, context)
             if (ok) {
-                _uiState.update { it.copy(successMessage = "Hysteresis migrasi diperbarui ($safeUp% / $safeDown%)") }
+                _uiState.update { it.copy(successMessage = "Hysteresis migrasi diperbarui ($safeUp% / $safeDown% - Mode Kustom)") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal memperbarui hysteresis migrasi") }
             }
@@ -1693,13 +1694,16 @@ class LynxViewModel : ViewModel() {
     fun setSchedulerArchitectureMode(mode: String, context: Context? = null) {
         recordStateMutation()
         _uiState.update { current ->
-            current.copy(schedulerInfo = current.schedulerInfo.copy(activeArchitectureMode = mode))
+            current.copy(schedulerInfo = current.schedulerInfo.copy(
+                activeArchitectureMode = mode,
+                activePreset = "custom"
+            ))
         }
         viewModelScope.launch {
             val ok = LynxRepository.setSchedulerArchitectureMode(mode, context)
             if (ok) {
                 val fresh = LynxRepository.readSchedulerInfo(context)
-                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Mode arsitektur ${mode.uppercase()} berhasil diaktifkan") }
+                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Mode arsitektur ${mode.uppercase()} aktif (Mode Kustom)") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal mengubah mode ke ${mode.uppercase()}") }
             }
@@ -1713,7 +1717,13 @@ class LynxViewModel : ViewModel() {
             val ok = LynxRepository.applySchedulerPreset(preset, context)
             if (ok) {
                 val fresh = LynxRepository.readSchedulerInfo(context)
-                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Preset Penjadwal '$preset' berhasil diterapkan") }
+                val presetTitle = when (preset.lowercase()) {
+                    "extreme" -> "Extreme (Unrestricted)"
+                    "gaming" -> "Responsif (Gaming)"
+                    "battery" -> "Efisiensi Daya"
+                    else -> "Seimbang"
+                }
+                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Preset Penjadwal '$presetTitle' berhasil diterapkan") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset penjadwal '$preset'") }
             }
