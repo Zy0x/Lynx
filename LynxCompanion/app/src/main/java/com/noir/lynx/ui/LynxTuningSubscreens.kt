@@ -671,27 +671,45 @@ fun TuningCpuCategory(
 
         // ── Penjadwal Kernel & Arsitektur Multicore (CFS / EAS / HMP / BORE) ──────
         val schedInfo = uiState.schedulerInfo
-        var schedUpRate by remember(schedInfo.upRateLimitUs) { mutableFloatStateOf(schedInfo.upRateLimitUs.toFloat()) }
-        var schedDownRate by remember(schedInfo.downRateLimitUs) { mutableFloatStateOf(schedInfo.downRateLimitUs.toFloat()) }
-        var schedLatency by remember(schedInfo.schedLatencyNs) { mutableFloatStateOf((schedInfo.schedLatencyNs / 1000000f)) }
-        var schedMinGran by remember(schedInfo.schedMinGranularityNs) { mutableFloatStateOf((schedInfo.schedMinGranularityNs / 1000000f)) }
-        var schedWakeGran by remember(schedInfo.schedWakeupGranularityNs) { mutableFloatStateOf((schedInfo.schedWakeupGranularityNs / 1000000f)) }
-        var schedMigCost by remember(schedInfo.schedMigrationCostNs) { mutableFloatStateOf((schedInfo.schedMigrationCostNs / 1000f)) }
+        var schedUpRate by remember { mutableFloatStateOf(schedInfo.upRateLimitUs.toFloat()) }
+        var schedDownRate by remember { mutableFloatStateOf(schedInfo.downRateLimitUs.toFloat()) }
+        var schedLatency by remember { mutableFloatStateOf((schedInfo.schedLatencyNs / 1000000f)) }
+        var schedMinGran by remember { mutableFloatStateOf((schedInfo.schedMinGranularityNs / 1000000f)) }
+        var schedWakeGran by remember { mutableFloatStateOf((schedInfo.schedWakeupGranularityNs / 1000000f)) }
+        var schedMigCost by remember { mutableFloatStateOf((schedInfo.schedMigrationCostNs / 1000f)) }
 
         // EAS states
-        var uclampMinVal by remember(schedInfo.uclampMin) { mutableFloatStateOf(schedInfo.uclampMin.toFloat()) }
-        var uclampMaxVal by remember(schedInfo.uclampMax) { mutableFloatStateOf(schedInfo.uclampMax.toFloat()) }
+        var uclampMinVal by remember { mutableFloatStateOf(schedInfo.uclampMin.toFloat()) }
+        var uclampMaxVal by remember { mutableFloatStateOf(schedInfo.uclampMax.toFloat()) }
 
         // HMP states with live hysteresis protection
-        var upmigrateVal by remember(schedInfo.schedUpmigrate) { mutableFloatStateOf(schedInfo.schedUpmigrate.toFloat()) }
-        var downmigrateVal by remember(schedInfo.schedDownmigrate) { mutableFloatStateOf(schedInfo.schedDownmigrate.toFloat()) }
-        var initTaskLoadVal by remember(schedInfo.schedInitTaskLoad) { mutableFloatStateOf(schedInfo.schedInitTaskLoad.toFloat()) }
-        var spillNrRunVal by remember(schedInfo.schedSpillNrRun) { mutableFloatStateOf(schedInfo.schedSpillNrRun.toFloat()) }
-        var spillLoadVal by remember(schedInfo.schedSpillLoad) { mutableFloatStateOf(schedInfo.schedSpillLoad.toFloat()) }
+        var upmigrateVal by remember { mutableFloatStateOf(schedInfo.schedUpmigrate.toFloat()) }
+        var downmigrateVal by remember { mutableFloatStateOf(schedInfo.schedDownmigrate.toFloat()) }
+        var initTaskLoadVal by remember { mutableFloatStateOf(schedInfo.schedInitTaskLoad.toFloat()) }
+        var spillNrRunVal by remember { mutableFloatStateOf(schedInfo.schedSpillNrRun.toFloat()) }
+        var spillLoadVal by remember { mutableFloatStateOf(schedInfo.schedSpillLoad.toFloat()) }
         var showAdvancedSched by remember { mutableStateOf(false) }
         var showPresetSheet by remember { mutableStateOf(false) }
         var activeTweakConfig by remember { mutableStateOf<TweakConfig?>(null) }
         var activeDualTweakConfig by remember { mutableStateOf<DualTweakConfig?>(null) }
+
+        LaunchedEffect(schedInfo) {
+            if (activeTweakConfig == null && activeDualTweakConfig == null) {
+                schedUpRate = schedInfo.upRateLimitUs.toFloat()
+                schedDownRate = schedInfo.downRateLimitUs.toFloat()
+                schedLatency = (schedInfo.schedLatencyNs / 1000000f)
+                schedMinGran = (schedInfo.schedMinGranularityNs / 1000000f)
+                schedWakeGran = (schedInfo.schedWakeupGranularityNs / 1000000f)
+                schedMigCost = (schedInfo.schedMigrationCostNs / 1000f)
+                uclampMinVal = schedInfo.uclampMin.toFloat()
+                uclampMaxVal = schedInfo.uclampMax.toFloat()
+                upmigrateVal = schedInfo.schedUpmigrate.toFloat()
+                downmigrateVal = schedInfo.schedDownmigrate.toFloat()
+                initTaskLoadVal = schedInfo.schedInitTaskLoad.toFloat()
+                spillNrRunVal = schedInfo.schedSpillNrRun.toFloat()
+                spillLoadVal = schedInfo.schedSpillLoad.toFloat()
+            }
+        }
 
         LynxCard(
             title = "Penjadwal Kernel & Arsitektur Multicore",
@@ -1412,8 +1430,13 @@ fun TuningCpuCategory(
                 onCheckedChange = { viewModel.setOverclockEnabled(it) },
             )
 
-            var floorValue by remember(state.overclock.cpuFloorRatio) {
+            var floorValue by remember {
                 mutableFloatStateOf(state.overclock.cpuFloorRatio.toFloat())
+            }
+            LaunchedEffect(state.overclock.cpuFloorRatio) {
+                if (activeTweakConfig?.id != "cpu_floor") {
+                    floorValue = state.overclock.cpuFloorRatio.toFloat()
+                }
             }
             LynxTweakTile(
                 title = "Ambang Bawah Frekuensi CPU (Clock Floor)",
@@ -1447,8 +1470,13 @@ fun TuningCpuCategory(
                 onCheckedChange = { viewModel.setThermalBypass(it) },
             )
 
-            var tempLimitValue by remember(state.thermal.customTempLimitC) {
+            var tempLimitValue by remember {
                 mutableFloatStateOf(state.thermal.customTempLimitC.toFloat())
+            }
+            LaunchedEffect(state.thermal.customTempLimitC) {
+                if (activeTweakConfig?.id != "temp_limit") {
+                    tempLimitValue = state.thermal.customTempLimitC.toFloat()
+                }
             }
             LynxTweakTile(
                 title = "Batas Suhu Thermal Custom",
@@ -1732,12 +1760,29 @@ fun TuningGpuCategory(
                     }
                     val minRange = gpu.availFreqsMhz.minOrNull()?.toFloat() ?: 0f
                     val maxRange = gpu.availFreqsMhz.maxOrNull()?.toFloat() ?: 1000f
-                    var gpuMax by remember(gpu.maxFreqMhz) { mutableFloatStateOf(gpu.maxFreqMhz.toFloat()) }
+                    var gpuMax by remember { mutableFloatStateOf(gpu.maxFreqMhz.toFloat()) }
+                    var isInteractingGpu by remember { mutableStateOf(false) }
+                    var lastGpuInteraction by remember { mutableLongStateOf(0L) }
+
+                    LaunchedEffect(gpu.maxFreqMhz) {
+                        if (!isInteractingGpu && (System.currentTimeMillis() - lastGpuInteraction > 2000L)) {
+                            gpuMax = gpu.maxFreqMhz.toFloat()
+                        }
+                    }
+
                     LynxSlider(
                         label = "Batas Maksimum GPU",
                         value = gpuMax,
-                        onValueChange = { gpuMax = it },
-                        onValueChangeFinished = { viewModel.setGpuFreq(null, gpuMax.toInt()) },
+                        onValueChange = {
+                            isInteractingGpu = true
+                            lastGpuInteraction = System.currentTimeMillis()
+                            gpuMax = it
+                        },
+                        onValueChangeFinished = {
+                            isInteractingGpu = false
+                            lastGpuInteraction = System.currentTimeMillis()
+                            viewModel.setGpuFreq(null, gpuMax.toInt())
+                        },
                         valueRange = minRange..maxRange,
                         steps = (gpu.availFreqsMhz.size - 2).coerceAtLeast(0),
                         displayValue = "${gpuMax.toInt()} MHz",
@@ -1924,14 +1969,31 @@ fun TuningMemoryCategory(
             val maxZram = maxOf(4096f, ramTotal)
             val zramSteps = (((maxZram - minZram) / 512f).toInt() - 1).coerceAtLeast(0)
 
-            var zramValue by remember(state.memory.zramSizeMb) {
+            var zramValue by remember {
                 mutableFloatStateOf(state.memory.zramSizeMb.toFloat().coerceIn(minZram, maxZram))
             }
+            var isInteractingZram by remember { mutableStateOf(false) }
+            var lastZramInteraction by remember { mutableLongStateOf(0L) }
+
+            LaunchedEffect(state.memory.zramSizeMb) {
+                if (!isInteractingZram && (System.currentTimeMillis() - lastZramInteraction > 2000L)) {
+                    zramValue = state.memory.zramSizeMb.toFloat().coerceIn(minZram, maxZram)
+                }
+            }
+
             LynxSlider(
                 label = "Ukuran Alokasi ZRAM (Skala RAM Fisik: ${ramTotal.toInt()} MB)",
                 value = zramValue,
-                onValueChange = { zramValue = it },
-                onValueChangeFinished = { viewModel.setZramSizeMb(zramValue.toInt()) },
+                onValueChange = {
+                    isInteractingZram = true
+                    lastZramInteraction = System.currentTimeMillis()
+                    zramValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingZram = false
+                    lastZramInteraction = System.currentTimeMillis()
+                    viewModel.setZramSizeMb(zramValue.toInt())
+                },
                 valueRange = minZram..maxZram,
                 steps = zramSteps,
                 displayValue = "${zramValue.toInt()} MB",
@@ -1984,98 +2046,156 @@ fun TuningMemoryCategory(
                 }
             }
 
-            var swapValue by remember(uiState.vmAdvanced.swappiness) {
-                mutableFloatStateOf(uiState.vmAdvanced.swappiness.toFloat())
+            var swapValue by remember { mutableFloatStateOf(uiState.vmAdvanced.swappiness.toFloat()) }
+            var dirtyValue by remember { mutableFloatStateOf(uiState.vmAdvanced.dirtyRatio.toFloat()) }
+            var dirtyBgValue by remember { mutableFloatStateOf(uiState.vmAdvanced.dirtyBackgroundRatio.toFloat()) }
+            var vfsValue by remember { mutableFloatStateOf(uiState.vmAdvanced.vfsCachePressure.toFloat()) }
+            var expireValue by remember { mutableFloatStateOf((uiState.vmAdvanced.dirtyExpireCentisecs / 100).toFloat()) }
+            var writebackValue by remember { mutableFloatStateOf((uiState.vmAdvanced.dirtyWritebackCentisecs / 100).toFloat()) }
+            var statValue by remember { mutableFloatStateOf(uiState.vmAdvanced.statInterval.toFloat()) }
+
+            var isInteractingVm by remember { mutableStateOf(false) }
+            var lastVmInteraction by remember { mutableLongStateOf(0L) }
+
+            LaunchedEffect(uiState.vmAdvanced) {
+                if (!isInteractingVm && (System.currentTimeMillis() - lastVmInteraction > 2000L)) {
+                    swapValue = uiState.vmAdvanced.swappiness.toFloat()
+                    dirtyValue = uiState.vmAdvanced.dirtyRatio.toFloat()
+                    dirtyBgValue = uiState.vmAdvanced.dirtyBackgroundRatio.toFloat()
+                    vfsValue = uiState.vmAdvanced.vfsCachePressure.toFloat()
+                    expireValue = (uiState.vmAdvanced.dirtyExpireCentisecs / 100).toFloat()
+                    writebackValue = (uiState.vmAdvanced.dirtyWritebackCentisecs / 100).toFloat()
+                    statValue = uiState.vmAdvanced.statInterval.toFloat()
+                }
             }
+
             LynxSlider(
                 label = "Virtual Memory Swappiness",
                 value = swapValue,
-                onValueChange = { swapValue = it },
-                onValueChangeFinished = { viewModel.setSwappiness(swapValue.toInt()) },
+                onValueChange = {
+                    isInteractingVm = true
+                    lastVmInteraction = System.currentTimeMillis()
+                    swapValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingVm = false
+                    lastVmInteraction = System.currentTimeMillis()
+                    viewModel.setSwappiness(swapValue.toInt())
+                },
                 valueRange = 0f..200f,
                 steps = 19,
                 displayValue = "${swapValue.toInt()}",
                 accentColor = AccentBlue
             )
 
-            var dirtyValue by remember(uiState.vmAdvanced.dirtyRatio) {
-                mutableFloatStateOf(uiState.vmAdvanced.dirtyRatio.toFloat())
-            }
             LynxSlider(
                 label = "VM Dirty Ratio (Batas Writeback)",
                 value = dirtyValue,
-                onValueChange = { dirtyValue = it },
-                onValueChangeFinished = { viewModel.setDirtyRatio(dirtyValue.toInt()) },
+                onValueChange = {
+                    isInteractingVm = true
+                    lastVmInteraction = System.currentTimeMillis()
+                    dirtyValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingVm = false
+                    lastVmInteraction = System.currentTimeMillis()
+                    viewModel.setDirtyRatio(dirtyValue.toInt())
+                },
                 valueRange = 5f..60f,
                 steps = 10,
                 displayValue = "${dirtyValue.toInt()}%",
                 accentColor = AccentBlue
             )
 
-            var dirtyBgValue by remember(uiState.vmAdvanced.dirtyBackgroundRatio) {
-                mutableFloatStateOf(uiState.vmAdvanced.dirtyBackgroundRatio.toFloat())
-            }
             LynxSlider(
                 label = "VM Dirty Background Ratio",
                 value = dirtyBgValue,
-                onValueChange = { dirtyBgValue = it },
-                onValueChangeFinished = { viewModel.setDirtyBackgroundRatio(dirtyBgValue.toInt()) },
+                onValueChange = {
+                    isInteractingVm = true
+                    lastVmInteraction = System.currentTimeMillis()
+                    dirtyBgValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingVm = false
+                    lastVmInteraction = System.currentTimeMillis()
+                    viewModel.setDirtyBackgroundRatio(dirtyBgValue.toInt())
+                },
                 valueRange = 1f..30f,
                 steps = 28,
                 displayValue = "${dirtyBgValue.toInt()}%",
                 accentColor = AccentBlue
             )
 
-            var vfsValue by remember(uiState.vmAdvanced.vfsCachePressure) {
-                mutableFloatStateOf(uiState.vmAdvanced.vfsCachePressure.toFloat())
-            }
             LynxSlider(
                 label = "VFS Cache Pressure (Reclaim Rate)",
                 value = vfsValue,
-                onValueChange = { vfsValue = it },
-                onValueChangeFinished = { viewModel.setVfsCachePressure(vfsValue.toInt()) },
+                onValueChange = {
+                    isInteractingVm = true
+                    lastVmInteraction = System.currentTimeMillis()
+                    vfsValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingVm = false
+                    lastVmInteraction = System.currentTimeMillis()
+                    viewModel.setVfsCachePressure(vfsValue.toInt())
+                },
                 valueRange = 50f..200f,
                 steps = 14,
                 displayValue = "${vfsValue.toInt()}",
                 accentColor = AccentBlue
             )
 
-            var expireValue by remember(uiState.vmAdvanced.dirtyExpireCentisecs) {
-                mutableFloatStateOf((uiState.vmAdvanced.dirtyExpireCentisecs / 100).toFloat())
-            }
             LynxSlider(
                 label = "VM Dirty Expire Time",
                 value = expireValue,
-                onValueChange = { expireValue = it },
-                onValueChangeFinished = { viewModel.setDirtyExpireCentisecs((expireValue * 100).toInt()) },
+                onValueChange = {
+                    isInteractingVm = true
+                    lastVmInteraction = System.currentTimeMillis()
+                    expireValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingVm = false
+                    lastVmInteraction = System.currentTimeMillis()
+                    viewModel.setDirtyExpireCentisecs((expireValue * 100).toInt())
+                },
                 valueRange = 10f..60f,
                 steps = 9,
                 displayValue = "${expireValue.toInt()}s",
                 accentColor = AccentBlue
             )
 
-            var writebackValue by remember(uiState.vmAdvanced.dirtyWritebackCentisecs) {
-                mutableFloatStateOf((uiState.vmAdvanced.dirtyWritebackCentisecs / 100).toFloat())
-            }
             LynxSlider(
                 label = "VM Dirty Writeback Interval",
                 value = writebackValue,
-                onValueChange = { writebackValue = it },
-                onValueChangeFinished = { viewModel.setDirtyWritebackCentisecs((writebackValue * 100).toInt()) },
+                onValueChange = {
+                    isInteractingVm = true
+                    lastVmInteraction = System.currentTimeMillis()
+                    writebackValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingVm = false
+                    lastVmInteraction = System.currentTimeMillis()
+                    viewModel.setDirtyWritebackCentisecs((writebackValue * 100).toInt())
+                },
                 valueRange = 1f..15f,
                 steps = 13,
                 displayValue = "${writebackValue.toInt()}s",
                 accentColor = AccentBlue
             )
 
-            var statValue by remember(uiState.vmAdvanced.statInterval) {
-                mutableFloatStateOf(uiState.vmAdvanced.statInterval.toFloat())
-            }
             LynxSlider(
                 label = "VM Stat Interval (Pembaruan Statistik)",
                 value = statValue,
-                onValueChange = { statValue = it },
-                onValueChangeFinished = { viewModel.setVmStatInterval(statValue.toInt()) },
+                onValueChange = {
+                    isInteractingVm = true
+                    lastVmInteraction = System.currentTimeMillis()
+                    statValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingVm = false
+                    lastVmInteraction = System.currentTimeMillis()
+                    viewModel.setVmStatInterval(statValue.toInt())
+                },
                 valueRange = 1f..10f,
                 steps = 8,
                 displayValue = "${statValue.toInt()}s",
@@ -2138,12 +2258,29 @@ fun TuningMemoryCategory(
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                var scanValue by remember(ksm.pagesToScan) { mutableFloatStateOf(ksm.pagesToScan.toFloat()) }
+                var scanValue by remember { mutableFloatStateOf(ksm.pagesToScan.toFloat()) }
+                var isInteractingKsm by remember { mutableStateOf(false) }
+                var lastKsmInteraction by remember { mutableLongStateOf(0L) }
+
+                LaunchedEffect(ksm.pagesToScan) {
+                    if (!isInteractingKsm && (System.currentTimeMillis() - lastKsmInteraction > 2000L)) {
+                        scanValue = ksm.pagesToScan.toFloat()
+                    }
+                }
+
                 LynxSlider(
                     label = "Pages to Scan per Cycle",
                     value = scanValue,
-                    onValueChange = { scanValue = it },
-                    onValueChangeFinished = { viewModel.setKsmTunables(scanValue.toInt(), ksm.sleepMs) },
+                    onValueChange = {
+                        isInteractingKsm = true
+                        lastKsmInteraction = System.currentTimeMillis()
+                        scanValue = it
+                    },
+                    onValueChangeFinished = {
+                        isInteractingKsm = false
+                        lastKsmInteraction = System.currentTimeMillis()
+                        viewModel.setKsmTunables(scanValue.toInt(), ksm.sleepMs)
+                    },
                     valueRange = 50f..500f,
                     steps = 8,
                     displayValue = "${scanValue.toInt()} pages",
@@ -2243,12 +2380,29 @@ fun TuningMemoryCategory(
                     }
 
                     Spacer(Modifier.height(10.dp))
-                    var raValue by remember(dev.readAheadKb) { mutableFloatStateOf(dev.readAheadKb.toFloat()) }
+                    var raValue by remember(dev.device) { mutableFloatStateOf(dev.readAheadKb.toFloat()) }
+                    var isInteractingRa by remember(dev.device) { mutableStateOf(false) }
+                    var lastRaInteraction by remember(dev.device) { mutableLongStateOf(0L) }
+
+                    LaunchedEffect(dev.device, dev.readAheadKb) {
+                        if (!isInteractingRa && (System.currentTimeMillis() - lastRaInteraction > 2000L)) {
+                            raValue = dev.readAheadKb.toFloat()
+                        }
+                    }
+
                     LynxSlider(
                         label = "Read-Ahead Buffer",
                         value = raValue,
-                        onValueChange = { raValue = it },
-                        onValueChangeFinished = { viewModel.setReadAheadKb(dev.device, raValue.toInt()) },
+                        onValueChange = {
+                            isInteractingRa = true
+                            lastRaInteraction = System.currentTimeMillis()
+                            raValue = it
+                        },
+                        onValueChangeFinished = {
+                            isInteractingRa = false
+                            lastRaInteraction = System.currentTimeMillis()
+                            viewModel.setReadAheadKb(dev.device, raValue.toInt())
+                        },
                         valueRange = 128f..4096f,
                         steps = 7,
                         displayValue = "${raValue.toInt()} KB",
@@ -2926,14 +3080,35 @@ fun TuningChargingCategory(
                 onCheckedChange = { viewModel.setThermalLockoutBypass(it) },
             )
 
-            var highTargetValue by remember(state.charging.highCurrentTargetPercent) {
+            var highTargetValue by remember {
                 mutableFloatStateOf(state.charging.highCurrentTargetPercent.toFloat())
             }
+            var currentLimitValue by remember {
+                mutableFloatStateOf(state.charging.limitCurrentMa.toFloat())
+            }
+            var isInteractingChgCur by remember { mutableStateOf(false) }
+            var lastChgCurInteraction by remember { mutableLongStateOf(0L) }
+
+            LaunchedEffect(state.charging.highCurrentTargetPercent, state.charging.limitCurrentMa) {
+                if (!isInteractingChgCur && (System.currentTimeMillis() - lastChgCurInteraction > 2000L)) {
+                    highTargetValue = state.charging.highCurrentTargetPercent.toFloat()
+                    currentLimitValue = state.charging.limitCurrentMa.toFloat()
+                }
+            }
+
             LynxSlider(
                 label = "Target Kapasitas Arus Tinggi (sc_tuisoc)",
                 value = highTargetValue,
-                onValueChange = { highTargetValue = it },
-                onValueChangeFinished = { viewModel.setHighCurrentTarget(highTargetValue.toInt()) },
+                onValueChange = {
+                    isInteractingChgCur = true
+                    lastChgCurInteraction = System.currentTimeMillis()
+                    highTargetValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingChgCur = false
+                    lastChgCurInteraction = System.currentTimeMillis()
+                    viewModel.setHighCurrentTarget(highTargetValue.toInt())
+                },
                 valueRange = 80f..100f,
                 steps = 19,
                 displayValue = "${highTargetValue.toInt()}% Kapasitas",
@@ -2949,14 +3124,19 @@ fun TuningChargingCategory(
 
             Spacer(Modifier.height(6.dp))
 
-            var currentLimitValue by remember(state.charging.limitCurrentMa) {
-                mutableFloatStateOf(state.charging.limitCurrentMa.toFloat())
-            }
             LynxSlider(
                 label = "Batas Arus Pengisian Game",
                 value = currentLimitValue,
-                onValueChange = { currentLimitValue = it },
-                onValueChangeFinished = { viewModel.setChargeCurrentLimit(currentLimitValue.toInt()) },
+                onValueChange = {
+                    isInteractingChgCur = true
+                    lastChgCurInteraction = System.currentTimeMillis()
+                    currentLimitValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingChgCur = false
+                    lastChgCurInteraction = System.currentTimeMillis()
+                    viewModel.setChargeCurrentLimit(currentLimitValue.toInt())
+                },
                 valueRange = 1000f..6000f,
                 steps = 9,
                 displayValue = if (currentLimitValue >= 3500f) "${currentLimitValue.toInt()} mA (Fast Charge)" else "${currentLimitValue.toInt()} mA",
@@ -2993,14 +3173,35 @@ fun TuningChargingCategory(
                 onCheckedChange = { viewModel.setBypassCharging(it) },
             )
 
-            var tempCutoffValue by remember(state.charging.tempCutoffC) {
+            var tempCutoffValue by remember {
                 mutableFloatStateOf(state.charging.tempCutoffC.toFloat())
             }
+            var maxBatteryValue by remember {
+                mutableFloatStateOf(state.charging.maxBatteryPercent.toFloat())
+            }
+            var isInteractingSafety by remember { mutableStateOf(false) }
+            var lastSafetyInteraction by remember { mutableLongStateOf(0L) }
+
+            LaunchedEffect(state.charging.tempCutoffC, state.charging.maxBatteryPercent) {
+                if (!isInteractingSafety && (System.currentTimeMillis() - lastSafetyInteraction > 2000L)) {
+                    tempCutoffValue = state.charging.tempCutoffC.toFloat()
+                    maxBatteryValue = state.charging.maxBatteryPercent.toFloat()
+                }
+            }
+
             LynxSlider(
                 label = "Batas Suhu Thermal AutoCut (Kasur / Pelindung Suhu)",
                 value = tempCutoffValue,
-                onValueChange = { tempCutoffValue = it },
-                onValueChangeFinished = { viewModel.setTempCutoff(tempCutoffValue.toInt()) },
+                onValueChange = {
+                    isInteractingSafety = true
+                    lastSafetyInteraction = System.currentTimeMillis()
+                    tempCutoffValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingSafety = false
+                    lastSafetyInteraction = System.currentTimeMillis()
+                    viewModel.setTempCutoff(tempCutoffValue.toInt())
+                },
                 valueRange = 40f..50f,
                 steps = 9,
                 displayValue = "${tempCutoffValue.toInt()}°C",
@@ -3014,14 +3215,19 @@ fun TuningChargingCategory(
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
             )
 
-            var maxBatteryValue by remember(state.charging.maxBatteryPercent) {
-                mutableFloatStateOf(state.charging.maxBatteryPercent.toFloat())
-            }
             LynxSlider(
                 label = "Batas Pengisian Baterai (Stop-At-%)",
                 value = maxBatteryValue,
-                onValueChange = { maxBatteryValue = it },
-                onValueChangeFinished = { viewModel.setMaxBatteryPercent(maxBatteryValue.toInt()) },
+                onValueChange = {
+                    isInteractingSafety = true
+                    lastSafetyInteraction = System.currentTimeMillis()
+                    maxBatteryValue = it
+                },
+                onValueChangeFinished = {
+                    isInteractingSafety = false
+                    lastSafetyInteraction = System.currentTimeMillis()
+                    viewModel.setMaxBatteryPercent(maxBatteryValue.toInt())
+                },
                 valueRange = 70f..100f,
                 steps = 5,
                 displayValue = if (maxBatteryValue >= 99.5f) "100% (Penuh & Auto-Bypass)" else "${maxBatteryValue.toInt()}%",
@@ -3789,6 +3995,9 @@ fun DeepTunableItemCard(
     }
     var isDraggingSlider by remember { mutableStateOf(false) }
     var lastSliderInteraction by remember { mutableLongStateOf(0L) }
+    var isEditingText by remember { mutableStateOf(false) }
+    var lastTextInteraction by remember { mutableLongStateOf(0L) }
+    var lastApplyTime by remember { mutableLongStateOf(0L) }
     var showPathDetails by remember { mutableStateOf(false) }
 
     LaunchedEffect(tunable.path, tunable.value) {
@@ -3796,6 +4005,8 @@ fun DeepTunableItemCard(
         if (!isDraggingSlider && (now - lastSliderInteraction > 2000L)) {
             val fVal = tunable.value.toFloatOrNull() ?: tunable.min
             sliderValue = fVal.coerceIn(tunable.min, tunable.max)
+        }
+        if (!isEditingText && (now - lastTextInteraction > 3000L)) {
             editValue = tunable.value
         }
     }
@@ -4252,7 +4463,11 @@ fun DeepTunableItemCard(
                         ) {
                             OutlinedTextField(
                                 value = editValue,
-                                onValueChange = { editValue = it },
+                                onValueChange = {
+                                    editValue = it
+                                    isEditingText = true
+                                    lastTextInteraction = System.currentTimeMillis()
+                                },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
                                 textStyle = androidx.compose.ui.text.TextStyle(
@@ -4269,7 +4484,14 @@ fun DeepTunableItemCard(
                             )
 
                             Button(
-                                onClick = { onApply(tunable.path, editValue.trim()) },
+                                onClick = {
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastApplyTime >= 400L) {
+                                        lastApplyTime = now
+                                        isEditingText = false
+                                        onApply(tunable.path, editValue.trim())
+                                    }
+                                },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = AccentCyan.copy(alpha = 0.2f),

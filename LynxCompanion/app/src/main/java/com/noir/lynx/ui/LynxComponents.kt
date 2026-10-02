@@ -130,11 +130,18 @@ fun LynxSwitch(
     subLabel: String? = null,
     enabled: Boolean = true,
 ) {
+    var lastClickTime by remember { mutableLongStateOf(0L) }
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .clickable(enabled = enabled) {
+                val now = System.currentTimeMillis()
+                if (now - lastClickTime >= 350L) {
+                    lastClickTime = now
+                    onCheckedChange(!checked)
+                }
+            }
             .padding(vertical = 10.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1239,6 +1246,8 @@ fun ProfileGrid(
         ProfileItem("powersave", "Powersave", "Deep C-States Endurance", Icons.Default.BatteryChargingFull, Color(0xFF00E676)),
     )
 
+    var lastProfileSwitchTime by remember { mutableLongStateOf(0L) }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // Hero top card for Auto AI
         val autoProfile = profiles.first()
@@ -1247,7 +1256,13 @@ fun ProfileGrid(
             item = autoProfile,
             isActive = isAutoActive,
             isWide = true,
-            onClick = { onProfileSelected(autoProfile.id) }
+            onClick = {
+                val now = System.currentTimeMillis()
+                if (now - lastProfileSwitchTime >= 400L) {
+                    lastProfileSwitchTime = now
+                    onProfileSelected(autoProfile.id)
+                }
+            }
         )
 
         // 2x2 Grid for Balance, Perf, Extreme, Powersave
@@ -1265,10 +1280,14 @@ fun ProfileGrid(
                         isWide = false,
                         modifier = Modifier.weight(1f),
                         onClick = {
-                            if (item.id == "extreme" && currentProfile != "extreme") {
-                                onExtremeConfirmRequired()
-                            } else {
-                                onProfileSelected(item.id)
+                            val now = System.currentTimeMillis()
+                            if (now - lastProfileSwitchTime >= 400L) {
+                                lastProfileSwitchTime = now
+                                if (item.id == "extreme" && currentProfile != "extreme") {
+                                    onExtremeConfirmRequired()
+                                } else {
+                                    onProfileSelected(item.id)
+                                }
                             }
                         }
                     )
@@ -1374,8 +1393,15 @@ fun LynxActionButton(
     isLoading: Boolean = false,
     accentColor: Color = AccentCyan,
 ) {
+    var lastClickTime by remember { mutableLongStateOf(0L) }
     Button(
-        onClick = onClick,
+        onClick = {
+            val now = System.currentTimeMillis()
+            if (now - lastClickTime >= 400L) {
+                lastClickTime = now
+                onClick()
+            }
+        },
         enabled = !isLoading,
         modifier = modifier
             .fillMaxWidth()

@@ -403,10 +403,10 @@ fun MainDashboard(
     // ── Dialog Edit Rule Profil Aplikasi ───────────────────────
     if (editingRule != null) {
         val rule = editingRule!!
-        var targetProf by remember(rule) { mutableStateOf(rule.targetProfile) }
-        var targetHz by remember(rule) { mutableStateOf(rule.targetRefreshRate) }
-        var autoHud by remember(rule) { mutableStateOf(rule.autoFloatingHud) }
-        var isRuleEnabled by remember(rule) { mutableStateOf(rule.enabled) }
+        var targetProf by remember(rule.packageName) { mutableStateOf(rule.targetProfile) }
+        var targetHz by remember(rule.packageName) { mutableStateOf(rule.targetRefreshRate) }
+        var autoHud by remember(rule.packageName) { mutableStateOf(rule.autoFloatingHud) }
+        var isRuleEnabled by remember(rule.packageName) { mutableStateOf(rule.enabled) }
 
         AlertDialog(
             onDismissRequest = { editingRule = null },
@@ -1731,9 +1731,18 @@ fun MainDashboard(
                     // ── Custom Sysfs Rules & Boot Tweaks Card ───────────────────
                     LaunchedEffect(Unit) { viewModel.loadCustomRules() }
 
-                    var customScriptText by remember(uiState.customRulesScript) {
-                        mutableStateOf(uiState.customRulesScript)
+                    var customScriptText by remember { mutableStateOf("") }
+                    var hasUserEditedCustomScript by remember { mutableStateOf(false) }
+                    var lastCustomScriptInteraction by remember { mutableLongStateOf(0L) }
+                    var lastCustomScriptBtnClick by remember { mutableLongStateOf(0L) }
+
+                    LaunchedEffect(uiState.customRulesScript) {
+                        val now = System.currentTimeMillis()
+                        if (!hasUserEditedCustomScript || (now - lastCustomScriptInteraction > 3000L && customScriptText.isEmpty())) {
+                            customScriptText = uiState.customRulesScript
+                        }
                     }
+
                     LynxCard(
                         title = "Custom Sysfs Rules & Boot Tweaks",
                         icon = Icons.Default.Terminal,
@@ -1745,9 +1754,33 @@ fun MainDashboard(
                             modifier = Modifier.padding(bottom = 10.dp)
                         )
 
-                        // Quick snippet chips
-                        Text("Templat Cepat:", color = AccentOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 6.dp))
+                        // Quick snippet chips & Reload button
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Templat Cepat:", color = AccentOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Surface(
+                                onClick = {
+                                    viewModel.loadCustomRules()
+                                    customScriptText = uiState.customRulesScript
+                                    hasUserEditedCustomScript = false
+                                },
+                                shape = RoundedCornerShape(6.dp),
+                                color = AccentCyan.copy(alpha = 0.12f),
+                                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.3f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Refresh, null, tint = AccentCyan, modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Muat Ulang Berkas", fontSize = 10.sp, color = AccentCyan, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
@@ -1761,7 +1794,11 @@ fun MainDashboard(
                             items(snippets.size) { i ->
                                 val (title, code) = snippets[i]
                                 Surface(
-                                    onClick = { customScriptText += code },
+                                    onClick = {
+                                        customScriptText += code
+                                        hasUserEditedCustomScript = true
+                                        lastCustomScriptInteraction = System.currentTimeMillis()
+                                    },
                                     shape = RoundedCornerShape(8.dp),
                                     color = BgElevated,
                                     border = BorderStroke(1.dp, BorderGlass)
@@ -1779,7 +1816,11 @@ fun MainDashboard(
 
                         OutlinedTextField(
                             value = customScriptText,
-                            onValueChange = { customScriptText = it },
+                            onValueChange = {
+                                customScriptText = it
+                                hasUserEditedCustomScript = true
+                                lastCustomScriptInteraction = System.currentTimeMillis()
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 130.dp, max = 240.dp),
@@ -1804,7 +1845,15 @@ fun MainDashboard(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Button(
-                                onClick = { viewModel.saveCustomRules(customScriptText) },
+                                onClick = {
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastCustomScriptBtnClick >= 400L) {
+                                        lastCustomScriptBtnClick = now
+                                        hasUserEditedCustomScript = false
+                                        lastCustomScriptInteraction = 0L
+                                        viewModel.saveCustomRules(customScriptText)
+                                    }
+                                },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = AccentOrange)
@@ -1815,8 +1864,14 @@ fun MainDashboard(
                             }
                             Button(
                                 onClick = {
-                                    viewModel.saveCustomRules(customScriptText)
-                                    viewModel.executeCustomRules()
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastCustomScriptBtnClick >= 400L) {
+                                        lastCustomScriptBtnClick = now
+                                        hasUserEditedCustomScript = false
+                                        lastCustomScriptInteraction = 0L
+                                        viewModel.saveCustomRules(customScriptText)
+                                        viewModel.executeCustomRules()
+                                    }
                                 },
                                 enabled = !uiState.customRulesRunning,
                                 modifier = Modifier.weight(1f),
