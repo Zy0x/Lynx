@@ -1735,16 +1735,29 @@ object LynxRepository {
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
 
                 echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
-                echo 5376 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                echo 5376 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                echo 7000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                 echo $highTargetPercent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                ${if (lockoutBypass) "echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null" else "echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null"}
+                ${if (lockoutBypass) """
+                    chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                    echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                    chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                """ else """
+                    chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                    echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                """}
 
                 for c in /sys/class/thermal/cooling_device*; do
                     type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
-                    case "${'$'}type" in *bcct*|*chg*|*current*|*abcct*) chmod 666 "${'$'}c/cur_state" 2>/dev/null; echo 0 > "${'$'}c/cur_state" 2>/dev/null ;; esac
+                    case "${'$'}type" in
+                        *bcct*|*chg*|*current*|*abcct*|*battery*)
+                            chmod 666 "${'$'}c/cur_state" 2>/dev/null
+                            echo 0 > "${'$'}c/cur_state" 2>/dev/null
+                            chmod 444 "${'$'}c/cur_state" 2>/dev/null
+                            ;;
+                    esac
                 done
 
                 # Universal & Qualcomm Maximum Current (6A headroom)
@@ -1835,6 +1848,67 @@ object LynxRepository {
         }
     }
 
+    /**
+     * Force Maximum Super Charge Speed (Unthrottled 33W Transsion Super Charge / MediaTek PE40 / RT9759)
+     * Overrides all thermal throttles, zeroes out cooling devices, and locks battery spoofing.
+     */
+    suspend fun forceMaxSuperCharge(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                # 1. Unrestrict MediaTek Charger Platform
+                echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
+                echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
+                echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+                echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
+                echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                echo 100 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
+
+                # 2. Lock Battery Temperature to 28C & Read-Only Protect against thermal daemon resets
+                chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+
+                # 3. Force-Unlock All Thermal Cooling Devices (bcct, abcct, current)
+                for c in /sys/class/thermal/cooling_device*; do
+                    type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
+                    case "${'$'}type" in
+                        *bcct*|*chg*|*current*|*abcct*|*battery*)
+                            chmod 666 "${'$'}c/cur_state" 2>/dev/null
+                            echo 0 > "${'$'}c/cur_state" 2>/dev/null
+                            chmod 444 "${'$'}c/cur_state" 2>/dev/null
+                            ;;
+                    esac
+                done
+
+                # 4. Universal & Qualcomm Maximum Rails
+                echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/battery/current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/usb/hw_current_max 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/fast_charge 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec()
+            writeStateKey("charging.extreme_charging_enabled", "true", "bool")
+            writeStateKey("charging.thermal_lockout_bypass_enabled", "true", "bool")
+            writeStateKey("charging.limit_current_ma", "6000", "val")
+            writeStateKey("charging.high_current_target_percent", "100", "val")
+            true
+        } catch (e: Exception) { false }
+    }
+
     suspend fun setExtremeCharging(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
             writeStateKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
@@ -1845,7 +1919,8 @@ object LynxRepository {
                 limitMa = chg.limitCurrentMa,
                 highTargetPercent = chg.highCurrentTargetPercent,
                 lockoutBypass = chg.thermalLockoutBypassEnabled,
-                tempGuard = chg.emergencyTempGuardEnabled
+                tempGuard = chg.emergencyTempGuardEnabled,
+                maxBatteryPercent = chg.maxBatteryPercent
             )
         } catch (e: Exception) {
             false
@@ -2847,6 +2922,15 @@ object LynxRepository {
                 rtmp=${'$'}(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || cat /sys/class/thermal/thermal_zone20/temp 2>/dev/null || cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null || echo 0)
                 grd=${'$'}([ -f /dev/lynx_charging_guard ] && echo 1 || echo 0)
                 cst=${'$'}(cat /dev/lynx_charging_state 2>/dev/null || echo "")
+
+                # Suppress thermal throttling daemon if spoofing 28C is active
+                if [ -f /sys/devices/platform/battery/Battery_Temperature ]; then
+                    cur_bt=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null)
+                    if [ "${'$'}cur_bt" = "28" ]; then
+                        echo 0 > /sys/class/thermal/cooling_device56/cur_state 2>/dev/null
+                    fi
+                fi
+
                 echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst"
             """.trimIndent()
             val r = Shell.cmd(script).exec()

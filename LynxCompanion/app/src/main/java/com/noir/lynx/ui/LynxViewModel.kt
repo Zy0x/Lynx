@@ -341,7 +341,7 @@ class LynxViewModel : ViewModel() {
                     val cores = if (rawCores.isNotEmpty()) mergeCoresWithActiveIntents(rawCores) else emptyList()
                     val totalLoad = LynxRepository.latestTotalCpuLoadPercent
                     val procs = LynxRepository.readTopCpuProcesses()
-                    val batt = if (counter % 3 == 0) LynxRepository.readBatteryDetails() else null
+                    val batt = LynxRepository.readBatteryDetails()
                     val rawGpu = if (counter % 2 == 0) LynxRepository.readGpuInfo() else null
                     val gpu = rawGpu?.let { mergeGpuInfoWithIntent(it) }
                     val therm = if (counter % 3 == 0) LynxRepository.readThermalZones() else null
@@ -702,6 +702,29 @@ class LynxViewModel : ViewModel() {
                 tempGuard = chg.emergencyTempGuardEnabled,
                 maxBatteryPercent = chg.maxBatteryPercent
             )
+        }
+    }
+
+    fun forceMaxSuperCharge() {
+        recordStateMutation()
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(
+                        extremeChargingEnabled = true,
+                        thermalLockoutBypassEnabled = true,
+                        limitCurrentMa = 6000,
+                        highCurrentTargetPercent = 100
+                    )
+                )
+            )
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.forceMaxSuperCharge()
+            val details = LynxRepository.readBatteryDetails()
+            if (details != null) {
+                _uiState.update { it.copy(batteryDetails = details, successMessage = if (ok) "⚡ Kecepatan Super Charge Maksimal Dipaksa (33W Unthrottled)" else "Gagal memaksa kecepatan super charge") }
+            }
         }
     }
 

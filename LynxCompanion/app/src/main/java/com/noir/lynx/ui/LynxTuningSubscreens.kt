@@ -2593,6 +2593,256 @@ fun TuningChargingCategory(
         }
 
         // ============================================================
+        //  BENTO CARD 1.5: ESTIMASI WAKTU PENGECAASAN & STATUS PENGISIAN
+        // ============================================================
+        if (battDetails != null) {
+            val isCharging = battDetails.currentMa > 50 || battDetails.status.equals("Charging", ignoreCase = true)
+            val currentLevel = battDetails.level.coerceIn(0, 100)
+            val targetPercent = if (state.charging.bypassEnabled) state.charging.maxBatteryPercent else 100
+            val isTargetReached = currentLevel >= targetPercent
+            val isOvernightLatched = battDetails.isOvernightBypassLatched || currentLevel >= 100
+            val isBypassLocked = isOvernightLatched || (state.charging.bypassEnabled && isTargetReached)
+
+            val netCurMa = battDetails.currentMa.coerceAtLeast(0)
+            val designCapMah = 5000f
+            val remainingPercent = (targetPercent - currentLevel).coerceAtLeast(0)
+            val remainingMah = (designCapMah * remainingPercent / 100f)
+
+            // Dynamic Charging ETA Algorithm (Direct Pump & Tapering curve)
+            val etaMinutes = when {
+                isBypassLocked || remainingPercent == 0 -> 0
+                !isCharging -> -1
+                netCurMa < 100 -> -2
+                currentLevel < 80 -> {
+                    val ccRemMah = (designCapMah * (80 - currentLevel).coerceAtLeast(0) / 100f)
+                    val cvRemMah = remainingMah - ccRemMah
+                    val ccMins = (ccRemMah / netCurMa.toFloat()) * 60f
+                    val cvMins = if (targetPercent > 80) (cvRemMah / (netCurMa * 0.55f).coerceAtLeast(800f)) * 60f else 0f
+                    (ccMins + cvMins).toInt().coerceAtLeast(1)
+                }
+                else -> {
+                    val cvAvgCur = (netCurMa * 0.7f).coerceAtLeast(600f)
+                    ((remainingMah / cvAvgCur) * 60f).toInt().coerceAtLeast(1)
+                }
+            }
+
+            val etaMainText = when {
+                isBypassLocked -> "Baterai Penuh (0 Menit)"
+                etaMinutes == 0 -> "Baterai Penuh"
+                etaMinutes in 1..59 -> "± $etaMinutes Menit"
+                etaMinutes >= 60 -> "± ${etaMinutes / 60} Jam ${etaMinutes % 60} Menit"
+                etaMinutes == -2 -> "Menghitung Laju..."
+                else -> {
+                    val dischargeMa = Math.abs(battDetails.currentMa).coerceAtLeast(150)
+                    val dischargeMins = ((designCapMah * currentLevel / 100f) / dischargeMa.toFloat() * 60f).toInt()
+                    if (dischargeMins >= 60) "± ${dischargeMins / 60} Jam ${dischargeMins % 60} Menit" else "± $dischargeMins Menit"
+                }
+            }
+
+            val etaSubText = when {
+                isBypassLocked -> "Hardware Bypass Aktif — Mengalirkan daya adapter langsung tanpa mengisi baterai."
+                isCharging && targetPercent < 100 -> "Menuju Target Bypass $targetPercent% (Sisa $remainingPercent% • ${remainingMah.toInt()} mAh)"
+                isCharging -> "Menuju 100% Penuh (Sisa $remainingPercent% • ${remainingMah.toInt()} mAh)"
+                else -> "Estimasi sisa daya baterai berdasarkan beban saat ini (-${Math.abs(battDetails.currentMa)} mA)"
+            }
+
+            val ratePercentPerHour = if (isCharging && netCurMa > 100) ((netCurMa.toFloat() / designCapMah) * 100f).coerceIn(0f, 250f) else 0f
+            val cardAccent = if (isBypassLocked) AccentCyan else if (isCharging) AccentGreen else AccentOrange
+
+            LynxCard(
+                title = "Estimasi Waktu Pengecasan",
+                icon = Icons.Default.Schedule,
+                accentColor = cardAccent
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // Main Highlight Display Box
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = cardAccent.copy(alpha = 0.08f),
+                        border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.35f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (isCharging) "WAKTU TERSISA" else "DAYA TAHAN BATERAI",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    color = TextSecondary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = etaMainText,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = cardAccent
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = etaSubText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.5.sp,
+                                    color = TextPrimary.copy(alpha = 0.85f),
+                                    lineHeight = 14.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // Progress toward target
+                    if (isCharging) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Progres Menuju Target ($targetPercent%)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    color = TextSecondary
+                                )
+                                Text(
+                                    text = "$currentLevel% / $targetPercent%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = cardAccent
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            val progressRatio = (currentLevel.toFloat() / targetPercent.toFloat()).coerceIn(0f, 1f)
+                            LinearProgressIndicator(
+                                progress = { progressRatio },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                color = cardAccent,
+                                trackColor = BgElevated
+                            )
+                        }
+
+                        // 3-Metric Speed Strip
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Strip 1: Laju Kecepatan
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = BgElevated.copy(alpha = 0.5f),
+                                border = BorderStroke(0.6.dp, BorderSubtle),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text("Laju Pengisian", style = MaterialTheme.typography.labelSmall, fontSize = 9.5.sp, color = TextSecondary)
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = if (ratePercentPerHour > 1f) "+${String.format(java.util.Locale.US, "%.1f", ratePercentPerHour / 60f)}%/mnt" else "--",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AccentGreen
+                                    )
+                                    Text(
+                                        text = "+${ratePercentPerHour.toInt()}% / jam",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 9.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+
+                            // Strip 2: Arus Masuk Riil
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = BgElevated.copy(alpha = 0.5f),
+                                border = BorderStroke(0.6.dp, BorderSubtle),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text("Arus Masuk", style = MaterialTheme.typography.labelSmall, fontSize = 9.5.sp, color = TextSecondary)
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = "+$netCurMa mA",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = cardAccent
+                                    )
+                                    Text(
+                                        text = if (battDetails.adapterWatt > 0.1f) "${String.format(java.util.Locale.US, "%.1fW", battDetails.adapterWatt)} Input" else "Standar",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 9.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+
+                            // Strip 3: Fase Kernel
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = BgElevated.copy(alpha = 0.5f),
+                                border = BorderStroke(0.6.dp, BorderSubtle),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text("Fase Kernel", style = MaterialTheme.typography.labelSmall, fontSize = 9.5.sp, color = TextSecondary)
+                                    Spacer(Modifier.height(2.dp))
+                                    val phaseText = when {
+                                        isBypassLocked -> "Bypass Latch"
+                                        currentLevel >= 85 -> "CV Tapering"
+                                        battDetails.activeICName.contains("Pump") -> "Direct Pump"
+                                        else -> "Arus Konstan"
+                                    }
+                                    Text(
+                                        text = phaseText,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (phaseText == "Direct Pump") AccentRed else cardAccent
+                                    )
+                                    Text(
+                                        text = if (phaseText == "Direct Pump") "Super Charge" else "Stabilizer",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 9.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Direct Action Button: Paksa Kecepatan Tertinggi
+                    Button(
+                        onClick = { viewModel.forceMaxSuperCharge() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AccentRed.copy(alpha = 0.18f),
+                            contentColor = AccentRed
+                        ),
+                        border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.45f)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth().height(44.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = AccentRed
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "⚡ Paksa Kecepatan Tertinggi (Force Max 33W)",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentRed
+                        )
+                    }
+                }
+            }
+        }
+
+        // ============================================================
         //  BENTO CARD 2: HIGH-CURRENT & ACCELERATION CONTROLS
         // ============================================================
         LynxCard(
