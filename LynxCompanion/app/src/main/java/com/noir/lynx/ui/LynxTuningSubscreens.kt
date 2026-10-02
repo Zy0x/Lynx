@@ -2232,9 +2232,11 @@ fun TuningChargingCategory(
             val isOvernightLatched = battDetails?.isOvernightBypassLatched == true || (battDetails?.level ?: 0) >= 100
             val isSmartTapering = battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled
 
+            val isBypassLatched = state.charging.bypassEnabled && ((battDetails?.level ?: 0) >= state.charging.maxBatteryPercent || isOvernightLatched)
+
             val currentModeLabel = when {
                 isOvernightLatched -> "🔒 100% Full: Hardware Bypass Aktif (Net 0mA - Aman Tidur)"
-                state.charging.bypassEnabled -> "⚡ Bypass Charging Aktif (Baterai Latch)"
+                isBypassLatched -> "⚡ Bypass Charging Aktif (Baterai Latch)"
                 isSmartTapering -> "🍃 Smart Tapering Aktif (Mendinginkan Baterai 90%+)"
                 state.charging.extremeChargingEnabled -> "🔥 Extreme Fast Charge (Lockout Bypass)"
                 state.charging.limitCurrentMa >= 3000 -> "🚀 High-Current Fast Charge (${state.charging.limitCurrentMa} mA)"
@@ -2242,7 +2244,7 @@ fun TuningChargingCategory(
             }
             val currentModeColor = when {
                 isOvernightLatched -> AccentCyan
-                state.charging.bypassEnabled -> AccentCyan
+                isBypassLatched -> AccentCyan
                 isSmartTapering -> AccentGreen
                 state.charging.extremeChargingEnabled -> AccentRed
                 state.charging.limitCurrentMa >= 3000 -> AccentCyan
@@ -2260,7 +2262,7 @@ fun TuningChargingCategory(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = if (isOvernightLatched || state.charging.bypassEnabled) Icons.Default.BatteryChargingFull else if (isSmartTapering) Icons.Default.Shield else Icons.Default.Bolt,
+                        imageVector = if (isOvernightLatched || isBypassLatched) Icons.Default.BatteryChargingFull else if (isSmartTapering) Icons.Default.Shield else Icons.Default.Bolt,
                         contentDescription = null,
                         tint = currentModeColor,
                         modifier = Modifier.size(16.dp)

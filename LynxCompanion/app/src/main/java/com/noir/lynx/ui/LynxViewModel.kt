@@ -676,7 +676,8 @@ class LynxViewModel : ViewModel() {
                 limitMa = chg.limitCurrentMa,
                 highTargetPercent = chg.highCurrentTargetPercent,
                 lockoutBypass = chg.thermalLockoutBypassEnabled,
-                tempGuard = chg.emergencyTempGuardEnabled
+                tempGuard = chg.emergencyTempGuardEnabled,
+                maxBatteryPercent = chg.maxBatteryPercent
             )
         }
     }
@@ -698,7 +699,8 @@ class LynxViewModel : ViewModel() {
                 limitMa = chg.limitCurrentMa,
                 highTargetPercent = chg.highCurrentTargetPercent,
                 lockoutBypass = chg.thermalLockoutBypassEnabled,
-                tempGuard = chg.emergencyTempGuardEnabled
+                tempGuard = chg.emergencyTempGuardEnabled,
+                maxBatteryPercent = chg.maxBatteryPercent
             )
         }
     }
@@ -720,7 +722,8 @@ class LynxViewModel : ViewModel() {
                 limitMa = chg.limitCurrentMa,
                 highTargetPercent = percent,
                 lockoutBypass = chg.thermalLockoutBypassEnabled,
-                tempGuard = chg.emergencyTempGuardEnabled
+                tempGuard = chg.emergencyTempGuardEnabled,
+                maxBatteryPercent = chg.maxBatteryPercent
             )
         }
     }
@@ -753,7 +756,8 @@ class LynxViewModel : ViewModel() {
                 limitMa = chg.limitCurrentMa,
                 highTargetPercent = chg.highCurrentTargetPercent,
                 lockoutBypass = enabled,
-                tempGuard = chg.emergencyTempGuardEnabled
+                tempGuard = chg.emergencyTempGuardEnabled,
+                maxBatteryPercent = chg.maxBatteryPercent
             )
         }
     }
@@ -800,7 +804,8 @@ class LynxViewModel : ViewModel() {
                 limitMa = ma,
                 highTargetPercent = chg.highCurrentTargetPercent,
                 lockoutBypass = chg.thermalLockoutBypassEnabled,
-                tempGuard = chg.emergencyTempGuardEnabled
+                tempGuard = chg.emergencyTempGuardEnabled,
+                maxBatteryPercent = chg.maxBatteryPercent
             )
         }
     }
@@ -891,6 +896,18 @@ class LynxViewModel : ViewModel() {
         setKey("charging.max_battery_percent", percent.toString(), "val")
         viewModelScope.launch {
             LynxRepository.setMaxBatteryPercent(percent)
+            val chg = _uiState.value.state.charging
+            if (chg.bypassEnabled) {
+                LynxRepository.applyChargingMode(
+                    bypass = true,
+                    extremeCharging = chg.extremeChargingEnabled,
+                    limitMa = chg.limitCurrentMa,
+                    highTargetPercent = chg.highCurrentTargetPercent,
+                    lockoutBypass = chg.thermalLockoutBypassEnabled,
+                    tempGuard = chg.emergencyTempGuardEnabled,
+                    maxBatteryPercent = percent
+                )
+            }
         }
     }
 

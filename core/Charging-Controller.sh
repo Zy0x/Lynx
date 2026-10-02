@@ -261,7 +261,11 @@ dump_telemetry_json() {
     [ "$adpv" -gt 100000 ] && adpv=$(( adpv / 1000 ))
 
     # Adapter Current (mA)
-    ibus_val=$(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1)
+    ibus_val=$(read_node "/sys/devices/platform/odm/odm:tran_battery/Pump_Express_ICharger")
+    if [ -n "$ibus_val" ] && [ "$ibus_val" -lt 1000 ] && [ "$ibus_val" -gt 10 ]; then
+        ibus_val=$(( ibus_val * 10 ))
+    fi
+    [ -z "$ibus_val" ] && ibus_val=$(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1)
     [ -z "$ibus_val" ] && ibus_val=$(read_node "$USB_DIR/current_now")
     [ -z "$ibus_val" ] && ibus_val=0
     [ "$ibus_val" -gt 100000 ] && ibus_val=$(( ibus_val / 1000 ))
@@ -271,11 +275,12 @@ dump_telemetry_json() {
     [ -z "$chgtyp" ] && chgtyp=$(read_node "$USB_DIR/type")
 
     rfc_status=$(cat /sys/bus/i2c/drivers/rt9759/*/rfc_dcp_ta 2>/dev/null | head -n 1)
+    [ -z "$rfc_status" ] && [ "$chgtyp" = "9" ] && rfc_status=1
     [ -z "$rfc_status" ] && rfc_status=0
 
-    # Real Physical Thermal Zone Temp
-    real_temp=$(read_node "/sys/class/thermal/thermal_zone1/temp")
-    [ -z "$real_temp" ] && real_temp=$(read_node "/sys/class/thermal/thermal_zone0/temp")
+    # Real Physical Battery Thermal Zone Temp (thermal_zone0 = mtktsbattery)
+    real_temp=$(read_node "/sys/class/thermal/thermal_zone0/temp")
+    [ -z "$real_temp" ] && real_temp=$(read_node "/sys/class/thermal/thermal_zone1/temp")
     [ -z "$real_temp" ] && real_temp="$temp"
     [ "$real_temp" -gt 1000 ] && real_temp=$(( real_temp / 100 ))
 
@@ -448,9 +453,10 @@ while true; do
     [ -z "$temp" ] && temp=300
     [ -z "$capacity" ] && capacity=50
 
-    # Read real physical thermal zone temp
-    real_temp_raw=$(read_node "/sys/class/thermal/thermal_zone1/temp")
-    [ -z "$real_temp_raw" ] && real_temp_raw=$(read_node "/sys/class/thermal/thermal_zone0/temp")
+    # Read real physical battery thermal zone temp (thermal_zone0 = mtktsbattery)
+    real_temp_raw=$(read_node "/sys/class/thermal/thermal_zone0/temp")
+    [ -z "$real_temp_raw" ] && real_temp_raw=$(read_node "/sys/class/thermal/thermal_zone20/temp")
+    [ -z "$real_temp_raw" ] && real_temp_raw=$(read_node "/sys/class/thermal/thermal_zone1/temp")
     [ -z "$real_temp_raw" ] && real_temp_raw="$temp"
     if [ "$real_temp_raw" -gt 1000 ]; then
         real_dC=$(( real_temp_raw / 100 ))
