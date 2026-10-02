@@ -41,7 +41,8 @@ import com.noir.lynx.data.*
 fun TuningCpuCategory(
     uiState: LynxUiState,
     viewModel: LynxViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToThermal: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val state = uiState.state
@@ -1417,91 +1418,70 @@ fun TuningCpuCategory(
             }
         }
 
-        // ── Bypass Throttling & Kontrol Termal Card ─────────────────
-        LynxCard(
-            title = "Bypass Throttling & Kontrol Termal",
-            icon = Icons.Default.LocalFireDepartment,
-            accentColor = AccentRed
+        // ── Status Termal & Pintasan ke Sub-Halaman Thermal ─────────
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = BgCard,
+            border = BorderStroke(0.8.dp, BorderSubtle),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .clickable { onNavigateToThermal?.invoke() }
         ) {
-            LynxSwitch(
-                label = "CPU Anti-Throttling (Max Clock Lock)",
-                subLabel = "Kunci frekuensi maksimum CPU ke batas pabrik tertinggi tanpa pemotongan thermal",
-                checked = state.overclock.enabled,
-                onCheckedChange = { viewModel.setOverclockEnabled(it) },
-            )
-
-            var floorValue by remember {
-                mutableFloatStateOf(state.overclock.cpuFloorRatio.toFloat())
-            }
-            LaunchedEffect(state.overclock.cpuFloorRatio) {
-                if (activeTweakConfig?.id != "cpu_floor") {
-                    floorValue = state.overclock.cpuFloorRatio.toFloat()
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(AccentRedDim),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocalFireDepartment,
+                            contentDescription = null,
+                            tint = AccentRed,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            "Thermal & Anti-Throttling",
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            if (state.thermal.fullBypass) "Mode Bypass Aktif (Tanpa Batas)" else "Limit Trip Point: ${state.thermal.customTempLimitC}°C • Floor: ${state.overclock.cpuFloorRatio}%",
+                            color = if (state.thermal.fullBypass) AccentRed else TextSecondary,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AccentRedDim,
+                    border = BorderStroke(0.8.dp, AccentRed.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Buka Modul", color = AccentRed, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(2.dp))
+                        Icon(Icons.Default.ChevronRight, null, tint = AccentRed, modifier = Modifier.size(14.dp))
+                    }
                 }
             }
-            LynxTweakTile(
-                title = "Ambang Bawah Frekuensi CPU (Clock Floor)",
-                subtitle = "Menahan frekuensi CPU agar tidak drop saat gameplay",
-                displayValue = "${floorValue.toInt()}%",
-                onClick = {
-                    activeTweakConfig = TweakConfig(
-                        id = "cpu_floor",
-                        title = "Ambang Bawah Frekuensi CPU (Clock Floor)",
-                        category = "Termal & Clock",
-                        description = "Menahan frekuensi CPU agar tidak turun di bawah persentase ini saat aplikasi atau game sedang berjalan di foreground.",
-                        currentValue = floorValue,
-                        defaultValue = 60f,
-                        valueRange = 60f..100f,
-                        steps = 7,
-                        formatDisplay = { v -> "${v.toInt()}%" },
-                        guideNote = "• Gaming/Berat: 85% (Tahan clock tinggi saat gameplay)\n• Seimbang: 70% (Standar harian)\n• Ringan/Hemat: 60% (Batas aman efisiensi daya)",
-                        statusInfo = if (floorValue >= 80f) "⚡ Agresif" else "⚖️ Standar",
-                        onApply = { v ->
-                            floorValue = v
-                            viewModel.setCpuFloorRatio(v.toInt())
-                        }
-                    )
-                }
-            )
-
-            LynxSwitch(
-                label = "Full Thermal Bypass (Unrestricted)",
-                subLabel = "Nonaktifkan pembatasan termal OEM (Phone cooler diwajibkan)",
-                checked = state.thermal.fullBypass,
-                onCheckedChange = { viewModel.setThermalBypass(it) },
-            )
-
-            var tempLimitValue by remember {
-                mutableFloatStateOf(state.thermal.customTempLimitC.toFloat())
-            }
-            LaunchedEffect(state.thermal.customTempLimitC) {
-                if (activeTweakConfig?.id != "temp_limit") {
-                    tempLimitValue = state.thermal.customTempLimitC.toFloat()
-                }
-            }
-            LynxTweakTile(
-                title = "Batas Suhu Thermal Custom",
-                subtitle = "Ambang batas trip point termal SoC sebelum throttling",
-                displayValue = "${tempLimitValue.toInt()}°C",
-                onClick = {
-                    activeTweakConfig = TweakConfig(
-                        id = "temp_limit",
-                        title = "Batas Suhu Thermal Custom",
-                        category = "Termal",
-                        description = "Ambang batas temperatur trip point termal SoC sebelum thermal daemon mengambil tindakan perlindungan atau pemotongan performa.",
-                        currentValue = tempLimitValue,
-                        defaultValue = 50f,
-                        valueRange = 45f..60f,
-                        steps = 14,
-                        formatDisplay = { v -> "${v.toInt()}°C" },
-                        guideNote = "• Gaming/Berat: 58°C (Toleransi tinggi, disarankan pakai cooler)\n• Seimbang: 50°C (Standar harian aman)\n• Ringan/Hemat: 45°C (Perangkat dingin, baterai awet)",
-                        statusInfo = if (tempLimitValue >= 55f) "🔥 Suhu Tinggi (Cooler Disarankan)" else "🛡️ Suhu Aman",
-                        onApply = { v ->
-                            tempLimitValue = v
-                            viewModel.setCustomTempLimit(v.toInt())
-                        }
-                    )
-                }
-            )
         }
 
         // ── Voltage Control (Undervolting) Card ─────────────────
@@ -1896,7 +1876,628 @@ fun TuningGpuCategory(
 }
 
 // ============================================================
-//  CATEGORY 3: RAM & STORAGE I/O SUBSCREEN
+//  CATEGORY 3: THERMAL & ANTI-THROTTLING SUBSCREEN
+// ============================================================
+
+@Composable
+fun TuningThermalCategory(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    modifier: Modifier = Modifier
+) {
+    val state = uiState.state
+    var activeTweakConfig by remember { mutableStateOf<TweakConfig?>(null) }
+    var selectedSensorFilter by remember { mutableStateOf("Semua") }
+
+    // Auto-refresh thermal zones on screen load
+    LaunchedEffect(Unit) {
+        viewModel.refreshThermalZones()
+    }
+
+    val validZones = remember(uiState.thermalZones) {
+        uiState.thermalZones.filter { it.tempC in 15f..115f }
+    }
+
+    val maxTemp = remember(validZones) {
+        validZones.maxOfOrNull { it.tempC } ?: (uiState.telemetry?.temp?.toFloat() ?: 0f)
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // ── 1. Hero Status Card (Live Thermal State & Metrics) ──
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = BgCard,
+            border = BorderStroke(1.dp, if (state.thermal.fullBypass) AccentRed.copy(alpha = 0.5f) else BorderSubtle),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (state.thermal.fullBypass) AccentRedDim else AccentOrangeDim),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocalFireDepartment,
+                                contentDescription = null,
+                                tint = if (state.thermal.fullBypass) AccentRed else AccentOrange,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Status Termal Sistem",
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                letterSpacing = (-0.2).sp
+                            )
+                            Spacer(Modifier.height(1.dp))
+                            Text(
+                                if (state.thermal.fullBypass) "Mode Bypass Aktif (Unrestricted)"
+                                else "Proteksi Termal Aktif (Maks ${state.thermal.customTempLimitC}°C)",
+                                color = if (state.thermal.fullBypass) AccentRed else TextSecondary,
+                                fontSize = 11.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    // Temperature Pill
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = when {
+                            maxTemp >= 60f -> AccentRedDim
+                            maxTemp >= 48f -> AccentOrangeDim
+                            else -> AccentCyanDim
+                        },
+                        border = BorderStroke(
+                            1.dp,
+                            when {
+                                maxTemp >= 60f -> AccentRed.copy(alpha = 0.5f)
+                                maxTemp >= 48f -> AccentOrange.copy(alpha = 0.5f)
+                                else -> AccentCyan.copy(alpha = 0.5f)
+                            }
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Thermostat,
+                                contentDescription = null,
+                                tint = when {
+                                    maxTemp >= 60f -> AccentRed
+                                    maxTemp >= 48f -> AccentOrange
+                                    else -> AccentCyan
+                                },
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = if (maxTemp > 0) String.format("%.1f°C", maxTemp) else "--",
+                                color = TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // 3 Mini Stat Chips
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Chip 1: Trip Point
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                            Text("Batas Trip", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "${state.thermal.customTempLimitC}°C",
+                                color = AccentOrange,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Chip 2: Clock Floor
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                            Text("CPU Floor", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "${state.overclock.cpuFloorRatio}%",
+                                color = AccentCyan,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Chip 3: Anti-Joyose
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                            Text("Anti-OEM", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                if (state.oemNeutralizer.joyoseNeutralize) "Aktif" else "Off",
+                                color = if (state.oemNeutralizer.joyoseNeutralize) AccentGreen else TextSecondary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── 2. Matriks Sensor Termal Hardware (Live Radar) ──────
+        LynxCard(
+            title = "Matriks Sensor Termal Hardware",
+            icon = Icons.Default.Thermostat,
+            accentColor = AccentRed
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${validZones.size} Sensor Terdeteksi",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.5.sp
+                )
+                IconButton(
+                    onClick = { viewModel.refreshThermalZones() },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Muat Ulang Sensor",
+                        tint = AccentRed,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            // Category Filter Chips
+            val filters = listOf("Semua", "SoC / AP", "CPU", "Baterai", "Lainnya")
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(filters) { f ->
+                    val isSelected = selectedSensorFilter == f
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSelected) AccentRedDim else BgElevated,
+                        border = BorderStroke(0.8.dp, if (isSelected) AccentRed else BorderSubtle),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { selectedSensorFilter = f }
+                    ) {
+                        Text(
+                            text = f,
+                            color = if (isSelected) AccentRed else TextSecondary,
+                            fontSize = 10.5.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                }
+            }
+
+            // Filtered sensor list
+            val filteredZones = remember(validZones, selectedSensorFilter) {
+                when (selectedSensorFilter) {
+                    "SoC / AP" -> validZones.filter {
+                        val t = it.type.lowercase()
+                        t.contains("ap") || t.contains("soc") || t.contains("tsens")
+                    }
+                    "CPU" -> validZones.filter {
+                        val t = it.type.lowercase()
+                        t.contains("cpu") || t.contains("cluster")
+                    }
+                    "Baterai" -> validZones.filter {
+                        val t = it.type.lowercase()
+                        t.contains("batt") || t.contains("chg") || t.contains("charger") || t.contains("bms")
+                    }
+                    "Lainnya" -> validZones.filter {
+                        val t = it.type.lowercase()
+                        !t.contains("ap") && !t.contains("soc") && !t.contains("cpu") && !t.contains("batt") && !t.contains("chg")
+                    }
+                    else -> validZones
+                }.ifEmpty { validZones }
+            }
+
+            if (filteredZones.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(60.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Tidak ada sensor termal terdeteksi", color = TextSecondary, fontSize = 11.5.sp)
+                }
+            } else {
+                val chunkedZones = filteredZones.take(12).chunked(2)
+                chunkedZones.forEach { row ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        row.forEach { zone ->
+                            val tempColor = when {
+                                zone.tempC >= 60f -> AccentRed
+                                zone.tempC >= 48f -> AccentOrange
+                                else -> AccentGreen
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = BgElevated,
+                                border = BorderStroke(1.dp, tempColor.copy(alpha = 0.35f)),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Row(
+                                    Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f).padding(end = 6.dp)) {
+                                        val cleanType = zone.type
+                                            .replace("mtkts", "")
+                                            .replace("tsens_tz_sensor", "sensor_")
+                                            .uppercase()
+                                        Text(cleanType, color = TextPrimary, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(zone.type, color = TextSecondary.copy(alpha = 0.6f), fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    Text(
+                                        String.format("%.1f°C", zone.tempC),
+                                        color = tempColor,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                            }
+                        }
+                        if (row.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+
+        // ── 3. Mesin Anti-Throttling & Trip Points ──────────────
+        LynxCard(
+            title = "Mesin Anti-Throttling & Trip Points",
+            icon = Icons.Default.Speed,
+            accentColor = AccentRed
+        ) {
+            // Full Thermal Bypass switch
+            LynxSwitch(
+                label = "Full Thermal Bypass (Unrestricted)",
+                subLabel = "Nonaktifkan pembatasan termal kernel & thermal-engine secara menyeluruh. Direkomendasikan menggunakan pendingin aktif (phone cooler).",
+                checked = state.thermal.fullBypass,
+                onCheckedChange = { viewModel.setThermalBypass(it) },
+            )
+
+            // Warning banner when Full Thermal Bypass is ON
+            if (state.thermal.fullBypass) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = AccentRedDim,
+                    border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Warning, null, tint = AccentRed, modifier = Modifier.size(16.dp))
+                        Text(
+                            "Perhatian: Full Thermal Bypass menonaktifkan mekanisme pencegahan panas OEM. Pastikan sirkulasi udara baik atau gunakan cooler eksternal!",
+                            color = AccentRed,
+                            fontSize = 10.5.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+                }
+            }
+
+            // Batas Suhu Thermal Custom slider tile
+            var tempLimitValue by remember {
+                mutableFloatStateOf(state.thermal.customTempLimitC.toFloat())
+            }
+            LaunchedEffect(state.thermal.customTempLimitC) {
+                if (activeTweakConfig?.id != "temp_limit") {
+                    tempLimitValue = state.thermal.customTempLimitC.toFloat()
+                }
+            }
+            LynxTweakTile(
+                title = "Batas Suhu Thermal Custom (Trip Point)",
+                subtitle = "Ambang batas temperatur trip point sebelum thermal daemon melakukan mitigasi",
+                displayValue = "${tempLimitValue.toInt()}°C",
+                onClick = {
+                    activeTweakConfig = TweakConfig(
+                        id = "temp_limit",
+                        title = "Batas Suhu Thermal Custom",
+                        category = "Termal & Anti-Throttling",
+                        description = "Ambang batas temperatur trip point termal SoC sebelum thermal daemon mengambil tindakan perlindungan atau pemotongan performa clock.",
+                        currentValue = tempLimitValue,
+                        defaultValue = 50f,
+                        valueRange = 45f..60f,
+                        steps = 15,
+                        formatDisplay = { v -> "${v.toInt()}°C" },
+                        guideNote = "• Gaming/Kompetitif: 55-60°C (Toleransi tinggi, disarankan pakai cooler)\n• Seimbang: 50°C (Standar harian aman)\n• Sejuk/Hemat: 45°C (Perangkat tetap sejuk, hemat daya)",
+                        statusInfo = if (tempLimitValue >= 55f) "🔥 Suhu Tinggi (Cooler Disarankan)" else "🛡️ Suhu Aman",
+                        onApply = { v ->
+                            tempLimitValue = v
+                            viewModel.setCustomTempLimit(v.toInt())
+                        }
+                    )
+                }
+            )
+
+            // CPU Anti-Throttling switch
+            LynxSwitch(
+                label = "CPU Anti-Throttling (Max Clock Lock)",
+                subLabel = "Kunci frekuensi maksimum CPU ke batas pabrik tertinggi tanpa pemotongan thermal saat beban tinggi",
+                checked = state.overclock.enabled,
+                onCheckedChange = { viewModel.setOverclockEnabled(it) },
+            )
+
+            // Ambang Bawah Frekuensi CPU (Clock Floor) slider tile
+            var floorValue by remember {
+                mutableFloatStateOf(state.overclock.cpuFloorRatio.toFloat())
+            }
+            LaunchedEffect(state.overclock.cpuFloorRatio) {
+                if (activeTweakConfig?.id != "cpu_floor") {
+                    floorValue = state.overclock.cpuFloorRatio.toFloat()
+                }
+            }
+            LynxTweakTile(
+                title = "Ambang Bawah Frekuensi CPU (Clock Floor)",
+                subtitle = "Menahan frekuensi CPU agar tidak drop di bawah persentase ini saat game aktif",
+                displayValue = "${floorValue.toInt()}%",
+                onClick = {
+                    activeTweakConfig = TweakConfig(
+                        id = "cpu_floor",
+                        title = "Ambang Bawah Frekuensi CPU (Clock Floor)",
+                        category = "Termal & Anti-Throttling",
+                        description = "Menahan frekuensi CPU agar tidak turun di bawah persentase ini saat aplikasi atau game sedang berjalan di foreground.",
+                        currentValue = floorValue,
+                        defaultValue = 60f,
+                        valueRange = 60f..100f,
+                        steps = 8,
+                        formatDisplay = { v -> "${v.toInt()}%" },
+                        guideNote = "• Gaming Berat: 85% (Tahan clock tinggi saat frame drop)\n• Seimbang: 70% (Standar gaming santai)\n• Efisiensi: 60% (Batas aman efisiensi daya)",
+                        statusInfo = if (floorValue >= 80f) "⚡ Agresif" else "⚖️ Standar",
+                        onApply = { v ->
+                            floorValue = v
+                            viewModel.setCpuFloorRatio(v.toInt())
+                        }
+                    )
+                }
+            )
+        }
+
+        // ── 4. Netralisasi Daemon Termal OEM & Framework ────────
+        LynxCard(
+            title = "Netralisasi Daemon Termal OEM",
+            icon = Icons.Default.Shield,
+            accentColor = AccentOrange
+        ) {
+            LynxSwitch(
+                label = "Netralkan Joyose / GOS Throttling",
+                subLabel = "Hentikan pembatasan performa buatan dari OEM (Xiaomi Joyose, Samsung GOS, thermal-engine) yang memotong FPS dan resolusi game secara agresif",
+                checked = state.oemNeutralizer.joyoseNeutralize,
+                onCheckedChange = { viewModel.setJoyoseNeutralize(it) },
+            )
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Info, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                    Text(
+                        "Daemon OEM seperti Xiaomi Joyose sering membatasi refresh rate ke 60Hz dan menurunkan resolusi saat suhu mencapai 40°C. Menetralkan daemon mengembalikan kendali grafis penuh ke pengguna.",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.sp
+                    )
+                }
+            }
+        }
+
+        // ── 5. Preset Termal Cepat (Quick Profiles) ─────────────
+        LynxCard(
+            title = "Preset Termal Cepat",
+            icon = Icons.Default.Tune,
+            accentColor = AccentCyan
+        ) {
+            Text(
+                "Pilih konfigurasi termal instan sesuai kebutuhan penggunaan:",
+                color = TextSecondary,
+                fontSize = 11.5.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            val presets = listOf(
+                ThermalPresetItem(
+                    name = "Sejuk & Harian",
+                    description = "Trip 45°C • Floor 60% • Proteksi OEM Penuh",
+                    tempLimit = 45,
+                    cpuFloor = 60,
+                    bypass = false,
+                    antiThrottle = false,
+                    joyose = false,
+                    accent = AccentGreen
+                ),
+                ThermalPresetItem(
+                    name = "Seimbang (Gaming)",
+                    description = "Trip 50°C • Floor 70% • Anti-Joyose Aktif",
+                    tempLimit = 50,
+                    cpuFloor = 70,
+                    bypass = false,
+                    antiThrottle = true,
+                    joyose = true,
+                    accent = AccentCyan
+                ),
+                ThermalPresetItem(
+                    name = "Performa Kompetitif",
+                    description = "Trip 55°C • Floor 80% • Kunci Clock Maksimal",
+                    tempLimit = 55,
+                    cpuFloor = 80,
+                    bypass = false,
+                    antiThrottle = true,
+                    joyose = true,
+                    accent = AccentOrange
+                ),
+                ThermalPresetItem(
+                    name = "Ekstrem (Unrestricted)",
+                    description = "Trip 60°C • Floor 85% • Full Thermal Bypass (Cooler Wajib)",
+                    tempLimit = 60,
+                    cpuFloor = 85,
+                    bypass = true,
+                    antiThrottle = true,
+                    joyose = true,
+                    accent = AccentRed
+                )
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                presets.forEach { p ->
+                    val isActive = if (p.bypass) {
+                        state.thermal.fullBypass && state.thermal.customTempLimitC >= 58
+                    } else {
+                        !state.thermal.fullBypass && state.thermal.customTempLimitC == p.tempLimit
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isActive) p.accent.copy(alpha = 0.12f) else BgElevated,
+                        border = BorderStroke(1.dp, if (isActive) p.accent else BorderSubtle),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                viewModel.setCustomTempLimit(p.tempLimit)
+                                viewModel.setCpuFloorRatio(p.cpuFloor)
+                                viewModel.setThermalBypass(p.bypass)
+                                viewModel.setOverclockEnabled(p.antiThrottle)
+                                viewModel.setJoyoseNeutralize(p.joyose)
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        p.name,
+                                        color = if (isActive) p.accent else TextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.5.sp
+                                    )
+                                    if (isActive) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = p.accent.copy(alpha = 0.2f)
+                                        ) {
+                                            Text(
+                                                "AKTIF",
+                                                color = p.accent,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(2.dp))
+                                Text(p.description, color = TextSecondary, fontSize = 10.5.sp)
+                            }
+                            Icon(
+                                imageVector = if (isActive) Icons.Default.CheckCircle else Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = if (isActive) p.accent else TextSecondary.copy(alpha = 0.5f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Universal Tweak Bottom Sheet Drawer ─────────────────
+        if (activeTweakConfig != null) {
+            LynxTweakSheet(
+                config = activeTweakConfig!!,
+                onDismiss = { activeTweakConfig = null }
+            )
+        }
+    }
+}
+
+private data class ThermalPresetItem(
+    val name: String,
+    val description: String,
+    val tempLimit: Int,
+    val cpuFloor: Int,
+    val bypass: Boolean,
+    val antiThrottle: Boolean,
+    val joyose: Boolean,
+    val accent: Color
+)
+
+// ============================================================
+//  CATEGORY 4: RAM & STORAGE I/O SUBSCREEN
 // ============================================================
 
 @Composable
@@ -2416,7 +3017,7 @@ fun TuningMemoryCategory(
 }
 
 // ============================================================
-//  CATEGORY 4: BATTERY & CHARGING SUBSCREEN
+//  CATEGORY 5: BATTERY & CHARGING SUBSCREEN
 // ============================================================
 
 @Composable
@@ -3238,7 +3839,7 @@ fun TuningChargingCategory(
 }
 
 // ============================================================
-//  CATEGORY 5: NETWORK & AUDIO SUBSCREEN
+//  CATEGORY 6: NETWORK & AUDIO SUBSCREEN
 // ============================================================
 
 @Composable
@@ -3423,7 +4024,7 @@ fun TuningNetworkCategory(
 }
 
 // ============================================================
-//  CATEGORY 6: SUBSYSTEM & DEEP TUNABLES SUBSCREEN
+//  CATEGORY 7: SUBSYSTEM & DEEP TUNABLES SUBSCREEN
 // ============================================================
 
 @Composable
@@ -3434,7 +4035,6 @@ fun TuningSystemCategory(
     onEditRuleClick: (AppProfileRule) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val state = uiState.state
     val context = LocalContext.current
 
     Column(
@@ -3681,18 +4281,31 @@ fun TuningSystemCategory(
             }
         }
 
-        // ── OEM & Framework Neutralizer Card ────────────────────
-        LynxCard(
-            title = "OEM & Framework Neutralizer",
-            icon = Icons.Default.Shield,
-            accentColor = AccentPurple
+        // ── Info Relokasi Anti-Throttling OEM ───────────────────
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = BgElevated,
+            border = BorderStroke(0.8.dp, BorderSubtle),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
         ) {
-            LynxSwitch(
-                label = "Netralkan Joyose / GOS Throttling",
-                subLabel = "Hentikan pembatasan performa buatan dari OEM (Xiaomi Joyose, Samsung GOS, dsb)",
-                checked = state.oemNeutralizer.joyoseNeutralize,
-                onCheckedChange = { viewModel.setJoyoseNeutralize(it) },
-            )
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = AccentCyan,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    "Pengaturan Anti-Throttling OEM (Joyose/GOS) kini dipusatkan pada modul Thermal & Anti-Throttling.",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
+            }
         }
 
         // ── Deep Kernel & System Tunables Card ──────────────────

@@ -1447,13 +1447,15 @@ fun MainDashboard(
                                         onClick = { selectedCategory = "gpu" }
                                     )
 
-                                    // 3. Memory & Storage
+                                    // 3. Thermal & Anti-Throttling
+                                    val validThermalZones = uiState.thermalZones.filter { it.tempC in 15f..115f }
+                                    val maxT = validThermalZones.maxOfOrNull { it.tempC } ?: (uiState.telemetry?.temp?.toFloat() ?: 0f)
                                     SubsystemCategoryCard(
-                                        category = TuningCategory.MEMORY,
-                                        badgeText = "ZRAM ${uiState.zramCompAlgorithm.ifBlank { "lz4" }.uppercase()}",
-                                        detailText1 = "Swap ${state.memory.swappiness}%",
-                                        detailText2 = "${uiState.ioDevices.size} I/O Dev",
-                                        onClick = { selectedCategory = "memory" }
+                                        category = TuningCategory.THERMAL,
+                                        badgeText = if (state.thermal.fullBypass) "BYPASS AKTIF" else "${state.thermal.customTempLimitC}°C LIMIT",
+                                        detailText1 = if (maxT > 0) "Maks ${String.format("%.1f", maxT)}°C" else "Normal",
+                                        detailText2 = if (state.oemNeutralizer.joyoseNeutralize) "Anti-Joyose" else "${validThermalZones.size} Sensor",
+                                        onClick = { selectedCategory = "thermal" }
                                     )
 
                                     // 4. Battery & Charging
@@ -1465,7 +1467,16 @@ fun MainDashboard(
                                         onClick = { selectedCategory = "charging" }
                                     )
 
-                                    // 5. Network & Audio
+                                    // 5. Memory & Storage
+                                    SubsystemCategoryCard(
+                                        category = TuningCategory.MEMORY,
+                                        badgeText = "ZRAM ${uiState.zramCompAlgorithm.ifBlank { "lz4" }.uppercase()}",
+                                        detailText1 = "Swap ${state.memory.swappiness}%",
+                                        detailText2 = "${uiState.ioDevices.size} I/O Dev",
+                                        onClick = { selectedCategory = "memory" }
+                                    )
+
+                                    // 6. Network & Audio
                                     SubsystemCategoryCard(
                                         category = TuningCategory.NETWORK,
                                         badgeText = uiState.currentTcpCongestion.ifBlank { "bbr" }.uppercase(),
@@ -1474,7 +1485,7 @@ fun MainDashboard(
                                         onClick = { selectedCategory = "network" }
                                     )
 
-                                    // 6. Subsystem & Automation
+                                    // 7. Subsystem & Automation
                                     SubsystemCategoryCard(
                                         category = TuningCategory.SYSTEM,
                                         badgeText = "${uiState.appProfileRules.size} Aturan",
@@ -1575,8 +1586,13 @@ fun MainDashboard(
                                 ) {
                                     Spacer(Modifier.height(8.dp))
                                     when (currentCategory) {
-                                        "cpu" -> TuningCpuCategory(uiState = uiState, viewModel = viewModel)
+                                        "cpu" -> TuningCpuCategory(
+                                            uiState = uiState,
+                                            viewModel = viewModel,
+                                            onNavigateToThermal = { selectedCategory = "thermal" }
+                                        )
                                         "gpu" -> TuningGpuCategory(uiState = uiState, viewModel = viewModel)
+                                        "thermal" -> TuningThermalCategory(uiState = uiState, viewModel = viewModel)
                                         "memory" -> TuningMemoryCategory(uiState = uiState, viewModel = viewModel)
                                         "charging" -> TuningChargingCategory(uiState = uiState, viewModel = viewModel)
                                         "network" -> TuningNetworkCategory(uiState = uiState, viewModel = viewModel)
@@ -1589,7 +1605,11 @@ fun MainDashboard(
                                             },
                                             onEditRuleClick = { editingRule = it }
                                         )
-                                        else -> TuningCpuCategory(uiState = uiState, viewModel = viewModel)
+                                        else -> TuningCpuCategory(
+                                            uiState = uiState,
+                                            viewModel = viewModel,
+                                            onNavigateToThermal = { selectedCategory = "thermal" }
+                                        )
                                     }
                                     Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
                                 }

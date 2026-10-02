@@ -4165,12 +4165,12 @@ enum class TuningCategory(
         icon = Icons.Default.SportsEsports,
         accentColor = AccentOrange
     ),
-    MEMORY(
-        id = "memory",
-        title = "Memory & Storage",
-        subtitle = "ZRAM, Swappiness, LMK & I/O",
-        icon = Icons.Default.Storage,
-        accentColor = AccentPurple
+    THERMAL(
+        id = "thermal",
+        title = "Thermal & Anti-Throttling",
+        subtitle = "Live Matrix, Trip Points & Bypass",
+        icon = Icons.Default.LocalFireDepartment,
+        accentColor = AccentRed
     ),
     CHARGING(
         id = "charging",
@@ -4178,6 +4178,13 @@ enum class TuningCategory(
         subtitle = "Bypass Charging & Extreme Fast Charge",
         icon = Icons.Default.BatteryChargingFull,
         accentColor = AccentGreen
+    ),
+    MEMORY(
+        id = "memory",
+        title = "Memory & Storage",
+        subtitle = "ZRAM, Swappiness, LMK & I/O",
+        icon = Icons.Default.Storage,
+        accentColor = AccentPurple
     ),
     NETWORK(
         id = "network",
@@ -4189,9 +4196,9 @@ enum class TuningCategory(
     SYSTEM(
         id = "system",
         title = "Subsystem & Deep Tunables",
-        subtitle = "OEM Neutralizer, Otomasi & Sysfs",
+        subtitle = "Otomasi Per-App & Deep Sysfs",
         icon = Icons.Default.Security,
-        accentColor = AccentRed
+        accentColor = Color(0xFF8B5CF6)
     );
 
     companion object {
