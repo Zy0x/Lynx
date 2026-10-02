@@ -21,8 +21,22 @@ write_node "0" "/proc/cpufreq/cpufreq_debug"
 write_node "1" "/proc/cpufreq/cpufreq_sched_disable"
 write_node "N" "/sys/module/workqueue/parameters/power_efficient"
 
-# HMP Mode Override for Gaming
-write_node "0" "/sys/devices/system/cpu/eas/enable"
+# Respect user preferred architecture or preserve Hybrid (2) / EAS (1)
+if [ -f "/data/adb/lynx/preferred_architecture" ]; then
+    pref_arch=$(cat /data/adb/lynx/preferred_architecture 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+    if [ "$pref_arch" = "hybrid" ]; then
+        write_node "2" "/sys/devices/system/cpu/eas/enable"
+    elif [ "$pref_arch" = "eas" ]; then
+        write_node "1" "/sys/devices/system/cpu/eas/enable"
+    elif [ "$pref_arch" = "hmp" ]; then
+        write_node "0" "/sys/devices/system/cpu/eas/enable"
+    fi
+elif [ -f "/sys/devices/system/cpu/eas/enable" ]; then
+    cur_eas=$(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    if [[ "$cur_eas" == *"hybrid"* ]] || [ "$cur_eas" = "2" ]; then
+        write_node "2" "/sys/devices/system/cpu/eas/enable"
+    fi
+fi
 write_node "1" "/sys/devices/system/cpu/perf/enable"
 
 # MediaTek EAS perfmgr Kernel Turbo

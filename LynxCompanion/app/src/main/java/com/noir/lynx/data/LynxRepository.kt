@@ -4701,8 +4701,22 @@ case "${'$'}PROFILE" in
 
         write_node "N" "/sys/module/workqueue/parameters/power_efficient"
         write_node "1" "/sys/devices/system/cpu/perf/enable"
-        write_node "0" "/sys/devices/system/cpu/eas/enable"
-        write_node "0" "/proc/sys/kernel/sched_energy_aware"
+        # Respect user preferred architecture or preserve Hybrid (2) / EAS (1)
+        if [ -f /data/adb/lynx/preferred_architecture ]; then
+            pref_arch=${'$'}(cat /data/adb/lynx/preferred_architecture 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+            if [ "${'$'}pref_arch" = "hybrid" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            elif [ "${'$'}pref_arch" = "eas" ]; then
+                write_node "1" "/sys/devices/system/cpu/eas/enable"
+            elif [ "${'$'}pref_arch" = "hmp" ]; then
+                write_node "0" "/sys/devices/system/cpu/eas/enable"
+            fi
+        elif [ -f /sys/devices/system/cpu/eas/enable ]; then
+            cur_eas=${'$'}(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            if [[ "${'$'}cur_eas" == *"hybrid"* ]] || [ "${'$'}cur_eas" = "2" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            fi
+        fi
         write_node "1" "/proc/sys/kernel/sched_autogroup_enabled"
         write_node "0" "/proc/sys/kernel/sched_tunable_scaling"
         write_node "1" "/proc/sys/kernel/sched_sync_hint_enable"
@@ -5322,8 +5336,24 @@ case "${'$'}PROFILE" in
             [ -f "${'$'}np" ] && write_node "0 0 0 0" "${'$'}np"
         done
 
-        write_node "Y" "/sys/module/workqueue/parameters/power_efficient"
-        write_node "1" "/sys/devices/system/cpu/eas/enable"
+        # Respect user preferred architecture or preserve Hybrid (2) / EAS (1)
+        if [ -f /data/adb/lynx/preferred_architecture ]; then
+            pref_arch=${'$'}(cat /data/adb/lynx/preferred_architecture 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+            if [ "${'$'}pref_arch" = "hybrid" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            elif [ "${'$'}pref_arch" = "eas" ]; then
+                write_node "1" "/sys/devices/system/cpu/eas/enable"
+            elif [ "${'$'}pref_arch" = "hmp" ]; then
+                write_node "0" "/sys/devices/system/cpu/eas/enable"
+            fi
+        elif [ -f /sys/devices/system/cpu/eas/enable ]; then
+            cur_eas=${'$'}(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            if [[ "${'$'}cur_eas" == *"hybrid"* ]] || [ "${'$'}cur_eas" = "2" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            else
+                write_node "1" "/sys/devices/system/cpu/eas/enable"
+            fi
+        fi
         write_node "0" "/sys/devices/system/cpu/perf/enable"
 
         write_node "1" "/proc/cpufreq/cpufreq_power_mode"
@@ -5497,8 +5527,24 @@ case "${'$'}PROFILE" in
             [ -f "${'$'}np" ] && write_node "0 0 0 0" "${'$'}np"
         done
 
-        write_node "Y" "/sys/module/workqueue/parameters/power_efficient"
-        write_node "1" "/sys/devices/system/cpu/eas/enable"
+        # Respect user preferred architecture or preserve Hybrid (2) / EAS (1)
+        if [ -f /data/adb/lynx/preferred_architecture ]; then
+            pref_arch=${'$'}(cat /data/adb/lynx/preferred_architecture 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+            if [ "${'$'}pref_arch" = "hybrid" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            elif [ "${'$'}pref_arch" = "eas" ]; then
+                write_node "1" "/sys/devices/system/cpu/eas/enable"
+            elif [ "${'$'}pref_arch" = "hmp" ]; then
+                write_node "0" "/sys/devices/system/cpu/eas/enable"
+            fi
+        elif [ -f /sys/devices/system/cpu/eas/enable ]; then
+            cur_eas=${'$'}(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            if [[ "${'$'}cur_eas" == *"hybrid"* ]] || [ "${'$'}cur_eas" = "2" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            else
+                write_node "1" "/sys/devices/system/cpu/eas/enable"
+            fi
+        fi
         write_node "1" "/sys/devices/system/cpu/perf/enable"
         write_node "1" "/proc/sys/kernel/sched_autogroup_enabled"
         write_node "0" "/proc/sys/kernel/sched_tunable_scaling"
@@ -7495,12 +7541,18 @@ done
                 """.trimIndent()
                 else -> return@withContext false
             }
-            val res = Shell.cmd(script).exec()
+            val persistScript = """
+                mkdir -p /data/adb/lynx 2>/dev/null
+                echo "${mode.lowercase()}" > /data/adb/lynx/preferred_architecture 2>/dev/null
+            """.trimIndent()
+            val finalScript = "$script\n$persistScript\necho ok"
+            val res = Shell.cmd(finalScript).exec()
             val ok = res.isSuccess || res.out.any { it.trim() == "ok" }
             if (ok && context != null) {
                 context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
                     .edit()
                     .putString("active_sched_mode", mode.lowercase())
+                    .putString("preferred_architecture", mode.lowercase())
                     .putString("active_preset", "custom")
                     .apply()
             }
@@ -7789,7 +7841,58 @@ done
                     echo ok
                 """.trimIndent()
             }
-            val ok = Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+
+            val prefArch = context?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                ?.getString("preferred_architecture", null)
+
+            val archPreserveScript = when (prefArch) {
+                "hybrid" -> """
+                    if [ -f /sys/devices/system/cpu/eas/enable ]; then
+                        chmod 644 /sys/devices/system/cpu/eas/enable 2>/dev/null
+                        echo 2 > /sys/devices/system/cpu/eas/enable 2>/dev/null
+                    fi
+                """.trimIndent()
+                "eas" -> """
+                    if [ -f /sys/devices/system/cpu/eas/enable ]; then
+                        chmod 644 /sys/devices/system/cpu/eas/enable 2>/dev/null
+                        echo 1 > /sys/devices/system/cpu/eas/enable 2>/dev/null
+                    fi
+                    if [ -f /proc/sys/kernel/sched_energy_aware ]; then
+                        chmod 644 /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                        echo 1 > /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                    fi
+                """.trimIndent()
+                "hmp" -> """
+                    if [ -f /sys/devices/system/cpu/eas/enable ]; then
+                        chmod 644 /sys/devices/system/cpu/eas/enable 2>/dev/null
+                        echo 0 > /sys/devices/system/cpu/eas/enable 2>/dev/null
+                    fi
+                    if [ -f /proc/sys/kernel/sched_energy_aware ]; then
+                        chmod 644 /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                        echo 0 > /proc/sys/kernel/sched_energy_aware 2>/dev/null
+                    fi
+                """.trimIndent()
+                else -> """
+                    if [ -f /data/adb/lynx/preferred_architecture ]; then
+                        pref_arch=${'$'}(cat /data/adb/lynx/preferred_architecture 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+                        if [ "${'$'}pref_arch" = "hybrid" ] && [ -f /sys/devices/system/cpu/eas/enable ]; then
+                            echo 2 > /sys/devices/system/cpu/eas/enable 2>/dev/null
+                        elif [ "${'$'}pref_arch" = "eas" ] && [ -f /sys/devices/system/cpu/eas/enable ]; then
+                            echo 1 > /sys/devices/system/cpu/eas/enable 2>/dev/null
+                        elif [ "${'$'}pref_arch" = "hmp" ] && [ -f /sys/devices/system/cpu/eas/enable ]; then
+                            echo 0 > /sys/devices/system/cpu/eas/enable 2>/dev/null
+                        fi
+                    elif [ -f /sys/devices/system/cpu/eas/enable ]; then
+                        cur_eas=${'$'}(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                        if [[ "${'$'}cur_eas" == *"hybrid"* ]] || [ "${'$'}cur_eas" = "2" ]; then
+                            echo 2 > /sys/devices/system/cpu/eas/enable 2>/dev/null
+                        fi
+                    fi
+                """.trimIndent()
+            }
+
+            val finalScript = "$script\n$archPreserveScript\necho ok"
+            val ok = Shell.cmd(finalScript).exec().out.any { it.trim() == "ok" }
             if (ok && context != null) {
                 context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
                     .edit()

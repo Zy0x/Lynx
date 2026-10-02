@@ -147,7 +147,22 @@ case "$PROFILE" in
         # ── 2. Workqueue & Interconnect Mode ────────────────────────────────
         write_node "N" "/sys/module/workqueue/parameters/power_efficient"
         write_node "1" "/sys/devices/system/cpu/perf/enable"
-        write_node "0" "/sys/devices/system/cpu/eas/enable"
+        # Respect user preferred architecture or preserve Hybrid (2) / EAS (1)
+        if [ -f "/data/adb/lynx/preferred_architecture" ]; then
+            pref_arch=$(cat /data/adb/lynx/preferred_architecture 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+            if [ "$pref_arch" = "hybrid" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            elif [ "$pref_arch" = "eas" ]; then
+                write_node "1" "/sys/devices/system/cpu/eas/enable"
+            elif [ "$pref_arch" = "hmp" ]; then
+                write_node "0" "/sys/devices/system/cpu/eas/enable"
+            fi
+        elif [ -f "/sys/devices/system/cpu/eas/enable" ]; then
+            cur_eas=$(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            if [[ "$cur_eas" == *"hybrid"* ]] || [ "$cur_eas" = "2" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            fi
+        fi
         write_node "1" "/proc/sys/kernel/sched_autogroup_enabled"
         write_node "0" "/proc/sys/kernel/sched_tunable_scaling"
 
@@ -889,9 +904,24 @@ case "$PROFILE" in
         done
         write_node "0" "/sys/module/cpu_boost/parameters/sched_boost_on_input"
 
-        # ── 2. Workqueue & Interconnect Mode: Power Efficient ────────────────
-        write_node "Y" "/sys/module/workqueue/parameters/power_efficient"
-        write_node "1" "/sys/devices/system/cpu/eas/enable"
+        # Respect user preferred architecture or preserve Hybrid (2) / EAS (1)
+        if [ -f "/data/adb/lynx/preferred_architecture" ]; then
+            pref_arch=$(cat /data/adb/lynx/preferred_architecture 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+            if [ "$pref_arch" = "hybrid" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            elif [ "$pref_arch" = "eas" ]; then
+                write_node "1" "/sys/devices/system/cpu/eas/enable"
+            elif [ "$pref_arch" = "hmp" ]; then
+                write_node "0" "/sys/devices/system/cpu/eas/enable"
+            fi
+        elif [ -f "/sys/devices/system/cpu/eas/enable" ]; then
+            cur_eas=$(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            if [[ "$cur_eas" == *"hybrid"* ]] || [ "$cur_eas" = "2" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            else
+                write_node "1" "/sys/devices/system/cpu/eas/enable"
+            fi
+        fi
         write_node "0" "/sys/devices/system/cpu/perf/enable"
 
         # MediaTek CPU Low Power Mode
@@ -1140,9 +1170,24 @@ case "$PROFILE" in
         done
         write_node "0" "/sys/module/cpu_boost/parameters/sched_boost_on_input"
 
-        # ── 2. Workqueue & Interconnect Mode: Balanced ───────────────────────
-        write_node "Y" "/sys/module/workqueue/parameters/power_efficient"
-        write_node "1" "/sys/devices/system/cpu/eas/enable"
+        # Respect user preferred architecture or preserve Hybrid (2) / EAS (1)
+        if [ -f "/data/adb/lynx/preferred_architecture" ]; then
+            pref_arch=$(cat /data/adb/lynx/preferred_architecture 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+            if [ "$pref_arch" = "hybrid" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            elif [ "$pref_arch" = "eas" ]; then
+                write_node "1" "/sys/devices/system/cpu/eas/enable"
+            elif [ "$pref_arch" = "hmp" ]; then
+                write_node "0" "/sys/devices/system/cpu/eas/enable"
+            fi
+        elif [ -f "/sys/devices/system/cpu/eas/enable" ]; then
+            cur_eas=$(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            if [[ "$cur_eas" == *"hybrid"* ]] || [ "$cur_eas" = "2" ]; then
+                write_node "2" "/sys/devices/system/cpu/eas/enable"
+            else
+                write_node "1" "/sys/devices/system/cpu/eas/enable"
+            fi
+        fi
         write_node "1" "/sys/devices/system/cpu/perf/enable"
         write_node "1" "/proc/sys/kernel/sched_autogroup_enabled"
         write_node "0" "/proc/sys/kernel/sched_tunable_scaling"

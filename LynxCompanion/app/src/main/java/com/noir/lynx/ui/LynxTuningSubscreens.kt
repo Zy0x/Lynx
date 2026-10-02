@@ -755,7 +755,27 @@ fun TuningCpuCategory(
                 }
             }
 
-            // ── Mode Arsitektur Penjadwal (Architecture Mode Selector: EAS vs HMP vs Hybrid) ──
+            // ── 1. Profil Respon Penjadwal (Kontrol Utama / Macro Drive Mode) ──
+            val (presetLabel, presetColor) = when (schedInfo.activePreset.lowercase()) {
+                "extreme" -> "🔥 Extreme" to AccentRed
+                "gaming" -> "⚡ Responsif" to AccentOrange
+                "battery" -> "🔋 Efisiensi" to AccentGreen
+                "custom" -> "🛠️ Kustom" to AccentPurple
+                else -> "⚖️ Seimbang" to AccentBlue
+            }
+
+            LynxTweakTile(
+                title = "Profil Respon Penjadwal",
+                subtitle = if (schedInfo.activePreset.equals("custom", true))
+                    "Penyetelan manual aktif (Mode Kustom)"
+                else
+                    "Dinamika lompatan clock CPU & latensi task",
+                displayValue = presetLabel,
+                accentColor = presetColor,
+                onClick = { showPresetSheet = true }
+            )
+
+            // ── 2. Arsitektur Mesin Inti (Engine Hardware: EAS vs HMP vs Hybrid) ──
             if (schedInfo.isModeSwitchSupported) {
                 val modes = mutableListOf(
                     Triple("eas", "⚡ EAS", AccentCyan),
@@ -765,15 +785,30 @@ fun TuningCpuCategory(
                     modes.add(Triple("hybrid", "🔀 Hybrid", AccentPurple))
                 }
 
-                Column(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 6.dp)) {
-                    Text(
-                        text = "ARSITEKTUR MESIN INTI",
-                        color = TextSecondary,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp,
-                        modifier = Modifier.padding(bottom = 5.dp)
-                    )
+                Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "ARSITEKTUR MESIN INTI",
+                            color = TextSecondary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp
+                        )
+                        if (schedInfo.isHybridSupported) {
+                            Text(
+                                text = "Hybrid Didukung",
+                                color = AccentPurple,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(5.dp))
 
                     Row(
                         Modifier.fillMaxWidth(),
@@ -801,27 +836,49 @@ fun TuningCpuCategory(
                         }
                     }
                 }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgElevated,
+                    border = BorderStroke(1.dp, BorderGlass),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "ARSITEKTUR MESIN INTI",
+                                color = TextSecondary,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.6.sp
+                            )
+                            Text(
+                                text = schedInfo.schedulerName,
+                                color = TextPrimary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = AccentGreen.copy(alpha = 0.15f),
+                            border = BorderStroke(1.dp, AccentGreen.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "Terkunci Kernel",
+                                color = AccentGreen,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
             }
-
-            // ── Profil Respon Penjadwal (Clean Single Tile with Bottom Sheet) ──
-            val (presetLabel, presetColor) = when (schedInfo.activePreset.lowercase()) {
-                "extreme" -> "🔥 Extreme" to AccentRed
-                "gaming" -> "⚡ Responsif" to AccentOrange
-                "battery" -> "🔋 Efisiensi" to AccentGreen
-                "custom" -> "🛠️ Kustom" to AccentPurple
-                else -> "⚖️ Seimbang" to AccentBlue
-            }
-
-            LynxTweakTile(
-                title = "Profil Respon Penjadwal",
-                subtitle = if (schedInfo.activePreset.equals("custom", true))
-                    "Penyetelan manual aktif (Mode Kustom)"
-                else
-                    "Dinamika lompatan clock CPU & latensi task",
-                displayValue = presetLabel,
-                accentColor = presetColor,
-                onClick = { showPresetSheet = true }
-            )
 
             // ── EAS & ENERGY MODEL ──────────────────────────────
             val showEas = if (schedInfo.isModeSwitchSupported) {
