@@ -689,6 +689,7 @@ fun TuningCpuCategory(
         var spillNrRunVal by remember(schedInfo.schedSpillNrRun) { mutableFloatStateOf(schedInfo.schedSpillNrRun.toFloat()) }
         var spillLoadVal by remember(schedInfo.schedSpillLoad) { mutableFloatStateOf(schedInfo.schedSpillLoad.toFloat()) }
         var showAdvancedSched by remember { mutableStateOf(false) }
+        var showPresetSheet by remember { mutableStateOf(false) }
         var activeTweakConfig by remember { mutableStateOf<TweakConfig?>(null) }
         var activeDualTweakConfig by remember { mutableStateOf<DualTweakConfig?>(null) }
 
@@ -697,9 +698,9 @@ fun TuningCpuCategory(
             icon = Icons.Default.Speed,
             accentColor = AccentCyan
         ) {
-            // Header info & Architecture badges
+            // Header info & Architecture badges (Clean, non-redundant)
             Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -719,26 +720,32 @@ fun TuningCpuCategory(
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = AccentCyan.copy(alpha = 0.15f),
-                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                        color = AccentGreen.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, AccentGreen.copy(alpha = 0.4f))
                     ) {
-                        Text(
-                            text = schedInfo.schedulerType,
-                            color = AccentCyan,
-                            fontSize = 8.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(modifier = Modifier.size(5.dp).background(AccentGreen, CircleShape))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Aktif",
+                                color = AccentGreen,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                     if (schedInfo.isBoreSupported) {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = AccentGreen.copy(alpha = 0.18f),
-                            border = BorderStroke(1.dp, AccentGreen.copy(alpha = 0.4f))
+                            color = AccentCyan.copy(alpha = 0.18f),
+                            border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
                         ) {
                             Text(
                                 text = "BORE",
-                                color = AccentGreen,
+                                color = AccentCyan,
                                 fontSize = 8.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -758,81 +765,58 @@ fun TuningCpuCategory(
                     modes.add(Triple("hybrid", "🔀 Hybrid", AccentPurple))
                 }
 
-                Row(
-                    Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    modes.forEach { (modeKey, modeLabel, modeColor) ->
-                        val isModeSel = schedInfo.activeArchitectureMode.equals(modeKey, ignoreCase = true)
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isModeSel) modeColor.copy(alpha = 0.22f) else BgElevated,
-                            border = BorderStroke(1.dp, if (isModeSel) modeColor else BorderGlass),
-                            modifier = Modifier.weight(1f).clickable {
-                                viewModel.setSchedulerArchitectureMode(modeKey, context)
-                            }
-                        ) {
-                            Box(Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = modeLabel,
-                                    color = if (isModeSel) modeColor else TextSecondary,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isModeSel) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+                Column(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 6.dp)) {
+                    Text(
+                        text = "ARSITEKTUR MESIN INTI",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp,
+                        modifier = Modifier.padding(bottom = 5.dp)
+                    )
 
-            // ── 3 Quick Presets Bar ──
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                listOf(
-                    Triple("gaming", "⚡ Gaming", AccentOrange),
-                    Triple("balanced", "⚖️ Balanced", AccentBlue),
-                    Triple("battery", "🔋 Battery", AccentGreen)
-                ).forEach { (preset, label, color) ->
-                    val isSel = schedInfo.activePreset == preset
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isSel) color.copy(alpha = 0.22f) else BgElevated,
-                        border = BorderStroke(1.dp, if (isSel) color else BorderGlass),
-                        modifier = Modifier.weight(1f).clickable {
-                            viewModel.applySchedulerPreset(preset, context)
-                        }
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Box(Modifier.padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = label,
-                                color = if (isSel) color else TextSecondary,
-                                fontSize = 10.5.sp,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
-                            )
+                        modes.forEach { (modeKey, modeLabel, modeColor) ->
+                            val isModeSel = schedInfo.activeArchitectureMode.equals(modeKey, ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isModeSel) modeColor.copy(alpha = 0.22f) else BgElevated,
+                                border = BorderStroke(1.dp, if (isModeSel) modeColor else BorderGlass),
+                                modifier = Modifier.weight(1f).clickable {
+                                    viewModel.setSchedulerArchitectureMode(modeKey, context)
+                                }
+                            ) {
+                                Box(Modifier.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = modeLabel,
+                                        color = if (isModeSel) modeColor else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isModeSel) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            // ── Terapkan saat Boot Switch (Clean Flat Row) ──
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text("Terapkan saat Boot", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp)
-                    Text("Pulihkan setelan penjadwal otomatis saat boot", color = TextSecondary, fontSize = 9.sp)
-                }
-                Switch(
-                    checked = schedInfo.applyOnBoot,
-                    onCheckedChange = { viewModel.setSchedulerApplyOnBoot(it, context) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
-                    modifier = Modifier.scale(0.8f)
-                )
+            // ── Profil Respon Penjadwal (Clean Single Tile with Bottom Sheet) ──
+            val (presetLabel, presetColor) = when (schedInfo.activePreset.lowercase()) {
+                "gaming" -> "⚡ Responsif" to AccentOrange
+                "battery" -> "🔋 Efisiensi" to AccentGreen
+                else -> "⚖️ Seimbang" to AccentBlue
             }
+
+            LynxTweakTile(
+                title = "Profil Respon Penjadwal",
+                subtitle = "Dinamika lompatan clock CPU & latensi task",
+                displayValue = presetLabel,
+                accentColor = presetColor,
+                onClick = { showPresetSheet = true }
+            )
 
             // ── EAS & ENERGY MODEL ──────────────────────────────
             val showEas = if (schedInfo.isModeSwitchSupported) {
@@ -1329,6 +1313,28 @@ fun TuningCpuCategory(
                     }
                 }
             }
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = BorderGlass, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(4.dp))
+
+            // ── Terapkan saat Boot Switch (Clean Bottom Position) ──
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text("Terapkan saat Boot", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp)
+                    Text("Pulihkan setelan penjadwal otomatis saat boot", color = TextSecondary, fontSize = 9.sp)
+                }
+                Switch(
+                    checked = schedInfo.applyOnBoot,
+                    onCheckedChange = { viewModel.setSchedulerApplyOnBoot(it, context) },
+                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
+                    modifier = Modifier.scale(0.8f)
+                )
+            }
         }
 
         // ── Bypass Throttling & Kontrol Termal Card ─────────────────
@@ -1425,6 +1431,15 @@ fun TuningCpuCategory(
             LynxDualTweakSheet(
                 config = activeDualTweakConfig!!,
                 onDismiss = { activeDualTweakConfig = null }
+            )
+        }
+        if (showPresetSheet) {
+            LynxSchedulerPresetSheet(
+                activePreset = schedInfo.activePreset,
+                onSelectPreset = { preset ->
+                    viewModel.applySchedulerPreset(preset, context)
+                },
+                onDismiss = { showPresetSheet = false }
             )
         }
     }

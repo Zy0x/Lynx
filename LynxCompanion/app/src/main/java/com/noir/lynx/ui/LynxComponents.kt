@@ -921,6 +921,188 @@ fun LynxDualTweakSheet(
 }
 
 // ============================================================
+//  LynxSchedulerPresetSheet — Clean Preset Selector Bottom Sheet
+// ============================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LynxSchedulerPresetSheet(
+    activePreset: String,
+    onSelectPreset: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFA0D1017),
+        scrimColor = Color.Black.copy(alpha = 0.65f),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = {
+            Surface(
+                color = Color(0x33FFFFFF),
+                shape = CircleShape,
+                modifier = Modifier
+                    .padding(top = 10.dp, bottom = 6.dp)
+                    .size(width = 38.dp, height = 4.dp)
+            ) {}
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 36.dp)
+        ) {
+            // Header Tag
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        text = "PENJADWAL KERNEL",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentCyan,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderSubtle)
+                ) {
+                    Text(
+                        text = "3 Profil Teruji",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = "Profil Respon Penjadwal",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Pilih profil responsivitas penjadwal untuk mengatur akselerasi frekuensi CPU (ramp-up limit), durasi penahanan clock (ramp-down), serta latensi antrean proses sistem.",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                lineHeight = 15.sp
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            // 3 Preset Options
+            listOf(
+                Triple(
+                    "gaming",
+                    "⚡ Responsif (Gaming / Berat)",
+                    Triple(
+                        "Clock CPU melompat instan tanpa jeda (0 µs ramp-up), latensi task ditekan ke 4 ms untuk mengeliminasi micro-stutter saat game kompetitif.",
+                        "Ramp-up: 0 µs • Latensi: 4 ms • Uclamp: 512",
+                        AccentOrange
+                    )
+                ),
+                Triple(
+                    "balanced",
+                    "⚖️ Seimbang (Rekomendasi Harian)",
+                    Triple(
+                        "Transisi frekuensi halus dan dinamis (500 µs), latensi 10 ms. Sangat stabil, responsif untuk multitasking harian dengan efisiensi daya optimal.",
+                        "Ramp-up: 500 µs • Latensi: 10 ms • Uclamp: 0",
+                        AccentBlue
+                    )
+                ),
+                Triple(
+                    "battery",
+                    "🔋 Efisiensi Daya (Hemat Baterai)",
+                    Triple(
+                        "Mencegah lonjakan frekuensi singkat yang boros daya (2000 µs ramp-up), latensi santai 15 ms. Menghemat konsumsi daya baterai maksimal.",
+                        "Ramp-up: 2000 µs • Latensi: 15 ms • Uclamp Cap: 640",
+                        AccentGreen
+                    )
+                )
+            ).forEach { (presetKey, title, details) ->
+                val (desc, spec, color) = details
+                val isSelected = activePreset.equals(presetKey, ignoreCase = true)
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) color.copy(alpha = 0.12f) else BgElevated,
+                    border = BorderStroke(1.dp, if (isSelected) color else BorderGlass),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                        .clickable {
+                            onSelectPreset(presetKey)
+                            onDismiss()
+                        }
+                ) {
+                    Column(Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = title,
+                                color = if (isSelected) color else TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                            if (isSelected) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = color.copy(alpha = 0.2f),
+                                    border = BorderStroke(1.dp, color)
+                                ) {
+                                    Box(Modifier.padding(horizontal = 7.dp, vertical = 2.dp)) {
+                                        Text("Aktif", color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            text = desc,
+                            color = TextSecondary,
+                            fontSize = 10.5.sp,
+                            lineHeight = 14.5.sp
+                        )
+
+                        Spacer(Modifier.height(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = BgSurfaceLowest,
+                            border = BorderStroke(0.8.dp, BorderSubtle)
+                        ) {
+                            Text(
+                                text = spec,
+                                color = if (isSelected) color else TextSecondary,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
 //  ProfileGrid — Luxury Bento Profile Selector
 // ============================================================
 
