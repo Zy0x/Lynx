@@ -861,11 +861,12 @@ fun TuningCpuCategory(
             }
 
             // ── 3. Quick Macro Presets (Segmented Pill Buttons) ──
+            // ── 3. Quick Macro Presets (Segmented Pill Buttons) ──
             val presets = listOf(
-                Triple("gaming", "⚡ Responsif", AccentOrange),
-                Triple("balanced", "⚖️ Seimbang", AccentBlue),
-                Triple("battery", "🔋 Efisiensi", AccentGreen),
-                Triple("extreme", "🔥 Ekstrem", AccentRed)
+                LynxPresetOption("gaming", "Responsif", Icons.Default.Bolt, AccentOrange),
+                LynxPresetOption("balanced", "Seimbang", Icons.Default.Tune, AccentBlue),
+                LynxPresetOption("battery", "Efisiensi", Icons.Default.BatteryChargingFull, AccentGreen),
+                LynxPresetOption("extreme", "Ekstrem", Icons.Default.LocalFireDepartment, AccentRed)
             )
 
             Surface(
@@ -887,41 +888,64 @@ fun TuningCpuCategory(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.6.sp
                         )
-                        Text(
-                            text = if (schedInfo.activePreset.equals("custom", true)) "🛠️ Kustom" else "Preset Cepat",
-                            color = if (schedInfo.activePreset.equals("custom", true)) AccentPurple else TextTertiary,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (schedInfo.activePreset.equals("custom", true)) {
+                                Icon(
+                                    imageVector = Icons.Default.Build,
+                                    contentDescription = null,
+                                    tint = AccentPurple,
+                                    modifier = Modifier.size(10.dp)
+                                )
+                                Spacer(Modifier.width(3.dp))
+                            }
+                            Text(
+                                text = if (schedInfo.activePreset.equals("custom", true)) "Kustom" else "Preset Cepat",
+                                color = if (schedInfo.activePreset.equals("custom", true)) AccentPurple else TextTertiary,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        presets.forEach { (pKey, pLabel, pColor) ->
-                            val isSel = schedInfo.activePreset.equals(pKey, ignoreCase = true)
+                        presets.forEach { opt ->
+                            val isSel = schedInfo.activePreset.equals(opt.key, ignoreCase = true)
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = if (isSel) pColor.copy(alpha = 0.22f) else BgSurfaceLowest,
-                                border = BorderStroke(1.dp, if (isSel) pColor else BorderSubtle),
+                                color = if (isSel) opt.color.copy(alpha = 0.22f) else BgSurfaceLowest,
+                                border = BorderStroke(1.dp, if (isSel) opt.color else BorderSubtle),
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable {
-                                        viewModel.applySchedulerPreset(pKey, context)
+                                        viewModel.applySchedulerPreset(opt.key, context)
                                     }
                             ) {
                                 Box(
-                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    modifier = Modifier.padding(vertical = 7.dp, horizontal = 2.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = pLabel,
-                                        color = if (isSel) pColor else TextSecondary,
-                                        fontSize = 10.sp,
-                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                                        maxLines = 1
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = opt.icon,
+                                            contentDescription = null,
+                                            tint = if (isSel) opt.color else TextSecondary,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(Modifier.width(3.dp))
+                                        Text(
+                                            text = opt.label,
+                                            color = if (isSel) opt.color else TextSecondary,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
                             }
                         }

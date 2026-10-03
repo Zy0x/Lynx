@@ -59,6 +59,13 @@ val TextTertiary     = Color(0xFF64748B) // Subtle Metallic Grey
 val BorderSubtle     = Color(0x14FFFFFF) // Hairline 8% Border
 val BorderGlass      = Color(0x1EFFFFFF) // Subtle 12% Border
 
+data class LynxPresetOption(
+    val key: String,
+    val label: String,
+    val icon: ImageVector,
+    val color: Color
+)
+
 // ============================================================
 //  LynxCard — Luxury Minimalist Container (Option A Clean)
 // ============================================================
@@ -4695,11 +4702,11 @@ fun CpuSetsTaskShieldCard(
         }
 
         val activePresetKey = cpuSets.activePreset.lowercase()
-        val (modeBadgeText, modeBadgeColor) = when (activePresetKey) {
-            "gaming" -> "Mode: Game Shield" to AccentCyan
-            "battery" -> "Mode: Hemat Daya" to AccentOrange
-            "standard" -> "Mode: Standar AOSP" to AccentBlue
-            else -> "Mode: Kustom" to AccentPurple
+        val (modeBadgeText, modeBadgeColor, modeBadgeIcon) = when (activePresetKey) {
+            "gaming" -> Triple("Game Shield", AccentCyan, Icons.Default.SportsEsports)
+            "battery" -> Triple("Hemat Daya", AccentOrange, Icons.Default.BatteryChargingFull)
+            "standard" -> Triple("Standar AOSP", AccentBlue, Icons.Default.Tune)
+            else -> Triple("Kustom", AccentPurple, Icons.Default.Build)
         }
 
         // 1. Subhead: Description + Mode Badge
@@ -4720,13 +4727,24 @@ fun CpuSetsTaskShieldCard(
                 color = modeBadgeColor.copy(alpha = 0.14f),
                 border = BorderStroke(1.dp, modeBadgeColor.copy(alpha = 0.5f))
             ) {
-                Text(
-                    text = modeBadgeText,
-                    color = modeBadgeColor,
-                    fontSize = 10.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = modeBadgeIcon,
+                        contentDescription = null,
+                        tint = modeBadgeColor,
+                        modifier = Modifier.size(11.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = modeBadgeText,
+                        color = modeBadgeColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
 
@@ -4736,40 +4754,47 @@ fun CpuSetsTaskShieldCard(
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             val presets = listOf(
-                Triple("gaming", "⚔️ Game Shield", AccentCyan),
-                Triple("standard", "⚖️ Standar", AccentBlue),
-                Triple("battery", "🔋 Hemat Daya", AccentOrange)
+                LynxPresetOption("gaming", "Game Shield", Icons.Default.SportsEsports, AccentCyan),
+                LynxPresetOption("standard", "Standar", Icons.Default.Tune, AccentBlue),
+                LynxPresetOption("battery", "Hemat Daya", Icons.Default.BatteryChargingFull, AccentOrange)
             )
-            presets.forEach { (presetKey, label, color) ->
-                val isSel = activePresetKey == presetKey
+            presets.forEach { opt ->
+                val isSel = activePresetKey == opt.key
                 Surface(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(10.dp))
-                        .clickable { onApplyPreset(presetKey) },
+                        .clickable { onApplyPreset(opt.key) },
                     shape = RoundedCornerShape(10.dp),
-                    color = if (isSel) color.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.6f),
-                    border = BorderStroke(if (isSel) 1.4.dp else 0.8.dp, if (isSel) color else BorderSubtle)
+                    color = if (isSel) opt.color.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.6f),
+                    border = BorderStroke(if (isSel) 1.4.dp else 0.8.dp, if (isSel) opt.color else BorderSubtle)
                 ) {
                     Row(
-                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 2.dp),
+                        modifier = Modifier.padding(vertical = 9.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         if (isSel) {
-                            Text(
-                                text = "✓",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = color
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = opt.color,
+                                modifier = Modifier.size(11.dp)
                             )
                             Spacer(Modifier.width(3.dp))
                         }
+                        Icon(
+                            imageVector = opt.icon,
+                            contentDescription = null,
+                            tint = if (isSel) opt.color else TextSecondary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
                         Text(
-                            text = label,
-                            fontSize = 11.sp,
+                            text = opt.label,
+                            fontSize = 10.5.sp,
                             fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSel) color else TextSecondary,
+                            color = if (isSel) opt.color else TextSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -4909,10 +4934,10 @@ fun CpuSetsTaskShieldCard(
 
             // Dynamic One-Liner Status Note
             val statusNote = when (activePresetKey) {
-                "gaming" -> "⚔️ Big Core diprioritaskan 100% untuk Game & Top-App. Background diisolasi di Little Core."
-                "battery" -> "🔋 Beban aplikasi ditahan pada Little Core efisien untuk memaksimalkan daya tahan baterai."
-                "standard" -> "⚖️ Penjadwalan standar AOSP: seluruh inti dialokasikan dinamis oleh kernel."
-                else -> "🛠️ Konfigurasi kustom aktif. Penugasan thread berjalan sesuai matriks manual."
+                "gaming" -> "Big Core diprioritaskan 100% untuk Game & Top-App. Background diisolasi di Little Core."
+                "battery" -> "Beban aplikasi ditahan pada Little Core efisien untuk memaksimalkan daya tahan baterai."
+                "standard" -> "Penjadwalan standar AOSP: seluruh inti dialokasikan dinamis oleh kernel."
+                else -> "Konfigurasi kustom aktif. Penugasan thread berjalan sesuai matriks manual."
             }
             Text(
                 text = statusNote,
@@ -5121,11 +5146,11 @@ fun CpuIdleCoreParkingCard(
         val totalCores = cpuIdle.totalCores.coerceIn(4, 16)
 
         val activePresetKey = cpuIdle.activePreset.lowercase()
-        val (badgeText, badgeColor) = when (activePresetKey) {
-            "gaming" -> "⚡ Zero Latency" to AccentCyan
-            "battery" -> "🔋 Deep Sleep" to AccentOrange
-            "balanced" -> "⚖️ Seimbang" to AccentBlue
-            else -> "🛠️ Kustom" to AccentPurple
+        val (badgeText, badgeColor, badgeIcon) = when (activePresetKey) {
+            "gaming" -> Triple("Zero Latency", AccentCyan, Icons.Default.Bolt)
+            "battery" -> Triple("Deep Sleep", AccentOrange, Icons.Default.Bedtime)
+            "balanced" -> Triple("Seimbang", AccentBlue, Icons.Default.Tune)
+            else -> Triple("Kustom", AccentPurple, Icons.Default.Build)
         }
 
         // 1. Subhead: Description + Badges
@@ -5160,13 +5185,24 @@ fun CpuIdleCoreParkingCard(
                 color = badgeColor.copy(alpha = 0.14f),
                 border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.5f))
             ) {
-                Text(
-                    text = badgeText,
-                    color = badgeColor,
-                    fontSize = 10.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = badgeIcon,
+                        contentDescription = null,
+                        tint = badgeColor,
+                        modifier = Modifier.size(11.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = badgeText,
+                        color = badgeColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
 
@@ -5176,40 +5212,47 @@ fun CpuIdleCoreParkingCard(
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             val presets = listOf(
-                Triple("gaming", "⚡ Zero Latency", AccentCyan),
-                Triple("balanced", "⚖️ Seimbang", AccentBlue),
-                Triple("battery", "🔋 Deep Sleep", AccentOrange)
+                LynxPresetOption("gaming", "Zero Latency", Icons.Default.Bolt, AccentCyan),
+                LynxPresetOption("balanced", "Seimbang", Icons.Default.Tune, AccentBlue),
+                LynxPresetOption("battery", "Deep Sleep", Icons.Default.Bedtime, AccentOrange)
             )
-            presets.forEach { (presetKey, label, color) ->
-                val isSel = activePresetKey == presetKey
+            presets.forEach { opt ->
+                val isSel = activePresetKey == opt.key
                 Surface(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(10.dp))
-                        .clickable { onApplyPreset(presetKey) },
+                        .clickable { onApplyPreset(opt.key) },
                     shape = RoundedCornerShape(10.dp),
-                    color = if (isSel) color.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.6f),
-                    border = BorderStroke(if (isSel) 1.4.dp else 0.8.dp, if (isSel) color else BorderSubtle)
+                    color = if (isSel) opt.color.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.6f),
+                    border = BorderStroke(if (isSel) 1.4.dp else 0.8.dp, if (isSel) opt.color else BorderSubtle)
                 ) {
                     Row(
-                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 2.dp),
+                        modifier = Modifier.padding(vertical = 9.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
                         if (isSel) {
-                            Text(
-                                text = "✓",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = color
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = opt.color,
+                                modifier = Modifier.size(11.dp)
                             )
                             Spacer(Modifier.width(3.dp))
                         }
+                        Icon(
+                            imageVector = opt.icon,
+                            contentDescription = null,
+                            tint = if (isSel) opt.color else TextSecondary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
                         Text(
-                            text = label,
-                            fontSize = 11.sp,
+                            text = opt.label,
+                            fontSize = 10.5.sp,
                             fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSel) color else TextSecondary,
+                            color = if (isSel) opt.color else TextSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )

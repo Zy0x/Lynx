@@ -1,3 +1,27 @@
+# Lynx [Codename: Deity] 3.0.12
+Released on: 2026-10-04
+> **Versi ini** menyempurnakan **Estetika & Konsistensi Visual Subhalaman CPU** — menggantikan ikon emoji bawaan OS yang kaku pada kartu *CPU Sets & Task Shield*, *Core Parking & CPU Idle*, dan *Penjadwal Kernel & Multicore* dengan **Material Vector Icons** modern yang adaptif terhadap aksen tema cyber dark, memberikan tampilan antarmuka yang jauh lebih elegan, tajam, dan profesional.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.12)
+
+### 1. 🎨 Transisi Penuh dari Emoji Kaku ke Material Vector Icons
+- **CPU Sets & Task Shield**:
+  - Mengganti teks emoji kaku `⚔️ Game Shield`, `⚖️ Standar`, `🔋 Hemat Daya` dengan ikon vektor Material berpresisi tinggi: `SportsEsports` (Gamepad), `Tune` (Equalizer/Sliders), dan `BatteryChargingFull`.
+  - Badge mode sudut kanan atas kini menggunakan ikon vektor `Tune` yang selaras dengan aksen status aktif.
+  - Menghapus emoji dekoratif dari catatan status alokasi agar tipografi lebih bersih dan fokus pada informasi teknis.
+- **Core Parking & CPU Idle (C-States)**:
+  - Mengganti emoji kaku `⚡ Zero Latency`, `⚖️ Seimbang`, `🔋 Deep Sleep` dengan ikon vektor `Bolt`, `Tune`, dan `Bedtime` (Bulan Sabit modern).
+  - Badge status kini dilengkapi indikator vektor `Tune` yang terpadu.
+- **Penjadwal Kernel & Multicore**:
+  - Mengganti ikon preset respon jadwal dari emoji ke vektor: `Bolt` (Responsif), `Tune` (Seimbang), `BatteryChargingFull` (Efisiensi), dan `LocalFireDepartment` (Ekstrem).
+  - Penyelarasan segmen *Arsitektur Engine* dengan ikon vektor `Bolt` (EAS), `AccountBalance` (HMP), dan `Build` (Hybrid).
+
+### 2. 💎 Dynamic Theme Tinting & Visual State Feedback
+- **Adaptasi Warna Dinamis**: Ikon vektor kini secara dinamis mewarisi warna aksen status saat aktif (Cyan, Kuning, Merah, Hijau) dan beralih ke warna sekunder redup saat nonaktif, mencegah tabrakan warna pelangi kartun khas Noto Color Emoji Android.
+- **Indikator Seleksi Presisi**: Menyertakan tanda centang (`Check`) vektor yang rapi pada tombol preset yang sedang aktif untuk kepastian visual instan bagi pengguna.
+
+---
+
 # Lynx [Codename: Deity] 3.0.11
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **CPU & Governor Subscreen Modernization & Anti-Slop Overhaul** — membersihkan total tampilan subhalaman CPU dari jargon fiktif, mengintegrasikan grafik waveform beban real-time ke dalam Hero Master Card, merampingkan matriks 8-core silikon hardware, serta menyederhanakan Penjadwal Kernel & Multicore dari 25+ baris menjadi sistem preset makro cepat dengan laci akordion parameter lanjutan yang rapi dan elegan.
