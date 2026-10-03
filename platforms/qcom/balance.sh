@@ -55,11 +55,20 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
     [ -n "$min_freq" ] && write_node "$min_freq" "$policy/scaling_min_freq"
     [ -n "$max_freq" ] && write_node "$max_freq" "$policy/scaling_max_freq"
     
+    pol_id=$(basename "$policy" | tr -dc '0-9')
     schedutil="$policy/schedutil"
     if [ -d "$schedutil" ]; then
-        write_node "0" "$schedutil/up_rate_limit_us"
-        write_node "15000" "$schedutil/down_rate_limit_us"
-        write_node "80" "$schedutil/hispeed_load"
+        if [ "$pol_id" = "0" ]; then
+            # Little Cluster (Silver/Efficiency): Jeda naik 1ms, tahan 20ms
+            write_node "1000" "$schedutil/up_rate_limit_us"
+            write_node "20000" "$schedutil/down_rate_limit_us"
+            write_node "85" "$schedutil/hispeed_load"
+        else
+            # Big/Prime Cluster (Gold/Performance/Kryo): Respon instan 0µs, tahan 10ms
+            write_node "0" "$schedutil/up_rate_limit_us"
+            write_node "10000" "$schedutil/down_rate_limit_us"
+            write_node "80" "$schedutil/hispeed_load"
+        fi
         write_node "1" "$schedutil/pl"
         write_node "1" "$schedutil/iowait_boost_enable"
         if [ -n "$max_freq" ] && [ "$max_freq" -gt 0 ] 2>/dev/null; then

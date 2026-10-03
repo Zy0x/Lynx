@@ -23,11 +23,19 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
         [ "$power_cap" -gt "$min_freq" ] && write_node "$power_cap" "$policy/scaling_max_freq"
     fi
 
-    # Slow ramp-up and quick drop
+    pol_id=$(basename "$policy" | tr -dc '0-9')
+    # Slow ramp-up and quick drop (asymmetric per-cluster)
     schedutil="$policy/schedutil"
     if [ -d "$schedutil" ]; then
-        write_node "20000" "$schedutil/up_rate_limit_us"
-        write_node "500" "$schedutil/down_rate_limit_us"
+        if [ "$pol_id" = "0" ]; then
+            # Little Cluster (Silver): Jeda evaluasi naik 10ms, cepat turun 1ms
+            write_node "10000" "$schedutil/up_rate_limit_us"
+            write_node "1000" "$schedutil/down_rate_limit_us"
+        else
+            # Big/Prime Cluster (Gold/Kryo): Sangat enggan naik (20ms), langsung turun (500µs)
+            write_node "20000" "$schedutil/up_rate_limit_us"
+            write_node "500" "$schedutil/down_rate_limit_us"
+        fi
         write_node "99" "$schedutil/hispeed_load"
         write_node "0" "$schedutil/pl"
         write_node "0" "$schedutil/iowait_boost_enable"

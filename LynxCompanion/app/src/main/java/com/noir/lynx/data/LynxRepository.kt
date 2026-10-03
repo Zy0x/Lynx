@@ -1392,49 +1392,94 @@ object LynxRepository {
 
     suspend fun applyGovernorPreset(preset: String, policyId: Int? = null): Boolean = withContext(Dispatchers.IO) {
         try {
-            val targetDirs = if (policyId != null) {
-                "/sys/devices/system/cpu/cpufreq/policy$policyId/schedutil"
+            val script = if (policyId != null) {
+                val d = "/sys/devices/system/cpu/cpufreq/policy$policyId/schedutil"
+                val isLittle = policyId == 0
+                when (preset) {
+                    "responsive" -> """
+                        [ -d "$d" ] && chmod 644 "$d"/* 2>/dev/null
+                        echo 0 > "$d/up_rate_limit_us" 2>/dev/null
+                        echo ${if (isLittle) 10000 else 5000} > "$d/down_rate_limit_us" 2>/dev/null
+                        echo 0 > "$d/rate_limit_us" 2>/dev/null
+                        echo ok
+                    """.trimIndent()
+                    "powersave" -> """
+                        [ -d "$d" ] && chmod 644 "$d"/* 2>/dev/null
+                        echo ${if (isLittle) 10000 else 20000} > "$d/up_rate_limit_us" 2>/dev/null
+                        echo ${if (isLittle) 1000 else 500} > "$d/down_rate_limit_us" 2>/dev/null
+                        echo ok
+                    """.trimIndent()
+                    "oem" -> """
+                        [ -d "$d" ] && chmod 644 "$d"/* 2>/dev/null
+                        echo 0 > "$d/up_rate_limit_us" 2>/dev/null
+                        echo 30000 > "$d/down_rate_limit_us" 2>/dev/null
+                        echo ok
+                    """.trimIndent()
+                    else -> """
+                        [ -d "$d" ] && chmod 644 "$d"/* 2>/dev/null
+                        echo ${if (isLittle) 1000 else 0} > "$d/up_rate_limit_us" 2>/dev/null
+                        echo ${if (isLittle) 20000 else 10000} > "$d/down_rate_limit_us" 2>/dev/null
+                        echo ok
+                    """.trimIndent()
+                }
             } else {
-                "/sys/devices/system/cpu/cpufreq/policy*/schedutil /sys/devices/system/cpu/cpufreq/schedutil"
-            }
-            val script = when (preset) {
-                "responsive" -> """
-                    for d in $targetDirs; do
-                        [ -d "${'$'}d" ] || continue
-                        chmod 644 "${'$'}d"/* 2>/dev/null
-                        echo 0 > "${'$'}d/up_rate_limit_us" 2>/dev/null
-                        echo 5000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
-                        echo 0 > "${'$'}d/rate_limit_us" 2>/dev/null
-                    done
-                    echo ok
-                """.trimIndent()
-                "powersave" -> """
-                    for d in $targetDirs; do
-                        [ -d "${'$'}d" ] || continue
-                        chmod 644 "${'$'}d"/* 2>/dev/null
-                        echo 4000 > "${'$'}d/up_rate_limit_us" 2>/dev/null
-                        echo 20000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
-                    done
-                    echo ok
-                """.trimIndent()
-                "oem" -> """
-                    for d in $targetDirs; do
-                        [ -d "${'$'}d" ] || continue
-                        chmod 644 "${'$'}d"/* 2>/dev/null
-                        echo 0 > "${'$'}d/up_rate_limit_us" 2>/dev/null
-                        echo 30000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
-                    done
-                    echo ok
-                """.trimIndent()
-                else -> """
-                    for d in $targetDirs; do
-                        [ -d "${'$'}d" ] || continue
-                        chmod 644 "${'$'}d"/* 2>/dev/null
-                        echo 1000 > "${'$'}d/up_rate_limit_us" 2>/dev/null
-                        echo 10000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
-                    done
-                    echo ok
-                """.trimIndent()
+                when (preset) {
+                    "responsive" -> """
+                        for d in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                            [ -d "${'$'}d" ] || continue
+                            chmod 644 "${'$'}d"/* 2>/dev/null
+                            pol_id=${'$'}(echo "${'$'}d" | tr -dc '0-9')
+                            if [ "${'$'}pol_id" = "0" ]; then
+                                echo 0 > "${'$'}d/up_rate_limit_us" 2>/dev/null
+                                echo 10000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
+                            else
+                                echo 0 > "${'$'}d/up_rate_limit_us" 2>/dev/null
+                                echo 5000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
+                            fi
+                            echo 0 > "${'$'}d/rate_limit_us" 2>/dev/null
+                        done
+                        echo ok
+                    """.trimIndent()
+                    "powersave" -> """
+                        for d in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                            [ -d "${'$'}d" ] || continue
+                            chmod 644 "${'$'}d"/* 2>/dev/null
+                            pol_id=${'$'}(echo "${'$'}d" | tr -dc '0-9')
+                            if [ "${'$'}pol_id" = "0" ]; then
+                                echo 10000 > "${'$'}d/up_rate_limit_us" 2>/dev/null
+                                echo 1000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
+                            else
+                                echo 20000 > "${'$'}d/up_rate_limit_us" 2>/dev/null
+                                echo 500 > "${'$'}d/down_rate_limit_us" 2>/dev/null
+                            fi
+                        done
+                        echo ok
+                    """.trimIndent()
+                    "oem" -> """
+                        for d in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                            [ -d "${'$'}d" ] || continue
+                            chmod 644 "${'$'}d"/* 2>/dev/null
+                            echo 0 > "${'$'}d/up_rate_limit_us" 2>/dev/null
+                            echo 30000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
+                        done
+                        echo ok
+                    """.trimIndent()
+                    else -> """
+                        for d in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                            [ -d "${'$'}d" ] || continue
+                            chmod 644 "${'$'}d"/* 2>/dev/null
+                            pol_id=${'$'}(echo "${'$'}d" | tr -dc '0-9')
+                            if [ "${'$'}pol_id" = "0" ]; then
+                                echo 1000 > "${'$'}d/up_rate_limit_us" 2>/dev/null
+                                echo 20000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
+                            else
+                                echo 0 > "${'$'}d/up_rate_limit_us" 2>/dev/null
+                                echo 10000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
+                            fi
+                        done
+                        echo ok
+                    """.trimIndent()
+                }
             }
             Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
@@ -7711,11 +7756,11 @@ done
                 }
                 "up_rate_limit_us" -> {
                     val safe = value.coerceIn(0L, 20000L)
-                    "for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do [ -d \"\$p\" ] && echo $safe > \"\$p/up_rate_limit_us\" 2>/dev/null; done; echo ok"
+                    "for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do [ -d \"\$p\" ] || continue; pol_id=\$(echo \"\$p\" | tr -dc '0-9'); if [ \"\$pol_id\" = \"0\" ]; then echo $safe > \"\$p/up_rate_limit_us\" 2>/dev/null; else echo ${Math.min(safe, 1000L)} > \"\$p/up_rate_limit_us\" 2>/dev/null; fi; done; echo ok"
                 }
                 "down_rate_limit_us" -> {
                     val safe = value.coerceIn(500L, 40000L)
-                    "for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do [ -d \"\$p\" ] && echo $safe > \"\$p/down_rate_limit_us\" 2>/dev/null; done; echo ok"
+                    "for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do [ -d \"\$p\" ] || continue; pol_id=\$(echo \"\$p\" | tr -dc '0-9'); if [ \"\$pol_id\" = \"0\" ]; then echo $safe > \"\$p/down_rate_limit_us\" 2>/dev/null; else echo ${Math.max(500L, safe / 2)} > \"\$p/down_rate_limit_us\" 2>/dev/null; fi; done; echo ok"
                 }
                 "sched_energy_aware" -> {
                     val safe = if (value > 0) 1 else 0
@@ -7851,11 +7896,18 @@ done
                     # Unrestricted Real-Time Throttling (Never throttle render/game threads)
                     [ -f /proc/sys/kernel/sched_rt_runtime_us ] && echo -1 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
                     [ -f /proc/sys/kernel/sched_rt_period_us ] && echo 1000000 > /proc/sys/kernel/sched_rt_period_us 2>/dev/null
-                    # Schedutil Clock Dynamics (0µs instant ramp-up, 30ms hold)
+                    # Schedutil Clock Dynamics (Asymmetric: Little 0µs/10ms, Big 0µs/2ms)
                     for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
-                        [ -d "${'$'}p" ] && echo 0 > "${'$'}p/up_rate_limit_us" 2>/dev/null
-                        [ -d "${'$'}p" ] && echo 30000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
-                        [ -f "${'$'}p/rate_limit_us" ] && echo 500 > "${'$'}p/rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] || continue
+                        pol_id=${'$'}(echo "${'$'}p" | tr -dc '0-9')
+                        if [ "${'$'}pol_id" = "0" ]; then
+                            echo 0 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                            echo 10000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        else
+                            echo 0 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                            echo 2000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        fi
+                        [ -f "${'$'}p/rate_limit_us" ] && echo 0 > "${'$'}p/rate_limit_us" 2>/dev/null
                     done
                     # EAS / Schedtune Boost & Uclamp Floor 512
                     [ -f /proc/sys/kernel/sched_boost ] && echo 2 > /proc/sys/kernel/sched_boost 2>/dev/null
@@ -7883,10 +7935,17 @@ done
                     [ -f /proc/sys/kernel/sched_schedstats ] && echo 0 > /proc/sys/kernel/sched_schedstats 2>/dev/null
                     [ -f /proc/sys/kernel/sched_rt_runtime_us ] && echo 980000 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
                     [ -f /proc/sys/kernel/sched_rt_period_us ] && echo 1000000 > /proc/sys/kernel/sched_rt_period_us 2>/dev/null
-                    # Schedutil
+                    # Schedutil Clock Dynamics (Asymmetric: Little 0µs/10ms, Big 0µs/5ms)
                     for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
-                        [ -d "${'$'}p" ] && echo 0 > "${'$'}p/up_rate_limit_us" 2>/dev/null
-                        [ -d "${'$'}p" ] && echo 20000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] || continue
+                        pol_id=${'$'}(echo "${'$'}p" | tr -dc '0-9')
+                        if [ "${'$'}pol_id" = "0" ]; then
+                            echo 0 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                            echo 10000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        else
+                            echo 0 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                            echo 5000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        fi
                     done
                     # EAS
                     [ -f /proc/sys/kernel/sched_boost ] && echo 1 > /proc/sys/kernel/sched_boost 2>/dev/null
@@ -7912,10 +7971,17 @@ done
                     [ -f /proc/sys/kernel/sched_child_runs_first ] && echo 0 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null
                     [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 1 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
                     [ -f /proc/sys/kernel/sched_rt_runtime_us ] && echo 950000 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
-                    # Schedutil
+                    # Schedutil Clock Dynamics (Asymmetric: Little 10ms/1ms, Big 20ms/0.5ms)
                     for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
-                        [ -d "${'$'}p" ] && echo 4000 > "${'$'}p/up_rate_limit_us" 2>/dev/null
-                        [ -d "${'$'}p" ] && echo 2000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] || continue
+                        pol_id=${'$'}(echo "${'$'}p" | tr -dc '0-9')
+                        if [ "${'$'}pol_id" = "0" ]; then
+                            echo 10000 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                            echo 1000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        else
+                            echo 20000 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                            echo 500 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        fi
                     done
                     # EAS
                     [ -f /proc/sys/kernel/sched_boost ] && echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null
@@ -7942,10 +8008,17 @@ done
                     [ -f /proc/sys/kernel/sched_child_runs_first ] && echo 0 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null
                     [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 1 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
                     [ -f /proc/sys/kernel/sched_rt_runtime_us ] && echo 950000 > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null
-                    # Schedutil
+                    # Schedutil Clock Dynamics (Asymmetric: Little 1ms/20ms, Big 0µs/10ms)
                     for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
-                        [ -d "${'$'}p" ] && echo 1000 > "${'$'}p/up_rate_limit_us" 2>/dev/null
-                        [ -d "${'$'}p" ] && echo 10000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        [ -d "${'$'}p" ] || continue
+                        pol_id=${'$'}(echo "${'$'}p" | tr -dc '0-9')
+                        if [ "${'$'}pol_id" = "0" ]; then
+                            echo 1000 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                            echo 20000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        else
+                            echo 0 > "${'$'}p/up_rate_limit_us" 2>/dev/null
+                            echo 10000 > "${'$'}p/down_rate_limit_us" 2>/dev/null
+                        fi
                     done
                     # EAS
                     [ -f /proc/sys/kernel/sched_boost ] && echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null

@@ -18,10 +18,17 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
     [ -n "$min_freq" ] && write_node "$min_freq" "$policy/scaling_min_freq"
     [ -n "$max_freq" ] && write_node "$max_freq" "$policy/scaling_max_freq"
 
+    pol_id=$(basename "$policy" | tr -dc '0-9')
     if [ -d "$policy/schedutil" ]; then
-        write_node "500" "$policy/schedutil/up_rate_limit_us"
-        write_node "20000" "$policy/schedutil/down_rate_limit_us"
-        write_node "99" "$policy/schedutil/hispeed_load"
+        if [ "$pol_id" = "0" ]; then
+            write_node "1000" "$policy/schedutil/up_rate_limit_us"
+            write_node "20000" "$policy/schedutil/down_rate_limit_us"
+            write_node "85" "$policy/schedutil/hispeed_load"
+        else
+            write_node "0" "$policy/schedutil/up_rate_limit_us"
+            write_node "10000" "$policy/schedutil/down_rate_limit_us"
+            write_node "80" "$policy/schedutil/hispeed_load"
+        fi
     fi
 done
 

@@ -22,11 +22,18 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
     elevated_min=$((max_freq * 60 / 100))
     write_node "$elevated_min" "$policy/scaling_min_freq"
 
+    pol_id=$(basename "$policy" | tr -dc '0-9')
     if [ -d "$policy/schedutil" ]; then
-        write_node "0" "$policy/schedutil/up_rate_limit_us"
-        write_node "5000" "$policy/schedutil/down_rate_limit_us"
+        if [ "$pol_id" = "0" ]; then
+            write_node "0" "$policy/schedutil/up_rate_limit_us"
+            write_node "10000" "$policy/schedutil/down_rate_limit_us"
+            write_node "85" "$policy/schedutil/hispeed_load"
+        else
+            write_node "0" "$policy/schedutil/up_rate_limit_us"
+            write_node "5000" "$policy/schedutil/down_rate_limit_us"
+            write_node "80" "$policy/schedutil/hispeed_load"
+        fi
         write_node "$max_freq" "$policy/schedutil/hispeed_freq"
-        write_node "80" "$policy/schedutil/hispeed_load"
     fi
 done
 

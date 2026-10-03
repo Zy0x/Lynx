@@ -105,12 +105,26 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
         write_node "performance" "$policy/scaling_governor"
     fi
 
+    pol_id=$(basename "$policy" | tr -dc '0-9')
     for s_dir in "$policy/schedutil" "$policy/scaling_governor"; do
         if [ -d "$s_dir" ]; then
-            write_node "0" "$s_dir/up_rate_limit_us"
-            write_node "5000" "$s_dir/down_rate_limit_us"
+            if [ "$pol_id" = "0" ]; then
+                # Little Cluster (Efficiency): Cepat naik saat butuh, tahan 10ms cegah stutter UI
+                write_node "0" "$s_dir/up_rate_limit_us"
+                write_node "10000" "$s_dir/down_rate_limit_us"
+                write_node "85" "$s_dir/hispeed_load"
+            else
+                # Big/Prime Cluster (Performance): Lompatan instan 0µs, tahan clock 5ms (ekstrem: 0-2ms)
+                write_node "0" "$s_dir/up_rate_limit_us"
+                if [ "$MODE" = "extreme" ]; then
+                    write_node "2000" "$s_dir/down_rate_limit_us"
+                    write_node "75" "$s_dir/hispeed_load"
+                else
+                    write_node "5000" "$s_dir/down_rate_limit_us"
+                    write_node "80" "$s_dir/hispeed_load"
+                fi
+            fi
             write_node "$max_freq" "$s_dir/hispeed_freq"
-            write_node "85" "$s_dir/hispeed_load"
             write_node "1" "$s_dir/pl"
         fi
     done

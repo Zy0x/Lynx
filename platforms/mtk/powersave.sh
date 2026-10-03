@@ -35,11 +35,19 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
         [ "$power_cap" -gt "$min_freq" ] && write_node "$power_cap" "$policy/scaling_max_freq"
     fi
 
-    # Schedutil sluggish downclocking
+    pol_id=$(basename "$policy" | tr -dc '0-9')
+    # Schedutil sluggish downclocking (asymmetric per-cluster)
     for s_dir in "$policy/schedutil" "$policy/scaling_governor"; do
         if [ -d "$s_dir" ]; then
-            write_node "20000" "$s_dir/up_rate_limit_us"
-            write_node "500" "$s_dir/down_rate_limit_us"
+            if [ "$pol_id" = "0" ]; then
+                # Little Cluster: Jeda evaluasi naik 10ms, cepat turun 1ms
+                write_node "10000" "$s_dir/up_rate_limit_us"
+                write_node "1000" "$s_dir/down_rate_limit_us"
+            else
+                # Big/Prime Cluster: Sangat enggan naik (20ms), langsung turun (500µs)
+                write_node "20000" "$s_dir/up_rate_limit_us"
+                write_node "500" "$s_dir/down_rate_limit_us"
+            fi
             write_node "99" "$s_dir/hispeed_load"
             write_node "0" "$s_dir/pl"
             write_node "0" "$s_dir/iowait_boost_enable"

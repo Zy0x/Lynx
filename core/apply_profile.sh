@@ -88,8 +88,13 @@ case "$PROFILE" in
             if [ "$PROFILE" = "extreme" ]; then
                 if [ "$TARGET_SOC" = "mtk" ]; then
                     write_node "schedutil" "$p/scaling_governor"
-                    write_node "0" "$p/schedutil/up_rate_limit_us"
-                    write_node "0" "$p/schedutil/down_rate_limit_us"
+                    if [ "$pol_num" = "0" ]; then
+                        write_node "0" "$p/schedutil/up_rate_limit_us"
+                        write_node "5000" "$p/schedutil/down_rate_limit_us"
+                    else
+                        write_node "0" "$p/schedutil/up_rate_limit_us"
+                        write_node "0" "$p/schedutil/down_rate_limit_us"
+                    fi
                     write_node "1" "$p/schedutil/pl"
                     write_node "$max_freq" "$p/schedutil/hispeed_freq"
                 else
@@ -101,9 +106,17 @@ case "$PROFILE" in
             else
                 write_node "schedutil" "$p/scaling_governor"
                 write_node "$max_freq" "$p/scaling_max_freq"
-                write_node "0" "$p/schedutil/up_rate_limit_us"
-                write_node "5000" "$p/schedutil/down_rate_limit_us"
-                write_node "85" "$p/schedutil/hispeed_load"
+                if [ "$pol_num" = "0" ]; then
+                    # Little Cluster (Efficiency): Cepat naik saat butuh, tahan 10ms cegah stutter UI
+                    write_node "0" "$p/schedutil/up_rate_limit_us"
+                    write_node "10000" "$p/schedutil/down_rate_limit_us"
+                    write_node "85" "$p/schedutil/hispeed_load"
+                else
+                    # Big/Prime Cluster (Performance): Respon instan 0µs, tahan clock 5ms
+                    write_node "0" "$p/schedutil/up_rate_limit_us"
+                    write_node "5000" "$p/schedutil/down_rate_limit_us"
+                    write_node "80" "$p/schedutil/hispeed_load"
+                fi
                 write_node "1" "$p/schedutil/iowait_boost_enable"
                 write_node "1" "$p/schedutil/pl"
                 write_node "$max_freq" "$p/schedutil/hispeed_freq"
@@ -863,9 +876,17 @@ case "$PROFILE" in
         # ── 1. CPU Schedutil & Low Frequency Cap (55% Max) ───────────────────
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "$p" ] || continue
+            pol_num=$(basename "$p" | tr -dc '0-9')
             write_node "schedutil" "$p/scaling_governor"
-            write_node "20000" "$p/schedutil/up_rate_limit_us"
-            write_node "500" "$p/schedutil/down_rate_limit_us"
+            if [ "$pol_num" = "0" ]; then
+                # Little Cluster: Jeda evaluasi naik 10ms, cepat turun 1ms
+                write_node "10000" "$p/schedutil/up_rate_limit_us"
+                write_node "1000" "$p/schedutil/down_rate_limit_us"
+            else
+                # Big/Prime Cluster: Sangat enggan naik (20ms), langsung turun (500µs)
+                write_node "20000" "$p/schedutil/up_rate_limit_us"
+                write_node "500" "$p/schedutil/down_rate_limit_us"
+            fi
             write_node "99" "$p/schedutil/hispeed_load"
             write_node "0" "$p/schedutil/iowait_boost_enable"
             write_node "0" "$p/schedutil/pl"
@@ -1129,9 +1150,18 @@ case "$PROFILE" in
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "$p" ] || continue
             write_node "schedutil" "$p/scaling_governor"
-            write_node "0" "$p/schedutil/up_rate_limit_us"
-            write_node "15000" "$p/schedutil/down_rate_limit_us"
-            write_node "80" "$p/schedutil/hispeed_load"
+            pol_num=$(basename "$p" | tr -dc '0-9')
+            if [ "$pol_num" = "0" ]; then
+                # Little Cluster (Efficiency): smooth transitions, prevent micro-frequency thrashing
+                write_node "1000" "$p/schedutil/up_rate_limit_us"
+                write_node "20000" "$p/schedutil/down_rate_limit_us"
+                write_node "85" "$p/schedutil/hispeed_load"
+            else
+                # Big/Prime Cluster (Performance): zero delay jump, sustained 10ms boost
+                write_node "0" "$p/schedutil/up_rate_limit_us"
+                write_node "10000" "$p/schedutil/down_rate_limit_us"
+                write_node "80" "$p/schedutil/hispeed_load"
+            fi
             write_node "1" "$p/schedutil/iowait_boost_enable"
             write_node "1" "$p/schedutil/pl"
 

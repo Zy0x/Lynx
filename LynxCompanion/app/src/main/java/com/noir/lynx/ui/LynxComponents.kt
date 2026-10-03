@@ -3067,13 +3067,30 @@ fun CpuClusterTunerCard(
         // 2. Real-time detected preset based on actual sysfs values
         val currentUp = tunables.find { it.key == "up_rate_limit_us" || it.key == "rate_limit_us" }?.currentValue?.toLongOrNull()
         val currentDown = tunables.find { it.key == "down_rate_limit_us" }?.currentValue?.toLongOrNull()
+        val isLittle = targetCluster.id == 0
 
-        val detectedPreset = when {
-            currentUp == 0L && currentDown != null && currentDown in 4000L..6000L -> "responsive"
-            currentUp != null && currentUp in 800L..1200L && currentDown != null && currentDown in 9000L..11000L -> "balanced"
-            currentUp != null && currentUp in 3500L..4500L && currentDown != null && currentDown in 18000L..22000L -> "powersave"
-            (currentUp == 0L || (currentUp != null && currentUp in 800L..1200L)) && currentDown != null && currentDown in 28000L..32000L -> "oem"
-            else -> "custom"
+        val detectedPreset = if (isLittle) {
+            when {
+                currentUp == 0L && currentDown != null && currentDown in 8000L..12000L -> "responsive"
+                currentUp != null && currentUp in 800L..1200L && currentDown != null && currentDown in 18000L..22000L -> "balanced"
+                currentUp != null && currentUp in 8000L..12000L && currentDown != null && currentDown in 800L..1500L -> "powersave"
+                (currentUp == 0L || (currentUp != null && currentUp in 800L..1200L)) && currentDown != null && currentDown in 28000L..32000L -> "oem"
+                // Transitional fallbacks
+                currentUp == 0L && currentDown != null && currentDown in 4000L..6000L -> "responsive"
+                currentUp != null && currentUp in 800L..1200L && currentDown != null && currentDown in 9000L..11000L -> "balanced"
+                currentUp != null && currentUp in 3500L..4500L && currentDown != null && currentDown in 18000L..22000L -> "powersave"
+                else -> "custom"
+            }
+        } else {
+            when {
+                currentUp == 0L && currentDown != null && currentDown in 1500L..6000L -> "responsive"
+                (currentUp == 0L || (currentUp != null && currentUp in 800L..1200L)) && currentDown != null && currentDown in 9000L..11000L -> "balanced"
+                currentUp != null && currentUp in 18000L..22000L && currentDown != null && currentDown in 300L..800L -> "powersave"
+                (currentUp == 0L || (currentUp != null && currentUp in 800L..1200L)) && currentDown != null && currentDown in 28000L..32000L -> "oem"
+                // Transitional fallbacks
+                currentUp != null && currentUp in 3500L..4500L && currentDown != null && currentDown in 18000L..22000L -> "powersave"
+                else -> "custom"
+            }
         }
 
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -3219,12 +3236,22 @@ fun CpuClusterTunerCard(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                listOf(
-                                    Triple("responsive", "Responsif", "0 µs / 5 ms"),
-                                    Triple("balanced", "Seimbang", "1 ms / 10 ms"),
-                                    Triple("powersave", "Hemat", "4 ms / 20 ms"),
-                                    Triple("oem", "OEM", "0 µs / 30 ms")
-                                ).forEach { (preset, label, note) ->
+                                val presetItems = if (isLittle) {
+                                    listOf(
+                                        Triple("responsive", "Responsif", "0 µs / 10 ms"),
+                                        Triple("balanced", "Seimbang", "1 ms / 20 ms"),
+                                        Triple("powersave", "Hemat", "10 ms / 1 ms"),
+                                        Triple("oem", "OEM", "0 µs / 30 ms")
+                                    )
+                                } else {
+                                    listOf(
+                                        Triple("responsive", "Responsif", "0 µs / 5 ms"),
+                                        Triple("balanced", "Seimbang", "0 µs / 10 ms"),
+                                        Triple("powersave", "Hemat", "20 ms / 0.5 ms"),
+                                        Triple("oem", "OEM", "0 µs / 30 ms")
+                                    )
+                                }
+                                presetItems.forEach { (preset, label, note) ->
                                     val isCurrentPreset = detectedPreset == preset
                                     val cardColor = when (preset) {
                                         "responsive" -> AccentCyan

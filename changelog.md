@@ -1,3 +1,31 @@
+# Lynx [Codename: Deity] 3.0.16
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Pemisahan Asimetris Per-Kluster Tunables CPU (Asymmetric Multi-Cluster Schedutil Calibration)** — mendesinkronisasi tuning frekuensi kernel di seluruh skrip platform dan Companion backend, sehingga kluster efisiensi (Little Cores) dan kluster komputasi tinggi (Big/Prime Cores) menerima profil latensi yang disesuaikan secara presisi dengan karakteristik fisiknya tanpa saling menyamakan (*flat-broadcast*), serta menyempurnakan deteksi real-time dan tampilan lembar tunables per-kluster.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.16)
+
+### 1. ⚡ Desinkronisasi Menyeluruh Parameter Schedutil Antar-Kluster (Asymmetric Per-Cluster Tuning)
+- **Eliminasi Flat-Broadcast Loop**: Menggantikan perulangan statis datar pada seluruh skrip shell (`platforms/mtk/`, `platforms/qcom/`, `platforms/generic/`, dan `core/apply_profile.sh`) dengan percabangan berbasis identitas kluster (`pol_id == 0` vs `pol_id > 0`).
+- **Kalibrasi Kluster Efisiensi (Little Cores - `policy0`)**:
+  - *Seimbang*: `up: 1 ms (1000 µs)`, `down: 20 ms (20000 µs)` — Mencegah lonjakan frekuensi singkat (*micro-thrashing*) dan mempertahankan clock stabil untuk konsumsi daya minimal.
+  - *Responsif / Gaming*: `up: 0 µs`, `down: 10 ms (10000 µs)` — Respons seketika dengan durasi tahan yang optimal.
+  - *Hemat Daya*: `up: 10 ms (10000 µs)`, `down: 1 ms (1000 µs)` — Memperlambat peningkatan frekuensi dan segera menurunkan clock saat beban mereda.
+- **Kalibrasi Kluster Performa (Big / Prime Cores - `policy > 0`)**:
+  - *Seimbang*: `up: 0 µs`, `down: 10 ms (10000 µs)` — Lompatan instan saat beban aplikasi berat membutuhkan daya komputasi tinggi.
+  - *Responsif / Gaming*: `up: 0 µs`, `down: 5 ms (5000 µs)` (Extreme: `down: 2 ms`) — Latensi nol untuk komputasi grafis dan *framerate* puncak.
+  - *Hemat Daya*: `up: 20 ms (20000 µs)`, `down: 0.5 ms (500 µs)` — Membatasi keterlibatan kluster besar pada skenario siaga.
+
+### 2. 🛠️ Penyelarasan Backend Companion App (`LynxRepository.kt`)
+- **Adaptasi Dinamis `applyGovernorPreset`**: Mendukung penyetelan mandiri per-kebijakan (`policyId`) dengan nilai yang disesuaikan otomatis terhadap tipe kluster (`isLittle` vs `isBig`). Penyetelan global secara otomatis membagi parameter asimetris ke masing-masing direktori sysfs.
+- **Asymmetric Schedutil Preset Engine**: Mengintegrasikan batas latensi asimetris pada preset makro penjadwal (*Extreme*, *Gaming*, *Battery*, dan *Balanced*).
+- **Skala Proporsional Slider Penjadwal**: Penyetelan slider global *up/down rate limit* kini menerapkan penskalaan proporsional antara kluster Little dan kluster Big alih-alih menyamakan nilai mentah secara seragam.
+
+### 3. 🎨 Penyempurnaan Lembar Tunables & Deteksi Real-Time (`LynxComponents.kt`)
+- **Catatan Waktu Spesifik Kluster**: Kartu preset pada ModalBottomSheet kini secara transparan menampilkan nilai latensi yang sesuai dengan kluster yang sedang dibuka (contoh: Seimbang pada Policy 0 menampilkan `1 ms / 20 ms`, sedangkan pada Policy 6 menampilkan `0 µs / 10 ms`).
+- **Deteksi Status Cerdas (Cluster-Aware Real-Time Detection)**: Algoritma deteksi sysfs otomatis mengenali status preset aktif (*Seimbang Aktif*, *Responsif Aktif*, *Hemat Aktif*, *OEM Aktif*) berdasarkan batas toleransi terkalibrasi untuk masing-masing kluster silikon.
+
+---
+
 # Lynx [Codename: Deity] 3.0.15
 Released on: 2026-10-04
 > **Versi ini** menuntaskan **Modernisasi & Redesain Menyeluruh Governor Tunables (Anti-Slop)** — merombak antarmuka lembar setelan *Dynamic CPU Clusters & Governors* menjadi sangat bersih, informatif, dan profesional. Menghapus seluruh emoji dekoratif kaku dan menggantinya dengan *Material Vector Icons*, mengintegrasikan 4 Preset Responsivitas Clock berbasis deteksi *hardware sysfs* *real-time* per-kluster, memperbaiki masalah *layout clipping* pada ModalBottomSheet, serta menyempurnakan dialog pengeditan parameter dengan *Live Conversion Preview* mikrodetik ke milidetik dan tombol pill rekomendasi yang rapi.
