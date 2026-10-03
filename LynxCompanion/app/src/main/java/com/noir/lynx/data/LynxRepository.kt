@@ -34,6 +34,9 @@ private const val LXCORE_PATH = "$MODULE_DIR/system/bin/Lxcore"
  */
 object LynxRepository {
 
+    @Volatile
+    var appContext: Context? = null
+
     // ----------------------------------------------------------------
     //  Root & Module Availability Check
     // ----------------------------------------------------------------
@@ -7976,7 +7979,9 @@ done
                 "custom"
             }
 
-            val applyOnBoot = context?.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
+            if (context != null) appContext = context.applicationContext
+            val ctx = context ?: appContext
+            val applyOnBoot = ctx?.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
                 ?.getBoolean("apply_on_boot", false) ?: false
 
             CpuSetsInfo(
@@ -8094,8 +8099,10 @@ done
     }
 
     suspend fun setCpuSetApplyOnBoot(enabled: Boolean, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        if (context != null) appContext = context.applicationContext
+        val ctx = context ?: appContext
         try {
-            context?.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
+            ctx?.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
                 ?.edit()
                 ?.putBoolean("apply_on_boot", enabled)
                 ?.apply()

@@ -455,10 +455,19 @@ class LynxViewModel : ViewModel() {
                                 )
                             } else core
                         }
-                        current.copy(clusters = mergedClusters, cpuCores = syncedCores, cpuSets = freshSets)
+                        val mergedSets = freshSets.copy(
+                            applyOnBoot = if (freshSets.applyOnBoot) true else current.cpuSets.applyOnBoot
+                        )
+                        current.copy(clusters = mergedClusters, cpuCores = syncedCores, cpuSets = mergedSets)
                     }
                 } else {
-                    _uiState.update { it.copy(cpuSets = freshSets) }
+                    _uiState.update { current ->
+                        current.copy(
+                            cpuSets = freshSets.copy(
+                                applyOnBoot = if (freshSets.applyOnBoot) true else current.cpuSets.applyOnBoot
+                            )
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 // Silent failure
