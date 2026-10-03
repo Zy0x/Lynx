@@ -4712,10 +4712,20 @@ fun CpuSetsTaskShieldCard(
                     color = if (isSel) color.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.6f),
                     border = BorderStroke(if (isSel) 1.4.dp else 0.8.dp, if (isSel) color else BorderSubtle)
                 ) {
-                    Box(
+                    Row(
                         modifier = Modifier.padding(vertical = 10.dp, horizontal = 2.dp),
-                        contentAlignment = Alignment.Center
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
+                        if (isSel) {
+                            Text(
+                                text = "✓",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = color
+                            )
+                            Spacer(Modifier.width(3.dp))
+                        }
                         Text(
                             text = label,
                             fontSize = 11.sp,
@@ -4731,7 +4741,7 @@ fun CpuSetsTaskShieldCard(
 
         Spacer(Modifier.height(10.dp))
 
-        // 3. Single Unified Core Allocation Map (1-Row Visualizer)
+        // 3. Unified SoC Hardware Allocation Strip (Read-Only Telemetry Monitor)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -4747,12 +4757,29 @@ fun CpuSetsTaskShieldCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Pemetaan Alokasi Inti (Core Map)",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextSecondary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "DIAGRAM ALOKASI INTI",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                        color = TextSecondary
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.6.dp, BorderSubtle)
+                    ) {
+                        Text(
+                            text = "MONITOR",
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextTertiary,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                        )
+                    }
+                }
                 Text(
                     text = "$totalCores Cores",
                     fontSize = 10.sp,
@@ -4760,52 +4787,79 @@ fun CpuSetsTaskShieldCard(
                 )
             }
 
-            // 1-Row Core Chips
-            Row(
+            // 1-Row Continuous Silicon Strip (Not isolated buttons)
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                shape = RoundedCornerShape(8.dp),
+                color = BgCard.copy(alpha = 0.85f),
+                border = BorderStroke(0.8.dp, BorderSubtle)
             ) {
-                for (coreId in 0 until totalCores) {
-                    val isBig = isBigCore(coreId)
-                    val inTopApp = cpuSets.isCoreInGroup("top-app", coreId)
-                    val inBg = cpuSets.isCoreInGroup("background", coreId)
-                    val isGameIsolated = isBig && inTopApp && !inBg
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (coreId in 0 until totalCores) {
+                        val isBig = isBigCore(coreId)
+                        val inTopApp = cpuSets.isCoreInGroup("top-app", coreId)
+                        val inBg = cpuSets.isCoreInGroup("background", coreId)
+                        val isGameIsolated = isBig && inTopApp && !inBg
 
-                    val chipColor = when {
-                        isGameIsolated -> AccentCyan
-                        !inTopApp && !inBg -> Color(0xFF555566)
-                        isBig -> AccentOrange
-                        else -> AccentBlue
-                    }
-                    val roleLabel = when {
-                        isGameIsolated -> "Game"
-                        isBig -> "Big"
-                        else -> "Little"
-                    }
+                        val cellBg = when {
+                            isGameIsolated -> AccentCyan.copy(alpha = 0.22f)
+                            !inTopApp && !inBg -> Color(0xFF141822)
+                            isBig -> AccentOrange.copy(alpha = 0.16f)
+                            else -> AccentBlue.copy(alpha = 0.14f)
+                        }
+                        val textColor = when {
+                            isGameIsolated -> AccentCyan
+                            !inTopApp && !inBg -> TextTertiary
+                            isBig -> AccentOrange
+                            else -> AccentBlue
+                        }
+                        val roleLabel = when {
+                            isGameIsolated -> "Game"
+                            isBig -> "Big"
+                            else -> "Lit"
+                        }
 
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        color = chipColor.copy(alpha = if (isGameIsolated) 0.20f else 0.10f),
-                        border = BorderStroke(if (isGameIsolated) 1.2.dp else 0.8.dp, chipColor.copy(alpha = if (isGameIsolated) 0.85f else 0.4f))
-                    ) {
+                        if (coreId > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .width(0.8.dp)
+                                    .fillMaxHeight()
+                                    .background(BorderSubtle.copy(alpha = 0.7f))
+                            )
+                        }
+
                         Column(
-                            modifier = Modifier.padding(vertical = 6.dp, horizontal = 1.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(cellBg)
+                                .padding(vertical = 6.dp, horizontal = 1.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Text(
                                 text = "C$coreId",
-                                fontSize = 11.5.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isGameIsolated) Color.White else chipColor
+                                color = if (isGameIsolated) Color.White else textColor
                             )
-                            Spacer(Modifier.height(2.dp))
+                            Spacer(Modifier.height(1.dp))
                             Text(
                                 text = roleLabel,
                                 fontSize = 8.5.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = chipColor,
+                                color = textColor,
                                 maxLines = 1
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            // Status LED Dot
+                            Box(
+                                modifier = Modifier
+                                    .size(4.5.dp)
+                                    .clip(CircleShape)
+                                    .background(if (!inTopApp && !inBg) TextTertiary.copy(alpha = 0.4f) else textColor)
                             )
                         }
                     }
@@ -5098,10 +5152,20 @@ fun CpuIdleCoreParkingCard(
                     color = if (isSel) color.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.6f),
                     border = BorderStroke(if (isSel) 1.4.dp else 0.8.dp, if (isSel) color else BorderSubtle)
                 ) {
-                    Box(
+                    Row(
                         modifier = Modifier.padding(vertical = 10.dp, horizontal = 2.dp),
-                        contentAlignment = Alignment.Center
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
+                        if (isSel) {
+                            Text(
+                                text = "✓",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = color
+                            )
+                            Spacer(Modifier.width(3.dp))
+                        }
                         Text(
                             text = label,
                             fontSize = 11.sp,
@@ -5117,7 +5181,7 @@ fun CpuIdleCoreParkingCard(
 
         Spacer(Modifier.height(10.dp))
 
-        // 3. Status Performa & Daya (Human-Readable 2-Kolom Bebas Ambigu)
+        // 3. Status Performa & Daya (Unified Telemetry Panel - Read-Only)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -5144,13 +5208,29 @@ fun CpuIdleCoreParkingCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "STATUS PERFORMA & DAYA",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.6.sp,
-                    color = TextSecondary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "STATUS PERFORMA & DAYA",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.6.sp,
+                        color = TextSecondary
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.6.dp, BorderSubtle)
+                    ) {
+                        Text(
+                            text = "TELEMETRI",
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextTertiary,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                        )
+                    }
+                }
                 Text(
                     text = parkingModeLabel,
                     fontSize = 10.5.sp,
@@ -5159,47 +5239,81 @@ fun CpuIdleCoreParkingCard(
                 )
             }
 
-            // 2-Kolom Kartu Status Informatif
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Kolom 1: Status Inti Prosesor
-                val isBigParked = cpuIdle.coreParkingMode == "park_big"
-                val coresTitle = if (isBigParked) "${(totalCores - 2).coerceAtLeast(4)}/$totalCores Inti Berjalan" else "${cpuIdle.onlineCoresCount}/$totalCores Inti Berjalan"
-                val coresSub = when {
-                    isBigParked -> "2 Big Core ditidurkan"
-                    cpuIdle.coreParkingMode == "unpark_all" -> "Seluruh core siaga"
-                    else -> "Otomatis beban tugas"
-                }
-                val coresColor = when {
-                    isBigParked -> AccentOrange
-                    cpuIdle.coreParkingMode == "unpark_all" -> AccentCyan
-                    else -> AccentBlue
-                }
+            // Panel Telemetri Terpadu 2-Kolom (Read-Only Display)
+            val isBigParked = cpuIdle.coreParkingMode == "park_big"
+            val coresTitle = if (isBigParked) "${(totalCores - 2).coerceAtLeast(4)}/$totalCores Inti Berjalan" else "${cpuIdle.onlineCoresCount}/$totalCores Inti Berjalan"
+            val coresSub = when {
+                isBigParked -> "2 Big Core ditidurkan"
+                cpuIdle.coreParkingMode == "unpark_all" -> "Seluruh core siaga"
+                else -> "Otomatis beban tugas"
+            }
+            val coresColor = when {
+                isBigParked -> AccentOrange
+                cpuIdle.coreParkingMode == "unpark_all" -> AccentCyan
+                else -> AccentBlue
+            }
 
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    color = BgCard.copy(alpha = 0.7f),
-                    border = BorderStroke(0.8.dp, coresColor.copy(alpha = 0.4f))
+            val isZeroLatency = activePresetKey == "gaming"
+            val isDeepSleep = activePresetKey == "battery"
+            val sleepTitle = when {
+                isZeroLatency -> "Siaga Instan (0µs)"
+                isDeepSleep -> "Tidur Nyenyak Aktif"
+                else -> "Tidur Adaptif"
+            }
+            val sleepSub = when {
+                isZeroLatency -> "Deep Sleep Nonaktif"
+                isDeepSleep -> "Hemat Daya Maksimal"
+                else -> "Latensi Standar OEM"
+            }
+            val sleepColor = when {
+                isZeroLatency -> AccentCyan
+                isDeepSleep -> AccentOrange
+                else -> AccentGreen
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                color = BgCard.copy(alpha = 0.85f),
+                border = BorderStroke(0.8.dp, BorderSubtle)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.padding(9.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Memory,
-                                contentDescription = null,
-                                tint = coresColor,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "Inti Prosesor",
-                                fontSize = 10.sp,
-                                color = TextSecondary
+                    // Kolom 1: Status Inti Prosesor
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Memory,
+                                    contentDescription = null,
+                                    tint = coresColor,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "Inti Prosesor",
+                                    fontSize = 10.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(5.dp)
+                                    .clip(CircleShape)
+                                    .background(coresColor)
                             )
                         }
-                        Spacer(Modifier.height(3.dp))
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             text = coresTitle,
                             fontSize = 11.5.sp,
@@ -5212,49 +5326,48 @@ fun CpuIdleCoreParkingCard(
                             color = coresColor
                         )
                     }
-                }
 
-                // Kolom 2: Mode Tidur Daya
-                val isZeroLatency = activePresetKey == "gaming"
-                val isDeepSleep = activePresetKey == "battery"
-                val sleepTitle = when {
-                    isZeroLatency -> "Siaga Instan (0µs)"
-                    isDeepSleep -> "Tidur Nyenyak Aktif"
-                    else -> "Tidur Adaptif"
-                }
-                val sleepSub = when {
-                    isZeroLatency -> "Deep Sleep Nonaktif"
-                    isDeepSleep -> "Hemat Daya Maksimal"
-                    else -> "Latensi Standar OEM"
-                }
-                val sleepColor = when {
-                    isZeroLatency -> AccentCyan
-                    isDeepSleep -> AccentOrange
-                    else -> AccentGreen
-                }
+                    // Divider Vertikal Tipis
+                    Box(
+                        modifier = Modifier
+                            .width(0.8.dp)
+                            .fillMaxHeight()
+                            .background(BorderSubtle.copy(alpha = 0.6f))
+                    )
 
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    color = BgCard.copy(alpha = 0.7f),
-                    border = BorderStroke(0.8.dp, sleepColor.copy(alpha = 0.4f))
-                ) {
-                    Column(modifier = Modifier.padding(9.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Bedtime,
-                                contentDescription = null,
-                                tint = sleepColor,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "Mode Tidur Daya",
-                                fontSize = 10.sp,
-                                color = TextSecondary
+                    // Kolom 2: Mode Tidur Daya
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Bedtime,
+                                    contentDescription = null,
+                                    tint = sleepColor,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "Mode Tidur Daya",
+                                    fontSize = 10.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(5.dp)
+                                    .clip(CircleShape)
+                                    .background(sleepColor)
                             )
                         }
-                        Spacer(Modifier.height(3.dp))
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             text = sleepTitle,
                             fontSize = 11.5.sp,

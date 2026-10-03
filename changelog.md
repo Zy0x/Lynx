@@ -14,9 +14,12 @@ Released on: 2026-10-03
 - **Thermal Cooling Device Reset (`cooling_device56`)**: Menambahkan pengamanan izin `chmod 666` dan peresetan status trip `abcct` ke 0 saat mode spoofing suhu baterai (28°C) aktif, mencegah sistem OEM menurunkan batas arus pengisian daya (*thermal clamping*).
 - **Hasil Verifikasi Fisik (Empiris)**: Teruji langsung pada perangkat fisik Infinix X698 (Dimensity 920). Daya input adaptor stabil pada **20.3 W** (8.4 V • 2410 mA) dan arus baterai bersih **+2407 mA** dengan protokol Transsion Super Charge aktif.
 
-### 3. 🎯 Clean Interface Refinement (CPU Sets & Core Parking)
-- **Unified 1-Row Core Map untuk CPU Sets**: Merampingkan tata letak alokasi core CPU menjadi baris chip interaktif horizontal yang bersih, serta menghilangkan tombol reset redundan pada Dynamic Clusters.
-- **Core Parking Status Clarity**: Merestrukturisasi tampilan status Core Parking agar informatif, mudah dipahami pengguna, dan bebas ambiguitas visual.
+### 3. 🎯 UI Affordance & Clean Interface Refinement (CPU Sets & Core Parking)
+- **Pembeda Tegas Tombol vs Visual Read-Only**:
+  - **Tombol Preset Interaktif**: Dilengkapi indikator centang seleksi `✓` dan kontras outline dinamis pada preset aktif (`Game Shield`, `Standar`, `Hemat Daya`, `Zero Latency`, `Seimbang`, `Deep Sleep`), memberikan afrodansi sentuh yang jelas.
+  - **Integrated SoC Silicon Strip (Peta Alokasi Inti)**: Mengubah visual core C0–C7 dari 8 kotak tombol terpisah menjadi **1 pita balok prosesor terpadu (Hardware SoC Silicon Strip)** dengan sekat divider 1px, lampu indikator LED bulat (`●`), dan badge overline `[ MONITOR ]` `READ-ONLY`. Otak pengguna seketika mengenali ini sebagai diagram perangkat keras, bukan tombol klik.
+  - **Unified Telemetry Readout Panel (Core Parking)**: Mengonversi kartu status terpisah menjadi satu panel telemetri terpadu 2-kolom dengan badge `[ TELEMETRI ]` dan dot status LED, mengeliminasi kebingungan pengguna yang sebelumnya mengira kartu tersebut adalah tombol toggle tile.
+- **Penyederhanaan Dynamic Clusters & CPU Sets**: Menghapus tombol reset redundan dan menyelaraskan seluruh tampilan CPU dalam hierarki yang konsisten.
 
 ---
 
