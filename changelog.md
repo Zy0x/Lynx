@@ -1,3 +1,22 @@
+# Lynx [Codename: Deity] 3.0.14
+Released on: 2026-10-04
+> **Versi ini** menuntaskan **Eliminasi Redundansi Preset Core Parking & CPU Idle** — menghapus baris tombol preset duplikat di dalam mode lanjutan (Advance), memisahkan dengan tegas peran *Preset Respon Terpadu (Makro 1-Klik)* di bagian awal dengan *Kustomisasi Manual (Hotplug & C-States)* di laci akordion, serta merancang ulang pemilih kebijakan hotplug menjadi Tile Pengaturan Teknis ber-dropdown yang elegan, informatif, dan bebas dari ambiguitas antarmuka.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.14)
+
+### 1. 🧹 Eliminasi Redundansi Preset Ganda pada Core Parking
+- **Penghapusan Baris Tombol Duplikat**: Menghapus deretan 3 tombol pill horizontal di mode lanjutan yang sebelumnya meniru tombol preset makro di awal (`Unpark Semua`, `Dinamis`, `Park Big Core`).
+- **Hierarki Kontrol yang Tegas**:
+  - **Bagian Awal (Atas)**: Berfungsi eksklusif sebagai *Preset Respon Terpadu (Makro 1-Klik)* (`Zero Latency`, `Seimbang`, `Deep Sleep`) untuk konfigurasi instan menyeluruh.
+  - **Bagian Lanjutan (Akordion)**: Berfungsi untuk penyesuaian granular manual independen tanpa adanya tombol preset yang saling tumpang tindih.
+
+### 2. ⚙️ Redesain Tile Pengaturan Kebijakan Hotplug Inti
+- **Tile Teknis Ber-Dropdown**: Mengganti tombol preset redundan di dalam akordion dengan sebuah Tile Pengaturan Hotplug modern yang menampilkan status kebijakan aktif secara mendalam (ikon, judul, dan deskripsi teknis peran inti).
+- **Pemilih Dropdown Intuitif**: Menu dropdown untuk mengubah mode alokasi inti (*Dinamis OEM*, *Unpark Semua Inti*, *Parkir Big Cores*) dengan panduan teknis yang jelas di setiap opsinya.
+- **Penyelarasan Judul Akordion**: Memperbarui judul laci menjadi `Kustomisasi Manual (Hotplug & C-States)` agar secara akurat merefleksikan seluruh parameter di dalamnya.
+
+---
+
 # Lynx [Codename: Deity] 3.0.13
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Penyempurnaan Visual & Pembersihan Indikator Presisi** — menghapus ikon centang dekoratif pada preset terpilih yang terkesan repetitif (anti-slop), memperhalus indikator seleksi aktif murni berbasis saturasi warna dan kontras border, serta merestrukturisasi pemilih mode *Core Parking Policy* dengan ikon vektor Material.

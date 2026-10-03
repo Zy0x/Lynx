@@ -5199,6 +5199,25 @@ fun CpuIdleCoreParkingCard(
 
         // 2. Streamlined 3-Way Segmented Preset Selector
         Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "PRESET RESPON TERPADU",
+                color = TextSecondary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp
+            )
+            Text(
+                text = "Preset Cepat 1-Klik",
+                color = TextTertiary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
@@ -5498,7 +5517,7 @@ fun CpuIdleCoreParkingCard(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Kustomisasi Tingkat Tidur Daya (C-States)",
+                        text = "Kustomisasi Manual (Hotplug & C-States)",
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (showAdvancedControls) AccentCyan else TextPrimary
@@ -5547,7 +5566,7 @@ fun CpuIdleCoreParkingCard(
                     }
                 }
 
-                // A. Core Parking Policy (Hotplug Selector)
+                // A. Core Parking Policy (Granular Hotplug Setting Tile - Non-Redundant)
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "Kebijakan Hotplug Inti (Core Parking)",
@@ -5556,45 +5575,164 @@ fun CpuIdleCoreParkingCard(
                         color = TextSecondary,
                         modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
                     )
-                    val parkingModes = listOf(
-                        LynxPresetOption("unpark_all", "Unpark Semua", Icons.Default.Bolt, AccentCyan),
-                        LynxPresetOption("dynamic", "Dinamis (OEM)", Icons.Default.Tune, AccentBlue),
-                        LynxPresetOption("park_big", "Park Big Core", Icons.Default.Bedtime, AccentOrange)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        parkingModes.forEach { opt ->
-                            val isSel = cpuIdle.coreParkingMode.equals(opt.key, ignoreCase = true)
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isSel) opt.color.copy(alpha = 0.20f) else BgElevated,
-                                border = BorderStroke(1.dp, if (isSel) opt.color else BorderSubtle),
-                                modifier = Modifier.weight(1f).clickable { onSetCoreParkingMode(opt.key) }
+
+                    var hotplugMenuExpanded by remember { mutableStateOf(false) }
+                    val currentParkingKey = cpuIdle.coreParkingMode.lowercase()
+                    val currentTitle = when (currentParkingKey) {
+                        "unpark_all" -> "Unpark Semua Inti"
+                        "park_big" -> "Parkir Big Cores"
+                        else -> "Dinamis (Kernel OEM)"
+                    }
+                    val currentDesc = when (currentParkingKey) {
+                        "unpark_all" -> "Seluruh 8 inti siaga aktif tanpa pemutusan daya"
+                        "park_big" -> "Mematikan 2 Big Core saat idle untuk pangkas daya"
+                        else -> "Kernel mengatur alokasi inti secara adaptif sesuai beban"
+                    }
+                    val currentColor = when (currentParkingKey) {
+                        "unpark_all" -> AccentCyan
+                        "park_big" -> AccentOrange
+                        else -> AccentBlue
+                    }
+                    val currentIcon = when (currentParkingKey) {
+                        "unpark_all" -> Icons.Default.Bolt
+                        "park_big" -> Icons.Default.Bedtime
+                        else -> Icons.Default.Tune
+                    }
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Surface(
+                            onClick = { hotplugMenuExpanded = true },
+                            shape = RoundedCornerShape(10.dp),
+                            color = BgElevated.copy(alpha = 0.6f),
+                            border = BorderStroke(1.dp, currentColor.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(vertical = 7.dp, horizontal = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
+                                    modifier = Modifier.weight(1f).padding(end = 8.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = opt.icon,
-                                        contentDescription = null,
-                                        tint = if (isSel) opt.color else TextSecondary,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(
-                                        text = opt.label,
-                                        color = if (isSel) opt.color else TextSecondary,
-                                        fontSize = 10.sp,
-                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = currentColor.copy(alpha = 0.15f),
+                                        border = BorderStroke(0.8.dp, currentColor.copy(alpha = 0.4f)),
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = currentIcon,
+                                                contentDescription = null,
+                                                tint = currentColor,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = currentTitle,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary
+                                        )
+                                        Text(
+                                            text = currentDesc,
+                                            fontSize = 9.5.sp,
+                                            color = TextSecondary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = BgSurfaceLowest,
+                                    border = BorderStroke(0.8.dp, BorderSubtle)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Ubah",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = TextSecondary
+                                        )
+                                        Spacer(Modifier.width(2.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = null,
+                                            tint = TextSecondary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
                                 }
                             }
+                        }
+
+                        DropdownMenu(
+                            expanded = hotplugMenuExpanded,
+                            onDismissRequest = { hotplugMenuExpanded = false },
+                            modifier = Modifier
+                                .background(Color(0xFF141722))
+                                .border(1.dp, BorderSubtle, RoundedCornerShape(8.dp))
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Column(Modifier.padding(vertical = 2.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Tune, null, tint = AccentBlue, modifier = Modifier.size(13.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("Dinamis (Kernel OEM)", fontWeight = FontWeight.Bold, fontSize = 11.5.sp, color = AccentBlue)
+                                        }
+                                        Text("Kernel mengatur alokasi inti secara otomatis (Default)", fontSize = 9.5.sp, color = TextSecondary)
+                                    }
+                                },
+                                onClick = {
+                                    onSetCoreParkingMode("dynamic")
+                                    hotplugMenuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Column(Modifier.padding(vertical = 2.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Bolt, null, tint = AccentCyan, modifier = Modifier.size(13.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("Unpark Semua Inti", fontWeight = FontWeight.Bold, fontSize = 11.5.sp, color = AccentCyan)
+                                        }
+                                        Text("Seluruh 8 inti siaga penuh tanpa pemutusan daya", fontSize = 9.5.sp, color = TextSecondary)
+                                    }
+                                },
+                                onClick = {
+                                    onSetCoreParkingMode("unpark_all")
+                                    hotplugMenuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Column(Modifier.padding(vertical = 2.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Bedtime, null, tint = AccentOrange, modifier = Modifier.size(13.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text("Parkir Big Cores", fontWeight = FontWeight.Bold, fontSize = 11.5.sp, color = AccentOrange)
+                                        }
+                                        Text("Mematikan 2 Big Core saat idle untuk pangkas daya", fontSize = 9.5.sp, color = TextSecondary)
+                                    }
+                                },
+                                onClick = {
+                                    onSetCoreParkingMode("park_big")
+                                    hotplugMenuExpanded = false
+                                }
+                            )
                         }
                     }
                 }
