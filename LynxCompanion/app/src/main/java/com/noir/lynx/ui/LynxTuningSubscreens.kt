@@ -46,6 +46,8 @@ fun TuningCpuCategory(
     val context = LocalContext.current
     var pendingCoreAction by remember { mutableStateOf<CpuCoreInfo?>(null) }
     var showMasterCoreNotice by remember { mutableStateOf(false) }
+    var showRecoveryCenterSheet by remember { mutableStateOf(false) }
+    var showProtectedTasksDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -654,6 +656,19 @@ fun TuningCpuCategory(
                 }
             )
         }
+
+        // ── Unified Master CPU Control Center ───────────────────
+        CpuControlCenterCard(
+            isMasterOverride = uiState.isCpuMasterOverride,
+            activeProfile = uiState.activeCpuControlProfile,
+            recoveryInfo = uiState.recoveryInfo,
+            onToggleMasterOverride = { enabled -> viewModel.setMasterCpuControl(enabled, context) },
+            onSelectProfile = { profile -> viewModel.applyCpuControlProfile(profile, context) },
+            onOpenRecoveryCenter = { showRecoveryCenterSheet = true },
+            onOpenProtectedTasks = { showProtectedTasksDialog = true },
+            applyOnBoot = uiState.isCpuMasterOverride,
+            onApplyOnBootChange = { enabled -> viewModel.setMasterCpuControl(enabled, context) }
+        )
 
         // ── Cluster Frequency & Governor Tuning Card ────────────
         CpuClusterTunerCard(
@@ -1594,6 +1609,25 @@ fun TuningCpuCategory(
                     viewModel.applySchedulerPreset(preset, context)
                 },
                 onDismiss = { showPresetSheet = false }
+            )
+        }
+
+        // ── Recovery Center Bottom Sheet ────────────────────────
+        if (showRecoveryCenterSheet) {
+            RecoveryCenterBottomSheet(
+                recoveryInfo = uiState.recoveryInfo,
+                onRestoreLastKnownGood = { viewModel.restoreLastKnownGood(context) },
+                onRestoreOemDefault = { viewModel.restoreOemFactory(context) },
+                onEmergencyDisable = { viewModel.emergencyDisableCpuTweaks(context) },
+                onDismiss = { showRecoveryCenterSheet = false }
+            )
+        }
+
+        // ── Protected Tasks Dialog ──────────────────────────────
+        if (showProtectedTasksDialog) {
+            ProtectedTasksDialog(
+                tasks = uiState.protectedTasks,
+                onDismiss = { showProtectedTasksDialog = false }
             )
         }
     }

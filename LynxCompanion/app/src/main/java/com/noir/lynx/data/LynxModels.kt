@@ -463,6 +463,14 @@ data class LynxUiState(
     val showBenchmarkDialog: Boolean = false,
     val cpuSets: CpuSetsInfo = CpuSetsInfo(),
     val cpuIdle: CpuIdleInfo = CpuIdleInfo(),
+    // Unified CPU Control Center Architecture
+    val isCpuMasterOverride: Boolean = false,
+    val activeCpuControlProfile: com.noir.lynx.profiles.CpuControlProfile = com.noir.lynx.profiles.CpuControlProfile.OEM_MANAGED,
+    val recoveryInfo: com.noir.lynx.engine.RecoveryInfo = com.noir.lynx.engine.RecoveryInfo("Belum ada checkpoint", false, "Managed by System (OEM)"),
+    val protectedTasks: List<com.noir.lynx.safety.ProtectedProcess> = emptyList(),
+    val isCpusetSupported: Boolean = true,
+    val schedulerBackendType: String = "EAS",
+    val clusterIdleInfo: List<com.noir.lynx.kernel.ClusterIdleInfo> = emptyList(),
 )
 
 // ============================================================

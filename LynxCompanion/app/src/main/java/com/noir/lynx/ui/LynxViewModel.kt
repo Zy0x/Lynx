@@ -4,6 +4,13 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.noir.lynx.data.*
+import com.noir.lynx.engine.CpuPolicyManager
+import com.noir.lynx.engine.RecoveryManager
+import com.noir.lynx.kernel.CpuIdleDetector
+import com.noir.lynx.kernel.CpuSetBackendFactory
+import com.noir.lynx.kernel.SchedulerBackendFactory
+import com.noir.lynx.profiles.CpuControlProfile
+import com.noir.lynx.safety.ProtectedTaskManager
 import com.noir.lynx.service.LynxAppAutomationService
 import com.noir.lynx.sync.StateFileObserver
 import kotlinx.coroutines.delay
@@ -89,6 +96,14 @@ class LynxViewModel : ViewModel() {
                 val cpuSets = LynxRepository.readCpuSetsInfo()
                 val cpuIdle = LynxRepository.readCpuIdleInfo()
 
+                val appContext = LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance
+                CpuPolicyManager.initialize(appContext)
+                val recoveryInfo = RecoveryManager.getRecoveryInfo(appContext)
+                val protectedTasks = ProtectedTaskManager.getDefaultProtectedTasks()
+                val cpusetBackend = CpuSetBackendFactory.detect()
+                val schedBackend = SchedulerBackendFactory.detect()
+                val clusterIdle = CpuIdleDetector.detectClusterIdle(cpuCores.size.coerceAtLeast(8))
+
                 val resolvedState = if (currentTcp.isNotBlank()) {
                     state.copy(network = state.network.copy(tcpCongestion = currentTcp))
                 } else state
@@ -112,6 +127,13 @@ class LynxViewModel : ViewModel() {
                         schedulerInfo = schedInfo,
                         cpuSets = cpuSets,
                         cpuIdle = cpuIdle,
+                        isCpuMasterOverride = CpuPolicyManager.isMasterOverride,
+                        activeCpuControlProfile = CpuPolicyManager.activeProfile,
+                        recoveryInfo = recoveryInfo,
+                        protectedTasks = protectedTasks,
+                        isCpusetSupported = cpusetBackend.isSupported(),
+                        schedulerBackendType = schedBackend.displayName,
+                        clusterIdleInfo = clusterIdle,
                         applistPerf = applistPerf,
                         installedApps = installedApps,
                         installedAppList = installedAppList,
@@ -2666,6 +2688,85 @@ class LynxViewModel : ViewModel() {
 
     fun clearBenchmarkResult() {
         _uiState.update { it.copy(benchmarkResult = null) }
+    }
+
+    // ----------------------------------------------------------------
+    //  Unified CPU Control Center & Recovery Engine
+    // ----------------------------------------------------------------
+
+    fun setMasterCpuControl(enabled: Boolean, context: Context) {
+        viewModelScope.launch {
+            val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
+            CpuPolicyManager.setMasterControl(enabled, totalCores, context)
+            refreshCpuControlCenterState(context)
+            refreshClusters()
+        }
+    }
+
+    fun applyCpuControlProfile(profile: CpuControlProfile, context: Context) {
+        viewModelScope.launch {
+            val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
+            CpuPolicyManager.applyProfile(profile, totalCores, context)
+            refreshCpuControlCenterState(context)
+            refreshClusters()
+        }
+    }
+
+    fun restoreLastKnownGood(context: Context) {
+        viewModelScope.launch {
+            val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
+            RecoveryManager.restoreLastKnownGood(context, totalCores)
+            refreshCpuControlCenterState(context)
+            refreshClusters()
+            _uiState.update { it.copy(successMessage = "Konfigurasi stabil sebelumnya berhasil dipulihkan.") }
+        }
+    }
+
+    fun restoreOemFactory(context: Context) {
+        viewModelScope.launch {
+            val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
+            RecoveryManager.restoreOemDefault(context, totalCores)
+            refreshCpuControlCenterState(context)
+            refreshClusters()
+            _uiState.update { it.copy(successMessage = "Seluruh setelan CPU dikembalikan ke baseline pabrik (OEM).") }
+        }
+    }
+
+    fun emergencyDisableCpuTweaks(context: Context) {
+        viewModelScope.launch {
+            val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
+            RecoveryManager.emergencyDisableAll(context, totalCores)
+            refreshCpuControlCenterState(context)
+            refreshClusters()
+            _uiState.update { it.copy(errorMessage = "EMERGENCY DISABLE: Semua kontrol CPU dikembalikan ke sistem Android.") }
+        }
+    }
+
+    fun refreshCpuControlCenterState(context: Context) {
+        viewModelScope.launch {
+            val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
+            val recoveryInfo = RecoveryManager.getRecoveryInfo(context)
+            val protectedTasks = ProtectedTaskManager.getDefaultProtectedTasks()
+            val cpusetBackend = CpuSetBackendFactory.detect()
+            val schedBackend = SchedulerBackendFactory.detect()
+            val clusterIdle = CpuIdleDetector.detectClusterIdle(totalCores)
+            val updatedCpuSets = LynxRepository.readCpuSetsInfo()
+            val updatedCpuIdle = LynxRepository.readCpuIdleInfo()
+
+            _uiState.update {
+                it.copy(
+                    isCpuMasterOverride = CpuPolicyManager.isMasterOverride,
+                    activeCpuControlProfile = CpuPolicyManager.activeProfile,
+                    recoveryInfo = recoveryInfo,
+                    protectedTasks = protectedTasks,
+                    isCpusetSupported = cpusetBackend.isSupported(),
+                    schedulerBackendType = schedBackend.displayName,
+                    clusterIdleInfo = clusterIdle,
+                    cpuSets = updatedCpuSets,
+                    cpuIdle = updatedCpuIdle
+                )
+            }
+        }
     }
 
     // ----------------------------------------------------------------

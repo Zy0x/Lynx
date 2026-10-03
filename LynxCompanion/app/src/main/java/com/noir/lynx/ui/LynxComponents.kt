@@ -5420,5 +5420,603 @@ fun CpuIdleCoreParkingCard(
     }
 }
 
+// ============================================================
+//  CPU CONTROL CENTER — MASTER ARCHITECTURE & OWNERSHIP LAYER
+// ============================================================
+
+@Composable
+fun CpuControlCenterCard(
+    isMasterOverride: Boolean,
+    activeProfile: com.noir.lynx.profiles.CpuControlProfile,
+    recoveryInfo: com.noir.lynx.engine.RecoveryInfo,
+    onToggleMasterOverride: (Boolean) -> Unit,
+    onSelectProfile: (com.noir.lynx.profiles.CpuControlProfile) -> Unit,
+    onOpenRecoveryCenter: () -> Unit,
+    onOpenProtectedTasks: () -> Unit,
+    applyOnBoot: Boolean,
+    onApplyOnBootChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LynxCard(
+        title = "CPU CONTROL CENTER",
+        icon = Icons.Default.Speed,
+        accentColor = if (isMasterOverride) AccentBlue else AccentGreen,
+        modifier = modifier
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // 1. Header Status Bar with Recovery Action
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Status Badge
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isMasterOverride) AccentBlue.copy(alpha = 0.15f) else AccentGreen.copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, if (isMasterOverride) AccentBlue.copy(alpha = 0.4f) else AccentGreen.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(if (isMasterOverride) AccentBlue else AccentGreen)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = if (isMasterOverride) "⚡ Lynx Override Aktif" else "🟢 Managed by System (OEM)",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isMasterOverride) AccentBlue else AccentGreen
+                        )
+                    }
+                }
+
+                // Quick Action: Recovery Center
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgElevated,
+                    border = BorderStroke(1.dp, BorderSubtle),
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onOpenRecoveryCenter() }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = AccentBlue,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = "Recovery",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                    }
+                }
+            }
+
+            // 2. Master Switch
+            LynxSwitch(
+                label = "Mode Kontrol CPU",
+                subLabel = if (isMasterOverride) "Lynx mengambil alih kontrol penjadwalan CPU, daya, dan performa dari OEM" else "Sistem Android/OEM sepenuhnya mengontrol penjadwalan & daya",
+                checked = isMasterOverride,
+                onCheckedChange = onToggleMasterOverride
+            )
+
+            // 3. Profiles Layer (Shown when Master Switch is ON)
+            if (isMasterOverride) {
+                HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
+
+                Text(
+                    text = "PILIH PROFIL PERFORMA",
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextTertiary,
+                    letterSpacing = 1.sp
+                )
+
+                // 4 Profile Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val pGaming = com.noir.lynx.profiles.CpuControlProfile.GAMING
+                    val isGaming = activeProfile == pGaming
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSelectProfile(pGaming) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isGaming) AccentBlue.copy(alpha = 0.15f) else BgElevated,
+                        border = BorderStroke(if (isGaming) 1.5.dp else 1.dp, if (isGaming) AccentBlue else BorderSubtle)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("⚡", fontSize = 16.sp)
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = "Gaming",
+                                fontSize = 11.sp,
+                                fontWeight = if (isGaming) FontWeight.Bold else FontWeight.SemiBold,
+                                color = if (isGaming) AccentBlue else TextPrimary
+                            )
+                        }
+                    }
+
+                    val pBalanced = com.noir.lynx.profiles.CpuControlProfile.BALANCED
+                    val isBalanced = activeProfile == pBalanced
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSelectProfile(pBalanced) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isBalanced) AccentCyan.copy(alpha = 0.15f) else BgElevated,
+                        border = BorderStroke(if (isBalanced) 1.5.dp else 1.dp, if (isBalanced) AccentCyan else BorderSubtle)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("⚖️", fontSize = 16.sp)
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = "Seimbang",
+                                fontSize = 11.sp,
+                                fontWeight = if (isBalanced) FontWeight.Bold else FontWeight.SemiBold,
+                                color = if (isBalanced) AccentCyan else TextPrimary
+                            )
+                        }
+                    }
+
+                    val pBattery = com.noir.lynx.profiles.CpuControlProfile.BATTERY
+                    val isBattery = activeProfile == pBattery
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSelectProfile(pBattery) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isBattery) AccentOrange.copy(alpha = 0.15f) else BgElevated,
+                        border = BorderStroke(if (isBattery) 1.5.dp else 1.dp, if (isBattery) AccentOrange else BorderSubtle)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("🔋", fontSize = 16.sp)
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = "Hemat",
+                                fontSize = 11.sp,
+                                fontWeight = if (isBattery) FontWeight.Bold else FontWeight.SemiBold,
+                                color = if (isBattery) AccentOrange else TextPrimary
+                            )
+                        }
+                    }
+
+                    val pCustom = com.noir.lynx.profiles.CpuControlProfile.CUSTOM
+                    val isCustom = activeProfile == pCustom
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSelectProfile(pCustom) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isCustom) AccentPurple.copy(alpha = 0.15f) else BgElevated,
+                        border = BorderStroke(if (isCustom) 1.5.dp else 1.dp, if (isCustom) AccentPurple else BorderSubtle)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("🛠️", fontSize = 16.sp)
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = "Pakar",
+                                fontSize = 11.sp,
+                                fontWeight = if (isCustom) FontWeight.Bold else FontWeight.SemiBold,
+                                color = if (isCustom) AccentPurple else TextPrimary
+                            )
+                        }
+                    }
+                }
+
+                // Description Box
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = AccentBlue,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = activeProfile.displayName,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = activeProfile.description,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                            color = TextSecondary
+                        )
+
+                        // Protected Tasks Quick Link
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { onOpenProtectedTasks() }
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = AccentOrange,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = "6 Proses Sistem Kritis Dilindungi",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = AccentOrange
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "(Lihat)",
+                                fontSize = 10.5.sp,
+                                color = TextTertiary
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
+
+            // 4. Persistence & Recovery Status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Recovery Point:",
+                    fontSize = 11.sp,
+                    color = TextTertiary
+                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle)
+                ) {
+                    Text(
+                        text = "🟢 ${recoveryInfo.lastCheckpointTime}",
+                        fontSize = 10.5.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            LynxSwitch(
+                label = "Terapkan Saat Boot",
+                subLabel = "Simpan snapshot profil aktif & jalankan health-check saat booting",
+                checked = applyOnBoot,
+                onCheckedChange = onApplyOnBootChange
+            )
+        }
+    }
+}
+
+// ============================================================
+//  RECOVERY CENTER MODAL BOTTOM SHEET
+// ============================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecoveryCenterBottomSheet(
+    recoveryInfo: com.noir.lynx.engine.RecoveryInfo,
+    onRestoreLastKnownGood: () -> Unit,
+    onRestoreOemDefault: () -> Unit,
+    onEmergencyDisable: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = BgCard,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = Color(0xFF333846)) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Header
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(AccentBlue.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = AccentBlue,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Pusat Pemulihan CPU",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "Recovery Center & Safety Layer",
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
+
+            // Checkpoint Card
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = BgElevated,
+                border = BorderStroke(1.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("STATUS CHECKPOINT", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = TextTertiary, letterSpacing = 1.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Profil Terakhir:", fontSize = 12.sp, color = TextSecondary)
+                        Text(recoveryInfo.activeProfileName, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Checkpoint Tersimpan:", fontSize = 12.sp, color = TextSecondary)
+                        Text(recoveryInfo.lastCheckpointTime, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AccentGreen)
+                    }
+                }
+            }
+
+            Text("PILIH TINDAKAN PEMULIHAN", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = TextTertiary, letterSpacing = 1.sp)
+
+            // Action 1: Last Known Good
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = BgElevated,
+                border = BorderStroke(1.dp, BorderSubtle),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable {
+                        onRestoreLastKnownGood()
+                        onDismiss()
+                    }
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(AccentGreen.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Restore, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Pulihkan Konfigurasi Terakhir", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text("Kembalikan ke checkpoint profil stabil yang terakhir tersimpan.", fontSize = 11.sp, color = TextSecondary)
+                    }
+                }
+            }
+
+            // Action 2: Restore OEM Default
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = BgElevated,
+                border = BorderStroke(1.dp, BorderSubtle),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable {
+                        onRestoreOemDefault()
+                        onDismiss()
+                    }
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(AccentBlue.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.RestartAlt, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Kembalikan ke Default Pabrik (OEM)", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text("Hapus seluruh modifikasi Lynx dan serahkan kontrol ke OEM.", fontSize = 11.sp, color = TextSecondary)
+                    }
+                }
+            }
+
+            // Action 3: Emergency Disable
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = AccentRed.copy(alpha = 0.1f),
+                border = BorderStroke(1.2.dp, AccentRed.copy(alpha = 0.5f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable {
+                        onEmergencyDisable()
+                        onDismiss()
+                    }
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(AccentRed.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = AccentRed, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Nonaktifkan Semua Tweak Darurat", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = AccentRed)
+                        Text("Matikan seluruh intervensi CPU seketika tanpa perlu reboot.", fontSize = 11.sp, color = TextSecondary)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+// ============================================================
+//  PROTECTED TASKS DIALOG
+// ============================================================
+
+@Composable
+fun ProtectedTasksDialog(
+    tasks: List<com.noir.lynx.safety.ProtectedProcess>,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BgCard,
+        shape = RoundedCornerShape(20.dp),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = AccentOrange,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text("Proses Sistem Dilindungi", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Text("Protected Tasks Guard", fontSize = 11.5.sp, color = TextSecondary)
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Proses-proses berikut diproteksi secara permanen oleh Lynx Safety Guard. Mereka tidak dapat dibatasi ke Little Core saja demi mencegah crash, lag gesture, atau freeze UI.",
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = TextSecondary
+                )
+                tasks.forEach { task ->
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(task.displayName, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (task.isLocked) AccentRed.copy(0.15f) else AccentBlue.copy(0.15f),
+                                    border = BorderStroke(0.6.dp, if (task.isLocked) AccentRed.copy(0.4f) else AccentBlue.copy(0.4f))
+                                ) {
+                                    Text(
+                                        text = if (task.isLocked) "TERKUNCI" else "PENTING",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (task.isLocked) AccentRed else AccentBlue,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(3.dp))
+                            Text(task.description, fontSize = 10.5.sp, color = TextSecondary, lineHeight = 14.sp)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Tutup", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+        }
+    )
+}
+
+
 
 
