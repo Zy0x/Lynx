@@ -288,9 +288,19 @@ Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman oper
 1. **Local-First Staging (No Unsolicited Commits)**:
    - Dilarang melakukan `git commit` atau `git push` kecuali jika pengguna secara eksplisit memberikan perintah untuk commit/push.
    - Seluruh perubahan, restrukturisasi, dan pengujian file harus dilakukan pada *local working tree*.
-2. **Pengujian Nyata via ADB**:
-   - Perangkat pengujian aktif tersedia di jaringan lokal: **Infinix X698 (MediaTek Dimensity 920, Android 14, Magisk Root)** pada alamat `192.168.1.5:5555`.
-   - Gunakan koneksi ADB ini untuk memverifikasi jalur sysfs, menguji sintaks shell di lingkungan Android nyata, dan memastikan modul berjalan sempurna.
+2. **Pengujian Nyata via ADB & Dynamic Connection Protocol**:
+   - Perangkat pengujian aktif di jaringan lokal: **Infinix X698 (MediaTek Dimensity 920, Android 14, Magisk Root)** pada port tetap **`5555`**.
+   - **Protokol Koneksi Dinamis (Anti-Stuck & Zero-Manual-Trial)**: Alamat IP perangkat bersifat dinamis karena pengguna berpindah jaringan Wi-Fi/Hotspot (namun port **SELALU 5555**).
+   - **Aturan Eksekusi Agen**:
+     - Sebelum menjalankan pengujian ADB pertama kali atau jika koneksi terputus, agen **WAJIB** menjalankan utilitas auto-discovery:
+       `.\tools\connect_device.cmd` atau `$target = powershell -ExecutionPolicy Bypass -File .\tools\connect_device.ps1 -Quiet`
+     - Perintah ini secara otomatis mendeteksi perangkat melalui 4 tingkat verifikasi bertingkat:
+       1. Verifikasi koneksi `adb devices` yang sudah aktif,
+       2. mDNS Zero-Config Discovery (`adb mdns services`),
+       3. Cache IP terakhir (`tools/.last_device_ip`),
+       4. Pemindaian paralel multi-subnet kecepatan tinggi (.NET Async Sockets, <1 detik di semua subnet lokal aktif).
+     - **Selalu Gunakan Flag Target (`-s <SERIAL>`)**: Karena host PC dapat memiliki emulator lokal (seperti `emulator-5580`), seluruh perintah adb wajib menyertakan flag serial perangkat target (contoh: `adb -s 192.168.0.162:5555 shell ...`).
+     - **Dilarang Keras**: Menebak IP secara acak, melakukan perulangan `Test-Connection` lambat, atau menyimpulkan daemon adbd mati sebelum menjalankan utilitas `connect_device`.
 3. **Lokasi Penyimpanan Berkas Pengujian & Debugging di Perangkat (Mandatory)**:
    - Setiap kali melakukan remote testing, inspeksi, atau penulisan berkas uji ke perangkat target via ADB, seluruh berkas luaran (seperti hasil screenshot `.png`, dump UI `.xml`, log tes, berkas sementara, maupun binary pengujian) **WAJIB** diletakkan terpusat di direktori:
      `/storage/emulated/0/Debug/` (atau alias `/sdcard/Debug/`).
