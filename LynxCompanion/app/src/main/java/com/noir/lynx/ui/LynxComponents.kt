@@ -5026,10 +5026,6 @@ fun CpuIdleCoreParkingCard(
         }
 
         val totalCores = cpuIdle.totalCores.coerceIn(4, 16)
-        val isBigCore = { coreId: Int ->
-            clusters.any { (it.role.contains("Big", ignoreCase = true) || it.role.contains("Prime", ignoreCase = true) || it.role.contains("Performance", ignoreCase = true)) && it.containsCore(coreId) }
-                || (clusters.isEmpty() && coreId >= 6)
-        }
 
         val activePresetKey = cpuIdle.activePreset.lowercase()
         val (badgeText, badgeColor) = when (activePresetKey) {
@@ -5121,7 +5117,7 @@ fun CpuIdleCoreParkingCard(
 
         Spacer(Modifier.height(10.dp))
 
-        // 3. Single Unified Core Sleep & Parking Map (1-Row Visualizer)
+        // 3. Status Performa & Daya (Human-Readable 2-Kolom Bebas Ambigu)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -5130,81 +5126,146 @@ fun CpuIdleCoreParkingCard(
                 .border(BorderStroke(0.8.dp, BorderSubtle), RoundedCornerShape(12.dp))
                 .padding(10.dp)
         ) {
+            val parkingModeLabel = when (cpuIdle.coreParkingMode.lowercase()) {
+                "unpark_all" -> "Semua Inti Unparked"
+                "park_big" -> "Big Core Diparkir"
+                else -> "Dinamis (OEM)"
+            }
+            val parkingModeColor = when (cpuIdle.coreParkingMode.lowercase()) {
+                "unpark_all" -> AccentCyan
+                "park_big" -> AccentOrange
+                else -> AccentBlue
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 6.dp),
+                    .padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Status Parkir & Mode Tidur Inti",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    text = "STATUS PERFORMA & DAYA",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.6.sp,
                     color = TextSecondary
                 )
-                val parkingModeLabel = when (cpuIdle.coreParkingMode.lowercase()) {
-                    "unpark_all" -> "Semua Unparked"
-                    "park_big" -> "Big Core Parked"
-                    else -> "Dinamis (OEM)"
-                }
                 Text(
                     text = parkingModeLabel,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = when (cpuIdle.coreParkingMode.lowercase()) {
-                        "unpark_all" -> AccentCyan
-                        "park_big" -> AccentOrange
-                        else -> AccentBlue
-                    }
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = parkingModeColor
                 )
             }
 
-            // 1-Row Core Chips
+            // 2-Kolom Kartu Status Informatif
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                for (coreId in 0 until totalCores) {
-                    val isBig = isBigCore(coreId)
-                    val isParked = cpuIdle.coreParkingMode == "park_big" && isBig
+                // Kolom 1: Status Inti Prosesor
+                val isBigParked = cpuIdle.coreParkingMode == "park_big"
+                val coresTitle = if (isBigParked) "${(totalCores - 2).coerceAtLeast(4)}/$totalCores Inti Berjalan" else "${cpuIdle.onlineCoresCount}/$totalCores Inti Berjalan"
+                val coresSub = when {
+                    isBigParked -> "2 Big Core ditidurkan"
+                    cpuIdle.coreParkingMode == "unpark_all" -> "Seluruh core siaga"
+                    else -> "Otomatis beban tugas"
+                }
+                val coresColor = when {
+                    isBigParked -> AccentOrange
+                    cpuIdle.coreParkingMode == "unpark_all" -> AccentCyan
+                    else -> AccentBlue
+                }
 
-                    val chipColor = when {
-                        isParked -> AccentOrange
-                        isBig -> AccentCyan
-                        else -> AccentBlue
-                    }
-                    val roleLabel = when {
-                        isParked -> "Parked"
-                        isBig -> "Unpark"
-                        else -> "Active"
-                    }
-
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        color = chipColor.copy(alpha = if (isBig && !isParked) 0.20f else 0.10f),
-                        border = BorderStroke(if (isBig) 1.2.dp else 0.8.dp, chipColor.copy(alpha = if (isBig) 0.85f else 0.4f))
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(vertical = 6.dp, horizontal = 1.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "C$coreId",
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isBig && !isParked) Color.White else chipColor
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgCard.copy(alpha = 0.7f),
+                    border = BorderStroke(0.8.dp, coresColor.copy(alpha = 0.4f))
+                ) {
+                    Column(modifier = Modifier.padding(9.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Memory,
+                                contentDescription = null,
+                                tint = coresColor,
+                                modifier = Modifier.size(13.dp)
                             )
-                            Spacer(Modifier.height(2.dp))
+                            Spacer(Modifier.width(4.dp))
                             Text(
-                                text = roleLabel,
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = chipColor,
-                                maxLines = 1
+                                text = "Inti Prosesor",
+                                fontSize = 10.sp,
+                                color = TextSecondary
                             )
                         }
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = coresTitle,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = coresSub,
+                            fontSize = 9.5.sp,
+                            color = coresColor
+                        )
+                    }
+                }
+
+                // Kolom 2: Mode Tidur Daya
+                val isZeroLatency = activePresetKey == "gaming"
+                val isDeepSleep = activePresetKey == "battery"
+                val sleepTitle = when {
+                    isZeroLatency -> "Siaga Instan (0µs)"
+                    isDeepSleep -> "Tidur Nyenyak Aktif"
+                    else -> "Tidur Adaptif"
+                }
+                val sleepSub = when {
+                    isZeroLatency -> "Deep Sleep Nonaktif"
+                    isDeepSleep -> "Hemat Daya Maksimal"
+                    else -> "Latensi Standar OEM"
+                }
+                val sleepColor = when {
+                    isZeroLatency -> AccentCyan
+                    isDeepSleep -> AccentOrange
+                    else -> AccentGreen
+                }
+
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgCard.copy(alpha = 0.7f),
+                    border = BorderStroke(0.8.dp, sleepColor.copy(alpha = 0.4f))
+                ) {
+                    Column(modifier = Modifier.padding(9.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Bedtime,
+                                contentDescription = null,
+                                tint = sleepColor,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Mode Tidur Daya",
+                                fontSize = 10.sp,
+                                color = TextSecondary
+                            )
+                        }
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = sleepTitle,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = sleepSub,
+                            fontSize = 9.5.sp,
+                            color = sleepColor
+                        )
                     }
                 }
             }
@@ -5213,16 +5274,22 @@ fun CpuIdleCoreParkingCard(
 
             // Dynamic One-Liner Status Note
             val statusNote = when (activePresetKey) {
-                "gaming" -> "⚡ Seluruh inti aktif tanpa sleep delay. Deep C-States dimatikan untuk gaming bebas micro-stutter."
-                "battery" -> "🔋 Big Core diistirahatkan (parked) dan Deep Sleep diutamakan untuk efisiensi daya maksimal."
-                "balanced" -> "⚖️ Inti diparkir dinamis sesuai beban sistem. Siklus tidur seimbang antara daya & respon."
+                "gaming" -> "⚡ Seluruh inti prosesor aktif tanpa jeda tidur. Deep C-States dimatikan agar gameplay bebas micro-stutter."
+                "battery" -> "🔋 Inti besar (Big Cores) diparkir dan seluruh level tidur CPU diaktifkan penuh untuk memangkas konsumsi baterai."
+                "balanced" -> "⚖️ Inti prosesor dan siklus tidur diatur dinamis oleh kernel untuk menjaga keseimbangan daya dan respons."
                 else -> "🛠️ Konfigurasi kustom C-States dan Core Parking sedang aktif."
+            }
+            val noteColor = when (activePresetKey) {
+                "gaming" -> AccentCyan
+                "battery" -> AccentOrange
+                "balanced" -> AccentBlue
+                else -> AccentPurple
             }
             Text(
                 text = statusNote,
-                fontSize = 11.sp,
+                fontSize = 10.5.sp,
                 lineHeight = 15.sp,
-                color = TextSecondary
+                color = noteColor.copy(alpha = 0.9f)
             )
         }
 
@@ -5254,7 +5321,7 @@ fun CpuIdleCoreParkingCard(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Kontrol Lanjutan & C-States Individual",
+                        text = "Kustomisasi Tingkat Tidur Daya (C-States)",
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (showAdvancedControls) AccentCyan else TextPrimary
@@ -5276,10 +5343,37 @@ fun CpuIdleCoreParkingCard(
                     .padding(top = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Info Banner: Edukasi Bebas Ambigu
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AccentBlue.copy(alpha = 0.10f),
+                    border = BorderStroke(0.8.dp, AccentBlue.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = AccentBlue,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Level tidur (C-States) berlaku untuk seluruh CPU saat menganggur, bukan nomor ID inti prosesor.",
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp,
+                            color = AccentBlue
+                        )
+                    }
+                }
+
                 // A. Core Parking Policy (Hotplug Selector)
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "Kebijakan Core Parking (Hotplug)",
+                        text = "Kebijakan Hotplug Inti (Core Parking)",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextSecondary,
@@ -5317,11 +5411,11 @@ fun CpuIdleCoreParkingCard(
                     }
                 }
 
-                // B. Individual C-States List
+                // B. Individual C-States List (Level 0..Level 4)
                 if (cpuIdle.states.isNotEmpty()) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "State C-States Terdeteksi (/sys/cpuidle)",
+                            text = "Tingkat Kedalaman Tidur Daya (/sys/cpuidle)",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TextSecondary,
@@ -5330,6 +5424,25 @@ fun CpuIdleCoreParkingCard(
                         cpuIdle.states.forEach { state ->
                             val isLockedWfi = state.index == 0
                             val isOff = state.isDisabled
+                            val levelColor = when (state.index) {
+                                0 -> AccentCyan
+                                1 -> AccentBlue
+                                2 -> AccentOrange
+                                else -> AccentRed
+                            }
+                            val humanTitle = when (state.index) {
+                                0 -> "Siaga Ringan (${state.name.ifBlank { "WFI" }})"
+                                1 -> "Tidur Inti Tunggal (${state.name.ifBlank { "cpuoff" }})"
+                                2 -> "Tidur Klaster (${state.name.ifBlank { "clusteroff" }})"
+                                else -> "Tidur Nyenyak Sistem (${state.name.ifBlank { "deep" }})"
+                            }
+                            val humanDesc = when (state.index) {
+                                0 -> "Menunggu instruksi tugas berikutnya"
+                                1 -> "Mematikan clock inti yang kosong"
+                                2 -> "Mematikan daya seluruh klaster Little/Big"
+                                else -> "Mematikan subsistem daya MCUSYS"
+                            }
+
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
                                 color = BgElevated.copy(alpha = 0.6f),
@@ -5347,14 +5460,14 @@ fun CpuIdleCoreParkingCard(
                                     ) {
                                         Surface(
                                             shape = RoundedCornerShape(5.dp),
-                                            color = if (isOff) AccentRed.copy(alpha = 0.15f) else AccentCyan.copy(alpha = 0.15f),
-                                            border = BorderStroke(0.8.dp, if (isOff) AccentRed.copy(alpha = 0.4f) else AccentCyan.copy(alpha = 0.4f))
+                                            color = if (isOff) AccentRed.copy(alpha = 0.15f) else levelColor.copy(alpha = 0.15f),
+                                            border = BorderStroke(0.8.dp, if (isOff) AccentRed.copy(alpha = 0.4f) else levelColor.copy(alpha = 0.4f))
                                         ) {
                                             Text(
-                                                text = "C${state.index}",
-                                                fontSize = 10.sp,
+                                                text = "Level ${state.index}",
+                                                fontSize = 9.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = if (isOff) AccentRed else AccentCyan,
+                                                color = if (isOff) AccentRed else levelColor,
                                                 modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                             )
                                         }
@@ -5362,28 +5475,26 @@ fun CpuIdleCoreParkingCard(
                                         Column {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Text(
-                                                    text = state.name.ifBlank { "State ${state.index}" },
-                                                    fontSize = 11.5.sp,
+                                                    text = humanTitle,
+                                                    fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = if (isOff) TextTertiary else TextPrimary
                                                 )
                                                 Spacer(Modifier.width(6.dp))
                                                 Text(
-                                                    text = "${state.latencyUs}µs latensi",
+                                                    text = "${state.latencyUs}µs",
                                                     fontSize = 9.sp,
                                                     color = if (state.latencyUs > 500) AccentOrange else AccentGreen,
                                                     fontWeight = FontWeight.Medium
                                                 )
                                             }
-                                            if (state.desc.isNotBlank()) {
-                                                Text(
-                                                    text = state.desc,
-                                                    fontSize = 9.sp,
-                                                    color = TextTertiary,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
+                                            Text(
+                                                text = humanDesc,
+                                                fontSize = 9.sp,
+                                                color = TextTertiary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
                                         }
                                     }
 
