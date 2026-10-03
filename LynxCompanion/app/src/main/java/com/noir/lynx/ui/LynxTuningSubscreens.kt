@@ -657,13 +657,6 @@ fun TuningCpuCategory(
         }
 
         // ── Per-Section Modification Flags (For Conditional Compact Reset Button) ──
-        val isClusterModified = uiState.clusters.any { cluster ->
-            val defaultMin = cluster.availFreqs.firstOrNull() ?: cluster.curMin
-            val defaultMax = cluster.availFreqs.lastOrNull() ?: cluster.curMax
-            val defaultGov = if (cluster.availGovs.contains("schedutil")) "schedutil" else cluster.availGovs.firstOrNull() ?: "schedutil"
-            cluster.isLocked || cluster.curGov != defaultGov || cluster.curMin != defaultMin || cluster.curMax != defaultMax
-        } || (uiState.activeGovernorPreset.isNotBlank() && uiState.activeGovernorPreset != "balanced")
-
         val isCpuSetsModified = uiState.cpuSets.activePreset != "standard" || uiState.cpuSets.applyOnBoot
 
         val isCpuIdleModified = uiState.cpuIdle.activePreset != "balanced" ||
@@ -682,9 +675,7 @@ fun TuningCpuCategory(
             onTunableChange = { policyId, gov, key, value -> viewModel.setGovernorTunable(policyId, gov, key, value) },
             activeGovernorPreset = uiState.activeGovernorPreset,
             onApplyGovernorPreset = { preset -> viewModel.applyGovernorPreset(preset) },
-            onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) },
-            onResetToOem = { pendingResetSection = "cluster" to "Frekuensi & Governor" },
-            isModified = isClusterModified
+            onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) }
         )
 
         // ── CPU Sets & Task Affinity Isolation (Task Shield) ────────────
