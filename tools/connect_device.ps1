@@ -8,16 +8,21 @@
     1. Already connected device check in `adb devices`
     2. mDNS Zero-Config Discovery via `adb mdns services`
     3. Cached last-known IP probe (.last_device_ip)
-    4. Sub-second parallel subnet scanner across all active local network interfaces (Wi-Fi, Ethernet, Hotspot)
+    4. Sub-second parallel subnet scanner across all 192.168.X.XXX subnets
+       (Wi-Fi, Ethernet, Hotspot, and common router subnets)
 
-.PARAMETER Ip
-    Optional manual IP address to connect directly.
+.PARAMETER Target
+    Optional manual IP (e.g. 192.168.0.162), subnet pattern (e.g. 192.168.43.x, 192.168.43, 43),
+    or 'all' for wide multi-subnet scan.
 
 .PARAMETER Port
     Target ADB TCP port (defaults to 5555).
 
 .PARAMETER ForceScan
-    Bypass cache and force a complete subnet discovery scan.
+    Bypass cache and force an active network scan.
+
+.PARAMETER DeepScan
+    Scans all common 192.168.X subnets simultaneously in addition to local adapter subnets.
 
 .PARAMETER Quiet
     Suppress banner and output only the device serial string (e.g. 192.168.0.162:5555).
@@ -26,15 +31,29 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [string]$Ip,
+    [string]$Target,
     [int]$Port = 5555,
     [switch]$ForceScan,
+    [switch]$DeepScan,
     [switch]$Quiet
 )
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $CacheFile = Join-Path $ScriptDir ".last_device_ip"
+
+# Pool of most common 192.168.X router and Android hotspot subnets
+$Common192Subnets = @(
+    "192.168.0",    # TP-Link, D-Link, Tenda, Netgear
+    "192.168.1",    # Indihome, Telkom, ZTE, Huawei, Linksys, Asus
+    "192.168.43",   # Android Wi-Fi Hotspot / Tethering default
+    "192.168.2",    # Secondary LAN / Mesh Nodes
+    "192.168.8",    # Huawei 4G/5G CPE & Portable Routers
+    "192.168.100",  # Huawei GPON / Fiberhome default
+    "192.168.18",   # Fiberhome ONT
+    "192.168.31",   # Xiaomi / Redmi Routers
+    "192.168.137"   # Windows Mobile Hotspot default
+)
 
 function Write-Info([string]$msg) {
     if (-not $Quiet) {
@@ -112,27 +131,53 @@ if (-not $Quiet) {
 }
 
 # -------------------------------------------------------------------------
-# TIER 0: Manual IP provided by user
+# TIER 0: Parse User Input / Manual Specification
 # -------------------------------------------------------------------------
-if ($Ip) {
-    $serial = "$Ip" + ":" + "$Port"
-    Write-Info "Connecting to explicitly specified IP: $serial..."
-    & adb.exe connect $serial | Out-Null
-    $test = Test-AdbDevice $serial
-    if ($test.Success) {
-        Save-Cache $Ip
-        Write-Success "Connected to $serial ($($test.Model), Platform: $($test.Platform))"
-        if ($Quiet) { Write-Output $serial }
-        exit 0
-    } else {
-        Write-Warn "Device at $serial did not respond to ADB shell."
+$manualSubnetMode = $false
+$targetSubnets = @()
+
+if ($Target) {
+    $cleanTarget = $Target.Trim()
+    
+    # Format A: Full IP address (e.g. 192.168.0.162)
+    if ($cleanTarget -match "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$") {
+        $serial = "$cleanTarget" + ":" + "$Port"
+        Write-Info "Connecting to explicitly specified IP: $serial..."
+        & adb.exe connect $serial | Out-Null
+        $test = Test-AdbDevice $serial
+        if ($test.Success) {
+            Save-Cache $cleanTarget
+            Write-Success "Connected to $serial ($($test.Model), Platform: $($test.Platform))"
+            if ($Quiet) { Write-Output $serial }
+            exit 0
+        } else {
+            Write-Warn "Device at $serial did not respond to ADB shell."
+        }
+    }
+    # Format B: Subnet pattern (e.g. 192.168.43.x, 192.168.43.*, 192.168.43)
+    elseif ($cleanTarget -match "^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})(\.[xX\*])?$") {
+        $targetSubnets = @($matches[1])
+        $manualSubnetMode = $true
+        Write-Info "Scanning user-specified subnet: $($targetSubnets[0]).1-254 (Port $Port)..."
+    }
+    # Format C: Subnet octet number only (e.g. 43, 0, 1, 100)
+    elseif ($cleanTarget -match "^[0-9]{1,3}$") {
+        $targetSubnets = @("192.168.$cleanTarget")
+        $manualSubnetMode = $true
+        Write-Info "Scanning 192.168.$cleanTarget.1-254 (Port $Port)..."
+    }
+    # Format D: All 192.168.X subnets ('all' or '192.168.*' or '192.168.x')
+    elseif ($cleanTarget -in @("all", "*") -or $cleanTarget -match "^192\.168(\.[xX\*])?$") {
+        $DeepScan = $true
+        $ForceScan = $true
+        Write-Info "Requested full wide-range 192.168.X scan across all common subnets..."
     }
 }
 
 # -------------------------------------------------------------------------
 # TIER 1: Check existing devices already in `adb devices`
 # -------------------------------------------------------------------------
-if (-not $ForceScan) {
+if (-not $ForceScan -and -not $manualSubnetMode) {
     Write-Info "Checking currently connected ADB devices..."
     $devicesOutput = & adb.exe devices 2>$null
     $candidates = @()
@@ -161,49 +206,50 @@ if (-not $ForceScan) {
 # -------------------------------------------------------------------------
 # TIER 2: mDNS Zero-Config Discovery (adb mdns services)
 # -------------------------------------------------------------------------
-Write-Info "Probing mDNS services for Android Wireless ADB..."
-try {
-    $mdnsOutput = & adb.exe mdns services 2>$null
-    $mdnsTargets = @()
-    $regexPattern = "([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):" + $Port
-    foreach ($line in ($mdnsOutput -split "`r?`n")) {
-        if ($line -match $regexPattern) {
-            $mdnsIp = $matches[1]
-            $instance = ($line -split "\s+")[0]
-            $mdnsTargets += [PSCustomObject]@{
-                Ip       = $mdnsIp
-                Serial   = "$mdnsIp" + ":" + "$Port"
-                Instance = $instance
+if (-not $manualSubnetMode) {
+    Write-Info "Probing mDNS services for Android Wireless ADB..."
+    try {
+        $mdnsOutput = & adb.exe mdns services 2>$null
+        $mdnsTargets = @()
+        $regexPattern = "([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):" + $Port
+        foreach ($line in ($mdnsOutput -split "`r?`n")) {
+            if ($line -match $regexPattern) {
+                $mdnsIp = $matches[1]
+                $instance = ($line -split "\s+")[0]
+                $mdnsTargets += [PSCustomObject]@{
+                    Ip       = $mdnsIp
+                    Serial   = "$mdnsIp" + ":" + "$Port"
+                    Instance = $instance
+                }
             }
         }
-    }
 
-    if ($mdnsTargets.Count -gt 0) {
-        # Prioritize matching Infinix or X698
-        $mdnsTargets = $mdnsTargets | Sort-Object { if ($_.Instance -match "X698|Infinix") { 0 } else { 1 } }
+        if ($mdnsTargets.Count -gt 0) {
+            $mdnsTargets = $mdnsTargets | Sort-Object { if ($_.Instance -match "X698|Infinix") { 0 } else { 1 } }
 
-        foreach ($target in $mdnsTargets) {
-            Write-Info "Discovered via mDNS: $($target.Serial) ($($target.Instance)). Connecting..."
-            & adb.exe connect $target.Serial | Out-Null
-            $test = Test-AdbDevice $target.Serial
-            if ($test.Success) {
-                Save-Cache $target.Ip
-                Write-Success "Connected via mDNS: $($target.Serial) ($($test.Model), Platform: $($test.Platform))"
-                if ($Quiet) { Write-Output $target.Serial }
-                exit 0
+            foreach ($t in $mdnsTargets) {
+                Write-Info "Discovered via mDNS: $($t.Serial) ($($t.Instance)). Connecting..."
+                & adb.exe connect $t.Serial | Out-Null
+                $test = Test-AdbDevice $t.Serial
+                if ($test.Success) {
+                    Save-Cache $t.Ip
+                    Write-Success "Connected via mDNS: $($t.Serial) ($($test.Model), Platform: $($test.Platform))"
+                    if ($Quiet) { Write-Output $t.Serial }
+                    exit 0
+                }
             }
+        } else {
+            Write-Info "No active mDNS services found for port $Port."
         }
-    } else {
-        Write-Info "No active mDNS services found for port $Port."
+    } catch {
+        Write-Warn "mDNS discovery check encountered an issue."
     }
-} catch {
-    Write-Warn "mDNS discovery check encountered an issue."
 }
 
 # -------------------------------------------------------------------------
 # TIER 3: Cached Last Known IP Check (.last_device_ip)
 # -------------------------------------------------------------------------
-if (-not $ForceScan -and (Test-Path $CacheFile)) {
+if (-not $ForceScan -and -not $manualSubnetMode -and (Test-Path $CacheFile)) {
     $cachedIp = (Get-Content $CacheFile -Raw).Trim()
     if ($cachedIp -match "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$") {
         Write-Info "Probing last known working IP from cache: $cachedIp`:$Port..."
@@ -225,34 +271,41 @@ if (-not $ForceScan -and (Test-Path $CacheFile)) {
 # -------------------------------------------------------------------------
 # TIER 4: Fast Parallel Subnet Auto-Discovery (C# .NET Async Sockets)
 # -------------------------------------------------------------------------
-Write-Info "Scanning active local network subnets for port $Port in parallel..."
 
-# Discover active IPv4 physical interfaces (Wi-Fi, Ethernet, Hotspot)
-$adapters = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { 
-    $_.InterfaceAlias -notlike "*Loopback*" -and 
-    $_.IPAddress -notlike "169.254*" -and 
-    $_.IPAddress -notlike "127.*" -and
-    $_.IPAddress -notlike "172.1[6-9].*" -and
-    $_.IPAddress -notlike "172.2[0-9].*" -and
-    $_.IPAddress -notlike "172.3[0-1].*"
-}
+# Determine subnets to scan
+if ($targetSubnets.Count -eq 0) {
+    # Auto-detect all active IPv4 interfaces on host (Ethernet, Wi-Fi, Hotspot)
+    $adapters = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { 
+        $_.InterfaceAlias -notlike "*Loopback*" -and 
+        $_.IPAddress -notlike "169.254*" -and 
+        $_.IPAddress -notlike "127.*" -and
+        $_.IPAddress -notlike "172.1[6-9].*" -and
+        $_.IPAddress -notlike "172.2[0-9].*" -and
+        $_.IPAddress -notlike "172.3[0-1].*"
+    }
 
-$subnets = @()
-foreach ($adapter in $adapters) {
-    $parts = $adapter.IPAddress.Split('.')
-    if ($parts.Length -eq 4) {
-        $subnets += "$($parts[0]).$($parts[1]).$($parts[2])"
+    $detectedSubnets = @()
+    foreach ($adapter in $adapters) {
+        $parts = $adapter.IPAddress.Split('.')
+        if ($parts.Length -eq 4) {
+            $detectedSubnets += "$($parts[0]).$($parts[1]).$($parts[2])"
+        }
+    }
+    
+    # Priority subnets = detected from active PC adapters
+    $primarySubnets = $detectedSubnets | Sort-Object -Unique
+
+    if ($DeepScan -or $primarySubnets.Count -eq 0) {
+        # Combine adapter subnets with common 192.168.X pool
+        $targetSubnets = ($primarySubnets + $Common192Subnets) | Sort-Object -Unique
+    } else {
+        $targetSubnets = $primarySubnets
     }
 }
-$uniqueSubnets = $subnets | Sort-Object -Unique
 
-if ($uniqueSubnets.Count -eq 0) {
-    $uniqueSubnets = @("192.168.0", "192.168.1", "192.168.43")
-}
+Write-Info "Scanning subnet(s): $($targetSubnets -join ', ') (Port $Port)..."
 
-Write-Info "Scanning subnets: $($uniqueSubnets -join ', ') (Port $Port)..."
-
-# Inline C# multi-threaded socket scanner (completes 500+ IPs in <600ms)
+# Inline C# multi-threaded socket scanner (completes 2000+ IPs in <500ms)
 $csharpType = "AdbFastSubnetScanner"
 if (-not ([System.Management.Automation.PSTypeName]$csharpType).Type) {
     $csharpCode = @'
@@ -291,10 +344,21 @@ if (-not ([System.Management.Automation.PSTypeName]$csharpType).Type) {
     Add-Type -TypeDefinition $csharpCode -Language CSharp -ErrorAction SilentlyContinue
 }
 
-$scanTimeout = 450
+$scanTimeout = 400
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-$discoveredIps = [AdbFastSubnetScanner]::Scan($uniqueSubnets, $Port, $scanTimeout)
+$discoveredIps = [AdbFastSubnetScanner]::Scan($targetSubnets, $Port, $scanTimeout)
 $sw.Stop()
+
+# If not found in primary adapters and we haven't tried DeepScan yet, do a quick fallback on common subnets
+if ($discoveredIps.Count -eq 0 -and -not $DeepScan -and -not $manualSubnetMode) {
+    Write-Info "Not found on primary adapter subnet. Expanding search to common 192.168.X subnets..."
+    $fallbackSubnets = ($Common192Subnets | Where-Object { $_ -notin $targetSubnets })
+    if ($fallbackSubnets.Count -gt 0) {
+        $sw.Restart()
+        $discoveredIps = [AdbFastSubnetScanner]::Scan($fallbackSubnets, $Port, $scanTimeout)
+        $sw.Stop()
+    }
+}
 
 $foundDesc = "None"
 if ($discoveredIps.Count -gt 0) { $foundDesc = $discoveredIps -join ', ' }
@@ -330,8 +394,9 @@ Write-Host "       su"
 Write-Host "       setprop service.adb.tcp.port 5555"
 Write-Host "       stop adbd && start adbd"
 Write-Host "   - Atau via Pengaturan Android -> Opsi Pengembang -> Aktifkan Debug Nirkabel."
-Write-Host "3. Hubungkan manual dengan memberikan IP:"
-Write-Host "   .\tools\connect_device.ps1 <IP_PONSEL>" -ForegroundColor Cyan
+Write-Host "3. Coba lakukan DeepScan mencakup seluruh rentang 192.168.X:"
+Write-Host "   .\tools\connect_device.cmd all" -ForegroundColor Cyan
+Write-Host "   .\tools\connect_device.cmd -DeepScan" -ForegroundColor Cyan
 Write-Host ""
 
 exit 1
