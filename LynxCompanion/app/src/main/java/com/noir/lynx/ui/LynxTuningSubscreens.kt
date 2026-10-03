@@ -203,9 +203,9 @@ fun TuningCpuCategory(
                                 val allCores = uiState.cpuCores
                                 (0..7).forEach { idx ->
                                     val core = allCores.getOrNull(idx)
-                                    val isOnline = core?.isOnline ?: true
+                                    val isOnline = core?.isOnline ?: false
                                     val load = (core?.loadPercent ?: 0).coerceIn(0, 100)
-                                    val targetH = if (!isOnline) {
+                                    val targetH = if (core == null || !isOnline) {
                                         2.dp
                                     } else {
                                         (4f + (load / 100f) * 22f).dp
@@ -221,7 +221,7 @@ fun TuningCpuCategory(
                                             .height(animatedHeight)
                                             .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp, bottomStart = 1.dp, bottomEnd = 1.dp))
                                             .background(
-                                                if (!isOnline) Color(0xFF33353E)
+                                                if (core == null || !isOnline) Color(0xFF33353E)
                                                 else Color(0xFF2979FF)
                                             )
                                     )
@@ -415,7 +415,7 @@ fun TuningCpuCategory(
                         ) {
                             quad.forEach { core ->
                                 val parentCluster = uiState.clusters.find { it.containsCore(core.coreId) }
-                                val isPerfCore = (parentCluster?.id ?: if (core.coreId >= 6) 1 else 0) > 0
+                                val isPerfCore = parentCluster?.let { it.role.contains("Big", true) || it.role.contains("Perf", true) || it.id > 0 } ?: (core.coreId >= 6)
                                 val coreAccent = if (!core.isOnline) Color(0xFF555866) else if (isPerfCore) Color(0xFFFF9100) else Color(0xFF2979FF)
                                 val load = core.loadPercent.coerceIn(0, 100)
 
@@ -648,6 +648,12 @@ fun TuningCpuCategory(
         }
 
         // ── Per-Section Modification Flags (For Conditional Compact Reset Button) ──
+        val isClusterModified = uiState.clusters.any { cluster ->
+            val minAvail = cluster.availFreqs.firstOrNull() ?: cluster.curMin
+            val maxAvail = cluster.availFreqs.lastOrNull() ?: cluster.curMax
+            cluster.isLocked || cluster.curMin != minAvail || cluster.curMax != maxAvail || (cluster.availGovs.contains("schedutil") && cluster.curGov != "schedutil")
+        }
+
         val isCpuSetsModified = uiState.cpuSets.activePreset != "standard" || uiState.cpuSets.applyOnBoot
 
         val isCpuIdleModified = uiState.cpuIdle.activePreset != "balanced" ||
@@ -666,7 +672,9 @@ fun TuningCpuCategory(
             onTunableChange = { policyId, gov, key, value -> viewModel.setGovernorTunable(policyId, gov, key, value) },
             activeGovernorPreset = uiState.activeGovernorPreset,
             onApplyGovernorPreset = { policyId, preset -> viewModel.applyGovernorPreset(preset, policyId) },
-            onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) }
+            onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) },
+            onResetToOem = { pendingResetSection = "cluster" to "Dynamic CPU Clusters & Governors" },
+            isModified = isClusterModified
         )
 
         // ── CPU Sets & Task Affinity Isolation (Task Shield) ────────────
@@ -810,11 +818,11 @@ fun TuningCpuCategory(
             // ── 2. Arsitektur Mesin Inti (Compact Segmented Engine Selector) ──
             if (schedInfo.isModeSwitchSupported) {
                 val modes = mutableListOf(
-                    Triple("eas", "⚡ EAS", AccentCyan),
-                    Triple("hmp", "🏛️ HMP", AccentOrange)
+                    Triple("eas", "EAS", AccentCyan),
+                    Triple("hmp", "HMP", AccentOrange)
                 )
                 if (schedInfo.isHybridSupported) {
-                    modes.add(Triple("hybrid", "🔀 Hybrid", AccentPurple))
+                    modes.add(Triple("hybrid", "Hybrid", AccentPurple))
                 }
 
                 Surface(
@@ -995,7 +1003,7 @@ fun TuningCpuCategory(
                                 viewModel.setSchedulerTunable("down_rate_limit_us", v.toLong(), context)
                             }
                         ),
-                        liveStatus = if (schedUpRate == 0f) "Status: 🚀 Mode Instan (Performa Maksimum)" else if (schedUpRate >= 1500f) "Status: 🔋 Mode Efisiensi (Hemat Daya)" else "Status: ⚖️ Mode Seimbang (Rekomendasi)",
+                        liveStatus = if (schedUpRate == 0f) "Status: Mode Instan (Performa Maksimum)" else if (schedUpRate >= 1500f) "Status: Mode Efisiensi (Hemat Daya)" else "Status: Mode Seimbang (Rekomendasi)",
                         liveStatusSafe = true,
                         onResetAll = {
                             schedUpRate = 500f
@@ -1049,7 +1057,7 @@ fun TuningCpuCategory(
                                     viewModel.setSchedulerTunable("uclamp_max", v.toLong(), context)
                                 }
                             ),
-                            liveStatus = if (uclampMinVal >= 512f) "Status: ⚡ Prioritas Tinggi (Anti-Delay Aktif)" else if (uclampMinVal > 0f) "Status: ⚖️ Dorongan Halus (Seimbang)" else "Status: 🛡️ Bawaan Kernel (EAS Standar)",
+                            liveStatus = if (uclampMinVal >= 512f) "Status: Prioritas Tinggi (Anti-Delay Aktif)" else if (uclampMinVal > 0f) "Status: Dorongan Halus (Seimbang)" else "Status: Bawaan Kernel (EAS Standar)",
                             liveStatusSafe = true,
                             onResetAll = {
                                 uclampMinVal = 0f
@@ -1108,7 +1116,7 @@ fun TuningCpuCategory(
                                     viewModel.setSchedulerHysteresis(upmigrateVal.toInt(), downmigrateVal.toInt(), context)
                                 }
                             ),
-                            liveStatus = "Buffer Histeresis: +$hystBuffer% (${if (isBufferSafe) "Aman / Bebas Stutter" else "Terlalu Sempit"}) • ${if (upmigrateVal <= 70f) "⚡ Agresif" else if (upmigrateVal >= 90f) "🔋 Hemat" else "⚖️ Seimbang"}",
+                            liveStatus = "Buffer Histeresis: +$hystBuffer% (${if (isBufferSafe) "Aman / Bebas Stutter" else "Terlalu Sempit"}) • ${if (upmigrateVal <= 70f) "Agresif" else if (upmigrateVal >= 90f) "Hemat" else "Seimbang"}",
                             liveStatusSafe = isBufferSafe,
                             onResetAll = {
                                 upmigrateVal = 85f
@@ -1472,7 +1480,7 @@ fun TuningCpuCategory(
                                     steps = 18,
                                     formatDisplay = { v -> "${v.toInt()}%" },
                                     guideNote = "• Gaming/Berat: 60% (Start langsung di Big Core)\n• Seimbang: 35% (Standar Android)\n• Ringan/Hemat: 15% (Start di Little Core)",
-                                    statusInfo = if (initTaskLoadVal >= 50f) "🚀 Start Big Core" else "⚖️ Standar Little Core",
+                                    statusInfo = if (initTaskLoadVal >= 50f) "Start Big Core" else "Standar Little Core",
                                     onApply = { v ->
                                         initTaskLoadVal = v
                                         viewModel.setSchedulerTunable("sched_init_task_load", v.toLong(), context)

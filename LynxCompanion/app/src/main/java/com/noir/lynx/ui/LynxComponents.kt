@@ -2471,7 +2471,10 @@ fun CpuClusterTunerCard(
     LynxCard(
         title = "Dynamic CPU Clusters & Governors",
         icon = Icons.Default.Tune,
-        accentColor = AccentCyan
+        accentColor = AccentCyan,
+        action = if (isModified && onResetToOem != null) {
+            { ResetHeaderButton(onClick = onResetToOem) }
+        } else null
     ) {
         if (clusters.isEmpty()) {
             Text(
@@ -2552,7 +2555,7 @@ fun CpuClusterTunerCard(
                                     shape = RoundedCornerShape(10.dp),
                                     color = Color(0xFF10121A),
                                     border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.25f)),
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -2587,7 +2590,7 @@ fun CpuClusterTunerCard(
                                     shape = RoundedCornerShape(10.dp),
                                     color = Color(0xFF10121A),
                                     border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.25f)),
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -2629,7 +2632,7 @@ fun CpuClusterTunerCard(
                                     shape = RoundedCornerShape(10.dp),
                                     color = lockBg,
                                     border = BorderStroke(1.dp, lockBorder),
-                                    modifier = Modifier.size(46.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
                                     Box(
                                         contentAlignment = Alignment.Center,
@@ -2659,7 +2662,7 @@ fun CpuClusterTunerCard(
                                     shape = RoundedCornerShape(10.dp),
                                     color = Color(0xFF10121A),
                                     border = BorderStroke(1.dp, BorderSubtle),
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -2705,7 +2708,8 @@ fun CpuClusterTunerCard(
                                     },
                                     shape = RoundedCornerShape(10.dp),
                                     color = clusterAccent.copy(alpha = 0.12f),
-                                    border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.3f))
+                                    border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.3f)),
+                                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
@@ -2742,9 +2746,11 @@ fun CpuClusterTunerCard(
         val clusterAccent = if (targetCluster.id > 0) AccentOrange else AccentCyan
         val freqs = targetCluster.availFreqs.sorted()
         val curFreq = if (isMinPicker) targetCluster.curMin else targetCluster.curMax
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
         ModalBottomSheet(
             onDismissRequest = { freqPickerTarget = null },
+            sheetState = sheetState,
             containerColor = Color(0xFA0D1017),
             scrimColor = Color.Black.copy(alpha = 0.65f),
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
@@ -2761,6 +2767,7 @@ fun CpuClusterTunerCard(
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
                     .padding(bottom = 32.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -2799,10 +2806,7 @@ fun CpuClusterTunerCard(
 
                 // Stepped frequencies grid (2 columns)
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 380.dp)
-                        .verticalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     freqs.chunked(2).forEach { rowFreqs ->
@@ -2812,7 +2816,7 @@ fun CpuClusterTunerCard(
                         ) {
                             rowFreqs.forEach { f ->
                                 val mhz = (f / 1000).toInt()
-                                val isSelected = f == curFreq || (f / 1000) == (curFreq / 1000) || Math.abs(f - curFreq) < 5000
+                                val isSelected = f == curFreq || (curFreq > 0 && f / 1000 == curFreq / 1000)
                                 val isAutoAdjust = if (isMinPicker) f > targetCluster.curMax else f < targetCluster.curMin
 
                                 Surface(
@@ -2840,7 +2844,7 @@ fun CpuClusterTunerCard(
                                             else -> BorderGlass
                                         }
                                     ),
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -2902,9 +2906,11 @@ fun CpuClusterTunerCard(
     if (govPickerTarget != null) {
         val targetCluster = govPickerTarget!!
         val clusterAccent = if (targetCluster.id > 0) AccentOrange else AccentCyan
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
         ModalBottomSheet(
             onDismissRequest = { govPickerTarget = null },
+            sheetState = sheetState,
             containerColor = Color(0xFA0D1017),
             scrimColor = Color.Black.copy(alpha = 0.65f),
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
@@ -2921,6 +2927,7 @@ fun CpuClusterTunerCard(
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
                     .padding(bottom = 32.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -2958,10 +2965,7 @@ fun CpuClusterTunerCard(
                 HorizontalDivider(color = BorderGlass.copy(alpha = 0.5f), modifier = Modifier.padding(bottom = 12.dp))
 
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 380.dp)
-                        .verticalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     targetCluster.availGovs.forEach { gov ->
@@ -2984,7 +2988,7 @@ fun CpuClusterTunerCard(
                             shape = RoundedCornerShape(12.dp),
                             color = if (isSelected) clusterAccent.copy(alpha = 0.2f) else Color(0xFF141722),
                             border = BorderStroke(1.dp, if (isSelected) clusterAccent else BorderGlass),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
@@ -5428,9 +5432,14 @@ fun CpuIdleCoreParkingCard(
 
             // Panel Telemetri Terpadu 2-Kolom (Read-Only Display)
             val isBigParked = cpuIdle.coreParkingMode == "park_big"
-            val coresTitle = if (isBigParked) "${(totalCores - 2).coerceAtLeast(4)}/$totalCores Inti Berjalan" else "${cpuIdle.onlineCoresCount}/$totalCores Inti Berjalan"
+            val isBigCore = { coreId: Int ->
+                clusters.any { (it.role.contains("Big", ignoreCase = true) || it.role.contains("Prime", ignoreCase = true) || it.role.contains("Performance", ignoreCase = true) || it.id > 0) && it.containsCore(coreId) }
+                    || (clusters.isEmpty() && coreId >= 6)
+            }
+            val bigCoreCount = (0 until totalCores).count { isBigCore(it) }.coerceAtLeast(1)
+            val coresTitle = if (isBigParked) "${(totalCores - bigCoreCount).coerceAtLeast(1)}/$totalCores Inti Berjalan" else "${cpuIdle.onlineCoresCount}/$totalCores Inti Berjalan"
             val coresSub = when {
-                isBigParked -> "2 Big Core ditidurkan"
+                isBigParked -> "$bigCoreCount Big Core ditidurkan"
                 cpuIdle.coreParkingMode == "unpark_all" -> "Seluruh core siaga"
                 else -> "Otomatis beban tugas"
             }

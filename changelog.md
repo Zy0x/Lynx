@@ -1,3 +1,26 @@
+# Lynx [Codename: Deity] 3.0.17
+Released on: 2026-10-04
+> **Versi ini** menuntaskan **Audit & Polish Komprehensif CPU Tuning & Sheet Interaction** — mengoptimalkan lembar bawah pemilih frekuensi (*Frequency Picker*) dan governor (*Governor Picker*) agar langsung terbuka penuh tanpa terpotong (*skipPartiallyExpanded*), memperbaiki logika seleksi frekuensi presisi (eliminasi centang ganda), memperbesar seluruh target sentuh minimal 48dp (mematuhi Rule 1), membersihkan emoji/AI slop pada subkategori CPU & Scheduler, menyematkan aksi Reset to OEM pada kluster CPU, serta meningkatkan ketahanan telemetri CPU Core Spectrum dan dynamic Big-core detection.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.17)
+
+### 1. 📱 Lembar Bawah Pemilih Frekuensi & Governor Lebih Mulus (Fluid Modal Bottom Sheets)
+- **Ekspansi Penuh Seketika (`skipPartiallyExpanded = true`)**: Mengatasi masalah bawaan Material 3 di mana lembar pemilih frekuensi dan governor kerap terpotong di ketinggian 50% layar saat pertama kali dibuka.
+- **Eliminasi Nested Scroll Terjepit**: Menghapus batas `heightIn(max = 380.dp)` dan menyatukan seluruh daftar item ke dalam single-level fluid vertical scroll.
+- **Seleksi Presisi 1-Item (Anti-Duplicate Checkmarks)**: Menggantikan heuristik selisih frekuensi mentah (`Math.abs < 5000`) dengan pencocokan MHz exact (`f == curFreq || (curFreq > 0 && f / 1000 == curFreq / 1000)`), sehingga tidak ada lagi centang ganda pada langkah frekuensi yang berdekatan.
+- **Standar Touch Target 48dp (Mobile-First Rule 1)**: Memastikan setiap baris frekuensi dan governor memiliki `minHeight = 48.dp`, bebas dari kesalahan sentuh (*miss-click*).
+
+### 2. 🎛️ Peningkatan Interaksi Kluster CPU (Cluster Tuner Card)
+- **Target Sentuh Optimal**: Tombol frekuensi Min/Max, tombol gembok frekuensi (`size(48.dp)`), pill governor, dan tombol aksi Tunables kini memenuhi standar aksesibilitas sentuh 48dp.
+- **Aksi Reset to OEM Terpadu**: Mengintegrasikan tombol `ResetHeaderButton` langsung pada header kartu kluster yang telah dimodifikasi, lengkap dengan dialog konfirmasi sebelum mengembalikan frekuensi dan governor ke setelan awal pabrik.
+
+### 3. 🧹 Pembersihan Slop & Penguatan Telemetri CPU (Clean Telemetry & Robustness)
+- **Eliminasi Emoji Slop**: Menghilangkan seluruh emoji kaku pada mode penjadwal kernel (EAS, HMP, Hybrid), live status rate limits, Uclamp, HMP, dan Sched init task load demi estetika profesional dan bersih.
+- **Ketahanan Spectrum 8-Bar**: Mencegah potensi crash/null-pointer pada visualisasi 8-core CPU Spectrum dengan penanganan null yang aman (`core?.isOnline ?: false`).
+- **Kalkulasi Dinamis Big Cores**: Menghitung jumlah Big Cores secara dinamis dari kluster CPU pada kartu *CPU Idle & Core Parking*, menggantikan asumsi hardcoded.
+
+---
+
 # Lynx [Codename: Deity] 3.0.16
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Pemisahan Asimetris Per-Kluster Tunables CPU (Asymmetric Multi-Cluster Schedutil Calibration)** — mendesinkronisasi tuning frekuensi kernel di seluruh skrip platform dan Companion backend, sehingga kluster efisiensi (Little Cores) dan kluster komputasi tinggi (Big/Prime Cores) menerima profil latensi yang disesuaikan secara presisi dengan karakteristik fisiknya tanpa saling menyamakan (*flat-broadcast*), serta menyempurnakan deteksi real-time dan tampilan lembar tunables per-kluster.
