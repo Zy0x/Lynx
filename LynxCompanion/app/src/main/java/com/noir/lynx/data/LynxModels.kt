@@ -461,6 +461,7 @@ data class LynxUiState(
     val benchmarkTargetPackage: String = "",
     val benchmarkTargetAppName: String = "",
     val showBenchmarkDialog: Boolean = false,
+    val cpuSets: CpuSetsInfo = CpuSetsInfo(),
 )
 
 // ============================================================
@@ -549,6 +550,71 @@ data class SchedulerInfo(
     val activePreset: String = "balanced", // "gaming", "balanced", "battery", "custom"
     val applyOnBoot: Boolean = false,
 )
+
+data class CpuSetsInfo(
+    val isSupported: Boolean = true,
+    val topAppCpus: String = "0-7",
+    val foregroundCpus: String = "0-7",
+    val backgroundCpus: String = "0-2",
+    val systemBackgroundCpus: String = "0-2",
+    val restrictedCpus: String = "0-3",
+    val totalCoresCount: Int = 8,
+    val activePreset: String = "standard", // "gaming", "standard", "battery", "custom"
+    val applyOnBoot: Boolean = false,
+) {
+    fun parseCores(cpusStr: String): Set<Int> {
+        val result = mutableSetOf<Int>()
+        if (cpusStr.isBlank()) return result
+        cpusStr.split(Regex("[,\\s]+")).forEach { token ->
+            val clean = token.trim()
+            if (clean.contains("-")) {
+                val parts = clean.split("-")
+                val start = parts.getOrNull(0)?.toIntOrNull() ?: return@forEach
+                val end = parts.getOrNull(1)?.toIntOrNull() ?: return@forEach
+                for (i in start..end) result.add(i)
+            } else {
+                clean.toIntOrNull()?.let { result.add(it) }
+            }
+        }
+        return result
+    }
+
+    fun isCoreInGroup(group: String, coreId: Int): Boolean {
+        val cpusStr = when (group.lowercase()) {
+            "top-app", "top_app", "game" -> topAppCpus
+            "foreground", "fg" -> foregroundCpus
+            "background", "bg" -> backgroundCpus
+            "system-background", "system_background", "sysbg" -> systemBackgroundCpus
+            "restricted" -> restrictedCpus
+            else -> ""
+        }
+        return parseCores(cpusStr).contains(coreId)
+    }
+
+    companion object {
+        fun formatCoresSet(cores: Set<Int>): String {
+            if (cores.isEmpty()) return "0"
+            val sorted = cores.sorted()
+            val ranges = mutableListOf<String>()
+            var start = sorted[0]
+            var prev = start
+            for (i in 1 until sorted.size) {
+                val cur = sorted[i]
+                if (cur == prev + 1) {
+                    prev = cur
+                } else {
+                    if (start == prev) ranges.add("$start")
+                    else ranges.add("$start-$prev")
+                    start = cur
+                    prev = cur
+                }
+            }
+            if (start == prev) ranges.add("$start")
+            else ranges.add("$start-$prev")
+            return ranges.joinToString(",")
+        }
+    }
+}
 
 data class WakelockBlockerInfo(
     val isDriverSupported: Boolean = false,

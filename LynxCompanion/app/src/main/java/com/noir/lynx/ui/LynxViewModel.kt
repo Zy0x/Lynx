@@ -86,6 +86,7 @@ class LynxViewModel : ViewModel() {
                 val memoryEntropy = LynxRepository.readMemoryEntropy()
                 val customScripts = LynxRepository.readCustomScripts()
                 val schedInfo = LynxRepository.readSchedulerInfo()
+                val cpuSets = LynxRepository.readCpuSetsInfo()
 
                 val resolvedState = if (currentTcp.isNotBlank()) {
                     state.copy(network = state.network.copy(tcpCongestion = currentTcp))
@@ -108,6 +109,7 @@ class LynxViewModel : ViewModel() {
                         vmAdvanced = vmAdvanced,
                         wakelockBlockerInfo = wlBlocker,
                         schedulerInfo = schedInfo,
+                        cpuSets = cpuSets,
                         applistPerf = applistPerf,
                         installedApps = installedApps,
                         installedAppList = installedAppList,
@@ -439,6 +441,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val clusters = LynxRepository.readClusters()
+                val freshSets = LynxRepository.readCpuSetsInfo()
                 if (clusters.isNotEmpty()) {
                     val mergedClusters = mergeClustersWithActiveIntents(clusters)
                     _uiState.update { current ->
@@ -452,8 +455,10 @@ class LynxViewModel : ViewModel() {
                                 )
                             } else core
                         }
-                        current.copy(clusters = mergedClusters, cpuCores = syncedCores)
+                        current.copy(clusters = mergedClusters, cpuCores = syncedCores, cpuSets = freshSets)
                     }
+                } else {
+                    _uiState.update { it.copy(cpuSets = freshSets) }
                 }
             } catch (e: Exception) {
                 // Silent failure
@@ -1750,6 +1755,88 @@ class LynxViewModel : ViewModel() {
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset penjadwal '$preset'") }
             }
+        }
+    }
+
+    // ── CPU Sets & Task Affinity Isolation (Task Shield) ───────────
+
+    fun loadCpuSetsInfo(context: Context? = null) {
+        viewModelScope.launch {
+            try {
+                val sets = LynxRepository.readCpuSetsInfo(context)
+                _uiState.update { it.copy(cpuSets = sets) }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    fun applyCpuSetPreset(preset: String, context: Context? = null) {
+        recordStateMutation()
+        val totalCores = _uiState.value.cpuSets.totalCoresCount
+        _uiState.update { it.copy(cpuSets = it.cpuSets.copy(activePreset = preset)) }
+        viewModelScope.launch {
+            val ok = LynxRepository.applyCpuSetPreset(preset, totalCores, context)
+            if (ok) {
+                val fresh = LynxRepository.readCpuSetsInfo(context)
+                val presetTitle = when (preset.lowercase()) {
+                    "gaming" -> "⚔️ Gaming Isolation (Big Core Reserved)"
+                    "battery" -> "🔋 Hemat Ekstrem"
+                    else -> "⚖️ Standar Android"
+                }
+                _uiState.update { it.copy(cpuSets = fresh, successMessage = "Profil CPU Sets '$presetTitle' berhasil diterapkan") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menerapkan profil CPU Sets '$preset'") }
+            }
+        }
+    }
+
+    fun toggleCpuSetCore(group: String, coreId: Int, context: Context? = null) {
+        recordStateMutation()
+        val currentSets = _uiState.value.cpuSets
+        val currentCores = when (group.lowercase()) {
+            "top-app", "top_app", "game" -> currentSets.parseCores(currentSets.topAppCpus)
+            "foreground", "fg" -> currentSets.parseCores(currentSets.foregroundCpus)
+            "background", "bg" -> currentSets.parseCores(currentSets.backgroundCpus)
+            "system-background", "system_background", "sysbg" -> currentSets.parseCores(currentSets.systemBackgroundCpus)
+            "restricted" -> currentSets.parseCores(currentSets.restrictedCpus)
+            else -> emptySet()
+        }.toMutableSet()
+
+        if (currentCores.contains(coreId)) {
+            if (currentCores.size > 1) {
+                currentCores.remove(coreId)
+            }
+        } else {
+            currentCores.add(coreId)
+        }
+
+        val newCoresStr = CpuSetsInfo.formatCoresSet(currentCores)
+        val updatedSets = when (group.lowercase()) {
+            "top-app", "top_app", "game" -> currentSets.copy(topAppCpus = newCoresStr, activePreset = "custom")
+            "foreground", "fg" -> currentSets.copy(foregroundCpus = newCoresStr, activePreset = "custom")
+            "background", "bg" -> currentSets.copy(backgroundCpus = newCoresStr, activePreset = "custom")
+            "system-background", "system_background", "sysbg" -> currentSets.copy(systemBackgroundCpus = newCoresStr, activePreset = "custom")
+            "restricted" -> currentSets.copy(restrictedCpus = newCoresStr, activePreset = "custom")
+            else -> currentSets
+        }
+
+        _uiState.update { it.copy(cpuSets = updatedSets) }
+        viewModelScope.launch {
+            val ok = LynxRepository.setCpuSetCores(group, newCoresStr, context)
+            if (ok) {
+                val fresh = LynxRepository.readCpuSetsInfo(context)
+                _uiState.update { it.copy(cpuSets = fresh) }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal memperbarui Core $coreId pada $group") }
+            }
+        }
+    }
+
+    fun setCpuSetApplyOnBoot(enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update { it.copy(cpuSets = it.cpuSets.copy(applyOnBoot = enabled)) }
+        viewModelScope.launch {
+            LynxRepository.setCpuSetApplyOnBoot(enabled, context)
         }
     }
 

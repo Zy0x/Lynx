@@ -668,6 +668,15 @@ fun TuningCpuCategory(
             onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) }
         )
 
+        // ── CPU Sets & Task Affinity Isolation (Task Shield) ────────────
+        CpuSetsTaskShieldCard(
+            cpuSets = uiState.cpuSets,
+            clusters = uiState.clusters,
+            onApplyPreset = { preset -> viewModel.applyCpuSetPreset(preset, context) },
+            onToggleCore = { group, coreId -> viewModel.toggleCpuSetCore(group, coreId, context) },
+            onApplyOnBootChange = { enabled -> viewModel.setCpuSetApplyOnBoot(enabled, context) }
+        )
+
         // ── Penjadwal Kernel & Arsitektur Multicore (CFS / EAS / HMP / BORE) ──────
         val schedInfo = uiState.schedulerInfo
         var schedUpRate by remember { mutableFloatStateOf(schedInfo.upRateLimitUs.toFloat()) }

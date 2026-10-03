@@ -7904,6 +7904,206 @@ done
             false
         }
     }
+
+    // ============================================================
+    //  CPU SETS & TASK AFFINITY ISOLATION (CGROUPS TASK SHIELD)
+    // ============================================================
+
+    private data class CpuSetPresetDefinition(
+        val topApp: String,
+        val foreground: String,
+        val background: String,
+        val systemBackground: String,
+        val restricted: String
+    )
+
+    suspend fun readCpuSetsInfo(context: Context? = null): CpuSetsInfo = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                if [ -d /dev/cpuset ]; then
+                    echo "supported=1"
+                    echo "top_app=${'$'}(cat /dev/cpuset/top-app/cpus 2>/dev/null)"
+                    echo "foreground=${'$'}(cat /dev/cpuset/foreground/cpus 2>/dev/null)"
+                    echo "background=${'$'}(cat /dev/cpuset/background/cpus 2>/dev/null)"
+                    echo "system_background=${'$'}(cat /dev/cpuset/system-background/cpus 2>/dev/null)"
+                    echo "restricted=${'$'}(cat /dev/cpuset/restricted/cpus 2>/dev/null)"
+                    echo "total_cores=${'$'}(cat /dev/cpuset/cpus 2>/dev/null)"
+                else
+                    echo "supported=0"
+                fi
+            """.trimIndent()
+            val result = Shell.cmd(script).exec()
+            var supported = false
+            var topApp = "0-7"
+            var foreground = "0-7"
+            var background = "0-2"
+            var systemBackground = "0-2"
+            var restricted = "0-3"
+            var totalCoresStr = "0-7"
+
+            result.out.forEach { line ->
+                val parts = line.split("=", limit = 2)
+                if (parts.size == 2) {
+                    val key = parts[0].trim()
+                    val value = parts[1].trim()
+                    when (key) {
+                        "supported" -> supported = value == "1"
+                        "top_app" -> if (value.isNotEmpty()) topApp = value
+                        "foreground" -> if (value.isNotEmpty()) foreground = value
+                        "background" -> if (value.isNotEmpty()) background = value
+                        "system_background" -> if (value.isNotEmpty()) systemBackground = value
+                        "restricted" -> if (value.isNotEmpty()) restricted = value
+                        "total_cores" -> if (value.isNotEmpty()) totalCoresStr = value
+                    }
+                }
+            }
+
+            val dummy = CpuSetsInfo()
+            val totalCoresSet = dummy.parseCores(totalCoresStr)
+            val totalCount = if (totalCoresSet.isNotEmpty()) (totalCoresSet.maxOrNull() ?: 7) + 1 else 8
+
+            val bgSet = dummy.parseCores(background)
+            val fgSet = dummy.parseCores(foreground)
+            val taSet = dummy.parseCores(topApp)
+
+            val activePreset = if (taSet.size >= totalCount && fgSet.size < totalCount && !bgSet.contains(totalCount - 1)) {
+                "gaming"
+            } else if (taSet.size >= totalCount && fgSet.size >= totalCount) {
+                "standard"
+            } else if (taSet.size < totalCount) {
+                "battery"
+            } else {
+                "custom"
+            }
+
+            val applyOnBoot = context?.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
+                ?.getBoolean("apply_on_boot", false) ?: false
+
+            CpuSetsInfo(
+                isSupported = supported,
+                topAppCpus = topApp,
+                foregroundCpus = foreground,
+                backgroundCpus = background,
+                systemBackgroundCpus = systemBackground,
+                restrictedCpus = restricted,
+                totalCoresCount = totalCount,
+                activePreset = activePreset,
+                applyOnBoot = applyOnBoot
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to read cpu sets info: ${e.message}")
+            CpuSetsInfo()
+        }
+    }
+
+    suspend fun applyCpuSetPreset(preset: String, totalCores: Int = 8, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val maxCore = (totalCores - 1).coerceAtLeast(1)
+            val littleMax = if (totalCores >= 8) (totalCores - 3).coerceAtLeast(2) else (totalCores / 2)
+            val bgMax = if (totalCores >= 8) 2 else 1
+
+            val def = when (preset.lowercase()) {
+                "gaming" -> CpuSetPresetDefinition(
+                    topApp = "0-$maxCore",
+                    foreground = "0-$littleMax",
+                    background = "0-$bgMax",
+                    systemBackground = "0-$bgMax",
+                    restricted = "0-1"
+                )
+                "battery" -> CpuSetPresetDefinition(
+                    topApp = "0-$littleMax",
+                    foreground = "0-${(littleMax - 1).coerceAtLeast(1)}",
+                    background = "0-1",
+                    systemBackground = "0-1",
+                    restricted = "0"
+                )
+                else -> CpuSetPresetDefinition(
+                    topApp = "0-$maxCore",
+                    foreground = "0-$maxCore",
+                    background = "0-$bgMax",
+                    systemBackground = "0-$bgMax",
+                    restricted = "0-3"
+                )
+            }
+
+            val script = """
+                if [ -d /dev/cpuset ]; then
+                    echo "${def.topApp}" > /dev/cpuset/top-app/cpus 2>/dev/null
+                    echo "${def.foreground}" > /dev/cpuset/foreground/cpus 2>/dev/null
+                    echo "${def.background}" > /dev/cpuset/background/cpus 2>/dev/null
+                    echo "${def.systemBackground}" > /dev/cpuset/system-background/cpus 2>/dev/null
+                    echo "${def.restricted}" > /dev/cpuset/restricted/cpus 2>/dev/null
+                    echo "ok"
+                else
+                    echo "fail"
+                fi
+            """.trimIndent()
+
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok && context != null) {
+                context.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("active_preset", preset.lowercase())
+                    .putString("top_app", def.topApp)
+                    .putString("foreground", def.foreground)
+                    .putString("background", def.background)
+                    .putString("system_background", def.systemBackground)
+                    .putString("restricted", def.restricted)
+                    .apply()
+            }
+            ok
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to apply cpuset preset $preset: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun setCpuSetCores(group: String, cores: String, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val folder = when (group.lowercase()) {
+                "top-app", "top_app", "game" -> "top-app"
+                "foreground", "fg" -> "foreground"
+                "background", "bg" -> "background"
+                "system-background", "system_background", "sysbg" -> "system-background"
+                "restricted" -> "restricted"
+                else -> group
+            }
+            val script = """
+                if [ -f "/dev/cpuset/$folder/cpus" ]; then
+                    echo "$cores" > "/dev/cpuset/$folder/cpus" 2>/dev/null
+                    echo "ok"
+                else
+                    echo "fail"
+                fi
+            """.trimIndent()
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok && context != null) {
+                context.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString(folder, cores)
+                    .putString("active_preset", "custom")
+                    .apply()
+            }
+            ok
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set cpuset cores for $group: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun setCpuSetApplyOnBoot(enabled: Boolean, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        try {
+            context?.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
+                ?.edit()
+                ?.putBoolean("apply_on_boot", enabled)
+                ?.apply()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 }
 
 

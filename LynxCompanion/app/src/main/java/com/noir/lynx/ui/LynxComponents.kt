@@ -4560,4 +4560,405 @@ fun TuningBentoCard(
     )
 }
 
+// ============================================================
+//  CPU SETS & TASK AFFINITY ISOLATION (TASK SHIELD)
+// ============================================================
+
+@Composable
+fun CpuSetsTaskShieldCard(
+    cpuSets: CpuSetsInfo,
+    clusters: List<CpuClusterInfo> = emptyList(),
+    onApplyPreset: (String) -> Unit,
+    onToggleCore: (group: String, coreId: Int) -> Unit,
+    onApplyOnBootChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LynxCard(
+        title = "CPU Sets & Task Shield",
+        icon = Icons.Default.Shield,
+        accentColor = AccentCyan,
+        modifier = modifier
+    ) {
+        if (!cpuSets.isSupported) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = TextTertiary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Kontrol cpuset kernel (/dev/cpuset) tidak tersedia atau tidak diaktifkan pada sistem ini.",
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+            return@LynxCard
+        }
+
+        // 1. Header with Mode Badge
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(
+                    text = "Isolasi Thread Kernel & Afinitas Inti",
+                    fontSize = 11.5.sp,
+                    color = TextSecondary,
+                    lineHeight = 15.sp
+                )
+            }
+
+            val modeBadgeText = when (cpuSets.activePreset.lowercase()) {
+                "gaming" -> "Mode: Game Shield"
+                "battery" -> "Mode: Hemat Ekstrem"
+                "standard" -> "Mode: Standar AOSP"
+                else -> "Mode: Kustom"
+            }
+            val modeBadgeColor = when (cpuSets.activePreset.lowercase()) {
+                "gaming" -> AccentCyan
+                "battery" -> AccentOrange
+                "standard" -> AccentBlue
+                else -> AccentPurple
+            }
+
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = modeBadgeColor.copy(alpha = 0.14f),
+                border = BorderStroke(1.dp, modeBadgeColor.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = modeBadgeText,
+                    color = modeBadgeColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        // 2. Core Allocation Matrix
+        Text(
+            text = "Core Allocation Matrix",
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        val totalCores = cpuSets.totalCoresCount.coerceIn(4, 16)
+        val isBigCore = { coreId: Int ->
+            clusters.any { (it.role.contains("Big", ignoreCase = true) || it.role.contains("Prime", ignoreCase = true) || it.role.contains("Performance", ignoreCase = true)) && it.containsCore(coreId) }
+                || (clusters.isEmpty() && coreId >= 6)
+        }
+
+        val groups = listOf(
+            Triple("top-app", "Top-App (Game)", "topAppCpus"),
+            Triple("foreground", "Foreground Apps", "foregroundCpus"),
+            Triple("background", "Background Tasks", "backgroundCpus")
+        )
+
+        groups.forEach { (groupKey, groupLabel, _) ->
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Text(
+                    text = groupLabel,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = BgElevated.copy(alpha = 0.5f),
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 6.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        for (coreId in 0 until totalCores) {
+                            val isInGroup = cpuSets.isCoreInGroup(groupKey, coreId)
+                            val isBig = isBigCore(coreId)
+                            val isBgGroup = groupKey == "background"
+                            val isIsolatedBigCore = isBgGroup && isBig && !isInGroup
+
+                            val animatedBg by animateColorAsState(
+                                targetValue = when {
+                                    isInGroup -> AccentCyan.copy(alpha = 0.16f)
+                                    isIsolatedBigCore -> AccentOrange.copy(alpha = 0.18f)
+                                    else -> Color(0x0CFFFFFF)
+                                },
+                                animationSpec = tween(200),
+                                label = "bg_${groupKey}_$coreId"
+                            )
+
+                            val animatedBorder by animateColorAsState(
+                                targetValue = when {
+                                    isInGroup -> AccentCyan
+                                    isIsolatedBigCore -> AccentOrange.copy(alpha = 0.85f)
+                                    else -> Color(0x18FFFFFF)
+                                },
+                                animationSpec = tween(200),
+                                label = "border_${groupKey}_$coreId"
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 38.dp, height = 44.dp)
+                                    .clickable { onToggleCore(groupKey, coreId) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(34.dp),
+                                    shape = CircleShape,
+                                    color = animatedBg,
+                                    border = BorderStroke(if (isInGroup || isIsolatedBigCore) 1.4.dp else 0.8.dp, animatedBorder)
+                                ) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isIsolatedBigCore) {
+                                            Icon(
+                                                imageVector = Icons.Default.Lock,
+                                                contentDescription = "Core $coreId Terisolasi",
+                                                tint = AccentOrange,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                text = coreId.toString(),
+                                                fontSize = 12.5.sp,
+                                                fontWeight = if (isInGroup) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isInGroup) AccentCyan else TextTertiary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // If this is Background Tasks, display isolation summary badge
+                if (groupKey == "background") {
+                    val isolatedBigCores = (0 until totalCores).filter { isBigCore(it) && !cpuSets.isCoreInGroup("background", it) }
+                    if (isolatedBigCores.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 3.dp, bottom = 4.dp, end = 4.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val rangeText = if (isolatedBigCores.size == 1) {
+                                "Core ${isolatedBigCores.first()}"
+                            } else {
+                                "Cores ${isolatedBigCores.first()}-${isolatedBigCores.last()}"
+                            }
+                            Text(
+                                text = "$rangeText (Big Core) ",
+                                fontSize = 11.sp,
+                                color = TextTertiary
+                            )
+                            Text(
+                                text = "Terisolasi",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentOrange
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // 3. Preset Profil Isolasi
+        Text(
+            text = "Preset Profil Isolasi",
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // Full-width Button: Gaming Isolation (Big Core Reserved)
+        val isGamingActive = cpuSets.activePreset.equals("gaming", ignoreCase = true)
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .clickable { onApplyPreset("gaming") },
+            shape = RoundedCornerShape(14.dp),
+            color = if (isGamingActive) AccentCyan.copy(alpha = 0.15f) else BgElevated,
+            border = BorderStroke(if (isGamingActive) 1.5.dp else 1.dp, if (isGamingActive) AccentCyan else BorderSubtle)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Bolt,
+                    contentDescription = null,
+                    tint = if (isGamingActive) AccentCyan else TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "⚔️ Gaming Isolation (Big Core Reserved)",
+                    fontSize = 12.5.sp,
+                    fontWeight = if (isGamingActive) FontWeight.Bold else FontWeight.SemiBold,
+                    color = if (isGamingActive) AccentCyan else TextPrimary
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Side-by-side row: Standar and Hemat Ekstrem
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Standar
+            val isStandardActive = cpuSets.activePreset.equals("standard", ignoreCase = true)
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { onApplyPreset("standard") },
+                shape = RoundedCornerShape(14.dp),
+                color = if (isStandardActive) AccentBlue.copy(alpha = 0.15f) else BgElevated,
+                border = BorderStroke(if (isStandardActive) 1.5.dp else 1.dp, if (isStandardActive) AccentBlue else BorderSubtle)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp, horizontal = 10.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = null,
+                        tint = if (isStandardActive) AccentBlue else TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "⚖️ Standar",
+                        fontSize = 12.sp,
+                        fontWeight = if (isStandardActive) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (isStandardActive) AccentBlue else TextPrimary
+                    )
+                }
+            }
+
+            // Hemat Ekstrem
+            val isBatteryActive = cpuSets.activePreset.equals("battery", ignoreCase = true)
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { onApplyPreset("battery") },
+                shape = RoundedCornerShape(14.dp),
+                color = if (isBatteryActive) AccentOrange.copy(alpha = 0.15f) else BgElevated,
+                border = BorderStroke(if (isBatteryActive) 1.5.dp else 1.dp, if (isBatteryActive) AccentOrange else BorderSubtle)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp, horizontal = 10.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.BatteryChargingFull,
+                        contentDescription = null,
+                        tint = if (isBatteryActive) AccentOrange else TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "🔋 Hemat Ekstrem",
+                        fontSize = 12.sp,
+                        fontWeight = if (isBatteryActive) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (isBatteryActive) AccentOrange else TextPrimary
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // 4. Educational Guidance Container
+        val explanationText = when (cpuSets.activePreset.lowercase()) {
+            "gaming" -> "Inti Big Core 100% didedikasikan untuk game aktif. Seluruh proses latar belakang dibatasi pada Little Core untuk bebas lag."
+            "battery" -> "Semua proses latar belakang dan aplikasi sekunder ditekan ke Little Core paling efisien. Big Core diistirahatkan untuk efisiensi baterai maksimal."
+            "custom" -> "Konfigurasi kustom cpusets aktif. Alokasi thread prosesor berjalan sesuai penugasan manual pada matriks di atas."
+            else -> "Distribusi thread standar Android AOSP. Semua inti dapat dialokasikan untuk foreground dan background sesuai beban kernel."
+        }
+
+        val guidanceAccent = when (cpuSets.activePreset.lowercase()) {
+            "gaming" -> AccentCyan
+            "battery" -> AccentOrange
+            "standard" -> AccentBlue
+            else -> AccentPurple
+        }
+
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = BgElevated.copy(alpha = 0.6f),
+            border = BorderStroke(0.8.dp, guidanceAccent.copy(alpha = 0.35f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = explanationText,
+                fontSize = 11.5.sp,
+                lineHeight = 16.5.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(14.dp)
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // 5. Persistence Switch
+        LynxSwitch(
+            label = "Terapkan saat Boot",
+            subLabel = "Pertahankan isolasi cpusets setelah restart perangkat",
+            checked = cpuSets.applyOnBoot,
+            onCheckedChange = { onApplyOnBootChange(it) }
+        )
+    }
+}
+
+
 
