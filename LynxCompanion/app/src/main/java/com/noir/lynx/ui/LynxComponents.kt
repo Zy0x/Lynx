@@ -66,33 +66,23 @@ val BorderGlass      = Color(0x1EFFFFFF) // Subtle 12% Border
 @Composable
 fun ResetHeaderButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    label: String = "Reset"
+    modifier: Modifier = Modifier
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = BgElevated,
         border = BorderStroke(0.8.dp, BorderSubtle),
         modifier = modifier
+            .size(30.dp)
             .clip(RoundedCornerShape(8.dp))
             .clickable { onClick() }
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Box(contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = Icons.Default.RestartAlt,
                 contentDescription = "Reset ke Default OEM",
                 tint = Color(0xFFFFA726),
-                modifier = Modifier.size(13.dp)
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = label,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextSecondary
+                modifier = Modifier.size(15.dp)
             )
         }
     }
@@ -2282,6 +2272,7 @@ fun CpuClusterTunerCard(
     onApplyGovernorPreset: ((preset: String) -> Unit)? = null,
     onLockToggle: (policyId: Int, isLock: Boolean, minFreq: Long, maxFreq: Long) -> Unit = { _, _, _, _ -> },
     onResetToOem: (() -> Unit)? = null,
+    isModified: Boolean = false,
 ) {
     // ── Bottom Sheet States ──
     var freqPickerTarget by remember { mutableStateOf<Pair<CpuClusterInfo, Boolean>?>(null) }
@@ -2422,7 +2413,9 @@ fun CpuClusterTunerCard(
         title = "Dynamic CPU Clusters & Governors",
         icon = Icons.Default.Tune,
         accentColor = AccentCyan,
-        action = onResetToOem?.let { { ResetHeaderButton(onClick = it) } }
+        action = if (isModified && onResetToOem != null) {
+            { ResetHeaderButton(onClick = onResetToOem) }
+        } else null
     ) {
         if (clusters.isEmpty()) {
             Text(
@@ -4618,13 +4611,16 @@ fun CpuSetsTaskShieldCard(
     onToggleCore: (group: String, coreId: Int) -> Unit,
     onApplyOnBootChange: (Boolean) -> Unit,
     onResetToOem: (() -> Unit)? = null,
+    isModified: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     LynxCard(
         title = "CPU Sets & Task Shield",
         icon = Icons.Default.Shield,
         accentColor = AccentCyan,
-        action = onResetToOem?.let { { ResetHeaderButton(onClick = it) } },
+        action = if (isModified && onResetToOem != null) {
+            { ResetHeaderButton(onClick = onResetToOem) }
+        } else null,
         modifier = modifier
     ) {
         if (!cpuSets.isSupported) {
@@ -5023,13 +5019,16 @@ fun CpuIdleCoreParkingCard(
     onSchedCstateAwareChange: (Boolean) -> Unit,
     onApplyOnBootChange: (Boolean) -> Unit,
     onResetToOem: (() -> Unit)? = null,
+    isModified: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     LynxCard(
         title = "Core Parking & CPU Idle (C-States)",
         icon = Icons.Default.Bedtime,
         accentColor = AccentBlue,
-        action = onResetToOem?.let { { ResetHeaderButton(onClick = it) } },
+        action = if (isModified && onResetToOem != null) {
+            { ResetHeaderButton(onClick = onResetToOem) }
+        } else null,
         modifier = modifier
     ) {
         if (!cpuIdle.isSupported) {

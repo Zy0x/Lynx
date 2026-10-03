@@ -656,6 +656,22 @@ fun TuningCpuCategory(
             )
         }
 
+        // ── Per-Section Modification Flags (For Conditional Compact Reset Button) ──
+        val isClusterModified = uiState.clusters.any { cluster ->
+            val defaultMin = cluster.availFreqs.firstOrNull() ?: cluster.curMin
+            val defaultMax = cluster.availFreqs.lastOrNull() ?: cluster.curMax
+            val defaultGov = if (cluster.availGovs.contains("schedutil")) "schedutil" else cluster.availGovs.firstOrNull() ?: "schedutil"
+            cluster.isLocked || cluster.curGov != defaultGov || cluster.curMin != defaultMin || cluster.curMax != defaultMax
+        } || (uiState.activeGovernorPreset.isNotBlank() && uiState.activeGovernorPreset != "balanced")
+
+        val isCpuSetsModified = uiState.cpuSets.activePreset != "standard" || uiState.cpuSets.applyOnBoot
+
+        val isCpuIdleModified = uiState.cpuIdle.activePreset != "balanced" ||
+                uiState.cpuIdle.applyOnBoot ||
+                uiState.cpuIdle.coreParkingMode != "dynamic" ||
+                uiState.cpuIdle.isDeepSleepDisabled ||
+                uiState.cpuIdle.states.any { it.isDisabled }
+
         // ── Cluster Frequency & Governor Tuning Card ────────────
         CpuClusterTunerCard(
             clusters = uiState.clusters,
@@ -667,7 +683,8 @@ fun TuningCpuCategory(
             activeGovernorPreset = uiState.activeGovernorPreset,
             onApplyGovernorPreset = { preset -> viewModel.applyGovernorPreset(preset) },
             onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) },
-            onResetToOem = { pendingResetSection = "cluster" to "Frekuensi & Governor" }
+            onResetToOem = { pendingResetSection = "cluster" to "Frekuensi & Governor" },
+            isModified = isClusterModified
         )
 
         // ── CPU Sets & Task Affinity Isolation (Task Shield) ────────────
@@ -677,7 +694,8 @@ fun TuningCpuCategory(
             onApplyPreset = { preset -> viewModel.applyCpuSetPreset(preset, context) },
             onToggleCore = { group, coreId -> viewModel.toggleCpuSetCore(group, coreId, context) },
             onApplyOnBootChange = { enabled -> viewModel.setCpuSetApplyOnBoot(enabled, context) },
-            onResetToOem = { pendingResetSection = "cpuset" to "CPU Sets & Task Shield" }
+            onResetToOem = { pendingResetSection = "cpuset" to "CPU Sets & Task Shield" },
+            isModified = isCpuSetsModified
         )
 
         // ── Core Parking & CPU Idle (C-States) ────────────
@@ -690,7 +708,8 @@ fun TuningCpuCategory(
             onArmPllModeChange = { enabled -> viewModel.setArmPllMode(enabled) },
             onSchedCstateAwareChange = { enabled -> viewModel.setSchedulerHint("sched_cstate_aware", enabled, context) },
             onApplyOnBootChange = { enabled -> viewModel.setCpuIdleApplyOnBoot(enabled, context) },
-            onResetToOem = { pendingResetSection = "cpuidle" to "Core Parking & CPU Idle" }
+            onResetToOem = { pendingResetSection = "cpuidle" to "Core Parking & CPU Idle" },
+            isModified = isCpuIdleModified
         )
 
         // ── Penjadwal Kernel & Arsitektur Multicore (CFS / EAS / HMP / BORE) ──────
@@ -735,13 +754,19 @@ fun TuningCpuCategory(
             }
         }
 
+        val isSchedulerModified = schedInfo.activePreset != "balanced" ||
+                schedInfo.applyOnBoot ||
+                uclampMinVal != 0f ||
+                schedInfo.schedBoost != 0 ||
+                schedInfo.schedChildRunsFirst
+
         LynxCard(
             title = "Penjadwal Kernel & Arsitektur Multicore",
             icon = Icons.Default.Speed,
             accentColor = AccentCyan,
-            action = {
-                ResetHeaderButton(onClick = { pendingResetSection = "scheduler" to "Penjadwal Kernel" })
-            }
+            action = if (isSchedulerModified) {
+                { ResetHeaderButton(onClick = { pendingResetSection = "scheduler" to "Penjadwal Kernel" }) }
+            } else null
         ) {
             // Header info & Architecture badges (Clean, non-redundant)
             Row(
