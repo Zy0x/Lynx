@@ -248,6 +248,45 @@ object CpuPolicyManager {
         return restoreOemFactory(context, totalCores)
     }
 
+    /**
+     * Reset only CPU Sets to OEM default.
+     */
+    fun resetCpuSetsToOem(totalCores: Int = 8): Boolean {
+        if (!cpusetBackend.isSupported()) return false
+        val allCores = "0-${totalCores - 1}"
+        val littleCores = if (totalCores >= 8) "0-3" else "0-${(totalCores / 2) - 1}"
+        cpusetBackend.writeGroupMask("top-app", allCores)
+        cpusetBackend.writeGroupMask("foreground", allCores)
+        cpusetBackend.writeGroupMask("background", littleCores)
+        cpusetBackend.writeGroupMask("system-background", littleCores)
+        cpusetBackend.writeGroupMask("restricted", littleCores)
+        return true
+    }
+
+    /**
+     * Reset only Core Parking and CPU Idle (C-States) to OEM default.
+     */
+    fun resetCpuIdleToOem(totalCores: Int = 8): Boolean {
+        val sb = StringBuilder()
+        for (i in 0 until totalCores) {
+            sb.append("chmod 644 /sys/devices/system/cpu/cpu$i/online 2>/dev/null && echo 1 > /sys/devices/system/cpu/cpu$i/online 2>/dev/null; ")
+        }
+        Shell.cmd(sb.toString()).exec()
+
+        if (CpuIdleDetector.isSupported()) {
+            CpuIdleDetector.applySemanticMode(IdleSemanticMode.OEM_DEFAULT, totalCores)
+        }
+        return true
+    }
+
+    /**
+     * Reset only Scheduler tunables (Schedtune / Uclamp) to OEM default.
+     */
+    fun resetSchedulerToOem(): Boolean {
+        if (!schedulerBackend.isSupported()) return false
+        return schedulerBackend.applyProfile(boostTopApp = 0, boostFg = 0, boostBg = 0, preferIdle = true)
+    }
+
     private fun applySnapshot(s: CpuProfileSnapshot, totalCores: Int, context: Context): Boolean {
         isMasterOverride = s.isMasterOverride
         activeProfile = s.profile

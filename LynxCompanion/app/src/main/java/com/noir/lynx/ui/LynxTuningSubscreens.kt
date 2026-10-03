@@ -46,8 +46,7 @@ fun TuningCpuCategory(
     val context = LocalContext.current
     var pendingCoreAction by remember { mutableStateOf<CpuCoreInfo?>(null) }
     var showMasterCoreNotice by remember { mutableStateOf(false) }
-    var showRecoveryCenterSheet by remember { mutableStateOf(false) }
-    var showProtectedTasksDialog by remember { mutableStateOf(false) }
+    var pendingResetSection by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -657,19 +656,6 @@ fun TuningCpuCategory(
             )
         }
 
-        // ── Unified Master CPU Control Center ───────────────────
-        CpuControlCenterCard(
-            isMasterOverride = uiState.isCpuMasterOverride,
-            activeProfile = uiState.activeCpuControlProfile,
-            recoveryInfo = uiState.recoveryInfo,
-            onToggleMasterOverride = { enabled -> viewModel.setMasterCpuControl(enabled, context) },
-            onSelectProfile = { profile -> viewModel.applyCpuControlProfile(profile, context) },
-            onOpenRecoveryCenter = { showRecoveryCenterSheet = true },
-            onOpenProtectedTasks = { showProtectedTasksDialog = true },
-            applyOnBoot = uiState.isCpuMasterOverride,
-            onApplyOnBootChange = { enabled -> viewModel.setMasterCpuControl(enabled, context) }
-        )
-
         // ── Cluster Frequency & Governor Tuning Card ────────────
         CpuClusterTunerCard(
             clusters = uiState.clusters,
@@ -680,7 +666,8 @@ fun TuningCpuCategory(
             onTunableChange = { policyId, gov, key, value -> viewModel.setGovernorTunable(policyId, gov, key, value) },
             activeGovernorPreset = uiState.activeGovernorPreset,
             onApplyGovernorPreset = { preset -> viewModel.applyGovernorPreset(preset) },
-            onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) }
+            onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) },
+            onResetToOem = { pendingResetSection = "cluster" to "Frekuensi & Governor" }
         )
 
         // ── CPU Sets & Task Affinity Isolation (Task Shield) ────────────
@@ -689,7 +676,8 @@ fun TuningCpuCategory(
             clusters = uiState.clusters,
             onApplyPreset = { preset -> viewModel.applyCpuSetPreset(preset, context) },
             onToggleCore = { group, coreId -> viewModel.toggleCpuSetCore(group, coreId, context) },
-            onApplyOnBootChange = { enabled -> viewModel.setCpuSetApplyOnBoot(enabled, context) }
+            onApplyOnBootChange = { enabled -> viewModel.setCpuSetApplyOnBoot(enabled, context) },
+            onResetToOem = { pendingResetSection = "cpuset" to "CPU Sets & Task Shield" }
         )
 
         // ── Core Parking & CPU Idle (C-States) ────────────
@@ -701,7 +689,8 @@ fun TuningCpuCategory(
             onToggleCStateDisabled = { idx, dis -> viewModel.setCpuIdleStateDisabled(idx, dis, context) },
             onArmPllModeChange = { enabled -> viewModel.setArmPllMode(enabled) },
             onSchedCstateAwareChange = { enabled -> viewModel.setSchedulerHint("sched_cstate_aware", enabled, context) },
-            onApplyOnBootChange = { enabled -> viewModel.setCpuIdleApplyOnBoot(enabled, context) }
+            onApplyOnBootChange = { enabled -> viewModel.setCpuIdleApplyOnBoot(enabled, context) },
+            onResetToOem = { pendingResetSection = "cpuidle" to "Core Parking & CPU Idle" }
         )
 
         // ── Penjadwal Kernel & Arsitektur Multicore (CFS / EAS / HMP / BORE) ──────
@@ -749,7 +738,10 @@ fun TuningCpuCategory(
         LynxCard(
             title = "Penjadwal Kernel & Arsitektur Multicore",
             icon = Icons.Default.Speed,
-            accentColor = AccentCyan
+            accentColor = AccentCyan,
+            action = {
+                ResetHeaderButton(onClick = { pendingResetSection = "scheduler" to "Penjadwal Kernel" })
+            }
         ) {
             // Header info & Architecture badges (Clean, non-redundant)
             Row(
@@ -1612,22 +1604,61 @@ fun TuningCpuCategory(
             )
         }
 
-        // ── Recovery Center Bottom Sheet ────────────────────────
-        if (showRecoveryCenterSheet) {
-            RecoveryCenterBottomSheet(
-                recoveryInfo = uiState.recoveryInfo,
-                onRestoreLastKnownGood = { viewModel.restoreLastKnownGood(context) },
-                onRestoreOemDefault = { viewModel.restoreOemFactory(context) },
-                onEmergencyDisable = { viewModel.emergencyDisableCpuTweaks(context) },
-                onDismiss = { showRecoveryCenterSheet = false }
-            )
-        }
-
-        // ── Protected Tasks Dialog ──────────────────────────────
-        if (showProtectedTasksDialog) {
-            ProtectedTasksDialog(
-                tasks = uiState.protectedTasks,
-                onDismiss = { showProtectedTasksDialog = false }
+        // ── Reset Confirmation Dialog (Per-Section OEM Reset) ──────
+        if (pendingResetSection != null) {
+            val (sectionKey, sectionName) = pendingResetSection!!
+            AlertDialog(
+                onDismissRequest = { pendingResetSection = null },
+                containerColor = Color(0xFF16181D),
+                titleContentColor = Color.White,
+                textContentColor = Color(0xFFCCCCCC),
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.RestartAlt,
+                            contentDescription = null,
+                            tint = Color(0xFFFFA726),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Reset $sectionName?",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                text = {
+                    Text(
+                        text = "Seluruh konfigurasi $sectionName akan dikembalikan ke nilai standar bawaan pabrik (OEM), dan pemicu boot otomatis untuk bagian ini akan dinonaktifkan.",
+                        fontSize = 12.5.sp,
+                        lineHeight = 17.sp,
+                        color = Color(0xFFAAAAAA)
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            when (sectionKey) {
+                                "cluster" -> viewModel.resetClusterTuningToOem(context)
+                                "cpuset" -> viewModel.resetCpuSetsToOem(context)
+                                "cpuidle" -> viewModel.resetCpuIdleToOem(context)
+                                "scheduler" -> viewModel.resetSchedulerTunablesToOem(context)
+                            }
+                            pendingResetSection = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Reset ke Default", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingResetSection = null }) {
+                        Text("Batal", color = Color(0xFFAAAAAA), fontSize = 12.sp)
+                    }
+                }
             )
         }
     }

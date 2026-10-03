@@ -2769,6 +2769,64 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun resetClusterTuningToOem(context: Context) {
+        viewModelScope.launch {
+            recordStateMutation()
+            val clusters = _uiState.value.clusters
+            clusters.forEach { cluster ->
+                val effectiveMin = cluster.availFreqs.firstOrNull() ?: 500000L
+                val effectiveMax = cluster.availFreqs.lastOrNull() ?: 2050000L
+                val defaultGov = if (cluster.availGovs.contains("schedutil")) "schedutil" else cluster.availGovs.firstOrNull() ?: "schedutil"
+                setClusterLock(cluster.id, false, effectiveMin, effectiveMax)
+                setClusterFrequency(cluster.id, effectiveMin, effectiveMax)
+                setClusterGovernor(cluster.id, defaultGov)
+            }
+            refreshClusters()
+            refreshCpuCores()
+            _uiState.update { it.copy(activeGovernorPreset = "balanced", successMessage = "✅ Frekuensi & Governor berhasil dikembalikan ke default OEM.") }
+        }
+    }
+
+    fun resetCpuSetsToOem(context: Context) {
+        viewModelScope.launch {
+            recordStateMutation()
+            val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
+            CpuPolicyManager.resetCpuSetsToOem(totalCores)
+            setCpuSetApplyOnBoot(false, context)
+            val updated = LynxRepository.readCpuSetsInfo()
+            _uiState.update { it.copy(cpuSets = updated, successMessage = "✅ CPU Sets berhasil dikembalikan ke default OEM.") }
+        }
+    }
+
+    fun resetCpuIdleToOem(context: Context) {
+        viewModelScope.launch {
+            recordStateMutation()
+            val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
+            CpuPolicyManager.resetCpuIdleToOem(totalCores)
+            setCpuIdleApplyOnBoot(false, context)
+            val updated = LynxRepository.readCpuIdleInfo()
+            _uiState.update { it.copy(cpuIdle = updated, successMessage = "✅ Core Parking & C-States berhasil dikembalikan ke default OEM.") }
+        }
+    }
+
+    fun resetSchedulerTunablesToOem(context: Context) {
+        viewModelScope.launch {
+            recordStateMutation()
+            CpuPolicyManager.resetSchedulerToOem()
+            val resetCmds = """
+                echo 1000 > /proc/sys/kernel/sched_upmigrate 2>/dev/null || true
+                echo 1000 > /proc/sys/kernel/sched_downmigrate 2>/dev/null || true
+                echo 1000 > /proc/sys/kernel/sched_up_rate_limit_us 2>/dev/null || true
+                echo 1000 > /proc/sys/kernel/sched_down_rate_limit_us 2>/dev/null || true
+                echo 0 > /dev/stune/top-app/schedtune.boost 2>/dev/null || true
+                echo 0 > /dev/cpuctl/top-app/cpu.uclamp.min 2>/dev/null || true
+            """.trimIndent()
+            com.topjohnwu.superuser.Shell.cmd(resetCmds).exec()
+            val updated = LynxRepository.readSchedulerInfo()
+            _uiState.update { it.copy(schedulerInfo = updated, successMessage = "✅ Penjadwal Kernel berhasil dikembalikan ke default OEM.") }
+        }
+    }
+
     // ----------------------------------------------------------------
     //  Lifecycle
     // ----------------------------------------------------------------

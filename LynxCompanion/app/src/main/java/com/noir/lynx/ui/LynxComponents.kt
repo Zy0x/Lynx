@@ -64,11 +64,47 @@ val BorderGlass      = Color(0x1EFFFFFF) // Subtle 12% Border
 // ============================================================
 
 @Composable
+fun ResetHeaderButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    label: String = "Reset"
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = BgElevated,
+        border = BorderStroke(0.8.dp, BorderSubtle),
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.RestartAlt,
+                contentDescription = "Reset ke Default OEM",
+                tint = Color(0xFFFFA726),
+                modifier = Modifier.size(13.dp)
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextSecondary
+            )
+        }
+    }
+}
+
+@Composable
 fun LynxCard(
     title: String,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     accentColor: Color = AccentCyan,
+    action: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
@@ -82,10 +118,12 @@ fun LynxCard(
         shadowElevation = 0.dp,
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
-            if (title.isNotBlank()) {
+            if (title.isNotBlank() || action != null) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 14.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (icon != null) {
                         Surface(
@@ -110,7 +148,12 @@ fun LynxCard(
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary,
                         letterSpacing = 0.sp,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
+                    if (action != null) {
+                        Spacer(Modifier.weight(1f))
+                        action()
+                    }
                 }
             }
             content()
@@ -2238,6 +2281,7 @@ fun CpuClusterTunerCard(
     activeGovernorPreset: String = "balanced",
     onApplyGovernorPreset: ((preset: String) -> Unit)? = null,
     onLockToggle: (policyId: Int, isLock: Boolean, minFreq: Long, maxFreq: Long) -> Unit = { _, _, _, _ -> },
+    onResetToOem: (() -> Unit)? = null,
 ) {
     // ── Bottom Sheet States ──
     var freqPickerTarget by remember { mutableStateOf<Pair<CpuClusterInfo, Boolean>?>(null) }
@@ -2377,7 +2421,8 @@ fun CpuClusterTunerCard(
     LynxCard(
         title = "Dynamic CPU Clusters & Governors",
         icon = Icons.Default.Tune,
-        accentColor = AccentCyan
+        accentColor = AccentCyan,
+        action = onResetToOem?.let { { ResetHeaderButton(onClick = it) } }
     ) {
         if (clusters.isEmpty()) {
             Text(
@@ -4572,12 +4617,14 @@ fun CpuSetsTaskShieldCard(
     onApplyPreset: (String) -> Unit,
     onToggleCore: (group: String, coreId: Int) -> Unit,
     onApplyOnBootChange: (Boolean) -> Unit,
+    onResetToOem: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     LynxCard(
         title = "CPU Sets & Task Shield",
         icon = Icons.Default.Shield,
         accentColor = AccentCyan,
+        action = onResetToOem?.let { { ResetHeaderButton(onClick = it) } },
         modifier = modifier
     ) {
         if (!cpuSets.isSupported) {
@@ -4975,12 +5022,14 @@ fun CpuIdleCoreParkingCard(
     onArmPllModeChange: (Boolean) -> Unit,
     onSchedCstateAwareChange: (Boolean) -> Unit,
     onApplyOnBootChange: (Boolean) -> Unit,
+    onResetToOem: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     LynxCard(
         title = "Core Parking & CPU Idle (C-States)",
         icon = Icons.Default.Bedtime,
         accentColor = AccentBlue,
+        action = onResetToOem?.let { { ResetHeaderButton(onClick = it) } },
         modifier = modifier
     ) {
         if (!cpuIdle.isSupported) {
