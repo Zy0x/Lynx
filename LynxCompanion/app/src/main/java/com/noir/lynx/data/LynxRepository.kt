@@ -1712,7 +1712,7 @@ object LynxRepository {
                 else
                     # Below target: unlock fast charging to reach target percent quickly
                     echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                    echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                     echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
                     echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
@@ -1742,7 +1742,7 @@ object LynxRepository {
                 echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
                 echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                 echo $highTargetPercent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
-                echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                 ${if (lockoutBypass) """
                     chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
                     echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
@@ -1816,7 +1816,7 @@ object LynxRepository {
                 echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
 
                 if [ "$isUnrestricted" = "true" ]; then
-                    echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                    echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                     echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                     echo 5376 > /sys/devices/platform/charger/chg1_current 2>/dev/null
                     echo 5376 > /sys/devices/platform/charger/chg2_current 2>/dev/null
@@ -1869,7 +1869,7 @@ object LynxRepository {
                 echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
                 echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                 echo 100 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
-                echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
 
                 # 2. Lock Battery Temperature to 28C & Read-Only Protect against thermal daemon resets
@@ -2913,14 +2913,25 @@ object LynxRepository {
                 cur=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null || echo 0)
                 cyc=${'$'}(cat /sys/class/power_supply/battery/cycle_count 2>/dev/null || echo -1)
                 cnt=${'$'}(cat /sys/class/power_supply/battery/charge_counter 2>/dev/null || echo 0)
-                adpv=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null || cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || cat /sys/class/power_supply/usb/voltage_now 2>/dev/null || echo 0)
+
+                adpv=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null)
+                [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null)
+                [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/usb/voltage_now 2>/dev/null)
+                [ -z "${'$'}adpv" ] && adpv=0
+
                 chgtyp=${'$'}(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || cat /sys/class/power_supply/usb/type 2>/dev/null || echo "")
-                raw_ibus=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_ICharger 2>/dev/null || cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1 || cat /sys/class/power_supply/usb/current_now 2>/dev/null || echo 0)
+
+                raw_ibus=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_ICharger 2>/dev/null)
+                [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1)
+                [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/current_now 2>/dev/null)
+                [ -z "${'$'}raw_ibus" ] && raw_ibus=0
+
                 if [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -lt 1000 ] && [ "${'$'}raw_ibus" -gt 10 ] 2>/dev/null; then
                     ibus=${'$'}(( raw_ibus * 10 ))
                 else
                     ibus="${'$'}raw_ibus"
                 fi
+
                 rfc=${'$'}([ "${'$'}chgtyp" = "9" ] && echo 1 || (cat /sys/bus/i2c/drivers/rt9759/*/rfc_dcp_ta 2>/dev/null | head -n 1 || echo 0))
                 rtmp=${'$'}(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || cat /sys/class/thermal/thermal_zone20/temp 2>/dev/null || cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null || echo 0)
                 grd=${'$'}([ -f /dev/lynx_charging_guard ] && echo 1 || echo 0)
@@ -2930,6 +2941,7 @@ object LynxRepository {
                 if [ -f /sys/devices/platform/battery/Battery_Temperature ]; then
                     cur_bt=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null)
                     if [ "${'$'}cur_bt" = "28" ]; then
+                        chmod 666 /sys/class/thermal/cooling_device56/cur_state 2>/dev/null
                         echo 0 > /sys/class/thermal/cooling_device56/cur_state 2>/dev/null
                     fi
                 fi
@@ -2937,7 +2949,7 @@ object LynxRepository {
                 echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst"
             """.trimIndent()
             val r = Shell.cmd(script).exec()
-            val line = r.out.firstOrNull()?.trim() ?: return@withContext null
+            val line = r.out.firstOrNull { it.contains("|") }?.trim() ?: return@withContext null
             val parts = line.split("|")
             if (parts.size >= 8) {
                 val cap = parts[0].toIntOrNull() ?: 0
@@ -2992,6 +3004,12 @@ object LynxRepository {
                     watt / (if (rfcAuth) 0.96f else 0.88f)
                 } else 0f
 
+                val effectiveIbusMa = if (ibusMa > 50) {
+                    ibusMa
+                } else if (adpMv > 1000 && adapterWatt > 0.1f) {
+                    ((adapterWatt * 1_000_000f) / adpMv.toFloat()).toInt()
+                } else 0
+
                 val efficiency = if (adapterWatt > 0.5f && watt > 0.5f) {
                     ((watt / adapterWatt) * 100f).toInt().coerceIn(60, 99)
                 } else if (isCharging) {
@@ -3012,7 +3030,7 @@ object LynxRepository {
                     fastChargeProtocol = protocol,
                     activeICName = activeIC,
                     adapterVoltageMv = adpMv,
-                    adapterCurrentMa = ibusMa,
+                    adapterCurrentMa = effectiveIbusMa,
                     adapterWatt = adapterWatt,
                     chargingEfficiencyPercent = efficiency,
                     realPhysicalTempC = realTempC,
@@ -5282,7 +5300,7 @@ case "${'$'}PROFILE" in
                 write_node "5376" "/sys/devices/platform/charger/chg1_current"
                 write_node "5376" "/sys/devices/platform/charger/chg2_current"
                 write_node "6000" "/sys/devices/platform/charger/sc_ibat_limit"
-                write_node "0" "/sys/devices/platform/charger/enable_sc"
+                write_node "1" "/sys/devices/platform/charger/enable_sc"
                 write_node "0" "/sys/class/power_supply/battery/input_suspend"
                 write_node "1" "/sys/class/power_supply/battery/charging_enabled"
                 write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current_max"
@@ -5298,7 +5316,7 @@ case "${'$'}PROFILE" in
             cur_cap=${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 50)
             if [ "${'$'}cur_cap" -lt 100 ]; then
                 write_node "0" "/sys/devices/platform/charger/bypass_charger"
-                write_node "0" "/sys/devices/platform/charger/enable_sc"
+                write_node "1" "/sys/devices/platform/charger/enable_sc"
                 write_node "6000" "/sys/devices/platform/charger/sc_ibat_limit"
                 write_node "5376" "/sys/devices/platform/charger/chg1_current"
                 write_node "5376" "/sys/devices/platform/charger/chg2_current"

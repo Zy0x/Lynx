@@ -1,3 +1,25 @@
+# Lynx [Codename: Deity] 3.0.10
+Released on: 2026-10-03
+> **Versi ini** menghadirkan **Live Charging Telemetry & Direct Pump Unlock Suite** — menyelesaikan kendala telemetri pengisian daya yang tertahan melalui ticker real-time 1 detik, mengatasi bottleneck antrean root shell, serta membuka penguncian arus pengisian cepat MediaTek Pump Express / Direct Charge Pump (`enable_sc = 1`), disertai penyederhanaan antarmuka CPU Sets dan Core Parking.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.10)
+
+### 1. ⚡ Live Charging Telemetry & Root Shell Optimization
+- **Dedicated 1-Second Subscreen Polling Loop**: Menambahkan *lifecycle-aware continuous ticker* pada layar Baterai & Charging (`TuningChargingCategory`), memastikan wattmeter input adaptor, tegangan, arus baterai, dan estimasi waktu selesai diperbarui secara *live* setiap detik tanpa jeda.
+- **Root Shell Throughput Unblocking**: Membatasi eksekusi pembacaan proses CPU latar belakang (`top -b -n 1 -m 8`) menjadi setiap 3 detik (dari sebelumnya 1 detik), mengeliminasi *mutex lock congestion* pada shell root sehingga query telemetri sensor baterai sysfs dieksekusi secara instan (<20ms).
+- **Robust Line-Filtering & Adapter Current Fallback**: Memperbarui parser pembacaan telemetri di `LynxRepository.kt` agar kebal terhadap baris kosong sistem dan menyertakan kalkulasi matematis arus adaptor dinamis `(W * 1,000,000) / V` saat node `Pump_Express_ICharger` dibaca dalam format desimal.
+
+### 2. 🔌 MediaTek / Transsion Direct Charge Pump & Current Throttle Fix
+- **Perbaikan Kritis `enable_sc` (Direct Charge Pump Unlock)**: Mengoreksi logika penulisan `/sys/devices/platform/charger/enable_sc` menjadi `1` pada seluruh profil dan skrip apply profile. Menuliskan nilai `0` sebelumnya secara keliru mematikan chip pengisian cepat (RT9759 Direct Pump) dan protokol PE4.0 Super Charge sehingga arus tertahan pada 0–500 mA.
+- **Thermal Cooling Device Reset (`cooling_device56`)**: Menambahkan pengamanan izin `chmod 666` dan peresetan status trip `abcct` ke 0 saat mode spoofing suhu baterai (28°C) aktif, mencegah sistem OEM menurunkan batas arus pengisian daya (*thermal clamping*).
+- **Hasil Verifikasi Fisik (Empiris)**: Teruji langsung pada perangkat fisik Infinix X698 (Dimensity 920). Daya input adaptor stabil pada **20.3 W** (8.4 V • 2410 mA) dan arus baterai bersih **+2407 mA** dengan protokol Transsion Super Charge aktif.
+
+### 3. 🎯 Clean Interface Refinement (CPU Sets & Core Parking)
+- **Unified 1-Row Core Map untuk CPU Sets**: Merampingkan tata letak alokasi core CPU menjadi baris chip interaktif horizontal yang bersih, serta menghilangkan tombol reset redundan pada Dynamic Clusters.
+- **Core Parking Status Clarity**: Merestrukturisasi tampilan status Core Parking agar informatif, mudah dipahami pengguna, dan bebas ambiguitas visual.
+
+---
+
 # Lynx [Codename: Deity] 3.0.9
 Released on: 2026-09-28
 > **Versi ini** menghadirkan **Zero-Delay App Transition & Universal Extreme Mode Performance Suite** — menghilangkan jeda saat berpindah atau menutup aplikasi, meluncurkan Floating Game HUD seketika (0ms), serta memperluas optimasi Extreme Mode secara universal untuk SoC Qualcomm Snapdragon dan MediaTek (EAS Bypass, Multi-SoC IRQ Affinity, Adreno Force-No-Nap, dan Linux CFS Low-Latency Scheduling).

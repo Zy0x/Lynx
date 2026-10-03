@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import com.noir.lynx.data.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 // ============================================================
 //  CATEGORY 1: CPU & GOVERNOR SUBSCREEN
@@ -3196,6 +3198,10 @@ fun TuningChargingCategory(
 
     LaunchedEffect(Unit) {
         viewModel.refreshBatteryDetails()
+        while (isActive) {
+            delay(1000L)
+            viewModel.refreshBatteryDetails()
+        }
     }
 
     Column(

@@ -370,7 +370,7 @@ class LynxViewModel : ViewModel() {
                     val rawCores = LynxRepository.readCpuCores()
                     val cores = if (rawCores.isNotEmpty()) mergeCoresWithActiveIntents(rawCores) else emptyList()
                     val totalLoad = LynxRepository.latestTotalCpuLoadPercent
-                    val procs = LynxRepository.readTopCpuProcesses()
+                    val procs = if (counter % 3 == 0) LynxRepository.readTopCpuProcesses() else emptyList()
                     val batt = LynxRepository.readBatteryDetails()
                     val rawGpu = if (counter % 2 == 0) LynxRepository.readGpuInfo() else null
                     val gpu = rawGpu?.let { mergeGpuInfoWithIntent(it) }

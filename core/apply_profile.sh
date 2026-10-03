@@ -790,7 +790,7 @@ case "$PROFILE" in
                 write_node "4294967295" "/sys/devices/platform/charger/chg1_current"
                 write_node "4294967295" "/sys/devices/platform/charger/chg2_current"
                 write_node "6000" "/sys/devices/platform/charger/sc_ibat_limit"
-                write_node "0" "/sys/devices/platform/charger/enable_sc"
+                write_node "1" "/sys/devices/platform/charger/enable_sc"
                 write_node "0" "/sys/class/power_supply/battery/input_suspend"
                 write_node "1" "/sys/class/power_supply/battery/charging_enabled"
                 write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current_max"
