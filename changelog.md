@@ -1,3 +1,33 @@
+# Lynx [Codename: Deity] 3.0.11
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **CPU & Governor Subscreen Modernization & Anti-Slop Overhaul** — membersihkan total tampilan subhalaman CPU dari jargon fiktif, mengintegrasikan grafik waveform beban real-time ke dalam Hero Master Card, merampingkan matriks 8-core silikon hardware, serta menyederhanakan Penjadwal Kernel & Multicore dari 25+ baris menjadi sistem preset makro cepat dengan laci akordion parameter lanjutan yang rapi dan elegan.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.11)
+
+### 1. 🧹 Eliminasi AI Slop & Penyelarasan Terminologi Kernel Nyata
+- **Penghapusan Jargon Fiktif**: Mengganti seluruh penyebutan fiktif "Arctic Engine" / "Arctic" dengan terminologi arsitektur kernel Linux resmi: `EAS + CFS Hybrid Scheduling` dan `EAS Hybrid (Multi-Domain)`.
+- **Keterbacaan & Akurasi Teknis**: Memastikan seluruh label mencerminkan mekanisme penjadwalan kernel yang sebenarnya (Energy-Aware Scheduling, Completely Fair Scheduler, dan Heterogeneous Multi-Processing).
+
+### 2. 💎 Desain Bersih & Elegan Matriks Silikon CPU (Scene Hero Card)
+- **Integrasi Grafik Beban Waveform Real-Time**: Menggabungkan grafik kurva Bezier beban CPU langsung ke dalam Master Hero Card di bagian atas, mengeliminasi kartu terpisah "Grafik Beban CPU" dan menghemat ~140dp ruang vertikal tanpa mengurangi data telemetri.
+- **Matriks 8-Inti Minimalis & Modern**:
+  - Menghapus teks repetitif rentang frekuensi `500~2000MHz` dan equalizer 5-batang vertikal yang memadati antarmuka.
+  - Menggantinya dengan sel silikon minimalis (`C0`..`C7`) berlatar kontras halus, menampilkan frekuensi MHz aktif secara tegas, *slim progress bar* proporsional, serta persentase beban inti.
+
+### 3. ⚡ Perampingan Total Penjadwal Kernel & Multicore Arsitektur
+- **Struktur Hierarki 3-Level yang Intuitif**:
+  - **Identitas & Status**: Menampilkan nama penjadwal kernel aktif secara ringkas dengan indikator dot LED `Aktif`.
+  - **Pemilih Arsitektur Engine**: Tab segmen bersih untuk beralih mode arsitektur (`EAS`, `HMP`, `Hybrid`).
+  - **4 Preset Respon Makro Cepat**: Tombol *quick pill* interaktif (`⚡ Responsif`, `⚖️ Seimbang`, `🔋 Efisiensi`, `🔥 Ekstrem`) dengan highlight warna status instan dan persistensi SharedPreferences.
+  - **2 Tile Tweak Esensial**: Akses langsung ke pengaturan kritis `Rate Limit Respons Clock (Schedutil)` dan `Rentang Utilisasi Uclamp (EAS)` tanpa harus menggulir jauh.
+  - **Laci Akordion Kolapsibel (`Pengaturan Lanjutan & Hardware Hints`)**: Menyembunyikan 12 parameter mikro lanjutan (CFS Latency, Granularity, Migration Cost, Task Capacity Boost Top-App/FG/BG, Task Rotation, Sync Hint, C-State Aware, Stune Threshold, dan Spillover HMP) ke dalam satu laci ekspansi yang rapi.
+- **Penyusutan Drastis Beban Gulir (Anti-Scroll Fatigue)**: Mengurangi panjang halaman subkategori CPU dari sebelumnya 7 kali usapan layar penuh menjadi hanya 3 usapan layar yang nyaman, bersih, dan bebas distraksi.
+
+### 4. 🛡️ Kartu Voltage Control (Undervolting) Ringkas
+- **Kondisional Surface Minimalis**: Mengubah kartu peringatan undervolting yang sebelumnya memakan ruang besar menjadi baris Surface 1-baris yang bersih dan proporsional saat kernel perangkat tidak mendukung antarmuka sysfs undervolting tradisional (khas SoC modern).
+
+---
+
 # Lynx [Codename: Deity] 3.0.10
 Released on: 2026-10-03
 > **Versi ini** menghadirkan **Live Charging Telemetry & Direct Pump Unlock Suite** — menyelesaikan kendala telemetri pengisian daya yang tertahan melalui ticker real-time 1 detik, mengatasi bottleneck antrean root shell, serta membuka penguncian arus pengisian cepat MediaTek Pump Express / Direct Charge Pump (`enable_sc = 1`), disertai penyederhanaan antarmuka CPU Sets dan Core Parking.

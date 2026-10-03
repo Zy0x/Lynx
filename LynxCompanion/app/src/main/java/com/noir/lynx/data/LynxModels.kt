@@ -515,7 +515,7 @@ data class VirtualMemoryAdvancedConfig(
 
 data class SchedulerInfo(
     // Architecture Detection & Status
-    val schedulerType: String = "CFS", // "CFS", "EAS", "EAS Hybrid (Arctic)", "HMP / WALT", "BORE"
+    val schedulerType: String = "CFS", // "CFS", "EAS", "EAS Hybrid (Multi-Domain)", "HMP / WALT", "BORE"
     val schedulerName: String = "CFS / EAS",
     val isBoreSupported: Boolean = false,
     val isEasSupported: Boolean = false,

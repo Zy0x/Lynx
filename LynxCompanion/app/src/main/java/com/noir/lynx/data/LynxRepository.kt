@@ -7533,14 +7533,14 @@ done
             }
 
             val schedType = when (activeArchMode) {
-                "hybrid" -> "EAS Hybrid (Arctic)"
+                "hybrid" -> "EAS Hybrid (Multi-Domain)"
                 "hmp" -> "HMP / WALT"
                 "eas" -> "EAS (Energy Aware)"
                 else -> if (bore) "BORE (Burst-Oriented)" else "CFS (Completely Fair)"
             }
 
             val schedName = when (activeArchMode) {
-                "hybrid" -> "EAS Hybrid (Arctic Engine)"
+                "hybrid" -> "EAS + CFS Hybrid Scheduling"
                 "hmp" -> "HMP (Heterogeneous Multi-Processing)"
                 "eas" -> "EAS (Energy Aware Scheduling)"
                 else -> if (bore) "BORE (Burst-Oriented Response Enhancer)" else "CFS (Completely Fair Scheduler)"

@@ -3666,6 +3666,71 @@ fun VoltageControlCard(
     voltageInfo: VoltageTableInfo,
     onApplyOffset: (Int) -> Unit,
 ) {
+    if (!voltageInfo.isSupported) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = BgCard,
+            border = BorderStroke(0.8.dp, BorderSubtle),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.padding(end = 10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = TextTertiary,
+                            modifier = Modifier
+                                .padding(6.dp)
+                                .size(16.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Voltage Control (Undervolting)",
+                            color = TextSecondary,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "OEM Locked (Tidak didukung hardware/kernel ini)",
+                            color = TextTertiary,
+                            fontSize = 9.5.sp
+                        )
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(1.dp, BorderSubtle)
+                ) {
+                    Text(
+                        text = "LOCKED",
+                        color = TextTertiary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    )
+                }
+            }
+        }
+        return
+    }
+
     var offsetMv by remember { mutableIntStateOf(voltageInfo.globalOffsetMv) }
     var lastVoltageTouch by remember { mutableLongStateOf(0L) }
 
@@ -3678,33 +3743,8 @@ fun VoltageControlCard(
     LynxCard(
         title = "Voltage Control (Undervolting)",
         icon = Icons.Default.Bolt,
-        accentColor = if (voltageInfo.isSupported) AccentCyan else AccentOrange
+        accentColor = AccentCyan
     ) {
-        if (!voltageInfo.isSupported) {
-            UnsupportedBadge(reason = voltageInfo.unsupportedReason)
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(BgElevated.copy(alpha = 0.5f))
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("Global Undervolt Offset", color = TextSecondary, fontSize = 12.sp)
-                    Text("Terkunci (0 mV)", color = TextTertiary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                }
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = BgSurfaceLowest,
-                    border = BorderStroke(1.dp, BorderSubtle)
-                ) {
-                    Text("LOCKED", color = TextTertiary, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                }
-            }
-        } else {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -3744,7 +3784,6 @@ fun VoltageControlCard(
                 )
             }
         }
-    }
 }
 
 // ============================================================
