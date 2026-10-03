@@ -1,3 +1,30 @@
+# Lynx [Codename: Deity] 3.0.15
+Released on: 2026-10-04
+> **Versi ini** menuntaskan **Modernisasi & Redesain Menyeluruh Governor Tunables (Anti-Slop)** — merombak antarmuka lembar setelan *Dynamic CPU Clusters & Governors* menjadi sangat bersih, informatif, dan profesional. Menghapus seluruh emoji dekoratif kaku dan menggantinya dengan *Material Vector Icons*, mengintegrasikan 4 Preset Responsivitas Clock berbasis deteksi *hardware sysfs* *real-time* per-kluster, memperbaiki masalah *layout clipping* pada ModalBottomSheet, serta menyempurnakan dialog pengeditan parameter dengan *Live Conversion Preview* mikrodetik ke milidetik dan tombol pill rekomendasi yang rapi.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.15)
+
+### 1. 🧹 Redesain Menyeluruh ModalBottomSheet Governor Tunables
+- **Material Vector Icons Penuh**: Menghapus seluruh emoji kaku (`🚀`, `⚖️`, `🍃`, `🔧`) dan menggantinya dengan ikon vektor modern (`Bolt`, `Balance`, `Eco`, `Restore`, `Tune`) yang adaptif terhadap tema aktif dan warna aksen kluster CPU.
+- **Penyatuan Scroll Surface Tunggal**: Menghilangkan pembatasan ketinggian kaku (`heightIn(max = 420.dp)`) dan mengaktifkan `skipPartiallyExpanded = true` sehingga lembar bawah terbuka secara alami, mulus, dan bebas dari pemotongan elemen (*clipping*).
+- **Eliminasi Kotak Bertumpuk (Anti-Slop)**: Menghapus container abu-abu ganda (`Surface(color = BgElevated)`) yang memadati ruang visual; rekomendasi teknis kini terintegrasi secara mulus dan bersih di bawah deskripsi parameter.
+- **Isolasi Tuning Per-Kebijakan (Per-Policy Tuning)**: Penyetelan parameter dan preset kini secara presisi menyasar `policyId` target (contoh: Little Cluster `policy0` vs Big Cluster `policy6`) tanpa saling menimpa (*cluster-isolated*).
+
+### 2. ⚡ 4 Preset Responsivitas Clock & Deteksi Real-Time
+- **Preset Terkalibrasi Perangkat Keras**:
+  - **Responsif**: `up_rate_limit_us: 0 µs`, `down_rate_limit_us: 5 ms (5000 µs)` — Akselerasi instan tanpa jeda saat beban melonjak.
+  - **Seimbang**: `up_rate_limit_us: 1 ms (1000 µs)`, `down_rate_limit_us: 10 ms (10000 µs)` — Transisi mulus antara performa dan penghematan daya.
+  - **Hemat**: `up_rate_limit_us: 4 ms (4000 µs)`, `down_rate_limit_us: 20 ms (20000 µs)` — Memperlambat akselerasi frekuensi untuk efisiensi termal.
+  - **OEM (Bawaan Pabrik)**: `up_rate_limit_us: 0 µs`, `down_rate_limit_us: 30 ms (30000 µs)` — Kalibrasi bawaan vendor (MediaTek Dimensity/Helio) untuk stabilitas total.
+- **Deteksi Status Preset Otomatis**: Badge di sudut kanan atas kartu preset secara cerdas mendeteksi kesesuaian nilai sysfs nyata dan menampilkan status: *Responsif Aktif*, *Seimbang Aktif*, *Hemat Daya Aktif*, *Bawaan OEM Aktif*, atau *Setelan Kustom*.
+
+### 3. ⏱️ Live Conversion Preview & Dialog Pengeditan Parameter Presisi
+- **Konversi Unit Real-Time**: Dialog pengeditan parameter kini menampilkan pratinjau konversi dinamis dari mikrodetik (µs) ke milidetik (ms) secara instan (contoh: `30000` otomatis menampilkan `"Setara dengan 30 ms (30000 µs)"`), menghilangkan kebingungan konversi angka besar.
+- **Pill Rekomendasi Terpadu**: Tombol cepat rekomendasi diformat ringkas dan terhindar dari pemotongan teks (`5 ms (Cepat)`, `10 ms (Seimbang)`, `20 ms (Stabil)`, `30 ms (OEM)`).
+- **Format Display Ringkas**: Nilai parameter pada kartu ditampilkan dalam format waktu yang mudah dibaca (`30 ms`, `0 µs (Instan)`).
+
+---
+
 # Lynx [Codename: Deity] 3.0.14
 Released on: 2026-10-04
 > **Versi ini** menuntaskan **Eliminasi Redundansi Preset Core Parking & CPU Idle** — menghapus baris tombol preset duplikat di dalam mode lanjutan (Advance), memisahkan dengan tegas peran *Preset Respon Terpadu (Makro 1-Klik)* di bagian awal dengan *Kustomisasi Manual (Hotplug & C-States)* di laci akordion, serta merancang ulang pemilih kebijakan hotplug menjadi Tile Pengaturan Teknis ber-dropdown yang elegan, informatif, dan bebas dari ambiguitas antarmuka.

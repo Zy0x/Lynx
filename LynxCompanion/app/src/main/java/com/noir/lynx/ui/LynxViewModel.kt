@@ -2176,31 +2176,33 @@ class LynxViewModel : ViewModel() {
     }
 
 
-    fun applyGovernorPreset(preset: String) {
+    fun applyGovernorPreset(preset: String, policyId: Int? = null) {
         recordStateMutation()
-        _uiState.update { it.copy(activeGovernorPreset = preset) }
+        if (policyId == null) {
+            _uiState.update { it.copy(activeGovernorPreset = preset) }
+        }
         viewModelScope.launch {
-            val ok = LynxRepository.applyGovernorPreset(preset)
+            val ok = LynxRepository.applyGovernorPreset(preset, policyId)
             if (ok) {
                 val label = when (preset) {
-                    "responsive" -> "🚀 Ultra-Responsif (Gaming)"
-                    "powersave" -> "🍃 Hemat Daya"
-                    else -> "⚖️ Seimbang"
+                    "responsive" -> "Responsif (Agresif)"
+                    "powersave" -> "Hemat Daya (Efisiensi)"
+                    "oem" -> "Bawaan OEM"
+                    else -> "Seimbang (Standar)"
                 }
+                val targetDesc = if (policyId != null) "Policy $policyId" else "Semua Cluster"
                 _uiState.update {
                     it.copy(
-                        activeGovernorPreset = preset,
-                        successMessage = "Preset Governor disetel ke: $label"
+                        activeGovernorPreset = if (policyId == null) preset else it.activeGovernorPreset,
+                        successMessage = "Preset Governor $targetDesc disetel ke: $label"
                     )
                 }
-                val currentTunables = _uiState.value.governorTunables
-                if (currentTunables.isNotEmpty()) {
-                    currentTunables.keys.forEach { pId ->
-                        val gov = _uiState.value.clusters.find { it.id == pId }?.curGov ?: "schedutil"
-                        val updated = LynxRepository.readGovernorTunables(pId, gov)
-                        _uiState.update { state ->
-                            state.copy(governorTunables = state.governorTunables + (pId to updated))
-                        }
+                val targetPolicies = if (policyId != null) listOf(policyId) else _uiState.value.governorTunables.keys
+                targetPolicies.forEach { pId ->
+                    val gov = _uiState.value.clusters.find { it.id == pId }?.curGov ?: "schedutil"
+                    val updated = LynxRepository.readGovernorTunables(pId, gov)
+                    _uiState.update { state ->
+                        state.copy(governorTunables = state.governorTunables + (pId to updated))
                     }
                 }
             }

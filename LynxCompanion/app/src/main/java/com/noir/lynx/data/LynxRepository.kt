@@ -1390,11 +1390,16 @@ object LynxRepository {
         } catch (e: Exception) { false }
     }
 
-    suspend fun applyGovernorPreset(preset: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun applyGovernorPreset(preset: String, policyId: Int? = null): Boolean = withContext(Dispatchers.IO) {
         try {
+            val targetDirs = if (policyId != null) {
+                "/sys/devices/system/cpu/cpufreq/policy$policyId/schedutil"
+            } else {
+                "/sys/devices/system/cpu/cpufreq/policy*/schedutil /sys/devices/system/cpu/cpufreq/schedutil"
+            }
             val script = when (preset) {
                 "responsive" -> """
-                    for d in /sys/devices/system/cpu/cpufreq/policy*/schedutil /sys/devices/system/cpu/cpufreq/schedutil; do
+                    for d in $targetDirs; do
                         [ -d "${'$'}d" ] || continue
                         chmod 644 "${'$'}d"/* 2>/dev/null
                         echo 0 > "${'$'}d/up_rate_limit_us" 2>/dev/null
@@ -1404,7 +1409,7 @@ object LynxRepository {
                     echo ok
                 """.trimIndent()
                 "powersave" -> """
-                    for d in /sys/devices/system/cpu/cpufreq/policy*/schedutil /sys/devices/system/cpu/cpufreq/schedutil; do
+                    for d in $targetDirs; do
                         [ -d "${'$'}d" ] || continue
                         chmod 644 "${'$'}d"/* 2>/dev/null
                         echo 4000 > "${'$'}d/up_rate_limit_us" 2>/dev/null
@@ -1412,8 +1417,17 @@ object LynxRepository {
                     done
                     echo ok
                 """.trimIndent()
+                "oem" -> """
+                    for d in $targetDirs; do
+                        [ -d "${'$'}d" ] || continue
+                        chmod 644 "${'$'}d"/* 2>/dev/null
+                        echo 0 > "${'$'}d/up_rate_limit_us" 2>/dev/null
+                        echo 30000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
+                    done
+                    echo ok
+                """.trimIndent()
                 else -> """
-                    for d in /sys/devices/system/cpu/cpufreq/policy*/schedutil /sys/devices/system/cpu/cpufreq/schedutil; do
+                    for d in $targetDirs; do
                         [ -d "${'$'}d" ] || continue
                         chmod 644 "${'$'}d"/* 2>/dev/null
                         echo 1000 > "${'$'}d/up_rate_limit_us" 2>/dev/null

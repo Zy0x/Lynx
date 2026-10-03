@@ -665,7 +665,7 @@ fun TuningCpuCategory(
             onLoadTunables = { policyId, gov -> viewModel.loadGovernorTunables(policyId, gov) },
             onTunableChange = { policyId, gov, key, value -> viewModel.setGovernorTunable(policyId, gov, key, value) },
             activeGovernorPreset = uiState.activeGovernorPreset,
-            onApplyGovernorPreset = { preset -> viewModel.applyGovernorPreset(preset) },
+            onApplyGovernorPreset = { policyId, preset -> viewModel.applyGovernorPreset(preset, policyId) },
             onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) }
         )
 
