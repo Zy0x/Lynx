@@ -1,3 +1,19 @@
+# Lynx [Codename: Deity] 3.0.13
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Penyempurnaan Visual & Pembersihan Indikator Presisi** — menghapus ikon centang dekoratif pada preset terpilih yang terkesan repetitif (anti-slop), memperhalus indikator seleksi aktif murni berbasis saturasi warna dan kontras border, serta merestrukturisasi pemilih mode *Core Parking Policy* dengan ikon vektor Material.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.13)
+
+### 1. 🧹 Eliminasi Ikon Centang Repetitif (Clean Selection Indicator)
+- **Desain Seleksi Minimalis**: Menghapus ikon centang (`✓` / `Check`) pada seluruh tombol preset di kartu *CPU Sets & Task Shield* dan *Core Parking & CPU Idle*.
+- **Pembeda Visual Murni**: Status aktif kini ditandai secara elegan melalui aksen warna border proporsional, latar elevasi berpendar halus, serta warna ikon dan teks yang selaras tanpa elemen grafis tambahan yang memadati tombol.
+
+### 2. ⚡ Modernisasi Pemilih Kebijakan Hotplug Inti (Core Parking Policy)
+- **Vektor Material Penuh**: Mengganti emoji pada opsi *Core Parking Policy* (`🚀 Unpark Semua`, `⚖️ Dinamis (OEM)`, `🔋 Park Big Core`) dengan ikon vektor `Bolt`, `Tune`, dan `Bedtime`.
+- **Tipografi Bersih**: Menghapus seluruh emoji dekoratif dari catatan status dinamis CPU Idle.
+
+---
+
 # Lynx [Codename: Deity] 3.0.12
 Released on: 2026-10-04
 > **Versi ini** menyempurnakan **Estetika & Konsistensi Visual Subhalaman CPU** — menggantikan ikon emoji bawaan OS yang kaku pada kartu *CPU Sets & Task Shield*, *Core Parking & CPU Idle*, dan *Penjadwal Kernel & Multicore* dengan **Material Vector Icons** modern yang adaptif terhadap aksen tema cyber dark, memberikan tampilan antarmuka yang jauh lebih elegan, tajam, dan profesional.

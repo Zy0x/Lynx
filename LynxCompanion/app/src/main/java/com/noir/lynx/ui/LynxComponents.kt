@@ -4774,22 +4774,13 @@ fun CpuSetsTaskShieldCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        if (isSel) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = opt.color,
-                                modifier = Modifier.size(11.dp)
-                            )
-                            Spacer(Modifier.width(3.dp))
-                        }
                         Icon(
                             imageVector = opt.icon,
                             contentDescription = null,
                             tint = if (isSel) opt.color else TextSecondary,
                             modifier = Modifier.size(13.dp)
                         )
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(5.dp))
                         Text(
                             text = opt.label,
                             fontSize = 10.5.sp,
@@ -5232,22 +5223,13 @@ fun CpuIdleCoreParkingCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        if (isSel) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = opt.color,
-                                modifier = Modifier.size(11.dp)
-                            )
-                            Spacer(Modifier.width(3.dp))
-                        }
                         Icon(
                             imageVector = opt.icon,
                             contentDescription = null,
                             tint = if (isSel) opt.color else TextSecondary,
                             modifier = Modifier.size(13.dp)
                         )
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(5.dp))
                         Text(
                             text = opt.label,
                             fontSize = 10.5.sp,
@@ -5469,10 +5451,10 @@ fun CpuIdleCoreParkingCard(
 
             // Dynamic One-Liner Status Note
             val statusNote = when (activePresetKey) {
-                "gaming" -> "⚡ Seluruh inti prosesor aktif tanpa jeda tidur. Deep C-States dimatikan agar gameplay bebas micro-stutter."
-                "battery" -> "🔋 Inti besar (Big Cores) diparkir dan seluruh level tidur CPU diaktifkan penuh untuk memangkas konsumsi baterai."
-                "balanced" -> "⚖️ Inti prosesor dan siklus tidur diatur dinamis oleh kernel untuk menjaga keseimbangan daya dan respons."
-                else -> "🛠️ Konfigurasi kustom C-States dan Core Parking sedang aktif."
+                "gaming" -> "Seluruh inti prosesor aktif tanpa jeda tidur. Deep C-States dinonaktifkan agar bebas micro-stutter."
+                "battery" -> "Inti besar (Big Cores) diparkir dan seluruh level tidur CPU diaktifkan penuh untuk memangkas konsumsi baterai."
+                "balanced" -> "Inti prosesor dan siklus tidur diatur dinamis oleh kernel untuk menjaga keseimbangan daya dan respons."
+                else -> "Konfigurasi kustom C-States dan Core Parking sedang aktif."
             }
             val noteColor = when (activePresetKey) {
                 "gaming" -> AccentCyan
@@ -5575,26 +5557,37 @@ fun CpuIdleCoreParkingCard(
                         modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
                     )
                     val parkingModes = listOf(
-                        Triple("unpark_all", "🚀 Unpark Semua", AccentCyan),
-                        Triple("dynamic", "⚖️ Dinamis (OEM)", AccentBlue),
-                        Triple("park_big", "🔋 Park Big Core", AccentOrange)
+                        LynxPresetOption("unpark_all", "Unpark Semua", Icons.Default.Bolt, AccentCyan),
+                        LynxPresetOption("dynamic", "Dinamis (OEM)", Icons.Default.Tune, AccentBlue),
+                        LynxPresetOption("park_big", "Park Big Core", Icons.Default.Bedtime, AccentOrange)
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        parkingModes.forEach { (modeKey, modeTitle, modeColor) ->
-                            val isSel = cpuIdle.coreParkingMode.equals(modeKey, ignoreCase = true)
+                        parkingModes.forEach { opt ->
+                            val isSel = cpuIdle.coreParkingMode.equals(opt.key, ignoreCase = true)
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = if (isSel) modeColor.copy(alpha = 0.20f) else BgElevated,
-                                border = BorderStroke(1.dp, if (isSel) modeColor else BorderSubtle),
-                                modifier = Modifier.weight(1f).clickable { onSetCoreParkingMode(modeKey) }
+                                color = if (isSel) opt.color.copy(alpha = 0.20f) else BgElevated,
+                                border = BorderStroke(1.dp, if (isSel) opt.color else BorderSubtle),
+                                modifier = Modifier.weight(1f).clickable { onSetCoreParkingMode(opt.key) }
                             ) {
-                                Box(Modifier.padding(vertical = 7.dp, horizontal = 2.dp), contentAlignment = Alignment.Center) {
+                                Row(
+                                    modifier = Modifier.padding(vertical = 7.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = opt.icon,
+                                        contentDescription = null,
+                                        tint = if (isSel) opt.color else TextSecondary,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
                                     Text(
-                                        text = modeTitle,
-                                        color = if (isSel) modeColor else TextSecondary,
+                                        text = opt.label,
+                                        color = if (isSel) opt.color else TextSecondary,
                                         fontSize = 10.sp,
                                         fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
                                         maxLines = 1,
