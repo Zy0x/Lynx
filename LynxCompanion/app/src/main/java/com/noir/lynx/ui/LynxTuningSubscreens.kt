@@ -677,6 +677,18 @@ fun TuningCpuCategory(
             onApplyOnBootChange = { enabled -> viewModel.setCpuSetApplyOnBoot(enabled, context) }
         )
 
+        // ── Core Parking & CPU Idle (C-States) ────────────
+        CpuIdleCoreParkingCard(
+            cpuIdle = uiState.cpuIdle,
+            clusters = uiState.clusters,
+            onApplyPreset = { preset -> viewModel.applyCpuIdlePreset(preset, context) },
+            onSetCoreParkingMode = { mode -> viewModel.setCoreParkingMode(mode, uiState.cpuIdle.totalCores, context) },
+            onToggleCStateDisabled = { idx, dis -> viewModel.setCpuIdleStateDisabled(idx, dis, context) },
+            onArmPllModeChange = { enabled -> viewModel.setArmPllMode(enabled) },
+            onSchedCstateAwareChange = { enabled -> viewModel.setSchedulerHint("sched_cstate_aware", enabled, context) },
+            onApplyOnBootChange = { enabled -> viewModel.setCpuIdleApplyOnBoot(enabled, context) }
+        )
+
         // ── Penjadwal Kernel & Arsitektur Multicore (CFS / EAS / HMP / BORE) ──────
         val schedInfo = uiState.schedulerInfo
         var schedUpRate by remember { mutableFloatStateOf(schedInfo.upRateLimitUs.toFloat()) }
@@ -1010,6 +1022,136 @@ fun TuningCpuCategory(
                             )
                         }
                     )
+                }
+
+                // ── Schedtune Boost & Task Prefer Idle Matrix ─────────
+                if (schedInfo.isSchedtuneSupported) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "SCHEDTUNE & TASK CAPACITY BOOST",
+                        color = AccentCyan,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+
+                    // Top-App Boost Tile
+                    LynxTweakTile(
+                        title = "Top-App (Game) Boost",
+                        subtitle = "Margin frekuensi & prioritas render game aktif",
+                        displayValue = "${schedInfo.topAppSchedtuneBoost}%",
+                        accentColor = AccentCyan,
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "schedtune_top_app",
+                                title = "Top-App Schedtune Boost",
+                                category = "EAS",
+                                description = "Meningkatkan alokasi kapasitas CPU minimum saat aplikasi atau game sedang di layar depan, memastikan frame rate stabil dan responsivitas sentuh maksimal.",
+                                guideNote = "• Gaming Kompetitif: 25%–35%\n• Harian Seimbang: 10%–15%\n• Hemat Baterai: 0%–5%",
+                                currentValue = schedInfo.topAppSchedtuneBoost.toFloat(),
+                                defaultValue = 15f,
+                                valueRange = 0f..100f,
+                                steps = 19,
+                                formatDisplay = { v -> "${v.toInt()}%" },
+                                onApply = { v -> viewModel.setSchedtuneBoost("top-app", v.toInt(), context) }
+                            )
+                        }
+                    )
+
+                    // Foreground Apps Boost Tile
+                    LynxTweakTile(
+                        title = "Foreground Apps Boost",
+                        subtitle = "Margin frekuensi aplikasi aktif di depan layar",
+                        displayValue = "${schedInfo.fgSchedtuneBoost}%",
+                        accentColor = AccentBlue,
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "schedtune_fg",
+                                title = "Foreground Apps Boost",
+                                category = "EAS",
+                                description = "Margin akselerasi clock untuk aplikasi sistem dan foreground.",
+                                guideNote = "• Responsif: 15%–20%\n• Standar: 10%\n• Hemat: 0%",
+                                currentValue = schedInfo.fgSchedtuneBoost.toFloat(),
+                                defaultValue = 10f,
+                                valueRange = 0f..100f,
+                                steps = 19,
+                                formatDisplay = { v -> "${v.toInt()}%" },
+                                onApply = { v -> viewModel.setSchedtuneBoost("foreground", v.toInt(), context) }
+                            )
+                        }
+                    )
+
+                    // Background Boost Tile
+                    LynxTweakTile(
+                        title = "Background Tasks Boost",
+                        subtitle = "Margin akselerasi tugas latar belakang",
+                        displayValue = "${schedInfo.bgSchedtuneBoost}%",
+                        accentColor = if (schedInfo.bgSchedtuneBoost > 10) AccentOrange else AccentGreen,
+                        onClick = {
+                            activeTweakConfig = TweakConfig(
+                                id = "schedtune_bg",
+                                title = "Background Tasks Boost",
+                                category = "EAS",
+                                description = "Margin dorongan frekuensi untuk sinkronisasi dan proses background. Nilai rendah menjaga baterai tetap awet.",
+                                guideNote = "• Hemat Baterai: 0% (Sangat Disarankan)\n• Responsif: 5%",
+                                currentValue = schedInfo.bgSchedtuneBoost.toFloat(),
+                                defaultValue = 0f,
+                                valueRange = 0f..100f,
+                                steps = 19,
+                                formatDisplay = { v -> "${v.toInt()}%" },
+                                onApply = { v -> viewModel.setSchedtuneBoost("background", v.toInt(), context) }
+                            )
+                        }
+                    )
+
+                    // Prefer Idle Switch for Top-App
+                    LynxSwitch(
+                        label = "Top-App Prefer Idle",
+                        subLabel = "Tempatkan thread game pada CPU core yang benar-benar menganggur",
+                        checked = schedInfo.topAppPreferIdle,
+                        onCheckedChange = { viewModel.setSchedtunePreferIdle("top-app", it, context) }
+                    )
+                }
+
+                // ── Scheduler Dynamic Hints & Flags ───────────────────
+                if (schedInfo.isBigTaskRotationSupported || schedInfo.isSyncHintSupported || schedInfo.isCstateAwareSupported) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "SCHEDULER HARDWARE HINTS",
+                        color = AccentCyan,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+
+                    if (schedInfo.isBigTaskRotationSupported) {
+                        LynxSwitch(
+                            label = "Big Task Rotation",
+                            subLabel = "Rotasi tugas berat antar Big Core untuk mencegah thermal hotspot",
+                            checked = schedInfo.schedBigTaskRotation,
+                            onCheckedChange = { viewModel.setSchedulerHint("sched_big_task_rotation", it, context) }
+                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
+
+                    if (schedInfo.isSyncHintSupported) {
+                        LynxSwitch(
+                            label = "Sync Wakeup Acceleration",
+                            subLabel = "Percepat bangun thread dependen untuk kurangi latensi IPC",
+                            checked = schedInfo.schedSyncHintEnable,
+                            onCheckedChange = { viewModel.setSchedulerHint("sched_sync_hint_enable", it, context) }
+                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
+
+                    if (schedInfo.isCstateAwareSupported) {
+                        LynxSwitch(
+                            label = "C-State Aware Scheduling",
+                            subLabel = "Pilih inti dengan waktu sleep terendah demi respon tanpa jeda",
+                            checked = schedInfo.schedCstateAware,
+                            onCheckedChange = { viewModel.setSchedulerHint("sched_cstate_aware", it, context) }
+                        )
+                    }
                 }
             }
 

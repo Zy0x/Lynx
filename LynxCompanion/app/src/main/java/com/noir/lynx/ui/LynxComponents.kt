@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -4955,6 +4956,465 @@ fun CpuSetsTaskShieldCard(
             label = "Terapkan saat Boot",
             subLabel = "Pertahankan isolasi cpusets setelah restart perangkat",
             checked = cpuSets.applyOnBoot,
+            onCheckedChange = { onApplyOnBootChange(it) }
+        )
+    }
+}
+
+// ============================================================
+//  CORE PARKING & CPU IDLE (C-STATES) CARD
+// ============================================================
+
+@Composable
+fun CpuIdleCoreParkingCard(
+    cpuIdle: CpuIdleInfo,
+    clusters: List<CpuClusterInfo> = emptyList(),
+    onApplyPreset: (String) -> Unit,
+    onSetCoreParkingMode: (String) -> Unit,
+    onToggleCStateDisabled: (stateIndex: Int, disabled: Boolean) -> Unit,
+    onArmPllModeChange: (Boolean) -> Unit,
+    onSchedCstateAwareChange: (Boolean) -> Unit,
+    onApplyOnBootChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LynxCard(
+        title = "Core Parking & CPU Idle (C-States)",
+        icon = Icons.Default.Bedtime,
+        accentColor = AccentBlue,
+        modifier = modifier
+    ) {
+        if (!cpuIdle.isSupported) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = TextTertiary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Driver cpuidle kernel tidak mengekspos C-states pada perangkat ini.",
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+            return@LynxCard
+        }
+
+        // 1. Header with Badges
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(
+                    text = "Siklus Tidur Inti & Latensi Bangun",
+                    fontSize = 11.5.sp,
+                    color = TextSecondary,
+                    lineHeight = 15.sp
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = AccentCyan.copy(alpha = 0.12f),
+                        border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.3f))
+                    ) {
+                        Text(
+                            text = cpuIdle.driver,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentCyan,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = AccentGreen.copy(alpha = 0.12f),
+                        border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.3f))
+                    ) {
+                        Text(
+                            text = "${cpuIdle.onlineCoresCount}/${cpuIdle.totalCores} Cores Aktif",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentGreen,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            val (badgeText, badgeColor) = when (cpuIdle.activePreset.lowercase()) {
+                "gaming" -> "⚡ Zero Latency" to AccentCyan
+                "battery" -> "🔋 Deep Sleep" to AccentOrange
+                "balanced" -> "⚖️ Seimbang" to AccentBlue
+                else -> "🛠️ Kustom" to AccentPurple
+            }
+
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = badgeColor.copy(alpha = 0.14f),
+                border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = badgeText,
+                    color = badgeColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        // 2. Preset Profil CPU Idle
+        Text(
+            text = "Preset C-States & Latensi",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+
+        // Gaming (Zero Latency) Full width
+        val isGaming = cpuIdle.activePreset.equals("gaming", ignoreCase = true)
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { onApplyPreset("gaming") },
+            shape = RoundedCornerShape(12.dp),
+            color = if (isGaming) AccentCyan.copy(alpha = 0.15f) else BgElevated,
+            border = BorderStroke(if (isGaming) 1.5.dp else 1.dp, if (isGaming) AccentCyan else BorderSubtle)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp, horizontal = 14.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Bolt,
+                    contentDescription = null,
+                    tint = if (isGaming) AccentCyan else TextSecondary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "⚡ Gaming (Zero Wakeup Latency)",
+                    fontSize = 12.sp,
+                    fontWeight = if (isGaming) FontWeight.Bold else FontWeight.SemiBold,
+                    color = if (isGaming) AccentCyan else TextPrimary
+                )
+            }
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        // Side by side: Standar & Hemat Baterai
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val isBalanced = cpuIdle.activePreset.equals("balanced", ignoreCase = true)
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onApplyPreset("balanced") },
+                shape = RoundedCornerShape(12.dp),
+                color = if (isBalanced) AccentBlue.copy(alpha = 0.15f) else BgElevated,
+                border = BorderStroke(if (isBalanced) 1.5.dp else 1.dp, if (isBalanced) AccentBlue else BorderSubtle)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 10.dp, horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = null,
+                        tint = if (isBalanced) AccentBlue else TextSecondary,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "⚖️ Standar",
+                        fontSize = 11.5.sp,
+                        fontWeight = if (isBalanced) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (isBalanced) AccentBlue else TextPrimary
+                    )
+                }
+            }
+
+            val isBattery = cpuIdle.activePreset.equals("battery", ignoreCase = true)
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onApplyPreset("battery") },
+                shape = RoundedCornerShape(12.dp),
+                color = if (isBattery) AccentOrange.copy(alpha = 0.15f) else BgElevated,
+                border = BorderStroke(if (isBattery) 1.5.dp else 1.dp, if (isBattery) AccentOrange else BorderSubtle)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 10.dp, horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.BatteryChargingFull,
+                        contentDescription = null,
+                        tint = if (isBattery) AccentOrange else TextSecondary,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "🔋 Hemat Daya",
+                        fontSize = 11.5.sp,
+                        fontWeight = if (isBattery) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (isBattery) AccentOrange else TextPrimary
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        // 3. Core Parking Policy
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "KEBIJAKAN CORE PARKING (HOTPLUG)",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextSecondary,
+                letterSpacing = 0.8.sp
+            )
+        }
+
+        val parkingModes = listOf(
+            Triple("unpark_all", "🚀 Unpark Semua", AccentCyan),
+            Triple("dynamic", "⚖️ Dinamis (OEM)", AccentBlue),
+            Triple("park_big", "🔋 Park Big Core", AccentOrange)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            parkingModes.forEach { (modeKey, modeTitle, modeColor) ->
+                val isSel = cpuIdle.coreParkingMode.equals(modeKey, ignoreCase = true)
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSel) modeColor.copy(alpha = 0.22f) else BgElevated,
+                    border = BorderStroke(1.dp, if (isSel) modeColor else BorderGlass),
+                    modifier = Modifier.weight(1f).clickable { onSetCoreParkingMode(modeKey) }
+                ) {
+                    Box(Modifier.padding(vertical = 8.dp, horizontal = 4.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = modeTitle,
+                            color = if (isSel) modeColor else TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        // 4. Multi-C-States Status & Direct Toggles
+        Text(
+            text = "STATUS & KONTROL MULTI-C-STATES",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextSecondary,
+            letterSpacing = 0.8.sp,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+
+        cpuIdle.states.forEach { state ->
+            val isLockedWfi = state.index == 0
+            val isOff = state.isDisabled
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, if (isOff) AccentRed.copy(alpha = 0.4f) else BorderGlass),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isOff) AccentRed.copy(alpha = 0.15f) else AccentCyan.copy(alpha = 0.15f),
+                            border = BorderStroke(0.8.dp, if (isOff) AccentRed.copy(alpha = 0.4f) else AccentCyan.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "C${state.index}",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isOff) AccentRed else AccentCyan,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = state.name.ifBlank { "State ${state.index}" },
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isOff) TextTertiary else TextPrimary
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = "${state.latencyUs}µs latensi",
+                                    fontSize = 9.sp,
+                                    color = if (state.latencyUs > 500) AccentOrange else AccentGreen,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            if (state.desc.isNotBlank()) {
+                                Text(
+                                    text = state.desc,
+                                    fontSize = 9.5.sp,
+                                    color = TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    if (isLockedWfi) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = AccentGreen.copy(alpha = 0.12f),
+                            border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.3f))
+                        ) {
+                            Text(
+                                text = "Wajib Aktif",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentGreen,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    } else {
+                        Switch(
+                            checked = !state.isDisabled,
+                            onCheckedChange = { checked ->
+                                onToggleCStateDisabled(state.index, !checked)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = AccentBlue,
+                                uncheckedThumbColor = TextTertiary,
+                                uncheckedTrackColor = BgCard
+                            ),
+                            modifier = Modifier.scale(0.8f)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // 5. Hardware Sleep Toggles (ARMPLL & Sched C-State)
+        if (cpuIdle.isArmPllSupported) {
+            LynxSwitch(
+                label = "ARMPLL Power Down Mode",
+                subLabel = "Matikan clock PLL saat core tidur untuk memangkas daya statis (/proc/cpuidle)",
+                checked = cpuIdle.armPllMode,
+                onCheckedChange = { onArmPllModeChange(it) }
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+
+        if (cpuIdle.isCstateAwareSupported) {
+            LynxSwitch(
+                label = "C-State Aware Scheduler",
+                subLabel = "Penjadwal mengarahkan tugas ke inti dengan sleep latency terendah (/proc/sys/kernel)",
+                checked = cpuIdle.schedCstateAware,
+                onCheckedChange = { onSchedCstateAwareChange(it) }
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+
+        // 6. Educational Info Box
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = BgElevated.copy(alpha = 0.6f),
+            border = BorderStroke(0.8.dp, AccentBlue.copy(alpha = 0.35f)),
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = AccentBlue,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Tentang CPU C-States & Latensi",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentBlue
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "C-States mengistirahatkan sirkuit CPU saat idle. Level C2–C4 menghemat daya tetapi butuh beberapa ratus mikrodetik (µs) untuk bangun kembali, memicu micro-stutter saat frame drop. Mode Gaming mematikan Deep C-States untuk respon instan tanpa jeda.",
+                    fontSize = 10.5.sp,
+                    lineHeight = 15.sp,
+                    color = TextSecondary
+                )
+            }
+        }
+
+        // 7. Persistence Switch
+        LynxSwitch(
+            label = "Terapkan saat Boot",
+            subLabel = "Pertahankan setelan CPU Idle & Core Parking setelah restart",
+            checked = cpuIdle.applyOnBoot,
             onCheckedChange = { onApplyOnBootChange(it) }
         )
     }

@@ -7334,6 +7334,31 @@ done
                     fi
                 done
 
+                top_app_boost=${'$'}(cat /dev/stune/top-app/schedtune.boost 2>/dev/null || echo "15")
+                top_app_idle=${'$'}(cat /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null || echo "1")
+                fg_boost=${'$'}(cat /dev/stune/foreground/schedtune.boost 2>/dev/null || echo "10")
+                fg_idle=${'$'}(cat /dev/stune/foreground/schedtune.prefer_idle 2>/dev/null || echo "0")
+                bg_boost=${'$'}(cat /dev/stune/background/schedtune.boost 2>/dev/null || echo "0")
+                bg_idle=${'$'}(cat /dev/stune/background/schedtune.prefer_idle 2>/dev/null || echo "0")
+                has_stune="0"
+                [ -d /dev/stune ] && has_stune="1"
+
+                big_task_rot=${'$'}(cat /proc/sys/kernel/sched_big_task_rotation 2>/dev/null || echo "1")
+                has_big_task_rot="0"
+                [ -f /proc/sys/kernel/sched_big_task_rotation ] && has_big_task_rot="1"
+
+                sync_hint=${'$'}(cat /proc/sys/kernel/sched_sync_hint_enable 2>/dev/null || echo "1")
+                has_sync_hint="0"
+                [ -f /proc/sys/kernel/sched_sync_hint_enable ] && has_sync_hint="1"
+
+                cstate_aware=${'$'}(cat /proc/sys/kernel/sched_cstate_aware 2>/dev/null || echo "1")
+                has_cstate_aware="0"
+                [ -f /proc/sys/kernel/sched_cstate_aware ] && has_cstate_aware="1"
+
+                stune_thres=${'$'}(cat /proc/sys/kernel/sched_stune_task_threshold 2>/dev/null || echo "124")
+                has_stune_thres="0"
+                [ -f /proc/sys/kernel/sched_stune_task_threshold ] && has_stune_thres="1"
+
                 echo "bore:${'$'}bore"
                 echo "has_eas_file:${'$'}has_eas_file"
                 echo "has_mtk_eas:${'$'}has_mtk_eas"
@@ -7361,6 +7386,21 @@ done
                 echo "child_first:${'$'}child_first"
                 echo "up_rate:${'$'}up_rate"
                 echo "down_rate:${'$'}down_rate"
+                echo "top_app_boost:${'$'}top_app_boost"
+                echo "top_app_idle:${'$'}top_app_idle"
+                echo "fg_boost:${'$'}fg_boost"
+                echo "fg_idle:${'$'}fg_idle"
+                echo "bg_boost:${'$'}bg_boost"
+                echo "bg_idle:${'$'}bg_idle"
+                echo "has_stune:${'$'}has_stune"
+                echo "big_task_rot:${'$'}big_task_rot"
+                echo "has_big_task_rot:${'$'}has_big_task_rot"
+                echo "sync_hint:${'$'}sync_hint"
+                echo "has_sync_hint:${'$'}has_sync_hint"
+                echo "cstate_aware:${'$'}cstate_aware"
+                echo "has_cstate_aware:${'$'}has_cstate_aware"
+                echo "stune_thres:${'$'}stune_thres"
+                echo "has_stune_thres:${'$'}has_stune_thres"
             """.trimIndent()
             val res = Shell.cmd(script).exec()
             var bore = false
@@ -7390,6 +7430,21 @@ done
             var childFirst = false
             var upRate = 500L
             var downRate = 20000L
+            var topAppBoost = 15
+            var topAppIdle = true
+            var fgBoost = 10
+            var fgIdle = false
+            var bgBoost = 0
+            var bgIdle = false
+            var hasStune = true
+            var bigTaskRot = true
+            var hasBigTaskRot = false
+            var syncHint = true
+            var hasSyncHint = false
+            var cstateAware = true
+            var hasCstateAware = false
+            var stuneThres = 124
+            var hasStuneThres = false
 
             res.out.forEach { line ->
                 val parts = line.split(":", limit = 2)
@@ -7424,6 +7479,21 @@ done
                         "child_first" -> childFirst = v == "1"
                         "up_rate" -> upRate = v.toLongOrNull() ?: upRate
                         "down_rate" -> downRate = v.toLongOrNull() ?: downRate
+                        "top_app_boost" -> topAppBoost = v.toIntOrNull() ?: 15
+                        "top_app_idle" -> topAppIdle = v == "1"
+                        "fg_boost" -> fgBoost = v.toIntOrNull() ?: 10
+                        "fg_idle" -> fgIdle = v == "1"
+                        "bg_boost" -> bgBoost = v.toIntOrNull() ?: 0
+                        "bg_idle" -> bgIdle = v == "1"
+                        "has_stune" -> hasStune = v == "1"
+                        "big_task_rot" -> bigTaskRot = v == "1"
+                        "has_big_task_rot" -> hasBigTaskRot = v == "1"
+                        "sync_hint" -> syncHint = v == "1"
+                        "has_sync_hint" -> hasSyncHint = v == "1"
+                        "cstate_aware" -> cstateAware = v == "1"
+                        "has_cstate_aware" -> hasCstateAware = v == "1"
+                        "stune_thres" -> stuneThres = v.toIntOrNull() ?: 124
+                        "has_stune_thres" -> hasStuneThres = v == "1"
                     }
                 }
             }
@@ -7458,7 +7528,9 @@ done
                 else -> if (bore) "BORE (Burst-Oriented Response Enhancer)" else "CFS (Completely Fair Scheduler)"
             }
 
-            val applyOnBoot = context?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+            if (context != null) appContext = context.applicationContext
+            val ctx = context ?: appContext
+            val applyOnBoot = ctx?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
                 ?.getBoolean("apply_on_boot", false) ?: false
 
             SchedulerInfo(
@@ -7484,6 +7556,21 @@ done
                 schedBoost = schedBoost,
                 uclampMin = uclampMin,
                 uclampMax = uclampMax,
+                isSchedtuneSupported = hasStune,
+                topAppSchedtuneBoost = topAppBoost,
+                topAppPreferIdle = topAppIdle,
+                fgSchedtuneBoost = fgBoost,
+                fgPreferIdle = fgIdle,
+                bgSchedtuneBoost = bgBoost,
+                bgPreferIdle = bgIdle,
+                schedBigTaskRotation = bigTaskRot,
+                isBigTaskRotationSupported = hasBigTaskRot,
+                schedSyncHintEnable = syncHint,
+                isSyncHintSupported = hasSyncHint,
+                schedCstateAware = cstateAware,
+                isCstateAwareSupported = hasCstateAware,
+                schedStuneTaskThreshold = stuneThres,
+                isStuneThresholdSupported = hasStuneThres,
                 schedUpmigrate = upmigrate,
                 schedDownmigrate = downmigrate,
                 isInitTaskLoadSupported = hasInitLoad,
@@ -7491,7 +7578,7 @@ done
                 isSpillSupported = hasSpill,
                 schedSpillNrRun = spillNrRun,
                 schedSpillLoad = spillLoad,
-                activePreset = context?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                activePreset = ctx?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
                     ?.getString("active_preset", null)
                     ?: when {
                         upRate == 0L && lat <= 3000000L -> "extreme"
@@ -8110,6 +8197,432 @@ done
         } catch (e: Exception) {
             false
         }
+    }
+
+    // ----------------------------------------------------------------
+    //  SCHEDTUNE & SCHEDULER HINTS REPOSITORY METHODS
+    // ----------------------------------------------------------------
+
+    suspend fun setSchedtuneBoost(group: String, boost: Int, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        val safeBoost = boost.coerceIn(0, 100)
+        val folder = when (group.lowercase()) {
+            "top-app", "topapp" -> "top-app"
+            "foreground", "fg" -> "foreground"
+            "background", "bg" -> "background"
+            else -> "top-app"
+        }
+        val script = """
+            if [ -f /dev/stune/$folder/schedtune.boost ]; then
+                chmod 664 /dev/stune/$folder/schedtune.boost 2>/dev/null
+                echo $safeBoost > /dev/stune/$folder/schedtune.boost 2>/dev/null
+                echo "ok"
+            elif [ -f /dev/cpuctl/$folder/cpu.uclamp.min ]; then
+                val_uclamp=${'$'}((safeBoost * 1024 / 100))
+                chmod 664 /dev/cpuctl/$folder/cpu.uclamp.min 2>/dev/null
+                echo ${'$'}val_uclamp > /dev/cpuctl/$folder/cpu.uclamp.min 2>/dev/null
+                echo "ok"
+            else
+                echo "fail"
+            fi
+        """.trimIndent()
+        try {
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok) {
+                if (context != null) appContext = context.applicationContext
+                val ctx = context ?: appContext
+                ctx?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    ?.edit()
+                    ?.putInt("schedtune_boost_$folder", safeBoost)
+                    ?.putString("active_preset", "custom")
+                    ?.apply()
+            }
+            ok
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun setSchedtunePreferIdle(group: String, preferIdle: Boolean, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        val folder = when (group.lowercase()) {
+            "top-app", "topapp" -> "top-app"
+            "foreground", "fg" -> "foreground"
+            "background", "bg" -> "background"
+            else -> "top-app"
+        }
+        val valStr = if (preferIdle) "1" else "0"
+        val script = """
+            if [ -f /dev/stune/$folder/schedtune.prefer_idle ]; then
+                chmod 664 /dev/stune/$folder/schedtune.prefer_idle 2>/dev/null
+                echo $valStr > /dev/stune/$folder/schedtune.prefer_idle 2>/dev/null
+                echo "ok"
+            elif [ -f /dev/cpuctl/$folder/cpu.uclamp.latency_sensitive ]; then
+                chmod 664 /dev/cpuctl/$folder/cpu.uclamp.latency_sensitive 2>/dev/null
+                echo $valStr > /dev/cpuctl/$folder/cpu.uclamp.latency_sensitive 2>/dev/null
+                echo "ok"
+            else
+                echo "fail"
+            fi
+        """.trimIndent()
+        try {
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok) {
+                if (context != null) appContext = context.applicationContext
+                val ctx = context ?: appContext
+                ctx?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    ?.edit()
+                    ?.putBoolean("schedtune_idle_$folder", preferIdle)
+                    ?.putString("active_preset", "custom")
+                    ?.apply()
+            }
+            ok
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun setSchedulerHint(hintKey: String, enabled: Boolean, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        val node = when (hintKey) {
+            "sched_big_task_rotation" -> "/proc/sys/kernel/sched_big_task_rotation"
+            "sched_sync_hint_enable" -> "/proc/sys/kernel/sched_sync_hint_enable"
+            "sched_cstate_aware" -> "/proc/sys/kernel/sched_cstate_aware"
+            else -> return@withContext false
+        }
+        val valStr = if (enabled) "1" else "0"
+        val script = """
+            if [ -f $node ]; then
+                chmod 644 $node 2>/dev/null
+                echo $valStr > $node 2>/dev/null
+                echo "ok"
+            else
+                echo "fail"
+            fi
+        """.trimIndent()
+        try {
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok) {
+                if (context != null) appContext = context.applicationContext
+                val ctx = context ?: appContext
+                ctx?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    ?.edit()
+                    ?.putBoolean(hintKey, enabled)
+                    ?.apply()
+            }
+            ok
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // ----------------------------------------------------------------
+    //  CPU IDLE & C-STATES / CORE PARKING REPOSITORY METHODS
+    // ----------------------------------------------------------------
+
+    suspend fun readCpuIdleInfo(context: Context? = null): CpuIdleInfo = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                driver=${'$'}(cat /sys/devices/system/cpu/cpuidle/current_driver 2>/dev/null || echo "generic_idle")
+                gov=${'$'}(cat /sys/devices/system/cpu/cpuidle/current_governor_ro 2>/dev/null || cat /sys/devices/system/cpu/cpuidle/current_governor 2>/dev/null || echo "menu")
+                armpll=${'$'}(cat /proc/cpuidle/control/armpll_mode 2>/dev/null || echo "-1")
+                buck=${'$'}(cat /proc/cpuidle/control/buck_mode 2>/dev/null || echo "-1")
+                cstate_aware=${'$'}(cat /proc/sys/kernel/sched_cstate_aware 2>/dev/null || echo "1")
+                total_cores=0
+                online_cores=0
+                for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                    [ -d "${'$'}c" ] || continue
+                    total_cores=${'$'}((total_cores + 1))
+                    if [ -f "${'$'}c/online" ]; then
+                        [ "${'$'}(cat ${'$'}c/online 2>/dev/null)" = "1" ] && online_cores=${'$'}((online_cores + 1))
+                    else
+                        online_cores=${'$'}((online_cores + 1))
+                    fi
+                done
+
+                echo "driver:${'$'}driver"
+                echo "gov:${'$'}gov"
+                echo "armpll:${'$'}armpll"
+                echo "buck:${'$'}buck"
+                echo "cstate_aware:${'$'}cstate_aware"
+                echo "total_cores:${'$'}total_cores"
+                echo "online_cores:${'$'}online_cores"
+
+                for s in /sys/devices/system/cpu/cpu0/cpuidle/state*; do
+                    [ -d "${'$'}s" ] || continue
+                    idx=${'$'}(basename "${'$'}s" | sed 's/state//')
+                    name=${'$'}(cat "${'$'}s/name" 2>/dev/null || echo "state${'$'}idx")
+                    desc=${'$'}(cat "${'$'}s/desc" 2>/dev/null || echo "")
+                    dis=${'$'}(cat "${'$'}s/disable" 2>/dev/null || echo "0")
+                    lat=${'$'}(cat "${'$'}s/latency" 2>/dev/null || echo "0")
+                    res=${'$'}(cat "${'$'}s/residency" 2>/dev/null || echo "0")
+                    usg=${'$'}(cat "${'$'}s/usage" 2>/dev/null || echo "0")
+                    time=${'$'}(cat "${'$'}s/time" 2>/dev/null || echo "0")
+                    echo "state:${'$'}idx|${'$'}name|${'$'}desc|${'$'}dis|${'$'}lat|${'$'}res|${'$'}usg|${'$'}time"
+                done
+            """.trimIndent()
+            val res = Shell.cmd(script).exec()
+            var driver = "generic_idle"
+            var gov = "menu"
+            var armpll = -1
+            var buck = -1
+            var cstateAware = true
+            var totalCores = 8
+            var onlineCores = 8
+            val states = mutableListOf<CpuIdleStateItem>()
+
+            res.out.forEach { line ->
+                val parts = line.split(":", limit = 2)
+                if (parts.size == 2) {
+                    val k = parts[0].trim()
+                    val v = parts[1].trim()
+                    when (k) {
+                        "driver" -> driver = v
+                        "gov" -> gov = v
+                        "armpll" -> armpll = v.toIntOrNull() ?: -1
+                        "buck" -> buck = v.toIntOrNull() ?: -1
+                        "cstate_aware" -> cstateAware = v == "1"
+                        "total_cores" -> totalCores = v.toIntOrNull() ?: 8
+                        "online_cores" -> onlineCores = v.toIntOrNull() ?: 8
+                        "state" -> {
+                            val fields = v.split("|")
+                            if (fields.size >= 8) {
+                                states.add(
+                                    CpuIdleStateItem(
+                                        index = fields[0].toIntOrNull() ?: 0,
+                                        name = fields[1],
+                                        desc = fields[2],
+                                        isDisabled = fields[3] == "1",
+                                        latencyUs = fields[4].toLongOrNull() ?: 0L,
+                                        residencyUs = fields[5].toLongOrNull() ?: 0L,
+                                        usageCount = fields[6].toLongOrNull() ?: 0L,
+                                        timeUs = fields[7].toLongOrNull() ?: 0L,
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (context != null) appContext = context.applicationContext
+            val ctx = context ?: appContext
+            val prefs = ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
+            val applyOnBoot = prefs?.getBoolean("apply_on_boot", false) ?: false
+            val savedPreset = prefs?.getString("active_preset", null)
+            val savedCoreParkingMode = prefs?.getString("core_parking_mode", "dynamic") ?: "dynamic"
+
+            val isDeepDisabled = states.filter { it.index >= 2 }.all { it.isDisabled } && states.isNotEmpty()
+
+            val activePreset = savedPreset ?: when {
+                isDeepDisabled -> "gaming"
+                onlineCores < totalCores -> "battery"
+                else -> "balanced"
+            }
+
+            CpuIdleInfo(
+                isSupported = states.isNotEmpty(),
+                driver = driver,
+                governor = gov,
+                states = states.sortedBy { it.index },
+                mcdiEnabled = true,
+                armPllMode = armpll == 1,
+                buckMode = buck == 1,
+                schedCstateAware = cstateAware,
+                isCstateAwareSupported = true,
+                isArmPllSupported = armpll != -1,
+                coreParkingMode = savedCoreParkingMode,
+                totalCores = totalCores,
+                onlineCoresCount = onlineCores,
+                isDeepSleepDisabled = isDeepDisabled,
+                activePreset = activePreset,
+                applyOnBoot = applyOnBoot
+            )
+        } catch (e: Exception) {
+            CpuIdleInfo()
+        }
+    }
+
+    suspend fun setCpuIdleStateDisabled(stateIndex: Int, disabled: Boolean, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        val valLinux = if (disabled) "1" else "0"
+        val valMtk = if (disabled) "0" else "1"
+        val script = """
+            for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
+                if [ -f "${'$'}cpu/cpuidle/state$stateIndex/disable" ]; then
+                    chmod 664 "${'$'}cpu/cpuidle/state$stateIndex/disable" 2>/dev/null
+                    echo $valLinux > "${'$'}cpu/cpuidle/state$stateIndex/disable" 2>/dev/null
+                fi
+            done
+            if [ -w /proc/cpuidle/state/enabled ]; then
+                echo "100 $stateIndex $valMtk" > /proc/cpuidle/state/enabled 2>/dev/null
+            fi
+            echo "ok"
+        """.trimIndent()
+        try {
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok) {
+                if (context != null) appContext = context.applicationContext
+                val ctx = context ?: appContext
+                ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
+                    ?.edit()
+                    ?.putBoolean("state_${stateIndex}_disabled", disabled)
+                    ?.putString("active_preset", "custom")
+                    ?.apply()
+            }
+            ok
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun applyCpuIdlePreset(preset: String, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        val script = when (preset.lowercase()) {
+            "gaming" -> """
+                # Zero Latency: Disable deeper states (2, 3, 4)
+                for s in 2 3 4; do
+                    for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
+                        [ -f "${'$'}cpu/cpuidle/state${'$'}s/disable" ] && echo 1 > "${'$'}cpu/cpuidle/state${'$'}s/disable" 2>/dev/null
+                    done
+                    [ -w /proc/cpuidle/state/enabled ] && echo "100 ${'$'}s 0" > /proc/cpuidle/state/enabled 2>/dev/null
+                done
+                # State 0 (WFI) & State 1 (cpuoff_l) kept enabled
+                for s in 0 1; do
+                    for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
+                        [ -f "${'$'}cpu/cpuidle/state${'$'}s/disable" ] && echo 0 > "${'$'}cpu/cpuidle/state${'$'}s/disable" 2>/dev/null
+                    done
+                    [ -w /proc/cpuidle/state/enabled ] && echo "100 ${'$'}s 1" > /proc/cpuidle/state/enabled 2>/dev/null
+                done
+                [ -f /proc/cpuidle/control/armpll_mode ] && echo 0 > /proc/cpuidle/control/armpll_mode 2>/dev/null
+                [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 0 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
+                # Unpark all cores
+                for c in 1 2 3 4 5 6 7; do
+                    [ -f /sys/devices/system/cpu/cpu${'$'}c/online ] && echo 1 > /sys/devices/system/cpu/cpu${'$'}c/online 2>/dev/null
+                done
+                echo "ok"
+            """.trimIndent()
+            "battery" -> """
+                # Full Deep Sleep: Enable all states (0..4)
+                for s in 0 1 2 3 4; do
+                    for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
+                        [ -f "${'$'}cpu/cpuidle/state${'$'}s/disable" ] && echo 0 > "${'$'}cpu/cpuidle/state${'$'}s/disable" 2>/dev/null
+                    done
+                    [ -w /proc/cpuidle/state/enabled ] && echo "100 ${'$'}s 1" > /proc/cpuidle/state/enabled 2>/dev/null
+                done
+                [ -f /proc/cpuidle/control/armpll_mode ] && echo 1 > /proc/cpuidle/control/armpll_mode 2>/dev/null
+                [ -f /proc/cpuidle/control/buck_mode ] && echo 0 > /proc/cpuidle/control/buck_mode 2>/dev/null
+                [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 1 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
+                # Aggressive Parking: Park Big Cores (6, 7)
+                for c in 6 7; do
+                    [ -f /sys/devices/system/cpu/cpu${'$'}c/online ] && echo 0 > /sys/devices/system/cpu/cpu${'$'}c/online 2>/dev/null
+                done
+                echo "ok"
+            """.trimIndent()
+            else -> """
+                # Balanced Default: Enable all states (0..4)
+                for s in 0 1 2 3 4; do
+                    for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
+                        [ -f "${'$'}cpu/cpuidle/state${'$'}s/disable" ] && echo 0 > "${'$'}cpu/cpuidle/state${'$'}s/disable" 2>/dev/null
+                    done
+                    [ -w /proc/cpuidle/state/enabled ] && echo "100 ${'$'}s 1" > /proc/cpuidle/state/enabled 2>/dev/null
+                done
+                [ -f /proc/cpuidle/control/armpll_mode ] && echo 1 > /proc/cpuidle/control/armpll_mode 2>/dev/null
+                [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 1 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
+                # Unpark all cores for standard dynamic use
+                for c in 1 2 3 4 5 6 7; do
+                    [ -f /sys/devices/system/cpu/cpu${'$'}c/online ] && echo 1 > /sys/devices/system/cpu/cpu${'$'}c/online 2>/dev/null
+                done
+                echo "ok"
+            """.trimIndent()
+        }
+        try {
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok) {
+                if (context != null) appContext = context.applicationContext
+                val ctx = context ?: appContext
+                ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
+                    ?.edit()
+                    ?.putString("active_preset", preset.lowercase())
+                    ?.putString("core_parking_mode", if (preset.equals("battery", true)) "park_big" else if (preset.equals("gaming", true)) "unpark_all" else "dynamic")
+                    ?.apply()
+            }
+            ok
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun setCoreParkingMode(mode: String, totalCores: Int = 8, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        val script = when (mode.lowercase()) {
+            "unpark_all" -> """
+                for c in 1 2 3 4 5 6 7; do
+                    [ -f /sys/devices/system/cpu/cpu${'$'}c/online ] && echo 1 > /sys/devices/system/cpu/cpu${'$'}c/online 2>/dev/null
+                done
+                echo "ok"
+            """.trimIndent()
+            "park_big" -> """
+                for c in 1 2 3 4 5; do
+                    [ -f /sys/devices/system/cpu/cpu${'$'}c/online ] && echo 1 > /sys/devices/system/cpu/cpu${'$'}c/online 2>/dev/null
+                done
+                for c in 6 7; do
+                    [ -f /sys/devices/system/cpu/cpu${'$'}c/online ] && echo 0 > /sys/devices/system/cpu/cpu${'$'}c/online 2>/dev/null
+                done
+                echo "ok"
+            """.trimIndent()
+            else -> """
+                for c in 1 2 3 4 5 6 7; do
+                    [ -f /sys/devices/system/cpu/cpu${'$'}c/online ] && echo 1 > /sys/devices/system/cpu/cpu${'$'}c/online 2>/dev/null
+                done
+                echo "ok"
+            """.trimIndent()
+        }
+        try {
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok) {
+                if (context != null) appContext = context.applicationContext
+                val ctx = context ?: appContext
+                ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
+                    ?.edit()
+                    ?.putString("core_parking_mode", mode.lowercase())
+                    ?.putString("active_preset", "custom")
+                    ?.apply()
+            }
+            ok
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun setCpuIdleApplyOnBoot(enabled: Boolean, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        if (context != null) appContext = context.applicationContext
+        val ctx = context ?: appContext
+        try {
+            ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
+                ?.edit()
+                ?.putBoolean("apply_on_boot", enabled)
+                ?.apply()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun setArmPllMode(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val valStr = if (enabled) "1" else "0"
+        val script = """
+            if [ -f /proc/cpuidle/control/armpll_mode ]; then
+                echo $valStr > /proc/cpuidle/control/armpll_mode 2>/dev/null
+                echo "ok"
+            else
+                echo "fail"
+            fi
+        """.trimIndent()
+        try {
+            val res = Shell.cmd(script).exec()
+            res.isSuccess && res.out.any { it.trim() == "ok" }
+        } catch (_: Exception) { false }
     }
 }
 

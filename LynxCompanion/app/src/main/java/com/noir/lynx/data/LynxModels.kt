@@ -462,6 +462,7 @@ data class LynxUiState(
     val benchmarkTargetAppName: String = "",
     val showBenchmarkDialog: Boolean = false,
     val cpuSets: CpuSetsInfo = CpuSetsInfo(),
+    val cpuIdle: CpuIdleInfo = CpuIdleInfo(),
 )
 
 // ============================================================
@@ -532,6 +533,25 @@ data class SchedulerInfo(
     val uclampMin: Int = 0,  // 0..1024
     val uclampMax: Int = 1024,
 
+    // Schedtune Per-Cgroup Matrix
+    val isSchedtuneSupported: Boolean = true,
+    val topAppSchedtuneBoost: Int = 15,
+    val topAppPreferIdle: Boolean = true,
+    val fgSchedtuneBoost: Int = 10,
+    val fgPreferIdle: Boolean = false,
+    val bgSchedtuneBoost: Int = 0,
+    val bgPreferIdle: Boolean = false,
+
+    // Dynamic Scheduler Hints & Flags
+    val schedBigTaskRotation: Boolean = true,
+    val isBigTaskRotationSupported: Boolean = true,
+    val schedSyncHintEnable: Boolean = true,
+    val isSyncHintSupported: Boolean = true,
+    val schedCstateAware: Boolean = true,
+    val isCstateAwareSupported: Boolean = true,
+    val schedStuneTaskThreshold: Int = 124,
+    val isStuneThresholdSupported: Boolean = true,
+
     // HMP & Migration Thresholds
     val schedUpmigrate: Int = 85,    // 0..100%
     val schedDownmigrate: Int = 65,  // 0..100% (must be <= schedUpmigrate)
@@ -547,6 +567,41 @@ data class SchedulerInfo(
     val isModeSwitchSupported: Boolean = false,
 
     // Preset & Persistence
+    val activePreset: String = "balanced", // "gaming", "balanced", "battery", "custom"
+    val applyOnBoot: Boolean = false,
+)
+
+// ============================================================
+//  CPU IDLE & C-STATES / CORE PARKING MODELS
+// ============================================================
+
+data class CpuIdleStateItem(
+    val index: Int = 0,
+    val name: String = "",
+    val desc: String = "",
+    val latencyUs: Long = 0L,
+    val residencyUs: Long = 0L,
+    val usageCount: Long = 0L,
+    val timeUs: Long = 0L,
+    val isDisabled: Boolean = false,
+)
+
+data class CpuIdleInfo(
+    val isSupported: Boolean = true,
+    val driver: String = "generic_idle",
+    val governor: String = "menu",
+    val states: List<CpuIdleStateItem> = emptyList(),
+    val mcdiEnabled: Boolean = true,
+    val armPllMode: Boolean = true,
+    val buckMode: Boolean = false,
+    val schedCstateAware: Boolean = true,
+    val isCstateAwareSupported: Boolean = true,
+    val isArmPllSupported: Boolean = false,
+    // Core Parking / Hotplug Policy
+    val coreParkingMode: String = "dynamic", // "unpark_all", "dynamic", "park_big"
+    val totalCores: Int = 8,
+    val onlineCoresCount: Int = 8,
+    val isDeepSleepDisabled: Boolean = false, // true = Low Latency (states >= 2 disabled)
     val activePreset: String = "balanced", // "gaming", "balanced", "battery", "custom"
     val applyOnBoot: Boolean = false,
 )

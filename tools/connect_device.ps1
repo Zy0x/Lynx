@@ -38,7 +38,7 @@ param(
     [switch]$Quiet
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $CacheFile = Join-Path $ScriptDir ".last_device_ip"
 

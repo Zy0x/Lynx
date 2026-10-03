@@ -87,6 +87,7 @@ class LynxViewModel : ViewModel() {
                 val customScripts = LynxRepository.readCustomScripts()
                 val schedInfo = LynxRepository.readSchedulerInfo()
                 val cpuSets = LynxRepository.readCpuSetsInfo()
+                val cpuIdle = LynxRepository.readCpuIdleInfo()
 
                 val resolvedState = if (currentTcp.isNotBlank()) {
                     state.copy(network = state.network.copy(tcpCongestion = currentTcp))
@@ -110,6 +111,7 @@ class LynxViewModel : ViewModel() {
                         wakelockBlockerInfo = wlBlocker,
                         schedulerInfo = schedInfo,
                         cpuSets = cpuSets,
+                        cpuIdle = cpuIdle,
                         applistPerf = applistPerf,
                         installedApps = installedApps,
                         installedAppList = installedAppList,
@@ -442,6 +444,7 @@ class LynxViewModel : ViewModel() {
             try {
                 val clusters = LynxRepository.readClusters()
                 val freshSets = LynxRepository.readCpuSetsInfo()
+                val freshIdle = LynxRepository.readCpuIdleInfo()
                 if (clusters.isNotEmpty()) {
                     val mergedClusters = mergeClustersWithActiveIntents(clusters)
                     _uiState.update { current ->
@@ -458,13 +461,19 @@ class LynxViewModel : ViewModel() {
                         val mergedSets = freshSets.copy(
                             applyOnBoot = if (freshSets.applyOnBoot) true else current.cpuSets.applyOnBoot
                         )
-                        current.copy(clusters = mergedClusters, cpuCores = syncedCores, cpuSets = mergedSets)
+                        val mergedIdle = freshIdle.copy(
+                            applyOnBoot = if (freshIdle.applyOnBoot) true else current.cpuIdle.applyOnBoot
+                        )
+                        current.copy(clusters = mergedClusters, cpuCores = syncedCores, cpuSets = mergedSets, cpuIdle = mergedIdle)
                     }
                 } else {
                     _uiState.update { current ->
                         current.copy(
                             cpuSets = freshSets.copy(
                                 applyOnBoot = if (freshSets.applyOnBoot) true else current.cpuSets.applyOnBoot
+                            ),
+                            cpuIdle = freshIdle.copy(
+                                applyOnBoot = if (freshIdle.applyOnBoot) true else current.cpuIdle.applyOnBoot
                             )
                         )
                     }
@@ -1846,6 +1855,191 @@ class LynxViewModel : ViewModel() {
         _uiState.update { it.copy(cpuSets = it.cpuSets.copy(applyOnBoot = enabled)) }
         viewModelScope.launch {
             LynxRepository.setCpuSetApplyOnBoot(enabled, context)
+        }
+    }
+
+    // ── Schedtune & Scheduler Hints Controls ─────────────────────────
+    fun setSchedtuneBoost(group: String, boost: Int, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update { current ->
+            val s = current.schedulerInfo
+            val updated = when (group.lowercase()) {
+                "top-app", "topapp" -> s.copy(topAppSchedtuneBoost = boost, activePreset = "custom")
+                "foreground", "fg" -> s.copy(fgSchedtuneBoost = boost, activePreset = "custom")
+                "background", "bg" -> s.copy(bgSchedtuneBoost = boost, activePreset = "custom")
+                else -> s
+            }
+            current.copy(schedulerInfo = updated)
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setSchedtuneBoost(group, boost, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update { it.copy(schedulerInfo = fresh) }
+            }
+        }
+    }
+
+    fun setSchedtunePreferIdle(group: String, preferIdle: Boolean, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update { current ->
+            val s = current.schedulerInfo
+            val updated = when (group.lowercase()) {
+                "top-app", "topapp" -> s.copy(topAppPreferIdle = preferIdle, activePreset = "custom")
+                "foreground", "fg" -> s.copy(fgPreferIdle = preferIdle, activePreset = "custom")
+                "background", "bg" -> s.copy(bgPreferIdle = preferIdle, activePreset = "custom")
+                else -> s
+            }
+            current.copy(schedulerInfo = updated)
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setSchedtunePreferIdle(group, preferIdle, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update { it.copy(schedulerInfo = fresh) }
+            }
+        }
+    }
+
+    fun setSchedulerHint(hintKey: String, enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update { current ->
+            val s = current.schedulerInfo
+            val updated = when (hintKey) {
+                "sched_big_task_rotation" -> s.copy(schedBigTaskRotation = enabled)
+                "sched_sync_hint_enable" -> s.copy(schedSyncHintEnable = enabled)
+                "sched_cstate_aware" -> s.copy(schedCstateAware = enabled)
+                else -> s
+            }
+            current.copy(schedulerInfo = updated)
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setSchedulerHint(hintKey, enabled, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update { it.copy(schedulerInfo = fresh) }
+            }
+        }
+    }
+
+    // ── CPU Idle & C-States / Core Parking Controls ───────────────────
+    fun loadCpuIdleInfo(context: Context? = null) {
+        viewModelScope.launch {
+            val fresh = LynxRepository.readCpuIdleInfo(context)
+            _uiState.update { current ->
+                current.copy(
+                    cpuIdle = fresh.copy(
+                        applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
+                    )
+                )
+            }
+        }
+    }
+
+    fun setCpuIdleStateDisabled(stateIndex: Int, disabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update { current ->
+            val updatedStates = current.cpuIdle.states.map { s ->
+                if (s.index == stateIndex) s.copy(isDisabled = disabled) else s
+            }
+            current.copy(
+                cpuIdle = current.cpuIdle.copy(
+                    states = updatedStates,
+                    activePreset = "custom"
+                )
+            )
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setCpuIdleStateDisabled(stateIndex, disabled, context)
+            if (ok) {
+                val fresh = LynxRepository.readCpuIdleInfo(context)
+                _uiState.update { current ->
+                    current.copy(
+                        cpuIdle = fresh.copy(
+                            applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
+                        )
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah status C-State $stateIndex") }
+            }
+        }
+    }
+
+    fun applyCpuIdlePreset(preset: String, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update { current ->
+            current.copy(cpuIdle = current.cpuIdle.copy(activePreset = preset))
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.applyCpuIdlePreset(preset, context)
+            if (ok) {
+                val fresh = LynxRepository.readCpuIdleInfo(context)
+                val presetTitle = when (preset.lowercase()) {
+                    "gaming" -> "Gaming (Zero Latency)"
+                    "battery" -> "Hemat Baterai (Deep Sleep)"
+                    else -> "Standar Seimbang"
+                }
+                _uiState.update { current ->
+                    current.copy(
+                        cpuIdle = fresh.copy(
+                            applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
+                        ),
+                        successMessage = "Profil CPU Idle '$presetTitle' berhasil diterapkan"
+                    )
+                }
+                refreshCpuCores()
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset CPU Idle '$preset'") }
+            }
+        }
+    }
+
+    fun setCoreParkingMode(mode: String, totalCores: Int = 8, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update { current ->
+            current.copy(cpuIdle = current.cpuIdle.copy(coreParkingMode = mode, activePreset = "custom"))
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setCoreParkingMode(mode, totalCores, context)
+            if (ok) {
+                val fresh = LynxRepository.readCpuIdleInfo(context)
+                val modeLabel = when (mode.lowercase()) {
+                    "unpark_all" -> "Unpark Semua Core (Anti-Stutter)"
+                    "park_big" -> "Park Big Core (Hemat Daya)"
+                    else -> "Dinamis (OEM Default)"
+                }
+                _uiState.update { current ->
+                    current.copy(
+                        cpuIdle = fresh.copy(
+                            applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
+                        ),
+                        successMessage = "Mode Core Parking diubah ke '$modeLabel'"
+                    )
+                }
+                refreshCpuCores()
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah mode Core Parking ke '$mode'") }
+            }
+        }
+    }
+
+    fun setCpuIdleApplyOnBoot(enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update { it.copy(cpuIdle = it.cpuIdle.copy(applyOnBoot = enabled)) }
+        viewModelScope.launch {
+            LynxRepository.setCpuIdleApplyOnBoot(enabled, context)
+        }
+    }
+
+    fun setArmPllMode(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(cpuIdle = it.cpuIdle.copy(armPllMode = enabled, activePreset = "custom")) }
+        viewModelScope.launch {
+            val ok = LynxRepository.setArmPllMode(enabled)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = if (enabled) "ARMPLL Mode Aktif (Hemat Daya)" else "ARMPLL Mode Dimatikan (Performa)") }
+            }
         }
     }
 
