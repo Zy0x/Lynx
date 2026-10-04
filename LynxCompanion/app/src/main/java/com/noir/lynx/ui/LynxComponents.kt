@@ -100,6 +100,7 @@ fun ResetHeaderButton(
 fun LynxCard(
     title: String,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
     icon: ImageVector? = null,
     accentColor: Color = AccentCyan,
     action: @Composable (() -> Unit)? = null,
@@ -140,16 +141,34 @@ fun LynxCard(
                             )
                         }
                     }
-                    Text(
-                        text = title,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary,
-                        letterSpacing = 0.sp,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = title,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary,
+                            letterSpacing = 0.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (!subtitle.isNullOrBlank()) {
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = subtitle,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = TextSecondary,
+                                letterSpacing = 0.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                     if (action != null) {
-                        Spacer(Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
                         action()
                     }
                 }
@@ -5830,15 +5849,17 @@ fun CpuIdleCoreParkingCard(
                 clusters.any { (it.role.contains("Big", ignoreCase = true) || it.role.contains("Prime", ignoreCase = true) || it.role.contains("Performance", ignoreCase = true) || it.id > 0) && it.containsCore(coreId) }
                     || (clusters.isEmpty() && coreId >= 6)
             }
-            val bigCoreCount = (0 until totalCores).count { isBigCore(it) }.coerceAtLeast(1)
-            val coresTitle = if (isBigParked) "${(totalCores - bigCoreCount).coerceAtLeast(1)}/$totalCores Inti Berjalan" else "${cpuIdle.onlineCoresCount}/$totalCores Inti Berjalan"
+            val currentOnline = cpuIdle.onlineCoresCount.coerceIn(1, totalCores)
+            val currentOffline = totalCores - currentOnline
+            val coresTitle = "$currentOnline/$totalCores Inti Berjalan"
             val coresSub = when {
-                isBigParked -> "$bigCoreCount Big Core ditidurkan"
+                currentOffline > 0 -> "$currentOffline Core Diparkir (Offline)"
+                isBigParked -> "PPM Re-Online • Siaga Parkir"
                 cpuIdle.coreParkingMode == "unpark_all" -> "Seluruh core siaga"
                 else -> "Otomatis beban tugas"
             }
             val coresColor = when {
-                isBigParked -> AccentOrange
+                currentOffline > 0 -> AccentOrange
                 cpuIdle.coreParkingMode == "unpark_all" -> AccentCyan
                 else -> AccentBlue
             }
@@ -6408,10 +6429,10 @@ fun PlatformHardwareEngineCard(
 
     val engineTitle = when {
         isMtk -> "Platform Hardware Engine"
-        isQcom -> "Qualcomm QTI Hardware Boost"
+        isQcom -> "Qualcomm Hardware Boost"
         else -> "Platform Hardware Engine"
     }
-    val engineBadge = when {
+    val engineSubtitle = when {
         isMtk -> "MediaTek PPM Driver"
         isQcom -> "Snapdragon QTI HAL"
         else -> "Universal Linux"
@@ -6419,23 +6440,9 @@ fun PlatformHardwareEngineCard(
 
     LynxCard(
         title = engineTitle,
+        subtitle = engineSubtitle,
         icon = Icons.Default.Memory,
         accentColor = AccentCyan,
-        action = {
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = AccentCyan.copy(alpha = 0.15f),
-                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
-            ) {
-                Text(
-                    text = engineBadge,
-                    color = AccentCyan,
-                    fontSize = 8.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
-        },
         modifier = modifier
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

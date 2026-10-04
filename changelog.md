@@ -1,3 +1,21 @@
+# Lynx [Codename: Deity] 3.0.28
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Perbaikan Tata Letak Header Kartu & Eliminasi Badge Collision: Restorasi Judul Bersih Satu Baris pada Platform Hardware Engine, Integrasi Subtitle Komprehensif pada LynxCard, dan Perbaikan Bug Alokasi Bobot Baris (Spacer Weight Bug Fix)** — menyelesaikan masalah tampilan di mana badge `MediaTek PPM Driver` pada sisi kanan kartu memicu tabrakan ruang horizontal dan memecah teks judul "Platform Hardware Engine" menjadi 3 baris canggung, memindahkan identitas driver chipset menjadi subtitle semantik elegan di bawah judul, serta merombak sistem perataan baris pada `LynxCard` sehingga teks judul dapat memanfaatkan lebar penuh layar tanpa terpotong secara artifisial oleh alokasi bobot spacer.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.28)
+
+### 1. 🎨 Restorasi Tata Letak Bersih Platform Hardware Engine
+- **Eliminasi Badge Collision**: Menghapus badge pill bulky di sisi kanan header `PlatformHardwareEngineCard` yang sebelumnya memicu perebutan lebar horizontal dengan judul section.
+- **Hierarki Subtitle Semantik**: Mengintegrasikan informasi driver chipset (`MediaTek PPM Driver` pada platform MTK atau `Snapdragon QTI HAL` pada platform Qualcomm) sebagai subtitle di bawah judul utama dengan ukuran dan warna teks yang harmonis.
+- **Judul Stabil 1-Baris**: Teks "Platform Hardware Engine" kini tampil kokoh, rapi, dan konsisten dalam 1 baris di seluruh rasio layar tanpa wrapping.
+
+### 2. 📐 Perbaikan Arsitektur Tata Letak Header `LynxCard`
+- **Dukungan Parameter Subtitle**: Menambahkan parameter `subtitle: String? = null` pada komponen dasar `LynxCard` untuk standarisasi kartu antarmuka dengan hierarki informasi dua baris.
+- **Eliminasi Bug Spacer Weight**: Menghapus `Spacer(Modifier.weight(1f))` yang sebelumnya membatasi ruang judul hingga 50% lebar kartu saat terdapat elemen `action`, kini digantikan dengan perataan `Modifier.weight(1f)` pada kolom judul dan `Spacer(Modifier.width(8.dp))` untuk spasi aksi yang presisi.
+- **Proteksi Overflow & Ellipsis**: Menambahkan batasan `maxLines = 1` dengan `TextOverflow.Ellipsis` pada judul kartu untuk menjamin integritas visual pada berbagai ukuran layar dan skala font aksesibilitas.
+
+---
+
 # Lynx [Codename: Deity] 3.0.27
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Pembaruan UX Menyeluruh: Dual-Action Glanceable Switch & Rak Edukasi Interaktif Bottom Sheet (LynxSwitchInfoSheet), Eliminasi Inverted State Trap (Purge Schedstats Overhead), dan Refinement Keterbacaan Subtitle Anti-Truncation** — merevolusi antarmuka toggle kernel dengan pola interaksi ganda di mana switch dapat di-toggle instan tanpa friksi sementara baris teks membuka laci edukasi mendalam (`LynxSwitchInfoSheet`) yang memaparkan cara kerja kernel, perbandingan status ON vs OFF, serta rekomendasi skenario (Gaming, Balanced, Baterai); membalik logika membingungkan sakelar "Nonaktifkan Schedstats" menjadi model mental positif "Purge Schedstats Overhead" (ON = Optimasi Aktif); serta memperluas subtitle tweak tile hingga 2 baris penuh bebas elipsis terpotong.

@@ -11,8 +11,14 @@ read_val() {
 cpu_freqs=""
 for path in /sys/devices/system/cpu/cpu[0-9]*; do
     [ -d "$path" ] || continue
-    node="$path/cpufreq/scaling_cur_freq"
-    freq=$(cat "$node" 2>/dev/null || echo 0)
+    online=1
+    [ -f "$path/online" ] && online=$(cat "$path/online" 2>/dev/null || echo 1)
+    if [ "$online" = "0" ]; then
+        freq=0
+    else
+        node="$path/cpufreq/scaling_cur_freq"
+        freq=$(cat "$node" 2>/dev/null || echo 0)
+    fi
     [ -n "$cpu_freqs" ] && cpu_freqs="$cpu_freqs,"
     cpu_freqs="${cpu_freqs}${freq}"
 done

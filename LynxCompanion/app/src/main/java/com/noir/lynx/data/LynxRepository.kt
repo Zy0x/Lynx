@@ -471,7 +471,18 @@ object LynxRepository {
                 "sh '$MODULE_DIR/core/lib/telemetry.sh' 2>/dev/null"
             } else {
                 """
-                echo "cpu:"${'$'}(cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null | tr '\n' ',')
+                cpu_str=""
+                for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                    on="1"
+                    [ -f "${'$'}c/online" ] && on=${'$'}(cat "${'$'}c/online" 2>/dev/null || echo "1")
+                    if [ "${'$'}on" = "0" ]; then
+                        cpu_str="${'$'}{cpu_str}0,"
+                    else
+                        f=${'$'}(cat "${'$'}c/cpufreq/scaling_cur_freq" 2>/dev/null || echo "0")
+                        cpu_str="${'$'}{cpu_str}${'$'}{f},"
+                    fi
+                done
+                echo "cpu:${'$'}cpu_str"
                 echo "gpu:"${'$'}( (grep -m1 -oE '\(real\) freq: [0-9]+' /proc/gpufreq/gpufreq_var_dump 2>/dev/null | cut -d' ' -f3) || (grep -m1 -oE 'g_fixed_freq = [0-9]+' /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null | cut -d' ' -f3) || (cat /sys/kernel/ged/hal/current_freqency /sys/class/kgsl/kgsl-3d0/gpuclk /proc/gpufreq/gpufreq_opp_freq 2>/dev/null | head -n 3) )
                 echo "gpuload:"${'$'}(cat /sys/kernel/ged/hal/gpu_utilization /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null | head -n 1)
                 echo "temp:"${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null)
@@ -741,7 +752,9 @@ object LynxRepository {
                       [ -d "${'$'}p" ] || continue
                       id=${'$'}(basename "${'$'}p")
                       echo "id:${'$'}{id#policy}"
-                      echo "aff:${'$'}(cat "${'$'}p/affected_cpus" 2>/dev/null)"
+                      aff=${'$'}(cat "${'$'}p/related_cpus" 2>/dev/null)
+                      [ -z "${'$'}aff" ] && aff=${'$'}(cat "${'$'}p/affected_cpus" 2>/dev/null)
+                      echo "aff:${'$'}aff"
                       echo "min:${'$'}(cat "${'$'}p/scaling_min_freq" 2>/dev/null)"
                       echo "max:${'$'}(cat "${'$'}p/scaling_max_freq" 2>/dev/null)"
                       echo "gov:${'$'}(cat "${'$'}p/scaling_governor" 2>/dev/null)"
