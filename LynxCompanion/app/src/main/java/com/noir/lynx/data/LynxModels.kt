@@ -441,6 +441,7 @@ data class LynxUiState(
     val graphicsCapabilities: com.noir.lynx.hardware.GraphicsCapabilities = com.noir.lynx.hardware.GraphicsCapabilities(),
     val displayPipeline: com.noir.lynx.display.DisplayPipelineInfo = com.noir.lynx.display.DisplayPipelineInfo(),
     val colorMatrixProfile: com.noir.lynx.display.ColorMatrixProfile = com.noir.lynx.display.ColorMatrixProfile.ACCURATE,
+    val isColorCalibrationEnabled: Boolean = false,
     val colorConflictWarning: String? = null,
     val isLabRecording: Boolean = false,
     val lastLabReport: com.noir.lynx.lab.FrameSessionReport? = null,

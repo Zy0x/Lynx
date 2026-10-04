@@ -107,6 +107,7 @@ class LynxViewModel : ViewModel() {
                 val graphicsCaps = LynxRepository.readGraphicsCapabilities()
                 val displayPipe = LynxRepository.readDisplayPipeline()
                 val colorConflict = LynxRepository.checkColorConflict()
+                val isColorCalEnabled = LynxRepository.isColorCalibrationEnabled()
                 val savedSessions = LynxRepository.listLabSessions(appContext)
 
                 val resolvedState = if (currentTcp.isNotBlank()) {
@@ -126,6 +127,7 @@ class LynxViewModel : ViewModel() {
                         graphicsCapabilities = graphicsCaps,
                         displayPipeline = displayPipe,
                         colorConflictWarning = colorConflict,
+                        isColorCalibrationEnabled = isColorCalEnabled,
                         savedLabSessions = savedSessions,
                         ksmStats = ksmStats,
                         ioDevices = ioDevices,
@@ -1247,9 +1249,33 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun setColorCalibrationEnabled(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(isColorCalibrationEnabled = enabled) }
+        viewModelScope.launch {
+            if (enabled) {
+                val profile = _uiState.value.colorMatrixProfile
+                val ok = LynxRepository.applyColorProfile(profile)
+                if (ok) {
+                    _uiState.update { it.copy(successMessage = "Kalibrasi warna diaktifkan (${profile.name})") }
+                } else {
+                    _uiState.update { it.copy(errorMessage = "Gagal mengaktifkan kalibrasi warna") }
+                }
+            } else {
+                LynxRepository.resetColorProfile()
+                _uiState.update {
+                    it.copy(
+                        colorMatrixProfile = com.noir.lynx.display.ColorMatrixProfile.ACCURATE,
+                        successMessage = "Kalibrasi warna dinonaktifkan (standar OEM dipulihkan)"
+                    )
+                }
+            }
+        }
+    }
+
     fun applyColorProfile(profile: com.noir.lynx.display.ColorMatrixProfile) {
         recordStateMutation()
-        _uiState.update { it.copy(colorMatrixProfile = profile) }
+        _uiState.update { it.copy(colorMatrixProfile = profile, isColorCalibrationEnabled = true) }
         viewModelScope.launch {
             val ok = LynxRepository.applyColorProfile(profile)
             if (ok) {
@@ -1262,10 +1288,10 @@ class LynxViewModel : ViewModel() {
 
     fun resetColorProfile() {
         recordStateMutation()
-        _uiState.update { it.copy(colorMatrixProfile = com.noir.lynx.display.ColorMatrixProfile.ACCURATE) }
+        _uiState.update { it.copy(colorMatrixProfile = com.noir.lynx.display.ColorMatrixProfile.ACCURATE, isColorCalibrationEnabled = false) }
         viewModelScope.launch {
             LynxRepository.resetColorProfile()
-            _uiState.update { it.copy(successMessage = "Kalibrasi warna dikembalikan ke default") }
+            _uiState.update { it.copy(successMessage = "Kalibrasi warna dikembalikan ke default OEM") }
         }
     }
 

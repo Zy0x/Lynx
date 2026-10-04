@@ -2062,7 +2062,9 @@ fun TuningGpuCategory(
                 ColorManagementCard(
                     displayCalibration = uiState.displayCalibration,
                     colorProfile = uiState.colorMatrixProfile,
+                    isCalibrationEnabled = uiState.isColorCalibrationEnabled,
                     colorConflict = uiState.colorConflictWarning,
+                    onToggleCalibration = { viewModel.setColorCalibrationEnabled(it) },
                     onApplyProfile = { viewModel.applyColorProfile(it) },
                     onResetProfile = { viewModel.resetColorProfile() },
                     onSetUniversalColor = { r, g, b -> viewModel.setUniversalColor(r, g, b) },

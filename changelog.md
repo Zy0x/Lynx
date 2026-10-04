@@ -1,3 +1,25 @@
+# Lynx [Codename: Deity] 3.0.37
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Master Toggle & Sistem Proteksi Sentuh Kalibrasi Warna Layar (Color Engine Touch Protection), Eliminasi Risiko Blank Screen dengan Sanitasi Ketat Format Angka Internasional (Locale.US Enforced), Reset Mandiri Aman ke Standar Bawaan OEM (D65 White Point / Matrix Identity 1015 / Saturation 1.0x), serta Penyempurnaan Desain Antarmuka Material 3 Obsidian yang Bersih, Terstruktur, dan Bebas Distorsi Sentuhan** — melengkapi kartu *Manajemen Warna Layar (Color Engine)* dengan master switch terintegrasi di header dan banner status visual; saat kalibrasi dinonaktifkan, seluruh slider (temperatur Kelvin, saturasi, kontras, gain RGB) dan preset terkunci rapat dan tersembunyi dengan transisi halus (`AnimatedVisibility`), menjamin tidak ada sentuhan atau geseran tidak sengaja saat pengguna menggulir layar; saat dimatikan, sistem secara otomatis merestorasi matriks layar SurfaceFlinger dan kanal warna Android ke standar pabrik OEM.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.37)
+
+### 1. 🛡️ Master Toggle & Proteksi Anti-Sentuh Kalibrasi Warna Layar
+- **Master Switch Terintegrasi**: Sakelar kendali utama ditempatkan di header kartu dan status banner interaktif untuk mengaktifkan atau menonaktifkan seluruh engine kalibrasi warna secara instan.
+- **Kunci Total Saat Nonaktif (Touch-Proof)**: Saat sakelar dalam posisi nonaktif (`OFF`), seluruh slider (Temperatur Kelvin 4000K–9000K, Saturasi 0.5x–1.8x, Kontras 0.7x–1.3x, dan Gain RGB Individual) serta chip preset dikunci dan disembunyikan secara rapi dengan animasi `AnimatedVisibility`. Pengguna bebas melakukan *scroll* tanpa risiko menyentuh slider secara tidak sengaja.
+- **Banner Status & Indikator OEM**: Menampilkan kartu status informatif dengan ikon gembok dan tag `STANDAR OEM` saat nonaktif, atau ikon tuning dan tag profil aktif (misal `AKURAT`, `GAMING`) saat aktif.
+
+### 2. ⚡ Restorasi Otomatis & Aman ke Standar Pabrik OEM (Safe Fallback)
+- **Zero-Latency Reset on Disable**: Mematikan sakelar kalibrasi secara otomatis mengeksekusi reset aman pada seluruh lapisan grafis: SurfaceFlinger Color Matrix 1015 dikembalikan ke identitas (`1015 i32 0`), saturasi dikembalikan ke `1.0`, dan `display_color_adjustment` dikembalikan ke `'1.0 1.0 1.0'`.
+- **Pencegahan Risiko Layar Gelap (Black Screen Prevention)**: Menjamin tidak ada lagi nilai nol atau format angka dengan koma yang dapat menyebabkan layar blank pada ROM ber-locale non-Inggris (Indonesia, Eropa, dsb.).
+
+### 3. 🎨 Perbaikan Desain & Struktur Antarmuka yang Bersih (Ultra-Clean UI)
+- **Hierarki Informasi yang Rapi**: Mengelompokkan preset, slider utama, dan penyesuaian gain lanjutan ke dalam container bertingkat yang terstruktur dan mudah dipahami tanpa kebingungan.
+- **Touch-First Compliance (>= 48dp)**: Seluruh tombol preset, switch, dan area interaktif dirancang dengan target sentuh minimal 48dp sesuai pedoman kenyamanan jemari dan mobile-first.
+- **Persistensi State Cerdas**: Status aktif/nonaktif kalibrasi warna dan profil pilihan tersimpan secara aman di preferensi aplikasi sehingga tetap konsisten setelah aplikasi ditutup atau perangkat direboot.
+
+---
+
 # Lynx [Codename: Deity] 3.0.36
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Arsitektur 3-Tab Terpadu "GPU & Display" (Tuning, Performance Lab, Info Hardware), Performance Lab Engine dengan Perekaman Frame-Pacing & Korelasi Drop Timestamp Real-Time (Avg FPS, 1% Low, 0.1% Low, Stabilitas %, Frame Time Variance), Deteksi Kapabilitas Hardware Universal (GPU Vendor, Model, Driver, GLES, Vulkan API, Panel Modes, HDR, Wide Color, Sysfs Explorer), Diagnostik Display Pipeline (HWC vs GPU Client Composition, Missed Frames, Active SkiaVK/GL), Mesin Kalibrasi Warna Modern SurfaceFlinger Matrix 1015 (Kelvin White Point 4000K-9000K, Saturasi, Kontras, RGB Individual, Presets D65/Gaming/Cinema/Membaca, Deteksi Konflik Night Light / Extra Dim), serta Perluasan Aturan Per-App Profil (GPU Clock Min/Max, Boost Level, Adaptive Authority, Color Profile)** — meningkatkan subhalaman *GPU & Display* menjadi pusat kendali grafis terlengkap tanpa perlu aplikasi pihak ketiga; dilengkapi validasi ketat *No-Gimmick* (verifikasi read-back hak akses node nyata), ekspor histori sesi ke CSV (`/sdcard/Download/Lynx/`), dan desain antarmuka Material 3 Obsidian yang bersih, terstruktur, dan mobile-first.

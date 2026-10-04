@@ -128,7 +128,9 @@ fun GpuDisplayTabRow(
 fun ColorManagementCard(
     displayCalibration: DisplayCalibrationInfo,
     colorProfile: ColorMatrixProfile,
+    isCalibrationEnabled: Boolean,
     colorConflict: String?,
+    onToggleCalibration: (Boolean) -> Unit,
     onApplyProfile: (ColorMatrixProfile) -> Unit,
     onResetProfile: () -> Unit,
     onSetUniversalColor: (Float, Float, Float) -> Unit,
@@ -154,6 +156,18 @@ fun ColorManagementCard(
         subtitle = "SurfaceFlinger Color Matrix 1015, D65 White Point, & KCAL",
         icon = Icons.Default.Palette,
         accentColor = cardAccent,
+        action = {
+            Switch(
+                checked = isCalibrationEnabled,
+                onCheckedChange = { onToggleCalibration(it) },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = BgDeepOled,
+                    checkedTrackColor = cardAccent,
+                    uncheckedThumbColor = TextTertiary,
+                    uncheckedTrackColor = BgSurfaceLowest
+                )
+            )
+        },
         modifier = modifier
     ) {
         // ── Conflict Warning Banner (Night Light / Extra Dim) ──
@@ -188,244 +202,196 @@ fun ColorManagementCard(
             }
         }
 
-        // ── Quick Presets ──
-        Text(
-            "Preset Profil Warna Universal",
-            color = TextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(Modifier.height(6.dp))
-
-        val presets = listOf(
-            Triple("Akurat", ColorMatrixProfile.ACCURATE, Icons.Default.Verified),
-            Triple("Gaming", ColorMatrixProfile.GAMING, Icons.Default.SportsEsports),
-            Triple("Cinema", ColorMatrixProfile.CINEMA, Icons.Default.Movie),
-            Triple("Membaca", ColorMatrixProfile.READING, Icons.AutoMirrored.Filled.MenuBook)
-        )
-
-        Row(
+        // ── Master Calibration State & Lock Banner ──
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = if (isCalibrationEnabled) cardAccent.copy(alpha = 0.08f) else BgElevated,
+            border = BorderStroke(1.dp, if (isCalibrationEnabled) cardAccent.copy(alpha = 0.4f) else BorderSubtle),
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .clickable { onToggleCalibration(!isCalibrationEnabled) }
         ) {
-            presets.forEach { (name, profile, icon) ->
-                val isSelected = colorProfile.name.equals(name, ignoreCase = true)
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Surface(
-                    onClick = {
-                        tempK = profile.temperatureK
-                        sat = profile.saturation
-                        cont = profile.contrast
-                        rGain = profile.red
-                        gGain = profile.green
-                        bGain = profile.blue
-                        onApplyProfile(profile)
-                    },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
-                    border = BorderStroke(1.dp, if (isSelected) cardAccent else BorderSubtle),
-                    modifier = Modifier.heightIn(min = 44.dp)
+                    shape = CircleShape,
+                    color = if (isCalibrationEnabled) cardAccent.copy(alpha = 0.2f) else TextTertiary.copy(alpha = 0.12f),
+                    modifier = Modifier.size(38.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = icon,
-                            contentDescription = name,
-                            tint = if (isSelected) cardAccent else TextSecondary,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Text(
-                            text = name,
-                            color = if (isSelected) cardAccent else TextPrimary,
-                            fontSize = 11.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            imageVector = if (isCalibrationEnabled) Icons.Default.Tune else Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = if (isCalibrationEnabled) cardAccent else TextSecondary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = if (isCalibrationEnabled) "Engine Kalibrasi Aktif" else "Kalibrasi Layar Nonaktif",
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(5.dp),
+                            color = if (isCalibrationEnabled) cardAccent.copy(alpha = 0.15f) else BgSurfaceLowest,
+                            border = BorderStroke(0.6.dp, if (isCalibrationEnabled) cardAccent.copy(alpha = 0.5f) else BorderSubtle)
+                        ) {
+                            Text(
+                                text = if (isCalibrationEnabled) colorProfile.name.uppercase() else "STANDAR OEM",
+                                color = if (isCalibrationEnabled) cardAccent else TextTertiary,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = if (isCalibrationEnabled)
+                            "Matriks warna aktif diterapkan ke SurfaceFlinger & sistem."
+                        else
+                            "Profil OEM D65 aktif. Seluruh slider terkunci rapat dari sentuhan tidak sengaja.",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                }
+                Switch(
+                    checked = isCalibrationEnabled,
+                    onCheckedChange = { onToggleCalibration(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = BgDeepOled,
+                        checkedTrackColor = cardAccent,
+                        uncheckedThumbColor = TextTertiary,
+                        uncheckedTrackColor = BgSurfaceLowest
+                    )
+                )
             }
         }
 
-        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 12.dp))
-
-        // ── Color Temperature Slider (Kelvin) ──
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // ── Sliders & Presets: ONLY Accessible when isCalibrationEnabled == true ──
+        AnimatedVisibility(
+            visible = isCalibrationEnabled,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
         ) {
-            Column {
-                Text("Temperatur Warna (Kelvin)", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                Text(
-                    text = when {
-                        tempK < 6000 -> "Hangat / Warm (Filter Cahaya Biru)"
-                        tempK in 6000..7000 -> "Standar Netral D65"
-                        else -> "Sejuk / Cool (Tampilan Dingin)"
-                    },
-                    color = TextSecondary,
-                    fontSize = 10.5.sp
-                )
-            }
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderSubtle)
-            ) {
-                Text(
-                    text = "$tempK K",
-                    color = cardAccent,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-        }
-        Slider(
-            value = tempK.toFloat(),
-            onValueChange = { tempK = it.toInt() },
-            onValueChangeFinished = {
-                onApplyProfile(
-                    colorProfile.copy(
-                        name = "Kustom",
-                        temperatureK = tempK,
-                        saturation = sat,
-                        contrast = cont,
-                        red = rGain,
-                        green = gGain,
-                        blue = bGain
-                    )
-                )
-            },
-            valueRange = 4000f..9000f,
-            steps = 49,
-            colors = SliderDefaults.colors(thumbColor = cardAccent, activeTrackColor = cardAccent)
-        )
-
-        // ── Saturation Slider ──
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Saturasi Tampilan", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            Text(String.format("%.2fx", sat), color = AccentPurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        }
-        Slider(
-            value = sat,
-            onValueChange = { sat = it },
-            onValueChangeFinished = {
-                onApplyProfile(
-                    colorProfile.copy(
-                        name = "Kustom",
-                        temperatureK = tempK,
-                        saturation = sat,
-                        contrast = cont,
-                        red = rGain,
-                        green = gGain,
-                        blue = bGain
-                    )
-                )
-            },
-            valueRange = 0.5f..1.8f,
-            colors = SliderDefaults.colors(thumbColor = AccentPurple, activeTrackColor = AccentPurple)
-        )
-
-        // ── Contrast Slider ──
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Kontras Warna", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            Text(String.format("%.2fx", cont), color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        }
-        Slider(
-            value = cont,
-            onValueChange = { cont = it },
-            onValueChangeFinished = {
-                onApplyProfile(
-                    colorProfile.copy(
-                        name = "Kustom",
-                        temperatureK = tempK,
-                        saturation = sat,
-                        contrast = cont,
-                        red = rGain,
-                        green = gGain,
-                        blue = bGain
-                    )
-                )
-            },
-            valueRange = 0.7f..1.3f,
-            colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
-        )
-
-        // ── Advanced Individual RGB Gains Toggle ──
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { showAdvancedGains = !showAdvancedGains }
-                .padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Penyesuaian Gain RGB Individual",
-                color = TextSecondary,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Icon(
-                imageVector = if (showAdvancedGains) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = null,
-                tint = TextSecondary,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-
-        AnimatedVisibility(visible = showAdvancedGains) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(top = 14.dp)
             ) {
-                // Red Gain
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Gain Merah", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    Text(String.format("%.2f", rGain), color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-                Slider(
-                    value = rGain,
-                    onValueChange = { rGain = it },
-                    onValueChangeFinished = {
-                        onApplyProfile(
-                            colorProfile.copy(
-                                name = "Kustom",
-                                temperatureK = tempK,
-                                saturation = sat,
-                                contrast = cont,
-                                red = rGain,
-                                green = gGain,
-                                blue = bGain
-                            )
-                        )
-                    },
-                    valueRange = 0.5f..1.5f,
-                    colors = SliderDefaults.colors(thumbColor = AccentRed, activeTrackColor = AccentRed)
+                // ── Quick Presets ──
+                Text(
+                    "Preset Profil Warna Universal",
+                    color = TextPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(6.dp))
+
+                val presets = listOf(
+                    Triple("Akurat", ColorMatrixProfile.ACCURATE, Icons.Default.Verified),
+                    Triple("Gaming", ColorMatrixProfile.GAMING, Icons.Default.SportsEsports),
+                    Triple("Cinema", ColorMatrixProfile.CINEMA, Icons.Default.Movie),
+                    Triple("Membaca", ColorMatrixProfile.READING, Icons.AutoMirrored.Filled.MenuBook)
                 )
 
-                // Green Gain
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Gain Hijau", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    Text(String.format("%.2f", gGain), color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    presets.forEach { (name, profile, icon) ->
+                        val isSelected = colorProfile.name.equals(name, ignoreCase = true)
+                        Surface(
+                            onClick = {
+                                if (isCalibrationEnabled) {
+                                    tempK = profile.temperatureK
+                                    sat = profile.saturation
+                                    cont = profile.contrast
+                                    rGain = profile.red
+                                    gGain = profile.green
+                                    bGain = profile.blue
+                                    onApplyProfile(profile)
+                                }
+                            },
+                            enabled = isCalibrationEnabled,
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
+                            border = BorderStroke(1.dp, if (isSelected) cardAccent else BorderSubtle),
+                            modifier = Modifier.heightIn(min = 48.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = name,
+                                    tint = if (isSelected) cardAccent else TextSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = name,
+                                    color = if (isSelected) cardAccent else TextPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 14.dp))
+
+                // ── Color Temperature Slider (Kelvin) ──
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Temperatur Warna (Kelvin)", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            text = when {
+                                tempK < 6000 -> "Hangat / Warm (Filter Cahaya Biru)"
+                                tempK in 6000..7000 -> "Standar Netral D65"
+                                else -> "Sejuk / Cool (Tampilan Dingin)"
+                            },
+                            color = TextSecondary,
+                            fontSize = 10.5.sp
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle)
+                    ) {
+                        Text(
+                            text = "$tempK K",
+                            color = cardAccent,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
                 }
                 Slider(
-                    value = gGain,
-                    onValueChange = { gGain = it },
+                    value = tempK.toFloat(),
+                    onValueChange = { tempK = it.toInt() },
                     onValueChangeFinished = {
                         onApplyProfile(
                             colorProfile.copy(
@@ -439,18 +405,26 @@ fun ColorManagementCard(
                             )
                         )
                     },
-                    valueRange = 0.5f..1.5f,
-                    colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen)
+                    enabled = isCalibrationEnabled,
+                    valueRange = 4000f..9000f,
+                    steps = 49,
+                    colors = SliderDefaults.colors(thumbColor = cardAccent, activeTrackColor = cardAccent)
                 )
 
-                // Blue Gain
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Gain Biru", color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    Text(String.format("%.2f", bGain), color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+
+                // ── Saturation Slider ──
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Saturasi Tampilan", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(String.format(java.util.Locale.US, "%.2fx", sat), color = AccentPurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 Slider(
-                    value = bGain,
-                    onValueChange = { bGain = it },
+                    value = sat,
+                    onValueChange = { sat = it },
                     onValueChangeFinished = {
                         onApplyProfile(
                             colorProfile.copy(
@@ -464,51 +438,196 @@ fun ColorManagementCard(
                             )
                         )
                     },
-                    valueRange = 0.5f..1.5f,
+                    enabled = isCalibrationEnabled,
+                    valueRange = 0.5f..1.8f,
+                    colors = SliderDefaults.colors(thumbColor = AccentPurple, activeTrackColor = AccentPurple)
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // ── Contrast Slider ──
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Kontras Warna", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(String.format(java.util.Locale.US, "%.2fx", cont), color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                Slider(
+                    value = cont,
+                    onValueChange = { cont = it },
+                    onValueChangeFinished = {
+                        onApplyProfile(
+                            colorProfile.copy(
+                                name = "Kustom",
+                                temperatureK = tempK,
+                                saturation = sat,
+                                contrast = cont,
+                                red = rGain,
+                                green = gGain,
+                                blue = bGain
+                            )
+                        )
+                    },
+                    enabled = isCalibrationEnabled,
+                    valueRange = 0.7f..1.3f,
                     colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
                 )
-            }
-        }
 
-        // ── Reset Profile Button ──
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp),
-            horizontalArrangement = Arrangement.End
-        ) {
-            Surface(
-                onClick = {
-                    tempK = 6500
-                    sat = 1.0f
-                    cont = 1.0f
-                    rGain = 1.0f
-                    gGain = 1.0f
-                    bGain = 1.0f
-                    onResetProfile()
-                },
-                shape = RoundedCornerShape(8.dp),
-                color = BgElevated,
-                border = BorderStroke(1.dp, BorderGlass),
-                modifier = Modifier.heightIn(min = 44.dp)
-            ) {
+                // ── Advanced Individual RGB Gains Toggle ──
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showAdvancedGains = !showAdvancedGains }
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.RestartAlt,
-                        contentDescription = "Reset",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(15.dp)
-                    )
                     Text(
-                        "Reset Standar D65",
+                        "Penyesuaian Gain RGB Individual",
                         color = TextSecondary,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium
                     )
+                    Icon(
+                        imageVector = if (showAdvancedGains) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                AnimatedVisibility(visible = showAdvancedGains) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Red Gain
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Gain Merah", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(String.format(java.util.Locale.US, "%.2f", rGain), color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Slider(
+                            value = rGain,
+                            onValueChange = { rGain = it },
+                            onValueChangeFinished = {
+                                onApplyProfile(
+                                    colorProfile.copy(
+                                        name = "Kustom",
+                                        temperatureK = tempK,
+                                        saturation = sat,
+                                        contrast = cont,
+                                        red = rGain,
+                                        green = gGain,
+                                        blue = bGain
+                                    )
+                                )
+                            },
+                            enabled = isCalibrationEnabled,
+                            valueRange = 0.5f..1.5f,
+                            colors = SliderDefaults.colors(thumbColor = AccentRed, activeTrackColor = AccentRed)
+                        )
+
+                        // Green Gain
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Gain Hijau", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(String.format(java.util.Locale.US, "%.2f", gGain), color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Slider(
+                            value = gGain,
+                            onValueChange = { gGain = it },
+                            onValueChangeFinished = {
+                                onApplyProfile(
+                                    colorProfile.copy(
+                                        name = "Kustom",
+                                        temperatureK = tempK,
+                                        saturation = sat,
+                                        contrast = cont,
+                                        red = rGain,
+                                        green = gGain,
+                                        blue = bGain
+                                    )
+                                )
+                            },
+                            enabled = isCalibrationEnabled,
+                            valueRange = 0.5f..1.5f,
+                            colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen)
+                        )
+
+                        // Blue Gain
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Gain Biru", color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(String.format(java.util.Locale.US, "%.2f", bGain), color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Slider(
+                            value = bGain,
+                            onValueChange = { bGain = it },
+                            onValueChangeFinished = {
+                                onApplyProfile(
+                                    colorProfile.copy(
+                                        name = "Kustom",
+                                        temperatureK = tempK,
+                                        saturation = sat,
+                                        contrast = cont,
+                                        red = rGain,
+                                        green = gGain,
+                                        blue = bGain
+                                    )
+                                )
+                            },
+                            enabled = isCalibrationEnabled,
+                            valueRange = 0.5f..1.5f,
+                            colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
+                        )
+                    }
+                }
+
+                // ── Reset Profile Button ──
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Surface(
+                        onClick = {
+                            tempK = 6500
+                            sat = 1.0f
+                            cont = 1.0f
+                            rGain = 1.0f
+                            gGain = 1.0f
+                            bGain = 1.0f
+                            onResetProfile()
+                        },
+                        enabled = isCalibrationEnabled,
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(1.dp, BorderGlass),
+                        modifier = Modifier.heightIn(min = 44.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.RestartAlt,
+                                contentDescription = "Reset",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Text(
+                                "Reset Standar D65",
+                                color = TextSecondary,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
         }

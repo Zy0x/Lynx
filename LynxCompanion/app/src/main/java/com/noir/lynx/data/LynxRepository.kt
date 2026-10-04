@@ -2524,11 +2524,29 @@ object LynxRepository {
     }
 
     suspend fun applyColorProfile(profile: com.noir.lynx.display.ColorMatrixProfile): Boolean = withContext(Dispatchers.IO) {
-        com.noir.lynx.display.ColorMatrixEngine.apply(profile)
+        val ok = com.noir.lynx.display.ColorMatrixEngine.apply(profile)
+        if (ok) {
+            appContext?.getSharedPreferences("lynx_display_prefs", Context.MODE_PRIVATE)
+                ?.edit()
+                ?.putBoolean("color_calibration_enabled", true)
+                ?.putString("color_profile_name", profile.name)
+                ?.apply()
+        }
+        ok
     }
 
     suspend fun resetColorProfile(): Boolean = withContext(Dispatchers.IO) {
-        com.noir.lynx.display.ColorMatrixEngine.reset()
+        val ok = com.noir.lynx.display.ColorMatrixEngine.reset()
+        appContext?.getSharedPreferences("lynx_display_prefs", Context.MODE_PRIVATE)
+            ?.edit()
+            ?.putBoolean("color_calibration_enabled", false)
+            ?.apply()
+        ok
+    }
+
+    fun isColorCalibrationEnabled(): Boolean {
+        return appContext?.getSharedPreferences("lynx_display_prefs", Context.MODE_PRIVATE)
+            ?.getBoolean("color_calibration_enabled", false) ?: false
     }
 
     suspend fun checkColorConflict(): String? = withContext(Dispatchers.IO) {
