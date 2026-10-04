@@ -1,3 +1,38 @@
+# Lynx [Codename: Deity] 3.0.36
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Arsitektur 3-Tab Terpadu "GPU & Display" (Tuning, Performance Lab, Info Hardware), Performance Lab Engine dengan Perekaman Frame-Pacing & Korelasi Drop Timestamp Real-Time (Avg FPS, 1% Low, 0.1% Low, Stabilitas %, Frame Time Variance), Deteksi Kapabilitas Hardware Universal (GPU Vendor, Model, Driver, GLES, Vulkan API, Panel Modes, HDR, Wide Color, Sysfs Explorer), Diagnostik Display Pipeline (HWC vs GPU Client Composition, Missed Frames, Active SkiaVK/GL), Mesin Kalibrasi Warna Modern SurfaceFlinger Matrix 1015 (Kelvin White Point 4000K-9000K, Saturasi, Kontras, RGB Individual, Presets D65/Gaming/Cinema/Membaca, Deteksi Konflik Night Light / Extra Dim), serta Perluasan Aturan Per-App Profil (GPU Clock Min/Max, Boost Level, Adaptive Authority, Color Profile)** — meningkatkan subhalaman *GPU & Display* menjadi pusat kendali grafis terlengkap tanpa perlu aplikasi pihak ketiga; dilengkapi validasi ketat *No-Gimmick* (verifikasi read-back hak akses node nyata), ekspor histori sesi ke CSV (`/sdcard/Download/Lynx/`), dan desain antarmuka Material 3 Obsidian yang bersih, terstruktur, dan mobile-first.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.36)
+
+### 1. 🎛️ Arsitektur 3-Tab Terpadu: [ 🎮 Tuning ], [ 📊 Lab ], dan [ ℹ️ Info ]
+- **Segmented Top Navigation**: Navigasi segmented touch-first di bagian atas subhalaman GPU & Display yang membagi fitur ke dalam 3 pilar: *Tuning* (pengaturan clock, driver, refresh rate, kalibrasi warna), *Lab* (perekam performa & analisis frame pacing), dan *Info* (pemindai kapabilitas hardware dan penjelajah node kernel).
+- **Desain Ultra-Clean & Anti-Clutter**: Memastikan antarmuka tetap rapi, responsif, dan tidak membebani pengguna dengan pengelompokan yang jelas dan terstruktur.
+
+### 2. 📊 Performance Lab — Real Frame Stability & Drop Correlator
+- **Perekaman Frame-Pacing SurfaceFlinger**: Mengukur latensi penyerahan buffer frame per layer langsung via SurfaceFlinger BLAST tanpa membebani sistem render.
+- **Metrik Frame Komprehensif**: Menghitung secara presisi *Rata-rata FPS*, *1% Low FPS*, *0.1% Low FPS*, *Variansi Frame Time (Deviasi Standar)*, *Skor Kestabilan %*, *Persentil p50/p95/p99*, dan *Total Frame Jank*.
+- **Korelasi Drop Akar Masalah**: Mengorelasikan timestamp setiap kejadian frame drop terhadap fluktuasi clock GPU (downclock oleh governor), thermal throttling, GPU core queue stall, atau CPU thread stall.
+- **Rekomendasi Cerdas**: Memberikan saran optimasi kontekstual berdasarkan akar masalah yang terdeteksi.
+- **Histori Sesi & Ekspor CSV**: Menyimpan hingga 20 sesi pengujian dan memungkinkan ekspor data frame lengkap ke format `.csv` di folder `/sdcard/Download/Lynx/`.
+
+### 3. ℹ️ Hardware Capability Scanner & Sysfs Node Explorer
+- **Deteksi Driver & API Fisik**: Memindai vendor GPU nyata (Adreno, Mali, Xclipse), versi driver kernel, versi OpenGL ES, serta mendekode versi Vulkan API via `cmd gpu vkjson`.
+- **Kapabilitas Panel Display**: Mendeteksi resolusi dan seluruh refresh rate yang didukung panel (`dumpsys display`), tipe HDR (HDR10, HDR10+, Dolby Vision), Wide Color Gamut (Display P3), serta dukungan hardware DC Dimming, HBM Sunlight Booster, dan KCAL.
+- **Display Pipeline & Komposisi**: Memantau rasio komposisi *Hardware Composer (HWC Direct)* vs *Client GPU Fallback*, jumlah missed frames, serta backend aktif Skia (SkiaVK Vulkan vs SkiaGL).
+- **Universal Sysfs Node Explorer**: Menampilkan daftar node kernel nyata yang terdeteksi pada perangkat beserta badge status akses (`WRITABLE`, `READ-ONLY`, `UNAVAILABLE`) dan fitur salin path dalam satu ketukan.
+
+### 4. 🎨 Universal Color Management Engine (SurfaceFlinger Matrix 1015)
+- **Koreksi White Point D65 & Temperatur Kelvin**: Penyesuaian temperatur warna (4000K hingga 9000K) berbasis aproksimasi Tanner Helland dengan normalisasi D65.
+- **Kontrol Saturasi & Kontras**: Menyetel matriks saturasi Rec.709 (0.5x hingga 1.8x) dan kontras dinamis tanpa efek banding visual.
+- **Preset Instan & Gain RGB Individual**: Opsi preset cepat (*Akurat D65*, *Gaming Vivid*, *Cinema Warm*, *Membaca/Eye Care*) dan slider gain individu untuk Red, Green, Blue.
+- **Deteksi Konflik Night Light / Extra Dim**: Notifikasi otomatis jika fitur Night Light atau Extra Dim Android sedang aktif di sistem agar kalibrasi warna tidak terdistorsi.
+- **KCAL & HBM Seamless Fallback**: Tetap mempertahankan dukungan saklar KCAL kernel dan HBM Sunlight Booster jika perangkat memilikinya.
+
+### 5. 📦 Perluasan Aturan Profil Aplikasi (App Profile Rules)
+- **Parameter GPU & Display pada Per-App Rule**: Menambahkan konfigurasi frekuensi minimum/maksimum GPU, boost level, preferensi adaptive authority, dan profil warna pada basis data per-aplikasi (`AppProfileRule`).
+
+---
+
 # Lynx [Codename: Deity] 3.0.35
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Reka Ulang Arsitektur Universal Subhalaman "GPU & Display": Dual-Pill Dropdown Frequency Picker & Kunci Clock Mandiri, Mode Auto Refresh Rate Dinamis (0Hz Ultra-Low Idle & Instant Boost Touch), Eliminasi Duplikasi Boost, Driver Grafis Produksi Game (AOSP `updatable_driver_all_apps`), HWUI Modern SkiaVK (Vulkan Backend) & SkiaGL, SurfaceFlinger Low-Latency Latch Unsignaled, Shield Anti-Throttling Vendor OEM (Xiaomi Joyose / Samsung GOS / BBK GPA / Transsion Darwin), serta Kalibrasi Warna Layar Universal Android (`display_color_adjustment`) Bebas Pesan Error Raksasa** — merestrukturisasi total subhalaman *GPU & Display* pada aplikasi Lynx Companion (`LynxKernelManager`) menjadi 4 Kartu Master berorientasi touch-first dan clean minimalist: (1) *Master GPU Tuner & Telemetri*, (2) *Driver Grafis & HWUI Engine*, (3) *Display Refresh Rate & Touch*, dan (4) *Kalibrasi Warna Layar (Universal RGB)*; membasmi tuntas slider frekuensi horizontal yang kaku menjadi selektor Dual-Pill (Min MHz & Max MHz) dengan Bottom Sheet 49-step OPP table dan tombol kunci mandiri, mengintegrasikan mode Auto Refresh Rate cerdas dengan `min_refresh_rate = 0.0` untuk efisiensi baterai maksimal, serta mendukung penuh cross-SoC kernel (Qualcomm Snapdragon Adreno, MediaTek Mali/Immortalis GED, Samsung Exynos/AMD RDNA Xclipse, Google Tensor, Generic Linux GKI).

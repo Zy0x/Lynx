@@ -437,6 +437,15 @@ data class LynxUiState(
     val supportedRefreshRates: List<Int> = listOf(60, 90, 120),
     val isAutoRefreshRate: Boolean = false,
     val graphicsHwui: GraphicsHwuiInfo = GraphicsHwuiInfo(),
+    // GPU & Display Intelligence Framework
+    val graphicsCapabilities: com.noir.lynx.hardware.GraphicsCapabilities = com.noir.lynx.hardware.GraphicsCapabilities(),
+    val displayPipeline: com.noir.lynx.display.DisplayPipelineInfo = com.noir.lynx.display.DisplayPipelineInfo(),
+    val colorMatrixProfile: com.noir.lynx.display.ColorMatrixProfile = com.noir.lynx.display.ColorMatrixProfile.ACCURATE,
+    val colorConflictWarning: String? = null,
+    val isLabRecording: Boolean = false,
+    val lastLabReport: com.noir.lynx.lab.FrameSessionReport? = null,
+    val savedLabSessions: List<com.noir.lynx.lab.FrameSessionReport> = emptyList(),
+    val selectedGpuTab: Int = 0,
     val customRulesScript: String = "",
     val customRulesOutput: String? = null,
     val customRulesRunning: Boolean = false,
@@ -753,6 +762,11 @@ data class AppProfileRule(
     val targetRefreshRate: Int? = null,
     val autoFloatingHud: Boolean = false,
     val isGame: Boolean = false,
+    val gpuMinFreqKhz: Int? = null,
+    val gpuMaxFreqKhz: Int? = null,
+    val gpuBoostLevel: Int? = null,
+    val adaptiveAuthority: Int = 1, // 0 = Telemetry only, 1 = Recommendation (default), 2 = Adaptive Control
+    val colorProfile: String? = null
 ) {
     val isEnabled: Boolean get() = enabled
 }

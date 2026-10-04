@@ -2443,7 +2443,8 @@ object LynxRepository {
     suspend fun setForceMsaa(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
             val valStr = if (enabled) "1" else "0"
-            Shell.cmd("setprop debug.egl.force_msaa $valStr; settings put global force_msaa $valStr").exec().isSuccess
+            // debug.egl.force_msaa is the real system property honored by Android HWUI/EGL
+            Shell.cmd("setprop debug.egl.force_msaa $valStr").exec().isSuccess
         } catch (e: Exception) { false }
     }
 
@@ -2457,6 +2458,9 @@ object LynxRepository {
                 else -> ""
             }
             if (pkg.isBlank()) return@withContext false
+            val checkPkg = Shell.cmd("pm list packages $pkg 2>/dev/null").exec().out.any { it.contains(pkg) }
+            if (!checkPkg) return@withContext false
+
             val cmd = if (disable) "pm disable-user --user 0 $pkg 2>/dev/null || pm suspend $pkg 2>/dev/null"
                       else "pm enable $pkg 2>/dev/null || pm unsuspend $pkg 2>/dev/null"
             Shell.cmd(cmd).exec().isSuccess
@@ -2467,15 +2471,86 @@ object LynxRepository {
         try {
             val valStr = if (enabled) "1" else "0"
             val script = """
-                for d in /sys/devices/virtual/graphics/fb0/dc_dimming /sys/class/drm/card0-DSI-1/dc_dimming /sys/kernel/display/dc_dimming; do
+                found=0
+                for d in /sys/devices/virtual/graphics/fb0/dc_dimming /sys/class/drm/card0-DSI-1/dc_dimming /sys/kernel/display/dc_dimming /sys/devices/platform/soc/soc:qcom,dsi-display-primary/dc_dimming; do
                     if [ -f "${'$'}d" ]; then
                         echo $valStr > "${'$'}d" 2>/dev/null
+                        found=1
                     fi
                 done
-                echo ok
+                if [ "${'$'}found" = "1" ]; then echo ok; else echo unsupported; fi
             """.trimIndent()
-            Shell.cmd(script).exec().isSuccess
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
+    }
+
+    // ============================================================
+    //  GPU & DISPLAY INTELLIGENCE FRAMEWORK
+    // ============================================================
+
+    suspend fun readGraphicsCapabilities(): com.noir.lynx.hardware.GraphicsCapabilities = withContext(Dispatchers.IO) {
+        try {
+            val gpu = com.noir.lynx.hardware.GpuCapabilityDetector.detect()
+            val disp = com.noir.lynx.hardware.DisplayCapabilityDetector.detect()
+            com.noir.lynx.hardware.GraphicsCapabilities(
+                gpuVendor = gpu.vendor,
+                gpuModel = gpu.model,
+                glesVersion = gpu.glesVersion,
+                driverVersion = gpu.driverVersion,
+                vulkanVersion = gpu.vulkanVersion,
+                backend = gpu.backend,
+                gpuTempNode = gpu.tempNode,
+                memBusNodes = gpu.busNodes,
+                displayModes = disp.displayModes,
+                hdrTypes = disp.hdrTypes,
+                wideColor = disp.wideColor,
+                maxLuminanceNits = disp.maxLuminanceNits,
+                hasKcal = disp.hasKcal,
+                dcDimmingNode = disp.dcDimmingNode,
+                hbmNode = disp.hbmNode,
+                nodes = gpu.nodeStatuses
+            )
+        } catch (e: Exception) {
+            com.noir.lynx.hardware.GraphicsCapabilities()
+        }
+    }
+
+    suspend fun readDisplayPipeline(): com.noir.lynx.display.DisplayPipelineInfo = withContext(Dispatchers.IO) {
+        try {
+            com.noir.lynx.display.DisplayPipelineReader.read()
+        } catch (e: Exception) {
+            com.noir.lynx.display.DisplayPipelineInfo()
+        }
+    }
+
+    suspend fun applyColorProfile(profile: com.noir.lynx.display.ColorMatrixProfile): Boolean = withContext(Dispatchers.IO) {
+        com.noir.lynx.display.ColorMatrixEngine.apply(profile)
+    }
+
+    suspend fun resetColorProfile(): Boolean = withContext(Dispatchers.IO) {
+        com.noir.lynx.display.ColorMatrixEngine.reset()
+    }
+
+    suspend fun checkColorConflict(): String? = withContext(Dispatchers.IO) {
+        com.noir.lynx.display.ColorMatrixEngine.checkConflict()
+    }
+
+    suspend fun startLabRecording(pkg: String, scope: kotlinx.coroutines.CoroutineScope) {
+        com.noir.lynx.lab.FrameSampler.startRecording(pkg, scope)
+    }
+
+    suspend fun stopLabRecording(context: android.content.Context, targetHz: Int): com.noir.lynx.lab.FrameSessionReport = withContext(Dispatchers.IO) {
+        val report = com.noir.lynx.lab.FrameSampler.stopRecording(targetHz)
+        com.noir.lynx.lab.SessionStore.saveSession(context, report)
+        report
+    }
+
+    suspend fun listLabSessions(context: android.content.Context): List<com.noir.lynx.lab.FrameSessionReport> = withContext(Dispatchers.IO) {
+        com.noir.lynx.lab.SessionStore.listSessions(context)
+    }
+
+    suspend fun exportLabSession(context: android.content.Context, report: com.noir.lynx.lab.FrameSessionReport): String? = withContext(Dispatchers.IO) {
+        com.noir.lynx.lab.SessionStore.exportToDownload(context, report)
     }
 
     suspend fun readSocOverride(): String = withContext(Dispatchers.IO) {
@@ -4920,6 +4995,11 @@ object LynxRepository {
                     val targetHz = obj.optInt("targetRefreshRate", -1).let { if (it > 0) it else null }
                     val autoHud = obj.optBoolean("autoFloatingHud", false)
                     val isGame = obj.optBoolean("isGame", false)
+                    val gpuMin = obj.optInt("gpuMinFreqKhz", -1).let { if (it > 0) it else null }
+                    val gpuMax = obj.optInt("gpuMaxFreqKhz", -1).let { if (it > 0) it else null }
+                    val gpuBoost = obj.optInt("gpuBoostLevel", -1).let { if (it >= 0) it else null }
+                    val authority = obj.optInt("adaptiveAuthority", 1)
+                    val colorProf = obj.optString("colorProfile").ifBlank { null }
                     list.add(
                         AppProfileRule(
                             packageName = obj.optString("packageName"),
@@ -4928,7 +5008,12 @@ object LynxRepository {
                             enabled = obj.optBoolean("enabled", true),
                             targetRefreshRate = targetHz,
                             autoFloatingHud = autoHud,
-                            isGame = isGame
+                            isGame = isGame,
+                            gpuMinFreqKhz = gpuMin,
+                            gpuMaxFreqKhz = gpuMax,
+                            gpuBoostLevel = gpuBoost,
+                            adaptiveAuthority = authority,
+                            colorProfile = colorProf
                         )
                     )
                 }
@@ -4972,6 +5057,11 @@ object LynxRepository {
                 obj.put("targetRefreshRate", r.targetRefreshRate ?: -1)
                 obj.put("autoFloatingHud", r.autoFloatingHud)
                 obj.put("isGame", r.isGame)
+                obj.put("gpuMinFreqKhz", r.gpuMinFreqKhz ?: -1)
+                obj.put("gpuMaxFreqKhz", r.gpuMaxFreqKhz ?: -1)
+                obj.put("gpuBoostLevel", r.gpuBoostLevel ?: -1)
+                obj.put("adaptiveAuthority", r.adaptiveAuthority)
+                obj.put("colorProfile", r.colorProfile ?: "")
                 array.put(obj)
                 if (r.enabled && (r.targetProfile == "performance" || r.targetProfile == "extreme")) {
                     perfPkgs.add(r.packageName)
@@ -4988,7 +5078,7 @@ object LynxRepository {
 
             // Synchronize with app_rules.tsv for ultra-fast root daemon parsing
             val tsvLines = rules.filter { it.enabled }.joinToString("\n") { r ->
-                "${r.packageName}|${r.targetProfile}|${r.targetRefreshRate ?: -1}|${if (r.autoFloatingHud) "1" else "0"}|${r.appName}"
+                "${r.packageName}|${r.targetProfile}|${r.targetRefreshRate ?: -1}|${if (r.autoFloatingHud) "1" else "0"}|${r.appName}|${r.gpuMinFreqKhz ?: -1}|${r.gpuMaxFreqKhz ?: -1}|${r.gpuBoostLevel ?: -1}|${r.adaptiveAuthority}|${r.colorProfile ?: ""}"
             }
             Shell.cmd(
                 "cat << 'EOF' > /data/adb/lynx/app_rules.tsv\n$tsvLines\nEOF",

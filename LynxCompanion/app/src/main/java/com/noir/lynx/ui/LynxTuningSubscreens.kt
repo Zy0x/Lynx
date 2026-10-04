@@ -1993,6 +1993,7 @@ fun TuningGpuCategory(
     viewModel: LynxViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val state = uiState.state
     val gpu = uiState.gpuInfo
     val graphics = uiState.graphicsHwui
@@ -2003,56 +2004,115 @@ fun TuningGpuCategory(
         viewModel.refreshGraphicsHwui()
         viewModel.refreshDisplayRefreshRate()
         viewModel.refreshDisplayCalibration()
+        viewModel.refreshGraphicsCapabilities()
+        viewModel.refreshDisplayPipeline()
+        viewModel.refreshColorConflict()
+        viewModel.refreshSavedLabSessions(context)
     }
 
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ── 1. Master GPU Tuner & Telemetri Card (Dual-Pill Clock, Boost, & Advanced) ──
-        GpuMasterTunerCard(
-            gpu = gpu,
-            onSetFreq = { minMhz, maxMhz -> viewModel.setGpuFreq(minMhz, maxMhz) },
-            onSetLock = { locked -> viewModel.setGpuLock(locked) },
-            onSetBoostLevel = { lvl -> viewModel.setGpuBoostLevel(lvl) },
-            onSetGovernor = { gov -> viewModel.setGpuGovernor(gov) },
-            onSetThermalBypass = { bypass -> viewModel.setGpuThermalBypass(bypass) },
-            onSetBusAlwaysOn = { busOn -> viewModel.setGpuBusAlwaysOn(busOn) },
-            onSetFramePacing = { fp -> viewModel.setGpuFramePacing(fp) }
+        // ── 0. Top Navigation Segmented Switcher (Tuning | Lab | Info) ──
+        GpuDisplayTabRow(
+            selectedTab = uiState.selectedGpuTab,
+            onSelectTab = { viewModel.selectGpuTab(it) }
         )
 
-        // ── 2. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, MSAA) ──
-        GraphicsDriverHwuiCard(
-            graphics = graphics,
-            onSetGameDriver = { mode -> viewModel.setUpdatableGameDriver(mode) },
-            onSetRenderer = { backend -> viewModel.setHwuiRenderer(backend) },
-            onSetLatch = { latch -> viewModel.setSurfaceFlingerLatch(latch) },
-            onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
-            onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) }
-        )
+        when (uiState.selectedGpuTab) {
+            0 -> {
+                // ── TAB 0: TUNING ──
+                // 1. Master GPU Tuner & Telemetri Card (Dual-Pill Clock, Boost, & Advanced)
+                GpuMasterTunerCard(
+                    gpu = gpu,
+                    onSetFreq = { minMhz, maxMhz -> viewModel.setGpuFreq(minMhz, maxMhz) },
+                    onSetLock = { locked -> viewModel.setGpuLock(locked) },
+                    onSetBoostLevel = { lvl -> viewModel.setGpuBoostLevel(lvl) },
+                    onSetGovernor = { gov -> viewModel.setGpuGovernor(gov) },
+                    onSetThermalBypass = { bypass -> viewModel.setGpuThermalBypass(bypass) },
+                    onSetBusAlwaysOn = { busOn -> viewModel.setGpuBusAlwaysOn(busOn) },
+                    onSetFramePacing = { fp -> viewModel.setGpuFramePacing(fp) }
+                )
 
-        // ── 3. Display Refresh Rate & Touch Card (4-Way Chips: Auto + 60/90/120Hz) ──
-        DisplayRefreshRateTouchCard(
-            currentHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60,
-            isAuto = uiState.isAutoRefreshRate,
-            supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(60, 90, 120) },
-            touchBoost = state.displayTouch.touchboost,
-            dcDimmingSupported = graphics.isDcDimmingSupported,
-            dcDimmingEnabled = graphics.dcDimmingEnabled,
-            onSetRefreshRate = { hz, isAuto -> viewModel.setDisplayRefreshRate(hz, isAuto) },
-            onSetTouchBoost = { viewModel.setTouchboost(it) },
-            onSetDcDimming = { viewModel.setDcDimming(it) }
-        )
+                // 2. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, MSAA)
+                GraphicsDriverHwuiCard(
+                    graphics = graphics,
+                    onSetGameDriver = { mode -> viewModel.setUpdatableGameDriver(mode) },
+                    onSetRenderer = { backend -> viewModel.setHwuiRenderer(backend) },
+                    onSetLatch = { latch -> viewModel.setSurfaceFlingerLatch(latch) },
+                    onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
+                    onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) }
+                )
 
-        // ── 4. Display Calibration Card (Universal Android RGB + KCAL Fallback) ──
-        DisplayCalibrationCard(
-            displayCalibration = uiState.displayCalibration,
-            onSetUniversalColor = { r, g, b -> viewModel.setUniversalColor(r, g, b) },
-            onSetKcal = { en, r, g, b, sat, v, c, h ->
-                viewModel.setKcalParams(en, r, g, b, sat, v, c, h)
-            },
-            onSetHbm = { viewModel.setHbmEnabled(it) }
-        )
+                // 3. Display Refresh Rate & Touch Card (4-Way Chips: Auto + 60/90/120Hz)
+                DisplayRefreshRateTouchCard(
+                    currentHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60,
+                    isAuto = uiState.isAutoRefreshRate,
+                    supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(60, 90, 120) },
+                    touchBoost = state.displayTouch.touchboost,
+                    dcDimmingSupported = graphics.isDcDimmingSupported,
+                    dcDimmingEnabled = graphics.dcDimmingEnabled,
+                    onSetRefreshRate = { hz, isAuto -> viewModel.setDisplayRefreshRate(hz, isAuto) },
+                    onSetTouchBoost = { viewModel.setTouchboost(it) },
+                    onSetDcDimming = { viewModel.setDcDimming(it) }
+                )
+
+                // 4. Color Management Card (SurfaceFlinger Matrix 1015, D65 White Point, & KCAL)
+                ColorManagementCard(
+                    displayCalibration = uiState.displayCalibration,
+                    colorProfile = uiState.colorMatrixProfile,
+                    colorConflict = uiState.colorConflictWarning,
+                    onApplyProfile = { viewModel.applyColorProfile(it) },
+                    onResetProfile = { viewModel.resetColorProfile() },
+                    onSetUniversalColor = { r, g, b -> viewModel.setUniversalColor(r, g, b) },
+                    onSetKcal = { en, r, g, b, sat, v, c, h ->
+                        viewModel.setKcalParams(en, r, g, b, sat, v, c, h)
+                    },
+                    onSetHbm = { viewModel.setHbmEnabled(it) }
+                )
+            }
+            1 -> {
+                // ── TAB 1: LAB (PERFORMANCE LAB) ──
+                LabRecordCard(
+                    isRecording = uiState.isLabRecording,
+                    onStartRecording = { viewModel.startLabRecording(it) },
+                    onStopRecording = { viewModel.stopLabRecording(context) }
+                )
+
+                uiState.lastLabReport?.let { report ->
+                    SessionSummaryCard(
+                        report = report,
+                        onExportCsv = { viewModel.exportLabReport(context, report) }
+                    )
+                    DropAnalysisCard(report = report)
+                }
+
+                SessionHistoryList(
+                    sessions = uiState.savedLabSessions,
+                    onSelectSession = { session ->
+                        viewModel.selectLabReport(session)
+                    }
+                )
+            }
+            2 -> {
+                // ── TAB 2: INFO (CAPABILITY SCANNER & DIAGNOSTICS) ──
+                CapabilityScannerCard(
+                    caps = uiState.graphicsCapabilities,
+                    onRefresh = { viewModel.refreshGraphicsCapabilities() }
+                )
+
+                GraphicsDebugCard(
+                    caps = uiState.graphicsCapabilities,
+                    pipeline = uiState.displayPipeline,
+                    onRefresh = { viewModel.refreshDisplayPipeline() }
+                )
+
+                NodeExplorerCard(
+                    caps = uiState.graphicsCapabilities
+                )
+            }
+        }
     }
 }
 

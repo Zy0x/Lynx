@@ -104,6 +104,11 @@ class LynxViewModel : ViewModel() {
                 val schedBackend = SchedulerBackendFactory.detect()
                 val clusterIdle = CpuIdleDetector.detectClusterIdle(cpuCores.size.coerceAtLeast(8))
 
+                val graphicsCaps = LynxRepository.readGraphicsCapabilities()
+                val displayPipe = LynxRepository.readDisplayPipeline()
+                val colorConflict = LynxRepository.checkColorConflict()
+                val savedSessions = LynxRepository.listLabSessions(appContext)
+
                 val resolvedState = if (currentTcp.isNotBlank()) {
                     state.copy(network = state.network.copy(tcpCongestion = currentTcp))
                 } else state
@@ -118,6 +123,10 @@ class LynxViewModel : ViewModel() {
                         telemetry = telemetry,
                         backups = backups,
                         gpuInfo = gpuInfo,
+                        graphicsCapabilities = graphicsCaps,
+                        displayPipeline = displayPipe,
+                        colorConflictWarning = colorConflict,
+                        savedLabSessions = savedSessions,
                         ksmStats = ksmStats,
                         ioDevices = ioDevices,
                         availableTcpAlgorithms = tcpAlgs,
@@ -1199,10 +1208,119 @@ class LynxViewModel : ViewModel() {
         recordStateMutation()
         _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(dcDimmingEnabled = enabled)) }
         viewModelScope.launch {
-            LynxRepository.setDcDimming(enabled)
+            val ok = LynxRepository.setDcDimming(enabled)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = "DC Dimming ${if (enabled) "diaktifkan" else "dinonaktifkan"}") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Hardware DC Dimming tidak didukung oleh panel ini") }
+            }
             delay(200L)
             refreshGraphicsHwui()
         }
+    }
+
+    // ============================================================
+    //  GPU & DISPLAY INTELLIGENCE FRAMEWORK
+    // ============================================================
+
+    fun setSelectedGpuTab(tab: Int) {
+        _uiState.update { it.copy(selectedGpuTab = tab) }
+    }
+
+    fun selectGpuTab(tab: Int) = setSelectedGpuTab(tab)
+
+    fun refreshGraphicsCapabilities() {
+        viewModelScope.launch {
+            try {
+                val caps = LynxRepository.readGraphicsCapabilities()
+                _uiState.update { it.copy(graphicsCapabilities = caps) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun refreshDisplayPipeline() {
+        viewModelScope.launch {
+            try {
+                val pipe = LynxRepository.readDisplayPipeline()
+                _uiState.update { it.copy(displayPipeline = pipe) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun applyColorProfile(profile: com.noir.lynx.display.ColorMatrixProfile) {
+        recordStateMutation()
+        _uiState.update { it.copy(colorMatrixProfile = profile) }
+        viewModelScope.launch {
+            val ok = LynxRepository.applyColorProfile(profile)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = "Profil warna '${profile.name}' diterapkan") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menerapkan matriks warna") }
+            }
+        }
+    }
+
+    fun resetColorProfile() {
+        recordStateMutation()
+        _uiState.update { it.copy(colorMatrixProfile = com.noir.lynx.display.ColorMatrixProfile.ACCURATE) }
+        viewModelScope.launch {
+            LynxRepository.resetColorProfile()
+            _uiState.update { it.copy(successMessage = "Kalibrasi warna dikembalikan ke default") }
+        }
+    }
+
+    fun checkColorConflict() {
+        viewModelScope.launch {
+            val warning = LynxRepository.checkColorConflict()
+            _uiState.update { it.copy(colorConflictWarning = warning) }
+        }
+    }
+
+    fun refreshColorConflict() = checkColorConflict()
+
+    fun startLabRecording(pkg: String? = null) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLabRecording = true) }
+            LynxRepository.startLabRecording(pkg ?: "", viewModelScope)
+        }
+    }
+
+    fun stopLabRecording(context: android.content.Context) {
+        viewModelScope.launch {
+            val targetHz = _uiState.value.displayRefreshRate.let { if (it > 0) it else 120 }
+            val report = LynxRepository.stopLabRecording(context, targetHz)
+            val updatedSessions = LynxRepository.listLabSessions(context)
+            _uiState.update {
+                it.copy(
+                    isLabRecording = false,
+                    lastLabReport = report,
+                    savedLabSessions = updatedSessions,
+                    successMessage = "Sesi ${report.packageName} tersimpan (${report.sessionDurationSec}s, ${report.totalFrames} frames)"
+                )
+            }
+        }
+    }
+
+    fun refreshSavedLabSessions(context: android.content.Context) {
+        viewModelScope.launch {
+            val sessions = LynxRepository.listLabSessions(context)
+            _uiState.update { it.copy(savedLabSessions = sessions) }
+        }
+    }
+
+    fun exportLabReport(context: android.content.Context, report: com.noir.lynx.lab.FrameSessionReport) {
+        viewModelScope.launch {
+            val path = LynxRepository.exportLabSession(context, report)
+            if (path != null) {
+                _uiState.update { it.copy(successMessage = "Laporan berhasil diekspor ke: $path") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengekspor laporan ke penyimpanan") }
+            }
+        }
+    }
+
+    fun selectLabReport(report: com.noir.lynx.lab.FrameSessionReport) {
+        _uiState.update { it.copy(lastLabReport = report) }
     }
 
     // ----------------------------------------------------------------
