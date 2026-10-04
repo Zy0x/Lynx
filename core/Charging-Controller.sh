@@ -65,7 +65,7 @@ apply_bypass_charging() {
     write_node "0" "$BATT_DIR/input_suspend"
 
     # Unlock charger input current so motherboard never draws from battery
-    write_node "4294967295" "$MTK_DIR/input_current"
+    write_node "6000" "$MTK_DIR/input_current"
     write_node "4500000" "$USB_DIR/current_max"
     write_node "4500000" "$USB_DIR/hw_current_max"
     write_node "4500000" "$MAIN_DIR/current_max"
@@ -128,17 +128,25 @@ apply_extreme_charging() {
     write_node "68" "$MTK_DIR/pdc_max_watt"
 
     # 3. Unlock maximum input and battery current on MediaTek
-    write_node "4294967295" "$MTK_DIR/input_current"
-    write_node "4294967295" "$MTK_DIR/chg1_current"
-    write_node "4294967295" "$MTK_DIR/chg2_current"
-    write_node "7000" "$MTK_DIR/sc_ibat_limit"
+    write_node "6000" "$MTK_DIR/input_current"
+    write_node "6000" "$MTK_DIR/chg1_current"
+    write_node "6000" "$MTK_DIR/chg2_current"
+    write_node "8000" "$MTK_DIR/sc_ibat_limit"
     write_node "$target_soc" "$MTK_DIR/sc_tuisoc"
     write_node "1" "$MTK_DIR/enable_sc"
 
     # 4. Bypass MTK Super Charge DV2_TBAT thermal lockout
     if [ "$allow_lockout_bypass" = "true" ]; then
         write_node "28" "/sys/devices/platform/battery/Battery_Temperature"
-        write_node "0" "/sys/class/thermal/cooling_device56/cur_state"
+        for c in /sys/class/thermal/cooling_device*; do
+            type=$(cat "$c/type" 2>/dev/null)
+            case "$type" in
+                *bcct*|*chg*|*current*|*abcct*|*battery*)
+                    chmod 666 "$c/cur_state" 2>/dev/null
+                    echo 0 > "$c/cur_state" 2>/dev/null
+                    ;;
+            esac
+        done
     fi
 
     # 5. Universal & Qualcomm Maximum Current (6000mA = 6A max headroom)
@@ -200,7 +208,7 @@ apply_regulated_charging() {
     write_node "0" "$BATT_DIR/charge_control_limit_max"
 
     # Unlock charger input current so motherboard draws operating power from charger
-    write_node "4294967295" "$MTK_DIR/input_current"
+    write_node "6000" "$MTK_DIR/input_current"
     write_node "4500000" "$USB_DIR/current_max"
     write_node "4500000" "$USB_DIR/hw_current_max"
     write_node "4500000" "$MAIN_DIR/current_max"

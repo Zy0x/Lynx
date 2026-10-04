@@ -1,3 +1,25 @@
+# Lynx [Codename: Deity] 3.0.29
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Perbaikan Kritis Subsistem Pengisian Daya & Optimalisasi 33W Transsion Super Charge: Eliminasi Bug Integer Overflow (Zeroing Input Current Bug Fix), Penguraian Konseptual & Edukasi UI Bypass vs Extreme Charging, dan Dynamic Thermal Cooling Device Unlocking** — membasmi cacat fatal pada skrip pengontrol di mana penulisan nilai `4294967295` memicu overflow pada sysfs kernel MediaTek dan me-reset arus input `input_current` menjadi 0 mA, menggantikannya dengan nilai valid 6000 mA (register step 24576) untuk memompa daya penuh 33W (hingga 5–6A pada sel baterai via RT9759 2:1 Switched Capacitor Charge Pump); memperjelas pemisahan tegas antara fungsi *Bypass Charging* (daya langsung ke motherboard, net 0mA baterai untuk gaming dingin) dan *Extreme Fast Charging* (pompa arus maksimum ke sel baterai) pada antarmuka pengguna; serta menggantikan penanganan termal statis hardcoded dengan loop dinamis pada seluruh `cooling_device*` terkait charging.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.29)
+
+### 1. ⚡ Perbaikan Kritis Subsistem Pengisian Daya (Zeroing Input Current Bug Fix)
+- **Eliminasi Integer Overflow Sysfs**: Memperbaiki bug di mana penulisan `4294967295` ke `/sys/devices/platform/charger/input_current`, `chg1_current`, dan `chg2_current` ditolak oleh parser kernel driver dan me-reset arus pengisian menjadi `0`, secara artifisial mencekik kecepatan pengisian ke mode darurat minimal.
+- **Koreksi Parameter Arus MediaTek**: Mengalokasikan nilai valid `6000` (diterjemahkan kernel ke step internal `24576` = 6000 mA / 6A) pada `input_current`, `chg1_current`, dan `chg2_current`, serta menetapkan `sc_ibat_limit = 8000` mA.
+- **Sinkronisasi Seluruh Engine**: Memperbarui implementasi pada `LynxRepository.kt`, `Charging-Controller.sh`, dan `core/apply_profile.sh` secara serentak.
+
+### 2. 🛡️ Penguraian Konseptual & Edukasi UI: Bypass vs Extreme Charging
+- **Pemisahan Tegas Mental Model**:
+  - **Bypass Charging (Direct Motherboard)**: Diperjelas fungsinya sebagai penyuplai motherboard secara langsung dan **menghentikan pengisian baterai (Net 0mA)** agar baterai dingin saat gaming. Diberi peringatan tegas untuk tidak diaktifkan jika berniat mengisi daya.
+  - **Extreme Fast Charging (33W Super Charge / 6A)**: Diperjelas sebagai mode yang memompa daya baterai hingga 6000mA (6A) melalui chip RT9759 2:1 charge pump.
+- **Transparansi Transsion Screen-On Throttling**: Menambahkan catatan edukatif bahwa algoritma OEM Transsion membatasi adaptor ke ~1.5A saat layar menyala demi suhu panel AMOLED, dan pengisian 33W penuh beroperasi optimal saat layar mati (Screen-Off).
+
+### 3. ❄️ Dynamic Thermal Cooling Device Unlocking
+- **Eliminasi Hardcode Cooling Device**: Menggantikan referensi kaku `cooling_device56` dengan pemindaian dinamis di seluruh `/sys/class/thermal/cooling_device*` yang mendeteksi tipe `bcct`, `chg`, `battery`, dan `current`, menjamin pelepasan limitasi termal bekerja stabil di setiap siklus reboot dan varian perangkat.
+
+---
+
 # Lynx [Codename: Deity] 3.0.28
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Perbaikan Tata Letak Header Kartu & Eliminasi Badge Collision: Restorasi Judul Bersih Satu Baris pada Platform Hardware Engine, Integrasi Subtitle Komprehensif pada LynxCard, dan Perbaikan Bug Alokasi Bobot Baris (Spacer Weight Bug Fix)** — menyelesaikan masalah tampilan di mana badge `MediaTek PPM Driver` pada sisi kanan kartu memicu tabrakan ruang horizontal dan memecah teks judul "Platform Hardware Engine" menjadi 3 baris canggung, memindahkan identitas driver chipset menjadi subtitle semantik elegan di bawah judul, serta merombak sistem perataan baris pada `LynxCard` sehingga teks judul dapat memanfaatkan lebar penuh layar tanpa terpotong secara artifisial oleh alokasi bobot spacer.

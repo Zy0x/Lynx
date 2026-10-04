@@ -775,7 +775,7 @@ case "$PROFILE" in
                 # True Hardware Bypass: input daya charger tetap hidup untuk menyuplai motherboard,
                 # tetapi pengisian sel baterai di-latch agar persentase tidak naik/turun dan tetap dingin.
                 write_node "0" "/sys/class/power_supply/battery/input_suspend"
-                write_node "4294967295" "/sys/devices/platform/charger/input_current"
+                write_node "6000" "/sys/devices/platform/charger/input_current"
                 write_node "4500000" "/sys/class/power_supply/usb/current_max"
                 write_node "4500000" "/sys/class/power_supply/main/current_max"
                 write_node "1" "/sys/devices/platform/charger/bypass_charger"
@@ -799,10 +799,10 @@ case "$PROFILE" in
                 write_node "1" "/sys/devices/platform/charger/pe20"
                 write_node "1" "/sys/devices/platform/charger/pe40"
                 write_node "68" "/sys/devices/platform/charger/pdc_max_watt"
-                write_node "4294967295" "/sys/devices/platform/charger/input_current"
-                write_node "4294967295" "/sys/devices/platform/charger/chg1_current"
-                write_node "4294967295" "/sys/devices/platform/charger/chg2_current"
-                write_node "6000" "/sys/devices/platform/charger/sc_ibat_limit"
+                write_node "6000" "/sys/devices/platform/charger/input_current"
+                write_node "6000" "/sys/devices/platform/charger/chg1_current"
+                write_node "6000" "/sys/devices/platform/charger/chg2_current"
+                write_node "8000" "/sys/devices/platform/charger/sc_ibat_limit"
                 write_node "1" "/sys/devices/platform/charger/enable_sc"
                 write_node "0" "/sys/class/power_supply/battery/input_suspend"
                 write_node "1" "/sys/class/power_supply/battery/charging_enabled"

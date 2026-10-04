@@ -4141,7 +4141,7 @@ fun TuningChargingCategory(
         ) {
             LynxSwitch(
                 label = "Extreme Fast Charging (High Current)",
-                subLabel = "Membuka batas arus tertinggi (hingga 4500-6000mA), mengaktifkan protokol RFC/PD penuh, dan menghapus pembatasan bertahap bawaan kernel.",
+                subLabel = "Membuka batas arus hingga 6000mA (6A) di baterai / 33W di adaptor, mengaktifkan Pump Express 4.0 & RT9759 Charge Pump 2:1, serta menghapus proteksi JEITA. Catatan: Saat layar menyala, OEM Transsion membatasi adaptor ke ~1.5A; pengisian 33W penuh beroperasi optimal saat layar mati.",
                 checked = state.charging.extremeChargingEnabled,
                 onCheckedChange = { viewModel.setExtremeCharging(it) },
             )
@@ -4241,7 +4241,7 @@ fun TuningChargingCategory(
 
             LynxSwitch(
                 label = "Bypass Charging (Direct Motherboard)",
-                subLabel = "Mengalirkan arus charger langsung ke motherboard (Vsys) tanpa mengisi ataupun menguras baterai. Persentase baterai tertahan stabil (latch) dan suhu baterai tetap dingin saat gaming.",
+                subLabel = "Mengalirkan daya charger LANGSUNG ke motherboard (Vsys) & MENGHENTIKAN pengisian ke baterai (Net Arus ~0mA). Khusus gaming agar baterai tidak panas. JANGAN aktifkan jika Anda berniat mengisi baterai!",
                 checked = state.charging.bypassEnabled,
                 onCheckedChange = { viewModel.setBypassCharging(it) },
             )

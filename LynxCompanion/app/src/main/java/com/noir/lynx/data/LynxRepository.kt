@@ -1760,7 +1760,7 @@ object LynxRepository {
                 if [ "${'$'}cur_cap" -ge $maxBatteryPercent ] || [ "${'$'}cur_cap" -ge 100 ]; then
                     chmod 666 /sys/class/power_supply/battery/input_suspend 2>/dev/null
                     echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
-                    echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
+                    echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
                     echo 4500000 > /sys/class/power_supply/usb/current_max 2>/dev/null
                     echo 4500000 > /sys/class/power_supply/main/current_max 2>/dev/null
 
@@ -1790,10 +1790,10 @@ object LynxRepository {
                     echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
                     echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-                    echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
-                    echo 5376 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                    echo 5376 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                    echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                    echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
+                    echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                    echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                    echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                     echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                     echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
                     ${if (lockoutBypass) "echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null" else "echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null"}
@@ -1809,7 +1809,7 @@ object LynxRepository {
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
 
-                echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
+                echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
                 echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
                 echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
                 echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
@@ -1885,14 +1885,14 @@ object LynxRepository {
                 echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-                echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
+                echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
 
                 if [ "$isUnrestricted" = "true" ]; then
                     echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                    echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                    echo 5376 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                    echo 5376 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                    echo 1 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
+                    echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                    echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                    echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                    echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
                     echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
                     echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
                     echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
@@ -1936,7 +1936,7 @@ object LynxRepository {
                 echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-                echo 4294967295 > /sys/devices/platform/charger/input_current 2>/dev/null
+                echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
                 echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
                 echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
                 echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
@@ -3026,8 +3026,15 @@ object LynxRepository {
                 if [ -f /sys/devices/platform/battery/Battery_Temperature ]; then
                     cur_bt=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null)
                     if [ "${'$'}cur_bt" = "28" ]; then
-                        chmod 666 /sys/class/thermal/cooling_device56/cur_state 2>/dev/null
-                        echo 0 > /sys/class/thermal/cooling_device56/cur_state 2>/dev/null
+                        for c in /sys/class/thermal/cooling_device*; do
+                            type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
+                            case "${'$'}type" in
+                                *bcct*|*chg*|*current*|*abcct*|*battery*)
+                                    chmod 666 "${'$'}c/cur_state" 2>/dev/null
+                                    echo 0 > "${'$'}c/cur_state" 2>/dev/null
+                                    ;;
+                            esac
+                        done
                     fi
                 fi
 
@@ -5357,7 +5364,7 @@ case "${'$'}PROFILE" in
             cur_cap=${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 50)
             if [ "${'$'}cfg_bypass" = "true" ] && { [ "${'$'}cur_cap" -ge "${'$'}cfg_max" ] || [ "${'$'}cur_cap" -ge 100 ]; }; then
                 write_node "0" "/sys/class/power_supply/battery/input_suspend"
-                write_node "4294967295" "/sys/devices/platform/charger/input_current"
+                write_node "6000" "/sys/devices/platform/charger/input_current"
                 write_node "4500000" "/sys/class/power_supply/usb/current_max"
                 write_node "4500000" "/sys/class/power_supply/main/current_max"
                 write_node "1" "/sys/devices/platform/charger/bypass_charger"
@@ -5381,10 +5388,10 @@ case "${'$'}PROFILE" in
                 write_node "1" "/sys/devices/platform/charger/pe20"
                 write_node "1" "/sys/devices/platform/charger/pe40"
                 write_node "68" "/sys/devices/platform/charger/pdc_max_watt"
-                write_node "4294967295" "/sys/devices/platform/charger/input_current"
-                write_node "5376" "/sys/devices/platform/charger/chg1_current"
-                write_node "5376" "/sys/devices/platform/charger/chg2_current"
-                write_node "6000" "/sys/devices/platform/charger/sc_ibat_limit"
+                write_node "6000" "/sys/devices/platform/charger/input_current"
+                write_node "6000" "/sys/devices/platform/charger/chg1_current"
+                write_node "6000" "/sys/devices/platform/charger/chg2_current"
+                write_node "8000" "/sys/devices/platform/charger/sc_ibat_limit"
                 write_node "1" "/sys/devices/platform/charger/enable_sc"
                 write_node "0" "/sys/class/power_supply/battery/input_suspend"
                 write_node "1" "/sys/class/power_supply/battery/charging_enabled"
