@@ -716,7 +716,178 @@ fun ColorManagementCard(
 }
 
 // ============================================================
-//  3. PERFORMANCE LAB — RECORDER CARD
+//  3. FLOATING GAME HUD OVERLAY CARD (IN-GAME OSD)
+// ============================================================
+
+@Composable
+fun FloatingGameHudCard(
+    isHudRunning: Boolean,
+    hudMode: Int,
+    hudStyle: Int,
+    onToggleHud: () -> Unit,
+    onSetMode: (Int) -> Unit,
+    onSetStyle: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cardAccent = AccentCyan
+    val context = LocalContext.current
+    val hasOverlayPermission = remember(isHudRunning) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            android.provider.Settings.canDrawOverlays(context)
+        } else true
+    }
+
+    LynxCard(
+        title = "Floating Game HUD (In-Game OSD)",
+        subtitle = "Overlay performa mengambang real-time di atas game fullscreen",
+        icon = Icons.Default.Layers,
+        accentColor = cardAccent,
+        action = {
+            Switch(
+                checked = isHudRunning,
+                onCheckedChange = {
+                    if (!hasOverlayPermission && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        val intent = android.content.Intent(
+                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:${context.packageName}")
+                        )
+                        context.startActivity(intent)
+                    } else {
+                        onToggleHud()
+                    }
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = BgDeepOled,
+                    checkedTrackColor = cardAccent,
+                    uncheckedThumbColor = TextTertiary,
+                    uncheckedTrackColor = BgSurfaceLowest
+                )
+            )
+        },
+        modifier = modifier
+    ) {
+        if (!hasOverlayPermission) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = AccentOrange.copy(alpha = 0.14f),
+                border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(18.dp))
+                    Text(
+                        "Izin Tampilkan di Atas Aplikasi Lain diperlukan agar overlay HUD dapat muncul saat Anda bermain game.",
+                        color = TextPrimary,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        // HUD Active Status Banner
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = if (isHudRunning) cardAccent.copy(alpha = 0.1f) else BgElevated,
+            border = BorderStroke(1.dp, if (isHudRunning) cardAccent.copy(alpha = 0.4f) else BorderSubtle),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable {
+                    if (!hasOverlayPermission && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        val intent = android.content.Intent(
+                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:${context.packageName}")
+                        )
+                        context.startActivity(intent)
+                    } else {
+                        onToggleHud()
+                    }
+                }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = if (isHudRunning) cardAccent.copy(alpha = 0.2f) else TextTertiary.copy(alpha = 0.12f),
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (isHudRunning) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = null,
+                            tint = if (isHudRunning) cardAccent else TextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isHudRunning) "HUD Mengambang Aktif" else "HUD Nonaktif",
+                        color = TextPrimary,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = if (isHudRunning) "Menampilkan FPS, Frame Time, GPU Load, & Suhu di layar" else "Ketuk sakelar untuk memunculkan OSD di game",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp
+                    )
+                }
+            }
+        }
+
+        AnimatedVisibility(visible = isHudRunning) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Layout Style Selector Chips
+                Text("Gaya Tampilan Overlay (OSD Style)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        Triple(1, "RTSS Slim Pillar", "Vertikal"),
+                        Triple(2, "Top Nano-Ribbon", "Horizontal"),
+                        Triple(3, "Dual-Block", "Esport"),
+                        Triple(4, "Quad-Tiles", "Grid"),
+                        Triple(5, "Steam Deck", "Banner")
+                    ).forEach { (styleId, title, badge) ->
+                        val isSel = hudStyle == styleId
+                        Surface(
+                            onClick = { onSetStyle(styleId) },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSel) cardAccent.copy(alpha = 0.22f) else BgElevated,
+                            border = BorderStroke(1.dp, if (isSel) cardAccent else BorderGlass),
+                            modifier = Modifier.defaultMinSize(minHeight = 44.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(title, color = if (isSel) cardAccent else TextPrimary, fontSize = 11.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium)
+                                Text(badge, color = TextSecondary, fontSize = 9.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+//  4. PERFORMANCE LAB — RECORDER CARD
 // ============================================================
 
 @Composable

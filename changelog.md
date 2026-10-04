@@ -1,3 +1,28 @@
+# Lynx [Codename: Deity] 3.0.38
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Pembersih Shader & Pipeline Cache Grafis Universal (Shader Cache Manager), Live Telemetri Suhu Silikon GPU & Indikator Thermal Throttling, Tunable Driver Kernel Lanjutan SoC (Adreno Idle Timer & MediaTek Mali GED DVFS Margin), serta Integrasi Floating Game HUD Overlay (In-Game OSD)** — menyempurnakan subhalaman *GPU & Display* menjadi ekosistem tuning grafis profesional setara Scene dan Franco Kernel Manager (FKM); membasmi tuntas masalah *shader compilation micro-stutter* pada game 3D melalui pemindaian dan pembersihan aman berkas `.shaders_cache` OpenGL & Vulkan tanpa menyentuh data login atau save game pemain; menampilkan live telemetri temperatur silikon GPU (°C) secara langsung di header tuner dengan peringatan visual saat thermal throttling terjadi; memberikan kontrol presisi terhadap parameter kernel low-latency seperti *Adreno Idle Timer* (20ms–100ms) dan *Mali GED DVFS Margin* (+0% s/d +30%); serta menyematkan kartu kendali *Floating Game HUD Overlay* di tab Lab agar gamer dapat memantau FPS, Frame Time, beban GPU, dan suhu secara real-time di atas game fullscreen dengan beragam gaya tampilan (RTSS Slim Pillar, Top Ribbon, Dual-Block, dsb.).
+
+## 🚀 Fitur Baru & Peningkatan (3.0.38)
+
+### 1. 🧹 Pembersih Shader & Pipeline Cache Grafis (Shader Cache Manager)
+- **Pemindaian Kapasitas Cache Real-Time**: Menghitung secara otomatis ukuran total dan jumlah berkas shader cache (`com.android.opengl.shaders_cache` dan `com.android.skia.shaders_cache`) yang terakumulasi di seluruh sistem dan game 3D.
+- **Pembersihan Sekali Ketuk (One-Tap Purge)**: Tombol pembersih dengan dialog konfirmasi aman yang menghapus cache shader usang atau korup tanpa merusak save game atau kredensial akun pengguna, memastikan GPU mengompilasi shader baru yang bersih dan bebas stuttering.
+
+### 2. 🌡️ Live Telemetri Suhu GPU & Indikator Thermal Throttling
+- **Direct Silicon Temp Probe**: Membaca sensor termal silikon GPU secara presisi lintas arsitektur SoC (Qualcomm Adreno `/sys/class/kgsl/kgsl-3d0/temp`, MediaTek Mali thermal zones `gpu`/`mali`/`mtktsAP`, Samsung Exynos `/sys/kernel/gpu/gpu_temp`).
+- **Indikator Throttling Cerdas**: Menampilkan badge temperatur berkode warna (Hijau <50°C, Oranye 50–64°C, Merah >=65°C) serta banner peringatan visual jika frekuensi GPU dipangkas akibat regulasi termal kernel.
+
+### 3. ⏱️ Parameter Lanjutan Driver Kernel SoC (Kernel Tunables)
+- **Adreno Idle Timer (Qualcomm Snapdragon)**: Opsi setelan batas waktu idle GPU (20ms, 40ms, 64ms Bawaan, 80ms, 100ms) via `/sys/class/kgsl/kgsl-3d0/idle_timer` untuk mencegah penurunan clock yang memicu micro-stutter pada jeda frame gameplay.
+- **Mali GED DVFS Margin (MediaTek Dimensity / Helio)**: Opsi sensitivitas scaling frekuensi (+0%, +10%, +20%, +30%) via `/sys/kernel/ged/hal/dvfs_margin_value` agar GPU lebih responsif melompat ke OPP clock tertinggi saat beban komputasi grafis melonjak.
+
+### 4. 🎛️ Integrasi Floating Game HUD Overlay (In-Game OSD)
+- **Kartu Kendali HUD di Tab Lab**: Sakelar master terintegrasi untuk mengaktifkan overlay performa mengambang langsung saat bermain game.
+- **Pilihan Gaya Tampilan (OSD Layouts)**: Mendukung seleksi instan gaya tampilan (RTSS Slim Pillar, Top Nano-Ribbon, Dual-Block Esport, Quad-Tiles, Steam Deck Banner).
+- **Deteksi Izin Overlay Otomatis**: Memeriksa izin `System Alert Window` (`Settings.canDrawOverlays`) dan memandu pengguna ke setelan sistem jika izin belum aktif.
+
+---
+
 # Lynx [Codename: Deity] 3.0.37
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Master Toggle & Sistem Proteksi Sentuh Kalibrasi Warna Layar (Color Engine Touch Protection), Eliminasi Risiko Blank Screen dengan Sanitasi Ketat Format Angka Internasional (Locale.US Enforced), Reset Mandiri Aman ke Standar Bawaan OEM (D65 White Point / Matrix Identity 1015 / Saturation 1.0x), serta Penyempurnaan Desain Antarmuka Material 3 Obsidian yang Bersih, Terstruktur, dan Bebas Distorsi Sentuhan** — melengkapi kartu *Manajemen Warna Layar (Color Engine)* dengan master switch terintegrasi di header dan banner status visual; saat kalibrasi dinonaktifkan, seluruh slider (temperatur Kelvin, saturasi, kontras, gain RGB) dan preset terkunci rapat dan tersembunyi dengan transisi halus (`AnimatedVisibility`), menjamin tidak ada sentuhan atau geseran tidak sengaja saat pengguna menggulir layar; saat dimatikan, sistem secara otomatis merestorasi matriks layar SurfaceFlinger dan kanal warna Android ke standar pabrik OEM.

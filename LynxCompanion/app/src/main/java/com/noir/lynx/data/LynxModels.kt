@@ -217,6 +217,9 @@ data class GpuInfo(
     val isBusAlwaysOn: Boolean = false,
     val isFramePacingActive: Boolean = false,
     val idleTimerMs: Int = 64,
+    val gpuTempC: Float = 0f,
+    val isThrottled: Boolean = false,
+    val maliDvfsMargin: Int = 0,
 )
 
 data class GraphicsHwuiInfo(
@@ -230,6 +233,8 @@ data class GraphicsHwuiInfo(
     val dcDimmingEnabled: Boolean = false,
     val isCabcSupported: Boolean = false,
     val cabcEnabled: Boolean = false,
+    val shaderCacheSizeBytes: Long = 0L,
+    val shaderCacheCount: Int = 0,
 )
 
 data class WakelockItem(

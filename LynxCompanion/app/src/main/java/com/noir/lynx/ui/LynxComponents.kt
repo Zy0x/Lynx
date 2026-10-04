@@ -1,5 +1,6 @@
 package com.noir.lynx.ui
 
+import java.util.Locale
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -4301,6 +4302,8 @@ fun GpuMasterTunerCard(
     onSetThermalBypass: (Boolean) -> Unit,
     onSetBusAlwaysOn: (Boolean) -> Unit,
     onSetFramePacing: (Boolean) -> Unit,
+    onSetIdleTimer: (Int) -> Unit = {},
+    onSetMaliDvfsMargin: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isMali = gpu.platform.contains("mali", ignoreCase = true)
@@ -4342,18 +4345,86 @@ fun GpuMasterTunerCard(
                     fontSize = 11.sp
                 )
             }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Live GPU Temperature Badge
+                if (gpu.gpuTempC > 0f) {
+                    val tempColor = when {
+                        gpu.gpuTempC >= 65f -> AccentRed
+                        gpu.gpuTempC >= 50f -> AccentOrange
+                        else -> AccentGreen
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = tempColor.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, tempColor.copy(alpha = 0.45f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Thermostat,
+                                contentDescription = null,
+                                tint = tempColor,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = String.format(Locale.US, "%.1f°C", gpu.gpuTempC),
+                                color = tempColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                // Max Clock Pill
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = cardAccent.copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.4f))
+                ) {
+                    Text(
+                        text = if (gpu.maxFreqMhz > 0) "Maks: ${gpu.maxFreqMhz} MHz" else "Dynamic Clock",
+                        color = cardAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+
+        // --- 1b. Throttling Warning Pill ---
+        if (gpu.isThrottled) {
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = cardAccent.copy(alpha = 0.15f),
-                border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.4f))
+                color = AccentRed.copy(alpha = 0.16f),
+                border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
             ) {
-                Text(
-                    text = if (gpu.maxFreqMhz > 0) "Maks: ${gpu.maxFreqMhz} MHz" else "Dynamic Clock",
-                    color = cardAccent,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = AccentRed,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = "Thermal Throttling Terdeteksi — Suhu silikon GPU mendekati ambang batas kernel",
+                        color = TextPrimary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 
@@ -4616,6 +4687,35 @@ fun GpuMasterTunerCard(
                         checked = gpu.isBusAlwaysOn,
                         onCheckedChange = { onSetBusAlwaysOn(it) }
                     )
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                        Text("Adreno Idle Timer (Batas Waktu Idle)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Mencegah penurunan clock GPU tiba-tiba saat jeda frame game", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                Pair(20, "20ms (Agresif)"),
+                                Pair(40, "40ms (Responsif)"),
+                                Pair(64, "64ms (Bawaan)"),
+                                Pair(80, "80ms (Smooth)"),
+                                Pair(100, "100ms (Gaming)")
+                            ).forEach { (ms, label) ->
+                                val isSel = gpu.idleTimerMs == ms
+                                Surface(
+                                    onClick = { onSetIdleTimer(ms) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) cardAccent.copy(alpha = 0.2f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSel) cardAccent else BorderGlass),
+                                    modifier = Modifier.defaultMinSize(minHeight = 44.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                        Text(label, color = if (isSel) cardAccent else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else if (isMali) {
                     LynxSwitch(
                         label = "MediaTek FPSGO & Frame Pacing",
@@ -4623,6 +4723,34 @@ fun GpuMasterTunerCard(
                         checked = gpu.isFramePacingActive,
                         onCheckedChange = { onSetFramePacing(it) }
                     )
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                        Text("Mali GED DVFS Margin (Sensitivitas Boost)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Menaikkan sensitivitas GPU agar instan melompat ke clock tinggi saat frame load naik", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                Pair(0, "0% (Bawaan)"),
+                                Pair(10, "+10% (Responsif)"),
+                                Pair(20, "+20% (Gaming)"),
+                                Pair(30, "+30% (Agresif)")
+                            ).forEach { (margin, label) ->
+                                val isSel = gpu.maliDvfsMargin == margin
+                                Surface(
+                                    onClick = { onSetMaliDvfsMargin(margin) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) cardAccent.copy(alpha = 0.2f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSel) cardAccent else BorderGlass),
+                                    modifier = Modifier.defaultMinSize(minHeight = 44.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                        Text(label, color = if (isSel) cardAccent else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -4749,9 +4877,11 @@ fun GraphicsDriverHwuiCard(
     onSetLatch: (Boolean) -> Unit,
     onSetMsaa: (Boolean) -> Unit,
     onSetOemShield: (Boolean) -> Unit,
+    onClearShaderCache: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentPurple
+    var showClearShaderConfirm by remember { mutableStateOf(false) }
 
     LynxCard(
         title = "Driver Grafis & HWUI Engine",
@@ -4833,7 +4963,96 @@ fun GraphicsDriverHwuiCard(
             onCheckedChange = { onSetMsaa(it) }
         )
 
-        // 5. OEM Throttler Shield
+        // 5. Shader & Pipeline Cache Manager
+        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = BgElevated,
+            border = BorderStroke(1.dp, BorderGlass),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = cardAccent.copy(alpha = 0.15f),
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    tint = cardAccent,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                            }
+                        }
+                        Column {
+                            Text(
+                                "Shader & Pipeline Cache",
+                                color = TextPrimary,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            val cacheMb = graphics.shaderCacheSizeBytes / (1024f * 1024f)
+                            Text(
+                                text = if (graphics.shaderCacheSizeBytes > 0) {
+                                    String.format(Locale.US, "%.1f MB terkompilasi (%d berkas)", cacheMb, graphics.shaderCacheCount)
+                                } else {
+                                    "Cache bersih / Siap dipindai"
+                                },
+                                color = TextSecondary,
+                                fontSize = 10.5.sp
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = { showClearShaderConfirm = true },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = cardAccent.copy(alpha = 0.2f),
+                            contentColor = cardAccent
+                        ),
+                        border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.5f)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "Bersihkan",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Menghapus cache shader grafis yang bengkak/korup untuk mencegah micro-stutter saat compile shader game 3D. Tidak menghapus akun atau save game.",
+                    color = TextTertiary,
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        }
+
+        // 6. OEM Throttler Shield
+        Spacer(Modifier.height(8.dp))
         if (graphics.detectedOemThrottler.isNotBlank()) {
             LynxSwitch(
                 label = "Shield Anti-Throttling OEM (${graphics.detectedOemThrottler})",
@@ -4858,6 +5077,52 @@ fun GraphicsDriverHwuiCard(
                 }
             }
         }
+    }
+
+    if (showClearShaderConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearShaderConfirm = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = cardAccent)
+                    Text("Bersihkan Shader Cache?", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Text(
+                    "Tindakan ini akan menghapus file shader cache OpenGL dan Vulkan yang tersimpan di sistem. Driver GPU akan mengompilasi ulang shader baru secara bersih dan mulus saat game 3D dimainkan.",
+                    color = TextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showClearShaderConfirm = false
+                        onClearShaderCache()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = cardAccent),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                ) {
+                    Text("Ya, Bersihkan", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showClearShaderConfirm = false },
+                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                ) {
+                    Text("Batal", color = TextSecondary)
+                }
+            },
+            containerColor = BgCard,
+            shape = RoundedCornerShape(20.dp)
+        )
     }
 }
 

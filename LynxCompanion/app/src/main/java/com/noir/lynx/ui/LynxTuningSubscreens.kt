@@ -2032,17 +2032,20 @@ fun TuningGpuCategory(
                     onSetGovernor = { gov -> viewModel.setGpuGovernor(gov) },
                     onSetThermalBypass = { bypass -> viewModel.setGpuThermalBypass(bypass) },
                     onSetBusAlwaysOn = { busOn -> viewModel.setGpuBusAlwaysOn(busOn) },
-                    onSetFramePacing = { fp -> viewModel.setGpuFramePacing(fp) }
+                    onSetFramePacing = { fp -> viewModel.setGpuFramePacing(fp) },
+                    onSetIdleTimer = { idle -> viewModel.setGpuIdleTimer(idle) },
+                    onSetMaliDvfsMargin = { margin -> viewModel.setMaliDvfsMargin(margin) }
                 )
 
-                // 2. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, MSAA)
+                // 2. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, MSAA, Shader Cache)
                 GraphicsDriverHwuiCard(
                     graphics = graphics,
                     onSetGameDriver = { mode -> viewModel.setUpdatableGameDriver(mode) },
                     onSetRenderer = { backend -> viewModel.setHwuiRenderer(backend) },
                     onSetLatch = { latch -> viewModel.setSurfaceFlingerLatch(latch) },
                     onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
-                    onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) }
+                    onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) },
+                    onClearShaderCache = { viewModel.clearShaderCache(context) }
                 )
 
                 // 3. Display Refresh Rate & Touch Card (4-Way Chips: Auto + 60/90/120Hz)
@@ -2075,7 +2078,16 @@ fun TuningGpuCategory(
                 )
             }
             1 -> {
-                // ── TAB 1: LAB (PERFORMANCE LAB) ──
+                // ── TAB 1: LAB (PERFORMANCE LAB & IN-GAME OSD) ──
+                FloatingGameHudCard(
+                    isHudRunning = uiState.isGameHudActive,
+                    hudMode = uiState.hudMode,
+                    hudStyle = uiState.hudStyle,
+                    onToggleHud = { viewModel.toggleGameHud(context, !uiState.isGameHudActive) },
+                    onSetMode = { viewModel.setHudMode(context, it) },
+                    onSetStyle = { viewModel.setHudStyle(context, it) }
+                )
+
                 LabRecordCard(
                     isRecording = uiState.isLabRecording,
                     onStartRecording = { viewModel.startLabRecording(it) },

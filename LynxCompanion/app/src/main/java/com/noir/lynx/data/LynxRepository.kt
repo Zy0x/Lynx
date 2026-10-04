@@ -1106,12 +1106,41 @@ object LynxRepository {
                         echo "availgov:${'$'}(cat ${'$'}devpath/available_governors 2>/dev/null | tr '\n' ' ')"
                     fi
                 fi
+
+                # GPU Silicon Temperature Probe across SoC families
+                gputemp=""
+                if [ -f /sys/class/kgsl/kgsl-3d0/temp ]; then
+                    gputemp=${'$'}(cat /sys/class/kgsl/kgsl-3d0/temp 2>/dev/null | tr -d ' \n')
+                elif [ -f /sys/kernel/gpu/gpu_temp ]; then
+                    gputemp=${'$'}(cat /sys/kernel/gpu/gpu_temp 2>/dev/null | tr -d ' \n')
+                else
+                    for tz in /sys/class/thermal/thermal_zone*; do
+                        [ -f "${'$'}tz/type" ] || continue
+                        t=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                        case "${'$'}t" in
+                            *gpu*|*mali*|*g3d*|*mtktsap*|*soc*)
+                                val=${'$'}(cat "${'$'}tz/temp" 2>/dev/null | tr -d ' \n')
+                                if [ -n "${'$'}val" ] && [ "${'$'}val" -gt 0 ] 2>/dev/null; then
+                                    gputemp=${'$'}val
+                                    break
+                                fi
+                                ;;
+                        esac
+                    done
+                fi
+                echo "gputemp:${'$'}gputemp"
+
+                # MediaTek GED DVFS Margin
+                if [ -f /sys/kernel/ged/hal/dvfs_margin_value ]; then
+                    echo "malidvfs:${'$'}(cat /sys/kernel/ged/hal/dvfs_margin_value 2>/dev/null | tr -d ' \n')"
+                fi
             """.trimIndent()
             val result = Shell.cmd(script).exec()
             var platform = "generic"; var curHz = 0L; var minHz = 0L; var maxHz = 0L
             var availFreqs = emptyList<Int>(); var adrenoBoost = 0; var gedBoost = 0; var gpuLoad = 0
             var gov = ""; var availGovs = emptyList<String>()
             var busOn = false; var framePacing = false; var thrmBypass = false; var idleTimer = 64
+            var rawGpuTemp = 0f; var maliMargin = 0
             for (line in result.out) {
                 val t = line.trim()
                 when {
@@ -1135,12 +1164,18 @@ object LynxRepository {
                         thrmBypass = (platform == "adreno" && thVal == "0") || (platform == "mali_ged" && thVal == "1")
                     }
                     t.startsWith("idle:") -> idleTimer = t.removePrefix("idle:").toIntOrNull() ?: 64
+                    t.startsWith("gputemp:") -> {
+                        val raw = t.removePrefix("gputemp:").trim().toFloatOrNull() ?: 0f
+                        rawGpuTemp = if (raw > 1000f) raw / 1000f else raw
+                    }
+                    t.startsWith("malidvfs:") -> maliMargin = t.removePrefix("malidvfs:").trim().toIntOrNull() ?: 0
                 }
             }
             fun toMhz(hz: Long) = if (hz > 1_000_000L) (hz / 1_000_000L).toInt() else if (hz > 10_000L) (hz / 1000L).toInt() else hz.toInt()
             val finalMin = if (minHz > 0) toMhz(minHz) else (availFreqs.minOrNull() ?: 0)
             val finalMax = if (maxHz > 0) toMhz(maxHz) else (availFreqs.maxOrNull() ?: 0)
             val isLocked = (finalMin > 0 && finalMin == finalMax)
+            val isThrottled = (rawGpuTemp >= 65f) || (platform == "adreno" && !thrmBypass && gpuLoad > 85 && toMhz(curHz) < finalMax / 2)
             GpuInfo(
                 platform = platform,
                 curFreqMhz = toMhz(curHz),
@@ -1156,7 +1191,10 @@ object LynxRepository {
                 isThrottlingBypassed = thrmBypass,
                 isBusAlwaysOn = busOn,
                 isFramePacingActive = framePacing,
-                idleTimerMs = idleTimer
+                idleTimerMs = idleTimer,
+                gpuTempC = rawGpuTemp,
+                isThrottled = isThrottled,
+                maliDvfsMargin = maliMargin
             )
         } catch (e: Exception) { Log.e(TAG, "readGpuInfo: ${e.message}"); GpuInfo() }
     }
@@ -1323,6 +1361,21 @@ object LynxRepository {
                 if [ -f /sys/class/kgsl/kgsl-3d0/idle_timer ]; then
                     chmod 644 /sys/class/kgsl/kgsl-3d0/idle_timer 2>/dev/null
                     echo $ms > /sys/class/kgsl/kgsl-3d0/idle_timer 2>/dev/null
+                    echo ok
+                else
+                    echo unsupported
+                fi
+            """.trimIndent()
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setMaliDvfsMargin(margin: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                if [ -f /sys/kernel/ged/hal/dvfs_margin_value ]; then
+                    chmod 644 /sys/kernel/ged/hal/dvfs_margin_value 2>/dev/null
+                    echo $margin > /sys/kernel/ged/hal/dvfs_margin_value 2>/dev/null
                     echo ok
                 else
                     echo unsupported
@@ -2368,10 +2421,15 @@ object LynxRepository {
                     if [ -f "${'$'}d" ]; then dc="${'$'}d"; break; fi
                 done
                 echo "dc:${'$'}dc"
+
+                # Shader cache stats across system apps and games
+                sc_kb=${'$'}(du -sk /data/user_de/0/*/cache/*shader* /data/data/*/cache/*shader* /data/data/*/code_cache/*shader* 2>/dev/null | awk '{s+=${'$'}1; c++} END {print s "|" c}')
+                echo "scache:${'$'}sc_kb"
             """.trimIndent()
             val res = Shell.cmd(script).exec()
             var driver = "default"; var renderer = "auto"; var latch = false; var msaa = false
             var oem = ""; var isDcSupported = false; var dcEnabled = false
+            var shaderBytes = 0L; var shaderCount = 0
             for (line in res.out) {
                 val t = line.trim()
                 when {
@@ -2393,6 +2451,12 @@ object LynxRepository {
                             dcEnabled = Shell.cmd("cat '$dcPath' 2>/dev/null").exec().out.firstOrNull()?.trim() == "1"
                         }
                     }
+                    t.startsWith("scache:") -> {
+                        val parts = t.removePrefix("scache:").split("|")
+                        val kb = parts.getOrNull(0)?.trim()?.toLongOrNull() ?: 0L
+                        shaderBytes = kb * 1024L
+                        shaderCount = parts.getOrNull(1)?.trim()?.toIntOrNull() ?: 0
+                    }
                 }
             }
             GraphicsHwuiInfo(
@@ -2402,9 +2466,21 @@ object LynxRepository {
                 force4xMsaa = msaa,
                 detectedOemThrottler = oem,
                 isDcDimmingSupported = isDcSupported,
-                dcDimmingEnabled = dcEnabled
+                dcDimmingEnabled = dcEnabled,
+                shaderCacheSizeBytes = shaderBytes,
+                shaderCacheCount = shaderCount
             )
         } catch (e: Exception) { GraphicsHwuiInfo() }
+    }
+
+    suspend fun clearShaderCache(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                rm -f /data/user_de/0/*/cache/*shader* /data/data/*/cache/*shader* /data/data/*/code_cache/*shader* 2>/dev/null
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
     }
 
     suspend fun setUpdatableGameDriver(mode: String): Boolean = withContext(Dispatchers.IO) {

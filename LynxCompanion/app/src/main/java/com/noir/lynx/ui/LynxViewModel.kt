@@ -1146,6 +1146,16 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun setMaliDvfsMargin(margin: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(maliDvfsMargin = margin)) }
+        viewModelScope.launch {
+            LynxRepository.setMaliDvfsMargin(margin)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
     fun refreshGraphicsHwui() {
         viewModelScope.launch {
             try {
@@ -1202,6 +1212,19 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             LynxRepository.setOemThrottlerShield(oem, disabled)
             delay(200L)
+            refreshGraphicsHwui()
+        }
+    }
+
+    fun clearShaderCache(context: android.content.Context) {
+        viewModelScope.launch {
+            val ok = LynxRepository.clearShaderCache()
+            if (ok) {
+                android.widget.Toast.makeText(context, "Shader Cache Grafis Berhasil Dibersihkan", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                android.widget.Toast.makeText(context, "Gagal membersihkan cache shader", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            delay(300L)
             refreshGraphicsHwui()
         }
     }
