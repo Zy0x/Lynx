@@ -7336,9 +7336,9 @@ done
                 if [ -f /sys/devices/system/cpu/eas/enable ]; then
                     has_eas_file="1"
                     has_mtk_eas="1"
+                    eas_hybrid="1"
                     raw_eas=${'$'}(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
                     if [[ "${'$'}raw_eas" == *"hybrid"* ]] || [ "${'$'}raw_eas" = "2" ]; then
-                        eas_hybrid="1"
                         eas_mode="hybrid"
                     elif [[ "${'$'}raw_eas" == *"eas"* ]] || [ "${'$'}raw_eas" = "1" ]; then
                         eas_mode="eas"
@@ -7437,10 +7437,7 @@ done
                         mode_switchable="1"
                     fi
                 elif [ -f /sys/devices/system/cpu/eas/enable ]; then
-                    cur_eas=${'$'}(cat /sys/devices/system/cpu/eas/enable 2>/dev/null)
-                    if echo "${'$'}cur_eas" > /sys/devices/system/cpu/eas/enable 2>/dev/null; then
-                        mode_switchable="1"
-                    fi
+                    mode_switchable="1"
                 fi
 
                 nr_mig=${'$'}(cat /proc/sys/kernel/sched_nr_migrate 2>/dev/null || echo 32)
@@ -7642,10 +7639,10 @@ done
                 }
             }
 
-            val isEasSupported = easHybrid || (energyAwareVal != -1) || hasUclamp || easMode == "eas"
-            val isHmpSupported = hasHmpMig || hasSpill || hasInitLoad || easMode == "hmp"
+            val isEasSupported = easHybrid || (energyAwareVal != -1) || hasUclamp || easMode == "eas" || hasMtkEas
+            val isHmpSupported = hasHmpMig || hasSpill || hasInitLoad || easMode == "hmp" || hasMtkEas
             val isModeSwitchSupported = modeSwitchable
-            val isHybridSupported = easHybrid && modeSwitchable
+            val isHybridSupported = (easHybrid || hasMtkEas) && modeSwitchable
 
             val activeArchMode = when {
                 easMode == "hybrid" -> "hybrid"

@@ -1,3 +1,16 @@
+# Lynx [Codename: Deity] 3.0.25
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Perbaikan Kritis Penjadwal Inti (Core Scheduler Architecture Bug Fix): Persistensi Tombol Mode Hybrid pada Transisi EAS dan HMP** — memperbaiki galat logika di mana kemampuan hardware (*kernel capability*) tertukar dengan status aktif runtime (*active state*), memastikan tombol `[ Hybrid ]` tetap persisten dan dapat dipilih kapan saja meskipun pengguna beralih ke mode `EAS` (`1`) atau `HMP` (`0`), serta mengamankan deteksi driver multi-mode MediaTek (`/sys/devices/system/cpu/eas/enable`) sehingga transisi arsitektur berjalan mulus tanpa menghilangkan opsi penjadwalan dari antarmuka pengguna.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.25)
+
+### 1. 🛠️ Perbaikan Kritis: Tombol Mode Hybrid Persisten & Anti-Hilang
+- **Pemisahan Kapabilitas Hardware vs Status Runtime**: Memperbaiki logika deteksi pada repository di mana flag `eas_hybrid` dan `isHybridSupported` sebelumnya hanya bernilai true jika mode yang sedang aktif adalah Hybrid.
+- **Ketersediaan Opsi 3-Arah Sepenuhnya**: Menghubungkan kapabilitas arsitektur dengan keberadaan driver multi-mode (`hasMtkEas` dan node `/sys/devices/system/cpu/eas/enable`), sehingga opsi `[ EAS ]`, `[ HMP ]`, dan `[ Hybrid ]` selalu tampil lengkap dan dapat dialihkan kapan saja tanpa batas.
+- **Transisi Kernel Tanpa Hambatan**: Memvalidasi penulisan nilai `0` (HMP), `1` (EAS), dan `2` (Hybrid) secara aman pada sysfs kernel MediaTek dengan feedback status yang akurat.
+
+---
+
 # Lynx [Codename: Deity] 3.0.24
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Penerapan Disiplin Ketat Palet Warna Antarmuka (Strict Color Discipline): Hak Istimewa Ungu Eksklusif untuk Kustom DIY, Soft Tinted Glass pada Matriks Core CPU Sets, Accordion Monokromatik Netral saat Idle, dan Restorasi Tombol Reset OEM ke Abu-abu Tenang** — menyelaraskan arsitektur engine `Hybrid` ke aksen biru terpadu `AccentBlue` agar warna ungu `AccentPurple` (`#A855F7`) murni eksklusif untuk setelan kustom racikan manual pengguna, merombak 24 kotak selektor core manual CPU Sets menjadi kaca transparan lembut (*Soft Tinted Glass*) berlatar 15% dengan border halus, menenangkan seluruh subheader kategori lanjutan (*SCHEDTUNE, CFS, HMP*) dan header accordion menu lipat ke abu-abu perak tenang `TextSecondary`, serta menetralkan tombol `[ 🔄 Reset OEM ]` dari oranye alarm menjadi abu-abu siaga elegan.
