@@ -24,6 +24,16 @@ if [ "$ACTION" = "disable" ] || [ "$ACTION" = "0" ]; then
     write_node "1" "/sys/devices/platform/charger/pe40"
     write_node "68" "/sys/devices/platform/charger/pdc_max_watt"
 
+    # Transsion ODM PCB Thermal Clamp Override (Raises 45C limit to 65C, sets deal current to 3500mA)
+    if [ -e "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" ]; then
+        chmod 666 "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
+        echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
+    fi
+    if [ -e "/sys/devices/platform/tran_battery/pcb_thermal_debug" ]; then
+        chmod 666 "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
+        echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
+    fi
+
     # 2. Disable PPM Thermal Policies
     write_node "3 0" "/proc/ppm/policy_status"
     write_node "4 0" "/proc/ppm/policy_status"

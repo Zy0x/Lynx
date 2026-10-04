@@ -1816,10 +1816,21 @@ object LynxRepository {
                 echo $highTargetPercent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
 
-                # Bypass Transsion Screen-On Throttling & Test Rig Derating
+                # Bypass Transsion Screen-On Throttling, PCB Thermal Clamp & Test Rig Derating
                 echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
+
+                # Transsion ODM PCB Thermal Clamp Override (Raises 45C limit to 65C, sets deal current to 3500mA)
+                if [ -e "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" ]; then
+                    chmod 666 "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
+                    echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
+                fi
+                if [ -e "/sys/devices/platform/tran_battery/pcb_thermal_debug" ]; then
+                    chmod 666 "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
+                    echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
+                fi
+
                 ${if (lockoutBypass) """
                     chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
                     echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
@@ -1835,7 +1846,6 @@ object LynxRepository {
                         *bcct*|*chg*|*current*|*abcct*|*battery*)
                             chmod 666 "${'$'}c/cur_state" 2>/dev/null
                             echo 0 > "${'$'}c/cur_state" 2>/dev/null
-                            chmod 444 "${'$'}c/cur_state" 2>/dev/null
                             ;;
                     esac
                 done
@@ -1957,10 +1967,20 @@ object LynxRepository {
                 echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
 
-                # Bypass Transsion Screen-On Throttling & Test Rig Derating
+                # Bypass Transsion Screen-On Throttling, PCB Thermal Clamp & Test Rig Derating
                 echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
+
+                # Transsion ODM PCB Thermal Clamp Override (Raises 45C limit to 65C, sets deal current to 3500mA)
+                if [ -e "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" ]; then
+                    chmod 666 "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
+                    echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
+                fi
+                if [ -e "/sys/devices/platform/tran_battery/pcb_thermal_debug" ]; then
+                    chmod 666 "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
+                    echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
+                fi
 
                 # 2. Lock Battery Temperature to 28C & Read-Only Protect against thermal daemon resets
                 chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
@@ -1974,7 +1994,6 @@ object LynxRepository {
                         *bcct*|*chg*|*current*|*abcct*|*battery*)
                             chmod 666 "${'$'}c/cur_state" 2>/dev/null
                             echo 0 > "${'$'}c/cur_state" 2>/dev/null
-                            chmod 444 "${'$'}c/cur_state" 2>/dev/null
                             ;;
                     esac
                 done

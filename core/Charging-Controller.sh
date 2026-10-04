@@ -136,10 +136,20 @@ apply_extreme_charging() {
     write_node "$target_soc" "$MTK_DIR/sc_tuisoc"
     write_node "1" "$MTK_DIR/enable_sc"
 
-    # 4. Bypass Transsion Screen-On Throttling & Test Rig Derating
+    # 4. Bypass Transsion Screen-On Throttling, PCB Thermal Clamp & Test Rig Derating
     write_node "1" "$MTK_DIR/BN_TestMode"
     write_node "0" "$MTK_DIR/BatteryNotify"
     write_node "0" "$MTK_DIR/tran_charger_full"
+
+    # Transsion ODM PCB Thermal Clamp Override (Raises 45C limit to 65C, sets deal current to 3500mA)
+    if [ -e "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" ]; then
+        chmod 666 "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
+        echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
+    fi
+    if [ -e "/sys/devices/platform/tran_battery/pcb_thermal_debug" ]; then
+        chmod 666 "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
+        echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
+    fi
 
     # 5. Bypass MTK Super Charge DV2_TBAT thermal lockout
     if [ "$allow_lockout_bypass" = "true" ]; then
@@ -152,7 +162,6 @@ apply_extreme_charging() {
                 *bcct*|*chg*|*current*|*abcct*|*battery*)
                     chmod 666 "$c/cur_state" 2>/dev/null
                     echo 0 > "$c/cur_state" 2>/dev/null
-                    chmod 444 "$c/cur_state" 2>/dev/null
                     ;;
             esac
         done

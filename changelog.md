@@ -1,3 +1,23 @@
+# Lynx [Codename: Deity] 3.0.33
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Deep Hardware Diagnostic & Transsion Motherboard Thermal Override: Pembongkaran Kernel DV2/PE5.0 Throttling, Bypass Kuncian Suhu PCB 45°C (`pcb_thermal_debug` [65,3500,70,3000,2500]), Penjinakan Adaptive Battery Current Throttling (`abcct`), dan Analisis Fisika Saturasi Sel Baterai (CV Phase)** — membongkar tuntas investigasi hardware tingkat kernel pada perangkat MediaTek Dimensity / Transsion (Infinix X698) mengapa pengisian daya sempat drop di bawah 25W (menjadi ~10W–14W); telemetri kernel membuktikan bahwa algoritma DV2 memotong arus input adaptor dari 3000mA ke 1500mA akibat suhu sensor motherboard (`tpcb`) menyentuh 45°C (Level 7) dan layar menyala (`game_limit_ita` 1500mA), serta kondisi tegangan baterai yang telah menyentuh fase jenuh Constant Voltage (>4.47V / >70%); versi ini menyuntikkan override langsung ke register driver pabrik ODM Transsion untuk menaikkan plafon suhu PCB ke 65°C, menonaktifkan derating cooling device `abcct`, serta mengoptimalkan aliran daya pada kondisi layar aktif dan mati.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.33)
+
+### 1. 🌡️ Transsion ODM PCB Thermal Clamp Override (`pcb_thermal_debug`)
+- **Pembongkaran Bottleneck 45°C Kernel**: Melalui inspeksi dmesg real-time, ditemukan bahwa kernel MediaTek PE5.0 mengeksekusi `__dv2_check_tpcb_level tpcb(46,7)` yang secara otomatis memotong arus adaptor `ita` dari 3000mA menjadi 1500mA setiap kali motherboard ponsel menyentuh 45°C.
+- **Penyuntikan Ambang Batas Pabrik (65°C / 3500mA)**: Mengintegrasikan bypass register ODM Transsion via `echo "[65,3500,70,3000,2500]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug` (`Tpcb_store_ok = 1`), menaikkan toleransi panas PCB ke 65°C dan menaikkan arus dealing dari 1500mA ke 3500mA sehingga watt pengisian tidak drop drastis saat komponen menghangat.
+
+### 2. ⚡ Penjinakan Cooling Device `abcct` & Perbaikan Izin Sysfs
+- **Reset Adaptive Battery Charging Current Throttling**: Memastikan pendingin kernel `cooling_device56 [abcct]` dinonaktifkan (`cur_state = 0`) tanpa mengunci file dengan `chmod 444` yang sebelumnya memicu *Permission Denied* pada siklus daemon berulang.
+- **Konsistensi Manajemen Termal Asinkron**: Seluruh loop otomasi pengisian daya kini dapat menyegarkan dan menjaga state pendingin charging pada level 0 secara terus menerus.
+
+### 3. 🔬 Analisis & Optimalisasi Perilaku Pengisian Daya (Screen-On vs Screen-Off & CV Phase)
+- **Bypass Layar Menyala & Mode Game**: Mengidentifikasi limitasi baku firmware Transsion `game_limit_ita: 1500mA` saat layar aktif (`lcd_on > 0`), serta mengoptimalkan mode screen-off agar adaptor dapat memompa arus maksimal 3000mA (6000mA pada sel baterai).
+- **Pemahaman Fisika Elektrokimia Baterai**: Memberikan panduan transparan berbasis data kernel bahwa saat kapasitas baterai di atas 70% (tegangan sel >4.47V), PMIC hardware wajib menurunkan arus pengisian daya (fase Constant Voltage / CV) demi keselamatan fisik sel baterai.
+
+---
+
 # Lynx [Codename: Deity] 3.0.32
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Persistent Background SuperCharge Protection: Pemisahan Sensor Termal Baterai Fisik Nyata (Anti-False Cutoff CPU 46°C), Independensi Subsistem Pengisian Lintas Profil (`apply_profile.sh` Balance Shield), dan Proteksi Kuncian Anti-Drop Saat Keluar Aplikasi Lynx (`/dev/lynx_extreme_charging`)** — menuntaskan investigasi mendalam di mana daya pengisian 30W sempat drop setelah beberapa saat akibat skrip daemon yang secara keliru membaca `thermal_zone0` (CPU/SoC yang wajar menyentuh 46°C saat pengisian cepat) dan langsung memicu Emergency Thermal Guard 1500mA, serta membasmi fenomena drop drastis saat aplikasi Lynx ditutup atau kehilangan fokus yang disebabkan oleh pemicuan `cmd thermalservice reset` dan `unfreeze_oem_throttlers` saat sistem beralih ke profil *Balance*; kini subsistem pengisian daya beroperasi secara mandiri dan persisten di semua profil sistem, sensor termal dipetakan secara akurat ke sel baterai fisik (`mtktsbattery`), dan penanganan termal dikunci rapat di latar belakang.
