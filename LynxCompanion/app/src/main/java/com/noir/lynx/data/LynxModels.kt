@@ -523,13 +523,19 @@ data class SchedulerInfo(
     val isUclampSupported: Boolean = false,
     val isSchedBoostSupported: Boolean = false,
 
-    // CFS / BORE Core Tunables
+    // CFS / BORE Core Tunables & Hardware Verification
     val schedLatencyNs: Long = 10000000L,
+    val isCfsLatencySupported: Boolean = false,
     val schedMinGranularityNs: Long = 3000000L,
+    val isCfsMinGranSupported: Boolean = false,
     val schedWakeupGranularityNs: Long = 2000000L,
+    val isCfsWakeGranSupported: Boolean = false,
     val schedMigrationCostNs: Long = 200000L,
+    val isCfsMigrationCostSupported: Boolean = false,
     val schedNrMigrate: Int = 32,
     val schedChildRunsFirst: Boolean = false,
+    val isCfsChildFirstSupported: Boolean = false,
+    val isHmpMigrationSupported: Boolean = false,
 
     // Schedutil cpufreq rate limits
     val upRateLimitUs: Long = 500L,

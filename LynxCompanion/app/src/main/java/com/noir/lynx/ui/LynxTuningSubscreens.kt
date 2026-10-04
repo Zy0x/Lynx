@@ -704,8 +704,6 @@ fun TuningCpuCategory(
 
         // ── Penjadwal Kernel & Arsitektur Multicore (CFS / EAS / HMP / BORE) ──────
         val schedInfo = uiState.schedulerInfo
-        var schedUpRate by remember { mutableFloatStateOf(schedInfo.upRateLimitUs.toFloat()) }
-        var schedDownRate by remember { mutableFloatStateOf(schedInfo.downRateLimitUs.toFloat()) }
         var schedLatency by remember { mutableFloatStateOf((schedInfo.schedLatencyNs / 1000000f)) }
         var schedMinGran by remember { mutableFloatStateOf((schedInfo.schedMinGranularityNs / 1000000f)) }
         var schedWakeGran by remember { mutableFloatStateOf((schedInfo.schedWakeupGranularityNs / 1000000f)) }
@@ -714,6 +712,7 @@ fun TuningCpuCategory(
         // EAS states
         var uclampMinVal by remember { mutableFloatStateOf(schedInfo.uclampMin.toFloat()) }
         var uclampMaxVal by remember { mutableFloatStateOf(schedInfo.uclampMax.toFloat()) }
+        var stuneThresVal by remember { mutableFloatStateOf(schedInfo.schedStuneTaskThreshold.toFloat()) }
 
         // HMP states with live hysteresis protection
         var upmigrateVal by remember { mutableFloatStateOf(schedInfo.schedUpmigrate.toFloat()) }
@@ -728,14 +727,13 @@ fun TuningCpuCategory(
 
         LaunchedEffect(schedInfo) {
             if (activeTweakConfig == null && activeDualTweakConfig == null) {
-                schedUpRate = schedInfo.upRateLimitUs.toFloat()
-                schedDownRate = schedInfo.downRateLimitUs.toFloat()
                 schedLatency = (schedInfo.schedLatencyNs / 1000000f)
                 schedMinGran = (schedInfo.schedMinGranularityNs / 1000000f)
                 schedWakeGran = (schedInfo.schedWakeupGranularityNs / 1000000f)
                 schedMigCost = (schedInfo.schedMigrationCostNs / 1000f)
                 uclampMinVal = schedInfo.uclampMin.toFloat()
                 uclampMaxVal = schedInfo.uclampMax.toFloat()
+                stuneThresVal = schedInfo.schedStuneTaskThreshold.toFloat()
                 upmigrateVal = schedInfo.schedUpmigrate.toFloat()
                 downmigrateVal = schedInfo.schedDownmigrate.toFloat()
                 initTaskLoadVal = schedInfo.schedInitTaskLoad.toFloat()
@@ -772,7 +770,11 @@ fun TuningCpuCategory(
                         fontSize = 13.sp
                     )
                     Text(
-                        text = "EAS Energy Model & CFS Granularity",
+                        text = when {
+                            schedInfo.isUclampSupported && schedInfo.isSchedtuneSupported -> "EAS Energy Model & Task Capacity Clamping"
+                            schedInfo.isHmpMigrationSupported -> "HMP Asymmetric Multi-Processing Engine"
+                            else -> "CFS Multicore Task Scheduler"
+                        },
                         color = TextSecondary,
                         fontSize = 10.sp
                     )
@@ -794,6 +796,21 @@ fun TuningCpuCategory(
                                 color = AccentGreen,
                                 fontSize = 8.5.sp,
                                 fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    if (!schedInfo.isModeSwitchSupported) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = BgSurfaceLowest,
+                            border = BorderStroke(1.dp, BorderSubtle)
+                        ) {
+                            Text(
+                                text = "OEM Default",
+                                color = TextTertiary,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
                     }
@@ -961,61 +978,7 @@ fun TuningCpuCategory(
                 }
             }
 
-            // ── 4. Core Direct Tunables: Schedutil Rate Limits & Uclamp / HMP ──
-            // Schedutil Rate Limit Pair (Unified Dual Tile)
-            LynxDualTweakTile(
-                title = "Rate Limit Respons Clock (Schedutil)",
-                subtitle = "Ramp-up lompatan frekuensi & ramp-down penahanan clock",
-                val1Display = if (schedUpRate == 0f) "0 µs" else "${schedUpRate.toInt()} µs",
-                val2Display = "${schedDownRate.toInt() / 1000} ms",
-                accentColor = AccentBlue,
-                onClick = {
-                    activeDualTweakConfig = DualTweakConfig(
-                        id = "schedutil_rate_limits",
-                        title = "Rate Limit Respons Clock (Schedutil)",
-                        category = "Schedutil",
-                        description = "Mengatur dinamika transisi frekuensi CPU. Ramp-up menentukan jeda sebelum clock dinaikkan, sementara Ramp-down mengontrol berapa lama frekuensi tinggi ditahan sebelum turun.",
-                        item1 = DualTweakItem(
-                            id = "up_rate_limit_us",
-                            label = "Ramp-Up Rate Limit (Naik Clock)",
-                            guideNote = "• Gaming/Berat: 0 µs (Lompatan instan ke frekuensi puncak)\n• Seimbang: 500 µs (Transisi halus & stabil)\n• Ringan/Hemat: 2000 µs (Cegah lonjakan clock singkat)",
-                            currentValue = schedUpRate,
-                            defaultValue = 500f,
-                            valueRange = 0f..10000f,
-                            steps = 19,
-                            formatDisplay = { v -> if (v == 0f) "0 µs (Instan / Tanpa Jeda)" else "${v.toInt()} µs" },
-                            onApply = { v ->
-                                schedUpRate = v
-                                viewModel.setSchedulerTunable("up_rate_limit_us", v.toLong(), context)
-                            }
-                        ),
-                        item2 = DualTweakItem(
-                            id = "down_rate_limit_us",
-                            label = "Ramp-Down Rate Limit (Tahan Clock)",
-                            guideNote = "• Gaming/Berat: 30 ms - 40 ms (Tahan clock tinggi cegah micro-stutter)\n• Seimbang: 10 ms - 20 ms (Standar responsif)\n• Ringan/Hemat: 1 ms - 2 ms (Segera turunkan clock demi hemat baterai)",
-                            currentValue = schedDownRate,
-                            defaultValue = 20000f,
-                            valueRange = 1000f..40000f,
-                            steps = 38,
-                            formatDisplay = { v -> "${v.toInt() / 1000} ms (${v.toInt()} µs)" },
-                            onApply = { v ->
-                                schedDownRate = v
-                                viewModel.setSchedulerTunable("down_rate_limit_us", v.toLong(), context)
-                            }
-                        ),
-                        liveStatus = if (schedUpRate == 0f) "Status: Mode Instan (Performa Maksimum)" else if (schedUpRate >= 1500f) "Status: Mode Efisiensi (Hemat Daya)" else "Status: Mode Seimbang (Rekomendasi)",
-                        liveStatusSafe = true,
-                        onResetAll = {
-                            schedUpRate = 500f
-                            schedDownRate = 20000f
-                            viewModel.setSchedulerTunable("up_rate_limit_us", 500L, context)
-                            viewModel.setSchedulerTunable("down_rate_limit_us", 20000L, context)
-                        }
-                    )
-                }
-            )
-
-            // Uclamp Utilization Range if supported (Unified Dual Tile)
+            // ── 4. Core Direct Tunables: Uclamp (EAS) / Ambang Migrasi (HMP) ──
             if (schedInfo.isUclampSupported) {
                 LynxDualTweakTile(
                     title = "Rentang Utilisasi Uclamp (EAS)",
@@ -1068,7 +1031,7 @@ fun TuningCpuCategory(
                         )
                     }
                 )
-            } else if (schedInfo.isHmpSupported) {
+            } else if (schedInfo.isHmpMigrationSupported) {
                 // Sched Migration Hysteresis Pair for HMP
                 val hystBuffer = (upmigrateVal - downmigrateVal).toInt()
                 val isBufferSafe = hystBuffer >= 5
@@ -1128,15 +1091,27 @@ fun TuningCpuCategory(
                 )
             }
 
-            // ── 5. EXPANDABLE DRAWER FOR ADVANCED TUNABLES & HINTS ──
+            // ── 5. EXPANDABLE DRAWER FOR ADVANCED TUNABLES & HINTS (Dynamically Verified) ──
             Spacer(Modifier.height(4.dp))
-            val advancedCount = 5 +
-                    (if (schedInfo.isSchedtuneSupported) 4 else 0) +
-                    (if (schedInfo.isBigTaskRotationSupported) 1 else 0) +
+            val cfsSupportedCount = (if (schedInfo.isCfsLatencySupported) 1 else 0) +
+                    (if (schedInfo.isCfsMinGranSupported) 1 else 0) +
+                    (if (schedInfo.isCfsWakeGranSupported) 1 else 0) +
+                    (if (schedInfo.isCfsMigrationCostSupported) 1 else 0) +
+                    (if (schedInfo.isCfsChildFirstSupported) 1 else 0)
+
+            val hintsSupportedCount = (if (schedInfo.isBigTaskRotationSupported) 1 else 0) +
                     (if (schedInfo.isSyncHintSupported) 1 else 0) +
                     (if (schedInfo.isCstateAwareSupported) 1 else 0) +
-                    (if (schedInfo.isSpillSupported) 2 else 0) +
-                    (if (schedInfo.isInitTaskLoadSupported) 1 else 0)
+                    (if (schedInfo.isStuneThresholdSupported) 1 else 0)
+
+            val hmpAdvancedCount = (if (schedInfo.isInitTaskLoadSupported) 1 else 0) +
+                    (if (schedInfo.isSpillSupported) 2 else 0)
+
+            val availableAdvancedCount = (if (schedInfo.isSchedBoostSupported) 1 else 0) +
+                    (if (schedInfo.isSchedtuneSupported) 4 else 0) +
+                    hintsSupportedCount +
+                    cfsSupportedCount +
+                    hmpAdvancedCount
 
             Surface(
                 shape = RoundedCornerShape(10.dp),
@@ -1158,7 +1133,7 @@ fun TuningCpuCategory(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Pengaturan Lanjutan & Hardware Hints ($advancedCount)",
+                            text = if (availableAdvancedCount > 0) "Pengaturan Lanjutan & Hints ($availableAdvancedCount Fitur Tersedia)" else "Pengaturan Lanjutan (Tidak Didukung Kernel OEM)",
                             color = if (showAdvancedSched) TextPrimary else TextSecondary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
@@ -1178,6 +1153,23 @@ fun TuningCpuCategory(
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    if (availableAdvancedCount == 0) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = BgSurfaceLowest,
+                            border = BorderStroke(1.dp, BorderSubtle),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "Kernel OEM saat ini mengunci atau tidak mengekspos node antarmuka penjadwal lanjutan (/proc/sys/kernel/sched_* & cgroups). Seluruh tuning dijalankan otomatis oleh profil engine Lynx.",
+                                color = TextTertiary,
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                    }
+
                     // Sched Boost Level if supported
                     if (schedInfo.isSchedBoostSupported) {
                         Row(
@@ -1300,7 +1292,7 @@ fun TuningCpuCategory(
                     }
 
                     // Hardware Hints
-                    if (schedInfo.isBigTaskRotationSupported || schedInfo.isSyncHintSupported || schedInfo.isCstateAwareSupported) {
+                    if (hintsSupportedCount > 0) {
                         Text(
                             text = "SCHEDULER HARDWARE HINTS",
                             color = AccentCyan,
@@ -1336,208 +1328,258 @@ fun TuningCpuCategory(
                                 onCheckedChange = { viewModel.setSchedulerHint("sched_cstate_aware", it, context) }
                             )
                         }
+
+                        if (schedInfo.isStuneThresholdSupported) {
+                            LynxTweakTile(
+                                title = "Sched Stune Task Threshold",
+                                subtitle = "Ambang kapasitas task untuk dipromosikan ke Schedtune boost",
+                                displayValue = "${stuneThresVal.toInt()}",
+                                accentColor = AccentCyan,
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_stune_task_threshold",
+                                        title = "Sched Stune Task Threshold",
+                                        category = "EAS",
+                                        description = "Ambang batas kapasitas tugas minimum sebelum task diperlakukan sebagai kandidat akselerasi schedtune boost.",
+                                        currentValue = stuneThresVal,
+                                        defaultValue = 124f,
+                                        valueRange = 0f..1024f,
+                                        steps = 32,
+                                        formatDisplay = { v -> "${v.toInt()}" },
+                                        guideNote = "• Gaming/Agresif: 64 (Dorong task lebih awal)\n• Seimbang: 124 (Standar EAS)\n• Hemat Baterai: 256",
+                                        onApply = { v ->
+                                            stuneThresVal = v
+                                            viewModel.setSchedulerTunable("sched_stune_task_threshold", v.toLong(), context)
+                                        }
+                                    )
+                                }
+                            )
+                        }
                     }
 
                     // CFS Granularity
-                    Text(
-                        text = "CFS GRANULARITAS & LATENSI",
-                        color = AccentBlue,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
+                    if (cfsSupportedCount > 0) {
+                        Text(
+                            text = "CFS GRANULARITAS & LATENSI",
+                            color = AccentBlue,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
 
-                    LynxTweakTile(
-                        title = "CFS Target Scheduling Latency",
-                        subtitle = "Target periode siklus eksekusi seluruh task",
-                        displayValue = "${schedLatency.toInt()} ms",
-                        onClick = {
-                            activeTweakConfig = TweakConfig(
-                                id = "sched_latency_ns",
+                        if (schedInfo.isCfsLatencySupported) {
+                            LynxTweakTile(
                                 title = "CFS Target Scheduling Latency",
-                                category = "CFS",
-                                description = "Periode target di mana seluruh task yang siap dieksekusi dijamin mendapat giliran CPU. Latensi lebih kecil meningkatkan kehalusan animasi UI dan konsistensi frame game.",
-                                currentValue = schedLatency,
-                                defaultValue = 10f,
-                                valueRange = 2f..24f,
-                                steps = 21,
-                                formatDisplay = { v -> "${v.toInt()} ms" },
-                                guideNote = "• Gaming/Berat: 4 ms (Eksekusi cepat & responsif)\n• Seimbang: 10 ms (Standar Linux CFS)\n• Ringan/Hemat: 18 ms (Minim context switch)",
-                                statusInfo = if (schedLatency <= 6f) "⚡ Responsif" else "⚖️ Standar CFS",
-                                onApply = { v ->
-                                    schedLatency = v
-                                    viewModel.setSchedulerTunable("sched_latency_ns", (v * 1000000).toLong(), context)
+                                subtitle = "Target periode siklus eksekusi seluruh task",
+                                displayValue = "${schedLatency.toInt()} ms",
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_latency_ns",
+                                        title = "CFS Target Scheduling Latency",
+                                        category = "CFS",
+                                        description = "Periode target di mana seluruh task yang siap dieksekusi dijamin mendapat giliran CPU. Latensi lebih kecil meningkatkan kehalusan animasi UI dan konsistensi frame game.",
+                                        currentValue = schedLatency,
+                                        defaultValue = 10f,
+                                        valueRange = 2f..24f,
+                                        steps = 21,
+                                        formatDisplay = { v -> "${v.toInt()} ms" },
+                                        guideNote = "• Gaming/Berat: 4 ms (Eksekusi cepat & responsif)\n• Seimbang: 10 ms (Standar Linux CFS)\n• Ringan/Hemat: 18 ms (Minim context switch)",
+                                        statusInfo = if (schedLatency <= 6f) "⚡ Responsif" else "⚖️ Standar CFS",
+                                        onApply = { v ->
+                                            schedLatency = v
+                                            viewModel.setSchedulerTunable("sched_latency_ns", (v * 1000000).toLong(), context)
+                                        }
+                                    )
                                 }
                             )
                         }
-                    )
 
-                    LynxTweakTile(
-                        title = "CFS Min Preemption Granularity",
-                        subtitle = "Jatah waktu minimum yang dijamin untuk setiap task",
-                        displayValue = "${String.format("%.1f", schedMinGran)} ms",
-                        onClick = {
-                            activeTweakConfig = TweakConfig(
-                                id = "sched_min_granularity_ns",
+                        if (schedInfo.isCfsMinGranSupported) {
+                            LynxTweakTile(
                                 title = "CFS Min Preemption Granularity",
-                                category = "CFS",
-                                description = "Jatah waktu minimum yang dijamin untuk setiap task sebelum kernel mengizinkan preemption (pemotongan giliran) oleh task lain.",
-                                currentValue = schedMinGran,
-                                defaultValue = 3f,
-                                valueRange = 0.5f..8f,
-                                steps = 14,
-                                formatDisplay = { v -> "${String.format("%.1f", v)} ms" },
-                                guideNote = "• Gaming/Berat: 1.0 ms (Preemption cepat)\n• Seimbang: 3.0 ms (Standar CFS)\n• Ringan/Hemat: 5.0 ms (Throughput maksimal)",
-                                onApply = { v ->
-                                    schedMinGran = v
-                                    viewModel.setSchedulerTunable("sched_min_granularity_ns", (v * 1000000).toLong(), context)
+                                subtitle = "Jatah waktu minimum yang dijamin untuk setiap task",
+                                displayValue = "${String.format("%.1f", schedMinGran)} ms",
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_min_granularity_ns",
+                                        title = "CFS Min Preemption Granularity",
+                                        category = "CFS",
+                                        description = "Jatah waktu minimum yang dijamin untuk setiap task sebelum kernel mengizinkan preemption (pemotongan giliran) oleh task lain.",
+                                        currentValue = schedMinGran,
+                                        defaultValue = 3f,
+                                        valueRange = 0.5f..8f,
+                                        steps = 14,
+                                        formatDisplay = { v -> "${String.format("%.1f", v)} ms" },
+                                        guideNote = "• Gaming/Berat: 1.0 ms (Preemption cepat)\n• Seimbang: 3.0 ms (Standar CFS)\n• Ringan/Hemat: 5.0 ms (Throughput maksimal)",
+                                        onApply = { v ->
+                                            schedMinGran = v
+                                            viewModel.setSchedulerTunable("sched_min_granularity_ns", (v * 1000000).toLong(), context)
+                                        }
+                                    )
                                 }
                             )
                         }
-                    )
 
-                    LynxTweakTile(
-                        title = "CFS Wakeup Granularity",
-                        subtitle = "Keuntungan latensi task yang baru bangun",
-                        displayValue = "${String.format("%.1f", schedWakeGran)} ms",
-                        onClick = {
-                            activeTweakConfig = TweakConfig(
-                                id = "sched_wakeup_granularity_ns",
+                        if (schedInfo.isCfsWakeGranSupported) {
+                            LynxTweakTile(
                                 title = "CFS Wakeup Granularity",
-                                category = "CFS",
-                                description = "Keuntungan latensi yang dibutuhkan task yang baru bangun untuk menggeser task yang sedang berjalan di CPU.",
-                                currentValue = schedWakeGran,
-                                defaultValue = 2f,
-                                valueRange = 0.5f..8f,
-                                steps = 14,
-                                formatDisplay = { v -> "${String.format("%.1f", v)} ms" },
-                                guideNote = "• Gaming/Berat: 1.0 ms (Task bangun instan jalan)\n• Seimbang: 2.0 ms (Standar CFS)\n• Ringan/Hemat: 4.0 ms (Minim interupsi task berjalan)",
-                                onApply = { v ->
-                                    schedWakeGran = v
-                                    viewModel.setSchedulerTunable("sched_wakeup_granularity_ns", (v * 1000000).toLong(), context)
+                                subtitle = "Keuntungan latensi task yang baru bangun",
+                                displayValue = "${String.format("%.1f", schedWakeGran)} ms",
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_wakeup_granularity_ns",
+                                        title = "CFS Wakeup Granularity",
+                                        category = "CFS",
+                                        description = "Keuntungan latensi yang dibutuhkan task yang baru bangun untuk menggeser task yang sedang berjalan di CPU.",
+                                        currentValue = schedWakeGran,
+                                        defaultValue = 2f,
+                                        valueRange = 0.5f..8f,
+                                        steps = 14,
+                                        formatDisplay = { v -> "${String.format("%.1f", v)} ms" },
+                                        guideNote = "• Gaming/Berat: 1.0 ms (Task bangun instan jalan)\n• Seimbang: 2.0 ms (Standar CFS)\n• Ringan/Hemat: 4.0 ms (Minim interupsi task berjalan)",
+                                        onApply = { v ->
+                                            schedWakeGran = v
+                                            viewModel.setSchedulerTunable("sched_wakeup_granularity_ns", (v * 1000000).toLong(), context)
+                                        }
+                                    )
                                 }
                             )
                         }
-                    )
 
-                    LynxTweakTile(
-                        title = "Task Migration Cost (Cache-Hot)",
-                        subtitle = "Proteksi cache L1/L2 sebelum diizinkan migrasi",
-                        displayValue = "${schedMigCost.toInt()} µs",
-                        onClick = {
-                            activeTweakConfig = TweakConfig(
-                                id = "sched_migration_cost_ns",
+                        if (schedInfo.isCfsMigrationCostSupported) {
+                            LynxTweakTile(
                                 title = "Task Migration Cost (Cache-Hot)",
-                                category = "CFS",
-                                description = "Waktu task dianggap masih berada dalam cache L1/L2 sebelum diizinkan migrasi ke inti CPU lain.",
-                                currentValue = schedMigCost,
-                                defaultValue = 200f,
-                                valueRange = 100f..3000f,
-                                steps = 28,
-                                formatDisplay = { v -> "${v.toInt()} µs" },
-                                guideNote = "• Gaming/Berat: 100 µs (Migrasi lincah)\n• Seimbang: 200 µs (Standar CFS)\n• Ringan/Hemat: 600 µs (Proteksi cache L1/L2)",
-                                onApply = { v ->
-                                    schedMigCost = v
-                                    viewModel.setSchedulerTunable("sched_migration_cost_ns", (v * 1000).toLong(), context)
+                                subtitle = "Proteksi cache L1/L2 sebelum diizinkan migrasi",
+                                displayValue = "${schedMigCost.toInt()} µs",
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_migration_cost_ns",
+                                        title = "Task Migration Cost (Cache-Hot)",
+                                        category = "CFS",
+                                        description = "Waktu task dianggap masih berada dalam cache L1/L2 sebelum diizinkan migrasi ke inti CPU lain.",
+                                        currentValue = schedMigCost,
+                                        defaultValue = 200f,
+                                        valueRange = 100f..3000f,
+                                        steps = 28,
+                                        formatDisplay = { v -> "${v.toInt()} µs" },
+                                        guideNote = "• Gaming/Berat: 100 µs (Migrasi lincah)\n• Seimbang: 200 µs (Standar CFS)\n• Ringan/Hemat: 600 µs (Proteksi cache L1/L2)",
+                                        onApply = { v ->
+                                            schedMigCost = v
+                                            viewModel.setSchedulerTunable("sched_migration_cost_ns", (v * 1000).toLong(), context)
+                                        }
+                                    )
                                 }
                             )
                         }
-                    )
 
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                            Text("Child Process Runs First", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp)
-                            Text("Prioritaskan eksekusi child process saat fork", color = TextSecondary, fontSize = 9.sp)
+                        if (schedInfo.isCfsChildFirstSupported) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text("Child Process Runs First", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp)
+                                    Text("Prioritaskan eksekusi child process saat fork", color = TextSecondary, fontSize = 9.sp)
+                                }
+                                Switch(
+                                    checked = schedInfo.schedChildRunsFirst,
+                                    onCheckedChange = { viewModel.setSchedulerTunable("sched_child_runs_first", if (it) 1L else 0L, context) },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
+                                    modifier = Modifier.scale(0.8f)
+                                )
+                            }
                         }
-                        Switch(
-                            checked = schedInfo.schedChildRunsFirst,
-                            onCheckedChange = { viewModel.setSchedulerTunable("sched_child_runs_first", if (it) 1L else 0L, context) },
-                            colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
-                            modifier = Modifier.scale(0.8f)
-                        )
                     }
 
-                    // HMP Spill & Init Task Load
-                    if (schedInfo.isInitTaskLoadSupported) {
-                        LynxTweakTile(
-                            title = "Init Task Load (Fork Initial)",
-                            subtitle = "Estimasi beban awal proses baru saat fork",
-                            displayValue = "${initTaskLoadVal.toInt()}%",
-                            onClick = {
-                                activeTweakConfig = TweakConfig(
-                                    id = "sched_init_task_load",
-                                    title = "Sched Init Task Load (Fork Initial Load)",
-                                    category = "HMP",
-                                    description = "Estimasi beban awal proses baru saat pertama kali dibuat (fork). Nilai tinggi langsung mengeksekusi proses baru di Big Core demi kecepatan startup aplikasi/game.",
-                                    currentValue = initTaskLoadVal,
-                                    defaultValue = 35f,
-                                    valueRange = 5f..100f,
-                                    steps = 18,
-                                    formatDisplay = { v -> "${v.toInt()}%" },
-                                    guideNote = "• Gaming/Berat: 60% (Start langsung di Big Core)\n• Seimbang: 35% (Standar Android)\n• Ringan/Hemat: 15% (Start di Little Core)",
-                                    statusInfo = if (initTaskLoadVal >= 50f) "Start Big Core" else "Standar Little Core",
-                                    onApply = { v ->
-                                        initTaskLoadVal = v
-                                        viewModel.setSchedulerTunable("sched_init_task_load", v.toLong(), context)
-                                    }
-                                )
-                            }
-                        )
-                    }
-
-                    if (schedInfo.isSpillSupported) {
-                        LynxTweakTile(
-                            title = "Sched Spill Nr Run",
-                            subtitle = "Batas antrean task sebelum dialihkan ke core lain",
-                            displayValue = "${spillNrRunVal.toInt()} Task",
-                            onClick = {
-                                activeTweakConfig = TweakConfig(
-                                    id = "sched_spill_nr_run",
-                                    title = "Sched Spill Nr Run (Queue Spill Threshold)",
-                                    category = "HMP",
-                                    description = "Maksimum jumlah antrean task pada satu CPU core sebelum dialihkan (spillover) ke core lain yang lebih senggang.",
-                                    currentValue = spillNrRunVal,
-                                    defaultValue = 3f,
-                                    valueRange = 1f..10f,
-                                    steps = 8,
-                                    formatDisplay = { v -> "${v.toInt()} Task" },
-                                    guideNote = "• Gaming/Berat: 2 Task (Spillover cepat ke core lain)\n• Seimbang: 3 Task (Standar distribusi)\n• Ringan/Hemat: 5 Task (Minim migrasi antar core)",
-                                    onApply = { v ->
-                                        spillNrRunVal = v
-                                        viewModel.setSchedulerTunable("sched_spill_nr_run", v.toLong(), context)
-                                    }
-                                )
-                            }
+                    // HMP Task Balancing & Spill
+                    if (hmpAdvancedCount > 0) {
+                        Text(
+                            text = "HMP TASK BALANCING & QUEUE SPILL",
+                            color = AccentOrange,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            modifier = Modifier.padding(top = 4.dp)
                         )
 
-                        LynxTweakTile(
-                            title = "Sched Spill Load Threshold",
-                            subtitle = "Ambang batas beban core untuk spillover",
-                            displayValue = "${spillLoadVal.toInt()}%",
-                            onClick = {
-                                activeTweakConfig = TweakConfig(
-                                    id = "sched_spill_load",
-                                    title = "Sched Spill Load Threshold",
-                                    category = "HMP",
-                                    description = "Ambang batas beban CPU sebelum mengizinkan spillover ke core lain.",
-                                    currentValue = spillLoadVal,
-                                    defaultValue = 90f,
-                                    valueRange = 50f..100f,
-                                    steps = 10,
-                                    formatDisplay = { v -> "${v.toInt()}%" },
-                                    guideNote = "• Gaming/Berat: 75% (Distribusi beban cepat)\n• Seimbang: 90% (Standar)\n• Ringan/Hemat: 98% (Tunggu core penuh)",
-                                    onApply = { v ->
-                                        spillLoadVal = v
-                                        viewModel.setSchedulerTunable("sched_spill_load", v.toLong(), context)
-                                    }
-                                )
-                            }
-                        )
+                        if (schedInfo.isInitTaskLoadSupported) {
+                            LynxTweakTile(
+                                title = "Init Task Load (Fork Initial)",
+                                subtitle = "Estimasi beban awal proses baru saat fork",
+                                displayValue = "${initTaskLoadVal.toInt()}%",
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_init_task_load",
+                                        title = "Sched Init Task Load (Fork Initial Load)",
+                                        category = "HMP",
+                                        description = "Estimasi beban awal proses baru saat pertama kali dibuat (fork). Nilai tinggi langsung mengeksekusi proses baru di Big Core demi kecepatan startup aplikasi/game.",
+                                        currentValue = initTaskLoadVal,
+                                        defaultValue = 35f,
+                                        valueRange = 5f..100f,
+                                        steps = 18,
+                                        formatDisplay = { v -> "${v.toInt()}%" },
+                                        guideNote = "• Gaming/Berat: 60% (Start langsung di Big Core)\n• Seimbang: 35% (Standar Android)\n• Ringan/Hemat: 15% (Start di Little Core)",
+                                        statusInfo = if (initTaskLoadVal >= 50f) "Start Big Core" else "Standar Little Core",
+                                        onApply = { v ->
+                                            initTaskLoadVal = v
+                                            viewModel.setSchedulerTunable("sched_init_task_load", v.toLong(), context)
+                                        }
+                                    )
+                                }
+                            )
+                        }
+
+                        if (schedInfo.isSpillSupported) {
+                            LynxTweakTile(
+                                title = "Sched Spill Nr Run",
+                                subtitle = "Batas antrean task sebelum dialihkan ke core lain",
+                                displayValue = "${spillNrRunVal.toInt()} Task",
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_spill_nr_run",
+                                        title = "Sched Spill Nr Run (Queue Spill Threshold)",
+                                        category = "HMP",
+                                        description = "Maksimum jumlah antrean task pada satu CPU core sebelum dialihkan (spillover) ke core lain yang lebih senggang.",
+                                        currentValue = spillNrRunVal,
+                                        defaultValue = 3f,
+                                        valueRange = 1f..10f,
+                                        steps = 8,
+                                        formatDisplay = { v -> "${v.toInt()} Task" },
+                                        guideNote = "• Gaming/Berat: 2 Task (Spillover cepat ke core lain)\n• Seimbang: 3 Task (Standar distribusi)\n• Ringan/Hemat: 5 Task (Minim migrasi antar core)",
+                                        onApply = { v ->
+                                            spillNrRunVal = v
+                                            viewModel.setSchedulerTunable("sched_spill_nr_run", v.toLong(), context)
+                                        }
+                                    )
+                                }
+                            )
+
+                            LynxTweakTile(
+                                title = "Sched Spill Load Threshold",
+                                subtitle = "Ambang batas beban core untuk spillover",
+                                displayValue = "${spillLoadVal.toInt()}%",
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_spill_load",
+                                        title = "Sched Spill Load Threshold",
+                                        category = "HMP",
+                                        description = "Ambang batas beban CPU sebelum mengizinkan spillover ke core lain.",
+                                        currentValue = spillLoadVal,
+                                        defaultValue = 90f,
+                                        valueRange = 50f..100f,
+                                        steps = 10,
+                                        formatDisplay = { v -> "${v.toInt()}%" },
+                                        guideNote = "• Gaming/Berat: 75% (Distribusi beban cepat)\n• Seimbang: 90% (Standar)\n• Ringan/Hemat: 98% (Tunggu core penuh)",
+                                        onApply = { v ->
+                                            spillLoadVal = v
+                                            viewModel.setSchedulerTunable("sched_spill_load", v.toLong(), context)
+                                        }
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             }

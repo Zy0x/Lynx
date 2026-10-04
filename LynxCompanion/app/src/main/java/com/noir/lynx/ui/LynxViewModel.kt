@@ -2814,17 +2814,29 @@ class LynxViewModel : ViewModel() {
     fun resetSchedulerTunablesToOem(context: Context) {
         viewModelScope.launch {
             recordStateMutation()
+            context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE).edit().clear().apply()
             CpuPolicyManager.resetSchedulerToOem()
             val resetCmds = """
-                echo 1000 > /proc/sys/kernel/sched_upmigrate 2>/dev/null || true
-                echo 1000 > /proc/sys/kernel/sched_downmigrate 2>/dev/null || true
-                echo 1000 > /proc/sys/kernel/sched_up_rate_limit_us 2>/dev/null || true
-                echo 1000 > /proc/sys/kernel/sched_down_rate_limit_us 2>/dev/null || true
+                echo 85 > /proc/sys/kernel/sched_upmigrate 2>/dev/null || true
+                echo 65 > /proc/sys/kernel/sched_downmigrate 2>/dev/null || true
+                echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null || true
+                echo 0 > /proc/sys/kernel/sched_uclamp_util_min 2>/dev/null || true
+                echo 1024 > /proc/sys/kernel/sched_uclamp_util_max 2>/dev/null || true
+                echo 0 > /proc/sys/kernel/sched_util_clamp_min 2>/dev/null || true
+                echo 1024 > /proc/sys/kernel/sched_util_clamp_max 2>/dev/null || true
                 echo 0 > /dev/stune/top-app/schedtune.boost 2>/dev/null || true
+                echo 0 > /dev/stune/foreground/schedtune.boost 2>/dev/null || true
+                echo 0 > /dev/stune/background/schedtune.boost 2>/dev/null || true
                 echo 0 > /dev/cpuctl/top-app/cpu.uclamp.min 2>/dev/null || true
+                echo 1024 > /dev/cpuctl/top-app/cpu.uclamp.max 2>/dev/null || true
+                echo 10000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null || true
+                echo 3000000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null || true
+                echo 2000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null || true
+                echo 200000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null || true
+                echo 0 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null || true
             """.trimIndent()
             com.topjohnwu.superuser.Shell.cmd(resetCmds).exec()
-            val updated = LynxRepository.readSchedulerInfo()
+            val updated = LynxRepository.readSchedulerInfo(context)
             _uiState.update { it.copy(schedulerInfo = updated, successMessage = "✅ Penjadwal Kernel berhasil dikembalikan ke default OEM.") }
         }
     }

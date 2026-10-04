@@ -1,3 +1,31 @@
+# Lynx [Codename: Deity] 3.0.18
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Penyempurnaan Total Normalisasi Penggunaan CPU, Eliminasi Redundansi Schedutil, & Laci Penjadwal Adaptif Hardware** — menuntaskan kalkulasi matematis persentase beban CPU per-proses (normalisasi skala 100% SoC dari Irix mode toybox `top`) dan per-core (eliminasi beban sintetis sehingga rata-rata C0..C7 selaras dengan total load), menghapus seluruh kontrol duplikat schedutil dan C-state pada kartu penjadwal, serta merombak laci *Pengaturan Lanjutan & Hardware Hints* menjadi sepenuhnya cerdas dan dinamis hanya merender node sysfs yang benar-benar didukung oleh kernel/OEM perangkat aktif.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.18)
+
+### 1. 📊 Normalisasi Presisi Persentase CPU Proses & Inti (100% Mathematical Parity)
+- **Normalisasi Irix Mode Toybox `top`**: Membagi beban CPU setiap proses secara dinamis berdasarkan jumlah total core perangkat (`rawCpu / totalCores.toFloat()`). Menghilangkan ketidaksesuaian di mana proses latar belakang melebihi total beban SoC, menghasilkan konsistensi visual dan matematis antara daftar proses dan *Total CPU Load*.
+- **Pembersihan Beban Inti Sintetis (True `/proc/stat` Delta)**: Menghapus kalkulasi beban buatan pada pembacaan frekuensi idle core. Beban per-core (C0..C7) kini 100% murni merefleksikan delta jiffies kernel Linux, sehingga rata-rata beban seluruh core tepat mencerminkan angka telemetri utama.
+
+### 2. 🧹 Eliminasi Redundansi Kontrol Schedutil & C-State Aware
+- **Penghapusan Ubin Duplikat Schedutil**: Menghapus ubin *Rate Limit Respons Clock (Schedutil)* dari kartu Penjadwal Kernel, menghindari kebingungan konfigurasi karena pengaturan *up/down rate limit* telah dikontrol secara asimetris per-kluster pada lembar *CPU Governor Tunables*.
+- **Sentralisasi C-State Aware Scheduler**: Menghapus sakelar duplikat dari kartu *Core Parking*, memusatkan pengaturan preferensi tidur inti secara elegan di dalam kelompok *Hardware Hints* kartu penjadwal.
+
+### 3. 🧠 Laci Penjadwal Lanjutan Adaptif Hardware (Strict Dynamic Node Probing)
+- **Penghitungan Dinamis Fitur Tersedia**: Menghitung secara nyata jumlah fitur lanjutan yang terekspos oleh kernel (`$availableAdvancedCount Fitur Tersedia`). Menampilkan indikator informatif ketika kernel OEM mengunci antarmuka sysfs penjadwal.
+- **Validasi Izin Tulis Nyata (Anti-False Support)**: Memverifikasi eksekusi penulisan aktual pada `/proc/sys/kernel/sched_energy_aware` dan `/sys/devices/system/cpu/eas/enable` guna memastikan pengalihan arsitektur EAS/HMP didukung tanpa crash izin kernel (`EACCES`).
+- **Penyaringan Selektif Berbasis Hardware**:
+  - *CFS Granularitas & Latensi*: Menampilkan ubin latensi, granularitas preemption, wakeup, dan migration cost hanya jika nodenya ada di `/proc/sys/kernel/`.
+  - *Schedtune & Task Capacity*: Menampilkan kontrol boost dan prefer idle hanya jika `/dev/stune` tersedia.
+  - *Hardware Hints*: Menyaring *Big Task Rotation*, *Sync Wakeup*, *C-State Aware*, dan *Stune Task Threshold* secara mandiri.
+  - *HMP Balancing & Spill*: Menyembunyikan seluruh ubin migrasi HMP jika kernel tidak mengekspos antarmuka `sched_upmigrate` dan `sched_downmigrate`.
+
+### 4. 🔄 Reset to OEM Terpadu & Pembersihan Cache Preferensi
+- **Pembersihan Bersih Shared Preferences**: Menghapus tuntas rekaman cache `lynx_scheduler_prefs` saat pengguna mengeksekusi Reset ke Default, mengembalikan nilai trip, boost, dan preset ke standar bawaan kernel pabrikan.
+
+---
+
 # Lynx [Codename: Deity] 3.0.17
 Released on: 2026-10-04
 > **Versi ini** menuntaskan **Audit & Polish Komprehensif CPU Tuning & Sheet Interaction** — mengoptimalkan lembar bawah pemilih frekuensi (*Frequency Picker*) dan governor (*Governor Picker*) agar langsung terbuka penuh tanpa terpotong (*skipPartiallyExpanded*), memperbaiki logika seleksi frekuensi presisi (eliminasi centang ganda), memperbesar seluruh target sentuh minimal 48dp (mematuhi Rule 1), membersihkan emoji/AI slop pada subkategori CPU & Scheduler, menyematkan aksi Reset to OEM pada kluster CPU, serta meningkatkan ketahanan telemetri CPU Core Spectrum dan dynamic Big-core detection.

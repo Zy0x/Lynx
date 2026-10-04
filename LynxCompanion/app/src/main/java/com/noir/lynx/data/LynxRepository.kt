@@ -2744,11 +2744,25 @@ object LynxRepository {
         }
     }
 
+    private var cachedTotalCpuCores: Int = 0
+
+    fun getTotalCpuCores(): Int {
+        if (cachedTotalCpuCores > 0) return cachedTotalCpuCores
+        val discovered = try {
+            java.io.File("/sys/devices/system/cpu").listFiles { file ->
+                file.isDirectory && file.name.matches(Regex("cpu[0-9]+"))
+            }?.size ?: 0
+        } catch (_: Exception) { 0 }
+        cachedTotalCpuCores = if (discovered > 0) discovered else Runtime.getRuntime().availableProcessors().coerceIn(1, 16)
+        return cachedTotalCpuCores
+    }
+
     suspend fun readTopCpuProcesses(): List<CpuProcessInfo> = withContext(Dispatchers.IO) {
         try {
             val lines = Shell.cmd("top -b -n 1 -m 8 2>/dev/null").exec().out
             val result = mutableListOf<CpuProcessInfo>()
             var headerPassed = false
+            val totalCores = getTotalCpuCores().coerceAtLeast(1)
 
             for (line in lines) {
                 val trimmed = line.trim()
@@ -2786,7 +2800,9 @@ object LynxRepository {
                         else -> pkgName
                     }
 
-                    val normalizedCpu = if (rawCpu > 100f) (rawCpu / 8f).coerceIn(0.1f, 100f) else rawCpu
+                    // Android toybox top reports CPU% in Irix mode (100% per core, max = totalCores * 100%).
+                    // Normalize to total SoC system percentage (0..100%) so sum of processes matches total CPU load.
+                    val normalizedCpu = (rawCpu / totalCores.toFloat()).coerceIn(0.1f, 100f)
 
                     result.add(
                         CpuProcessInfo(
@@ -2907,10 +2923,7 @@ object LynxRepository {
                     val minKhz = lockedRange?.first ?: rawMinKhz
                     val maxKhz = lockedRange?.second ?: rawMaxKhz
 
-                    var load = if (online) (perCoreLoads[id] ?: 0) else 0
-                    if (online && load == 0 && maxKhz > minKhz && freq > minKhz) {
-                        load = (((freq - minKhz).toFloat() / (maxKhz - minKhz).toFloat()) * 25f).toInt().coerceIn(1, 30)
-                    }
+                    val load = if (online) (perCoreLoads[id] ?: 0).coerceIn(0, 100) else 0
 
                     CpuCoreInfo(
                         coreId = id,
@@ -7392,12 +7405,45 @@ done
                     spill_load=${'$'}(cat /proc/sys/kernel/sched_spill_load 2>/dev/null || echo "90")
                 fi
 
+                has_lat="0"
+                [ -f /proc/sys/kernel/sched_latency_ns ] && has_lat="1"
                 lat=${'$'}(cat /proc/sys/kernel/sched_latency_ns 2>/dev/null || echo 10000000)
+
+                has_min_gran="0"
+                [ -f /proc/sys/kernel/sched_min_granularity_ns ] && has_min_gran="1"
                 min_gran=${'$'}(cat /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null || echo 3000000)
+
+                has_wake_gran="0"
+                [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && has_wake_gran="1"
                 wake_gran=${'$'}(cat /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null || echo 2000000)
+
+                has_mig_cost="0"
+                [ -f /proc/sys/kernel/sched_migration_cost_ns ] && has_mig_cost="1"
                 mig_cost=${'$'}(cat /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null || echo 200000)
-                nr_mig=${'$'}(cat /proc/sys/kernel/sched_nr_migrate 2>/dev/null || echo 32)
+
+                has_child_first="0"
+                [ -f /proc/sys/kernel/sched_child_runs_first ] && has_child_first="1"
                 child_first=${'$'}(cat /proc/sys/kernel/sched_child_runs_first 2>/dev/null || echo 0)
+
+                has_hmp_mig="0"
+                if [ -f /proc/sys/kernel/sched_upmigrate ] && [ -f /proc/sys/kernel/sched_downmigrate ]; then
+                    has_hmp_mig="1"
+                fi
+
+                mode_switchable="0"
+                if [ -f /proc/sys/kernel/sched_energy_aware ]; then
+                    cur_ea=${'$'}(cat /proc/sys/kernel/sched_energy_aware 2>/dev/null)
+                    if echo "${'$'}cur_ea" > /proc/sys/kernel/sched_energy_aware 2>/dev/null; then
+                        mode_switchable="1"
+                    fi
+                elif [ -f /sys/devices/system/cpu/eas/enable ]; then
+                    cur_eas=${'$'}(cat /sys/devices/system/cpu/eas/enable 2>/dev/null)
+                    if echo "${'$'}cur_eas" > /sys/devices/system/cpu/eas/enable 2>/dev/null; then
+                        mode_switchable="1"
+                    fi
+                fi
+
+                nr_mig=${'$'}(cat /proc/sys/kernel/sched_nr_migrate 2>/dev/null || echo 32)
 
                 up_rate=1000
                 down_rate=10000
@@ -7455,12 +7501,19 @@ done
                 echo "has_spill:${'$'}has_spill"
                 echo "spill_nr_run:${'$'}spill_nr_run"
                 echo "spill_load:${'$'}spill_load"
+                echo "has_lat:${'$'}has_lat"
                 echo "lat:${'$'}lat"
+                echo "has_min_gran:${'$'}has_min_gran"
                 echo "min_gran:${'$'}min_gran"
+                echo "has_wake_gran:${'$'}has_wake_gran"
                 echo "wake_gran:${'$'}wake_gran"
+                echo "has_mig_cost:${'$'}has_mig_cost"
                 echo "mig_cost:${'$'}mig_cost"
                 echo "nr_mig:${'$'}nr_mig"
+                echo "has_child_first:${'$'}has_child_first"
                 echo "child_first:${'$'}child_first"
+                echo "has_hmp_mig:${'$'}has_hmp_mig"
+                echo "mode_switchable:${'$'}mode_switchable"
                 echo "up_rate:${'$'}up_rate"
                 echo "down_rate:${'$'}down_rate"
                 echo "top_app_boost:${'$'}top_app_boost"
@@ -7499,12 +7552,19 @@ done
             var hasSpill = false
             var spillNrRun = 3
             var spillLoad = 90
+            var hasLat = false
             var lat = 10000000L
+            var hasMinGran = false
             var minGran = 3000000L
+            var hasWakeGran = false
             var wakeGran = 2000000L
+            var hasMigCost = false
             var migCost = 200000L
             var nrMig = 32
+            var hasChildFirst = false
             var childFirst = false
+            var hasHmpMig = false
+            var modeSwitchable = false
             var upRate = 500L
             var downRate = 20000L
             var topAppBoost = 15
@@ -7548,12 +7608,19 @@ done
                         "has_spill" -> hasSpill = v == "1"
                         "spill_nr_run" -> spillNrRun = v.toIntOrNull() ?: 3
                         "spill_load" -> spillLoad = v.toIntOrNull() ?: 90
+                        "has_lat" -> hasLat = v == "1"
                         "lat" -> lat = v.toLongOrNull() ?: lat
+                        "has_min_gran" -> hasMinGran = v == "1"
                         "min_gran" -> minGran = v.toLongOrNull() ?: minGran
+                        "has_wake_gran" -> hasWakeGran = v == "1"
                         "wake_gran" -> wakeGran = v.toLongOrNull() ?: wakeGran
+                        "has_mig_cost" -> hasMigCost = v == "1"
                         "mig_cost" -> migCost = v.toLongOrNull() ?: migCost
                         "nr_mig" -> nrMig = v.toIntOrNull() ?: nrMig
+                        "has_child_first" -> hasChildFirst = v == "1"
                         "child_first" -> childFirst = v == "1"
+                        "has_hmp_mig" -> hasHmpMig = v == "1"
+                        "mode_switchable" -> modeSwitchable = v == "1"
                         "up_rate" -> upRate = v.toLongOrNull() ?: upRate
                         "down_rate" -> downRate = v.toLongOrNull() ?: downRate
                         "top_app_boost" -> topAppBoost = v.toIntOrNull() ?: 15
@@ -7576,9 +7643,9 @@ done
             }
 
             val isEasSupported = easHybrid || (energyAwareVal != -1) || hasUclamp || easMode == "eas"
-            val isHmpSupported = hasHmp || hasSpill || easMode == "hmp" || easHybrid
-            val isModeSwitchSupported = hasMtkEas || (energyAwareVal != -1)
-            val isHybridSupported = hasMtkEas
+            val isHmpSupported = hasHmpMig || hasSpill || hasInitLoad || easMode == "hmp"
+            val isModeSwitchSupported = modeSwitchable
+            val isHybridSupported = easHybrid && modeSwitchable
 
             val activeArchMode = when {
                 easMode == "hybrid" -> "hybrid"
@@ -7586,7 +7653,7 @@ done
                 easMode == "eas" -> "eas"
                 energyAwareVal == 1 -> "eas"
                 energyAwareVal == 0 -> "hmp"
-                hasHmp -> "hmp"
+                hasHmpMig -> "hmp"
                 isEasSupported -> "eas"
                 else -> "cfs"
             }
@@ -7618,6 +7685,12 @@ done
                 isHmpSupported = isHmpSupported,
                 isUclampSupported = hasUclamp,
                 isSchedBoostSupported = hasSchedBoost,
+                isCfsLatencySupported = hasLat,
+                isCfsMinGranSupported = hasMinGran,
+                isCfsWakeGranSupported = hasWakeGran,
+                isCfsMigrationCostSupported = hasMigCost,
+                isCfsChildFirstSupported = hasChildFirst,
+                isHmpMigrationSupported = hasHmpMig,
                 activeArchitectureMode = activeArchMode,
                 isHybridSupported = isHybridSupported,
                 isModeSwitchSupported = isModeSwitchSupported,

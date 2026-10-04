@@ -5198,7 +5198,7 @@ fun CpuIdleCoreParkingCard(
     onSetCoreParkingMode: (String) -> Unit,
     onToggleCStateDisabled: (stateIndex: Int, disabled: Boolean) -> Unit,
     onArmPllModeChange: (Boolean) -> Unit,
-    onSchedCstateAwareChange: (Boolean) -> Unit,
+    onSchedCstateAwareChange: ((Boolean) -> Unit)? = null,
     onApplyOnBootChange: (Boolean) -> Unit,
     onResetToOem: (() -> Unit)? = null,
     isModified: Boolean = false,
@@ -5979,15 +5979,6 @@ fun CpuIdleCoreParkingCard(
                         subLabel = "Matikan clock PLL saat core tidur untuk memangkas daya statis (/proc/cpuidle)",
                         checked = cpuIdle.armPllMode,
                         onCheckedChange = { onArmPllModeChange(it) }
-                    )
-                }
-
-                if (cpuIdle.isCstateAwareSupported) {
-                    LynxSwitch(
-                        label = "C-State Aware Scheduler",
-                        subLabel = "Penjadwal mengarahkan tugas ke inti dengan sleep latency terendah (/proc/sys/kernel)",
-                        checked = cpuIdle.schedCstateAware,
-                        onCheckedChange = { onSchedCstateAwareChange(it) }
                     )
                 }
             }
