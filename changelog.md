@@ -1,3 +1,32 @@
+# Lynx [Codename: Deity] 3.0.26
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Sub-Halaman CPU Master Level Komprehensif & Driver Hardware Engine: Live Runqueue & Pressure Telemetry, Platform Hardware Engine (MediaTek PPM & Snapdragon QTI Boost), serta Deep Kernel Latency & Overhead Purge** — mentransformasikan monitoring CPU dengan chip telemetri langsung beban antrean kernel (`RQ Avg`), deteksi tugas komputasi berat (`H-Task`), dan status saturasi kapasitas energi EAS (`EAS Limit / Opt`), menyematkan kartu khusus `PlatformHardwareEngineCard` untuk kendali langsung driver MediaTek PPM (bypass power throttling baterai lemah, system boost, sinkronisasi thermal) dan Qualcomm Snapdragon QTI Input Boost/Touchboost, serta membuka akses penuh ke tuning latensi kernel ekstrem (`schedstats profiling overhead purge`, `sched_tunable_scaling` pengunci konsistensi frame FPS, dan bandwidth `sched_rt_runtime_us`).
+
+## 🚀 Fitur Baru & Peningkatan (3.0.26)
+
+### 1. 📊 Live Runqueue & Pressure Telemetry (Master CPU Telemetry)
+- **Monitoring Kedalaman Antrean CPU (`RQ Avg`)**: Membaca `/sys/devices/system/cpu/rq-stats/run_queue_avg` secara realtime untuk memantau rata-rata antrean thread runnable di seluruh cluster CPU.
+- **Deteksi Heavy Tasks (`H-Task`)**: Membaca penghitung tugas berat (`/sys/devices/system/cpu/rq-stats/htasks` atau `big_task`) untuk membedakan thread game berat dari background noise.
+- **Status Saturasi Energi EAS (`EAS Limit / Opt`)**: Membaca flag over-utilization EAS (`/sys/devices/system/cpu/rq-stats/over_util`) untuk mendeteksi secara instan saat sistem beralih dari kalkulasi efisiensi daya ke performa throughput maksimum.
+- **Visual Micro-Chips**: Menampilkan indikator status di Master Telemetry Card dengan warna semantik adaptif (Hijau/Cyan untuk optimal, Oranye saat jenuh beban).
+
+### 2. ⚡ Platform Hardware Engine (MediaTek PPM & Qualcomm QTI Boost)
+- **MediaTek PPM Driver Controls**:
+  - `Bypass Power Throttling OEM (PPM Policy 3)`: Mencegah kernel memangkas frekuensi CPU secara drastis saat persentase baterai berada di bawah 20%.
+  - `Hardware System Boost (PPM Policy 9)`: Mengaktifkan akselerasi komputasi berat langsung pada driver manajemen daya MediaTek.
+  - `Sinkronisasi Thermal Policy PPM (PPM Policy 4)`: Mengaitkan pembatasan termal langsung dengan driver PPM.
+- **Qualcomm Snapdragon QTI Driver Controls**:
+  - `Qualcomm Touchboost Driver`: Kontrol sakelar lonjakan frekuensi seketika saat event touch terdeteksi (`/sys/module/msm_performance/parameters/touchboost`).
+  - `Input Boost Dynamics Status`: Pemantauan frekuensi boost MHz dan durasi ms saat input event aktif.
+- **Kartu Khusus Berbasis Deteksi Driver**: Menampilkan `PlatformHardwareEngineCard` secara otomatis hanya jika hardware driver vendor terdeteksi di kernel perangkat.
+
+### 3. 🎯 Deep Kernel Latency & Overhead Purge
+- **Schedstats Profiling Overhead Purge (`sched_schedstats`)**: Sakelar untuk menonaktifkan pengumpulan statistik profil scheduler di kernel, memangkas siklus CPU yang terbuang sia-sia dan mengurangi micro-stuttering.
+- **Sched Tunable Scaling (`sched_tunable_scaling`)**: Kontrol metode penskalaan periode scheduler (Mode 0: None / Tetap, Mode 1: Logarithmic, Mode 2: Linear). Mode 0 mengunci latensi konstan saat core CPU bangun/tidur demi kestabilan frame pacing gaming kompetitif.
+- **Real-Time (RT) Runtime Bandwidth (`sched_rt_runtime_us`)**: Penyesuaian alokasi batas bandwidth waktu CPU per detik untuk thread prioritas tinggi (seperti audio low-latency dan input touch driver) dengan panduan keamanan terintegrasi.
+
+---
+
 # Lynx [Codename: Deity] 3.0.25
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Perbaikan Kritis Penjadwal Inti (Core Scheduler Architecture Bug Fix): Persistensi Tombol Mode Hybrid pada Transisi EAS dan HMP** — memperbaiki galat logika di mana kemampuan hardware (*kernel capability*) tertukar dengan status aktif runtime (*active state*), memastikan tombol `[ Hybrid ]` tetap persisten dan dapat dipilih kapan saja meskipun pengguna beralih ke mode `EAS` (`1`) atau `HMP` (`0`), serta mengamankan deteksi driver multi-mode MediaTek (`/sys/devices/system/cpu/eas/enable`) sehingga transisi arsitektur berjalan mulus tanpa menghilangkan opsi penjadwalan dari antarmuka pengguna.

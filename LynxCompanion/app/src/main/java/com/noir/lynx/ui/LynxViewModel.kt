@@ -1944,6 +1944,44 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    // ── Platform Hardware Engine (MediaTek PPM & Qualcomm Boost) ──
+    fun setPpmPolicy(policyIdx: Int, enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        viewModelScope.launch {
+            val ok = LynxRepository.setPpmPolicy(policyIdx, enabled, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Kebijakan PPM diperbarui") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah kebijakan PPM") }
+            }
+        }
+    }
+
+    fun setQcomTouchboost(enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        viewModelScope.launch {
+            val ok = LynxRepository.setQcomTouchboost(enabled, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Qualcomm Touchboost ${if (enabled) "diaktifkan" else "dinonaktifkan"}") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah status Touchboost") }
+            }
+        }
+    }
+
+    fun setQcomInputBoost(freq: Long, durationMs: Int, context: Context? = null) {
+        recordStateMutation()
+        viewModelScope.launch {
+            val ok = LynxRepository.setQcomInputBoost(freq, durationMs, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Qualcomm Input Boost diperbarui") }
+            }
+        }
+    }
+
     // ── CPU Idle & C-States / Core Parking Controls ───────────────────
     fun loadCpuIdleInfo(context: Context? = null) {
         viewModelScope.launch {

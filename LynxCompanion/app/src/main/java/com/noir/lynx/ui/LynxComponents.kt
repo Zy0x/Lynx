@@ -6112,6 +6112,122 @@ fun CpuIdleCoreParkingCard(
 }
 
 // ============================================================
+//  PLATFORM HARDWARE ENGINE — MEDIATEK PPM & QUALCOMM BOOST
+// ============================================================
+
+@Composable
+fun PlatformHardwareEngineCard(
+    schedInfo: SchedulerInfo,
+    onPpmPolicyChange: (Int, Boolean) -> Unit,
+    onQcomTouchboostChange: (Boolean) -> Unit,
+    onQcomInputBoostChange: (Long, Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isMtk = schedInfo.isPpmSupported
+    val isQcom = schedInfo.isQcomBoostSupported
+
+    val engineTitle = when {
+        isMtk -> "Platform Hardware Engine"
+        isQcom -> "Qualcomm QTI Hardware Boost"
+        else -> "Platform Hardware Engine"
+    }
+    val engineBadge = when {
+        isMtk -> "MediaTek PPM Driver"
+        isQcom -> "Snapdragon QTI HAL"
+        else -> "Universal Linux"
+    }
+
+    LynxCard(
+        title = engineTitle,
+        icon = Icons.Default.Memory,
+        accentColor = AccentCyan,
+        action = {
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = AccentCyan.copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+            ) {
+                Text(
+                    text = engineBadge,
+                    color = AccentCyan,
+                    fontSize = 8.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        },
+        modifier = modifier
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (isMtk) {
+                // MediaTek PPM Policies
+                LynxSwitch(
+                    label = "Bypass Power Throttling OEM (PPM)",
+                    subLabel = "Cegah kernel memotong frekuensi CPU saat baterai di bawah 20%",
+                    checked = !schedInfo.ppmPwrThrottlingEnabled,
+                    onCheckedChange = { enableBypass ->
+                        onPpmPolicyChange(3, !enableBypass)
+                    }
+                )
+
+                LynxSwitch(
+                    label = "Hardware System Boost (SYS_BOOST)",
+                    subLabel = "Akselerasi langsung level driver PPM untuk tugas komputasi berat",
+                    checked = schedInfo.ppmSysBoostEnabled,
+                    onCheckedChange = { onPpmPolicyChange(9, it) }
+                )
+
+                LynxSwitch(
+                    label = "Sinkronisasi Thermal Policy PPM",
+                    subLabel = "Kaitkan pembatasan thermal langsung dengan driver manajemen daya MediaTek",
+                    checked = schedInfo.ppmThermalThrottlingEnabled,
+                    onCheckedChange = { onPpmPolicyChange(4, it) }
+                )
+            }
+
+            if (isQcom) {
+                // Qualcomm Touchboost
+                LynxSwitch(
+                    label = "Qualcomm Touchboost Driver",
+                    subLabel = "Lonjakan clock CPU seketika saat jari menyentuh panel layar",
+                    checked = schedInfo.qcomTouchboostEnabled,
+                    onCheckedChange = onQcomTouchboostChange
+                )
+
+                if (schedInfo.qcomInputBoostFreq > 0 || schedInfo.qcomInputBoostMs > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Input Boost Dynamics",
+                                    color = TextPrimary,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Frekuensi: ${schedInfo.qcomInputBoostFreq} MHz • Durasi: ${schedInfo.qcomInputBoostMs} ms",
+                                    color = TextSecondary,
+                                    fontSize = 9.5.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
 //  CPU CONTROL CENTER — MASTER ARCHITECTURE & OWNERSHIP LAYER
 // ============================================================
 

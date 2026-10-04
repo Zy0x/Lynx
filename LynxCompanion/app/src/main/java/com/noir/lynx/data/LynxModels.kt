@@ -580,6 +580,32 @@ data class SchedulerInfo(
     val isHybridSupported: Boolean = false,
     val isModeSwitchSupported: Boolean = false,
 
+    // Runqueue & Scheduler Pressure Telemetry
+    val runQueueAvg: Float = 0f,
+    val isRunQueueSupported: Boolean = false,
+    val heavyTasksCount: Int = 0,
+    val isHeavyTasksSupported: Boolean = false,
+    val isOverUtilized: Boolean = false,
+    val isOverUtilizedSupported: Boolean = false,
+
+    // Deep Kernel Latency & Overhead Purge
+    val schedStatsEnabled: Boolean = false,
+    val isSchedStatsSupported: Boolean = false,
+    val schedTunableScaling: Int = 0, // 0: None (gaming), 1: Logarithmic, 2: Linear
+    val isTunableScalingSupported: Boolean = false,
+    val schedRtRuntimeUs: Long = 950000L,
+    val isRtRuntimeSupported: Boolean = false,
+
+    // Platform Hardware Engine (MediaTek PPM / Qualcomm Input Boost)
+    val isPpmSupported: Boolean = false,
+    val ppmPwrThrottlingEnabled: Boolean = false,
+    val ppmThermalThrottlingEnabled: Boolean = false,
+    val ppmSysBoostEnabled: Boolean = false,
+    val isQcomBoostSupported: Boolean = false,
+    val qcomTouchboostEnabled: Boolean = false,
+    val qcomInputBoostFreq: Long = 0L,
+    val qcomInputBoostMs: Int = 0,
+
     // Preset & Persistence
     val activePreset: String = "balanced", // "gaming", "balanced", "battery", "custom"
     val applyOnBoot: Boolean = false,

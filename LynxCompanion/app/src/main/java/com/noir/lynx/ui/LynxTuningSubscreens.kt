@@ -252,6 +252,69 @@ fun TuningCpuCategory(
                                 fontSize = 11.5.sp,
                                 color = TextSecondary
                             )
+
+                            val liveSched = uiState.schedulerInfo
+                            if (liveSched.isRunQueueSupported || liveSched.isHeavyTasksSupported || liveSched.isOverUtilizedSupported) {
+                                Spacer(Modifier.height(5.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (liveSched.isRunQueueSupported) {
+                                        val rqVal = liveSched.runQueueAvg
+                                        val rqColor = when {
+                                            rqVal <= 4f -> AccentGreen
+                                            rqVal <= 8f -> AccentCyan
+                                            else -> AccentOrange
+                                        }
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = rqColor.copy(alpha = 0.15f),
+                                            border = BorderStroke(0.5.dp, rqColor.copy(alpha = 0.4f))
+                                        ) {
+                                            Text(
+                                                text = "RQ: ${String.format(java.util.Locale.US, "%.1f", rqVal)}",
+                                                fontSize = 8.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = rqColor,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                    if (liveSched.isHeavyTasksSupported && liveSched.heavyTasksCount > 0) {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = AccentOrange.copy(alpha = 0.15f),
+                                            border = BorderStroke(0.5.dp, AccentOrange.copy(alpha = 0.4f))
+                                        ) {
+                                            Text(
+                                                text = "${liveSched.heavyTasksCount} H-Task",
+                                                fontSize = 8.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = AccentOrange,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                    if (liveSched.isOverUtilizedSupported) {
+                                        val overColor = if (liveSched.isOverUtilized) AccentRed else AccentBlue
+                                        val overText = if (liveSched.isOverUtilized) "EAS Limit" else "EAS Opt"
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = overColor.copy(alpha = 0.15f),
+                                            border = BorderStroke(0.5.dp, overColor.copy(alpha = 0.4f))
+                                        ) {
+                                            Text(
+                                                text = overText,
+                                                fontSize = 8.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = overColor,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -713,6 +776,9 @@ fun TuningCpuCategory(
         var initTaskLoadVal by remember { mutableFloatStateOf(schedInfo.schedInitTaskLoad.toFloat()) }
         var spillNrRunVal by remember { mutableFloatStateOf(schedInfo.schedSpillNrRun.toFloat()) }
         var spillLoadVal by remember { mutableFloatStateOf(schedInfo.schedSpillLoad.toFloat()) }
+        var schedRtRuntimeMs by remember {
+            mutableFloatStateOf(if (schedInfo.schedRtRuntimeUs > 0) (schedInfo.schedRtRuntimeUs / 1000f) else 950f)
+        }
         var showAdvancedSched by remember { mutableStateOf(false) }
         var showPresetSheet by remember { mutableStateOf(false) }
         var activeTweakConfig by remember { mutableStateOf<TweakConfig?>(null) }
@@ -732,6 +798,7 @@ fun TuningCpuCategory(
                 initTaskLoadVal = schedInfo.schedInitTaskLoad.toFloat()
                 spillNrRunVal = schedInfo.schedSpillNrRun.toFloat()
                 spillLoadVal = schedInfo.schedSpillLoad.toFloat()
+                schedRtRuntimeMs = if (schedInfo.schedRtRuntimeUs > 0) (schedInfo.schedRtRuntimeUs / 1000f) else 950f
             }
         }
 
@@ -740,6 +807,16 @@ fun TuningCpuCategory(
                 uclampMinVal != 0f ||
                 schedInfo.schedBoost != 0 ||
                 schedInfo.schedChildRunsFirst
+
+        // ── Platform Hardware Engine (MediaTek PPM / Qualcomm Input Boost) ──────
+        if (schedInfo.isPpmSupported || schedInfo.isQcomBoostSupported) {
+            PlatformHardwareEngineCard(
+                schedInfo = schedInfo,
+                onPpmPolicyChange = { idx, en -> viewModel.setPpmPolicy(idx, en, context) },
+                onQcomTouchboostChange = { en -> viewModel.setQcomTouchboost(en, context) },
+                onQcomInputBoostChange = { freq, ms -> viewModel.setQcomInputBoost(freq, ms, context) }
+            )
+        }
 
         LynxCard(
             title = "Penjadwal Kernel & Multicore",
@@ -1126,11 +1203,16 @@ fun TuningCpuCategory(
             val hmpAdvancedCount = (if (schedInfo.isInitTaskLoadSupported) 1 else 0) +
                     (if (schedInfo.isSpillSupported) 2 else 0)
 
+            val latencyOverheadCount = (if (schedInfo.isSchedStatsSupported) 1 else 0) +
+                    (if (schedInfo.isTunableScalingSupported) 1 else 0) +
+                    (if (schedInfo.isRtRuntimeSupported) 1 else 0)
+
             val availableAdvancedCount = (if (schedInfo.isSchedBoostSupported) 1 else 0) +
                     (if (schedInfo.isSchedtuneSupported) 4 else 0) +
                     hintsSupportedCount +
                     cfsSupportedCount +
-                    hmpAdvancedCount
+                    hmpAdvancedCount +
+                    latencyOverheadCount
 
             Surface(
                 shape = RoundedCornerShape(10.dp),
@@ -1587,6 +1669,92 @@ fun TuningCpuCategory(
                                         onApply = { v ->
                                             spillLoadVal = v
                                             viewModel.setSchedulerTunable("sched_spill_load", v.toLong(), context)
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    }
+
+                    // Kernel Overhead & Extreme Latency
+                    if (latencyOverheadCount > 0) {
+                        Text(
+                            text = "KERNEL OVERHEAD & LATENSI EKSTREM",
+                            color = TextSecondary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+
+                        if (schedInfo.isSchedStatsSupported) {
+                            LynxSwitch(
+                                label = "Schedstats Profiling",
+                                subLabel = "Nonaktifkan pengumpulan statistik scheduler untuk memangkas CPU cycle overhead",
+                                checked = schedInfo.schedStatsEnabled,
+                                onCheckedChange = { viewModel.setSchedulerTunable("sched_schedstats", if (it) 1L else 0L, context) }
+                            )
+                        }
+
+                        if (schedInfo.isTunableScalingSupported) {
+                            LynxTweakTile(
+                                title = "Sched Tunable Scaling",
+                                subtitle = "Metode penskalaan periode scheduler berdasarkan jumlah online CPU",
+                                displayValue = when (schedInfo.schedTunableScaling) {
+                                    0 -> "0 (None / Konsisten)"
+                                    1 -> "1 (Logarithmic)"
+                                    2 -> "2 (Linear)"
+                                    else -> "${schedInfo.schedTunableScaling}"
+                                },
+                                accentColor = AccentCyan,
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_tunable_scaling",
+                                        title = "Sched Tunable Scaling",
+                                        category = "Kernel Latency",
+                                        description = "Menentukan apakah timer latensi scheduler diskalakan saat jumlah core CPU online berubah. Mode None (0) mengunci nilai latensi konstan untuk kestabilan FPS frame pacing.",
+                                        currentValue = schedInfo.schedTunableScaling.toFloat(),
+                                        defaultValue = 0f,
+                                        valueRange = 0f..2f,
+                                        steps = 2,
+                                        formatDisplay = { v ->
+                                            when (v.toInt()) {
+                                                0 -> "0 - None (Konsistensi FPS)"
+                                                1 -> "1 - Logarithmic (Standar Linux)"
+                                                else -> "2 - Linear (Skala Penuh)"
+                                            }
+                                        },
+                                        guideNote = "• Gaming/Kompetitif: 0 (None - Latensi tidak berubah saat core bangun/tidur)\n• Seimbang: 1 (Logarithmic)\n• Multi-core Berat: 2 (Linear)",
+                                        onApply = { v ->
+                                            viewModel.setSchedulerTunable("sched_tunable_scaling", v.toLong(), context)
+                                        }
+                                    )
+                                }
+                            )
+                        }
+
+                        if (schedInfo.isRtRuntimeSupported) {
+                            val rtDisplay = if (schedInfo.schedRtRuntimeUs < 0) "Unlimited (-1)" else "${schedRtRuntimeMs.toInt()} ms"
+                            LynxTweakTile(
+                                title = "Real-Time (RT) Runtime Bandwidth",
+                                subtitle = "Alokasi bandwidth CPU maksimum untuk task prioritas Real-Time per detik",
+                                displayValue = rtDisplay,
+                                accentColor = AccentOrange,
+                                onClick = {
+                                    activeTweakConfig = TweakConfig(
+                                        id = "sched_rt_runtime_us",
+                                        title = "Real-Time (RT) Runtime Bandwidth",
+                                        category = "Kernel Latency",
+                                        description = "Jumlah alokasi waktu per 1 detik (1000 ms) yang diizinkan untuk task prioritas Real-Time (seperti audio low-latency dan touch input) sebelum dibatasi oleh kernel.",
+                                        currentValue = schedRtRuntimeMs,
+                                        defaultValue = 950f,
+                                        valueRange = 800f..1000f,
+                                        steps = 20,
+                                        formatDisplay = { v -> if (v >= 1000f) "1000 ms (Maksimum)" else "${v.toInt()} ms" },
+                                        guideNote = "• Standar Aman: 950 ms (95% bandwidth, sisa 5% untuk CFS mencegah starvation)\n• Ultra-Low Latency / Audio: 980 ms\n• Maksimum: 1000 ms",
+                                        onApply = { v ->
+                                            schedRtRuntimeMs = v
+                                            viewModel.setSchedulerTunable("sched_rt_runtime_us", (v * 1000).toLong(), context)
                                         }
                                     )
                                 }

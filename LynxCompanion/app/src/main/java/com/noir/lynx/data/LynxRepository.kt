@@ -7479,6 +7479,52 @@ done
                 has_stune_thres="0"
                 [ -f /proc/sys/kernel/sched_stune_task_threshold ] && has_stune_thres="1"
 
+                has_rq="0"
+                rq_avg="0"
+                htasks="0"
+                over_util="0"
+                if [ -d /sys/devices/system/cpu/rq-stats ]; then
+                    has_rq="1"
+                    rq_avg=${'$'}(cat /sys/devices/system/cpu/rq-stats/run_queue_avg 2>/dev/null || echo "0")
+                    htasks=${'$'}(cat /sys/devices/system/cpu/rq-stats/htasks 2>/dev/null || cat /sys/devices/system/cpu/rq-stats/big_task 2>/dev/null || echo "0")
+                    over_util=${'$'}(cat /sys/devices/system/cpu/rq-stats/over_util 2>/dev/null || echo "0")
+                fi
+
+                has_schedstats="0"
+                schedstats="0"
+                [ -f /proc/sys/kernel/sched_schedstats ] && has_schedstats="1" && schedstats=${'$'}(cat /proc/sys/kernel/sched_schedstats 2>/dev/null || echo "0")
+
+                has_scaling="0"
+                tunable_scaling="0"
+                [ -f /proc/sys/kernel/sched_tunable_scaling ] && has_scaling="1" && tunable_scaling=${'$'}(cat /proc/sys/kernel/sched_tunable_scaling 2>/dev/null || echo "0")
+
+                has_rt_runtime="0"
+                rt_runtime="950000"
+                [ -f /proc/sys/kernel/sched_rt_runtime_us ] && has_rt_runtime="1" && rt_runtime=${'$'}(cat /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null || echo "950000")
+
+                has_ppm="0"
+                ppm_pwr_thro="0"
+                ppm_thermal="0"
+                ppm_sys_boost="0"
+                if [ -f /proc/ppm/policy_status ]; then
+                    has_ppm="1"
+                    ppm_raw=${'$'}(cat /proc/ppm/policy_status 2>/dev/null)
+                    echo "${'$'}ppm_raw" | grep -q "PPM_POLICY_PWR_THRO: enabled" && ppm_pwr_thro="1"
+                    echo "${'$'}ppm_raw" | grep -q "PPM_POLICY_THERMAL: enabled" && ppm_thermal="1"
+                    echo "${'$'}ppm_raw" | grep -q "PPM_POLICY_SYS_BOOST: enabled" && ppm_sys_boost="1"
+                fi
+
+                has_qcom_boost="0"
+                qcom_touchboost="0"
+                qcom_boost_freq="0"
+                qcom_boost_ms="0"
+                if [ -f /sys/module/msm_performance/parameters/touchboost ] || [ -d /sys/module/cpu_boost ]; then
+                    has_qcom_boost="1"
+                    [ -f /sys/module/msm_performance/parameters/touchboost ] && qcom_touchboost=${'$'}(cat /sys/module/msm_performance/parameters/touchboost 2>/dev/null || echo "0")
+                    [ -f /sys/module/cpu_boost/parameters/input_boost_freq ] && qcom_boost_freq=${'$'}(cat /sys/module/cpu_boost/parameters/input_boost_freq 2>/dev/null | awk '{print ${'$'}1}' || echo "0")
+                    [ -f /sys/module/cpu_boost/parameters/input_boost_ms ] && qcom_boost_ms=${'$'}(cat /sys/module/cpu_boost/parameters/input_boost_ms 2>/dev/null || echo "0")
+                fi
+
                 echo "bore:${'$'}bore"
                 echo "has_eas_file:${'$'}has_eas_file"
                 echo "has_mtk_eas:${'$'}has_mtk_eas"
@@ -7528,6 +7574,24 @@ done
                 echo "has_cstate_aware:${'$'}has_cstate_aware"
                 echo "stune_thres:${'$'}stune_thres"
                 echo "has_stune_thres:${'$'}has_stune_thres"
+                echo "has_rq:${'$'}has_rq"
+                echo "rq_avg:${'$'}rq_avg"
+                echo "htasks:${'$'}htasks"
+                echo "over_util:${'$'}over_util"
+                echo "has_schedstats:${'$'}has_schedstats"
+                echo "schedstats:${'$'}schedstats"
+                echo "has_scaling:${'$'}has_scaling"
+                echo "tunable_scaling:${'$'}tunable_scaling"
+                echo "has_rt_runtime:${'$'}has_rt_runtime"
+                echo "rt_runtime:${'$'}rt_runtime"
+                echo "has_ppm:${'$'}has_ppm"
+                echo "ppm_pwr_thro:${'$'}ppm_pwr_thro"
+                echo "ppm_thermal:${'$'}ppm_thermal"
+                echo "ppm_sys_boost:${'$'}ppm_sys_boost"
+                echo "has_qcom_boost:${'$'}has_qcom_boost"
+                echo "qcom_touchboost:${'$'}qcom_touchboost"
+                echo "qcom_boost_freq:${'$'}qcom_boost_freq"
+                echo "qcom_boost_ms:${'$'}qcom_boost_ms"
             """.trimIndent()
             val res = Shell.cmd(script).exec()
             var bore = false
@@ -7579,6 +7643,24 @@ done
             var hasCstateAware = false
             var stuneThres = 124
             var hasStuneThres = false
+            var hasRq = false
+            var rqAvg = 0f
+            var htasks = 0
+            var overUtil = false
+            var hasSchedStats = false
+            var schedStats = false
+            var hasScaling = false
+            var tunableScaling = 0
+            var hasRtRuntime = false
+            var rtRuntime = 950000L
+            var hasPpm = false
+            var ppmPwrThro = false
+            var ppmThermal = false
+            var ppmSysBoost = false
+            var hasQcomBoost = false
+            var qcomTouchboost = false
+            var qcomBoostFreq = 0L
+            var qcomBoostMs = 0
 
             res.out.forEach { line ->
                 val parts = line.split(":", limit = 2)
@@ -7635,6 +7717,24 @@ done
                         "has_cstate_aware" -> hasCstateAware = v == "1"
                         "stune_thres" -> stuneThres = v.toIntOrNull() ?: 124
                         "has_stune_thres" -> hasStuneThres = v == "1"
+                        "has_rq" -> hasRq = v == "1"
+                        "rq_avg" -> rqAvg = v.toFloatOrNull() ?: 0f
+                        "htasks" -> htasks = v.toIntOrNull() ?: 0
+                        "over_util" -> overUtil = v == "1"
+                        "has_schedstats" -> hasSchedStats = v == "1"
+                        "schedstats" -> schedStats = v == "1"
+                        "has_scaling" -> hasScaling = v == "1"
+                        "tunable_scaling" -> tunableScaling = v.toIntOrNull() ?: 0
+                        "has_rt_runtime" -> hasRtRuntime = v == "1"
+                        "rt_runtime" -> rtRuntime = v.toLongOrNull() ?: 950000L
+                        "has_ppm" -> hasPpm = v == "1"
+                        "ppm_pwr_thro" -> ppmPwrThro = v == "1"
+                        "ppm_thermal" -> ppmThermal = v == "1"
+                        "ppm_sys_boost" -> ppmSysBoost = v == "1"
+                        "has_qcom_boost" -> hasQcomBoost = v == "1"
+                        "qcom_touchboost" -> qcomTouchboost = v == "1"
+                        "qcom_boost_freq" -> qcomBoostFreq = v.toLongOrNull() ?: 0L
+                        "qcom_boost_ms" -> qcomBoostMs = v.toIntOrNull() ?: 0
                     }
                 }
             }
@@ -7725,6 +7825,26 @@ done
                 isSpillSupported = hasSpill,
                 schedSpillNrRun = spillNrRun,
                 schedSpillLoad = spillLoad,
+                runQueueAvg = rqAvg,
+                isRunQueueSupported = hasRq,
+                heavyTasksCount = htasks,
+                isHeavyTasksSupported = hasRq && htasks >= 0,
+                isOverUtilized = overUtil,
+                isOverUtilizedSupported = hasRq,
+                schedStatsEnabled = schedStats,
+                isSchedStatsSupported = hasSchedStats,
+                schedTunableScaling = tunableScaling,
+                isTunableScalingSupported = hasScaling,
+                schedRtRuntimeUs = rtRuntime,
+                isRtRuntimeSupported = hasRtRuntime,
+                isPpmSupported = hasPpm,
+                ppmPwrThrottlingEnabled = ppmPwrThro,
+                ppmThermalThrottlingEnabled = ppmThermal,
+                ppmSysBoostEnabled = ppmSysBoost,
+                isQcomBoostSupported = hasQcomBoost,
+                qcomTouchboostEnabled = qcomTouchboost,
+                qcomInputBoostFreq = qcomBoostFreq,
+                qcomInputBoostMs = qcomBoostMs,
                 activePreset = ctx?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
                     ?.getString("active_preset", null)
                     ?: when {
@@ -7868,6 +7988,18 @@ done
                     val safe = value.coerceIn(50L, 100L)
                     "[ -f /proc/sys/kernel/sched_spill_load ] && echo $safe > /proc/sys/kernel/sched_spill_load 2>/dev/null; echo ok"
                 }
+                "sched_schedstats" -> {
+                    val safe = if (value > 0) 1 else 0
+                    "[ -f /proc/sys/kernel/sched_schedstats ] && echo $safe > /proc/sys/kernel/sched_schedstats 2>/dev/null; echo ok"
+                }
+                "sched_tunable_scaling" -> {
+                    val safe = value.coerceIn(0L, 2L)
+                    "[ -f /proc/sys/kernel/sched_tunable_scaling ] && echo $safe > /proc/sys/kernel/sched_tunable_scaling 2>/dev/null; echo ok"
+                }
+                "sched_rt_runtime_us" -> {
+                    val safe = value.coerceIn(500000L, 1000000L)
+                    "[ -f /proc/sys/kernel/sched_rt_runtime_us ] && echo $safe > /proc/sys/kernel/sched_rt_runtime_us 2>/dev/null; echo ok"
+                }
                 "apply_on_boot" -> {
                     context?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
                         ?.edit()
@@ -7890,6 +8022,75 @@ done
         } catch (e: Exception) {
             false
         }
+    }
+
+    suspend fun setPpmPolicy(policyIdx: Int, enabled: Boolean, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        val valStr = if (enabled) "1" else "0"
+        val script = """
+            if [ -f /proc/ppm/policy_status ]; then
+                chmod 664 /proc/ppm/policy_status 2>/dev/null
+                echo "$policyIdx $valStr" > /proc/ppm/policy_status 2>/dev/null
+                echo "ok"
+            else
+                echo "fail"
+            fi
+        """.trimIndent()
+        try {
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok && context != null) {
+                context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("ppm_policy_$policyIdx", enabled)
+                    .apply()
+            }
+            ok
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun setQcomTouchboost(enabled: Boolean, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        val valStr = if (enabled) "1" else "0"
+        val script = """
+            if [ -f /sys/module/msm_performance/parameters/touchboost ]; then
+                chmod 664 /sys/module/msm_performance/parameters/touchboost 2>/dev/null
+                echo $valStr > /sys/module/msm_performance/parameters/touchboost 2>/dev/null
+                echo "ok"
+            else
+                echo "fail"
+            fi
+        """.trimIndent()
+        try {
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok && context != null) {
+                context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("qcom_touchboost", enabled)
+                    .apply()
+            }
+            ok
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun setQcomInputBoost(freq: Long, durationMs: Int, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        val safeMs = durationMs.coerceIn(0, 500)
+        val script = """
+            [ -f /sys/module/cpu_boost/parameters/input_boost_freq ] && echo "$freq" > /sys/module/cpu_boost/parameters/input_boost_freq 2>/dev/null
+            [ -f /sys/module/cpu_boost/parameters/input_boost_ms ] && echo "$safeMs" > /sys/module/cpu_boost/parameters/input_boost_ms 2>/dev/null
+            echo "ok"
+        """.trimIndent()
+        try {
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok && context != null) {
+                context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putLong("qcom_input_boost_freq", freq)
+                    .putInt("qcom_input_boost_ms", safeMs)
+                    .apply()
+            }
+            ok
+        } catch (_: Exception) { false }
     }
 
     suspend fun setSchedulerHysteresis(upmigrate: Int, downmigrate: Int, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
