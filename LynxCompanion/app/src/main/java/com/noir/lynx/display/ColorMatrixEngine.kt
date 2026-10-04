@@ -121,25 +121,33 @@ object ColorMatrixEngine {
 
     suspend fun apply(profile: ColorMatrixProfile): Boolean = withContext(Dispatchers.IO) {
         try {
-            val matrix = buildMatrix(profile)
-            val matrixArgs = matrix.joinToString(" ") { "f %.4f".format(it) }
+            // 1. Calculate color gains from temperature Kelvin & RGB gains
+            val (tempR, tempG, tempB) = kelvinToRgbGain(profile.temperatureK)
+            val rAdj = (profile.red * tempR).coerceIn(0.2f, 1.5f)
+            val gAdj = (profile.green * tempG).coerceIn(0.2f, 1.5f)
+            val bAdj = (profile.blue * tempB).coerceIn(0.2f, 1.5f)
 
-            // Primary: SurfaceFlinger 1015
-            val sfCmd = "service call SurfaceFlinger 1015 i32 1 $matrixArgs"
-            val sfRes = Shell.cmd(sfCmd).exec()
+            // 2. Safe Universal Color Adjustment (Strict Locale.US with period)
+            val adjCmd = String.format(
+                java.util.Locale.US,
+                "settings put system display_color_adjustment '%.2f %.2f %.2f'",
+                rAdj, gAdj, bAdj
+            )
+            Shell.cmd(adjCmd).exec()
 
-            // Also synchronize saturation via SF 1022 for guaranteed compatibility
-            val satCmd = "service call SurfaceFlinger 1022 f %.2f 2>/dev/null; setprop persist.sys.sf.color_saturation %.2f 2>/dev/null".format(profile.saturation, profile.saturation)
+            // 3. Saturation via prop & SF 1022 (with Strict Locale.US)
+            val sat = profile.saturation.coerceIn(0.5f, 2.0f)
+            val satCmd = String.format(
+                java.util.Locale.US,
+                "setprop persist.sys.sf.color_saturation %.2f 2>/dev/null; service call SurfaceFlinger 1022 f %.2f 2>/dev/null",
+                sat, sat
+            )
             Shell.cmd(satCmd).exec()
 
-            // Universal fallback sync: display_color_adjustment (for RGB gain)
-            val (tempR, tempG, tempB) = kelvinToRgbGain(profile.temperatureK)
-            val rAdj = (profile.red * tempR).coerceIn(0.1f, 1.0f)
-            val gAdj = (profile.green * tempG).coerceIn(0.1f, 1.0f)
-            val bAdj = (profile.blue * tempB).coerceIn(0.1f, 1.0f)
-            Shell.cmd("settings put system display_color_adjustment \"%.2f %.2f %.2f\" 2>/dev/null".format(rAdj, gAdj, bAdj)).exec()
+            // 4. Ensure SurfaceFlinger raw matrix is cleared (identity) to prevent black screen
+            Shell.cmd("service call SurfaceFlinger 1015 i32 0 2>/dev/null").exec()
 
-            // KCAL gamma if available
+            // 5. KCAL gamma only if hardware node actually exists on the device
             profile.kcalGamma?.let { gammaVal ->
                 val kcalScript = """
                     if [ -f /sys/devices/platform/kcal_ctrl.0/kcal_val ]; then
@@ -149,7 +157,7 @@ object ColorMatrixEngine {
                 Shell.cmd(kcalScript).exec()
             }
 
-            sfRes.isSuccess
+            true
         } catch (e: Exception) {
             false
         }
@@ -157,14 +165,14 @@ object ColorMatrixEngine {
 
     suspend fun reset(): Boolean = withContext(Dispatchers.IO) {
         try {
-            // Reset SF 1015
-            Shell.cmd("service call SurfaceFlinger 1015 i32 0").exec()
-            // Reset SF 1022
-            Shell.cmd("service call SurfaceFlinger 1022 f 1.0; setprop persist.sys.sf.color_saturation 1.0").exec()
-            // Reset display_color_adjustment
-            Shell.cmd("settings put system display_color_adjustment \"1.0 1.0 1.0\"").exec()
-            // Reset KCAL
-            Shell.cmd("if [ -f /sys/devices/platform/kcal_ctrl.0/kcal_val ]; then echo 256 > /sys/devices/platform/kcal_ctrl.0/kcal_val; fi").exec()
+            // Reset SF 1015 matrix to identity
+            Shell.cmd("service call SurfaceFlinger 1015 i32 0 2>/dev/null").exec()
+            // Reset SF 1022 saturation to 1.0
+            Shell.cmd("setprop persist.sys.sf.color_saturation 1.0 2>/dev/null; service call SurfaceFlinger 1022 f 1.0 2>/dev/null").exec()
+            // Reset display_color_adjustment to 1.0
+            Shell.cmd("settings put system display_color_adjustment '1.0 1.0 1.0' 2>/dev/null").exec()
+            // Reset KCAL only if present
+            Shell.cmd("if [ -f /sys/devices/platform/kcal_ctrl.0/kcal_val ]; then echo 256 > /sys/devices/platform/kcal_ctrl.0/kcal_val; fi 2>/dev/null").exec()
             true
         } catch (e: Exception) {
             false

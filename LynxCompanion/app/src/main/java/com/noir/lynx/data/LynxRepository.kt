@@ -7437,7 +7437,7 @@ done
 
     suspend fun setUniversalColorAdjustment(r: Float, g: Float, b: Float): Boolean = withContext(Dispatchers.IO) {
         try {
-            val script = "settings put system display_color_adjustment '$r $g $b'"
+            val script = String.format(java.util.Locale.US, "settings put system display_color_adjustment '%.2f %.2f %.2f'", r, g, b)
             Shell.cmd(script).exec().isSuccess
         } catch (e: Exception) { false }
     }
