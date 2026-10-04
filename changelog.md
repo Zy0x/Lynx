@@ -1,3 +1,32 @@
+# Lynx [Codename: Deity] 3.0.21
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Eliminasi Menyeluruh Redundansi Teks, Parameter Usang, dan Harmonisasi Komponen Antar-Kartu Subhalaman CPU** — menstandarkan label frekuensi kluster (`Frekuensi Min` & `Frekuensi Max`), membersihkan duplikasi jumlah core pada subjudul *CPU Idle*, menyelaraskan header bagian preset isolasi *CPU Sets*, memperjelas teks ambang batas beban *Kernel Scheduler Spill*, menstandarkan seluruh sakelar persistensi boot dengan komponen terpadu `LynxSwitch`, serta membersihkan *dead callbacks* dan memperbarui pemisah usang ke `HorizontalDivider`.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.21)
+
+### 1. 🏷️ Harmonisasi Label & Terminologi Kluster CPU
+- **Standardisasi Pill Frekuensi**: Memperbarui label pill kartu kluster dari *Batas Bawah* dan *Batas Puncak* menjadi **Frekuensi Min** dan **Frekuensi Max**, menyelaraskan dengan judul lembar pemilih frekuensi (*Pilih Frekuensi Minimum / Maksimum*) serta terminologi tuning kernel standar.
+- **Konsistensi Subjudul CPU Idle (C-States)**: Menghapus teks duplikat `${onlineCores}/$totalCores Cores Aktif` dari subjudul kartu karena rasio tersebut sudah ditampilkan secara detail pada telemetri kartu; menggantinya dengan informasi arsitektur bersih: `Driver: ${cpuIdle.driver} • Kernel C-States`.
+
+### 2. 🎨 Penyelarasan Layout & Estetika Visual Antar-Kartu
+- **Header Bagian Preset CPU Sets (Task Shield)**: Menambahkan label header bagian `PROFIL ISOLASI CORE` • `Preset Cepat 1-Klik` di atas tombol segmen preset isolasi core, menyelaraskan hierarki desain dengan kartu *Core Parking & CPU Idle*.
+- **Standardisasi Sakelar Boot (`LynxSwitch`)**: Mengganti implementasi baris dan switch manual pada kartu *Penjadwal Kernel* dengan komponen terpadu `LynxSwitch`.
+- **Harmonisasi Frasa Persistensi Boot**: Menyeragamkan seluruh subjudul sakelar persistensi boot di seluruh kartu CPU menjadi format standar:
+  - CPU Sets: `"Terapkan otomatis isolasi CPU Sets saat boot"`
+  - CPU Idle & Core Parking: `"Terapkan otomatis setelan CPU Idle & Core Parking saat boot"`
+  - Penjadwal Kernel: `"Terapkan otomatis konfigurasi penjadwal saat boot"`
+
+### 3. 🧹 Pembersihan Teks Tweak Penjadwal Kernel & Eliminasi Redundansi
+- **Penyempurnaan Deskripsi `sched_spill_load`**: Mengubah subjudul dari *"Ambang batas beban core untuk spillover"* menjadi *"Beban CPU pemicu pengalihan tugas ke core senggang"*, serta memperjelas deskripsinya agar bebas dari pengulangan kata spillover.
+- **Eliminasi Komentar Duplikat**: Menghapus baris komentar duplikat pada blok preset makro penjadwal kernel.
+
+### 4. ⚡ Pembersihan Parameter & Callbacks Usang (Dead Code Elimination)
+- **Eliminasi `onSchedCstateAwareChange`**: Menghapus parameter dan callback yang tidak digunakan dari `CpuIdleCoreParkingCard` dan call site-nya karena fitur C-State aware telah dipusatkan pada kartu *Penjadwal Kernel*.
+- **Pembersihan Flag `isClusterModified`**: Menghapus variabel bendera modifikasi kluster yang tidak lagi digunakan pasca-relokasi tombol reset ke lembar tunables.
+- **Modernisasi Komponen Jetpack Compose**: Memperbarui pemisah garis `Divider` yang *deprecated* menjadi `HorizontalDivider` pada seluruh komponen pendukung.
+
+---
+
 # Lynx [Codename: Deity] 3.0.20
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Relokasi Tombol Reset Dynamic CPU Khusus ke Lembar Governor Tunables** — menghapus tombol reset pada header kartu utama *Dynamic CPU Clusters & Governors* demi menjaga kebersihan antarmuka utama, serta menyediakan tombol *Reset ke Default OEM* secara terfokus langsung di dalam lembar bawah *Governor Tunables* lengkap dengan dialog konfirmasi aman sebelum mengembalikan parameter kernel ke standar pabrikan.

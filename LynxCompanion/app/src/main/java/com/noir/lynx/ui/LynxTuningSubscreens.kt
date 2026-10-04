@@ -648,12 +648,6 @@ fun TuningCpuCategory(
         }
 
         // ── Per-Section Modification Flags (For Conditional Compact Reset Button) ──
-        val isClusterModified = uiState.clusters.any { cluster ->
-            val minAvail = cluster.availFreqs.firstOrNull() ?: cluster.curMin
-            val maxAvail = cluster.availFreqs.lastOrNull() ?: cluster.curMax
-            cluster.isLocked || cluster.curMin != minAvail || cluster.curMax != maxAvail || (cluster.availGovs.contains("schedutil") && cluster.curGov != "schedutil")
-        }
-
         val isCpuSetsModified = uiState.cpuSets.activePreset != "standard" || uiState.cpuSets.applyOnBoot
 
         val isCpuIdleModified = uiState.cpuIdle.activePreset != "balanced" ||
@@ -670,11 +664,8 @@ fun TuningCpuCategory(
             onGovChange = { policyId, gov -> viewModel.setClusterGovernor(policyId, gov) },
             onLoadTunables = { policyId, gov -> viewModel.loadGovernorTunables(policyId, gov) },
             onTunableChange = { policyId, gov, key, value -> viewModel.setGovernorTunable(policyId, gov, key, value) },
-            activeGovernorPreset = uiState.activeGovernorPreset,
             onApplyGovernorPreset = { policyId, preset -> viewModel.applyGovernorPreset(preset, policyId) },
-            onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) },
-            onResetToOem = { pendingResetSection = "cluster" to "Dynamic CPU Clusters & Governors" },
-            isModified = isClusterModified
+            onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) }
         )
 
         // ── CPU Sets & Task Affinity Isolation (Task Shield) ────────────
@@ -696,7 +687,6 @@ fun TuningCpuCategory(
             onSetCoreParkingMode = { mode -> viewModel.setCoreParkingMode(mode, uiState.cpuIdle.totalCores, context) },
             onToggleCStateDisabled = { idx, dis -> viewModel.setCpuIdleStateDisabled(idx, dis, context) },
             onArmPllModeChange = { enabled -> viewModel.setArmPllMode(enabled) },
-            onSchedCstateAwareChange = { enabled -> viewModel.setSchedulerHint("sched_cstate_aware", enabled, context) },
             onApplyOnBootChange = { enabled -> viewModel.setCpuIdleApplyOnBoot(enabled, context) },
             onResetToOem = { pendingResetSection = "cpuidle" to "Core Parking & CPU Idle" },
             isModified = isCpuIdleModified
@@ -885,7 +875,6 @@ fun TuningCpuCategory(
                 }
             }
 
-            // ── 3. Quick Macro Presets (Segmented Pill Buttons) ──
             // ── 3. Quick Macro Presets (Segmented Pill Buttons) ──
             val presets = listOf(
                 LynxPresetOption("gaming", "Responsif", Icons.Default.Bolt, AccentOrange),
@@ -1558,14 +1547,14 @@ fun TuningCpuCategory(
 
                             LynxTweakTile(
                                 title = "Sched Spill Load Threshold",
-                                subtitle = "Ambang batas beban core untuk spillover",
+                                subtitle = "Beban CPU pemicu pengalihan tugas ke core senggang",
                                 displayValue = "${spillLoadVal.toInt()}%",
                                 onClick = {
                                     activeTweakConfig = TweakConfig(
                                         id = "sched_spill_load",
                                         title = "Sched Spill Load Threshold",
                                         category = "HMP",
-                                        description = "Ambang batas beban CPU sebelum mengizinkan spillover ke core lain.",
+                                        description = "Ambang batas utilisasi CPU sebelum scheduler mengalihkan tugas ke core yang lebih senggang.",
                                         currentValue = spillLoadVal,
                                         defaultValue = 90f,
                                         valueRange = 50f..100f,
@@ -1589,22 +1578,12 @@ fun TuningCpuCategory(
             Spacer(Modifier.height(4.dp))
 
             // ── 6. Terapkan saat Boot Switch ──
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text("Terapkan saat Boot", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp)
-                    Text("Pulihkan setelan penjadwal otomatis saat boot", color = TextSecondary, fontSize = 9.sp)
-                }
-                Switch(
-                    checked = schedInfo.applyOnBoot,
-                    onCheckedChange = { viewModel.setSchedulerApplyOnBoot(it, context) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
-                    modifier = Modifier.scale(0.8f)
-                )
-            }
+            LynxSwitch(
+                label = "Terapkan saat Boot",
+                subLabel = "Terapkan otomatis konfigurasi penjadwal saat boot",
+                checked = schedInfo.applyOnBoot,
+                onCheckedChange = { viewModel.setSchedulerApplyOnBoot(it, context) }
+            )
         }
 
 

@@ -2284,11 +2284,8 @@ fun CpuClusterTunerCard(
     onGovChange: (policyId: Int, gov: String) -> Unit,
     onLoadTunables: (policyId: Int, gov: String) -> Unit = { _, _ -> },
     onTunableChange: (policyId: Int, gov: String, key: String, value: String) -> Unit = { _, _, _, _ -> },
-    activeGovernorPreset: String = "balanced",
     onApplyGovernorPreset: ((policyId: Int, preset: String) -> Unit)? = null,
     onLockToggle: (policyId: Int, isLock: Boolean, minFreq: Long, maxFreq: Long) -> Unit = { _, _, _, _ -> },
-    onResetToOem: (() -> Unit)? = null,
-    isModified: Boolean = false,
 ) {
     // ── Bottom Sheet States ──
     var freqPickerTarget by remember { mutableStateOf<Pair<CpuClusterInfo, Boolean>?>(null) }
@@ -2590,7 +2587,7 @@ fun CpuClusterTunerCard(
                                     ) {
                                         Column {
                                             Text(
-                                                text = "Batas Bawah",
+                                                text = "Frekuensi Min",
                                                 fontSize = 9.5.sp,
                                                 color = TextSecondary
                                             )
@@ -2625,7 +2622,7 @@ fun CpuClusterTunerCard(
                                     ) {
                                         Column {
                                             Text(
-                                                text = "Batas Puncak",
+                                                text = "Frekuensi Max",
                                                 fontSize = 9.5.sp,
                                                 color = TextSecondary
                                             )
@@ -4042,7 +4039,7 @@ fun DisplayCalibrationCard(
         }
 
         Spacer(modifier = Modifier.height(14.dp))
-        Divider(color = BorderSubtle)
+        HorizontalDivider(color = BorderSubtle)
         Spacer(modifier = Modifier.height(14.dp))
 
         // --- KCAL Section ---
@@ -4317,7 +4314,7 @@ fun MemoryEntropyCard(
         }
 
         Spacer(Modifier.height(14.dp))
-        Divider(color = BorderSubtle)
+        HorizontalDivider(color = BorderSubtle)
         Spacer(Modifier.height(14.dp))
 
         // Entropy Pool Section
@@ -4944,6 +4941,25 @@ fun CpuSetsTaskShieldCard(
 
         // 2. Streamlined 3-Way Segmented Preset Selector
         Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "PROFIL ISOLASI CORE",
+                color = TextSecondary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp
+            )
+            Text(
+                text = "Preset Cepat 1-Klik",
+                color = TextTertiary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
@@ -5265,7 +5281,7 @@ fun CpuSetsTaskShieldCard(
         // 5. Persistence Switch
         LynxSwitch(
             label = "Terapkan saat Boot",
-            subLabel = "Pertahankan isolasi cpusets setelah restart perangkat",
+            subLabel = "Terapkan otomatis isolasi CPU Sets saat boot",
             checked = cpuSets.applyOnBoot,
             onCheckedChange = { onApplyOnBootChange(it) }
         )
@@ -5284,7 +5300,6 @@ fun CpuIdleCoreParkingCard(
     onSetCoreParkingMode: (String) -> Unit,
     onToggleCStateDisabled: (stateIndex: Int, disabled: Boolean) -> Unit,
     onArmPllModeChange: (Boolean) -> Unit,
-    onSchedCstateAwareChange: ((Boolean) -> Unit)? = null,
     onApplyOnBootChange: (Boolean) -> Unit,
     onResetToOem: (() -> Unit)? = null,
     isModified: Boolean = false,
@@ -5358,7 +5373,7 @@ fun CpuIdleCoreParkingCard(
                     modifier = Modifier.padding(top = 3.dp)
                 ) {
                     Text(
-                        text = "${cpuIdle.driver} • ${cpuIdle.onlineCoresCount}/$totalCores Cores Aktif",
+                        text = "Driver: ${cpuIdle.driver} • Kernel C-States",
                         fontSize = 10.sp,
                         color = TextTertiary
                     )
@@ -6075,7 +6090,7 @@ fun CpuIdleCoreParkingCard(
         // 5. Persistence Switch
         LynxSwitch(
             label = "Terapkan saat Boot",
-            subLabel = "Pertahankan setelan CPU Idle & Core Parking setelah restart",
+            subLabel = "Terapkan otomatis setelan CPU Idle & Core Parking saat boot",
             checked = cpuIdle.applyOnBoot,
             onCheckedChange = { onApplyOnBootChange(it) }
         )
