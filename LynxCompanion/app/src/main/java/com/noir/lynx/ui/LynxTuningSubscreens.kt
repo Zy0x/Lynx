@@ -1995,346 +1995,59 @@ fun TuningGpuCategory(
 ) {
     val state = uiState.state
     val gpu = uiState.gpuInfo
-    val isMali = gpu.platform.contains("mali", ignoreCase = true)
-    val isAdreno = gpu.platform.contains("adreno", ignoreCase = true)
-    val platLabel = when {
-        isMali -> "MediaTek Mali GED"
-        isAdreno -> "Qualcomm Adreno QTI"
-        else -> "Universal GPU"
+    val graphics = uiState.graphicsHwui
+
+    // Auto refresh data on load
+    LaunchedEffect(Unit) {
+        viewModel.refreshGpuInfo()
+        viewModel.refreshGraphicsHwui()
+        viewModel.refreshDisplayRefreshRate()
+        viewModel.refreshDisplayCalibration()
     }
 
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ── GPU Advanced Control & Live Telemetry Card ──────────
-        LynxCard(
-            title = "Kontrol GPU & Live Telemetri",
-            icon = Icons.Default.SportsEsports,
-            accentColor = AccentOrange
-        ) {
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        if (gpu.curFreqMhz > 0) "${gpu.curFreqMhz} MHz" else "GPU Siap Tuning",
-                        color = AccentOrange, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        "Arsitektur: $platLabel",
-                        color = TextSecondary, fontSize = 11.sp
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = BgElevated,
-                    border = BorderStroke(1.dp, BorderGlass)
-                ) {
-                    Text(
-                        if (gpu.maxFreqMhz > 0) "Maks: ${gpu.maxFreqMhz} MHz" else "Dynamic Clock",
-                        color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
-                    )
-                }
-            }
+        // ── 1. Master GPU Tuner & Telemetri Card (Dual-Pill Clock, Boost, & Advanced) ──
+        GpuMasterTunerCard(
+            gpu = gpu,
+            onSetFreq = { minMhz, maxMhz -> viewModel.setGpuFreq(minMhz, maxMhz) },
+            onSetLock = { locked -> viewModel.setGpuLock(locked) },
+            onSetBoostLevel = { lvl -> viewModel.setGpuBoostLevel(lvl) },
+            onSetGovernor = { gov -> viewModel.setGpuGovernor(gov) },
+            onSetThermalBypass = { bypass -> viewModel.setGpuThermalBypass(bypass) },
+            onSetBusAlwaysOn = { busOn -> viewModel.setGpuBusAlwaysOn(busOn) },
+            onSetFramePacing = { fp -> viewModel.setGpuFramePacing(fp) }
+        )
 
-            // GPU Load bar
-            Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Row(
-                    Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Beban Komputasi GPU", color = TextSecondary, fontSize = 11.sp)
-                    Text("${gpu.gpuLoadPercent}%", color = if (gpu.gpuLoadPercent > 70) AccentRed else AccentOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-                LinearProgressIndicator(
-                    progress = { (gpu.gpuLoadPercent / 100f).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(6.dp),
-                    color = if (gpu.gpuLoadPercent > 70) AccentRed else AccentOrange,
-                    trackColor = BgElevated,
-                )
-            }
+        // ── 2. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, MSAA) ──
+        GraphicsDriverHwuiCard(
+            graphics = graphics,
+            onSetGameDriver = { mode -> viewModel.setUpdatableGameDriver(mode) },
+            onSetRenderer = { backend -> viewModel.setHwuiRenderer(backend) },
+            onSetLatch = { latch -> viewModel.setSurfaceFlingerLatch(latch) },
+            onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
+            onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) }
+        )
 
-            Spacer(Modifier.height(10.dp))
-            Text(
-                if (isMali) "Tingkat MTK GED / GPU Boost" else "Tingkat Adreno Boost",
-                color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
-            val activeBoost = if (isMali) gpu.gedBoostLevel else gpu.adrenoBoostLevel
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(
-                    Triple(0, "Mati (0)", "Hemat Daya"),
-                    Triple(1, "Level 1", "Normal Boost"),
-                    Triple(2, "Level 2", "Hardcore Boost")
-                ).forEach { (lvl, title, sub) ->
-                    val isSelected = activeBoost == lvl
-                    Surface(
-                        onClick = { viewModel.setGpuBoostLevel(lvl) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) AccentOrange.copy(alpha = 0.2f) else BgElevated,
-                        border = BorderStroke(1.dp, if (isSelected) AccentOrange else BorderGlass)
-                    ) {
-                        Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(title, color = if (isSelected) AccentOrange else TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text(sub, color = TextSecondary, fontSize = 9.sp)
-                        }
-                    }
-                }
-            }
-        }
+        // ── 3. Display Refresh Rate & Touch Card (4-Way Chips: Auto + 60/90/120Hz) ──
+        DisplayRefreshRateTouchCard(
+            currentHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60,
+            isAuto = uiState.isAutoRefreshRate,
+            supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(60, 90, 120) },
+            touchBoost = state.displayTouch.touchboost,
+            dcDimmingSupported = graphics.isDcDimmingSupported,
+            dcDimmingEnabled = graphics.dcDimmingEnabled,
+            onSetRefreshRate = { hz, isAuto -> viewModel.setDisplayRefreshRate(hz, isAuto) },
+            onSetTouchBoost = { viewModel.setTouchboost(it) },
+            onSetDcDimming = { viewModel.setDcDimming(it) }
+        )
 
-        // ── GPU Advanced Hardware Control Card ───────────────────
-        LynxCard(
-            title = "GPU Advanced Control",
-            icon = Icons.Default.Devices,
-            accentColor = AccentBlue
-        ) {
-            // SoC Architecture Selector (Manual Override)
-            Text("Hardware SoC Architecture (Engine Profile)", color = TextPrimary, fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 6.dp))
-            val socOptions = listOf(
-                Pair("auto", "🤖 Auto AI"),
-                Pair("qcom", "🐉 Snapdragon"),
-                Pair("mtk", "⚡ MediaTek"),
-                Pair("generic", "🐧 Generic GKI")
-            )
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                socOptions.forEach { (socKey, socLabel) ->
-                    val isSelected = (uiState.socOverride.ifEmpty { "auto" }) == socKey
-                    Surface(
-                        onClick = { viewModel.setSocOverride(socKey) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) AccentBlue.copy(alpha = 0.22f) else BgElevated,
-                        border = BorderStroke(1.2.dp, if (isSelected) AccentBlue else BorderGlass)
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 2.dp)
-                        ) {
-                            Text(
-                                socLabel,
-                                color = if (isSelected) AccentBlue else TextSecondary,
-                                fontSize = 10.5.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                }
-            }
-            HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 10.dp))
-
-            // Platform badge
-            val platformLabel = when (gpu.platform) {
-                "adreno"   -> "Adreno (Qualcomm)"
-                "mali_ged" -> "Mali GED (MediaTek)"
-                else       -> "Generic GPU"
-            }
-            val maxBoost = if (gpu.platform == "mali_ged") 2 else 3
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Platform", color = TextSecondary, fontSize = 12.sp)
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = AccentBlue.copy(alpha = 0.15f),
-                    border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.4f))
-                ) {
-                    Text(platformLabel, color = AccentBlue, fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
-                }
-            }
-
-            if (gpu.platform != "generic") {
-                // GPU Boost Level selector
-                val boostLevel = if (gpu.platform == "adreno") gpu.adrenoBoostLevel else gpu.gedBoostLevel
-                val boostLabels = if (maxBoost == 3)
-                    listOf("Off", "Low", "Medium", "High")
-                else
-                    listOf("Off", "Medium", "High")
-
-                Text("GPU Boost Level", color = TextPrimary, fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    boostLabels.forEachIndexed { idx, label ->
-                        val isActive = boostLevel == idx
-                        Surface(
-                            onClick = { viewModel.setGpuBoostLevel(idx) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isActive) AccentBlue.copy(alpha = 0.22f) else BgElevated,
-                            border = BorderStroke(
-                                1.5.dp,
-                                if (isActive) AccentBlue else BorderGlass
-                            )
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(vertical = 10.dp)
-                            ) {
-                                Text(label,
-                                    color = if (isActive) AccentBlue else TextSecondary,
-                                    fontSize = 11.sp, fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal)
-                                Text("$idx", color = if (isActive) AccentBlue else TextSecondary, fontSize = 10.sp)
-                            }
-                        }
-                    }
-                }
-
-                // GPU Freq control & status
-                if (gpu.availFreqsMhz.isNotEmpty()) {
-                    Spacer(Modifier.height(14.dp))
-                    Text("GPU Frequency Range", color = TextPrimary, fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 6.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Min: ${gpu.minFreqMhz} MHz", color = AccentCyan, fontSize = 12.sp)
-                        Text("Max: ${gpu.maxFreqMhz} MHz", color = AccentOrange, fontSize = 12.sp)
-                        Text("Now: ${gpu.curFreqMhz} MHz", color = TextSecondary, fontSize = 12.sp)
-                    }
-                    val minRange = gpu.availFreqsMhz.minOrNull()?.toFloat() ?: 0f
-                    val maxRange = gpu.availFreqsMhz.maxOrNull()?.toFloat() ?: 1000f
-                    var gpuMax by remember { mutableFloatStateOf(gpu.maxFreqMhz.toFloat()) }
-                    var isInteractingGpu by remember { mutableStateOf(false) }
-                    var lastGpuInteraction by remember { mutableLongStateOf(0L) }
-
-                    LaunchedEffect(gpu.maxFreqMhz) {
-                        if (!isInteractingGpu && (System.currentTimeMillis() - lastGpuInteraction > 2000L)) {
-                            gpuMax = gpu.maxFreqMhz.toFloat()
-                        }
-                    }
-
-                    LynxSlider(
-                        label = "Batas Maksimum GPU",
-                        value = gpuMax,
-                        onValueChange = {
-                            isInteractingGpu = true
-                            lastGpuInteraction = System.currentTimeMillis()
-                            gpuMax = it
-                        },
-                        onValueChangeFinished = {
-                            isInteractingGpu = false
-                            lastGpuInteraction = System.currentTimeMillis()
-                            viewModel.setGpuFreq(null, gpuMax.toInt())
-                        },
-                        valueRange = minRange..maxRange,
-                        steps = (gpu.availFreqsMhz.size - 2).coerceAtLeast(0),
-                        displayValue = "${gpuMax.toInt()} MHz",
-                        accentColor = AccentBlue
-                    )
-                }
-            } else {
-                Text(
-                    "GPU node tidak terdeteksi di kernel ini. Kontrol GPU tidak tersedia.",
-                    color = TextSecondary, fontSize = 12.sp,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
-        }
-
-        // ── Display Refresh Rate & Touch Card ───────────────────
-        LaunchedEffect(Unit) {
-            viewModel.refreshDisplayRefreshRate()
-        }
-        LynxCard(
-            title = "Display Refresh Rate & Touch",
-            icon = Icons.Default.Smartphone,
-            accentColor = AccentCyan
-        ) {
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Kecepatan Refresh Layar (Display FPS)", color = TextPrimary,
-                        fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                    Text("Kunci refresh rate panel untuk pengalaman visual super mulus",
-                        color = TextSecondary, fontSize = 11.sp)
-                }
-                if (uiState.displayRefreshRate > 0) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = AccentCyan.copy(alpha = 0.18f),
-                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f))
-                    ) {
-                        Text(
-                            "${uiState.displayRefreshRate} Hz",
-                            color = AccentCyan,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-
-            // Dynamic refresh rate selector chips
-            val rates = uiState.supportedRefreshRates.ifEmpty { listOf(60, 90, 120) }
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                rates.forEach { hz ->
-                    val isSelected = uiState.displayRefreshRate == hz
-                    Surface(
-                        onClick = { viewModel.setDisplayRefreshRate(hz) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) AccentCyan.copy(alpha = 0.22f) else BgElevated,
-                        border = BorderStroke(1.5.dp, if (isSelected) AccentCyan else BorderGlass)
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(vertical = 10.dp)
-                        ) {
-                            Text(
-                                "${hz}Hz",
-                                color = if (isSelected) AccentCyan else TextPrimary,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 13.sp
-                            )
-                            Text(
-                                when (hz) {
-                                    60 -> "Hemat"
-                                    90 -> "Halus"
-                                    120 -> "Gaming"
-                                    144, 165 -> "Ultra"
-                                    else -> "Tersedia"
-                                },
-                                color = if (isSelected) AccentCyan.copy(alpha = 0.8f) else TextSecondary,
-                                fontSize = 9.5.sp
-                            )
-                        }
-                    }
-                }
-            }
-
-            LynxSwitch(
-                label = "TouchBoost & Responsivitas Sentuh",
-                subLabel = "Prioritaskan sampling rate sentuhan 240Hz+ pada driver input",
-                checked = state.displayTouch.touchboost,
-                onCheckedChange = { viewModel.setTouchboost(it) }
-            )
-        }
-
-        // ── Display Calibration (KCAL & HBM) Card ───────────────
+        // ── 4. Display Calibration Card (Universal Android RGB + KCAL Fallback) ──
         DisplayCalibrationCard(
             displayCalibration = uiState.displayCalibration,
+            onSetUniversalColor = { r, g, b -> viewModel.setUniversalColor(r, g, b) },
             onSetKcal = { en, r, g, b, sat, v, c, h ->
                 viewModel.setKcalParams(en, r, g, b, sat, v, c, h)
             },

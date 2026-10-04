@@ -1070,6 +1070,141 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun setGpuLock(locked: Boolean) {
+        recordStateMutation()
+        val curGpu = _uiState.value.gpuInfo
+        if (locked) {
+            val targetFreq = if (curGpu.maxFreqMhz > 0) curGpu.maxFreqMhz else (curGpu.availFreqsMhz.maxOrNull() ?: 850)
+            setGpuFreq(targetFreq, targetFreq)
+            _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isLocked = true)) }
+        } else {
+            val minF = curGpu.availFreqsMhz.minOrNull() ?: 300
+            val maxF = curGpu.availFreqsMhz.maxOrNull() ?: curGpu.maxFreqMhz
+            setGpuFreq(minF, maxF)
+            _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isLocked = false)) }
+        }
+    }
+
+    fun setGpuGovernor(governor: String) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(currentGovernor = governor)) }
+        viewModelScope.launch {
+            LynxRepository.setGpuGovernor(governor)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
+    fun setGpuThermalBypass(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isThrottlingBypassed = enabled)) }
+        viewModelScope.launch {
+            LynxRepository.setGpuThermalBypass(enabled)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
+    fun setGpuBusAlwaysOn(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isBusAlwaysOn = enabled)) }
+        viewModelScope.launch {
+            LynxRepository.setGpuBusAlwaysOn(enabled)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
+    fun setGpuFramePacing(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isFramePacingActive = enabled)) }
+        viewModelScope.launch {
+            LynxRepository.setGpuFramePacing(enabled)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
+    fun setGpuIdleTimer(ms: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(idleTimerMs = ms)) }
+        viewModelScope.launch {
+            LynxRepository.setGpuIdleTimer(ms)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
+    fun refreshGraphicsHwui() {
+        viewModelScope.launch {
+            try {
+                val info = LynxRepository.readGraphicsHwuiInfo()
+                _uiState.update { it.copy(graphicsHwui = info) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun setUpdatableGameDriver(mode: String) {
+        recordStateMutation()
+        _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(updatableGameDriver = mode)) }
+        viewModelScope.launch {
+            LynxRepository.setUpdatableGameDriver(mode)
+            delay(200L)
+            refreshGraphicsHwui()
+        }
+    }
+
+    fun setHwuiRenderer(backend: String) {
+        recordStateMutation()
+        _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(hwuiRenderer = backend)) }
+        viewModelScope.launch {
+            LynxRepository.setHwuiRenderer(backend)
+            delay(200L)
+            refreshGraphicsHwui()
+        }
+    }
+
+    fun setSurfaceFlingerLatch(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(surfaceFlingerLatchUnsignaled = enabled)) }
+        viewModelScope.launch {
+            LynxRepository.setSurfaceFlingerLatch(enabled)
+            delay(200L)
+            refreshGraphicsHwui()
+        }
+    }
+
+    fun setForceMsaa(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(force4xMsaa = enabled)) }
+        viewModelScope.launch {
+            LynxRepository.setForceMsaa(enabled)
+            delay(200L)
+            refreshGraphicsHwui()
+        }
+    }
+
+    fun setOemThrottlerShield(disabled: Boolean) {
+        recordStateMutation()
+        val oem = _uiState.value.graphicsHwui.detectedOemThrottler
+        _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(isOemThrottlerDisabled = disabled)) }
+        viewModelScope.launch {
+            LynxRepository.setOemThrottlerShield(oem, disabled)
+            delay(200L)
+            refreshGraphicsHwui()
+        }
+    }
+
+    fun setDcDimming(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(dcDimmingEnabled = enabled)) }
+        viewModelScope.launch {
+            LynxRepository.setDcDimming(enabled)
+            delay(200L)
+            refreshGraphicsHwui()
+        }
+    }
+
     // ----------------------------------------------------------------
     //  Phase 1 Quick Wins: KSM (Kernel Same-page Merging)
     // ----------------------------------------------------------------
@@ -1358,20 +1493,21 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val raw = LynxRepository.readDisplayRefreshRate()
+                val isAuto = LynxRepository.readIsAutoRefreshRate()
                 val hz = mergeRefreshRateWithIntent(raw)
-                _uiState.update { it.copy(displayRefreshRate = hz) }
+                _uiState.update { it.copy(displayRefreshRate = hz, isAutoRefreshRate = isAuto) }
             } catch (_: Exception) {}
         }
     }
 
-    fun setDisplayRefreshRate(hz: Int) {
+    fun setDisplayRefreshRate(hz: Int, isAuto: Boolean = false) {
         recordStateMutation()
         activeRefreshRateIntent = Pair(hz, System.currentTimeMillis())
-        _uiState.update { it.copy(displayRefreshRate = hz) }
+        _uiState.update { it.copy(displayRefreshRate = hz, isAutoRefreshRate = isAuto) }
         viewModelScope.launch {
-            val ok = LynxRepository.setDisplayRefreshRate(hz)
+            val ok = LynxRepository.setDisplayRefreshRate(hz, isAuto)
             if (ok) {
-                _uiState.update { it.copy(successMessage = "Refresh rate diatur ke ${hz}Hz") }
+                _uiState.update { it.copy(successMessage = if (isAuto) "Mode Refresh Rate Auto Dinamis diaktifkan" else "Refresh rate diatur ke ${hz}Hz") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal mengatur refresh rate layar") }
             }
@@ -2493,6 +2629,28 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val stats = LynxRepository.readBatteryHealth()
             _uiState.update { it.copy(batteryHealthStats = stats) }
+        }
+    }
+
+    fun setUniversalColor(r: Float, g: Float, b: Float) {
+        recordStateMutation()
+        _uiState.update { it.copy(displayCalibration = it.displayCalibration.copy(
+            universalRed = r, universalGreen = g, universalBlue = b
+        )) }
+        viewModelScope.launch {
+            val ok = LynxRepository.setUniversalColorAdjustment(r, g, b)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = "Kalibrasi warna layar diperbarui") }
+            }
+        }
+    }
+
+    fun refreshDisplayCalibration() {
+        viewModelScope.launch {
+            try {
+                val cal = LynxRepository.readDisplayCalibration()
+                _uiState.update { it.copy(displayCalibration = cal) }
+            } catch (_: Exception) {}
         }
     }
 

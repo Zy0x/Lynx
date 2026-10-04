@@ -4286,21 +4286,745 @@ fun VoltageControlCard(
 //  FKM PARITY: DISPLAY CALIBRATION CARD (KCAL & HBM)
 // ============================================================
 
+// ============================================================
+//  GPU MASTER TUNER & TELEMETRY CARD (DUAL-PILL FREQUENCY)
+// ============================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GpuMasterTunerCard(
+    gpu: GpuInfo,
+    onSetFreq: (minMhz: Int?, maxMhz: Int?) -> Unit,
+    onSetLock: (Boolean) -> Unit,
+    onSetBoostLevel: (Int) -> Unit,
+    onSetGovernor: (String) -> Unit,
+    onSetThermalBypass: (Boolean) -> Unit,
+    onSetBusAlwaysOn: (Boolean) -> Unit,
+    onSetFramePacing: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isMali = gpu.platform.contains("mali", ignoreCase = true)
+    val isAdreno = gpu.platform.contains("adreno", ignoreCase = true)
+    val platLabel = when {
+        isMali -> "MediaTek Mali GED"
+        isAdreno -> "Qualcomm Adreno QTI"
+        else -> "Universal GPU"
+    }
+    val cardAccent = AccentOrange
+
+    var freqPickerTarget by remember { mutableStateOf<Boolean?>(null) } // true = min, false = max
+    var isAdvancedExpanded by remember { mutableStateOf(false) }
+
+    LynxCard(
+        title = "Master GPU Tuner & Telemetri",
+        subtitle = "Kontrol frekuensi dual-pill, boost level, dan frame pacing",
+        icon = Icons.Default.SportsEsports,
+        accentColor = cardAccent,
+        modifier = modifier
+    ) {
+        // --- 1. Real-time Telemetry Header ---
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = if (gpu.curFreqMhz > 0) "${gpu.curFreqMhz} MHz" else "GPU Siap Tuning",
+                    color = cardAccent,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.3).sp
+                )
+                Text(
+                    text = "Arsitektur: $platLabel",
+                    color = TextSecondary,
+                    fontSize = 11.sp
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = cardAccent.copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.4f))
+            ) {
+                Text(
+                    text = if (gpu.maxFreqMhz > 0) "Maks: ${gpu.maxFreqMhz} MHz" else "Dynamic Clock",
+                    color = cardAccent,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        // --- 2. GPU Utilization Bar ---
+        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Beban Komputasi GPU", color = TextSecondary, fontSize = 11.sp)
+                Text(
+                    "${gpu.gpuLoadPercent}%",
+                    color = if (gpu.gpuLoadPercent > 70) AccentRed else cardAccent,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            LinearProgressIndicator(
+                progress = { (gpu.gpuLoadPercent / 100f).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                color = if (gpu.gpuLoadPercent > 70) AccentRed else cardAccent,
+                trackColor = BgElevated,
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // --- 3. Dual-Pill Frequency Selector (Min / Max) + Lock Button ---
+        if (gpu.availFreqsMhz.isNotEmpty()) {
+            Text(
+                "Frekuensi Clock GPU",
+                color = TextPrimary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Min Frequency Pill
+                Surface(
+                    onClick = { freqPickerTarget = true },
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.3f)),
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Frekuensi Min", fontSize = 9.5.sp, color = TextSecondary)
+                            Text(
+                                "${gpu.minFreqMhz} MHz",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = cardAccent
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = cardAccent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // Max Frequency Pill
+                Surface(
+                    onClick = { freqPickerTarget = false },
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.3f)),
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Frekuensi Max", fontSize = 9.5.sp, color = TextSecondary)
+                            Text(
+                                "${gpu.maxFreqMhz} MHz",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = cardAccent
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = cardAccent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // Lock Clock Button
+                val isLocked = gpu.isLocked
+                val lockColor = if (isLocked) AccentGreen else TextSecondary
+                val lockBg = if (isLocked) AccentGreen.copy(alpha = 0.16f) else BgSurfaceLowest
+                val lockBorder = if (isLocked) AccentGreen.copy(alpha = 0.5f) else BorderGlass
+
+                Surface(
+                    onClick = { onSetLock(!isLocked) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = lockBg,
+                    border = BorderStroke(1.dp, lockBorder),
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Icon(
+                            imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                            contentDescription = if (isLocked) "Clock Terkunci" else "Buka Kunci Clock",
+                            tint = lockColor,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // --- 4. Segmented Boost Engine (3 States: Hemat / Level 1 / Level 2) ---
+        Text(
+            if (isMali) "Tingkat MTK GED / GPU Boost" else "Tingkat Adreno Boost",
+            color = TextPrimary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        val activeBoost = if (isMali) gpu.gedBoostLevel else gpu.adrenoBoostLevel
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                Triple(0, "Mati (0)", "Hemat Daya"),
+                Triple(1, "Level 1", "Normal Boost"),
+                Triple(2, "Level 2", "Hardcore Boost")
+            ).forEach { (lvl, title, sub) ->
+                val isSelected = activeBoost == lvl
+                Surface(
+                    onClick = { onSetBoostLevel(lvl) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isSelected) cardAccent.copy(alpha = 0.22f) else BgElevated,
+                    border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass)
+                ) {
+                    Column(
+                        Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            title,
+                            color = if (isSelected) cardAccent else TextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(sub, color = TextSecondary, fontSize = 9.sp)
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // --- 5. Accordion: Kustomisasi Lanjutan GPU & Kernel ---
+        Surface(
+            onClick = { isAdvancedExpanded = !isAdvancedExpanded },
+            shape = RoundedCornerShape(10.dp),
+            color = BgElevated,
+            border = BorderStroke(1.dp, BorderGlass),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = null,
+                        tint = cardAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        "Kustomisasi Lanjutan GPU & Kernel",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Icon(
+                    imageVector = if (isAdvancedExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        AnimatedVisibility(visible = isAdvancedExpanded) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Governor selector if available
+                if (gpu.availableGovernors.isNotEmpty()) {
+                    Text("GPU Governor", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        gpu.availableGovernors.forEach { gov ->
+                            val isSel = gpu.currentGovernor == gov
+                            Surface(
+                                onClick = { onSetGovernor(gov) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSel) cardAccent.copy(alpha = 0.2f) else BgElevated,
+                                border = BorderStroke(1.dp, if (isSel) cardAccent else BorderGlass)
+                            ) {
+                                Text(
+                                    gov,
+                                    color = if (isSel) cardAccent else TextSecondary,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Throttling Bypass
+                LynxSwitch(
+                    label = "Bypass GPU Thermal Throttling",
+                    subLabel = "Cegah throttling frekuensi silikon GPU oleh thermal HAL perangkat",
+                    checked = gpu.isThrottlingBypassed,
+                    onCheckedChange = { onSetThermalBypass(it) }
+                )
+
+                // Platform specific low latency
+                if (isAdreno) {
+                    LynxSwitch(
+                        label = "KGSL Bus Memory Always-On",
+                        subLabel = "Kunci jalur DDR bus Adreno tetap aktif untuk mencegah frame drop micro-stutter",
+                        checked = gpu.isBusAlwaysOn,
+                        onCheckedChange = { onSetBusAlwaysOn(it) }
+                    )
+                } else if (isMali) {
+                    LynxSwitch(
+                        label = "MediaTek FPSGO & Frame Pacing",
+                        subLabel = "Optimasi penyerahan buffer frame realtime untuk frametime gameplay datar",
+                        checked = gpu.isFramePacingActive,
+                        onCheckedChange = { onSetFramePacing(it) }
+                    )
+                }
+            }
+        }
+    }
+
+    // Modal Bottom Sheet Frequency Picker
+    if (freqPickerTarget != null) {
+        val isMinPicker = freqPickerTarget == true
+        val freqs = gpu.availFreqsMhz.sorted()
+        val curFreq = if (isMinPicker) gpu.minFreqMhz else gpu.maxFreqMhz
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+        ModalBottomSheet(
+            onDismissRequest = { freqPickerTarget = null },
+            sheetState = sheetState,
+            containerColor = Color(0xFA0D1017),
+            scrimColor = Color.Black.copy(alpha = 0.65f),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = {
+                Surface(
+                    color = Color(0x33FFFFFF),
+                    shape = CircleShape,
+                    modifier = Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 38.dp, height = 4.dp)
+                ) {}
+            }
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = if (isMinPicker) "Pilih Frekuensi Minimum GPU" else "Pilih Frekuensi Maksimum GPU",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Tersedia ${freqs.size} step frekuensi clock OPP",
+                            fontSize = 11.5.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = cardAccent.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = "$curFreq MHz",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = cardAccent,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 12.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    freqs.forEach { f ->
+                        val isSelected = f == curFreq
+                        Surface(
+                            onClick = {
+                                if (isMinPicker) {
+                                    val newMax = if (f > gpu.maxFreqMhz) f else gpu.maxFreqMhz
+                                    onSetFreq(f, newMax)
+                                } else {
+                                    val newMin = if (f < gpu.minFreqMhz) f else gpu.minFreqMhz
+                                    onSetFreq(newMin, f)
+                                }
+                                freqPickerTarget = null
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) cardAccent.copy(alpha = 0.22f) else Color(0xFF141722),
+                            border = BorderStroke(1.dp, if (isSelected) cardAccent else BorderGlass),
+                            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "$f MHz",
+                                    color = if (isSelected) cardAccent else TextPrimary,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = cardAccent,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+//  GRAPHICS DRIVER & HWUI ENGINE CARD
+// ============================================================
+
+@Composable
+fun GraphicsDriverHwuiCard(
+    graphics: GraphicsHwuiInfo,
+    onSetGameDriver: (String) -> Unit,
+    onSetRenderer: (String) -> Unit,
+    onSetLatch: (Boolean) -> Unit,
+    onSetMsaa: (Boolean) -> Unit,
+    onSetOemShield: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cardAccent = AccentPurple
+
+    LynxCard(
+        title = "Driver Grafis & HWUI Engine",
+        subtitle = "Optimasi driver produksi game, backend Vulkan, dan latency render",
+        icon = Icons.Default.Speed,
+        accentColor = cardAccent,
+        modifier = modifier
+    ) {
+        // 1. Updatable Game Driver
+        Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+            Text("Production Game Driver (AOSP)", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+            Text("Memaksa sistem Android memuat driver GPU terpisah yang dioptimalkan untuk performa game", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    Pair("default", "📱 Bawaan Sistem"),
+                    Pair("all_apps", "🎮 Game Driver (Semua App)")
+                ).forEach { (mode, label) ->
+                    val isSel = graphics.updatableGameDriver == mode
+                    Surface(
+                        onClick = { onSetGameDriver(mode) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSel) cardAccent.copy(alpha = 0.22f) else BgElevated,
+                        border = BorderStroke(1.2.dp, if (isSel) cardAccent else BorderGlass)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 10.dp)) {
+                            Text(label, color = if (isSel) cardAccent else TextSecondary, fontSize = 11.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 10.dp))
+
+        // 2. UI Rendering Engine (HWUI)
+        Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+            Text("UI Rendering Engine (HWUI)", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+            Text("Pilih backend compositing antarmuka: Vulkan (beban CPU 30% lebih rendah) atau OpenGL ES", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(
+                    Pair("auto", "🤖 Auto"),
+                    Pair("skiavk", "⚡ Vulkan (SkiaVK)"),
+                    Pair("skiagl", "🎨 OpenGL (SkiaGL)")
+                ).forEach { (backend, label) ->
+                    val isSel = graphics.hwuiRenderer == backend
+                    Surface(
+                        onClick = { onSetRenderer(backend) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSel) cardAccent.copy(alpha = 0.22f) else BgElevated,
+                        border = BorderStroke(1.2.dp, if (isSel) cardAccent else BorderGlass)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 9.dp)) {
+                            Text(label, color = if (isSel) cardAccent else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 10.dp))
+
+        // 3. Low-Latency SurfaceFlinger Latch
+        LynxSwitch(
+            label = "SurfaceFlinger Latch Unsignaled",
+            subLabel = "Memangkas antrean render buffer dan memotong input lag touch hingga 1 frame (~8.3ms)",
+            checked = graphics.surfaceFlingerLatchUnsignaled,
+            onCheckedChange = { onSetLatch(it) }
+        )
+
+        // 4. Force 4x MSAA
+        LynxSwitch(
+            label = "Paksa 4x Multisample Anti-Aliasing (MSAA)",
+            subLabel = "Meningkatkan ketajaman tepi 3D pada game & canvas antarmuka grafis",
+            checked = graphics.force4xMsaa,
+            onCheckedChange = { onSetMsaa(it) }
+        )
+
+        // 5. OEM Throttler Shield
+        if (graphics.detectedOemThrottler.isNotBlank()) {
+            LynxSwitch(
+                label = "Shield Anti-Throttling OEM (${graphics.detectedOemThrottler})",
+                subLabel = "Bekukan daemon latar belakang OEM agar tidak mencekik limit frame rate game",
+                checked = graphics.isOemThrottlerDisabled,
+                onCheckedChange = { onSetOemShield(it) }
+            )
+        } else {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = BgElevated,
+                border = BorderStroke(1.dp, BorderGlass),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Verified, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                    Text("ROM Bersih: Tidak ditemukan background daemon throttling agresif vendor OEM", color = TextSecondary, fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+//  DISPLAY REFRESH RATE & TOUCH EXPERIENCE CARD
+// ============================================================
+
+@Composable
+fun DisplayRefreshRateTouchCard(
+    currentHz: Int,
+    isAuto: Boolean,
+    supportedRates: List<Int>,
+    touchBoost: Boolean,
+    dcDimmingSupported: Boolean,
+    dcDimmingEnabled: Boolean,
+    onSetRefreshRate: (hz: Int, isAuto: Boolean) -> Unit,
+    onSetTouchBoost: (Boolean) -> Unit,
+    onSetDcDimming: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cardAccent = AccentCyan
+    val maxHz = supportedRates.maxOrNull() ?: 120
+
+    LynxCard(
+        title = "Display Refresh Rate & Touch",
+        subtitle = "Kecepatan refresh layar dinamis, sentuhan touchboost, dan panel",
+        icon = Icons.Default.Smartphone,
+        accentColor = cardAccent,
+        modifier = modifier
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Kecepatan Refresh Layar (Display FPS)", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text(
+                    if (isAuto) "Mode Auto Dinamis: 0Hz saat statis, instan melonjak ke ${currentHz}Hz saat disentuh"
+                    else "Kunci tetap pada $currentHz Hz",
+                    color = TextSecondary,
+                    fontSize = 11.sp
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = cardAccent.copy(alpha = 0.18f),
+                border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = if (isAuto) "🤖 Auto ($currentHz Hz)" else "$currentHz Hz",
+                    color = cardAccent,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                )
+            }
+        }
+
+        // 4-Way Refresh Rate Chip Selector: Auto + Fixed Rates
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Auto Chip
+            Surface(
+                onClick = { onSetRefreshRate(maxHz, true) },
+                modifier = Modifier.weight(1.2f),
+                shape = RoundedCornerShape(10.dp),
+                color = if (isAuto) cardAccent.copy(alpha = 0.22f) else BgElevated,
+                border = BorderStroke(1.5.dp, if (isAuto) cardAccent else BorderGlass)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                ) {
+                    Text("🤖 Auto", color = if (isAuto) cardAccent else TextPrimary, fontWeight = if (isAuto) FontWeight.Bold else FontWeight.Medium, fontSize = 12.sp)
+                    Text("0 - ${maxHz}Hz", color = if (isAuto) cardAccent.copy(alpha = 0.8f) else TextSecondary, fontSize = 9.5.sp)
+                }
+            }
+
+            // Fixed Supported Rates
+            supportedRates.forEach { hz ->
+                val isSelected = (!isAuto && currentHz == hz)
+                Surface(
+                    onClick = { onSetRefreshRate(hz, false) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isSelected) cardAccent.copy(alpha = 0.22f) else BgElevated,
+                    border = BorderStroke(1.5.dp, if (isSelected) cardAccent else BorderGlass)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        Text("${hz}Hz", color = if (isSelected) cardAccent else TextPrimary, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, fontSize = 12.sp)
+                        Text(
+                            when (hz) {
+                                60 -> "Hemat"
+                                90 -> "Halus"
+                                120 -> "Gaming"
+                                144, 165 -> "Ultra"
+                                else -> "Tersedia"
+                            },
+                            color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
+                            fontSize = 9.5.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // TouchBoost Switch
+        LynxSwitch(
+            label = "TouchBoost & Responsivitas Sentuh",
+            subLabel = "Prioritaskan sampling rate sentuhan 240Hz+ pada driver input",
+            checked = touchBoost,
+            onCheckedChange = { onSetTouchBoost(it) }
+        )
+
+        // DC Dimming Switch if supported
+        if (dcDimmingSupported) {
+            LynxSwitch(
+                label = "Anti-Flicker DC Dimming (OLED)",
+                subLabel = "Mengurangi kedipan layar PWM pada tingkat kecerahan rendah demi kesehatan mata",
+                checked = dcDimmingEnabled,
+                onCheckedChange = { onSetDcDimming(it) }
+            )
+        }
+    }
+}
+
+// ============================================================
+//  DISPLAY CALIBRATION CARD (UNIVERSAL RGB & KCAL)
+// ============================================================
+
 @Composable
 fun DisplayCalibrationCard(
     displayCalibration: DisplayCalibrationInfo,
+    onSetUniversalColor: (Float, Float, Float) -> Unit,
     onSetKcal: (Boolean, Int, Int, Int, Int, Int, Int, Int) -> Unit,
     onSetHbm: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val cardAccent = AccentGreen
+    var uR by remember { mutableFloatStateOf(displayCalibration.universalRed) }
+    var uG by remember { mutableFloatStateOf(displayCalibration.universalGreen) }
+    var uB by remember { mutableFloatStateOf(displayCalibration.universalBlue) }
+    var lastUnivTouch by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(displayCalibration) {
+        if (System.currentTimeMillis() - lastUnivTouch > 2000L) {
+            uR = displayCalibration.universalRed
+            uG = displayCalibration.universalGreen
+            uB = displayCalibration.universalBlue
+        }
+    }
+
     var kcalEnabled by remember { mutableStateOf(displayCalibration.kcalEnabled) }
     var red by remember { mutableIntStateOf(displayCalibration.red) }
     var green by remember { mutableIntStateOf(displayCalibration.green) }
     var blue by remember { mutableIntStateOf(displayCalibration.blue) }
     var saturation by remember { mutableIntStateOf(displayCalibration.saturation) }
-    var lastCalibrationTouch by remember { mutableLongStateOf(0L) }
+    var lastKcalTouch by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(displayCalibration) {
-        if (System.currentTimeMillis() - lastCalibrationTouch > 2000L) {
+        if (System.currentTimeMillis() - lastKcalTouch > 2000L) {
             kcalEnabled = displayCalibration.kcalEnabled
             red = displayCalibration.red
             green = displayCalibration.green
@@ -4310,74 +5034,132 @@ fun DisplayCalibrationCard(
     }
 
     LynxCard(
-        title = "Kalibrasi Layar (KCAL & HBM)",
+        title = "Kalibrasi Warna Layar (Universal RGB)",
+        subtitle = "Penyesuaian kanal warna Red, Green, Blue tingkat sistem Android",
         icon = Icons.Default.Palette,
-        accentColor = AccentPurple
+        accentColor = cardAccent,
+        modifier = modifier
     ) {
-        // --- HBM Section ---
-        Text("High Brightness Mode (HBM)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        if (!displayCalibration.isHbmSupported) {
-            UnsupportedBadge(reason = displayCalibration.hbmUnsupportedReason)
-        } else {
+        // Universal RGB Section (Works across ALL Android 10-14 ROMs)
+        Text("Kanal Warna Layar (Sistem Android)", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 12.5.sp)
+        Text("Koreksi temperatur warna tampilan untuk kenyamanan visual", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
+
+        // Red Slider
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Merah (Red)", color = AccentRed, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+            Text(String.format("%.2f", uR), color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        }
+        Slider(
+            value = uR,
+            onValueChange = { uR = it; lastUnivTouch = System.currentTimeMillis() },
+            onValueChangeFinished = { onSetUniversalColor(uR, uG, uB) },
+            valueRange = 0.5f..1.5f,
+            colors = SliderDefaults.colors(thumbColor = AccentRed, activeTrackColor = AccentRed)
+        )
+
+        // Green Slider
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Hijau (Green)", color = AccentGreen, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+            Text(String.format("%.2f", uG), color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        }
+        Slider(
+            value = uG,
+            onValueChange = { uG = it; lastUnivTouch = System.currentTimeMillis() },
+            onValueChangeFinished = { onSetUniversalColor(uR, uG, uB) },
+            valueRange = 0.5f..1.5f,
+            colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen)
+        )
+
+        // Blue Slider
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Biru (Blue)", color = AccentBlue, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+            Text(String.format("%.2f", uB), color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        }
+        Slider(
+            value = uB,
+            onValueChange = { uB = it; lastUnivTouch = System.currentTimeMillis() },
+            onValueChangeFinished = { onSetUniversalColor(uR, uG, uB) },
+            valueRange = 0.5f..1.5f,
+            colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
+        )
+
+        Row(
+            Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Surface(
+                onClick = {
+                    uR = 1.0f; uG = 1.0f; uB = 1.0f
+                    lastUnivTouch = System.currentTimeMillis()
+                    onSetUniversalColor(1.0f, 1.0f, 1.0f)
+                },
+                shape = RoundedCornerShape(8.dp),
+                color = BgElevated,
+                border = BorderStroke(1.dp, BorderGlass)
+            ) {
+                Text(
+                    "Reset Standar (1.0)",
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+        }
+
+        // HBM Sunlight Booster (If supported)
+        if (displayCalibration.isHbmSupported) {
+            HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text("HBM Sunlight Booster", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     Text("Meningkatkan batas kecerahan panel display di luar slider standar", color = TextSecondary, fontSize = 10.5.sp)
                 }
                 Switch(
                     checked = displayCalibration.hbmEnabled,
                     onCheckedChange = { onSetHbm(it) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentPurple)
+                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = cardAccent)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
-        HorizontalDivider(color = BorderSubtle)
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // --- KCAL Section ---
-        Text("KCAL Color Calibration", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        if (!displayCalibration.isKcalSupported) {
-            UnsupportedBadge(reason = displayCalibration.kcalUnsupportedReason)
-        } else {
+        // Legacy KCAL Section (If kernel supports KCAL)
+        if (displayCalibration.isKcalSupported) {
+            HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Aktifkan KCAL Engine", color = TextSecondary, fontSize = 12.sp)
+                Text("Kernel KCAL Hardware Engine", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Switch(
                     checked = kcalEnabled,
                     onCheckedChange = { kcalEnabled = it },
-                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentPurple)
+                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = cardAccent)
                 )
             }
+
             if (kcalEnabled) {
-                Text("Red: $red", color = AccentRed, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Slider(value = red.toFloat(), onValueChange = { red = it.toInt(); lastCalibrationTouch = System.currentTimeMillis() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentRed, activeTrackColor = AccentRed))
-
-                Text("Green: $green", color = AccentGreen, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Slider(value = green.toFloat(), onValueChange = { green = it.toInt(); lastCalibrationTouch = System.currentTimeMillis() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentGreen, activeTrackColor = AccentGreen))
-
-                Text("Blue: $blue", color = AccentBlue, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Slider(value = blue.toFloat(), onValueChange = { blue = it.toInt(); lastCalibrationTouch = System.currentTimeMillis() }, valueRange = 100f..256f, colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue))
-
-                Text("Saturation: $saturation", color = AccentPurple, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                Slider(value = saturation.toFloat(), onValueChange = { saturation = it.toInt(); lastCalibrationTouch = System.currentTimeMillis() }, valueRange = 128f..383f, colors = SliderDefaults.colors(thumbColor = AccentPurple, activeTrackColor = AccentPurple))
+                Text("Saturation: $saturation", color = AccentPurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Slider(
+                    value = saturation.toFloat(),
+                    onValueChange = { saturation = it.toInt(); lastKcalTouch = System.currentTimeMillis() },
+                    valueRange = 128f..383f,
+                    colors = SliderDefaults.colors(thumbColor = AccentPurple, activeTrackColor = AccentPurple)
+                )
 
                 LynxActionButton(
-                    text = "Terapkan Kalibrasi Warna",
+                    text = "Terapkan KCAL",
                     icon = Icons.Default.Save,
                     onClick = {
-                        lastCalibrationTouch = System.currentTimeMillis()
+                        lastKcalTouch = System.currentTimeMillis()
                         onSetKcal(true, red, green, blue, saturation, displayCalibration.value, displayCalibration.contrast, displayCalibration.hue)
                     },
-                    accentColor = AccentPurple
+                    accentColor = cardAccent
                 )
             }
         }

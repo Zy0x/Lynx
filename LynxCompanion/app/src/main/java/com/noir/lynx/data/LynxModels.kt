@@ -210,6 +210,26 @@ data class GpuInfo(
     val platform: String = "generic", // "adreno" | "mali_ged" | "generic"
     val gpuLoadPercent: Int = 0,
     val powerPolicy: String = "",
+    val isLocked: Boolean = false,
+    val currentGovernor: String = "",
+    val availableGovernors: List<String> = emptyList(),
+    val isThrottlingBypassed: Boolean = false,
+    val isBusAlwaysOn: Boolean = false,
+    val isFramePacingActive: Boolean = false,
+    val idleTimerMs: Int = 64,
+)
+
+data class GraphicsHwuiInfo(
+    val updatableGameDriver: String = "default", // "default", "all_apps", "custom"
+    val hwuiRenderer: String = "auto",           // "auto", "skiavk", "skiagl"
+    val surfaceFlingerLatchUnsignaled: Boolean = false,
+    val force4xMsaa: Boolean = false,
+    val detectedOemThrottler: String = "",        // e.g. "Xiaomi Joyose", "Samsung GOS", "Transsion Darwin"
+    val isOemThrottlerDisabled: Boolean = false,
+    val isDcDimmingSupported: Boolean = false,
+    val dcDimmingEnabled: Boolean = false,
+    val isCabcSupported: Boolean = false,
+    val cabcEnabled: Boolean = false,
 )
 
 data class WakelockItem(
@@ -333,6 +353,10 @@ data class DisplayCalibrationInfo(
     val isHbmSupported: Boolean = false,
     val hbmUnsupportedReason: String = "Driver HBM (High Brightness Mode) tidak didukung oleh panel display ini",
     val hbmEnabled: Boolean = false,
+    val isUniversalColorSupported: Boolean = true,
+    val universalRed: Float = 1.0f,
+    val universalGreen: Float = 1.0f,
+    val universalBlue: Float = 1.0f,
 )
 
 data class SoundControlInfo(
@@ -411,6 +435,8 @@ data class LynxUiState(
     val zramCompAlgorithm: String = "lz4",
     val availZramCompAlgorithms: List<String> = emptyList(),
     val supportedRefreshRates: List<Int> = listOf(60, 90, 120),
+    val isAutoRefreshRate: Boolean = false,
+    val graphicsHwui: GraphicsHwuiInfo = GraphicsHwuiInfo(),
     val customRulesScript: String = "",
     val customRulesOutput: String? = null,
     val customRulesRunning: Boolean = false,
