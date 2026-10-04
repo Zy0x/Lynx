@@ -1,3 +1,28 @@
+# Lynx [Codename: Deity] 3.0.19
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Eliminasi Redundansi Teks & Sinkronisasi Rekomendasi CPU Governor Tunables** — menata ulang seluruh metadata lembar bawah Governor Tunables dengan menghapus pengulangan kata pada judul parameter, membersihkan duplikasi kalimat pada deskripsi dan petunjuk (seperti pada *HiSpeed Target Frequency*, *Interval Sampling*, dan *Min Sample Time*), menghilangkan instruksi redundan pada sakelar boolean (*I/O Wait Boost*), serta menyinkronkan 100% angka rekomendasi dan saran cepat dialog edit dengan tabel profil terkalibrasi kluster (*Little Cores* vs *Big Cores*).
+
+## 🚀 Fitur Baru & Peningkatan (3.0.19)
+
+### 1. 🎯 Sinkronisasi Penuh Rekomendasi Kluster (Asymmetric Tunable Alignment)
+- **Kalibrasi Petunjuk Berbasis Identitas Kluster**: Memperbaiki kontradiksi angka rekomendasi pada `up_rate_limit_us` dan `down_rate_limit_us`. Kini lembar tunables menampilkan petunjuk spesifik sesuai tipe kluster yang sedang dibuka:
+  - *Little Cores (Policy 0)*: Rekomendasi Ramp-Up `0 µs` (Responsif), `1 ms` (Seimbang), `10 ms` (Hemat Daya) dan Ramp-Down `10 ms` (Responsif), `20 ms` (Seimbang), `1 ms` (Hemat Daya), `30 ms` (OEM).
+  - *Big Cores (Policy > 0)*: Rekomendasi Ramp-Up `0 µs` (Instan / Seimbang), `20 ms` (Hemat Daya) dan Ramp-Down `5 ms` (Responsif), `10 ms` (Seimbang), `0.5 ms` (Hemat Daya), `30 ms` (OEM).
+- **Saran Cepat Dialog Edit Adaptif**: Menyajikan chip pilihan cepat (*Quick Suggestion Chips*) pada dialog edit nilai yang disesuaikan dengan kluster aktif (misalnya `0 µs (Instan / Seimbang)` dan `20 ms (Hemat Daya)` pada Big Cores), mengeliminasi angka arbitrary statis yang tidak sinkron.
+
+### 2. 🧹 Pembersihan Redundansi Judul & Deskripsi Parameter
+- **Pembersihan Judul Bersih & Profesional**: Menghilangkan tanda kurung pengulangan pada judul parameter seperti `(Respon Naik Clock)`, `(Durasi Tahan Clock)`, `(Prioritas Storage)`, serta menyederhanakan `Load Threshold Eskalasi` menjadi `Ambang Beban Naik (Up Threshold)` dan `Ambang Beban Turun (Down Threshold)`.
+- **Eliminasi Kalimat Berulang pada Petunjuk**:
+  - *HiSpeed Target Frequency*: Menggantikan kalimat duplikat dengan panduan praktis penyesuaian berbasis kurva frekuensi kluster (`Satuan kHz. Otomatis dikalibrasi mengikuti titik tengah kurva frekuensi kluster`).
+  - *Interval Sampling (Sampling Rate)*: Menghapus pengulangan deskripsi dan memberikan contoh mikrodetik nyata (`10000 µs = 10 ms (responsif) • 20000 µs = 20 ms (standar)`).
+  - *Waktu Minimum Sampel (Min Sample Time)*: Memberikan panduan format mikrodetik (`50000 µs = 50 ms`).
+- **Penyederhanaan Petunjuk Sakelar Boolean**: Menghapus teks redundan `1 = Aktif / 0 = Nonaktif` pada *I/O Wait Boost*, menyelaraskan informasi dengan sakelar visual on/off yang telah tersedia.
+
+### 3. 🏷️ Kejelasan Format Preset Subtitle Lembar Bawah
+- **Penjelasan Notasi Ramp-Up / Ramp-Down**: Memperjelas subjudul kartu preset dengan menyertakan keterangan tipe kluster dan arti pemisah garis miring (`Profil latensi terkalibrasi kluster (Little Cores / Big Cores • Ramp-Up / Ramp-Down)`), sehingga pengguna memahami makna instan dari kartu seperti `0 µs / 10 ms`.
+
+---
+
 # Lynx [Codename: Deity] 3.0.18
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Penyempurnaan Total Normalisasi Penggunaan CPU, Eliminasi Redundansi Schedutil, & Laci Penjadwal Adaptif Hardware** — menuntaskan kalkulasi matematis persentase beban CPU per-proses (normalisasi skala 100% SoC dari Irix mode toybox `top`) dan per-core (eliminasi beban sintetis sehingga rata-rata C0..C7 selaras dengan total load), menghapus seluruh kontrol duplikat schedutil dan C-state pada kartu penjadwal, serta merombak laci *Pengaturan Lanjutan & Hardware Hints* menjadi sepenuhnya cerdas dan dinamis hanya merender node sysfs yang benar-benar didukung oleh kernel/OEM perangkat aktif.

@@ -2188,68 +2188,76 @@ private fun formatTunableDisplay(key: String, value: String, unit: String): Stri
     }
 }
 
-private fun getTunableMeta(key: String, fallbackName: String, clusterAccent: Color): TunableMetaInfo {
+private fun getTunableMeta(key: String, fallbackName: String, clusterAccent: Color, isLittle: Boolean = true): TunableMetaInfo {
     return when (key.lowercase()) {
         "up_rate_limit_us", "rate_limit_us" -> TunableMetaInfo(
-            title = "Ramp-Up Rate Limit (Respon Naik Clock)",
+            title = "Ramp-Up Rate Limit",
             description = "Jeda evaluasi kernel sebelum menaikkan frekuensi CPU saat beban komputasi melonjak.",
-            hint = "Rekomendasi: 0 µs (Agresif / Instan) • 1 ms (Seimbang) • 4 ms (Hemat Daya)",
+            hint = if (isLittle) {
+                "Panduan Policy 0: 0 µs (Responsif) • 1 ms (Seimbang) • 10 ms (Hemat Daya)"
+            } else {
+                "Panduan Policy Big: 0 µs (Instan / Seimbang) • 20 ms (Hemat Daya)"
+            },
             icon = Icons.AutoMirrored.Filled.TrendingUp,
             iconColor = Color(0xFF00E5FF)
         )
         "down_rate_limit_us" -> TunableMetaInfo(
-            title = "Ramp-Down Rate Limit (Durasi Tahan Clock)",
-            description = "Berapa lama clock tinggi dipertahankan sebelum turun saat beban kerja mereda guna mencegah micro-stutter.",
-            hint = "Rekomendasi: 30 ms (Bawaan OEM) • 20 ms (Stabil) • 10 ms (Seimbang) • 5 ms (Responsif)",
+            title = "Ramp-Down Rate Limit",
+            description = "Durasi penahanan clock tinggi saat beban kerja mereda guna mencegah micro-stutter frekuensi.",
+            hint = if (isLittle) {
+                "Panduan Policy 0: 10 ms (Responsif) • 20 ms (Seimbang) • 1 ms (Hemat) • 30 ms (OEM)"
+            } else {
+                "Panduan Policy Big: 5 ms (Responsif) • 10 ms (Seimbang) • 0.5 ms (Hemat) • 30 ms (OEM)"
+            },
             icon = Icons.AutoMirrored.Filled.TrendingDown,
             iconColor = Color(0xFFFF9100)
         )
         "iowait_boost_enable" -> TunableMetaInfo(
-            title = "I/O Wait Boost (Prioritas Storage)",
+            title = "I/O Wait Boost",
             description = "Akselerasi frekuensi CPU secara instan ketika thread terhambat antrean operasi storage.",
-            hint = "1 = Aktif (Respon I/O Cepat) • 0 = Nonaktif (Efisiensi Baterai)",
+            hint = "Aktifkan untuk respon instan saat operasi I/O storage, atau matikan untuk efisiensi daya.",
             icon = Icons.Default.Bolt,
             iconColor = Color(0xFFFFD600)
         )
         "hispeed_freq" -> TunableMetaInfo(
             title = "HiSpeed Target Frequency",
-            description = "Frekuensi lompatan acuan pertama saat terdeteksi lonjakan beban tiba-tiba.",
-            hint = "Frekuensi acuan awal kernel sebelum melakukan kalkulasi eskalasi bertahap.",
+            description = "Frekuensi acuan awal saat mendeteksi lonjakan beban tiba-tiba sebelum eskalasi bertahap.",
+            hint = "Satuan kHz. Otomatis dikalibrasi mengikuti titik tengah kurva frekuensi kluster.",
             icon = Icons.Default.Speed,
             iconColor = clusterAccent
         )
         "go_hispeed_load", "up_threshold" -> TunableMetaInfo(
-            title = "Load Threshold Eskalasi (Ambang Beban Naik)",
-            description = "Persentase beban kerja CPU minimum untuk memicu eskalasi langsung ke frekuensi lebih tinggi.",
-            hint = "Rekomendasi: 65%–75% (Responsif) • 80%–90% (Seimbang Standar)",
+            title = "Ambang Beban Naik (Up Threshold)",
+            description = "Persentase beban kerja CPU minimum untuk memicu eskalasi ke frekuensi lebih tinggi.",
+            hint = "Rekomendasi: 65%–75% (Responsif) • 80%–90% (Seimbang)",
             icon = Icons.Default.Tune,
             iconColor = clusterAccent
         )
         "down_threshold" -> TunableMetaInfo(
-            title = "Load Threshold De-eskalasi (Ambang Beban Turun)",
-            description = "Persentase batas bawah sebelum frekuensi CPU diizinkan turun ke tingkat lebih rendah.",
-            hint = "Rekomendasi: 20%–35% (Mencegah penurunan clock terlalu drastis)",
+            title = "Ambang Beban Turun (Down Threshold)",
+            description = "Batas bawah beban kerja CPU sebelum frekuensi diizinkan turun ke tingkat lebih hemat.",
+            hint = "Rekomendasi: 20%–35% (Menjaga kestabilan transisi clock)",
             icon = Icons.Default.Tune,
             iconColor = clusterAccent
         )
         "sampling_rate", "timer_rate" -> TunableMetaInfo(
-            title = "Interval Sampling Kernel",
+            title = "Interval Sampling (Sampling Rate)",
             description = "Periode polling kernel dalam mengevaluasi pembebanan komputasi CPU.",
-            hint = "Interval polling standar dalam satuan mikrodetik (µs)",
+            hint = "Satuan mikrodetik (µs). Contoh: 10000 µs = 10 ms (responsif) • 20000 µs = 20 ms (standar)",
             icon = Icons.Default.Timer,
             iconColor = clusterAccent
         )
         "sampling_down_factor" -> TunableMetaInfo(
             title = "Sampling Down Factor",
-            description = "Faktor pengali interval evaluasi saat frekuensi berada di tingkat maksimal untuk menahan stabilitas performa.",
-            hint = "Rekomendasi: 2x–4x (Tahan performa puncak lebih lama)",
+            description = "Faktor pengali interval evaluasi saat frekuensi berada di tingkat maksimal.",
+            hint = "Rekomendasi: 1x (Normal) • 2x–4x (Tahan performa puncak lebih lama)",
             icon = Icons.Default.FastForward,
             iconColor = clusterAccent
         )
         "min_sample_time" -> TunableMetaInfo(
-            title = "Min Sample Time",
-            description = "Waktu minimum kernel bertahan pada suatu frekuensi sebelum evaluasi baru.",
-            hint = "Waktu minimum dalam mikrodetik (µs)",
+            title = "Waktu Minimum Sampel (Min Sample Time)",
+            description = "Durasi minimum kernel bertahan pada suatu frekuensi sebelum evaluasi baru.",
+            hint = "Satuan mikrodetik (µs). Contoh: 50000 µs = 50 ms.",
             icon = Icons.Default.Timer,
             iconColor = clusterAccent
         )
@@ -2311,32 +2319,52 @@ fun CpuClusterTunerCard(
         }
 
         val quickSuggestions = when (tunable.key) {
-            "up_rate_limit_us", "rate_limit_us" -> listOf(
-                "0" to "0 µs (Instan)",
-                "500" to "500 µs",
-                "1000" to "1 ms (Standar)",
-                "2000" to "2 ms",
-                "4000" to "4 ms (Hemat)"
-            )
-            "down_rate_limit_us" -> listOf(
-                "5000" to "5 ms (Cepat)",
-                "10000" to "10 ms (Seimbang)",
-                "20000" to "20 ms (Stabil)",
-                "30000" to "30 ms (OEM)"
-            )
+            "up_rate_limit_us", "rate_limit_us" -> if (isPerfCluster) {
+                listOf(
+                    "0" to "0 µs (Instan / Seimbang)",
+                    "500" to "500 µs",
+                    "1000" to "1 ms",
+                    "20000" to "20 ms (Hemat Daya)"
+                )
+            } else {
+                listOf(
+                    "0" to "0 µs (Responsif)",
+                    "500" to "500 µs",
+                    "1000" to "1 ms (Seimbang)",
+                    "2000" to "2 ms",
+                    "10000" to "10 ms (Hemat Daya)"
+                )
+            }
+            "down_rate_limit_us" -> if (isPerfCluster) {
+                listOf(
+                    "500" to "0.5 ms (Hemat Daya)",
+                    "2000" to "2 ms",
+                    "5000" to "5 ms (Responsif)",
+                    "10000" to "10 ms (Seimbang)",
+                    "30000" to "30 ms (OEM)"
+                )
+            } else {
+                listOf(
+                    "1000" to "1 ms (Hemat Daya)",
+                    "5000" to "5 ms",
+                    "10000" to "10 ms (Responsif)",
+                    "20000" to "20 ms (Seimbang)",
+                    "30000" to "30 ms (OEM)"
+                )
+            }
             "iowait_boost_enable" -> listOf(
                 "1" to "1 (Aktif)",
                 "0" to "0 (Nonaktif)"
             )
             "up_threshold", "go_hispeed_load" -> listOf(
-                "70" to "70%",
-                "80" to "80%",
+                "70" to "70% (Responsif)",
+                "80" to "80% (Seimbang)",
                 "85" to "85%",
-                "90" to "90%"
+                "90" to "90% (Hemat)"
             )
             "down_threshold" -> listOf(
                 "20" to "20%",
-                "30" to "30%",
+                "30" to "30% (Stabil)",
                 "40" to "40%"
             )
             "sampling_down_factor" -> listOf(
@@ -3230,7 +3258,7 @@ fun CpuClusterTunerCard(
 
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = "Terapkan profil latensi transisi frekuensi CPU untuk Policy ${targetCluster.id}:",
+                                text = "Profil latensi terkalibrasi kluster (${if (isLittle) "Little Cores" else "Big Cores"} • Ramp-Up / Ramp-Down):",
                                 fontSize = 10.5.sp,
                                 color = TextSecondary
                             )
@@ -3333,7 +3361,7 @@ fun CpuClusterTunerCard(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         sortedTunables.forEach { tunable ->
-                            val meta = getTunableMeta(tunable.key, tunable.displayName, clusterAccent)
+                            val meta = getTunableMeta(tunable.key, tunable.displayName, clusterAccent, isLittle = isLittle)
                             val displayVal = formatTunableDisplay(tunable.key, tunable.currentValue, tunable.unit)
 
                             Surface(
