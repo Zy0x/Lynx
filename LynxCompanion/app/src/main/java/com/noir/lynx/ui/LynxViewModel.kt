@@ -787,7 +787,7 @@ class LynxViewModel : ViewModel() {
             val ok = LynxRepository.forceMaxSuperCharge()
             val details = LynxRepository.readBatteryDetails()
             if (details != null) {
-                _uiState.update { it.copy(batteryDetails = details, successMessage = if (ok) "⚡ Kecepatan Super Charge Maksimal Dipaksa (33W Unthrottled)" else "Gagal memaksa kecepatan super charge") }
+                _uiState.update { it.copy(batteryDetails = details, successMessage = if (ok) "Kecepatan Super Charge Maksimal Dipaksa (33W Unthrottled)" else "Gagal memaksa kecepatan super charge") }
             }
         }
     }
@@ -2157,9 +2157,9 @@ class LynxViewModel : ViewModel() {
             if (ok) {
                 val fresh = LynxRepository.readCpuSetsInfo(context)
                 val presetTitle = when (preset.lowercase()) {
-                    "gaming" -> "⚔️ Gaming Isolation (Big Core Reserved)"
-                    "battery" -> "🔋 Hemat Ekstrem"
-                    else -> "⚖️ Standar Android"
+                    "gaming" -> "Gaming Isolation (Big Core Reserved)"
+                    "battery" -> "Hemat Ekstrem"
+                    else -> "Standar Android"
                 }
                 _uiState.update { it.copy(cpuSets = fresh, successMessage = "Profil CPU Sets '$presetTitle' berhasil diterapkan") }
             } else {
@@ -2665,7 +2665,7 @@ class LynxViewModel : ViewModel() {
                 } else {
                     context.startService(intent)
                 }
-                _uiState.update { it.copy(successMessage = "🎮 Floating Game HUD Diaktifkan!") }
+                _uiState.update { it.copy(successMessage = "Floating Game HUD Diaktifkan") }
             } else {
                 val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
                     action = com.noir.lynx.service.LynxFloatingHudService.ACTION_STOP
@@ -2737,7 +2737,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             if (enable) {
                 LynxRepository.startAppAutomation(context)
-                _uiState.update { it.copy(successMessage = "⚡ Otomasi Profil Per-App Diaktifkan!") }
+                _uiState.update { it.copy(successMessage = "Otomasi Profil Per-App Diaktifkan") }
             } else {
                 LynxRepository.stopAppAutomation(context)
                 _uiState.update { it.copy(successMessage = "Otomasi Profil Dinonaktifkan") }
@@ -3183,7 +3183,7 @@ class LynxViewModel : ViewModel() {
             }
             refreshClusters()
             refreshCpuCores()
-            _uiState.update { it.copy(activeGovernorPreset = "balanced", successMessage = "✅ Frekuensi & Governor berhasil dikembalikan ke default OEM.") }
+            _uiState.update { it.copy(activeGovernorPreset = "balanced", successMessage = "Frekuensi & Governor berhasil dikembalikan ke default OEM.") }
         }
     }
 
@@ -3194,7 +3194,7 @@ class LynxViewModel : ViewModel() {
             CpuPolicyManager.resetCpuSetsToOem(totalCores)
             setCpuSetApplyOnBoot(false, context)
             val updated = LynxRepository.readCpuSetsInfo()
-            _uiState.update { it.copy(cpuSets = updated, successMessage = "✅ CPU Sets berhasil dikembalikan ke default OEM.") }
+            _uiState.update { it.copy(cpuSets = updated, successMessage = "CPU Sets berhasil dikembalikan ke default OEM.") }
         }
     }
 
@@ -3205,7 +3205,7 @@ class LynxViewModel : ViewModel() {
             CpuPolicyManager.resetCpuIdleToOem(totalCores)
             setCpuIdleApplyOnBoot(false, context)
             val updated = LynxRepository.readCpuIdleInfo()
-            _uiState.update { it.copy(cpuIdle = updated, successMessage = "✅ Core Parking & C-States berhasil dikembalikan ke default OEM.") }
+            _uiState.update { it.copy(cpuIdle = updated, successMessage = "Core Parking & C-States berhasil dikembalikan ke default OEM.") }
         }
     }
 
@@ -3235,7 +3235,7 @@ class LynxViewModel : ViewModel() {
             """.trimIndent()
             com.topjohnwu.superuser.Shell.cmd(resetCmds).exec()
             val updated = LynxRepository.readSchedulerInfo(context)
-            _uiState.update { it.copy(schedulerInfo = updated, successMessage = "✅ Penjadwal Kernel berhasil dikembalikan ke default OEM.") }
+            _uiState.update { it.copy(schedulerInfo = updated, successMessage = "Penjadwal Kernel berhasil dikembalikan ke default OEM.") }
         }
     }
 
