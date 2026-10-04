@@ -1,3 +1,18 @@
+# Lynx [Codename: Deity] 3.0.20
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Relokasi Tombol Reset Dynamic CPU Khusus ke Lembar Governor Tunables** — menghapus tombol reset pada header kartu utama *Dynamic CPU Clusters & Governors* demi menjaga kebersihan antarmuka utama, serta menyediakan tombol *Reset ke Default OEM* secara terfokus langsung di dalam lembar bawah *Governor Tunables* lengkap dengan dialog konfirmasi aman sebelum mengembalikan parameter kernel ke standar pabrikan.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.20)
+
+### 1. 🧹 Pembersihan Header Kartu Dynamic CPU Clusters
+- **Eliminasi Tombol Reset di Header Kartu**: Menghilangkan tombol *ResetHeaderButton* dari sudut kanan atas kartu *Dynamic CPU Clusters & Governors*, menjaga tata letak layar CPU tetap bersih, minimalis, dan tidak memicu ketidaksengajaan reset frekuensi/governor kluster.
+
+### 2. 🎛️ Tombol Reset Khusus pada Lembar Governor Tunables
+- **Penempatan Terfokus di Header Tunables**: Menyediakan tombol Reset OEM (`ResetHeaderButton`) secara elegan berdampingan dengan badge jumlah parameter pada header lembar bawah *Governor Tunables*.
+- **Dialog Konfirmasi Aman (Reset to OEM Guard)**: Menampilkan konfirmasi interaktif sebelum mereset (*"Reset Tunables Policy X?"*), memastikan pengguna mengonfirmasi intensi pengembalian seluruh parameter tunable kernel governor ke profil pabrikan bawaan OEM.
+
+---
+
 # Lynx [Codename: Deity] 3.0.19
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Eliminasi Redundansi Teks & Sinkronisasi Rekomendasi CPU Governor Tunables** — menata ulang seluruh metadata lembar bawah Governor Tunables dengan menghapus pengulangan kata pada judul parameter, membersihkan duplikasi kalimat pada deskripsi dan petunjuk (seperti pada *HiSpeed Target Frequency*, *Interval Sampling*, dan *Min Sample Time*), menghilangkan instruksi redundan pada sakelar boolean (*I/O Wait Boost*), serta menyinkronkan 100% angka rekomendasi dan saran cepat dialog edit dengan tabel profil terkalibrasi kluster (*Little Cores* vs *Big Cores*).

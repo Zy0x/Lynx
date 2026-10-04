@@ -2500,9 +2500,7 @@ fun CpuClusterTunerCard(
         title = "Dynamic CPU Clusters & Governors",
         icon = Icons.Default.Tune,
         accentColor = AccentCyan,
-        action = if (isModified && onResetToOem != null) {
-            { ResetHeaderButton(onClick = onResetToOem) }
-        } else null
+        action = null
     ) {
         if (clusters.isEmpty()) {
             Text(
@@ -3126,6 +3124,58 @@ fun CpuClusterTunerCard(
         }
 
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        var showResetTunablesConfirm by remember { mutableStateOf(false) }
+
+        if (showResetTunablesConfirm) {
+            AlertDialog(
+                onDismissRequest = { showResetTunablesConfirm = false },
+                containerColor = Color(0xFF16181D),
+                titleContentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.RestartAlt,
+                            contentDescription = null,
+                            tint = Color(0xFFFFA726),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Reset Tunables Policy ${targetCluster.id}?",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                text = {
+                    Text(
+                        text = "Seluruh parameter tunable untuk governor ${targetCluster.curGov} pada Policy ${targetCluster.id} akan dikembalikan ke konfigurasi standar bawaan pabrik (OEM).",
+                        fontSize = 12.5.sp,
+                        lineHeight = 17.sp,
+                        color = Color(0xFFAAAAAA)
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onApplyGovernorPreset?.invoke(targetCluster.id, "oem")
+                            onLoadTunables(targetCluster.id, targetCluster.curGov)
+                            showResetTunablesConfirm = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Reset ke OEM", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showResetTunablesConfirm = false }) {
+                        Text("Batal", color = Color(0xFFAAAAAA), fontSize = 12.sp)
+                    }
+                }
+            )
+        }
 
         ModalBottomSheet(
             onDismissRequest = { tunablesTarget = null },
@@ -3155,7 +3205,7 @@ fun CpuClusterTunerCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Text(
                             text = "Governor Tunables: ${targetCluster.curGov}",
                             fontSize = 15.sp,
@@ -3168,18 +3218,26 @@ fun CpuClusterTunerCard(
                             color = TextSecondary
                         )
                     }
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = clusterAccent.copy(alpha = 0.16f),
-                        border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.35f))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = "${tunables.size} Parameter",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = clusterAccent,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        ResetHeaderButton(
+                            onClick = { showResetTunablesConfirm = true }
                         )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = clusterAccent.copy(alpha = 0.16f),
+                            border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.35f))
+                        ) {
+                            Text(
+                                text = "${tunables.size} Parameter",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = clusterAccent,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                 }
 
