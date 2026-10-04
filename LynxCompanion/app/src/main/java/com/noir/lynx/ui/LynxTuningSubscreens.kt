@@ -832,7 +832,7 @@ fun TuningCpuCategory(
                     Triple("hmp", "HMP", AccentOrange)
                 )
                 if (schedInfo.isHybridSupported) {
-                    modes.add(Triple("hybrid", "Hybrid", AccentPurple))
+                    modes.add(Triple("hybrid", "Hybrid", AccentBlue))
                 }
 
                 Surface(
@@ -1229,7 +1229,7 @@ fun TuningCpuCategory(
                     if (schedInfo.isSchedtuneSupported) {
                         Text(
                             text = "SCHEDTUNE & TASK CAPACITY BOOST",
-                            color = AccentCyan,
+                            color = TextSecondary,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp,
@@ -1314,7 +1314,7 @@ fun TuningCpuCategory(
                     if (hintsSupportedCount > 0) {
                         Text(
                             text = "SCHEDULER HARDWARE HINTS",
-                            color = AccentCyan,
+                            color = TextSecondary,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp,
@@ -1380,7 +1380,7 @@ fun TuningCpuCategory(
                     if (cfsSupportedCount > 0) {
                         Text(
                             text = "CFS GRANULARITAS & LATENSI",
-                            color = AccentBlue,
+                            color = TextSecondary,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp,
@@ -1506,7 +1506,7 @@ fun TuningCpuCategory(
                     if (hmpAdvancedCount > 0) {
                         Text(
                             text = "HMP TASK BALANCING & QUEUE SPILL",
-                            color = AccentOrange,
+                            color = TextSecondary,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp,

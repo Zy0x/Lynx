@@ -89,7 +89,7 @@ fun ResetHeaderButton(
             Icon(
                 imageVector = Icons.Default.RestartAlt,
                 contentDescription = "Reset ke Default OEM",
-                tint = Color(0xFFFFA726),
+                tint = TextSecondary,
                 modifier = Modifier.size(15.dp)
             )
         }
@@ -5184,7 +5184,7 @@ fun CpuSetsTaskShieldCard(
                         text = "Kustomisasi Manual per-Grup",
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (showManualMatrix) AccentCyan else TextPrimary
+                        color = if (showManualMatrix) AccentCyan else TextSecondary
                     )
                 }
                 Icon(
@@ -5243,13 +5243,17 @@ fun CpuSetsTaskShieldCard(
                                             .clickable { onToggleCore(groupKey, coreId) },
                                         shape = RoundedCornerShape(6.dp),
                                         color = when {
-                                            inGroup -> groupAccent.copy(alpha = 0.22f)
-                                            isIsolatedBig -> AccentOrange.copy(alpha = 0.15f)
-                                            else -> Color(0x0CFFFFFF)
+                                            inGroup -> groupAccent.copy(alpha = 0.15f)
+                                            isIsolatedBig -> AccentOrange.copy(alpha = 0.12f)
+                                            else -> BgSurfaceLowest
                                         },
                                         border = BorderStroke(
-                                            if (inGroup) 1.2.dp else 0.8.dp,
-                                            if (inGroup) groupAccent else if (isIsolatedBig) AccentOrange.copy(alpha = 0.6f) else Color(0x18FFFFFF)
+                                            1.dp,
+                                            when {
+                                                inGroup -> groupAccent.copy(alpha = 0.5f)
+                                                isIsolatedBig -> AccentOrange.copy(alpha = 0.4f)
+                                                else -> BorderSubtle
+                                            }
                                         )
                                     ) {
                                         Box(
@@ -5267,8 +5271,8 @@ fun CpuSetsTaskShieldCard(
                                                 Text(
                                                     text = "$coreId",
                                                     fontSize = 11.5.sp,
-                                                    fontWeight = if (inGroup) FontWeight.Bold else FontWeight.Normal,
-                                                    color = if (inGroup) Color.White else TextTertiary
+                                                    fontWeight = if (inGroup) FontWeight.Bold else FontWeight.Medium,
+                                                    color = if (inGroup) groupAccent else TextTertiary
                                                 )
                                             }
                                         }
@@ -5744,7 +5748,7 @@ fun CpuIdleCoreParkingCard(
                         text = "Kustomisasi Manual (Hotplug & C-States)",
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (showAdvancedControls) AccentCyan else TextPrimary
+                        color = if (showAdvancedControls) AccentCyan else TextSecondary
                     )
                 }
                 Icon(

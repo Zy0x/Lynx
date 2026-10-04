@@ -1,3 +1,33 @@
+# Lynx [Codename: Deity] 3.0.24
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Penerapan Disiplin Ketat Palet Warna Antarmuka (Strict Color Discipline): Hak Istimewa Ungu Eksklusif untuk Kustom DIY, Soft Tinted Glass pada Matriks Core CPU Sets, Accordion Monokromatik Netral saat Idle, dan Restorasi Tombol Reset OEM ke Abu-abu Tenang** — menyelaraskan arsitektur engine `Hybrid` ke aksen biru terpadu `AccentBlue` agar warna ungu `AccentPurple` (`#A855F7`) murni eksklusif untuk setelan kustom racikan manual pengguna, merombak 24 kotak selektor core manual CPU Sets menjadi kaca transparan lembut (*Soft Tinted Glass*) berlatar 15% dengan border halus, menenangkan seluruh subheader kategori lanjutan (*SCHEDTUNE, CFS, HMP*) dan header accordion menu lipat ke abu-abu perak tenang `TextSecondary`, serta menetralkan tombol `[ 🔄 Reset OEM ]` dari oranye alarm menjadi abu-abu siaga elegan.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.24)
+
+### 1. 🟣 Hak Istimewa Ungu Eksklusif untuk Status Kustom DIY (`AccentPurple`)
+- **Pemisahan Semantik Tombol Arsitektur Engine**: Mengubah warna tombol pemilih arsitektur engine `[ Hybrid ]` dari `AccentPurple` menjadi `AccentBlue` (`#00A3FF`).
+- **Eliminasi Bias Kustom Palsu**: Mencegah kesan seolah sistem sedang dalam mode kustom saat perangkat berjalan di arsitektur default pabrik.
+- **Identitas Visual DIY yang Kuat**: Warna ungu (`#A855F7`) kini 100% eksklusif hanya menyala saat pengguna melakukan modifikasi manual pada parameter tweak, memberikan kepastian visual mutlak.
+
+### 2. 🎛️ Matriks Kotak Core CPU Sets Manual: *Soft Tinted Glass* (15% Transparan)
+- **Eliminasi Neon Silau**: Merombak tampilan 24 tombol core (`[0]` s/d `[7]`) pada *Kustomisasi Manual per-Grup* (Top-App, Foreground, Background).
+- **Latar Kaca Lembut**: Menggunakan latar transparan `copy(alpha = 0.15f)` dengan border `copy(alpha = 0.5f)` dan teks nomor core berwarna senada dengan grup proses.
+- **Status Non-Aktif Netral**: Kotak core yang tidak aktif menggunakan latar belakang `BgSurfaceLowest` dan border halus `BorderSubtle`, menghasilkan keterbacaan tinggi yang sangat ramah di mata.
+
+### 3. 📂 Accordion Menu Lipat Monokromatik Netral saat Idle (`TextSecondary`)
+- **Struktur Pendukung Tenang**: Mengubah judul menu lipat *Kustomisasi Manual per-Grup* dan *Kustomisasi Manual (Hotplug & C-States)* saat posisi tertutup (*collapsed*) menjadi `TextSecondary` (`#94A3B8`).
+- **Feedback Visual Ekspansi**: Judul dan ikon baru menyala lembut dengan `AccentCyan` hanya saat menu dibuka (*expanded*), menjaga layar tetap rapi dan tidak mencuri fokus utama.
+
+### 4. 🔄 Restorasi Tombol Reset OEM Header ke Abu-abu Tenang
+- **Eliminasi False Alarm Oranye**: Mengubah warna ikon tombol `ResetHeaderButton` dari oranye peringatan `#FFA726` menjadi abu-abu perak tenang `TextSecondary`.
+- **Hierarki Aksi Sekunder**: Tombol reset kini terbaca sebagai aksi siaga/pemulihan yang elegan, bukan lampu peringatan error atau kerusakan hardware.
+
+### 5. 🏷️ Subheader Kategori Advanced Penjadwal Monokromatik
+- **Fokus pada Nilai Tweak Aktif**: Mengubah warna teks subheader `SCHEDTUNE & TASK CAPACITY BOOST`, `SCHEDULER HARDWARE HINTS`, `CFS GRANULARITAS & LATENSI`, dan `HMP TASK BALANCING & QUEUE SPILL` dari neon tebal (`AccentCyan`, `AccentBlue`, `AccentOrange`) ke `TextSecondary` dengan letter spacing rapi.
+- Menjadikan slider, pill nilai, dan sakelar interaktif sebagai satu-satunya titik fokus utama di layar.
+
+---
+
 # Lynx [Codename: Deity] 3.0.23
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Harmonisasi Palet Warna Semantik Subhalaman CPU: Standardisasi Preset Hijau Ramah Daya, Dual-Tone Spectrum 8-Bar, Harmonisasi Tile Antrean HMP, & Pembersihan Token Desain M3** — menstandarkan seluruh preset hemat daya (*Hemat Daya* pada CPU Sets dan *Deep Sleep* pada CPU Idle) ke aksen hijau resmi `AccentGreen` (`#10B981`) untuk konsistensi semantik intuitif universal, menghadirkan spektrum 8-bar dual-tone dinamis pada kartu telemetri master CPU yang membedakan core efisiensi (Little Core: `AccentBlue`) dan performa (Big Core: `AccentOrange`), menyelaraskan aksen warna tile penjadwalan antrean HMP, serta membersihkan sisa kode heksadesimal mentah pada pill kartu kluster ke token desain resmi Obsidian M3 (`BgSurfaceLowest`).
