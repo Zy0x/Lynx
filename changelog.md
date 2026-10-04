@@ -1,3 +1,38 @@
+# Lynx [Codename: Deity] 3.0.23
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Harmonisasi Palet Warna Semantik Subhalaman CPU: Standardisasi Preset Hijau Ramah Daya, Dual-Tone Spectrum 8-Bar, Harmonisasi Tile Antrean HMP, & Pembersihan Token Desain M3** — menstandarkan seluruh preset hemat daya (*Hemat Daya* pada CPU Sets dan *Deep Sleep* pada CPU Idle) ke aksen hijau resmi `AccentGreen` (`#10B981`) untuk konsistensi semantik intuitif universal, menghadirkan spektrum 8-bar dual-tone dinamis pada kartu telemetri master CPU yang membedakan core efisiensi (Little Core: `AccentBlue`) dan performa (Big Core: `AccentOrange`), menyelaraskan aksen warna tile penjadwalan antrean HMP, serta membersihkan sisa kode heksadesimal mentah pada pill kartu kluster ke token desain resmi Obsidian M3 (`BgSurfaceLowest`).
+
+## 🚀 Fitur Baru & Peningkatan (3.0.23)
+
+### 1. 🟢 Standardisasi Palet Semantik Preset Hemat Daya (`AccentGreen`)
+- **Konsistensi Semantik Universal**: Mengeliminasi kontradiksi warna oranye pada profil efisiensi daya. Kini seluruh kartu CPU menerapkan aturan semantik baku:
+  - 🟢 `AccentGreen` (`#10B981`): Profil Baterai, Hemat Daya, dan Deep Sleep (Siklus C-States).
+  - 🔵 `AccentBlue` (`#00A3FF`): Profil Standar AOSP, Seimbang, dan Little Cores.
+  - 🟠 `AccentOrange` (`#FF9F2E`): Profil Responsif, Big Cores, dan Antrean HMP.
+  - 🔴 `AccentRed` (`#FF3B5C`): Profil Extreme, Throttling, dan Peringatan Kritis.
+  - 🟣 `AccentPurple` (`#A855F7`): Profil Kustom / Manual tuning.
+- **Pembaruan CPU Sets Task Shield**: Mengubah warna lencana dan tombol segmen 1-klik *Hemat Daya* dari `AccentOrange` menjadi `AccentGreen`.
+- **Pembaruan CPU Idle & Core Parking**: Mengubah warna lencana dan tombol segmen 1-klik *Deep Sleep* dari `AccentOrange` menjadi `AccentGreen`.
+
+### 2. 📊 Spektrum Dual-Tone 8-Bar Dinamis pada Hero Card CPU
+- **Diferensiasi Arsitektur Silicon**: Batang spektrum live beban CPU 8-bar pada hero card atas kini secara dinamis membaca tipe kluster core:
+  - Little Cores (Core 0..5): Menampilkan aksen biru elegan `AccentBlue`.
+  - Big Cores (Core 6..7): Menampilkan aksen oranye mencolok `AccentOrange`.
+- **Harmoni Visual Matriks**: Menghasilkan kesinambungan visual yang sempurna antara hero card telemetri atas dengan *Matriks Status Per-Core Silicon* di bawahnya.
+
+### 3. 🟠 Harmonisasi Aksen Tile Penjadwal HMP Task Placement
+- **Aksen Oranye pada Antrean Big Core**: Menambahkan properti `accentColor = AccentOrange` pada ketiga tile parameter penjadwal HMP:
+  - `Init Task Load (Fork Initial)`
+  - `Sched Spill Nr Run`
+  - `Sched Spill Load Threshold`
+- Menghadirkan visual cue tegas yang membedakan parameter distribusi beban core besar (HMP) dengan penjadwal adil CFS.
+
+### 4. 🎨 Pembersihan Sisa Token Desain Mentah pada Kartu Kluster CPU
+- **Eliminasi Hex Statis Pill Kluster**: Mengganti `Color(0xFF10121A)` pada latar belakang pill *Frekuensi Min*, *Frekuensi Max*, dan *Governor Selector* dengan token resmi `BgSurfaceLowest`.
+- **Harmonisasi Tombol Kunci Frekuensi**: Memperbarui warna tombol kunci frekuensi kluster aktif dari kode lime mentah `#00E676` ke token terpadu `AccentGreen` dan `AccentGreen.copy(alpha = 0.16f)`.
+
+---
+
 # Lynx [Codename: Deity] 3.0.22
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Audit Komprehensif Subhalaman CPU: Integrasi Lembar Preset Penjadwal, Kepatuhan Target Sentuh 44px, Standardisasi LynxSwitch, & Harmonisasi Token Desain M3** — mengintegrasikan lembar bawah panduan terpadu `LynxSchedulerPresetSheet` melalui header profil responsif yang interaktif, menstandarkan tombol sakelar `Child Process Runs First` dengan komponen terpadu `LynxSwitch`, mengoptimalkan seluruh tombol pemilih arsitektur engine dan preset kartu CPU agar memenuhi standar target sentuh minimal 44×44 px (bebas *miss-click*), serta merombak seluruh kode warna statis pada kartu telemetri utama, matriks status per-core silicon, dan dialog konfirmasi ke sistem token desain resmi Obsidian Material 3.

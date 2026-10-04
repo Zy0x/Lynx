@@ -215,6 +215,9 @@ fun TuningCpuCategory(
                                         animationSpec = tween(durationMillis = 250),
                                         label = "spectrum_$idx"
                                     )
+                                    val parentCluster = uiState.clusters.find { it.containsCore(idx) }
+                                    val isPerfCore = parentCluster?.let { it.role.contains("Big", true) || it.role.contains("Perf", true) || it.id > 0 } ?: (idx >= 6)
+                                    val barAccent = if (isPerfCore) AccentOrange else AccentBlue
                                     Box(
                                         modifier = Modifier
                                             .width(7.dp)
@@ -222,7 +225,7 @@ fun TuningCpuCategory(
                                             .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp, bottomStart = 1.dp, bottomEnd = 1.dp))
                                             .background(
                                                 if (core == null || !isOnline) BgElevated
-                                                else AccentBlue
+                                                else barAccent
                                             )
                                     )
                                 }
@@ -1515,6 +1518,7 @@ fun TuningCpuCategory(
                                 title = "Init Task Load (Fork Initial)",
                                 subtitle = "Estimasi beban awal proses baru saat fork",
                                 displayValue = "${initTaskLoadVal.toInt()}%",
+                                accentColor = AccentOrange,
                                 onClick = {
                                     activeTweakConfig = TweakConfig(
                                         id = "sched_init_task_load",
@@ -1542,6 +1546,7 @@ fun TuningCpuCategory(
                                 title = "Sched Spill Nr Run",
                                 subtitle = "Batas antrean task sebelum dialihkan ke core lain",
                                 displayValue = "${spillNrRunVal.toInt()} Task",
+                                accentColor = AccentOrange,
                                 onClick = {
                                     activeTweakConfig = TweakConfig(
                                         id = "sched_spill_nr_run",
@@ -1566,6 +1571,7 @@ fun TuningCpuCategory(
                                 title = "Sched Spill Load Threshold",
                                 subtitle = "Beban CPU pemicu pengalihan tugas ke core senggang",
                                 displayValue = "${spillLoadVal.toInt()}%",
+                                accentColor = AccentOrange,
                                 onClick = {
                                     activeTweakConfig = TweakConfig(
                                         id = "sched_spill_load",

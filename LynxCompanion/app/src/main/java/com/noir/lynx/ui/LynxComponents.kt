@@ -2576,7 +2576,7 @@ fun CpuClusterTunerCard(
                                 Surface(
                                     onClick = { freqPickerTarget = Pair(cluster, true) },
                                     shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFF10121A),
+                                    color = BgSurfaceLowest,
                                     border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.25f)),
                                     modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
                                 ) {
@@ -2611,7 +2611,7 @@ fun CpuClusterTunerCard(
                                 Surface(
                                     onClick = { freqPickerTarget = Pair(cluster, false) },
                                     shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFF10121A),
+                                    color = BgSurfaceLowest,
                                     border = BorderStroke(1.dp, clusterAccent.copy(alpha = 0.25f)),
                                     modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
                                 ) {
@@ -2644,9 +2644,9 @@ fun CpuClusterTunerCard(
 
                                 // Lock Action Button (Icon Only, aligned on the right)
                                 val isLocked = cluster.isLocked
-                                val lockColor = if (isLocked) Color(0xFF00E676) else TextSecondary
-                                val lockBg = if (isLocked) Color(0xFF0D2818) else Color(0xFF10121A)
-                                val lockBorder = if (isLocked) Color(0xFF00E676).copy(alpha = 0.5f) else BorderGlass
+                                val lockColor = if (isLocked) AccentGreen else TextSecondary
+                                val lockBg = if (isLocked) AccentGreen.copy(alpha = 0.16f) else BgSurfaceLowest
+                                val lockBorder = if (isLocked) AccentGreen.copy(alpha = 0.5f) else BorderGlass
 
                                 Surface(
                                     onClick = {
@@ -2683,7 +2683,7 @@ fun CpuClusterTunerCard(
                                 Surface(
                                     onClick = { govPickerTarget = cluster },
                                     shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFF10121A),
+                                    color = BgSurfaceLowest,
                                     border = BorderStroke(1.dp, BorderSubtle),
                                     modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
                                 ) {
@@ -4895,7 +4895,7 @@ fun CpuSetsTaskShieldCard(
         val activePresetKey = cpuSets.activePreset.lowercase()
         val (modeBadgeText, modeBadgeColor, modeBadgeIcon) = when (activePresetKey) {
             "gaming" -> Triple("Game Shield", AccentCyan, Icons.Default.SportsEsports)
-            "battery" -> Triple("Hemat Daya", AccentOrange, Icons.Default.BatteryChargingFull)
+            "battery" -> Triple("Hemat Daya", AccentGreen, Icons.Default.BatteryChargingFull)
             "standard" -> Triple("Standar AOSP", AccentBlue, Icons.Default.Tune)
             else -> Triple("Kustom", AccentPurple, Icons.Default.Build)
         }
@@ -4966,7 +4966,7 @@ fun CpuSetsTaskShieldCard(
             val presets = listOf(
                 LynxPresetOption("gaming", "Game Shield", Icons.Default.SportsEsports, AccentCyan),
                 LynxPresetOption("standard", "Standar", Icons.Default.Tune, AccentBlue),
-                LynxPresetOption("battery", "Hemat Daya", Icons.Default.BatteryChargingFull, AccentOrange)
+                LynxPresetOption("battery", "Hemat Daya", Icons.Default.BatteryChargingFull, AccentGreen)
             )
             presets.forEach { opt ->
                 val isSel = activePresetKey == opt.key
@@ -5353,7 +5353,7 @@ fun CpuIdleCoreParkingCard(
         val activePresetKey = cpuIdle.activePreset.lowercase()
         val (badgeText, badgeColor, badgeIcon) = when (activePresetKey) {
             "gaming" -> Triple("Zero Latency", AccentCyan, Icons.Default.Bolt)
-            "battery" -> Triple("Deep Sleep", AccentOrange, Icons.Default.Bedtime)
+            "battery" -> Triple("Deep Sleep", AccentGreen, Icons.Default.Bedtime)
             "balanced" -> Triple("Seimbang", AccentBlue, Icons.Default.Tune)
             else -> Triple("Kustom", AccentPurple, Icons.Default.Build)
         }
@@ -5438,7 +5438,7 @@ fun CpuIdleCoreParkingCard(
             val presets = listOf(
                 LynxPresetOption("gaming", "Zero Latency", Icons.Default.Bolt, AccentCyan),
                 LynxPresetOption("balanced", "Seimbang", Icons.Default.Tune, AccentBlue),
-                LynxPresetOption("battery", "Deep Sleep", Icons.Default.Bedtime, AccentOrange)
+                LynxPresetOption("battery", "Deep Sleep", Icons.Default.Bedtime, AccentGreen)
             )
             presets.forEach { opt ->
                 val isSel = activePresetKey == opt.key
