@@ -3126,15 +3126,15 @@ fun CpuClusterTunerCard(
         if (showResetTunablesConfirm) {
             AlertDialog(
                 onDismissRequest = { showResetTunablesConfirm = false },
-                containerColor = Color(0xFF16181D),
-                titleContentColor = Color.White,
+                containerColor = BgCard,
+                titleContentColor = TextPrimary,
                 shape = RoundedCornerShape(16.dp),
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.RestartAlt,
                             contentDescription = null,
-                            tint = Color(0xFFFFA726),
+                            tint = AccentOrange,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(Modifier.width(8.dp))
@@ -3150,7 +3150,7 @@ fun CpuClusterTunerCard(
                         text = "Seluruh parameter tunable untuk governor ${targetCluster.curGov} pada Policy ${targetCluster.id} akan dikembalikan ke konfigurasi standar bawaan pabrik (OEM).",
                         fontSize = 12.5.sp,
                         lineHeight = 17.sp,
-                        color = Color(0xFFAAAAAA)
+                        color = TextSecondary
                     )
                 },
                 confirmButton = {
@@ -3160,7 +3160,7 @@ fun CpuClusterTunerCard(
                             onLoadTunables(targetCluster.id, targetCluster.curGov)
                             showResetTunablesConfirm = false
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("Reset ke OEM", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -3168,7 +3168,7 @@ fun CpuClusterTunerCard(
                 },
                 dismissButton = {
                     TextButton(onClick = { showResetTunablesConfirm = false }) {
-                        Text("Batal", color = Color(0xFFAAAAAA), fontSize = 12.sp)
+                        Text("Batal", color = TextSecondary, fontSize = 12.sp)
                     }
                 }
             )
@@ -4973,32 +4973,37 @@ fun CpuSetsTaskShieldCard(
                 Surface(
                     modifier = Modifier
                         .weight(1f)
+                        .defaultMinSize(minHeight = 44.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .clickable { onApplyPreset(opt.key) },
                     shape = RoundedCornerShape(10.dp),
                     color = if (isSel) opt.color.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.6f),
                     border = BorderStroke(if (isSel) 1.4.dp else 0.8.dp, if (isSel) opt.color else BorderSubtle)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(vertical = 9.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(vertical = 8.dp, horizontal = 4.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = opt.icon,
-                            contentDescription = null,
-                            tint = if (isSel) opt.color else TextSecondary,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(Modifier.width(5.dp))
-                        Text(
-                            text = opt.label,
-                            fontSize = 10.5.sp,
-                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSel) opt.color else TextSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = opt.icon,
+                                contentDescription = null,
+                                tint = if (isSel) opt.color else TextSecondary,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = opt.label,
+                                fontSize = 10.5.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSel) opt.color else TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }
@@ -5440,32 +5445,37 @@ fun CpuIdleCoreParkingCard(
                 Surface(
                     modifier = Modifier
                         .weight(1f)
+                        .defaultMinSize(minHeight = 44.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .clickable { onApplyPreset(opt.key) },
                     shape = RoundedCornerShape(10.dp),
                     color = if (isSel) opt.color.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.6f),
                     border = BorderStroke(if (isSel) 1.4.dp else 0.8.dp, if (isSel) opt.color else BorderSubtle)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(vertical = 9.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(vertical = 8.dp, horizontal = 4.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = opt.icon,
-                            contentDescription = null,
-                            tint = if (isSel) opt.color else TextSecondary,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(Modifier.width(5.dp))
-                        Text(
-                            text = opt.label,
-                            fontSize = 10.5.sp,
-                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSel) opt.color else TextSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = opt.icon,
+                                contentDescription = null,
+                                tint = if (isSel) opt.color else TextSecondary,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = opt.label,
+                                fontSize = 10.5.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSel) opt.color else TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }

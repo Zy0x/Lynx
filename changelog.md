@@ -1,3 +1,27 @@
+# Lynx [Codename: Deity] 3.0.22
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Audit Komprehensif Subhalaman CPU: Integrasi Lembar Preset Penjadwal, Kepatuhan Target Sentuh 44px, Standardisasi LynxSwitch, & Harmonisasi Token Desain M3** — mengintegrasikan lembar bawah panduan terpadu `LynxSchedulerPresetSheet` melalui header profil responsif yang interaktif, menstandarkan tombol sakelar `Child Process Runs First` dengan komponen terpadu `LynxSwitch`, mengoptimalkan seluruh tombol pemilih arsitektur engine dan preset kartu CPU agar memenuhi standar target sentuh minimal 44×44 px (bebas *miss-click*), serta merombak seluruh kode warna statis pada kartu telemetri utama, matriks status per-core silicon, dan dialog konfirmasi ke sistem token desain resmi Obsidian Material 3.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.22)
+
+### 1. 📖 Integrasi Lembar Panduan Preset Penjadwal Kernel (`LynxSchedulerPresetSheet`)
+- **Header Profil Responsif Interaktif**: Menghubungkan header badge profil penjadwal (*Preset Cepat* / *Kustom*) agar dapat diketuk untuk membuka lembar bawah interaktif `LynxSchedulerPresetSheet`.
+- **Edukasi & Pemilihan 1-Klik**: Lembar ini menyajikan perbandingan mendalam antara 4 profil teruji (*Extreme*, *Responsif / Gaming*, *Seimbang*, dan *Efisiensi Daya*) beserta rincian spesifikasi teknisnya (latensi CFS, ramp-up limit, uclamp, dan RT throttling), serta menutup lembar secara mulus saat salah satu profil dipilih.
+
+### 2. 🎯 Kepatuhan Standar Aksesibilitas & Touch Target 44×44 px (Rule 1)
+- **Selektor Arsitektur Engine (EAS / HMP / Hybrid)**: Menambahkan batas ukuran minimal `.defaultMinSize(minWidth = 48.dp, minHeight = 44.dp)` dengan penyelarasan konten terpusat pada tombol segmen arsitektur engine penjadwal, mengeliminasi tombol tipis sub-26dp yang rentan salah sentuh.
+- **Tombol Makro Preset Penjadwal, CPU Sets, & CPU Idle**: Menstandarkan seluruh tombol segmen 1-klik pada ketiga kartu inti CPU (`CpuSetsTaskShieldCard`, `CpuIdleCoreParkingCard`, dan `KernelSchedulerCard`) dengan tinggi minimal 44dp sesuai pedoman antarmuka *touch-first*.
+
+### 3. 🔄 Standardisasi Komponen Sakelar Terpadu (`LynxSwitch`)
+- **Harmonisasi `Child Process Runs First`**: Menggantikan implementasi baris dan sakelar manual yang menggunakan skala khusus (`Modifier.scale(0.8f)`) pada bagian CFS dengan komponen modular `LynxSwitch`. Kini seluruh sakelar di dalam kartu penjadwal memiliki konsistensi ukuran, tipografi, dan gaya interaksi yang seragam.
+
+### 4. 🎨 Harmonisasi Token Desain Obsidian Material 3 (Rule 4)
+- **Matriks Status Per-Core Silicon**: Mengganti seluruh kode warna heksadesimal mentah dengan token desain resmi: `BgSurfaceLowest`, `BgElevated`, `BorderSubtle`, `TextPrimary`, `TextSecondary`, `TextTertiary`, `AccentOrange`, `AccentBlue`, dan `AccentRed`.
+- **Hero Card Telemetri & Grafik Sparkline**: Menyelaraskan kartu master hero atas dan kurva gelombang beban real-time ke token Obsidian M3.
+- **Dialog Interaktif Aman**: Memperbarui skema warna pada dialog hotplug core, dialog proteksi master core (C0), dan dialog konfirmasi reset OEM per-bagian agar menyatu sempurna dengan tema gelap mendalam (True OLED).
+
+---
+
 # Lynx [Codename: Deity] 3.0.21
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Eliminasi Menyeluruh Redundansi Teks, Parameter Usang, dan Harmonisasi Komponen Antar-Kartu Subhalaman CPU** — menstandarkan label frekuensi kluster (`Frekuensi Min` & `Frekuensi Max`), membersihkan duplikasi jumlah core pada subjudul *CPU Idle*, menyelaraskan header bagian preset isolasi *CPU Sets*, memperjelas teks ambang batas beban *Kernel Scheduler Spill*, menstandarkan seluruh sakelar persistensi boot dengan komponen terpadu `LynxSwitch`, serta membersihkan *dead callbacks* dan memperbarui pemisah usang ke `HorizontalDivider`.

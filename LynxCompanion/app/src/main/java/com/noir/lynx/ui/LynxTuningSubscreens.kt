@@ -62,8 +62,8 @@ fun TuningCpuCategory(
             }
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF131417),
-                border = BorderStroke(1.dp, Color(0xFF1E2026)),
+                color = BgCard,
+                border = BorderStroke(1.dp, BorderSubtle),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
@@ -83,7 +83,7 @@ fun TuningCpuCategory(
                                     modifier = Modifier.fillMaxWidth().height(95.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("Memindai proses...", fontSize = 11.sp, color = Color(0xFF757585))
+                                    Text("Memindai proses...", fontSize = 11.sp, color = TextSecondary)
                                 }
                             } else {
                                 procs.forEach { p ->
@@ -109,32 +109,32 @@ fun TuningCpuCategory(
                                                 modifier = Modifier
                                                     .size(16.dp)
                                                     .clip(CircleShape)
-                                                    .background(Color(0xFF1E2026)),
+                                                    .background(BgElevated),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 when {
                                                     isDaemon -> Icon(
                                                         imageVector = Icons.Default.Terminal,
                                                         contentDescription = null,
-                                                        tint = Color(0xFFFFCC00),
+                                                        tint = AccentOrange,
                                                         modifier = Modifier.size(11.dp)
                                                     )
                                                     isGoogle -> Icon(
                                                         imageVector = Icons.Default.Search,
                                                         contentDescription = null,
-                                                        tint = Color(0xFF4285F4),
+                                                        tint = AccentBlue,
                                                         modifier = Modifier.size(11.dp)
                                                     )
                                                     isSystemUi -> Icon(
                                                         imageVector = Icons.Default.Android,
                                                         contentDescription = null,
-                                                        tint = Color(0xFF3DDC84),
+                                                        tint = AccentGreen,
                                                         modifier = Modifier.size(11.dp)
                                                     )
                                                     else -> Icon(
                                                         imageVector = Icons.Default.Widgets,
                                                         contentDescription = null,
-                                                        tint = Color(0xFF2979FF),
+                                                        tint = AccentCyan,
                                                         modifier = Modifier.size(11.dp)
                                                     )
                                                 }
@@ -143,7 +143,7 @@ fun TuningCpuCategory(
                                             Text(
                                                 text = p.name,
                                                 fontSize = 11.sp,
-                                                color = Color(0xFFD0D0D5),
+                                                color = TextPrimary,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
@@ -152,7 +152,7 @@ fun TuningCpuCategory(
                                             text = String.format(java.util.Locale.US, "%.1f%%", p.cpuPercent),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Normal,
-                                            color = Color(0xFFA0A0AB)
+                                            color = TextSecondary
                                         )
                                     }
                                 }
@@ -164,7 +164,7 @@ fun TuningCpuCategory(
                             modifier = Modifier
                                 .width(1.dp)
                                 .fillMaxHeight()
-                                .background(Color(0xFF22242B))
+                                .background(BorderSubtle)
                         )
 
                         // Right Column: Temperature, CPU, 8-Bar Spectrum, SoC Name, Total Load
@@ -178,7 +178,7 @@ fun TuningCpuCategory(
                                 Text(
                                     text = String.format(java.util.Locale.US, "%.1f°C", tempVal),
                                     fontSize = 11.5.sp,
-                                    color = Color(0xFFA0A0AB)
+                                    color = TextSecondary
                                 )
                             }
 
@@ -189,7 +189,7 @@ fun TuningCpuCategory(
                                 text = "CPU",
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color.White
+                                color = TextPrimary
                             )
 
                             Spacer(Modifier.height(8.dp))
@@ -221,8 +221,8 @@ fun TuningCpuCategory(
                                             .height(animatedHeight)
                                             .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp, bottomStart = 1.dp, bottomEnd = 1.dp))
                                             .background(
-                                                if (core == null || !isOnline) Color(0xFF33353E)
-                                                else Color(0xFF2979FF)
+                                                if (core == null || !isOnline) BgElevated
+                                                else AccentBlue
                                             )
                                     )
                                 }
@@ -236,7 +236,7 @@ fun TuningCpuCategory(
                                 text = socText,
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                color = TextPrimary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -247,7 +247,7 @@ fun TuningCpuCategory(
                             Text(
                                 text = "Load: ${uiState.totalCpuLoadPercent}%",
                                 fontSize = 11.5.sp,
-                                color = Color(0xFFA0A0AB)
+                                color = TextSecondary
                             )
                         }
                     }
@@ -260,7 +260,7 @@ fun TuningCpuCategory(
                     val avgVal = if (history.isNotEmpty()) history.average().toInt() else curLoad
 
                     HorizontalDivider(
-                        color = Color(0xFF22242B),
+                        color = BorderSubtle,
                         thickness = 1.dp,
                         modifier = Modifier.padding(vertical = 10.dp)
                     )
@@ -274,7 +274,7 @@ fun TuningCpuCategory(
                             Icon(
                                 imageVector = Icons.Default.Timeline,
                                 contentDescription = null,
-                                tint = Color(0xFF2979FF),
+                                tint = AccentBlue,
                                 modifier = Modifier.size(15.dp)
                             )
                             Spacer(Modifier.width(6.dp))
@@ -282,14 +282,14 @@ fun TuningCpuCategory(
                                 text = "Beban CPU Real-Time",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color.White
+                                color = TextPrimary
                             )
                         }
 
                         Text(
                             text = "Min $minVal% • Avg $avgVal% • Max $maxVal%",
                             fontSize = 10.sp,
-                            color = Color(0xFFA0A0AB),
+                            color = TextSecondary,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -306,7 +306,7 @@ fun TuningCpuCategory(
                             if (w <= 0 || h <= 0) return@Canvas
 
                             // Draw subtle horizontal grid lines (25%, 50%, 75%)
-                            val gridColor = Color(0xFF1E2026)
+                            val gridColor = BorderSubtle
                             drawLine(gridColor, start = androidx.compose.ui.geometry.Offset(0f, h * 0.25f), end = androidx.compose.ui.geometry.Offset(w, h * 0.25f), strokeWidth = 1f)
                             drawLine(gridColor, start = androidx.compose.ui.geometry.Offset(0f, h * 0.50f), end = androidx.compose.ui.geometry.Offset(w, h * 0.50f), strokeWidth = 1f)
                             drawLine(gridColor, start = androidx.compose.ui.geometry.Offset(0f, h * 0.75f), end = androidx.compose.ui.geometry.Offset(w, h * 0.75f), strokeWidth = 1f)
@@ -349,8 +349,8 @@ fun TuningCpuCategory(
                                 path = fillPath,
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
-                                        Color(0xFF2979FF).copy(alpha = 0.35f),
-                                        Color(0xFF2979FF).copy(alpha = 0.05f),
+                                        AccentBlue.copy(alpha = 0.35f),
+                                        AccentBlue.copy(alpha = 0.05f),
                                         Color.Transparent
                                     )
                                 )
@@ -359,7 +359,7 @@ fun TuningCpuCategory(
                             // Draw line stroke
                             drawPath(
                                 path = path,
-                                color = Color(0xFF2979FF),
+                                color = AccentBlue,
                                 style = Stroke(width = 2f)
                             )
 
@@ -367,12 +367,12 @@ fun TuningCpuCategory(
                             val lastX = w
                             val lastY = (1f - (curLoad / 100f)) * (h - 8f) + 4f
                             drawCircle(
-                                color = Color(0xFF2979FF).copy(alpha = 0.3f),
+                                color = AccentBlue.copy(alpha = 0.3f),
                                 radius = 6f,
                                 center = androidx.compose.ui.geometry.Offset(lastX, lastY)
                             )
                             drawCircle(
-                                color = Color(0xFF2979FF),
+                                color = AccentBlue,
                                 radius = 3f,
                                 center = androidx.compose.ui.geometry.Offset(lastX, lastY)
                             )
@@ -381,7 +381,7 @@ fun TuningCpuCategory(
 
                     // ── BOTTOM SECTION: Per-Core Silicon Status Matrix ──
                     HorizontalDivider(
-                        color = Color(0xFF22242B),
+                        color = BorderSubtle,
                         thickness = 1.dp,
                         modifier = Modifier.padding(vertical = 10.dp)
                     )
@@ -395,13 +395,13 @@ fun TuningCpuCategory(
                             text = "STATUS PER-CORE SILICON",
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF757585),
+                            color = TextSecondary,
                             letterSpacing = 0.8.sp
                         )
                         Text(
                             text = "Ketuk core untuk hotplug",
                             fontSize = 9.sp,
-                            color = Color(0xFF555866)
+                            color = TextTertiary
                         )
                     }
 
@@ -416,13 +416,13 @@ fun TuningCpuCategory(
                             quad.forEach { core ->
                                 val parentCluster = uiState.clusters.find { it.containsCore(core.coreId) }
                                 val isPerfCore = parentCluster?.let { it.role.contains("Big", true) || it.role.contains("Perf", true) || it.id > 0 } ?: (core.coreId >= 6)
-                                val coreAccent = if (!core.isOnline) Color(0xFF555866) else if (isPerfCore) Color(0xFFFF9100) else Color(0xFF2979FF)
+                                val coreAccent = if (!core.isOnline) TextTertiary else if (isPerfCore) AccentOrange else AccentBlue
                                 val load = core.loadPercent.coerceIn(0, 100)
 
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFF16181E),
-                                    border = BorderStroke(0.8.dp, if (core.isOnline) coreAccent.copy(alpha = 0.35f) else Color(0xFF22242B)),
+                                    color = BgSurfaceLowest,
+                                    border = BorderStroke(0.8.dp, if (core.isOnline) coreAccent.copy(alpha = 0.35f) else BorderSubtle),
                                     modifier = Modifier
                                         .weight(1f)
                                         .clickable {
@@ -447,13 +447,13 @@ fun TuningCpuCategory(
                                                 text = "C${core.coreId}",
                                                 fontSize = 10.5.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = if (core.isOnline) coreAccent else Color(0xFF757585)
+                                                color = if (core.isOnline) coreAccent else TextSecondary
                                             )
                                             Box(
                                                 modifier = Modifier
                                                     .size(5.dp)
                                                     .clip(CircleShape)
-                                                    .background(if (core.isOnline) coreAccent else Color(0xFFFF5252))
+                                                    .background(if (core.isOnline) coreAccent else AccentRed)
                                             )
                                         }
 
@@ -464,13 +464,13 @@ fun TuningCpuCategory(
                                             text = if (core.isOnline) "${core.curFreqKhz / 1000}" else "OFF",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = if (core.isOnline) Color.White else Color(0xFFFF5252)
+                                            color = if (core.isOnline) TextPrimary else AccentRed
                                         )
                                         if (core.isOnline) {
                                             Text(
                                                 text = "MHz",
                                                 fontSize = 8.sp,
-                                                color = Color(0xFF757585),
+                                                color = TextSecondary,
                                                 lineHeight = 8.sp
                                             )
                                         }
@@ -483,7 +483,7 @@ fun TuningCpuCategory(
                                                 .fillMaxWidth()
                                                 .height(3.dp)
                                                 .clip(RoundedCornerShape(1.5.dp))
-                                                .background(Color(0xFF252730))
+                                                .background(BgElevated)
                                         ) {
                                             if (core.isOnline) {
                                                 Box(
@@ -502,7 +502,7 @@ fun TuningCpuCategory(
                                             text = if (core.isOnline) "$load%" else "--",
                                             fontSize = 8.5.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = if (core.isOnline) Color(0xFFA0A0AB) else Color(0xFF555866)
+                                            color = if (core.isOnline) TextSecondary else TextTertiary
                                         )
                                     }
                                 }
@@ -526,16 +526,16 @@ fun TuningCpuCategory(
             val clusterType = parentCluster?.role ?: if (targetCore.coreId >= 4) "Performance" else "Efficiency"
             AlertDialog(
                 onDismissRequest = { pendingCoreAction = null },
-                containerColor = Color(0xFF16181D),
-                titleContentColor = Color.White,
-                textContentColor = Color(0xFFCCCCCC),
+                containerColor = BgCard,
+                titleContentColor = TextPrimary,
+                textContentColor = TextSecondary,
                 shape = RoundedCornerShape(16.dp),
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = if (willEnable) Icons.Default.PowerSettingsNew else Icons.Default.Warning,
                             contentDescription = null,
-                            tint = if (willEnable) Color(0xFF00E5FF) else Color(0xFFFF5252),
+                            tint = if (willEnable) AccentCyan else AccentRed,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(Modifier.width(8.dp))
@@ -556,23 +556,23 @@ fun TuningCpuCategory(
                             },
                             fontSize = 12.5.sp,
                             lineHeight = 17.sp,
-                            color = Color(0xFFAAAAAA)
+                            color = TextSecondary
                         )
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF202228),
+                            color = BgElevated,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("Status saat ini:", fontSize = 11.sp, color = Color(0xFF888899))
+                                Text("Status saat ini:", fontSize = 11.sp, color = TextTertiary)
                                 Text(
                                     if (targetCore.isOnline) "Aktif (${targetCore.curFreqKhz / 1000}MHz)" else "OFFLINE",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (targetCore.isOnline) Color(0xFF2979FF) else Color(0xFFFF5252)
+                                    color = if (targetCore.isOnline) AccentBlue else AccentRed
                                 )
                             }
                         }
@@ -585,7 +585,7 @@ fun TuningCpuCategory(
                             pendingCoreAction = null
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (willEnable) Color(0xFF2979FF) else Color(0xFFD32F2F)
+                            containerColor = if (willEnable) AccentBlue else AccentRed
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -601,7 +601,7 @@ fun TuningCpuCategory(
                     TextButton(
                         onClick = { pendingCoreAction = null }
                     ) {
-                        Text("Batal", color = Color(0xFFAAAAAA), fontSize = 12.sp)
+                        Text("Batal", color = TextSecondary, fontSize = 12.sp)
                     }
                 }
             )
@@ -611,16 +611,16 @@ fun TuningCpuCategory(
         if (showMasterCoreNotice) {
             AlertDialog(
                 onDismissRequest = { showMasterCoreNotice = false },
-                containerColor = Color(0xFF16181D),
-                titleContentColor = Color.White,
-                textContentColor = Color(0xFFCCCCCC),
+                containerColor = BgCard,
+                titleContentColor = TextPrimary,
+                textContentColor = TextSecondary,
                 shape = RoundedCornerShape(16.dp),
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = null,
-                            tint = Color(0xFFFFB300),
+                            tint = AccentOrange,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(Modifier.width(8.dp))
@@ -632,13 +632,13 @@ fun TuningCpuCategory(
                         "CPU Core 0 adalah boot processor utama kernel Linux yang menangani interrupt sistem, root scheduler, dan zygote init. Core ini diproteksi agar tidak dapat dinonaktifkan demi mencegah kernel panic atau freeze perangkat.",
                         fontSize = 12.5.sp,
                         lineHeight = 17.sp,
-                        color = Color(0xFFAAAAAA)
+                        color = TextSecondary
                     )
                 },
                 confirmButton = {
                     Button(
                         onClick = { showMasterCoreNotice = false },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2979FF)),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("Mengerti", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -857,17 +857,23 @@ fun TuningCpuCategory(
                                     shape = RoundedCornerShape(6.dp),
                                     color = if (isModeSel) modeColor.copy(alpha = 0.22f) else BgSurfaceLowest,
                                     border = BorderStroke(1.dp, if (isModeSel) modeColor else BorderSubtle),
-                                    modifier = Modifier.clickable {
-                                        viewModel.setSchedulerArchitectureMode(modeKey, context)
-                                    }
+                                    modifier = Modifier
+                                        .defaultMinSize(minWidth = 48.dp, minHeight = 44.dp)
+                                        .clickable {
+                                            viewModel.setSchedulerArchitectureMode(modeKey, context)
+                                        }
                                 ) {
-                                    Text(
-                                        text = modeLabel,
-                                        color = if (isModeSel) modeColor else TextSecondary,
-                                        fontSize = 10.sp,
-                                        fontWeight = if (isModeSel) FontWeight.Bold else FontWeight.Medium,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = modeLabel,
+                                            color = if (isModeSel) modeColor else TextSecondary,
+                                            fontSize = 10.sp,
+                                            fontWeight = if (isModeSel) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -902,22 +908,42 @@ fun TuningCpuCategory(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.6.sp
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (schedInfo.activePreset.equals("custom", true)) {
-                                Icon(
-                                    imageVector = Icons.Default.Build,
-                                    contentDescription = null,
-                                    tint = AccentPurple,
-                                    modifier = Modifier.size(10.dp)
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (schedInfo.activePreset.equals("custom", true)) AccentPurple.copy(alpha = 0.15f) else BgSurfaceLowest,
+                            border = BorderStroke(1.dp, if (schedInfo.activePreset.equals("custom", true)) AccentPurple.copy(alpha = 0.4f) else BorderSubtle),
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 36.dp)
+                                .clickable { showPresetSheet = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (schedInfo.activePreset.equals("custom", true)) {
+                                    Icon(
+                                        imageVector = Icons.Default.Build,
+                                        contentDescription = null,
+                                        tint = AccentPurple,
+                                        modifier = Modifier.size(10.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = TextTertiary,
+                                        modifier = Modifier.size(10.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                }
+                                Text(
+                                    text = if (schedInfo.activePreset.equals("custom", true)) "Kustom" else "Preset Cepat",
+                                    color = if (schedInfo.activePreset.equals("custom", true)) AccentPurple else TextTertiary,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 )
-                                Spacer(Modifier.width(3.dp))
                             }
-                            Text(
-                                text = if (schedInfo.activePreset.equals("custom", true)) "Kustom" else "Preset Cepat",
-                                color = if (schedInfo.activePreset.equals("custom", true)) AccentPurple else TextTertiary,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
                         }
                     }
 
@@ -933,6 +959,7 @@ fun TuningCpuCategory(
                                 border = BorderStroke(1.dp, if (isSel) opt.color else BorderSubtle),
                                 modifier = Modifier
                                     .weight(1f)
+                                    .defaultMinSize(minHeight = 44.dp)
                                     .clickable {
                                         viewModel.applySchedulerPreset(opt.key, context)
                                     }
@@ -1463,22 +1490,12 @@ fun TuningCpuCategory(
                         }
 
                         if (schedInfo.isCfsChildFirstSupported) {
-                            Row(
-                                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                                    Text("Child Process Runs First", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 11.5.sp)
-                                    Text("Prioritaskan eksekusi child process saat fork", color = TextSecondary, fontSize = 9.sp)
-                                }
-                                Switch(
-                                    checked = schedInfo.schedChildRunsFirst,
-                                    onCheckedChange = { viewModel.setSchedulerTunable("sched_child_runs_first", if (it) 1L else 0L, context) },
-                                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan),
-                                    modifier = Modifier.scale(0.8f)
-                                )
-                            }
+                            LynxSwitch(
+                                label = "Child Process Runs First",
+                                subLabel = "Prioritaskan eksekusi child process saat fork",
+                                checked = schedInfo.schedChildRunsFirst,
+                                onCheckedChange = { viewModel.setSchedulerTunable("sched_child_runs_first", if (it) 1L else 0L, context) }
+                            )
                         }
                     }
 
@@ -1611,6 +1628,7 @@ fun TuningCpuCategory(
                 activePreset = schedInfo.activePreset,
                 onSelectPreset = { preset ->
                     viewModel.applySchedulerPreset(preset, context)
+                    showPresetSheet = false
                 },
                 onDismiss = { showPresetSheet = false }
             )
@@ -1621,16 +1639,16 @@ fun TuningCpuCategory(
             val (sectionKey, sectionName) = pendingResetSection!!
             AlertDialog(
                 onDismissRequest = { pendingResetSection = null },
-                containerColor = Color(0xFF16181D),
-                titleContentColor = Color.White,
-                textContentColor = Color(0xFFCCCCCC),
+                containerColor = BgCard,
+                titleContentColor = TextPrimary,
+                textContentColor = TextSecondary,
                 shape = RoundedCornerShape(16.dp),
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.RestartAlt,
                             contentDescription = null,
-                            tint = Color(0xFFFFA726),
+                            tint = AccentOrange,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(Modifier.width(8.dp))
@@ -1646,7 +1664,7 @@ fun TuningCpuCategory(
                         text = "Seluruh konfigurasi $sectionName akan dikembalikan ke nilai standar bawaan pabrik (OEM), dan pemicu boot otomatis untuk bagian ini akan dinonaktifkan.",
                         fontSize = 12.5.sp,
                         lineHeight = 17.sp,
-                        color = Color(0xFFAAAAAA)
+                        color = TextSecondary
                     )
                 },
                 confirmButton = {
@@ -1660,7 +1678,7 @@ fun TuningCpuCategory(
                             }
                             pendingResetSection = null
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("Reset ke Default", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -1668,7 +1686,7 @@ fun TuningCpuCategory(
                 },
                 dismissButton = {
                     TextButton(onClick = { pendingResetSection = null }) {
-                        Text("Batal", color = Color(0xFFAAAAAA), fontSize = 12.sp)
+                        Text("Batal", color = TextSecondary, fontSize = 12.sp)
                     }
                 }
             )
