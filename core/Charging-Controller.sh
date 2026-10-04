@@ -121,10 +121,9 @@ apply_extreme_charging() {
     # 1. Disable JEITA thermal current clamp on MediaTek
     write_node "0" "$MTK_DIR/sw_jeita"
 
-    # 2. Unlock MediaTek fast charging protocols (Pump Express 2.0 / 4.0 & max watt)
-    write_node "2" "$MTK_DIR/Pump_Express"
-    write_node "1" "$MTK_DIR/pe20"
+    # 2. Unlock MediaTek fast charging protocols (Pump Express 4.0 / Super Charge 33W & max watt)
     write_node "1" "$MTK_DIR/pe40"
+    write_node "1" "$MTK_DIR/pe20"
     write_node "68" "$MTK_DIR/pdc_max_watt"
 
     # 3. Unlock maximum input and battery current on MediaTek
@@ -157,14 +156,20 @@ apply_extreme_charging() {
         done
     fi
 
-    # 5. Universal & Qualcomm Maximum Current (6000mA = 6A max headroom)
+    # 6. Universal & Qualcomm Maximum Current (6000mA = 6A max headroom, Read-Only Locked)
+    chmod 644 "$BATT_DIR/constant_charge_current_max" 2>/dev/null
     write_node "6000000" "$BATT_DIR/constant_charge_current_max"
+    chmod 444 "$BATT_DIR/constant_charge_current_max" 2>/dev/null
+    chmod 644 "$BATT_DIR/constant_charge_current" 2>/dev/null
     write_node "6000000" "$BATT_DIR/constant_charge_current"
     write_node "6000000" "$BATT_DIR/current_max"
+    write_node "6000000" "$BATT_DIR/input_current_limit"
     write_node "6000000" "$MAIN_DIR/constant_charge_current_max"
     write_node "6000000" "$MAIN_DIR/current_max"
     write_node "6000000" "$USB_DIR/current_max"
     write_node "6000000" "$USB_DIR/hw_current_max"
+    write_node "0" "$BATT_DIR/charge_control_limit_max"
+    write_node "0" "$BATT_DIR/charge_control_limit"
 
     # Qualcomm Fastcharge mode & unrestricted
     write_node "1" "$BATT_DIR/fastcharge_mode"

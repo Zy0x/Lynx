@@ -1801,12 +1801,11 @@ object LynxRepository {
                 echo ok
                 """.trimIndent()
             } else if (extremeCharging) {
-                // Extreme Fast Charging: Unrestricted Current, Pump Express 2.0/4.0, Disable JEITA
+                // Extreme Fast Charging: Unrestricted Current, Pump Express 4.0 / SC 33W, Disable JEITA
                 """
                 echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
-                echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
 
                 echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
@@ -1841,13 +1840,19 @@ object LynxRepository {
                 done
 
                 # Universal & Qualcomm Maximum Current (6A headroom)
+                chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                chmod 444 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                chmod 644 /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/battery/current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/main/constant_charge_current_max 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/usb/hw_current_max 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
 
                 echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/fast_charge 2>/dev/null
@@ -1937,9 +1942,8 @@ object LynxRepository {
             val script = """
                 # 1. Unrestrict MediaTek Charger Platform
                 echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
-                echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
                 echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
                 echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
@@ -1972,12 +1976,19 @@ object LynxRepository {
                 done
 
                 # 4. Universal & Qualcomm Maximum Rails
+                chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                chmod 444 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                chmod 644 /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/battery/current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/main/constant_charge_current_max 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/usb/hw_current_max 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/fast_charge 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null

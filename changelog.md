@@ -1,3 +1,19 @@
+# Lynx [Codename: Deity] 3.0.31
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Direct 33W Charge Pump Engagement Engine: Eliminasi Kuncian Protokol PE 2.0 (18W Downgrade Fix) & Proteksi Read-Only Locking pada Arus Pengisian Sel Baterai (`constant_charge_current_max` 6000mA)** — membasmi pembatasan tidak disengaja di mana penulisan nilai `Pump_Express = 2` pada sysfs kernel MediaTek memaksa hardware melakukan downgrade ke protokol Pump Express 2.0 (plafon 18W: 9V / 2A), membuka prioritas penuh bagi negosiasi Pump Express 4.0 & Transsion Super Charge 33W (`enable_sc = 1`, `pe40 = 1`, `sc_ibat_limit = 8000`), serta menerapkan proteksi `chmod 444` pada `constant_charge_current_max` dan `charge_control_limit` agar Android BatteryService/Healthd tidak dapat mereset batas arus baterai kembali ke default 2000 mA.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.31)
+
+### 1. ⚡ Eliminasi Kuncian Protokol PE 2.0 (Unlocking 33W Direct Pump)
+- **Hapus Pembatasan `Pump_Express = 2`**: Menghapus penulisan statis `Pump_Express = 2` yang sebelumnya memerintahkan driver charger MTK untuk beroperasi pada Pump Express 2.0 (18W maks: 8.4V–9V @ 2.1A).
+- **Prioritas Penuh PE 4.0 & Super Charge**: Membuka jalur negosiasi 33W murni via `pe40 = 1`, `enable_sc = 1`, dan `pdc_max_watt = 68` sehingga adaptor dapat menaikkan tegangan ke 10V/11V dan mengaktifkan IC RT9759 Direct Charge Pump 2:1.
+
+### 2. 🔒 Proteksi Read-Only (`chmod 444`) pada Arus Pengisian Baterai
+- **Anti-Reset 2000mA oleh Android BatteryService**: Menerapkan `chmod 444` pada `/sys/class/power_supply/battery/constant_charge_current_max` setelah disetel ke 6000000 uA (6000 mA). Ini mencegah Android OS mereset batas arus kembali ke 2000 mA.
+- **Reset Charge Control Limit**: Mengunci `charge_control_limit_max` dan `charge_control_limit` ke 0 agar tidak terjadi pelambatan arus oleh subsistem manajemen daya OS.
+
+---
+
 # Lynx [Codename: Deity] 3.0.30
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Continuous Unthrottled Screen-On SuperCharge Engine: Bypass Penuh Limitasi Layar Menyala Transsion/MediaTek (BN_TestMode & tpcb Derating Override), Proteksi Read-Only Locking pada Cooling Devices (`chmod 444`), dan Eliminasi Throttling Prematur Suhu CPU saat Ponsel Aktif Digunakan** — meruntuhkan batasan agresif kernel OEM Transsion yang sebelumnya memangkas arus adaptor menjadi 1500 mA setiap kali layar aktif atau ponsel sedang digunakan, mengintegrasikan mode uji pabrik `BN_TestMode = 1` untuk menonaktifkan derating layar/game secara permanen, mengunci seluruh pendingin termal `cur_state = 0` dengan izin read-only agar daemon sistem tidak dapat menaikkan level throttling, serta membebaskan mode Extreme Charging dari batasan soft cutoff termal sehingga pengisian daya 33W (5–6A pada sel baterai) tetap mengalir kencang dan konsisten tanpa interupsi.

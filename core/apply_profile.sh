@@ -793,11 +793,10 @@ case "$PROFILE" in
                 write_node "0" "/sys/class/power_supply/battery/constant_charge_current_max"
                 write_node "0" "/sys/class/power_supply/battery/charging_enabled"
             else
-                # Extreme Charging: Bebaskan batasan arus, Pump Express, dan disable JEITA
+                # Extreme Charging: Bebaskan batasan arus, Pump Express 4.0 / SC 33W, dan disable JEITA
                 write_node "0" "/sys/devices/platform/charger/sw_jeita"
-                write_node "2" "/sys/devices/platform/charger/Pump_Express"
-                write_node "1" "/sys/devices/platform/charger/pe20"
                 write_node "1" "/sys/devices/platform/charger/pe40"
+                write_node "1" "/sys/devices/platform/charger/pe20"
                 write_node "68" "/sys/devices/platform/charger/pdc_max_watt"
                 write_node "6000" "/sys/devices/platform/charger/input_current"
                 write_node "6000" "/sys/devices/platform/charger/chg1_current"
@@ -809,10 +808,17 @@ case "$PROFILE" in
                 write_node "0" "/sys/devices/platform/charger/tran_charger_full"
                 write_node "0" "/sys/class/power_supply/battery/input_suspend"
                 write_node "1" "/sys/class/power_supply/battery/charging_enabled"
+                chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
                 write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current_max"
+                chmod 444 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                chmod 644 /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
                 write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current"
+                write_node "6000000" "/sys/class/power_supply/battery/current_max"
+                write_node "6000000" "/sys/class/power_supply/battery/input_current_limit"
                 write_node "6000000" "/sys/class/power_supply/main/current_max"
                 write_node "6000000" "/sys/class/power_supply/usb/current_max"
+                write_node "0" "/sys/class/power_supply/battery/charge_control_limit_max"
+                write_node "0" "/sys/class/power_supply/battery/charge_control_limit"
                 write_node "0" "/sys/class/qcom-battery/restricted_charging"
                 write_node "6000000" "/sys/class/qcom-battery/restrict_cur"
                 write_node "1" "/sys/class/power_supply/battery/fastcharge_mode"
