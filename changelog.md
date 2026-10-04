@@ -1,3 +1,31 @@
+# Lynx [Codename: Deity] 3.0.42
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Matriks Universal Pengisian Daya Cepat & Bypass Termal Lintas SoC & OEM (Universal Multi-SoC & Multi-OEM Dynamic Fast Charging & Hardware Throttle Bypass), Penembus Batas Derating Layar Nyala Multi-Vendor (Samsung One UI SIOP, OnePlus/OPPO SuperVOOC Cool Mode, Xiaomi HyperOS Joyose/Current Boost, Google Tensor, ASUS ROG, & Motorola), Telemetri Dinamis Deteksi IC PMIC & Protokol Fast Charge Real-Time, serta Penguncian Hak Akses Sysfs Berlapis (chmod 444 Anti-Rollback Guard)** — memperluas kendali pengisian daya cerdas dan bypass pengisian dari yang sebelumnya berorientasi spesifik ke Transsion/MediaTek menjadi arsitektur universal yang secara cerdas mendeteksi dan membuka batas daya pada Qualcomm Snapdragon (SMB1390/1355 direct pump & PM8150), Samsung Exynos/Snapdragon (`siop_level 100`, direct charger mode), OnePlus/Oppo/Realme (`cool_mode 0`, `call_mode 0`, SuperVOOC user type), Xiaomi/HyperOS (`thermal_input_current_limit 6000000`, boost current, Joyose suspend), Google Tensor (Pixel `charge_stop_level`, trickle dry run), ASUS ROG, dan Motorola; menyelaraskan telemetri aplikasi dan daemon shell untuk mengidentifikasi jenis IC konverter dan protokol pengisian aktif (SuperVOOC, AFC, Super Fast Charging 25W/45W, HyperCharge, Pump Express, QC, PD PPS); serta memastikan pengisian cepat tetap melaju dengan daya maksimal baik saat layar hidup maupun mati tanpa hambatan regulasi termal OEM.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.42)
+
+### 1. ⚡ Matriks Pengisian Cepat Universal Lintas SoC & OEM (All-Device Dynamic Fast Charge)
+- **Universal Linux Power Rails**: Membuka batas arus pengisian daya kernel universal (`constant_charge_current_max` hingga 6000mA / 6A, `input_current_limit`, `current_max`) dengan penguncian read-only `chmod 444` untuk mencegah kernel dan HAL mereset nilai batas.
+- **Qualcomm Snapdragon Rails**: Mengaktifkan `fastcharge_mode`, mematikan pembatasan arus (`restricted_charging = 0`), menaikkan `restrict_cur` ke 6000000, serta mengaktifkan `direct_charging` pada PMIC Qualcomm (SMB1390 / SMB1355).
+- **MediaTek Dimensity & Helio Rails**: Membuka Pump Express 4.0 & 2.0, menyetel batas watt maksimum (`pdc_max_watt = 120`), menaikkan step limit IC RT9759 (`input_current`, `chg1_current`, `chg2_current = 24576`), dan menonaktifkan JEITA thermal clamp (`sw_jeita = 0`).
+
+### 2. 🛡️ Penembus Batas Throttling Layar Nyala Multi-Vendor (Multi-OEM Screen-On Bypass)
+- **Samsung One UI (Exynos & Snapdragon)**: Memaksa `siop_level = 100` dengan penguncian `chmod 444`, menonaktifkan `store_mode` dan `batt_slate_mode`, serta mengaktifkan `direct_charger_mode` dan `afc_result` sehingga Samsung tidak memangkas arus saat layar menyala.
+- **OnePlus, OPPO & Realme (ColorOS / OxygenOS)**: Mengunci `cool_mode = 0` dan `call_mode = 0` dengan `chmod 444`, serta mengaktifkan `vooc_charging` dan `fast_charge_user_type = 1` agar SuperVOOC / Warp Charge tetap mengisi dengan kecepatan penuh saat layar aktif.
+- **Xiaomi & HyperOS (MIUI)**: Mengatur `thermal_input_current_limit = 6000000`, mengaktifkan `boost_current = 1`, mematikan `step_charging_enabled`, serta menangguhkan daemon pembatas termal Joyose (`killall -STOP com.xiaomi.joyose`) selama mode ekstrem aktif.
+- **Google Tensor (Pixel)**: Mengatur `charge_stop_level = 100` dan menonaktifkan `bd_trickle_dry_run`.
+- **ASUS ROG & Motorola**: Menyetel `smart_charging = 0` dan `charging_limit_mode = 0` (ASUS ROG), serta mengaktifkan `mmi_charging_enable = 1` dan `factory_mode = 1` (Motorola).
+
+### 3. 🔍 Telemetri Dinamis Deteksi IC PMIC & Protokol Fast Charge Real-Time
+- **Identifikasi PMIC Otomatis**: Mendeteksi secara langsung hardware IC pengisi daya aktif: RT9759 (Direct Charge Pump 2:1), Qualcomm SMB1390/1355 Dual-Pump, Samsung S2MU/Maxim Direct Charger, Xiaomi HyperCharge Dual-Pump (LN8000/SC8551), OnePlus SuperVOOC Pump, atau Google Tensor PMIC (MAX77759).
+- **Deteksi Protokol Pengisian Akurat**: Menampilkan protokol aktif secara presisi (Transsion Super Charge 33W/45W/68W RFC, OnePlus SuperVOOC / Warp Fast Charge, Xiaomi HyperCharge 67W-120W, Samsung Super Fast Charging 25W/45W, Qualcomm QC3.0/QC4+/QC5, USB Power Delivery / PPS, atau High Current 5V).
+- **Sinkronisasi Shell Controller**: Menyinkronkan fungsi `dump_telemetry_json` di `core/Charging-Controller.sh` dan `readBatteryDetails()` di Lynx Companion Kotlin repository agar menghasilkan struktur data yang identik dan konsisten.
+
+### 4. 🔄 Penyelarasan Subsistem Profil Otomatis (DRY Modular Alignment)
+- **Modular Shell Invocation**: `core/apply_profile.sh` kini secara modular mendelegasikan konfigurasi pengisian daya langsung ke `Charging-Controller.sh apply`, menjamin aturan bypass dan pengisian cepat selalu sinkron di seluruh profil performa tanpa duplikasi kode.
+
+---
+
 # Lynx [Codename: Deity] 3.0.41
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Live Monitor Telemetri GPU Presisi 1 Detik (1000ms Real-Time Drift-Compensated Polling), Normalisasi Beban Komputasi Proses Grafis Multi-Core (Zero CPU Overflow), Efisiensi Pembacaan Top Process Latar Belakang (2.5s Adaptive Cache), serta Pemantapan Tata Letak Antarmuka GPU & Display Bersih & Responsif (Strict Touch-First Obsidian Dark Architecture)** — menyelaraskan siklus pembaruan grafik gelombang Bezier GPU, ring-buffer beban 30 detik, dan telemetri clock hardware tepat setiap 1 detik tanpa fluktuasi waktu; membagi persentase CPU proses render grafis dengan jumlah core aktif sehingga tidak lagi menampilkan nilai di atas 100%; mengeliminasi beban CPU saat polling dengan isolasi cache 2.5 detik untuk scan proses berat; serta memastikan tata letak subhalaman GPU & Display tertata rapi, bersih, bebas tumpang tindih elemen, dan sepenuhnya mematuhi standar desain mobile-first.

@@ -129,7 +129,7 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
             containerColor = BgCard,
             titleContentColor = AccentRed,
             textContentColor = TextSecondary,
-            title = { Text("⚠️ Mode Extreme — Peringatan Bahaya") },
+            title = { Text("Mode Extreme — Peringatan Bahaya") },
             text = {
                 Text(
                     "Mode Extreme mengunci CPU & GPU pada frekuensi maksimum mutlak dan menonaktifkan " +
@@ -620,8 +620,8 @@ fun MainDashboard(
                     ) {
                         listOf(
                             Triple("ALL", "Semua (${allApps.size})", AccentCyan),
-                            Triple("GAME", "🎮 Game ($gameCount)", AccentOrange),
-                            Triple("UNCONFIGURED", "⚡ Belum Dikonfigurasi", AccentGreen),
+                            Triple("GAME", "Game ($gameCount)", AccentOrange),
+                            Triple("UNCONFIGURED", "Belum Dikonfigurasi", AccentGreen),
                         ).forEach { (key, label, accent) ->
                             val isSel = addAppFilter == key
                             Surface(
@@ -724,7 +724,7 @@ fun MainDashboard(
                                                             border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.4f))
                                                         ) {
                                                             Text(
-                                                                "🎮 GAME",
+                                                                "GAME",
                                                                 color = AccentOrange,
                                                                 fontSize = 8.sp,
                                                                 fontWeight = FontWeight.ExtraBold,
@@ -1053,7 +1053,7 @@ fun MainDashboard(
                                         )
                                         Spacer(Modifier.width(6.dp))
                                         Text(
-                                            "🎮 Edge Drawer",
+                                            "Edge Drawer",
                                             color = if (isDrawerSel) AccentCyan else TextPrimary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
@@ -1089,7 +1089,7 @@ fun MainDashboard(
                                         )
                                         Spacer(Modifier.width(6.dp))
                                         Text(
-                                            "🗔 Floating Window",
+                                            "Floating Window",
                                             color = if (isFloatSel) AccentCyan else TextPrimary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
@@ -1123,7 +1123,7 @@ fun MainDashboard(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("📌", fontSize = 12.sp)
+                                        Icon(Icons.Default.PushPin, null, tint = if (uiState.hudPinMiniFps) AccentCyan else TextSecondary, modifier = Modifier.size(13.dp))
                                         Spacer(Modifier.width(6.dp))
                                         Column {
                                             Text(
@@ -1632,7 +1632,7 @@ fun MainDashboard(
                         accentColor = AccentCyan
                     ) {
                         LynxActionButton(
-                            text = "⚡ Live Benchmark & Hardware Frame Profiler",
+                            text = "Live Benchmark & Hardware Frame Profiler",
                             icon = Icons.Default.Assessment,
                             onClick = { viewModel.openBenchmarkDialog() },
                             accentColor = AccentPurple,
@@ -1662,7 +1662,7 @@ fun MainDashboard(
                             modifier = Modifier.padding(bottom = 10.dp)
                         )
                         LynxActionButton(
-                            text = "🛡️ Reset Aman Kernel ke Bawaan (Stock Safe)",
+                            text = "Reset Aman Kernel ke Bawaan (Stock Safe)",
                             icon = Icons.Default.RestartAlt,
                             onClick = { viewModel.resetKernelToStock() },
                             accentColor = AccentGreen
@@ -2649,9 +2649,9 @@ fun BenchmarkStudioDialog(
 
                             // Stability Verdict
                             val (verdictText, verdictColor) = when {
-                                result.jankyFramesPercent <= 5f -> "⭐ Ultra Smooth — Frame Pacing Sangat Stabil" to AccentGreen
-                                result.jankyFramesPercent <= 15f -> "✅ Sangat Baik — Stabilitas Tinggi" to AccentCyan
-                                else -> "⚠️ Variasi Frametime Terdeteksi" to AccentOrange
+                                result.jankyFramesPercent <= 5f -> "Ultra Smooth — Frame Pacing Sangat Stabil" to AccentGreen
+                                result.jankyFramesPercent <= 15f -> "Sangat Baik — Stabilitas Tinggi" to AccentCyan
+                                else -> "Variasi Frametime Terdeteksi" to AccentOrange
                             }
                             Text(
                                 text = verdictText,
@@ -2787,7 +2787,7 @@ fun BenchmarkStudioDialog(
                         OutlinedButton(
                             onClick = {
                                 val reportText = """
-                                    🔥 LYNX LIVE BENCHMARK REPORT
+                                    LYNX LIVE BENCHMARK REPORT
                                     Aplikasi: ${result.appName} (${result.appPackage})
                                     Profil Kernel: ${result.activeProfile.uppercase()}
                                     Rata-rata FPS: ${result.averageFps} FPS

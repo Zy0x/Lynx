@@ -3834,6 +3834,8 @@ object LynxRepository {
                 adpv=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null)
                 [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null)
                 [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/usb/voltage_now 2>/dev/null)
+                [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/battery/charger_voltage 2>/dev/null)
+                [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/main/voltage_now 2>/dev/null)
                 [ -z "${'$'}adpv" ] && adpv=0
 
                 chgtyp=${'$'}(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || cat /sys/class/power_supply/usb/type 2>/dev/null || echo "")
@@ -3841,6 +3843,8 @@ object LynxRepository {
                 raw_ibus=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_ICharger 2>/dev/null)
                 [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1)
                 [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/current_now 2>/dev/null)
+                [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/input_current_now 2>/dev/null)
+                [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/main/current_now 2>/dev/null)
                 [ -z "${'$'}raw_ibus" ] && raw_ibus=0
 
                 if [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -lt 1000 ] && [ "${'$'}raw_ibus" -gt 10 ] 2>/dev/null; then
@@ -3863,6 +3867,35 @@ object LynxRepository {
                 [ -z "${'$'}rtmp" ] || [ "${'$'}rtmp" -le 0 ] 2>/dev/null && rtmp=${'$'}temp
                 grd=${'$'}([ -f /dev/lynx_charging_guard ] && echo 1 || echo 0)
                 cst=${'$'}(cat /dev/lynx_charging_state 2>/dev/null || echo "")
+
+                # Multi-vendor PMIC detection
+                pmic_sig=""
+                if [ -d /sys/class/power_supply/smb1390 ] || [ -d /sys/bus/i2c/drivers/smb1390 ]; then
+                    pmic_sig="smb1390"
+                elif [ -d /sys/class/power_supply/smb1355 ] || [ -d /sys/bus/i2c/drivers/smb1355 ]; then
+                    pmic_sig="smb1355"
+                elif [ -d /sys/class/power_supply/bms ] || [ -d /sys/class/qcom-battery ]; then
+                    pmic_sig="qcom_pmic"
+                elif [ -d /sys/bus/i2c/drivers/rt9759 ]; then
+                    pmic_sig="rt9759"
+                elif [ -e /sys/class/power_supply/sec-direct-charger ]; then
+                    pmic_sig="sec_direct"
+                elif [ -d /sys/bus/i2c/drivers/max77705 ] || [ -d /sys/bus/i2c/drivers/max77854 ] || [ -d /sys/class/power_supply/sec-charger ]; then
+                    pmic_sig="sec_max"
+                elif [ -d /sys/bus/i2c/drivers/ln8000 ] || [ -d /sys/bus/i2c/drivers/sc8551 ] || [ -e /sys/class/power_supply/battery/sub_charger_type ]; then
+                    pmic_sig="mi_pump"
+                elif [ -e /sys/class/power_supply/battery/vooc_charging ] || [ -e /sys/class/power_supply/battery/cool_mode ]; then
+                    pmic_sig="vooc_pump"
+                elif [ -d /sys/bus/i2c/drivers/max77759 ] || [ -d /sys/bus/i2c/drivers/da9121 ]; then
+                    pmic_sig="pixel_pmic"
+                fi
+
+                # Multi-vendor fast charging protocol signals
+                sec_sig=${'$'}(cat /sys/class/power_supply/battery/afc_result 2>/dev/null || cat /sys/class/power_supply/battery/charge_mode 2>/dev/null || echo "")
+                vooc_sig=${'$'}(cat /sys/class/power_supply/battery/vooc_charging 2>/dev/null || cat /sys/class/power_supply/battery/fast_charge_user_type 2>/dev/null || echo "")
+                qc_sig=${'$'}(cat /sys/class/power_supply/usb/quick_charge_type 2>/dev/null || cat /sys/class/power_supply/usb/real_type 2>/dev/null || echo "")
+                mi_sig=${'$'}(cat /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null || cat /sys/class/power_supply/battery/boost_current 2>/dev/null || echo "")
+                pd_sig=${'$'}(cat /sys/class/power_supply/usb/pd_active 2>/dev/null || cat /sys/class/power_supply/usb/pd_allowed 2>/dev/null || echo "")
 
                 # Suppress thermal throttling daemon if extreme charging or spoofing 28C is active
                 is_ext=${'$'}([ -f /dev/lynx_extreme_charging ] && echo 1 || echo 0)
@@ -3894,7 +3927,7 @@ object LynxRepository {
                     fi
                 fi
 
-                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst"
+                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst|${'$'}pmic_sig|${'$'}sec_sig|${'$'}vooc_sig|${'$'}qc_sig|${'$'}mi_sig|${'$'}pd_sig"
             """.trimIndent()
             val r = Shell.cmd(script).exec()
             val line = r.out.firstOrNull { it.contains("|") }?.trim() ?: return@withContext null
@@ -3924,6 +3957,13 @@ object LynxRepository {
                 val isGuardActive = parts.getOrNull(13)?.trim() == "1"
                 val chgState = parts.getOrNull(14)?.trim() ?: ""
 
+                val pmicSig = parts.getOrNull(15)?.trim() ?: ""
+                val secSig = parts.getOrNull(16)?.trim() ?: ""
+                val voocSig = parts.getOrNull(17)?.trim() ?: ""
+                val qcSig = parts.getOrNull(18)?.trim() ?: ""
+                val miSig = parts.getOrNull(19)?.trim() ?: ""
+                val pdSig = parts.getOrNull(20)?.trim() ?: ""
+
                 val isCharging = curMa > 50 || stat.equals("Charging", ignoreCase = true)
                 val isOvernightLatched = cap >= 100 || stat.equals("Full", ignoreCase = true) || chgState.contains("bypass_100")
                 val isTapering = chgState.contains("tapering") || (cap in 90..99 && isCharging)
@@ -3933,23 +3973,37 @@ object LynxRepository {
                 } else 0f
 
                 val activeIC = when {
-                    rfcAuth || chgTyp == "9" || (adpMv > 7000 && curMa >= 1500) -> "Direct Charge Pump (RT9759 2:1)"
-                    isCharging -> "Switching Buck Converter (RT9471)"
-                    else -> "Standby / Baterai"
+                    !isCharging -> "Standby / Baterai"
+                    rfcAuth || chgTyp == "9" || pmicSig == "rt9759" || (adpMv > 7000 && curMa >= 1500 && pmicSig.isBlank()) -> "Direct Charge Pump (RT9759 2:1)"
+                    pmicSig == "smb1390" || (qcSig.contains("QC", ignoreCase = true) && adpMv > 7000) -> "Qualcomm SMB1390 Dual-Pump"
+                    pmicSig == "smb1355" -> "Qualcomm SMB1355 Companion PMIC"
+                    pmicSig == "qcom_pmic" -> "Qualcomm PMIC (PM8150/PM6150 Buck)"
+                    pmicSig == "sec_direct" -> "Samsung Direct Charger (S2MU/Maxim)"
+                    pmicSig == "sec_max" -> "Samsung PMIC (Maxim MAX77x Buck)"
+                    pmicSig == "mi_pump" -> "Xiaomi HyperCharge Dual-Pump (LN8000/SC8551)"
+                    pmicSig == "vooc_pump" || voocSig == "1" -> "SuperVOOC / Warp Charge Pump"
+                    pmicSig == "pixel_pmic" -> "Google Tensor PMIC (MAX77759)"
+                    else -> "Switching Buck Converter (RT9471/Universal)"
                 }
 
                 val protocol = when {
-                    rfcAuth || chgTyp == "9" -> "Transsion Super Charge (33W RFC)"
-                    adpMv > 8000 || chgTyp == "4" -> "USB-PD / PE2.0 Fast Charge (18W)"
+                    !isCharging -> "Battery Power"
+                    rfcAuth || chgTyp == "9" -> "Transsion Super Charge (33W/45W/68W RFC)"
+                    voocSig == "1" || voocSig == "2" -> "SuperVOOC / Warp Fast Charge"
+                    miSig == "1" && adpMv > 8000 -> "Xiaomi HyperCharge / Turbo (67W-120W)"
+                    secSig == "1" || secSig.contains("AFC", ignoreCase = true) -> if (adpMv > 8000) "Samsung Super Fast Charging (25W/45W)" else "Samsung Adaptive Fast Charging (AFC)"
+                    qcSig.contains("QC", ignoreCase = true) || qcSig.contains("Quick", ignoreCase = true) -> "Qualcomm Quick Charge (QC3.0/QC4+/QC5)"
+                    pdSig == "1" || chgTyp == "4" || adpMv > 8000 -> if (adpMv > 8500) "USB Power Delivery / PPS (${String.format(java.util.Locale.US, "%.1f", adpMv / 1000f)}V)" else "USB-PD / PE2.0 Fast Charge (18W)"
                     adpMv > 4500 && curMa >= 2000 -> "Fast Charge (High Current 5V)"
                     adpMv > 4000 -> "Standard USB (${String.format(java.util.Locale.US, "%.1f", adpMv / 1000f)}V)"
-                    else -> "Battery Power"
+                    else -> "Standard Charging"
                 }
 
                 val adapterWatt = if (adpMv > 1000 && ibusMa > 50) {
                     (adpMv.toFloat() * ibusMa.toFloat()) / 1_000_000f
                 } else if (watt > 0.1f) {
-                    watt / (if (rfcAuth) 0.96f else 0.88f)
+                    val effFactor = if (rfcAuth || pmicSig == "rt9759" || pmicSig == "smb1390" || pmicSig == "mi_pump" || voocSig == "1") 0.96f else 0.88f
+                    watt / effFactor
                 } else 0f
 
                 val effectiveIbusMa = if (ibusMa > 50) {

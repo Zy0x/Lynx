@@ -41,15 +41,22 @@ detect_hw_bypass() {
     # ASUS ROG
     elif [ -e "/sys/class/power_supply/battery/device/smart_charging" ]; then
         echo "/sys/class/power_supply/battery/device/smart_charging"
+    elif [ -e "/sys/class/power_supply/battery/charging_limit_mode" ]; then
+        echo "/sys/class/power_supply/battery/charging_limit_mode"
     # Sony Xperia
     elif [ -e "/sys/class/power_supply/battery/smart_charging_activation" ]; then
         echo "/sys/class/power_supply/battery/smart_charging_activation"
     # Xiaomi / Qualcomm
     elif [ -e "/sys/class/qcom-battery/direct_charging" ]; then
         echo "/sys/class/qcom-battery/direct_charging"
-    # Samsung
+    # Samsung One UI
     elif [ -e "/sys/class/power_supply/battery/store_mode" ]; then
         echo "/sys/class/power_supply/battery/store_mode"
+    elif [ -e "/sys/class/power_supply/battery/batt_slate_mode" ]; then
+        echo "/sys/class/power_supply/battery/batt_slate_mode"
+    # Google Tensor
+    elif [ -e "/sys/class/power_supply/battery/charge_stop_level" ]; then
+        echo "/sys/class/power_supply/battery/charge_stop_level"
     else
         echo ""
     fi
@@ -77,27 +84,47 @@ apply_bypass_charging() {
     write_node "1" "$BATT_DIR/charge_control_limit_max"
     write_node "0" "$BATT_DIR/charge_control_limit"
 
-    # 3. MediaTek Smart Charging lock to current capacity (zero battery current)
     local cur_cap
     cur_cap=$(read_node "$BATT_DIR/capacity")
     [ -z "$cur_cap" ] && cur_cap=80
+
+    # 3. MediaTek Smart Charging lock to current capacity (zero battery current)
     write_node "1" "$MTK_DIR/enable_sc"
     write_node "$cur_cap" "$MTK_DIR/sc_tuisoc"
     write_node "0" "$MTK_DIR/sc_ibat_limit"
-
-    # 4. Zero battery charge current while keeping Vsys alive
     write_node "0" "$MTK_DIR/chg1_current"
     write_node "0" "$MTK_DIR/chg2_current"
+
+    # 4. Universal & Qualcomm Zero battery charge current while keeping Vsys alive
     write_node "0" "$BATT_DIR/constant_charge_current"
     write_node "0" "$BATT_DIR/constant_charge_current_max"
     write_node "0" "$QC_DIR/restrict_cur"
-
-    # 5. OEM specific bypass / slate modes
-    write_node "1" "$BATT_DIR/device/smart_charging"
-    write_node "1" "$BATT_DIR/smart_charging_activation"
     write_node "1" "$QC_DIR/direct_charging"
+
+    # 5. Multi-OEM specific bypass / slate modes
+    # ASUS ROG
+    write_node "1" "$BATT_DIR/device/smart_charging"
+    write_node "1" "$BATT_DIR/charging_limit_mode"
+    # Sony
+    write_node "1" "$BATT_DIR/smart_charging_activation"
+    # Samsung One UI
     write_node "1" "$BATT_DIR/store_mode"
     write_node "1" "$BATT_DIR/batt_slate_mode"
+    chmod 666 "$BATT_DIR/siop_level" 2>/dev/null
+    write_node "100" "$BATT_DIR/siop_level"
+    chmod 444 "$BATT_DIR/siop_level" 2>/dev/null
+    # OnePlus / Oppo
+    chmod 666 "$BATT_DIR/cool_mode" 2>/dev/null
+    write_node "0" "$BATT_DIR/cool_mode"
+    chmod 444 "$BATT_DIR/cool_mode" 2>/dev/null
+    chmod 666 "$BATT_DIR/call_mode" 2>/dev/null
+    write_node "0" "$BATT_DIR/call_mode"
+    chmod 444 "$BATT_DIR/call_mode" 2>/dev/null
+    # Google Tensor
+    write_node "$cur_cap" "$BATT_DIR/charge_stop_level"
+    write_node "1" "$BATT_DIR/bd_trickle_dry_run"
+    # Transsion
+    write_node "1" "/sys/devices/platform/charger/bypass_charger"
 
     # Soft charging disable only if input_suspend is safe
     write_node "0" "$BATT_DIR/charging_enabled"
@@ -106,11 +133,7 @@ apply_bypass_charging() {
 # -----------------------------------------------------------------------------
 # Mode 2: Extreme Fast Charging (Ultra-High Current & Speed)
 # Unlocks maximum hardware charging current, Pump Express / Fast Charge,
-# and disables JEITA thermal charging current clamp so battery never drops!
-# -----------------------------------------------------------------------------
-# Mode 2: Extreme Fast Charging (Ultra-High Current & Speed)
-# Unlocks maximum hardware charging current, Pump Express / Fast Charge,
-# and disables JEITA thermal charging current clamp so battery never drops!
+# Screen-On Throttling Bypass, Multi-OEM derate removal & Thermal clamp bypass!
 # -----------------------------------------------------------------------------
 apply_extreme_charging() {
     local target_soc="$1"
@@ -120,15 +143,30 @@ apply_extreme_charging() {
 
     touch /dev/lynx_extreme_charging 2>/dev/null
 
-    # 1. Disable JEITA thermal current clamp on MediaTek
-    write_node "0" "$MTK_DIR/sw_jeita"
+    # 1. Universal Linux & Android Rails (Uncap to 6A / 6000mA max headroom)
+    chmod 644 "$BATT_DIR/constant_charge_current_max" 2>/dev/null
+    write_node "6000000" "$BATT_DIR/constant_charge_current_max"
+    chmod 444 "$BATT_DIR/constant_charge_current_max" 2>/dev/null
+    chmod 644 "$BATT_DIR/constant_charge_current" 2>/dev/null
+    write_node "6000000" "$BATT_DIR/constant_charge_current"
+    write_node "6000000" "$BATT_DIR/current_max"
+    write_node "6000000" "$BATT_DIR/input_current_limit"
+    write_node "6000000" "$MAIN_DIR/constant_charge_current_max"
+    write_node "6000000" "$MAIN_DIR/current_max"
+    write_node "6000000" "$USB_DIR/current_max"
+    write_node "6000000" "$USB_DIR/hw_current_max"
+    write_node "0" "$BATT_DIR/charge_control_limit_max"
+    write_node "0" "$BATT_DIR/charge_control_limit"
+    write_node "1" "$BATT_DIR/fastcharge_mode"
+    write_node "1" "$BATT_DIR/fast_charge"
+    write_node "0" "$BATT_DIR/input_suspend"
+    write_node "1" "$BATT_DIR/charging_enabled"
 
-    # 2. Unlock MediaTek fast charging protocols (Pump Express 4.0 / Super Charge 33W & max watt)
+    # 2. MediaTek (Dimensity & Helio) Extreme Power Rails
+    write_node "0" "$MTK_DIR/sw_jeita"
     write_node "1" "$MTK_DIR/pe40"
     write_node "1" "$MTK_DIR/pe20"
-    write_node "68" "$MTK_DIR/pdc_max_watt"
-
-    # 3. Unlock maximum input and battery current on MediaTek (RT9759 24576 raw step limit)
+    write_node "120" "$MTK_DIR/pdc_max_watt"
     write_node "24576" "$MTK_DIR/input_current"
     write_node "24576" "$MTK_DIR/chg1_current"
     write_node "24576" "$MTK_DIR/chg2_current"
@@ -136,12 +174,55 @@ apply_extreme_charging() {
     write_node "$target_soc" "$MTK_DIR/sc_tuisoc"
     write_node "1" "$MTK_DIR/enable_sc"
 
-    # 4. Bypass Transsion Screen-On Throttling, PCB Thermal Clamp & Test Rig Derating
+    # 3. Qualcomm Snapdragon Extreme Charging Uncap
+    write_node "0" "$QC_DIR/restricted_charging"
+    write_node "6000000" "$QC_DIR/restrict_cur"
+    write_node "1" "$QC_DIR/direct_charging"
+    write_node "0" "$QC_DIR/system_temp_level"
+    write_node "6000000" "$BATT_DIR/system_temp_level"
+
+    # 4. Xiaomi / HyperOS / MIUI Screen-On & Thermal Throttling Bypass
+    write_node "6000000" "$BATT_DIR/thermal_input_current_limit"
+    write_node "1" "$BATT_DIR/boost_current"
+    write_node "0" "$BATT_DIR/step_charging_enabled"
+    killall -STOP com.xiaomi.joyose 2>/dev/null
+
+    # 5. Samsung One UI (Exynos / Qualcomm) Screen-On Throttling Bypass
+    chmod 666 "$BATT_DIR/siop_level" 2>/dev/null
+    write_node "100" "$BATT_DIR/siop_level"
+    chmod 444 "$BATT_DIR/siop_level" 2>/dev/null
+    write_node "0" "$BATT_DIR/store_mode"
+    write_node "0" "$BATT_DIR/batt_slate_mode"
+    write_node "0" "$BATT_DIR/wc_control"
+    write_node "1" "$BATT_DIR/afc_result"
+    write_node "1" "$BATT_DIR/direct_charger_mode"
+
+    # 6. OnePlus / OPPO / Realme (ColorOS / OxygenOS) SuperVOOC Screen-On Bypass
+    chmod 666 "$BATT_DIR/cool_mode" 2>/dev/null
+    write_node "0" "$BATT_DIR/cool_mode"
+    chmod 444 "$BATT_DIR/cool_mode" 2>/dev/null
+    chmod 666 "$BATT_DIR/call_mode" 2>/dev/null
+    write_node "0" "$BATT_DIR/call_mode"
+    chmod 444 "$BATT_DIR/call_mode" 2>/dev/null
+    write_node "1" "$BATT_DIR/vooc_charging"
+    write_node "1" "$BATT_DIR/fast_charge_user_type"
+
+    # 7. Google Tensor (Pixel) Fast Charging Unlock
+    write_node "100" "$BATT_DIR/charge_stop_level"
+    write_node "0" "$BATT_DIR/bd_trickle_dry_run"
+
+    # 8. ASUS ROG Charging Throttling Unlock
+    write_node "0" "$BATT_DIR/device/smart_charging"
+    write_node "0" "$BATT_DIR/charging_limit_mode"
+
+    # 9. Motorola Fast Charging Unlock
+    write_node "1" "$BATT_DIR/mmi_charging_enable"
+    write_node "1" "$BATT_DIR/factory_mode"
+
+    # 10. Transsion (Infinix / Tecno) Screen-On Throttling & PCB Thermal Bypass
     write_node "1" "$MTK_DIR/BN_TestMode"
     write_node "0" "$MTK_DIR/BatteryNotify"
     write_node "0" "$MTK_DIR/tran_charger_full"
-
-    # Transsion ODM PCB Thermal Clamp Override & Read-Only Lock (Uncapped from 45C to 85C, deal current to 6000mA)
     for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
         if [ -e "$node" ]; then
             chmod 666 "$node" 2>/dev/null
@@ -149,15 +230,13 @@ apply_extreme_charging() {
             chmod 444 "$node" 2>/dev/null
         fi
     done
-
-    # Disable MediaTek AP/PCB Thermal Zone Throttle & Read-Only Lock
     if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
         chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
         echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
         chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
     fi
 
-    # 5. Bypass MTK Super Charge DV2_TBAT thermal lockout
+    # 11. Universal Thermal Lockout Bypass (Spoof 28°C & Freeze Cooling Devices)
     if [ "$allow_lockout_bypass" = "true" ]; then
         chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
         write_node "28" "/sys/devices/platform/battery/Battery_Temperature"
@@ -175,39 +254,8 @@ apply_extreme_charging() {
         cmd thermalservice override-status 0 2>/dev/null
     fi
 
-    # 6. Universal & Qualcomm Maximum Current (6000mA = 6A max headroom, Read-Only Locked)
-    chmod 644 "$BATT_DIR/constant_charge_current_max" 2>/dev/null
-    write_node "6000000" "$BATT_DIR/constant_charge_current_max"
-    chmod 444 "$BATT_DIR/constant_charge_current_max" 2>/dev/null
-    chmod 644 "$BATT_DIR/constant_charge_current" 2>/dev/null
-    write_node "6000000" "$BATT_DIR/constant_charge_current"
-    write_node "6000000" "$BATT_DIR/current_max"
-    write_node "6000000" "$BATT_DIR/input_current_limit"
-    write_node "6000000" "$MAIN_DIR/constant_charge_current_max"
-    write_node "6000000" "$MAIN_DIR/current_max"
-    write_node "6000000" "$USB_DIR/current_max"
-    write_node "6000000" "$USB_DIR/hw_current_max"
-    write_node "0" "$BATT_DIR/charge_control_limit_max"
-    write_node "0" "$BATT_DIR/charge_control_limit"
-
-    # Qualcomm Fastcharge mode & unrestricted
-    write_node "1" "$BATT_DIR/fastcharge_mode"
-    write_node "1" "$BATT_DIR/fast_charge"
-    write_node "0" "$QC_DIR/restricted_charging"
-    write_node "6000000" "$QC_DIR/restrict_cur"
-
-    # Reset OEM bypass locks
+    # Reset hardware bypass switches
     [ -n "$HW_BYPASS_NODE" ] && write_node "0" "$HW_BYPASS_NODE"
-    write_node "0" "$BATT_DIR/device/smart_charging"
-    write_node "0" "$BATT_DIR/smart_charging_activation"
-    write_node "0" "$QC_DIR/direct_charging"
-    write_node "0" "$BATT_DIR/store_mode"
-    write_node "0" "$BATT_DIR/batt_slate_mode"
-
-    # Ensure charging is fully enabled and input is NOT suspended
-    write_node "0" "$BATT_DIR/input_suspend"
-    write_node "1" "$BATT_DIR/charging_enabled"
-    write_node "0" "$BATT_DIR/charge_control_limit_max"
 }
 
 # -----------------------------------------------------------------------------
@@ -230,11 +278,44 @@ apply_regulated_charging() {
     write_node "0" "$BATT_DIR/batt_slate_mode"
     write_node "0" "$MTK_DIR/enable_sc"
 
+    # Restore multi-OEM screen-on throttling nodes
+    chmod 644 "$BATT_DIR/siop_level" 2>/dev/null
+    write_node "100" "$BATT_DIR/siop_level"
+    chmod 644 "$BATT_DIR/cool_mode" 2>/dev/null
+    chmod 644 "$BATT_DIR/call_mode" 2>/dev/null
+    killall -CONT com.xiaomi.joyose 2>/dev/null
+    write_node "0" "$BATT_DIR/boost_current"
+
     # Restore JEITA on MediaTek
     write_node "1" "$MTK_DIR/sw_jeita"
 
     # Restore genuine battery temperature reporting
     write_node "65535" "/sys/devices/platform/battery/Battery_Temperature"
+
+    # Restore thermal cooling devices
+    for c in /sys/class/thermal/cooling_device*; do
+        type=$(cat "$c/type" 2>/dev/null)
+        case "$type" in
+            *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
+                chmod 666 "$c/cur_state" 2>/dev/null
+                ;;
+        esac
+    done
+
+    # Restore Transsion PCB thermal clamp
+    for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+        if [ -e "$node" ]; then
+            chmod 666 "$node" 2>/dev/null
+            echo "[45,3000,50,2000,1000]" > "$node" 2>/dev/null
+            chmod 644 "$node" 2>/dev/null
+        fi
+    done
+    if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
+        chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+        echo enabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+        chmod 644 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+    fi
+    cmd thermalservice reset 2>/dev/null
 
     # Ensure charging is enabled and input not suspended
     write_node "0" "$BATT_DIR/input_suspend"
@@ -254,7 +335,6 @@ apply_regulated_charging() {
         if [ "$cur_now" -gt 100000 ] || [ "$cur_now" -lt -100000 ]; then
             cur_now=$(( cur_now / 1000 ))
         fi
-        # If discharging while plugged in (< 0 mA), bump target_ma to compensate load + 300mA margin
         if [ "$cur_now" -lt 0 ]; then
             local deficit=$(( 0 - cur_now ))
             target_ma=$(( target_ma + deficit + 300 ))
@@ -264,6 +344,7 @@ apply_regulated_charging() {
     fi
 
     # Apply target currents
+    chmod 644 "$BATT_DIR/constant_charge_current_max" 2>/dev/null
     write_node "$target_ua" "$BATT_DIR/constant_charge_current"
     write_node "$target_ua" "$BATT_DIR/constant_charge_current_max"
     write_node "$target_ua" "$MAIN_DIR/constant_charge_current_max"
@@ -299,8 +380,11 @@ dump_telemetry_json() {
     adpv=$(read_node "$MTK_DIR/ADC_Charger_Voltage")
     [ -z "$adpv" ] && adpv=$(read_node "/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger")
     [ -z "$adpv" ] && adpv=$(read_node "$USB_DIR/voltage_now")
+    [ -z "$adpv" ] && adpv=$(read_node "$BATT_DIR/charger_voltage")
+    [ -z "$adpv" ] && adpv=$(read_node "$MAIN_DIR/voltage_now")
     [ -z "$adpv" ] && adpv=0
     [ "$adpv" -gt 100000 ] && adpv=$(( adpv / 1000 ))
+    [ "$adpv" -lt 1000 ] 2>/dev/null && adpv=0
 
     # Adapter Current (mA)
     ibus_val=$(read_node "/sys/devices/platform/odm/odm:tran_battery/Pump_Express_ICharger")
@@ -309,8 +393,12 @@ dump_telemetry_json() {
     fi
     [ -z "$ibus_val" ] && ibus_val=$(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1)
     [ -z "$ibus_val" ] && ibus_val=$(read_node "$USB_DIR/current_now")
+    [ -z "$ibus_val" ] && ibus_val=$(read_node "$USB_DIR/input_current_now")
+    [ -z "$ibus_val" ] && ibus_val=$(read_node "$MAIN_DIR/current_now")
     [ -z "$ibus_val" ] && ibus_val=0
     [ "$ibus_val" -gt 100000 ] && ibus_val=$(( ibus_val / 1000 ))
+    [ "$ibus_val" -lt 0 ] 2>/dev/null && ibus_val=0
+    [ "$adpv" -eq 0 ] 2>/dev/null && ibus_val=0
 
     # Charger Type / Protocol
     chgtyp=$(read_node "$MTK_DIR/Charger_Type")
@@ -320,26 +408,52 @@ dump_telemetry_json() {
     [ -z "$rfc_status" ] && [ "$chgtyp" = "9" ] && rfc_status=1
     [ -z "$rfc_status" ] && rfc_status=0
 
-    # Real Physical Battery Thermal Zone Temp (thermal_zone0 = mtktsbattery)
-    real_temp=$(read_node "/sys/class/thermal/thermal_zone0/temp")
-    [ -z "$real_temp" ] && real_temp=$(read_node "/sys/class/thermal/thermal_zone1/temp")
+    # Multi-vendor signals
+    local pmic_sig=""
+    if [ -d /sys/class/power_supply/smb1390 ] || [ -d /sys/bus/i2c/drivers/smb1390 ]; then
+        pmic_sig="smb1390"
+    elif [ -d /sys/class/power_supply/smb1355 ] || [ -d /sys/bus/i2c/drivers/smb1355 ]; then
+        pmic_sig="smb1355"
+    elif [ -d /sys/class/power_supply/bms ] || [ -d /sys/class/qcom-battery ]; then
+        pmic_sig="qcom_pmic"
+    elif [ -d /sys/bus/i2c/drivers/rt9759 ]; then
+        pmic_sig="rt9759"
+    elif [ -e /sys/class/power_supply/sec-direct-charger ]; then
+        pmic_sig="sec_direct"
+    elif [ -d /sys/bus/i2c/drivers/max77705 ] || [ -d /sys/bus/i2c/drivers/max77854 ] || [ -d /sys/class/power_supply/sec-charger ]; then
+        pmic_sig="sec_max"
+    elif [ -d /sys/bus/i2c/drivers/ln8000 ] || [ -d /sys/bus/i2c/drivers/sc8551 ] || [ -e /sys/class/power_supply/battery/sub_charger_type ]; then
+        pmic_sig="mi_pump"
+    elif [ -e /sys/class/power_supply/battery/vooc_charging ] || [ -e /sys/class/power_supply/battery/cool_mode ]; then
+        pmic_sig="vooc_pump"
+    elif [ -d /sys/bus/i2c/drivers/max77759 ] || [ -d /sys/bus/i2c/drivers/da9121 ]; then
+        pmic_sig="pixel_pmic"
+    fi
+
+    local sec_sig vooc_sig qc_sig mi_sig pd_sig
+    sec_sig=$(cat /sys/class/power_supply/battery/afc_result 2>/dev/null || cat /sys/class/power_supply/battery/charge_mode 2>/dev/null || echo "")
+    vooc_sig=$(cat /sys/class/power_supply/battery/vooc_charging 2>/dev/null || cat /sys/class/power_supply/battery/fast_charge_user_type 2>/dev/null || echo "")
+    qc_sig=$(cat /sys/class/power_supply/usb/quick_charge_type 2>/dev/null || cat /sys/class/power_supply/usb/real_type 2>/dev/null || echo "")
+    mi_sig=$(cat /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null || cat /sys/class/power_supply/battery/boost_current 2>/dev/null || echo "")
+    pd_sig=$(cat /sys/class/power_supply/usb/pd_active 2>/dev/null || cat /sys/class/power_supply/usb/pd_allowed 2>/dev/null || echo "")
+
+    # Real Physical Battery Thermal Zone Temp
+    real_temp=""
+    for tz in /sys/class/thermal/thermal_zone*; do
+        [ -d "$tz" ] || continue
+        tz_type=$(cat "$tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+        case "$tz_type" in
+            *battery*|*mtktsbattery*|*bms*)
+                raw_tz=$(cat "$tz/temp" 2>/dev/null)
+                if [ -n "$raw_tz" ] && [ "$raw_tz" -gt 0 ] 2>/dev/null; then
+                    real_temp="$raw_tz"
+                    break
+                fi
+                ;;
+        esac
+    done
     [ -z "$real_temp" ] && real_temp="$temp"
     [ "$real_temp" -gt 1000 ] && real_temp=$(( real_temp / 100 ))
-
-    # Active IC Determination
-    local active_ic="Unknown / Standby"
-    local protocol="Battery Power"
-
-    if [ "$rfc_status" = "1" ] || [ "$chgtyp" = "9" ] || { [ "$adpv" -gt 7000 ] && [ "$ibus_val" -gt 500 ]; }; then
-        active_ic="Direct Charge Pump (RT9759 2:1)"
-        protocol="Transsion Super Charge (RFC 33W)"
-    elif [ "$adpv" -gt 8000 ] || [ "$chgtyp" = "4" ]; then
-        active_ic="Switching Buck Converter (RT9471)"
-        protocol="USB-PD / PE2.0 Fast Charge (18W)"
-    elif [ "$adpv" -gt 4200 ]; then
-        active_ic="Switching Buck Converter (RT9471)"
-        protocol="Standard USB Fast Charge (5V)"
-    fi
 
     local v_clean=0
     local c_clean=0
@@ -355,6 +469,67 @@ dump_telemetry_json() {
             c_clean=$(( cur / 1000 ))
         else
             c_clean="$cur"
+        fi
+    fi
+
+    local is_chg="false"
+    if [ "$c_clean" -gt 50 ] || [ "$stat" = "Charging" ]; then
+        is_chg="true"
+    fi
+
+    # Active IC Determination
+    local active_ic="Unknown / Standby"
+    local protocol="Battery Power"
+
+    if [ "$is_chg" = "true" ]; then
+        if [ "$rfc_status" = "1" ] || [ "$chgtyp" = "9" ] || [ "$pmic_sig" = "rt9759" ] || { [ "$adpv" -gt 7000 ] && [ "$c_clean" -ge 1500 ] && [ -z "$pmic_sig" ]; }; then
+            active_ic="Direct Charge Pump (RT9759 2:1)"
+        elif [ "$pmic_sig" = "smb1390" ] || { echo "$qc_sig" | grep -qi "QC" && [ "$adpv" -gt 7000 ]; }; then
+            active_ic="Qualcomm SMB1390 Dual-Pump"
+        elif [ "$pmic_sig" = "smb1355" ]; then
+            active_ic="Qualcomm SMB1355 Companion PMIC"
+        elif [ "$pmic_sig" = "qcom_pmic" ]; then
+            active_ic="Qualcomm PMIC (PM8150/PM6150 Buck)"
+        elif [ "$pmic_sig" = "sec_direct" ]; then
+            active_ic="Samsung Direct Charger (S2MU/Maxim)"
+        elif [ "$pmic_sig" = "sec_max" ]; then
+            active_ic="Samsung PMIC (Maxim MAX77x Buck)"
+        elif [ "$pmic_sig" = "mi_pump" ]; then
+            active_ic="Xiaomi HyperCharge Dual-Pump (LN8000/SC8551)"
+        elif [ "$pmic_sig" = "vooc_pump" ] || [ "$vooc_sig" = "1" ]; then
+            active_ic="SuperVOOC / Warp Charge Pump"
+        elif [ "$pmic_sig" = "pixel_pmic" ]; then
+            active_ic="Google Tensor PMIC (MAX77759)"
+        else
+            active_ic="Switching Buck Converter (RT9471/Universal)"
+        fi
+
+        if [ "$rfc_status" = "1" ] || [ "$chgtyp" = "9" ]; then
+            protocol="Transsion Super Charge (33W/45W/68W RFC)"
+        elif [ "$vooc_sig" = "1" ] || [ "$vooc_sig" = "2" ]; then
+            protocol="SuperVOOC / Warp Fast Charge"
+        elif [ "$mi_sig" = "1" ] && [ "$adpv" -gt 8000 ]; then
+            protocol="Xiaomi HyperCharge / Turbo (67W-120W)"
+        elif [ "$sec_sig" = "1" ] || echo "$sec_sig" | grep -qi "AFC"; then
+            if [ "$adpv" -gt 8000 ]; then
+                protocol="Samsung Super Fast Charging (25W/45W)"
+            else
+                protocol="Samsung Adaptive Fast Charging (AFC)"
+            fi
+        elif echo "$qc_sig" | grep -qi "QC" || echo "$qc_sig" | grep -qi "Quick"; then
+            protocol="Qualcomm Quick Charge (QC3.0/QC4+/QC5)"
+        elif [ "$pd_sig" = "1" ] || [ "$chgtyp" = "4" ] || [ "$adpv" -gt 8000 ]; then
+            if [ "$adpv" -gt 8500 ]; then
+                protocol="USB Power Delivery / PPS"
+            else
+                protocol="USB-PD / PE2.0 Fast Charge (18W)"
+            fi
+        elif [ "$adpv" -gt 4500 ] && [ "$c_clean" -ge 2000 ]; then
+            protocol="Fast Charge (High Current 5V)"
+        elif [ "$adpv" -gt 4000 ]; then
+            protocol="Standard USB Fast Charge (5V)"
+        else
+            protocol="Standard Charging"
         fi
     fi
 

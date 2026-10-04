@@ -1556,7 +1556,7 @@ fun TuningCpuCategory(
                                         steps = 21,
                                         formatDisplay = { v -> "${v.toInt()} ms" },
                                         guideNote = "• Gaming/Berat: 4 ms (Eksekusi cepat & responsif)\n• Seimbang: 10 ms (Standar Linux CFS)\n• Ringan/Hemat: 18 ms (Minim context switch)",
-                                        statusInfo = if (schedLatency <= 6f) "⚡ Responsif" else "⚖️ Standar CFS",
+                                        statusInfo = if (schedLatency <= 6f) "Responsif" else "Standar CFS",
                                         onApply = { v ->
                                             schedLatency = v
                                             viewModel.setSchedulerTunable("sched_latency_ns", (v * 1000000).toLong(), context)
@@ -2529,7 +2529,7 @@ fun TuningThermalCategory(
                         steps = 15,
                         formatDisplay = { v -> "${v.toInt()}°C" },
                         guideNote = "• Gaming/Kompetitif: 55-60°C (Toleransi tinggi, disarankan pakai cooler)\n• Seimbang: 50°C (Standar harian aman)\n• Sejuk/Hemat: 45°C (Perangkat tetap sejuk, hemat daya)",
-                        statusInfo = if (tempLimitValue >= 55f) "🔥 Suhu Tinggi (Cooler Disarankan)" else "🛡️ Suhu Aman",
+                        statusInfo = if (tempLimitValue >= 55f) "Suhu Tinggi (Cooler Disarankan)" else "Suhu Aman",
                         onApply = { v ->
                             tempLimitValue = v
                             viewModel.setCustomTempLimit(v.toInt())
@@ -2571,7 +2571,7 @@ fun TuningThermalCategory(
                         steps = 8,
                         formatDisplay = { v -> "${v.toInt()}%" },
                         guideNote = "• Gaming Berat: 85% (Tahan clock tinggi saat frame drop)\n• Seimbang: 70% (Standar gaming santai)\n• Efisiensi: 60% (Batas aman efisiensi daya)",
-                        statusInfo = if (floorValue >= 80f) "⚡ Agresif" else "⚖️ Standar",
+                        statusInfo = if (floorValue >= 80f) "Agresif" else "Standar",
                         onApply = { v ->
                             floorValue = v
                             viewModel.setCpuFloorRatio(v.toInt())
@@ -2873,9 +2873,9 @@ fun TuningMemoryCategory(
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
             )
             val vmPresets = listOf(
-                Triple("gaming", "⚡ Gaming", "Zero-stutter I/O"),
-                Triple("balanced", "⚖️ Balanced", "OEM Default"),
-                Triple("battery", "🔋 Battery", "Low Writeback")
+                Triple("gaming", "Gaming", "Zero-stutter I/O"),
+                Triple("balanced", "Balanced", "OEM Default"),
+                Triple("battery", "Battery", "Low Writeback")
             )
             val activeVmPreset = uiState.vmAdvanced.activePreset
             Row(
@@ -3167,10 +3167,10 @@ fun TuningMemoryCategory(
                 modifier = Modifier.padding(bottom = 10.dp)
             )
             val lmkPresets = listOf(
-                Triple("conservative", "🛡️ Conservative", "Simpan lebih banyak app di RAM"),
-                Triple("balanced",     "⚖️ Balanced",     "Standar harian — default Android"),
-                Triple("gaming",       "🎮 Gaming",       "Prioritaskan game aktif"),
-                Triple("aggressive",   "⚡ Aggressive",   "Kill agresif, maksimalkan RAM bebas"),
+                Triple("conservative", "Conservative", "Simpan lebih banyak app di RAM"),
+                Triple("balanced",     "Balanced",     "Standar harian — default Android"),
+                Triple("gaming",       "Gaming",       "Prioritaskan game aktif"),
+                Triple("aggressive",   "Aggressive",   "Kill agresif, maksimalkan RAM bebas"),
             )
             lmkPresets.forEach { (id, label, desc) ->
                 Surface(
@@ -3194,7 +3194,7 @@ fun TuningMemoryCategory(
                 }
             }
             Text(
-                "⚠️ LMK Kernel hanya efektif pada Android 10 ke bawah. Android 11+ menggunakan LMKD userspace.",
+                "Catatan: LMK Kernel hanya efektif pada Android 10 ke bawah. Android 11+ menggunakan LMKD userspace.",
                 color = TextSecondary.copy(alpha = 0.7f), fontSize = 10.sp, lineHeight = 14.sp
             )
         }
@@ -3321,12 +3321,12 @@ fun TuningChargingCategory(
             val isBypassLatched = state.charging.bypassEnabled && ((battDetails?.level ?: 0) >= state.charging.maxBatteryPercent || isOvernightLatched)
 
             val currentModeLabel = when {
-                isOvernightLatched -> "🔒 100% Full: Hardware Bypass Aktif (Net 0mA - Aman Tidur)"
-                isBypassLatched -> "⚡ Bypass Charging Aktif (Baterai Latch)"
-                isSmartTapering -> "🍃 Smart Tapering Aktif (Mendinginkan Baterai 90%+)"
-                state.charging.extremeChargingEnabled -> "🔥 Extreme Fast Charge (Lockout Bypass)"
-                state.charging.limitCurrentMa >= 3000 -> "🚀 High-Current Fast Charge (${state.charging.limitCurrentMa} mA)"
-                else -> "⚖️ Pengisian Dibatasi (${state.charging.limitCurrentMa} mA)"
+                isOvernightLatched -> "100% Full: Hardware Bypass Aktif (Net 0mA - Aman Tidur)"
+                isBypassLatched -> "Bypass Charging Aktif (Baterai Latch)"
+                isSmartTapering -> "Smart Tapering Aktif (Mendinginkan Baterai 90%+)"
+                state.charging.extremeChargingEnabled -> "Extreme Fast Charge (Lockout Bypass)"
+                state.charging.limitCurrentMa >= 3000 -> "High-Current Fast Charge (${state.charging.limitCurrentMa} mA)"
+                else -> "Pengisian Dibatasi (${state.charging.limitCurrentMa} mA)"
             }
             val currentModeColor = when {
                 isOvernightLatched -> AccentCyan
@@ -3918,7 +3918,7 @@ fun TuningChargingCategory(
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = "⚡ Paksa Kecepatan Tertinggi (Force Max 33W)",
+                            text = "Paksa Kecepatan Tertinggi (Force Max 33W)",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = AccentRed
@@ -4193,14 +4193,14 @@ fun TuningNetworkCategory(
                 }
             } else {
                 val algInfo = mapOf(
-                    "bic"      to Pair("⚡ BIC", "High Speed & Low Latency (Kernel Active)"),
-                    "cubic"    to Pair("📶 CUBIC", "Linux Default — Balanced"),
-                    "reno"     to Pair("🔁 RENO", "Classic Standard — Stable"),
-                    "bbr"      to Pair("🎮 BBR", "Google BBR — Low Latency Gaming"),
-                    "westwood" to Pair("📡 Westwood", "WiFi & Wireless Loss Tolerant"),
-                    "htcp"     to Pair("🚀 H-TCP", "High Bandwidth Delay Product"),
-                    "vegas"    to Pair("⏱️ Vegas", "Delay-Based Congestion Avoidance"),
-                    "hybla"    to Pair("🌐 Hybla", "Satellite & High Latency Links")
+                    "bic"      to Pair("BIC", "High Speed & Low Latency (Kernel Active)"),
+                    "cubic"    to Pair("CUBIC", "Linux Default — Balanced"),
+                    "reno"     to Pair("RENO", "Classic Standard — Stable"),
+                    "bbr"      to Pair("BBR", "Google BBR — Low Latency Gaming"),
+                    "westwood" to Pair("Westwood", "WiFi & Wireless Loss Tolerant"),
+                    "htcp"     to Pair("H-TCP", "High Bandwidth Delay Product"),
+                    "vegas"    to Pair("Vegas", "Delay-Based Congestion Avoidance"),
+                    "hybla"    to Pair("Hybla", "Satellite & High Latency Links")
                 )
 
                 algs.chunked(2).forEach { row ->
@@ -4421,10 +4421,10 @@ fun TuningSystemCategory(
                         else -> AccentCyan
                     }
                     val profLabel = when (rule.targetProfile.lowercase()) {
-                        "extreme" -> "🔥 Extreme"
-                        "performance" -> "⚡ Performa"
-                        "powersave" -> "🍃 Hemat"
-                        else -> "⚖️ Balance"
+                        "extreme" -> "Extreme"
+                        "performance" -> "Performa"
+                        "powersave" -> "Hemat"
+                        else -> "Balance"
                     }
 
                     Surface(

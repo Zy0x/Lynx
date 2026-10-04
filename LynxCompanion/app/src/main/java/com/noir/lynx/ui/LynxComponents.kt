@@ -1324,9 +1324,9 @@ fun LynxSwitchInfoSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("• 🎮 Gaming & Berat: ${info.gamingRecommendation}", fontSize = 10.5.sp, color = TextPrimary)
-                    Text("• ⚖️ Harian Seimbang: ${info.balancedRecommendation}", fontSize = 10.5.sp, color = TextSecondary)
-                    Text("• 🔋 Hemat Baterai: ${info.batteryRecommendation}", fontSize = 10.5.sp, color = TextSecondary)
+                    Text("• Gaming & Berat: ${info.gamingRecommendation}", fontSize = 10.5.sp, color = TextPrimary)
+                    Text("• Harian Seimbang: ${info.balancedRecommendation}", fontSize = 10.5.sp, color = TextSecondary)
+                    Text("• Hemat Baterai: ${info.batteryRecommendation}", fontSize = 10.5.sp, color = TextSecondary)
                 }
             }
 
@@ -1468,7 +1468,7 @@ fun LynxSchedulerPresetSheet(
             listOf(
                 Triple(
                     "extreme",
-                    "🔥 Extreme (Unrestricted)",
+                    "Extreme (Unrestricted)",
                     Triple(
                         "Performa puncak tanpa kompromi: Latensi CFS ditekan ke 3 ms, migrasi instan 50 µs, uclamp 512, RT throttling dimatikan (-1), dan C-State sleep disabled.",
                         "Ramp-up: 0 µs • Latensi: 3 ms • RT Throttling: Off • Uclamp: 512",
@@ -1477,7 +1477,7 @@ fun LynxSchedulerPresetSheet(
                 ),
                 Triple(
                     "gaming",
-                    "⚡ Responsif (Gaming Stabil)",
+                    "Responsif (Gaming Stabil)",
                     Triple(
                         "Clock CPU melompat instan tanpa jeda (0 µs ramp-up), latensi task 4 ms, preemption 0.75 ms, migrasi 200 µs, uclamp 128. Sangat stabil untuk gaming tanpa panas berlebih.",
                         "Ramp-up: 0 µs • Latensi: 4 ms • Uclamp: 128",
@@ -1486,7 +1486,7 @@ fun LynxSchedulerPresetSheet(
                 ),
                 Triple(
                     "balanced",
-                    "⚖️ Seimbang (Rekomendasi Harian)",
+                    "Seimbang (Rekomendasi Harian)",
                     Triple(
                         "Transisi frekuensi halus dan dinamis (1000 µs), latensi 10 ms. Sangat stabil, responsif untuk multitasking harian dengan efisiensi daya optimal.",
                         "Ramp-up: 1000 µs • Latensi: 10 ms • Uclamp: 0",
@@ -1495,7 +1495,7 @@ fun LynxSchedulerPresetSheet(
                 ),
                 Triple(
                     "battery",
-                    "🔋 Efisiensi Daya (Hemat Baterai)",
+                    "Efisiensi Daya (Hemat Baterai)",
                     Triple(
                         "Mencegah lonjakan frekuensi singkat yang boros daya (4000 µs ramp-up), latensi santai 20 ms, migrasi 1000 µs, uclamp cap 640. Menghemat konsumsi baterai maksimal.",
                         "Ramp-up: 4000 µs • Latensi: 20 ms • Uclamp Cap: 640",
@@ -1801,7 +1801,7 @@ fun StatusBadge(profile: String) {
         "auto"        -> "Auto (AI)" to AccentCyan
         "balance"     -> "Balance" to AccentBlue
         "performance" -> "Performance" to AccentOrange
-        "extreme"     -> "Extreme 🔥" to AccentRed
+        "extreme"     -> "Extreme" to AccentRed
         "powersave"   -> "Powersave" to Color(0xFF00E676)
         else          -> "Standby" to TextSecondary
     }
@@ -3940,7 +3940,7 @@ fun BootBackupCard(
             containerColor = BgCard,
             titleContentColor = AccentOrange,
             textContentColor = TextSecondary,
-            title = { Text("⚠️ Pulihkan Partisi Kernel?") },
+            title = { Text("Pulihkan Partisi Kernel?") },
             text = { Text("Apakah Anda yakin ingin memulihkan partisi dari backup '${restoreTarget?.name}'?") },
             confirmButton = {
                 TextButton(
@@ -5209,8 +5209,8 @@ fun GraphicsDriverHwuiCard(
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
-                    Pair("default", "📱 Bawaan Sistem"),
-                    Pair("all_apps", "🎮 Game Driver (Semua App)")
+                    Pair("default", "Bawaan Sistem"),
+                    Pair("all_apps", "Game Driver (Semua App)")
                 ).forEach { (mode, label) ->
                     val isSel = graphics.updatableGameDriver == mode
                     Surface(
@@ -5255,11 +5255,11 @@ fun GraphicsDriverHwuiCard(
             Text("Pilih pipeline compositing antarmuka sistem dan render canvas", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
 
             val backends = listOf(
-                Triple("auto", "🤖 Default", "Stabil"),
-                Triple("skiagl", "🎨 SkiaGL", "OpenGL ES"),
-                Triple("skiavk", "⚡ SkiaVK", "Vulkan"),
-                Triple("skiagraphite", "💎 Graphite", if (graphics.isGraphiteSupported) "Android 14+" else "Info"),
-                Triple("angle", "📐 ANGLE", if (graphics.isAngleSupported) "Khronos" else "Translasi")
+                Triple("auto", "Default", "Stabil"),
+                Triple("skiagl", "SkiaGL", "OpenGL ES"),
+                Triple("skiavk", "SkiaVK", "Vulkan"),
+                Triple("skiagraphite", "Graphite", if (graphics.isGraphiteSupported) "Android 14+" else "Info"),
+                Triple("angle", "ANGLE", if (graphics.isAngleSupported) "Khronos" else "Translasi")
             )
 
             Row(
@@ -5534,7 +5534,7 @@ fun DisplayRefreshRateTouchCard(
                 border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.5f))
             ) {
                 Text(
-                    text = if (isAuto) "🤖 Auto ($currentHz Hz)" else "$currentHz Hz",
+                    text = if (isAuto) "Auto ($currentHz Hz)" else "$currentHz Hz",
                     color = cardAccent,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -5560,7 +5560,7 @@ fun DisplayRefreshRateTouchCard(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(vertical = 8.dp)
                 ) {
-                    Text("🤖 Auto", color = if (isAuto) cardAccent else TextPrimary, fontWeight = if (isAuto) FontWeight.Bold else FontWeight.Medium, fontSize = 12.sp)
+                    Text("Auto", color = if (isAuto) cardAccent else TextPrimary, fontWeight = if (isAuto) FontWeight.Bold else FontWeight.Medium, fontSize = 12.sp)
                     Text("0 - ${maxHz}Hz", color = if (isAuto) cardAccent.copy(alpha = 0.8f) else TextSecondary, fontSize = 9.5.sp)
                 }
             }
@@ -6203,7 +6203,7 @@ fun CustomScriptManagerCard(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 if (item.runOnBoot) {
-                                    Text("⚡ Run on boot", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Run on boot", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                                 }
                             }
                             Row {
@@ -7996,7 +7996,7 @@ fun CpuControlCenterCard(
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = if (isMasterOverride) "⚡ Lynx Override Aktif" else "🟢 Managed by System (OEM)",
+                            text = if (isMasterOverride) "Lynx Override Aktif" else "Managed by System (OEM)",
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isMasterOverride) AccentBlue else AccentGreen
@@ -8072,7 +8072,12 @@ fun CpuControlCenterCard(
                             modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("⚡", fontSize = 16.sp)
+                            Icon(
+                                imageVector = Icons.Default.SportsEsports,
+                                contentDescription = null,
+                                tint = if (isGaming) AccentBlue else TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
                             Spacer(Modifier.height(3.dp))
                             Text(
                                 text = "Gaming",
@@ -8098,7 +8103,12 @@ fun CpuControlCenterCard(
                             modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("⚖️", fontSize = 16.sp)
+                            Icon(
+                                imageVector = Icons.Default.Balance,
+                                contentDescription = null,
+                                tint = if (isBalanced) AccentCyan else TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
                             Spacer(Modifier.height(3.dp))
                             Text(
                                 text = "Seimbang",
@@ -8124,7 +8134,12 @@ fun CpuControlCenterCard(
                             modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("🔋", fontSize = 16.sp)
+                            Icon(
+                                imageVector = Icons.Default.BatteryChargingFull,
+                                contentDescription = null,
+                                tint = if (isBattery) AccentOrange else TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
                             Spacer(Modifier.height(3.dp))
                             Text(
                                 text = "Hemat",
@@ -8150,7 +8165,12 @@ fun CpuControlCenterCard(
                             modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("🛠️", fontSize = 16.sp)
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = if (isCustom) AccentPurple else TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
                             Spacer(Modifier.height(3.dp))
                             Text(
                                 text = "Pakar",
@@ -8245,7 +8265,7 @@ fun CpuControlCenterCard(
                     border = BorderStroke(0.6.dp, BorderSubtle)
                 ) {
                     Text(
-                        text = "🟢 ${recoveryInfo.lastCheckpointTime}",
+                        text = recoveryInfo.lastCheckpointTime,
                         fontSize = 10.5.sp,
                         color = TextSecondary,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)

@@ -2047,9 +2047,9 @@ fun PerAppGraphicsHubCard(
                             ) {
                                 // Driver Type Badge
                                 val (driverLabel, driverColor) = when (rule.driverType) {
-                                    "game" -> Pair("⚡ Game Driver", AccentGreen)
-                                    "prerelease" -> Pair("🧪 Prerelease Driver", AccentOrange)
-                                    else -> Pair("📱 Bawaan Sistem", TextSecondary)
+                                    "game" -> Pair("Game Driver", AccentGreen)
+                                    "prerelease" -> Pair("Prerelease Driver", AccentOrange)
+                                    else -> Pair("Bawaan Sistem", TextSecondary)
                                 }
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
@@ -2073,7 +2073,7 @@ fun PerAppGraphicsHubCard(
                                         border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.4f))
                                     ) {
                                         Text(
-                                            text = "📐 ANGLE Vulkan",
+                                            text = "ANGLE Vulkan",
                                             color = AccentCyan,
                                             fontSize = 9.5.sp,
                                             fontWeight = FontWeight.Bold,
@@ -2090,7 +2090,7 @@ fun PerAppGraphicsHubCard(
                                         border = BorderStroke(0.6.dp, AccentBlue.copy(alpha = 0.4f))
                                     ) {
                                         Text(
-                                            text = "🖥️ ${rule.targetRefreshRate} Hz",
+                                            text = "${rule.targetRefreshRate} Hz",
                                             color = AccentBlue,
                                             fontSize = 9.5.sp,
                                             fontWeight = FontWeight.Bold,
