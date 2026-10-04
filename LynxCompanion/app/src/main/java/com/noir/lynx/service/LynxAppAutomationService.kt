@@ -65,6 +65,22 @@ class LynxAppAutomationService : Service() {
         }
     }
 
+    private val powerReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_POWER_CONNECTED -> {
+                    Log.i(TAG, "Charger connected: re-asserting hardware charging bypass")
+                    serviceScope.launch(Dispatchers.IO) {
+                        val state = LynxRepository.readState().charging
+                        if (state.extremeChargingEnabled || state.bypassEnabled) {
+                            LynxRepository.applySavedChargingConfig()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     companion object {
         var isRunning: Boolean = false
             private set
@@ -104,6 +120,12 @@ class LynxAppAutomationService : Service() {
             addAction(Intent.ACTION_SCREEN_ON)
         }
         registerReceiver(screenReceiver, filter)
+
+        val pFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
+        }
+        registerReceiver(powerReceiver, pFilter)
 
         startWatcher()
     }
@@ -158,6 +180,22 @@ class LynxAppAutomationService : Service() {
                     Log.w(TAG, "Watcher cycle error: ${e.message}")
                 }
                 delay(350L) // 350ms ultra-snappy polling for instant game detection & zero UI delay
+            }
+        }
+
+        // Lightweight 60-second watchdog while plugged in to ensure bypass persistence against OEM daemon resets
+        serviceScope.launch {
+            while (isActive) {
+                delay(60000L)
+                try {
+                    val state = LynxRepository.readState().charging
+                    if (state.extremeChargingEnabled || state.bypassEnabled) {
+                        val stat = Shell.cmd("cat /sys/class/power_supply/battery/status 2>/dev/null").exec().out.firstOrNull()?.trim()
+                        if (stat.equals("Charging", ignoreCase = true) || stat.equals("Not charging", ignoreCase = true)) {
+                            LynxRepository.applySavedChargingConfig()
+                        }
+                    }
+                } catch (_: Exception) {}
             }
         }
     }
@@ -422,6 +460,9 @@ class LynxAppAutomationService : Service() {
         super.onDestroy()
         try {
             unregisterReceiver(screenReceiver)
+        } catch (_: Exception) {}
+        try {
+            unregisterReceiver(powerReceiver)
         } catch (_: Exception) {}
         isRunning = false
         isWatcherRunning = false

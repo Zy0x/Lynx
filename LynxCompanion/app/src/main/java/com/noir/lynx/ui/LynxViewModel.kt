@@ -1244,6 +1244,41 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun loadPerAppGraphicsRules(context: Context) {
+        viewModelScope.launch {
+            try {
+                val rules = LynxRepository.readPerAppGraphicsRules(context)
+                _uiState.update { it.copy(perAppGraphicsRules = rules) }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun savePerAppGraphicsRule(rule: PerAppGraphicsRule, context: Context) {
+        recordStateMutation()
+        viewModelScope.launch {
+            val ok = LynxRepository.savePerAppGraphicsRule(rule, context)
+            if (ok) {
+                val rules = LynxRepository.readPerAppGraphicsRules(context)
+                _uiState.update { it.copy(perAppGraphicsRules = rules, successMessage = "Aturan grafis untuk ${rule.appName} disimpan") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menyimpan aturan grafis") }
+            }
+        }
+    }
+
+    fun deletePerAppGraphicsRule(packageName: String, context: Context) {
+        recordStateMutation()
+        viewModelScope.launch {
+            val ok = LynxRepository.deletePerAppGraphicsRule(packageName, context)
+            if (ok) {
+                val rules = LynxRepository.readPerAppGraphicsRules(context)
+                _uiState.update { it.copy(perAppGraphicsRules = rules, successMessage = "Aturan grafis dihapus") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menghapus aturan grafis") }
+            }
+        }
+    }
+
     // ============================================================
     //  GPU & DISPLAY INTELLIGENCE FRAMEWORK
     // ============================================================

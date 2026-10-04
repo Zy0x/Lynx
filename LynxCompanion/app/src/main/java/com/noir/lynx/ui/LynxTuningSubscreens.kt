@@ -2008,6 +2008,8 @@ fun TuningGpuCategory(
         viewModel.refreshDisplayPipeline()
         viewModel.refreshColorConflict()
         viewModel.refreshSavedLabSessions(context)
+        viewModel.loadPerAppGraphicsRules(context)
+        viewModel.refreshInstalledApps()
     }
 
     Column(
@@ -2046,6 +2048,14 @@ fun TuningGpuCategory(
                     onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
                     onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) },
                     onClearShaderCache = { viewModel.clearShaderCache(context) }
+                )
+
+                // 2b. Manajemen Rendering Per-Aplikasi (Game Driver Hub)
+                PerAppGraphicsHubCard(
+                    rules = uiState.perAppGraphicsRules,
+                    installedApps = uiState.installedAppList,
+                    onSaveRule = { rule -> viewModel.savePerAppGraphicsRule(rule, context) },
+                    onDeleteRule = { pkg -> viewModel.deletePerAppGraphicsRule(pkg, context) }
                 )
 
                 // 3. Display Refresh Rate & Touch Card (4-Way Chips: Auto + 60/90/120Hz)
@@ -3928,7 +3938,7 @@ fun TuningChargingCategory(
         ) {
             LynxSwitch(
                 label = "Extreme Fast Charging (Continuous Screen-On Boost)",
-                subLabel = "Membuka batas arus hingga 6000mA (6A) di sel baterai / 33W di adaptor, mengaktifkan Pump Express 4.0 & RT9759 Charge Pump 2:1, membypass batasan layar menyala (BN_TestMode & tpcb derating bypass), serta mengunci pendingin termal agar pengisian tetap konsisten dan sangat cepat meski ponsel sedang aktif digunakan.",
+                subLabel = "Membuka batas arus hingga 6000mA (6A) di sel baterai / 33W di adaptor, mengaktifkan Pump Express 4.0 & RT9759 Charge Pump 2:1, membypass batasan layar menyala (BN_TestMode & derating bypass), mengangkat limit termal PCB Transsion ke 85°C serta menonaktifkan pembatasan thermal kernel agar pengisian tetap konsisten dan sangat cepat baik layar hidup maupun mati.",
                 checked = state.charging.extremeChargingEnabled,
                 onCheckedChange = { viewModel.setExtremeCharging(it) },
             )

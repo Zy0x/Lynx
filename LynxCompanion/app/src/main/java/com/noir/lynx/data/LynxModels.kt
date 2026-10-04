@@ -197,8 +197,25 @@ data class BootBackupInfo(
 )
 
 // ============================================================
-//  GPU ADVANCED INFO
+//  GPU ADVANCED INFO & GRAPHICS PROCESSES
 // ============================================================
+
+data class GpuProcessInfo(
+    val pid: Int = 0,
+    val name: String = "",
+    val packageName: String = "",
+    val cpuPercent: Float = 0f,
+    val isGame: Boolean = false,
+    val iconType: String = "generic" // "game", "system", "browser", "media", "generic"
+)
+
+data class PerAppGraphicsRule(
+    val packageName: String = "",
+    val appName: String = "",
+    val driverType: String = "default", // "default", "game", "prerelease"
+    val useAngle: Boolean = false,
+    val targetRefreshRate: Int = 0 // 0 = default, 60, 90, 120
+)
 
 data class GpuInfo(
     val minFreqMhz: Int = 0,
@@ -220,11 +237,13 @@ data class GpuInfo(
     val gpuTempC: Float = 0f,
     val isThrottled: Boolean = false,
     val maliDvfsMargin: Int = 0,
+    val gpuLoadHistory: List<Int> = emptyList(),
+    val topGraphicsProcesses: List<GpuProcessInfo> = emptyList(),
 )
 
 data class GraphicsHwuiInfo(
     val updatableGameDriver: String = "default", // "default", "all_apps", "custom"
-    val hwuiRenderer: String = "auto",           // "auto", "skiavk", "skiagl"
+    val hwuiRenderer: String = "auto",           // "auto", "skiavk", "skiagl", "skiagraphite", "angle"
     val surfaceFlingerLatchUnsignaled: Boolean = false,
     val force4xMsaa: Boolean = false,
     val detectedOemThrottler: String = "",        // e.g. "Xiaomi Joyose", "Samsung GOS", "Transsion Darwin"
@@ -235,6 +254,8 @@ data class GraphicsHwuiInfo(
     val cabcEnabled: Boolean = false,
     val shaderCacheSizeBytes: Long = 0L,
     val shaderCacheCount: Int = 0,
+    val isGraphiteSupported: Boolean = false,
+    val isAngleSupported: Boolean = false,
 )
 
 data class WakelockItem(
@@ -477,6 +498,7 @@ data class LynxUiState(
     val manualInspectResult: DeepTunable? = null,
     // Per-App Profile Rules & Floating Game HUD
     val appProfileRules: List<AppProfileRule> = emptyList(),
+    val perAppGraphicsRules: List<PerAppGraphicsRule> = emptyList(),
     val isGameHudActive: Boolean = false,
     val hudMode: Int = 0, // 0 = Edge Drawer (Infinix/ROG Game Space), 1 = Classic Floating Window
     val hudStyle: Int = 1,

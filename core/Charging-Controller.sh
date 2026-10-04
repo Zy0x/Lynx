@@ -128,10 +128,10 @@ apply_extreme_charging() {
     write_node "1" "$MTK_DIR/pe20"
     write_node "68" "$MTK_DIR/pdc_max_watt"
 
-    # 3. Unlock maximum input and battery current on MediaTek
-    write_node "6000" "$MTK_DIR/input_current"
-    write_node "6000" "$MTK_DIR/chg1_current"
-    write_node "6000" "$MTK_DIR/chg2_current"
+    # 3. Unlock maximum input and battery current on MediaTek (RT9759 24576 raw step limit)
+    write_node "24576" "$MTK_DIR/input_current"
+    write_node "24576" "$MTK_DIR/chg1_current"
+    write_node "24576" "$MTK_DIR/chg2_current"
     write_node "8000" "$MTK_DIR/sc_ibat_limit"
     write_node "$target_soc" "$MTK_DIR/sc_tuisoc"
     write_node "1" "$MTK_DIR/enable_sc"
@@ -141,14 +141,20 @@ apply_extreme_charging() {
     write_node "0" "$MTK_DIR/BatteryNotify"
     write_node "0" "$MTK_DIR/tran_charger_full"
 
-    # Transsion ODM PCB Thermal Clamp Override (Raises 45C limit to 65C, sets deal current to 3500mA)
-    if [ -e "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" ]; then
-        chmod 666 "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
-        echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
-    fi
-    if [ -e "/sys/devices/platform/tran_battery/pcb_thermal_debug" ]; then
-        chmod 666 "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
-        echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
+    # Transsion ODM PCB Thermal Clamp Override & Read-Only Lock (Uncapped from 45C to 85C, deal current to 6000mA)
+    for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+        if [ -e "$node" ]; then
+            chmod 666 "$node" 2>/dev/null
+            echo "[85,6000,90,5000,4500]" > "$node" 2>/dev/null
+            chmod 444 "$node" 2>/dev/null
+        fi
+    done
+
+    # Disable MediaTek AP/PCB Thermal Zone Throttle & Read-Only Lock
+    if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
+        chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+        echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+        chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
     fi
 
     # 5. Bypass MTK Super Charge DV2_TBAT thermal lockout
@@ -159,9 +165,10 @@ apply_extreme_charging() {
         for c in /sys/class/thermal/cooling_device*; do
             type=$(cat "$c/type" 2>/dev/null)
             case "$type" in
-                *bcct*|*chg*|*current*|*abcct*|*battery*)
+                *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
                     chmod 666 "$c/cur_state" 2>/dev/null
                     echo 0 > "$c/cur_state" 2>/dev/null
+                    chmod 444 "$c/cur_state" 2>/dev/null
                     ;;
             esac
         done

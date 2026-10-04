@@ -33,6 +33,9 @@ class LynxBootReceiver : BroadcastReceiver() {
                     // Restore custom kernel scheduler / HMP / EAS settings if apply_on_boot is enabled
                     LynxRepository.applySavedSchedulerConfig(context)
 
+                    // Restore charging config (extreme charging / bypass if active)
+                    LynxRepository.applySavedChargingConfig()
+
                     val enabledResult = Shell.cmd("cat /data/adb/lynx/automation_enabled 2>/dev/null").exec()
                     val isEnabled = enabledResult.out.firstOrNull()?.trim() == "1"
 

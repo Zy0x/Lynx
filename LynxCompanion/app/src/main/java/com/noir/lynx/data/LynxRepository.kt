@@ -1035,8 +1035,87 @@ object LynxRepository {
     }
 
     // ----------------------------------------------------------------
-    //  Phase 1 Quick Wins: GPU Advanced Control
+    //  Phase 1 Quick Wins: GPU Advanced Control & Graphics Processes
     // ----------------------------------------------------------------
+
+    private val gpuLoadRingBuffer = mutableListOf<Int>()
+
+    suspend fun readTopGraphicsProcesses(): List<GpuProcessInfo> = withContext(Dispatchers.IO) {
+        try {
+            val lines = Shell.cmd("top -b -n 1 -m 12 2>/dev/null").exec().out
+            val result = mutableListOf<GpuProcessInfo>()
+            var headerPassed = false
+            for (line in lines) {
+                val trimmed = line.trim()
+                if (!headerPassed) {
+                    if (trimmed.startsWith("PID")) headerPassed = true
+                    continue
+                }
+                if (trimmed.isBlank()) continue
+                val parts = trimmed.split(Regex("\\s+"))
+                if (parts.size >= 12) {
+                    val pid = parts[0].toIntOrNull() ?: continue
+                    val rawCpu = parts[8].toFloatOrNull() ?: continue
+                    val cmdRaw = parts.subList(11, parts.size).joinToString(" ")
+                    if (cmdRaw.startsWith("top ") || cmdRaw == "top") continue
+
+                    val pkgName = if (cmdRaw.contains(":")) cmdRaw.split(":")[0] else cmdRaw
+                    val isSf = pkgName.contains("surfaceflinger", ignoreCase = true)
+                    val isComposer = pkgName.contains("composer", ignoreCase = true)
+                    val isSystemUi = pkgName.contains("systemui", ignoreCase = true)
+                    val isChromeGpu = cmdRaw.contains("privileged_process") || cmdRaw.contains("sandboxed_process")
+                    val isMedia = pkgName.contains("media", ignoreCase = true) || pkgName.contains("codec", ignoreCase = true)
+
+                    val isGame = (
+                        pkgName.contains("game", ignoreCase = true) ||
+                        pkgName.contains("unity", ignoreCase = true) ||
+                        pkgName.contains("mihoyo", ignoreCase = true) ||
+                        pkgName.contains("kurogame", ignoreCase = true) ||
+                        pkgName.contains("pubg", ignoreCase = true) ||
+                        pkgName.contains("mobile.legends", ignoreCase = true) ||
+                        pkgName.contains("dts.freefire", ignoreCase = true)
+                    )
+
+                    val iconType = when {
+                        isGame -> "game"
+                        isSf || isComposer -> "system"
+                        isSystemUi -> "system"
+                        isChromeGpu -> "browser"
+                        isMedia -> "media"
+                        else -> "generic"
+                    }
+
+                    val cleanName = when {
+                        isSf -> "SurfaceFlinger Compositor"
+                        isComposer -> "HWC Graphics Composer"
+                        isSystemUi -> "System UI Render"
+                        isChromeGpu -> "Chrome GPU Pipeline"
+                        pkgName.startsWith("com.google.android.apps.photos") -> "Google Photos"
+                        pkgName.startsWith("com.noir.lynx") -> "Lynx Deity"
+                        pkgName.contains(".") -> {
+                            val segs = pkgName.split(".")
+                            segs.lastOrNull()?.replaceFirstChar { it.uppercase() } ?: pkgName
+                        }
+                        else -> pkgName
+                    }
+
+                    result.add(
+                        GpuProcessInfo(
+                            pid = pid,
+                            name = cleanName,
+                            packageName = pkgName,
+                            cpuPercent = rawCpu,
+                            isGame = isGame,
+                            iconType = iconType
+                        )
+                    )
+                }
+            }
+            result.take(5)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
 
     suspend fun readGpuInfo(): GpuInfo = withContext(Dispatchers.IO) {
         try {
@@ -1176,6 +1255,15 @@ object LynxRepository {
             val finalMax = if (maxHz > 0) toMhz(maxHz) else (availFreqs.maxOrNull() ?: 0)
             val isLocked = (finalMin > 0 && finalMin == finalMax)
             val isThrottled = (rawGpuTemp >= 65f) || (platform == "adreno" && !thrmBypass && gpuLoad > 85 && toMhz(curHz) < finalMax / 2)
+
+            synchronized(gpuLoadRingBuffer) {
+                gpuLoadRingBuffer.add(gpuLoad)
+                while (gpuLoadRingBuffer.size > 30) {
+                    gpuLoadRingBuffer.removeAt(0)
+                }
+            }
+            val topProcs = readTopGraphicsProcesses()
+
             GpuInfo(
                 platform = platform,
                 curFreqMhz = toMhz(curHz),
@@ -1194,7 +1282,9 @@ object LynxRepository {
                 idleTimerMs = idleTimer,
                 gpuTempC = rawGpuTemp,
                 isThrottled = isThrottled,
-                maliDvfsMargin = maliMargin
+                maliDvfsMargin = maliMargin,
+                gpuLoadHistory = synchronized(gpuLoadRingBuffer) { gpuLoadRingBuffer.toList() },
+                topGraphicsProcesses = topProcs
             )
         } catch (e: Exception) { Log.e(TAG, "readGpuInfo: ${e.message}"); GpuInfo() }
     }
@@ -1274,13 +1364,14 @@ object LynxRepository {
 
     suspend fun setGpuGovernor(governor: String): Boolean = withContext(Dispatchers.IO) {
         try {
+            val cleanGov = governor.split(Regex("[\\s•]+")).firstOrNull()?.trim() ?: governor.trim()
             val script = """
                 if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
                     chmod 644 /sys/class/kgsl/kgsl-3d0/devfreq/governor 2>/dev/null
-                    echo '$governor' > /sys/class/kgsl/kgsl-3d0/devfreq/governor 2>/dev/null
+                    echo '$cleanGov' > /sys/class/kgsl/kgsl-3d0/devfreq/governor 2>/dev/null
                     echo ok
                 elif [ -d /sys/kernel/ged/hal ]; then
-                    echo '$governor' > /sys/kernel/ged/hal/dvfs_loading_mode 2>/dev/null
+                    echo '$cleanGov' > /sys/kernel/ged/hal/dvfs_loading_mode 2>/dev/null
                     echo ok
                 else
                     devpath=""
@@ -1289,7 +1380,7 @@ object LynxRepository {
                     done
                     if [ -n "${'$'}devpath" ]; then
                         chmod 644 "${'$'}devpath/governor" 2>/dev/null
-                        echo '$governor' > "${'$'}devpath/governor" 2>/dev/null
+                        echo '$cleanGov' > "${'$'}devpath/governor" 2>/dev/null
                         echo ok
                     else
                         echo unsupported
@@ -2014,36 +2105,47 @@ object LynxRepository {
                 echo ok
                 """.trimIndent()
             } else if (extremeCharging) {
-                // Extreme Fast Charging: Unrestricted Current, Pump Express 4.0 / SC 33W, Disable JEITA
+                // Extreme Fast Charging: Unrestricted Current, Pump Express 4.0 / SC 33W, Screen-On & Thermal Bypass
                 """
                 touch /dev/lynx_extreme_charging 2>/dev/null
+
+                # 1. Unrestrict MediaTek Charger Platform & Fast Charging Protocols
                 echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
 
-                echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
-                echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                # 2. Uncap RT9759 Direct Charge Pump & Current limits to max hardware register steps (24576 = 6A+)
+                echo 24576 > /sys/devices/platform/charger/input_current 2>/dev/null
+                echo 24576 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                echo 24576 > /sys/devices/platform/charger/chg2_current 2>/dev/null
                 echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                 echo $highTargetPercent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
 
-                # Bypass Transsion Screen-On Throttling, PCB Thermal Clamp & Test Rig Derating
+                # 3. Bypass Transsion Screen-On Throttling, BatteryNotify Derating & Test Rig Clamping
                 echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
 
-                # Transsion ODM PCB Thermal Clamp Override (Raises 45C limit to 65C, sets deal current to 3500mA)
-                if [ -e "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" ]; then
-                    chmod 666 "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
-                    echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
-                fi
-                if [ -e "/sys/devices/platform/tran_battery/pcb_thermal_debug" ]; then
-                    chmod 666 "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
-                    echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
+                # 4. Transsion ODM PCB Thermal Clamp Override & Read-Only Lock (Uncapped from 45C to 85C, deal current to 6000mA)
+                for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+                    if [ -e "${'$'}node" ]; then
+                        chmod 666 "${'$'}node" 2>/dev/null
+                        echo "[85,6000,90,5000,4500]" > "${'$'}node" 2>/dev/null
+                        chmod 444 "${'$'}node" 2>/dev/null
+                    fi
+                done
+
+                # 5. Disable MediaTek AP/PCB Thermal Zone Throttle & Read-Only Lock
+                if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
+                    chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                    echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                    chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
                 fi
 
+                # 6. Thermal Lockout Bypass (DV2_TBAT 28°C Spoof & Read-Only Lock)
                 ${if (lockoutBypass) """
                     chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
                     echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
@@ -2053,18 +2155,20 @@ object LynxRepository {
                     echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
                 """}
 
+                # 7. Unclamp & Lock All Battery / Charger Cooling Devices (bcct, abcct, cdev2, chg, etc.)
                 for c in /sys/class/thermal/cooling_device*; do
                     type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
                     case "${'$'}type" in
-                        *bcct*|*chg*|*current*|*abcct*|*battery*)
+                        *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
                             chmod 666 "${'$'}c/cur_state" 2>/dev/null
                             echo 0 > "${'$'}c/cur_state" 2>/dev/null
+                            chmod 444 "${'$'}c/cur_state" 2>/dev/null
                             ;;
                     esac
                 done
                 cmd thermalservice override-status 0 2>/dev/null
 
-                # Universal & Qualcomm Maximum Current (6A headroom)
+                # 8. Universal & Qualcomm Maximum Rails (6A headroom)
                 chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
                 chmod 444 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
@@ -2078,20 +2182,18 @@ object LynxRepository {
                 echo 6000000 > /sys/class/power_supply/usb/hw_current_max 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
-
                 echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/fast_charge 2>/dev/null
                 echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
                 echo 6000000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
 
-                # Release bypass locks
+                # 9. Release bypass locks and ensure charging enabled
                 echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
                 echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/store_mode 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
-
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
@@ -2104,12 +2206,30 @@ object LynxRepository {
                 val targetUa = targetMa * 1000
                 """
                 rm -f /dev/lynx_extreme_charging 2>/dev/null
+
+                # Revert Transsion PCB thermal override locks & screen-on test mode
+                for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+                    if [ -e "${'$'}node" ]; then
+                        chmod 666 "${'$'}node" 2>/dev/null
+                    fi
+                done
+                if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
+                    chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                    echo enabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                fi
+                for c in /sys/class/thermal/cooling_device*; do
+                    chmod 666 "${'$'}c/cur_state" 2>/dev/null
+                done
+                echo 0 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+                cmd thermalservice reset 2>/dev/null
+
                 echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
                 echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/store_mode 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
+                chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
                 echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
 
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
@@ -2167,52 +2287,61 @@ object LynxRepository {
             val script = """
                 touch /dev/lynx_extreme_charging 2>/dev/null
 
-                # 1. Unrestrict MediaTek Charger Platform
+                # 1. Unrestrict MediaTek Charger Platform & Fast Charging Protocols
                 echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-                echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
-                echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+
+                # 2. Uncap RT9759 Direct Charge Pump & Current limits to max hardware register steps (24576 = 6A+)
+                echo 24576 > /sys/devices/platform/charger/input_current 2>/dev/null
+                echo 24576 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                echo 24576 > /sys/devices/platform/charger/chg2_current 2>/dev/null
                 echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                 echo 100 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
 
-                # Bypass Transsion Screen-On Throttling, PCB Thermal Clamp & Test Rig Derating
+                # 3. Bypass Transsion Screen-On Throttling, BatteryNotify Derating & Test Rig Clamping
                 echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
 
-                # Transsion ODM PCB Thermal Clamp Override (Raises 45C limit to 65C, sets deal current to 3500mA)
-                if [ -e "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" ]; then
-                    chmod 666 "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
-                    echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
-                fi
-                if [ -e "/sys/devices/platform/tran_battery/pcb_thermal_debug" ]; then
-                    chmod 666 "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
-                    echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
+                # 4. Transsion ODM PCB Thermal Clamp Override & Read-Only Lock (Uncapped from 45C to 85C, deal current to 6000mA)
+                for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+                    if [ -e "${'$'}node" ]; then
+                        chmod 666 "${'$'}node" 2>/dev/null
+                        echo "[85,6000,90,5000,4500]" > "${'$'}node" 2>/dev/null
+                        chmod 444 "${'$'}node" 2>/dev/null
+                    fi
+                done
+
+                # 5. Disable MediaTek AP/PCB Thermal Zone Throttle & Read-Only Lock
+                if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
+                    chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                    echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                    chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
                 fi
 
-                # 2. Lock Battery Temperature to 28C & Read-Only Protect against thermal daemon resets
+                # 6. Thermal Lockout Bypass (DV2_TBAT 28°C Spoof & Read-Only Lock)
                 chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
                 echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
                 chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
 
-                # 3. Force-Unlock All Thermal Cooling Devices (bcct, abcct, current)
+                # 7. Unclamp & Lock All Battery / Charger Cooling Devices (bcct, abcct, cdev2, chg, etc.)
                 for c in /sys/class/thermal/cooling_device*; do
                     type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
                     case "${'$'}type" in
-                        *bcct*|*chg*|*current*|*abcct*|*battery*)
+                        *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
                             chmod 666 "${'$'}c/cur_state" 2>/dev/null
                             echo 0 > "${'$'}c/cur_state" 2>/dev/null
+                            chmod 444 "${'$'}c/cur_state" 2>/dev/null
                             ;;
                     esac
                 done
                 cmd thermalservice override-status 0 2>/dev/null
 
-                # 4. Universal & Qualcomm Maximum Rails
+                # 8. Universal & Qualcomm Maximum Rails
                 chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
                 chmod 444 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
@@ -2240,6 +2369,27 @@ object LynxRepository {
             writeStateKey("charging.high_current_target_percent", "100", "val")
             true
         } catch (e: Exception) { false }
+    }
+
+    /**
+     * Re-apply saved charging configuration from state (used by boot receiver & power connected receiver).
+     */
+    suspend fun applySavedChargingConfig(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val chg = readState().charging
+            applyChargingMode(
+                bypass = chg.bypassEnabled,
+                extremeCharging = chg.extremeChargingEnabled,
+                limitMa = chg.limitCurrentMa,
+                highTargetPercent = chg.highCurrentTargetPercent,
+                lockoutBypass = chg.thermalLockoutBypassEnabled,
+                tempGuard = chg.emergencyTempGuardEnabled,
+                maxBatteryPercent = chg.maxBatteryPercent
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "applySavedChargingConfig error: ${e.message}")
+            false
+        }
     }
 
     suspend fun setExtremeCharging(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
@@ -2459,6 +2609,8 @@ object LynxRepository {
                     }
                 }
             }
+            val isGraphite = android.os.Build.VERSION.SDK_INT >= 34
+            val isAngle = android.os.Build.VERSION.SDK_INT >= 29
             GraphicsHwuiInfo(
                 updatableGameDriver = driver,
                 hwuiRenderer = renderer,
@@ -2468,7 +2620,9 @@ object LynxRepository {
                 isDcDimmingSupported = isDcSupported,
                 dcDimmingEnabled = dcEnabled,
                 shaderCacheSizeBytes = shaderBytes,
-                shaderCacheCount = shaderCount
+                shaderCacheCount = shaderCount,
+                isGraphiteSupported = isGraphite,
+                isAngleSupported = isAngle
             )
         } catch (e: Exception) { GraphicsHwuiInfo() }
     }
@@ -2497,9 +2651,147 @@ object LynxRepository {
 
     suspend fun setHwuiRenderer(backend: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val valStr = if (backend == "auto") "" else backend
-            Shell.cmd("setprop debug.hwui.renderer '$valStr'").exec().isSuccess
+            val script = when (backend) {
+                "auto" -> "setprop debug.hwui.renderer ''; setprop debug.angle.backend ''"
+                "skiagl" -> "setprop debug.hwui.renderer skiagl; setprop debug.angle.backend ''"
+                "skiavk" -> "setprop debug.hwui.renderer skiavk; setprop debug.angle.backend ''"
+                "skiagraphite" -> "setprop debug.hwui.renderer skiagraphite; setprop debug.angle.backend ''"
+                "angle" -> "setprop debug.hwui.renderer angle; setprop debug.angle.backend vulkan"
+                else -> "setprop debug.hwui.renderer '$backend'"
+            }
+            Shell.cmd(script).exec().isSuccess
         } catch (e: Exception) { false }
+    }
+
+    suspend fun readPerAppGraphicsRules(context: Context): List<PerAppGraphicsRule> = withContext(Dispatchers.IO) {
+        try {
+            val optInStr = Shell.cmd("settings get global game_driver_opt_in_apps 2>/dev/null").exec().out.joinToString("").trim()
+            val prereleaseStr = Shell.cmd("settings get global game_driver_prerelease_opt_in_apps 2>/dev/null").exec().out.joinToString("").trim()
+            val angleStr = Shell.cmd("settings get global angle_enabled_for_packages 2>/dev/null").exec().out.joinToString("").trim()
+
+            val optInList = if (optInStr.isNotBlank() && optInStr != "null") optInStr.split(",").map { it.trim() }.filter { it.isNotBlank() } else emptyList()
+            val prereleaseList = if (prereleaseStr.isNotBlank() && prereleaseStr != "null") prereleaseStr.split(",").map { it.trim() }.filter { it.isNotBlank() } else emptyList()
+            val angleList = if (angleStr.isNotBlank() && angleStr != "null") angleStr.split(",").map { it.trim() }.filter { it.isNotBlank() } else emptyList()
+
+            val file = File(context.filesDir, "per_app_graphics.json")
+            val savedMeta = mutableMapOf<String, Int>()
+            if (file.exists()) {
+                try {
+                    val json = org.json.JSONArray(file.readText())
+                    for (i in 0 until json.length()) {
+                        val obj = json.getJSONObject(i)
+                        val pkg = obj.optString("packageName")
+                        val rr = obj.optInt("targetRefreshRate", 0)
+                        if (pkg.isNotBlank()) savedMeta[pkg] = rr
+                    }
+                } catch (ignored: Exception) {}
+            }
+
+            val allPkgs = (optInList + prereleaseList + angleList + savedMeta.keys).distinct().filter { it.isNotBlank() }
+            val pm = context.packageManager
+
+            allPkgs.map { pkg ->
+                val appName = try {
+                    val appInfo = pm.getApplicationInfo(pkg, 0)
+                    pm.getApplicationLabel(appInfo).toString()
+                } catch (e: Exception) {
+                    pkg.split(".").lastOrNull()?.replaceFirstChar { it.uppercase() } ?: pkg
+                }
+                val driverType = when {
+                    prereleaseList.contains(pkg) -> "prerelease"
+                    optInList.contains(pkg) -> "game"
+                    else -> "default"
+                }
+                val useAngle = angleList.contains(pkg)
+                val rr = savedMeta[pkg] ?: 0
+                PerAppGraphicsRule(
+                    packageName = pkg,
+                    appName = appName,
+                    driverType = driverType,
+                    useAngle = useAngle,
+                    targetRefreshRate = rr
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun savePerAppGraphicsRule(rule: PerAppGraphicsRule, context: Context): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val current = readPerAppGraphicsRules(context).toMutableList()
+            val idx = current.indexOfFirst { it.packageName == rule.packageName }
+            if (idx >= 0) current[idx] = rule else current.add(rule)
+
+            val optInPkgs = current.filter { it.driverType == "game" }.map { it.packageName }
+            val prereleasePkgs = current.filter { it.driverType == "prerelease" }.map { it.packageName }
+            val anglePkgs = current.filter { it.useAngle }.map { it.packageName }
+
+            val optInVal = optInPkgs.joinToString(",")
+            val prereleaseVal = prereleasePkgs.joinToString(",")
+            val angleVal = anglePkgs.joinToString(",")
+
+            val script = """
+                settings put global game_driver_opt_in_apps '$optInVal'
+                settings put global game_driver_prerelease_opt_in_apps '$prereleaseVal'
+                settings put global angle_enabled_for_packages '$angleVal'
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec()
+
+            val file = File(context.filesDir, "per_app_graphics.json")
+            val json = org.json.JSONArray()
+            current.forEach { r ->
+                val obj = org.json.JSONObject()
+                obj.put("packageName", r.packageName)
+                obj.put("appName", r.appName)
+                obj.put("driverType", r.driverType)
+                obj.put("useAngle", r.useAngle)
+                obj.put("targetRefreshRate", r.targetRefreshRate)
+                json.put(obj)
+            }
+            file.writeText(json.toString(2))
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun deletePerAppGraphicsRule(packageName: String, context: Context): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val current = readPerAppGraphicsRules(context).filter { it.packageName != packageName }
+            val optInPkgs = current.filter { it.driverType == "game" }.map { it.packageName }
+            val prereleasePkgs = current.filter { it.driverType == "prerelease" }.map { it.packageName }
+            val anglePkgs = current.filter { it.useAngle }.map { it.packageName }
+
+            val optInVal = optInPkgs.joinToString(",")
+            val prereleaseVal = prereleasePkgs.joinToString(",")
+            val angleVal = anglePkgs.joinToString(",")
+
+            val script = """
+                settings put global game_driver_opt_in_apps '$optInVal'
+                settings put global game_driver_prerelease_opt_in_apps '$prereleaseVal'
+                settings put global angle_enabled_for_packages '$angleVal'
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec()
+
+            val file = File(context.filesDir, "per_app_graphics.json")
+            val json = org.json.JSONArray()
+            current.forEach { r ->
+                val obj = org.json.JSONObject()
+                obj.put("packageName", r.packageName)
+                obj.put("appName", r.appName)
+                obj.put("driverType", r.driverType)
+                obj.put("useAngle", r.useAngle)
+                obj.put("targetRefreshRate", r.targetRefreshRate)
+                json.put(obj)
+            }
+            file.writeText(json.toString(2))
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 
     suspend fun setSurfaceFlingerLatch(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
@@ -3550,19 +3842,33 @@ object LynxRepository {
                 grd=${'$'}([ -f /dev/lynx_charging_guard ] && echo 1 || echo 0)
                 cst=${'$'}(cat /dev/lynx_charging_state 2>/dev/null || echo "")
 
-                # Suppress thermal throttling daemon if spoofing 28C is active
-                if [ -f /sys/devices/platform/battery/Battery_Temperature ]; then
-                    cur_bt=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null)
-                    if [ "${'$'}cur_bt" = "28" ]; then
-                        for c in /sys/class/thermal/cooling_device*; do
-                            type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
-                            case "${'$'}type" in
-                                *bcct*|*chg*|*current*|*abcct*|*battery*)
-                                    chmod 666 "${'$'}c/cur_state" 2>/dev/null
-                                    echo 0 > "${'$'}c/cur_state" 2>/dev/null
-                                    ;;
-                            esac
+                # Suppress thermal throttling daemon if extreme charging or spoofing 28C is active
+                is_ext=${'$'}([ -f /dev/lynx_extreme_charging ] && echo 1 || echo 0)
+                cur_bt=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null)
+                if [ "${'$'}is_ext" = "1" ] || [ "${'$'}cur_bt" = "28" ]; then
+                    for c in /sys/class/thermal/cooling_device*; do
+                        type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
+                        case "${'$'}type" in
+                            *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
+                                chmod 666 "${'$'}c/cur_state" 2>/dev/null
+                                echo 0 > "${'$'}c/cur_state" 2>/dev/null
+                                chmod 444 "${'$'}c/cur_state" 2>/dev/null
+                                ;;
+                        esac
+                    done
+                    if [ "${'$'}is_ext" = "1" ]; then
+                        for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+                            if [ -e "${'$'}node" ]; then
+                                chmod 666 "${'$'}node" 2>/dev/null
+                                echo "[85,6000,90,5000,4500]" > "${'$'}node" 2>/dev/null
+                                chmod 444 "${'$'}node" 2>/dev/null
+                            fi
                         done
+                        if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
+                            chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                            echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                            chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                        fi
                     fi
                 fi
 

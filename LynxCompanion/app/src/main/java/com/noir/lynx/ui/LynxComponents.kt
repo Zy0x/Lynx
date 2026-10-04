@@ -3,6 +3,7 @@ package com.noir.lynx.ui
 import java.util.Locale
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,6 +26,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -4291,6 +4294,37 @@ fun VoltageControlCard(
 //  GPU MASTER TUNER & TELEMETRY CARD (DUAL-PILL FREQUENCY)
 // ============================================================
 
+fun formatGpuGovernorLabel(gov: String, platform: String): String {
+    val clean = gov.trim()
+    val isMtk = platform.contains("mali", ignoreCase = true) || clean in listOf("0", "1", "2")
+    return when {
+        isMtk && clean == "0" -> "0 • Dinamis (Bawaan GED)"
+        isMtk && clean == "1" -> "1 • Performa (Low-Latency)"
+        isMtk && clean == "2" -> "2 • Agresif (Kustom)"
+        clean.contains("msm-adreno-tz", ignoreCase = true) -> "msm-adreno-tz (TrustZone AI)"
+        clean.contains("performance", ignoreCase = true) -> "performance (Maksimal)"
+        clean.contains("simple_ondemand", ignoreCase = true) -> "simple_ondemand (Responsif)"
+        clean.contains("powersave", ignoreCase = true) -> "powersave (Hemat Daya)"
+        clean.contains("msm-cpufreq", ignoreCase = true) -> "msm-cpufreq (Sinkron CPU)"
+        else -> clean
+    }
+}
+
+fun getGpuGovernorDescription(gov: String, platform: String): String {
+    val clean = gov.trim()
+    val isMtk = platform.contains("mali", ignoreCase = true) || clean in listOf("0", "1", "2")
+    return when {
+        isMtk && clean == "0" -> "Mode Default GED: Pengendalian frekuensi GPU dinamis berdasarkan estimasi beban frame display buffer. Seimbang untuk efisiensi daya dan stabilitas suhu."
+        isMtk && clean == "1" -> "Mode Performa GED: Memaksa driver memprioritaskan frame-rate konsisten dan memotong latency switching frekuensi, ideal untuk game kompetitif."
+        isMtk && clean == "2" -> "Mode Agresif Kustom: Memaksa profil beban GPU agresif untuk mempertahankan clock frekuensi menengah ke atas demi mencegah frame-drop micro-stutter."
+        clean.contains("msm-adreno-tz", ignoreCase = true) -> "Governor TrustZone Qualcomm QTI: Algoritma cerdas yang memantau utilitas komputasi Adreno via secure kernel enclave."
+        clean.contains("performance", ignoreCase = true) -> "Mengunci frekuensi GPU Adreno pada clock tertinggi yang diizinkan tanpa downclocking idle."
+        clean.contains("simple_ondemand", ignoreCase = true) -> "Menaikkan frekuensi seketika saat ada beban grafis dan turun saat idle secara responsif."
+        clean.contains("powersave", ignoreCase = true) -> "Mengunci clock GPU pada level minimum untuk menghemat konsumsi baterai ekstrem."
+        else -> "Governor pengatur manajemen daya dan frekuensi GPU saat runtime."
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GpuMasterTunerCard(
@@ -4428,26 +4462,275 @@ fun GpuMasterTunerCard(
             }
         }
 
-        // --- 2. GPU Utilization Bar ---
+        // --- 2. Real-Time GPU Load History Waveform Graph ---
+        val history = gpu.gpuLoadHistory
+        val curLoad = gpu.gpuLoadPercent.coerceIn(0, 100)
+        val minVal = if (history.isNotEmpty()) history.minOrNull() ?: curLoad else curLoad
+        val maxVal = if (history.isNotEmpty()) history.maxOrNull() ?: curLoad else curLoad
+        val avgVal = if (history.isNotEmpty()) history.average().toInt() else curLoad
+
         Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
             Row(
-                Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Beban Komputasi GPU", color = TextSecondary, fontSize = 11.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Timeline,
+                        contentDescription = null,
+                        tint = cardAccent,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Beban Komputasi GPU",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
+                }
                 Text(
-                    "${gpu.gpuLoadPercent}%",
-                    color = if (gpu.gpuLoadPercent > 70) AccentRed else cardAccent,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "Min $minVal% • Avg $avgVal% • Max $maxVal%",
+                    fontSize = 10.sp,
+                    color = TextSecondary,
+                    fontWeight = FontWeight.Medium
                 )
             }
-            LinearProgressIndicator(
-                progress = { (gpu.gpuLoadPercent / 100f).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                color = if (gpu.gpuLoadPercent > 70) AccentRed else cardAccent,
-                trackColor = BgElevated,
-            )
+
+            // Smooth Bezier Curve Canvas Waveform
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val w = size.width
+                    val h = size.height
+                    if (w <= 0 || h <= 0) return@Canvas
+
+                    // Draw subtle horizontal grid lines (25%, 50%, 75%)
+                    val gridColor = BorderSubtle
+                    drawLine(gridColor, start = Offset(0f, h * 0.25f), end = Offset(w, h * 0.25f), strokeWidth = 1f)
+                    drawLine(gridColor, start = Offset(0f, h * 0.50f), end = Offset(w, h * 0.50f), strokeWidth = 1f)
+                    drawLine(gridColor, start = Offset(0f, h * 0.75f), end = Offset(w, h * 0.75f), strokeWidth = 1f)
+
+                    val points = if (history.size < 2) {
+                        listOf(curLoad, curLoad)
+                    } else {
+                        history
+                    }
+
+                    val stepX = w / (points.size - 1).coerceAtLeast(1)
+                    val path = Path()
+                    val fillPath = Path()
+
+                    points.forEachIndexed { i, load ->
+                        val normY = (1f - (load.coerceIn(0, 100) / 100f)) * (h - 8f) + 4f
+                        val x = i * stepX
+                        if (i == 0) {
+                            path.moveTo(x, normY)
+                            fillPath.moveTo(x, h)
+                            fillPath.lineTo(x, normY)
+                        } else {
+                            val prevLoad = points[i - 1]
+                            val prevNormY = (1f - (prevLoad.coerceIn(0, 100) / 100f)) * (h - 8f) + 4f
+                            val prevX = (i - 1) * stepX
+                            val cx1 = prevX + (x - prevX) / 2f
+                            val cy1 = prevNormY
+                            val cx2 = prevX + (x - prevX) / 2f
+                            val cy2 = normY
+                            path.cubicTo(cx1, cy1, cx2, cy2, x, normY)
+                            fillPath.cubicTo(cx1, cy1, cx2, cy2, x, normY)
+                        }
+                    }
+
+                    fillPath.lineTo(w, h)
+                    fillPath.close()
+
+                    // Fill with vertical gradient
+                    drawPath(
+                        path = fillPath,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                cardAccent.copy(alpha = 0.35f),
+                                cardAccent.copy(alpha = 0.05f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+
+                    // Draw line stroke
+                    drawPath(
+                        path = path,
+                        color = cardAccent,
+                        style = Stroke(width = 2f)
+                    )
+
+                    // Draw glowing pulse dot at the latest point
+                    val lastX = w
+                    val lastY = (1f - (curLoad / 100f)) * (h - 8f) + 4f
+                    drawCircle(
+                        color = cardAccent.copy(alpha = 0.3f),
+                        radius = 6f,
+                        center = Offset(lastX, lastY)
+                    )
+                    drawCircle(
+                        color = cardAccent,
+                        radius = 3f,
+                        center = Offset(lastX, lastY)
+                    )
+                }
+            }
+        }
+
+        // --- 2b. Top Graphics & Rendering Processes ---
+        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 8.dp))
+
+        Column(Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Layers,
+                        contentDescription = null,
+                        tint = cardAccent,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Proses Render Grafis Aktif",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderGlass)
+                ) {
+                    Text(
+                        text = if (gpu.topGraphicsProcesses.isNotEmpty()) "${gpu.topGraphicsProcesses.size} Proses" else "Standby",
+                        fontSize = 9.5.sp,
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            if (gpu.topGraphicsProcesses.isEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(0.8.dp, BorderGlass),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Memindai thread render SurfaceFlinger & HWUI...",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    gpu.topGraphicsProcesses.take(5).forEach { p ->
+                        val iconVector = when (p.iconType) {
+                            "game" -> Icons.Default.SportsEsports
+                            "system" -> Icons.Default.Android
+                            "browser" -> Icons.Default.Language
+                            "media" -> Icons.Default.Movie
+                            else -> Icons.Default.Widgets
+                        }
+                        val iconTint = when (p.iconType) {
+                            "game" -> AccentGreen
+                            "system" -> AccentCyan
+                            "browser" -> AccentBlue
+                            "media" -> AccentPurple
+                            else -> TextSecondary
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.6.dp, BorderSubtle),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(iconTint.copy(alpha = 0.15f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = iconVector,
+                                            contentDescription = null,
+                                            tint = iconTint,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = p.name,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = TextPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (p.packageName.isNotBlank() && p.packageName != p.name) {
+                                            Text(
+                                                text = p.packageName,
+                                                fontSize = 9.sp,
+                                                color = TextSecondary,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (p.cpuPercent > 15f) AccentRed.copy(alpha = 0.18f) else cardAccent.copy(alpha = 0.15f),
+                                    border = BorderStroke(0.8.dp, if (p.cpuPercent > 15f) AccentRed.copy(alpha = 0.4f) else cardAccent.copy(alpha = 0.4f))
+                                ) {
+                                    Text(
+                                        text = String.format(Locale.US, "%.1f%%", p.cpuPercent),
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (p.cpuPercent > 15f) AccentRed else cardAccent,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         Spacer(Modifier.height(10.dp))
@@ -4652,7 +4935,8 @@ fun GpuMasterTunerCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         gpu.availableGovernors.forEach { gov ->
-                            val isSel = gpu.currentGovernor == gov
+                            val isSel = gpu.currentGovernor.trim() == gov.trim()
+                            val label = formatGpuGovernorLabel(gov, gpu.platform)
                             Surface(
                                 onClick = { onSetGovernor(gov) },
                                 shape = RoundedCornerShape(8.dp),
@@ -4660,13 +4944,41 @@ fun GpuMasterTunerCard(
                                 border = BorderStroke(1.dp, if (isSel) cardAccent else BorderGlass)
                             ) {
                                 Text(
-                                    gov,
+                                    label,
                                     color = if (isSel) cardAccent else TextSecondary,
                                     fontSize = 10.5.sp,
                                     fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                 )
                             }
+                        }
+                    }
+
+                    // Educational description card for active governor
+                    val govDesc = getGpuGovernorDescription(gpu.currentGovernor, gpu.platform)
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgSurfaceLowest,
+                        border = BorderStroke(0.8.dp, BorderGlass),
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = cardAccent,
+                                modifier = Modifier.size(15.dp).padding(top = 1.dp)
+                            )
+                            Text(
+                                text = govDesc,
+                                color = TextSecondary,
+                                fontSize = 10.5.sp,
+                                lineHeight = 15.sp
+                            )
                         }
                     }
                 }
@@ -4918,27 +5230,76 @@ fun GraphicsDriverHwuiCard(
 
         HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 10.dp))
 
-        // 2. UI Rendering Engine (HWUI)
+        // 2. UI Rendering Engine (HWUI) — 5-Engine Pipeline
         Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-            Text("UI Rendering Engine (HWUI)", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
-            Text("Pilih backend compositing antarmuka: Vulkan (beban CPU 30% lebih rendah) atau OpenGL ES", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("UI Rendering Engine (HWUI)", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderGlass)
+                ) {
+                    Text(
+                        text = "5 Engine Pipeline",
+                        color = cardAccent,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+            Text("Pilih pipeline compositing antarmuka sistem dan render canvas", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(
-                    Pair("auto", "🤖 Auto"),
-                    Pair("skiavk", "⚡ Vulkan (SkiaVK)"),
-                    Pair("skiagl", "🎨 OpenGL (SkiaGL)")
-                ).forEach { (backend, label) ->
+            val backends = listOf(
+                Triple("auto", "🤖 Default", "Stabil"),
+                Triple("skiagl", "🎨 SkiaGL", "OpenGL ES"),
+                Triple("skiavk", "⚡ SkiaVK", "Vulkan"),
+                Triple("skiagraphite", "💎 Graphite", if (graphics.isGraphiteSupported) "Android 14+" else "Info"),
+                Triple("angle", "📐 ANGLE", if (graphics.isAngleSupported) "Khronos" else "Translasi")
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                backends.forEach { (backend, title, badge) ->
                     val isSel = graphics.hwuiRenderer == backend
                     Surface(
                         onClick = { onSetRenderer(backend) },
-                        modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         color = if (isSel) cardAccent.copy(alpha = 0.22f) else BgElevated,
-                        border = BorderStroke(1.2.dp, if (isSel) cardAccent else BorderGlass)
+                        border = BorderStroke(1.2.dp, if (isSel) cardAccent else BorderGlass),
+                        modifier = Modifier.defaultMinSize(minWidth = 100.dp, minHeight = 48.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 9.dp)) {
-                            Text(label, color = if (isSel) cardAccent else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                        Column(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = title,
+                                color = if (isSel) cardAccent else TextPrimary,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (isSel) cardAccent.copy(alpha = 0.25f) else BgSurfaceLowest,
+                                border = BorderStroke(0.6.dp, if (isSel) cardAccent.copy(alpha = 0.5f) else BorderGlass)
+                            ) {
+                                Text(
+                                    text = badge,
+                                    color = if (isSel) cardAccent else TextSecondary,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                )
+                            }
                         }
                     }
                 }

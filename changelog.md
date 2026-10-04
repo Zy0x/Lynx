@@ -1,3 +1,29 @@
+# Lynx [Codename: Deity] 3.0.39
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Master GPU Hero Card dengan Real-Time Bezier Waveform Canvas (Grafik Beban GPU 30 Detik, Peak Marker & Indikator Pulse) dan Top 5 Proses Render Grafis Aktif (SurfaceFlinger / RenderThread), GPU Governor Berlabel Semantik Manusiawi (Smart Descriptive Chips & Kartu Edukatif Karakteristik Teknis), 5-Engine UI Rendering Pipeline (Default Sistem, SkiaGL, SkiaVK, Skia Graphite Android 14+, dan Translasi ANGLE Khronos Vulkan dengan Badge Kompatibilitas), serta Manajemen Rendering Per-Aplikasi (Game Driver Hub)** — mengubah subhalaman *GPU & Display* menjadi pusat kendali rendering terlengkap setara konsol dan workstation tuning grafis modern; menggantikan tampilan utilisasi GPU lama dengan kanvas grafik gelombang Bezier bergradien dinamis dan pemantau proses grafis aktif berikon visual; menerjemahkan angka biner dan mode mentah MediaTek Mali GED (`0`, `1`, `2`) serta governor Qualcomm menjadi deskripsi teknis yang mudah dipahami; memperluas pipeline compositing HWUI ke 5 backend termasuk Skia Graphite modern dan translasi ANGLE; serta menyediakan kartu khusus manajemen game driver per aplikasi dengan dialog pencarian aplikasi terpasang, pemilihan driver (Default / Game Driver / Prerelease), switch translasi ANGLE Vulkan, dan penguncian refresh rate layar per judul game.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.39)
+
+### 1. 📈 Master GPU Hero Card (Real-Time Bezier Waveform & Top Render Processes)
+- **30-Second Bezier Waveform Canvas**: Menampilkan grafik fluktuasi beban komputasi GPU secara real-time dengan kurva Bezier mulus, grid halus (25%, 50%, 75%), gradien vertikal amber bercahaya, titik puncak (*peak marker*), dan indikator *glowing pulse dot* pada sampel data terbaru.
+- **Top 5 Proses Render Grafis Aktif**: Mendeteksi dan menampilkan daftar 5 aplikasi/proses yang sedang aktif membebani SurfaceFlinger dan GPU (seperti game, SystemUI, Chromium renderers) lengkap dengan ikon tipe proses, nama paket, dan badge persentase beban komputasi.
+
+### 2. 🧠 Governor GPU Semantik & Kartu Edukatif Karakteristik Teknis
+- **Label Manusiawi Cerdas**: Menggantikan angka mentah MediaTek Mali GED (`0`, `1`, `2`) dengan chip deskriptif (`0 • Dinamis (Bawaan GED)`, `1 • Performa (Low-Latency)`, `2 • Agresif (Kustom)`) serta label informatif untuk Qualcomm Adreno (`msm-adreno-tz (TrustZone AI)`, `performance (Maksimal)`, dsb.).
+- **Kartu Edukatif Real-Time**: Menyematkan kartu penjelasan teknis di bawah pilihan governor untuk mengedukasi pengguna mengenai karakteristik algoritma scaling daya dan respon clock dari profil yang dipilih.
+
+### 3. ⚡ 5-Engine UI Rendering Pipeline (HWUI & Compositing Backend)
+- **Ekspansi 5 Pipeline Render**: Menyediakan selektor backend compositing antarmuka dan canvas dengan 5 opsi lengkap: *Default Sistem [Stabil]*, *SkiaGL [OpenGL ES]*, *SkiaVK [Vulkan]*, *Skia Graphite [Android 14+]*, dan *ANGLE [Khronos Vulkan]*.
+- **Badge Kompatibilitas & Edukasi**: Indikator status cerdas yang memberitahukan ketersediaan library dan batas minimum versi Android (misal Android 14+ untuk Skia Graphite) tanpa memicu crash sistem.
+
+### 4. 🎮 Manajemen Rendering Per-Aplikasi (Game Driver Hub)
+- **Konfigurasi Khusus per Judul Game**: Mengoptimalkan rendering setiap game secara individual memanfaatkan framework Android AOSP `GAME_DRIVER_OPT_IN_APPS`, `GAME_DRIVER_PRERELEASE_OPT_IN_APPS`, dan `ANGLE_ENABLED_FOR_PACKAGES`.
+- **App Picker Modal Cepat**: Dialog pemilihan aplikasi terpasang dengan filter pencarian real-time untuk memilih game target dengan mudah.
+- **Dialog Pengaturan Lengkap**: Kontrol menyeluruh per game mencakup pemilihan Tipe Driver (Default, Game Driver, Prerelease), sakelar Translasi ANGLE (OpenGL → Vulkan), dan penguncian Refresh Rate Layar (Bawaan, 60Hz, 90Hz, 120Hz).
+- **Manajemen Mandiri**: Tombol edit dan hapus aturan per aplikasi untuk fleksibilitas total pengguna.
+
+---
+
 # Lynx [Codename: Deity] 3.0.38
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Pembersih Shader & Pipeline Cache Grafis Universal (Shader Cache Manager), Live Telemetri Suhu Silikon GPU & Indikator Thermal Throttling, Tunable Driver Kernel Lanjutan SoC (Adreno Idle Timer & MediaTek Mali GED DVFS Margin), serta Integrasi Floating Game HUD Overlay (In-Game OSD)** — menyempurnakan subhalaman *GPU & Display* menjadi ekosistem tuning grafis profesional setara Scene dan Franco Kernel Manager (FKM); membasmi tuntas masalah *shader compilation micro-stutter* pada game 3D melalui pemindaian dan pembersihan aman berkas `.shaders_cache` OpenGL & Vulkan tanpa menyentuh data login atau save game pemain; menampilkan live telemetri temperatur silikon GPU (°C) secara langsung di header tuner dengan peringatan visual saat thermal throttling terjadi; memberikan kontrol presisi terhadap parameter kernel low-latency seperti *Adreno Idle Timer* (20ms–100ms) dan *Mali GED DVFS Margin* (+0% s/d +30%); serta menyematkan kartu kendali *Floating Game HUD Overlay* di tab Lab agar gamer dapat memantau FPS, Frame Time, beban GPU, dan suhu secara real-time di atas game fullscreen dengan beragam gaya tampilan (RTSS Slim Pillar, Top Ribbon, Dual-Block, dsb.).
