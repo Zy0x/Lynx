@@ -393,7 +393,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, NOTIF_CHANNEL_ID)
-                .setContentTitle("🎮 Lynx Floating Game HUD Aktif")
+                .setContentTitle("Lynx Floating Game HUD Aktif")
                 .setContentText("Ketuk untuk membuka Lynx atau tutup overlay")
                 .setSmallIcon(android.R.drawable.ic_menu_compass)
                 .setContentIntent(pOpenIntent)
@@ -403,7 +403,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
-                .setContentTitle("🎮 Lynx Floating Game HUD Aktif")
+                .setContentTitle("Lynx Floating Game HUD Aktif")
                 .setContentText("Ketuk untuk membuka Lynx")
                 .setSmallIcon(android.R.drawable.ic_menu_compass)
                 .setContentIntent(pOpenIntent)
@@ -651,7 +651,7 @@ fun HudEdgeDrawer(
                                 }
                                 .padding(horizontal = 4.dp, vertical = 2.dp)
                         ) {
-                            Text("🗔 Float", color = TextSlate, fontSize = 8.5.sp)
+                            Text("Float", color = TextSlate, fontSize = 8.5.sp)
                         }
 
                         // Style Dropdown Trigger
@@ -985,7 +985,7 @@ fun HudEdgeDrawer(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    if (isBoosting) "✓ Bersih" else "⚡ Boost RAM",
+                                    if (isBoosting) "Bersih" else "Boost RAM",
                                     color = if (isBoosting) NeonGreen else NeonCyan,
                                     fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Bold,
@@ -1012,7 +1012,7 @@ fun HudEdgeDrawer(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    "🔒 $currentRefreshRate Hz",
+                                    "$currentRefreshRate Hz",
                                     color = NeonGold,
                                     fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Bold,
@@ -1039,7 +1039,7 @@ fun HudEdgeDrawer(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    "📌 Pin FPS",
+                                    "Pin FPS",
                                     color = if (pinMiniFps) NeonGreen else TextSlate,
                                     fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Bold,
@@ -1199,7 +1199,7 @@ fun FloatingHudContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        "🗔 Floating Window",
+                        "Floating Window",
                         color = TextSlate,
                         fontSize = 8.sp,
                         fontWeight = FontWeight.SemiBold

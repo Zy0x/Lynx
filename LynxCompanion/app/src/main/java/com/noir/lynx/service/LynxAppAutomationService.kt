@@ -419,7 +419,7 @@ class LynxAppAutomationService : Service() {
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, NOTIF_CHANNEL_ID)
-                .setContentTitle("⚡ Lynx App Automation Daemon")
+                .setContentTitle("Lynx App Automation Daemon")
                 .setContentText(statusText)
                 .setSmallIcon(android.R.drawable.ic_popup_sync)
                 .setContentIntent(pOpenIntent)
@@ -429,7 +429,7 @@ class LynxAppAutomationService : Service() {
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
-                .setContentTitle("⚡ Lynx App Automation Daemon")
+                .setContentTitle("Lynx App Automation Daemon")
                 .setContentText(statusText)
                 .setSmallIcon(android.R.drawable.ic_popup_sync)
                 .setContentIntent(pOpenIntent)

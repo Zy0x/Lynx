@@ -6,11 +6,11 @@ import java.util.Locale
 import org.json.JSONObject
 
 enum class CpuControlProfile(val displayName: String, val badge: String, val description: String) {
-    OEM_MANAGED("Managed by System (OEM)", "🟢 OEM", "Sistem Android bawaan mengontrol penuh seluruh penjadwalan dan daya."),
-    GAMING("Gaming & Extreme Response", "⚡ Gaming", "Prioritas latensi instan 0µs, isolasi Big Cores untuk game, dan boost penjadwal aktif."),
-    BALANCED("Balanced Daily", "⚖️ Seimbang", "Manajemen dinamis optimal untuk penggunaan harian, transisi mulus, dan efisiensi seimbang."),
-    BATTERY("Deep Battery Saver", "🔋 Hemat Daya", "Prioritaskan status tidur lelap mikroprosesor, park core performa, dan kurangi alokasi daya."),
-    CUSTOM("Custom User Tuning", "🛠️ Kustom", "Seluruh subsistem dikonfigurasi secara manual sesuai kebutuhan pengguna.")
+    OEM_MANAGED("Managed by System (OEM)", "OEM", "Sistem Android bawaan mengontrol penuh seluruh penjadwalan dan daya."),
+    GAMING("Gaming & Extreme Response", "Gaming", "Prioritas latensi instan 0µs, isolasi Big Cores untuk game, dan boost penjadwal aktif."),
+    BALANCED("Balanced Daily", "Seimbang", "Manajemen dinamis optimal untuk penggunaan harian, transisi mulus, dan efisiensi seimbang."),
+    BATTERY("Deep Battery Saver", "Hemat Daya", "Prioritaskan status tidur lelap mikroprosesor, park core performa, dan kurangi alokasi daya."),
+    CUSTOM("Custom User Tuning", "Kustom", "Seluruh subsistem dikonfigurasi secara manual sesuai kebutuhan pengguna.")
 }
 
 /**
