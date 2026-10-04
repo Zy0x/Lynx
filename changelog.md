@@ -1,3 +1,24 @@
+# Lynx [Codename: Deity] 3.0.43
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Pembersihan Total Estetika Antarmuka & Eliminasi Menyeluruh Dekorasi Emotikon (Strict Zero-Emoji Professional Clean Architecture), Standardisasi Ikon Vektor Material Design pada Seluruh Panel Kontrol, Penataan Bahasa Sistem Ringkas & Lugas Tanpa Clutter, serta Konsistensi Komponen Interaktif Seluruh Subhalaman** — membasmi tuntas seluruh penggunaan emotikon visual yang berlebihan dan tidak teratur pada chip pemilih (Auto refresh rate, Game Driver, ANGLE Vulkan, HWUI backends), tombol kontrol profil CPU/GPU, banner notifikasi latar belakang, Floating HUD OSD, dan dialog sistem; mentransisikan seluruh representasi visual ke ikon vektor Material Design yang presisi dan elegan; serta menyelaraskan hierarki tipografi dan redaksi teks agar berstandar perangkat lunak tuning kernel tingkat profesional tanpa distorsi visual.
+
+## Fitur Baru & Peningkatan (3.0.43)
+
+### 1. Eliminasi Total Emotikon Clutter pada Chip & Selektor Antarmuka
+- **Refresh Rate & Display Selector**: Menghilangkan emotikon pada indikator Auto dan opsi fixed Hz (`Auto (60 Hz)` dan `Auto` menggantikan format lama yang memuat emotikon).
+- **Game Driver & HWUI Pipeline**: Menstandarkan label driver grafis (`Bawaan Sistem`, `Game Driver (Semua App)`) dan kelima backend HWUI (`Default`, `SkiaGL`, `SkiaVK`, `Graphite`, `ANGLE`) dengan tipografi bersih.
+- **Per-App Graphics Hub Badges**: Menghilangkan simbol emotikon pada badge driver, translasi ANGLE, dan refresh rate per-aplikasi.
+
+### 2. Transisi Penuh ke Ikon Vektor Material Design
+- **CPU & GPU Profile Buttons**: Menggantikan representasi teks bergaya emotikon dengan Material Vector Icons resmi (`SportsEsports` untuk Gaming, `Balance` untuk Seimbang, `BatteryChargingFull` untuk Hemat Daya, dan `Tune` untuk Mode Pakar).
+- **Floating Game HUD & OSD**: Memperbarui status button pada overlay game (Float, Boost RAM, Pin FPS) dengan teks bersih dan ikon pin vektor presisi.
+
+### 3. Redaksi Bahasa Komunikatif, Tegas & Profesional
+- **Notifikasi Latar Belakang & Daemon**: Membersihkan pesan shell notification dan daemon runner dari simbol yang tidak perlu.
+- **Dialog & Banner Sistem**: Mengoreksi judul modal peringatan termal, dialog konfirmasi pemulihan partisi, serta kartu laporan live benchmark agar terbebas dari kesan tampilan tidak terstruktur.
+
+---
+
 # Lynx [Codename: Deity] 3.0.42
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Matriks Universal Pengisian Daya Cepat & Bypass Termal Lintas SoC & OEM (Universal Multi-SoC & Multi-OEM Dynamic Fast Charging & Hardware Throttle Bypass), Penembus Batas Derating Layar Nyala Multi-Vendor (Samsung One UI SIOP, OnePlus/OPPO SuperVOOC Cool Mode, Xiaomi HyperOS Joyose/Current Boost, Google Tensor, ASUS ROG, & Motorola), Telemetri Dinamis Deteksi IC PMIC & Protokol Fast Charge Real-Time, serta Penguncian Hak Akses Sysfs Berlapis (chmod 444 Anti-Rollback Guard)** — memperluas kendali pengisian daya cerdas dan bypass pengisian dari yang sebelumnya berorientasi spesifik ke Transsion/MediaTek menjadi arsitektur universal yang secara cerdas mendeteksi dan membuka batas daya pada Qualcomm Snapdragon (SMB1390/1355 direct pump & PM8150), Samsung Exynos/Snapdragon (`siop_level 100`, direct charger mode), OnePlus/Oppo/Realme (`cool_mode 0`, `call_mode 0`, SuperVOOC user type), Xiaomi/HyperOS (`thermal_input_current_limit 6000000`, boost current, Joyose suspend), Google Tensor (Pixel `charge_stop_level`, trickle dry run), ASUS ROG, dan Motorola; menyelaraskan telemetri aplikasi dan daemon shell untuk mengidentifikasi jenis IC konverter dan protokol pengisian aktif (SuperVOOC, AFC, Super Fast Charging 25W/45W, HyperCharge, Pump Express, QC, PD PPS); serta memastikan pengisian cepat tetap melaju dengan daya maksimal baik saat layar hidup maupun mati tanpa hambatan regulasi termal OEM.
