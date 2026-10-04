@@ -1815,6 +1815,11 @@ object LynxRepository {
                 echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                 echo $highTargetPercent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+
+                # Bypass Transsion Screen-On Throttling & Test Rig Derating
+                echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
                 ${if (lockoutBypass) """
                     chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
                     echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
@@ -1943,6 +1948,11 @@ object LynxRepository {
                 echo 100 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
+
+                # Bypass Transsion Screen-On Throttling & Test Rig Derating
+                echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
 
                 # 2. Lock Battery Temperature to 28C & Read-Only Protect against thermal daemon resets
                 chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null

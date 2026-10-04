@@ -4140,8 +4140,8 @@ fun TuningChargingCategory(
             accentColor = AccentCyan
         ) {
             LynxSwitch(
-                label = "Extreme Fast Charging (High Current)",
-                subLabel = "Membuka batas arus hingga 6000mA (6A) di baterai / 33W di adaptor, mengaktifkan Pump Express 4.0 & RT9759 Charge Pump 2:1, serta menghapus proteksi JEITA. Catatan: Saat layar menyala, OEM Transsion membatasi adaptor ke ~1.5A; pengisian 33W penuh beroperasi optimal saat layar mati.",
+                label = "Extreme Fast Charging (Continuous Screen-On Boost)",
+                subLabel = "Membuka batas arus hingga 6000mA (6A) di sel baterai / 33W di adaptor, mengaktifkan Pump Express 4.0 & RT9759 Charge Pump 2:1, membypass batasan layar menyala (BN_TestMode & tpcb derating bypass), serta mengunci pendingin termal agar pengisian tetap konsisten dan sangat cepat meski ponsel sedang aktif digunakan.",
                 checked = state.charging.extremeChargingEnabled,
                 onCheckedChange = { viewModel.setExtremeCharging(it) },
             )

@@ -135,15 +135,23 @@ apply_extreme_charging() {
     write_node "$target_soc" "$MTK_DIR/sc_tuisoc"
     write_node "1" "$MTK_DIR/enable_sc"
 
-    # 4. Bypass MTK Super Charge DV2_TBAT thermal lockout
+    # 4. Bypass Transsion Screen-On Throttling & Test Rig Derating
+    write_node "1" "$MTK_DIR/BN_TestMode"
+    write_node "0" "$MTK_DIR/BatteryNotify"
+    write_node "0" "$MTK_DIR/tran_charger_full"
+
+    # 5. Bypass MTK Super Charge DV2_TBAT thermal lockout
     if [ "$allow_lockout_bypass" = "true" ]; then
+        chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
         write_node "28" "/sys/devices/platform/battery/Battery_Temperature"
+        chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
         for c in /sys/class/thermal/cooling_device*; do
             type=$(cat "$c/type" 2>/dev/null)
             case "$type" in
                 *bcct*|*chg*|*current*|*abcct*|*battery*)
                     chmod 666 "$c/cur_state" 2>/dev/null
                     echo 0 > "$c/cur_state" 2>/dev/null
+                    chmod 444 "$c/cur_state" 2>/dev/null
                     ;;
             esac
         done
@@ -527,15 +535,15 @@ while true; do
     emergency_dC=$(( cutoff_dC + 35 )) # ~3.5C buffer before critical protection
 
     # 2. Hardware Thermal Protection & Bed Insulation Guard
-    if [ "$temp" -ge "$emergency_dC" ] || [ "$real_dC" -ge "$emergency_dC" ]; then
+    if [ "$temp" -ge "$emergency_dC" ]; then
         # Critical Cutoff: suspend charging to prevent hardware damage, keep system running
         write_node "0" "$BATT_DIR/charging_enabled"
         write_node "1000000" "$BATT_DIR/constant_charge_current_max"
         sleep 8
         continue
-    elif [ "$temp" -ge "$cutoff_dC" ] || [ "$real_dC" -ge "$cutoff_dC" ]; then
+    elif [ "$extreme_charging_on" != "true" ] && [ "$cur_prof" != "extreme" ] && [ "$limit_ma" -lt 3000 ] && [ "$temp" -ge "$cutoff_dC" ]; then
         # Soft Thermal Throttling / Bed Insulation Guard from user slider:
-        # Clamp to 1200mA if not in bypass mode and battery < 100%
+        # Clamp to 1200mA ONLY if NOT in Extreme Charging mode!
         if [ "$bypass_on" != "true" ] && [ "$capacity" -lt 100 ]; then
             apply_regulated_charging 1200
             sleep 6

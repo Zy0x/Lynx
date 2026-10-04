@@ -1,3 +1,23 @@
+# Lynx [Codename: Deity] 3.0.30
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Continuous Unthrottled Screen-On SuperCharge Engine: Bypass Penuh Limitasi Layar Menyala Transsion/MediaTek (BN_TestMode & tpcb Derating Override), Proteksi Read-Only Locking pada Cooling Devices (`chmod 444`), dan Eliminasi Throttling Prematur Suhu CPU saat Ponsel Aktif Digunakan** — meruntuhkan batasan agresif kernel OEM Transsion yang sebelumnya memangkas arus adaptor menjadi 1500 mA setiap kali layar aktif atau ponsel sedang digunakan, mengintegrasikan mode uji pabrik `BN_TestMode = 1` untuk menonaktifkan derating layar/game secara permanen, mengunci seluruh pendingin termal `cur_state = 0` dengan izin read-only agar daemon sistem tidak dapat menaikkan level throttling, serta membebaskan mode Extreme Charging dari batasan soft cutoff termal sehingga pengisian daya 33W (5–6A pada sel baterai) tetap mengalir kencang dan konsisten tanpa interupsi.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.30)
+
+### 1. ⚡ Continuous Screen-On SuperCharge Engine (Bypass Limit Layar Menyala)
+- **Aktivasi Transsion `BN_TestMode`**: Mengaktifkan node pengujian pabrik `/sys/devices/platform/charger/BN_TestMode = 1` dan mereset `BatteryNotify` serta `tran_charger_full` untuk menonaktifkan pembatasan `tpcb / lcd_on` (1500mA clamp) saat framebuffer layar aktif.
+- **Pengisian Cepat Tanpa Drop Saat Gaming/Dipakai**: Pengguna kini dapat menggunakan ponsel secara intensif, bermain game, atau menyalakan layar tanpa khawatir kecepatan pengisian drop ke 1.2A–1.5A. Daya 33W penuh dan arus 5–6A tetap dipompa stabil ke sel baterai.
+
+### 2. 🔒 Proteksi Kunci Izin Read-Only (`chmod 444`) pada Cooling Devices & Suhu Baterai
+- **Anti-Overriding Daemon Sistem**: Setelah mereset seluruh cooling device charging (`bcct`, `chg`, `battery`, `current`) ke `cur_state = 0`, permission dikunci menjadi `chmod 444` sehingga thermal daemon latar belakang tidak dapat menaikkan state throttling saat layar menyala.
+- **Proteksi Suhu Spoofing 28°C**: Node `Battery_Temperature` kini dikunci dengan `chmod 444` setelah disetel ke 28°C untuk mencegah kernel mengembalikan nilai suhu tinggi yang memicu DV2_TBAT lockout.
+
+### 3. 🎯 Eliminasi Throttling Prematur dari Sensor CPU
+- **Pemisahan Sensor Baterai vs SoC**: Memperbaiki logika daemon loop di mana sebelumnya temperatur thermal zone 0 (SoC/CPU yang normal mencapai 50°C saat layar menyala) secara keliru memicu soft thermal throttling 1200mA pada pengisian daya baterai.
+- **Hak Istimewa Extreme Mode**: Mode Extreme Charging kini dikecualikan dari soft cutoff dan hanya dibatasi oleh Emergency Thermal Guard nyata pada sel baterai (>48.5°C) demi menjamin kecepatan pengisian yang tidak terputus.
+
+---
+
 # Lynx [Codename: Deity] 3.0.29
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Perbaikan Kritis Subsistem Pengisian Daya & Optimalisasi 33W Transsion Super Charge: Eliminasi Bug Integer Overflow (Zeroing Input Current Bug Fix), Penguraian Konseptual & Edukasi UI Bypass vs Extreme Charging, dan Dynamic Thermal Cooling Device Unlocking** — membasmi cacat fatal pada skrip pengontrol di mana penulisan nilai `4294967295` memicu overflow pada sysfs kernel MediaTek dan me-reset arus input `input_current` menjadi 0 mA, menggantikannya dengan nilai valid 6000 mA (register step 24576) untuk memompa daya penuh 33W (hingga 5–6A pada sel baterai via RT9759 2:1 Switched Capacitor Charge Pump); memperjelas pemisahan tegas antara fungsi *Bypass Charging* (daya langsung ke motherboard, net 0mA baterai untuk gaming dingin) dan *Extreme Fast Charging* (pompa arus maksimum ke sel baterai) pada antarmuka pengguna; serta menggantikan penanganan termal statis hardcoded dengan loop dinamis pada seluruh `cooling_device*` terkait charging.
