@@ -5785,6 +5785,119 @@ fun CpuIdleCoreParkingCard(
 
         Spacer(Modifier.height(10.dp))
 
+        // 2. Kebijakan Core Parking (CPU Hotplug Management)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "KEBIJAKAN CORE PARKING (HOTPLUG)",
+                color = TextSecondary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp
+            )
+            Text(
+                text = "Manajemen Status Inti",
+                color = TextTertiary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        val currentParkingKey = cpuIdle.coreParkingMode.lowercase()
+        val parkingOptions = listOf(
+            Triple("dynamic", "Dinamis", Icons.Default.Tune to AccentBlue),
+            Triple("unpark_all", "Unpark Semua", Icons.Default.Bolt to AccentCyan),
+            Triple("park_big", "Parkir Big", Icons.Default.Bedtime to AccentOrange)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            parkingOptions.forEach { (modeKey, label, iconAndColor) ->
+                val (icon, color) = iconAndColor
+                val isSelected = currentParkingKey == modeKey
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 44.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { onSetCoreParkingMode(modeKey) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isSelected) color.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.6f),
+                    border = BorderStroke(if (isSelected) 1.4.dp else 0.8.dp, if (isSelected) color else BorderSubtle)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(vertical = 8.dp, horizontal = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = if (isSelected) color else TextSecondary,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = label,
+                                fontSize = 10.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) color else TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Subtitle deskripsi kontekstual untuk opsi Core Parking yang dipilih
+        val parkingExpl = when (currentParkingKey) {
+            "unpark_all" -> "Seluruh $totalCores inti dipaksa selalu siaga online (/sys/devices/system/cpu/cpu*/online) tanpa pemutusan daya untuk responsivitas instan bebas stutter."
+            "park_big" -> "Inti performa tinggi (Big Cores) dipaksa offline saat beban rendah (/sys/devices/system/cpu/cpu*/online=0) untuk memangkas konsumsi daya secara drastis."
+            else -> "Kernel mengalokasikan inti Little & Big secara adaptif sesuai beban tugas latar belakang dan interaksi antarmuka."
+        }
+        val parkingExplColor = when (currentParkingKey) {
+            "unpark_all" -> AccentCyan
+            "park_big" -> AccentOrange
+            else -> AccentBlue
+        }
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = parkingExplColor.copy(alpha = 0.08f),
+            border = BorderStroke(0.6.dp, parkingExplColor.copy(alpha = 0.25f)),
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = parkingExplColor,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = parkingExpl,
+                    fontSize = 9.5.sp,
+                    lineHeight = 13.5.sp,
+                    color = parkingExplColor.copy(alpha = 0.95f)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
         // 3. Status Performa & Daya (Unified Telemetry Panel - Read-Only)
         Column(
             modifier = Modifier
@@ -6045,7 +6158,7 @@ fun CpuIdleCoreParkingCard(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Kustomisasi Manual (Hotplug & C-States)",
+                        text = "Kustomisasi Lanjutan: C-States (/sys/cpuidle)",
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (showAdvancedControls) AccentCyan else TextSecondary
@@ -6086,7 +6199,7 @@ fun CpuIdleCoreParkingCard(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Level tidur (C-States) berlaku untuk seluruh CPU saat menganggur, bukan nomor ID inti prosesor.",
+                            text = "Level tidur (C-States) mengatur pemutusan clock subsistem saat CPU menganggur, berlaku untuk seluruh inti prosesor.",
                             fontSize = 10.sp,
                             lineHeight = 14.sp,
                             color = AccentBlue
@@ -6094,178 +6207,7 @@ fun CpuIdleCoreParkingCard(
                     }
                 }
 
-                // A. Core Parking Policy (Granular Hotplug Setting Tile - Non-Redundant)
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Kebijakan Hotplug Inti (Core Parking)",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
-                    )
-
-                    var hotplugMenuExpanded by remember { mutableStateOf(false) }
-                    val currentParkingKey = cpuIdle.coreParkingMode.lowercase()
-                    val currentTitle = when (currentParkingKey) {
-                        "unpark_all" -> "Unpark Semua Inti"
-                        "park_big" -> "Parkir Big Cores"
-                        else -> "Dinamis (Kernel OEM)"
-                    }
-                    val currentDesc = when (currentParkingKey) {
-                        "unpark_all" -> "Seluruh 8 inti siaga aktif tanpa pemutusan daya"
-                        "park_big" -> "Mematikan 2 Big Core saat idle untuk pangkas daya"
-                        else -> "Kernel mengatur alokasi inti secara adaptif sesuai beban"
-                    }
-                    val currentColor = when (currentParkingKey) {
-                        "unpark_all" -> AccentCyan
-                        "park_big" -> AccentOrange
-                        else -> AccentBlue
-                    }
-                    val currentIcon = when (currentParkingKey) {
-                        "unpark_all" -> Icons.Default.Bolt
-                        "park_big" -> Icons.Default.Bedtime
-                        else -> Icons.Default.Tune
-                    }
-
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        Surface(
-                            onClick = { hotplugMenuExpanded = true },
-                            shape = RoundedCornerShape(10.dp),
-                            color = BgElevated.copy(alpha = 0.6f),
-                            border = BorderStroke(1.dp, currentColor.copy(alpha = 0.35f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 9.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f).padding(end = 8.dp)
-                                ) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = currentColor.copy(alpha = 0.15f),
-                                        border = BorderStroke(0.8.dp, currentColor.copy(alpha = 0.4f)),
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = currentIcon,
-                                                contentDescription = null,
-                                                tint = currentColor,
-                                                modifier = Modifier.size(15.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(Modifier.width(10.dp))
-                                    Column {
-                                        Text(
-                                            text = currentTitle,
-                                            fontSize = 11.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextPrimary
-                                        )
-                                        Text(
-                                            text = currentDesc,
-                                            fontSize = 9.5.sp,
-                                            color = TextSecondary,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = BgSurfaceLowest,
-                                    border = BorderStroke(0.8.dp, BorderSubtle)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Ubah",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = TextSecondary
-                                        )
-                                        Spacer(Modifier.width(2.dp))
-                                        Icon(
-                                            imageVector = Icons.Default.ArrowDropDown,
-                                            contentDescription = null,
-                                            tint = TextSecondary,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        DropdownMenu(
-                            expanded = hotplugMenuExpanded,
-                            onDismissRequest = { hotplugMenuExpanded = false },
-                            modifier = Modifier
-                                .background(Color(0xFF141722))
-                                .border(1.dp, BorderSubtle, RoundedCornerShape(8.dp))
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Column(Modifier.padding(vertical = 2.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Tune, null, tint = AccentBlue, modifier = Modifier.size(13.dp))
-                                            Spacer(Modifier.width(6.dp))
-                                            Text("Dinamis (Kernel OEM)", fontWeight = FontWeight.Bold, fontSize = 11.5.sp, color = AccentBlue)
-                                        }
-                                        Text("Kernel mengatur alokasi inti secara otomatis (Default)", fontSize = 9.5.sp, color = TextSecondary)
-                                    }
-                                },
-                                onClick = {
-                                    onSetCoreParkingMode("dynamic")
-                                    hotplugMenuExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = {
-                                    Column(Modifier.padding(vertical = 2.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Bolt, null, tint = AccentCyan, modifier = Modifier.size(13.dp))
-                                            Spacer(Modifier.width(6.dp))
-                                            Text("Unpark Semua Inti", fontWeight = FontWeight.Bold, fontSize = 11.5.sp, color = AccentCyan)
-                                        }
-                                        Text("Seluruh 8 inti siaga penuh tanpa pemutusan daya", fontSize = 9.5.sp, color = TextSecondary)
-                                    }
-                                },
-                                onClick = {
-                                    onSetCoreParkingMode("unpark_all")
-                                    hotplugMenuExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = {
-                                    Column(Modifier.padding(vertical = 2.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Bedtime, null, tint = AccentOrange, modifier = Modifier.size(13.dp))
-                                            Spacer(Modifier.width(6.dp))
-                                            Text("Parkir Big Cores", fontWeight = FontWeight.Bold, fontSize = 11.5.sp, color = AccentOrange)
-                                        }
-                                        Text("Mematikan 2 Big Core saat idle untuk pangkas daya", fontSize = 9.5.sp, color = TextSecondary)
-                                    }
-                                },
-                                onClick = {
-                                    onSetCoreParkingMode("park_big")
-                                    hotplugMenuExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // B. Individual C-States List (Level 0..Level 4)
+                // Tingkat Kedalaman Tidur Daya (/sys/cpuidle)
                 if (cpuIdle.states.isNotEmpty()) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(

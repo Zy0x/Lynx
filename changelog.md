@@ -1,3 +1,24 @@
+# Lynx [Codename: Deity] 3.0.34
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Penyempurnaan Arsitektur & Reorganisasi Hierarki UI CPU: Promosi Posisi Kartu Core Parking & CPU Idle ke Posisi 2, Transformasi Segmented Selector 3-Arah Touch-First, Penyelarasan Zero-Redundancy antara Kernel Hotplug (`online=0/1`) dan C-States (`cpuidle`), serta Perampingan Accordion Lanjutan** — merestrukturisasi subhalaman *CPU & Governor* pada aplikasi Lynx Companion (`LynxKernelManager`) agar alur navigasi parameter CPU lebih logis, berorientasi mobile-first, dan bebas dari ambiguitas; kini kartu *Core Parking & CPU Idle (C-States)* ditempatkan tepat di bawah *Cluster Frequency & Governor Tuning* (sebelum *CPU Sets & Task Shield*), fitur kebijakan Core Parking ditarik keluar dari accordion tersembunyi dan menu dropdown menjadi selektor segmented 3-arah (`Dinamis (OEM)`, `Unpark Semua`, `Parkir Big Cores`) dengan kartu penjelasan kontekstual langsung, serta accordion kustomisasi lanjutan dikhususkan murni untuk parameter C-States tingkat mendalam (Level 0 WFI hingga Level 3 Deep Sleep) dan ARMPLL Power Down.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.34)
+
+### 1. 📐 Reorganisasi Hierarki Kartu CPU (`CpuSubScreen`)
+- **Promosi ke Posisi 2**: Memindahkan kartu `CpuIdleCoreParkingCard` ke posisi kedua tepat di bawah `CpuClusterTunerCard` dan mendahului `CpuSetsTaskShieldCard`.
+- **Alur Logika Berurutan**: Menyusun hierarki konfigurasi prosesor yang runtut: *Kecepatan/Frekuensi Inti* $\to$ *Ketersediaan Inti & Latensi Tidur (Core Parking & Idle)* $\to$ *Penugasan Tugas (CPU Sets / Affinity)* $\to$ *Algoritma Penjadwalan (CFS/EAS/HMP/BORE)*.
+
+### 2. 🎛️ Transformasi Selektor Segmented 3-Arah Core Parking
+- **Eliminasi Dropdown Tersembunyi**: Menghapus menu dropdown dan accordion bersarang untuk pengaturan Core Parking yang sebelumnya memerlukan klik ekstra dan sulit dijangkau.
+- **Selektor Segmented Touch-First**: Menyajikan kontrol langsung 3-opsi (`Dinamis`, `Unpark Semua`, `Parkir Big`) dengan tinggi sentuh minimum 44–48dp dan indikator visual status aktif berbasis warna aksen (Biru, Cyan, Oranye).
+- **Penjelasan Kontekstual Real-Time**: Menyertakan kartu ringkasan dinamis yang menerangkan secara gamblang implikasi kernel dari masing-masing mode yang dipilih (misal: penulisan sysfs `/sys/devices/system/cpu/cpu*/online`).
+
+### 3. 🔬 Perampingan Accordion Kustomisasi Lanjutan C-States
+- **Pemisahan Konseptual yang Tegas**: Memisahkan secara tegas antara *Core Parking / Hotplug* (isolasi fisik core dari scheduler) dan *C-States* (siklus tidur idle CPU saat core tetap online).
+- **Fokus Murni C-States**: Mengubah nama accordion menjadi *Kustomisasi Lanjutan: C-States (/sys/cpuidle)* yang khusus menampung saklar granular Level 0 (WFI Wajib Aktif), Level 1 (cpuoff), Level 2 (clusteroff), Level 3 (deep), serta saklar hardware *ARMPLL Power Down Mode*.
+
+---
+
 # Lynx [Codename: Deity] 3.0.33
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Deep Hardware Diagnostic & Transsion Motherboard Thermal Override: Pembongkaran Kernel DV2/PE5.0 Throttling, Bypass Kuncian Suhu PCB 45°C (`pcb_thermal_debug` [65,3500,70,3000,2500]), Penjinakan Adaptive Battery Current Throttling (`abcct`), dan Analisis Fisika Saturasi Sel Baterai (CV Phase)** — membongkar tuntas investigasi hardware tingkat kernel pada perangkat MediaTek Dimensity / Transsion (Infinix X698) mengapa pengisian daya sempat drop di bawah 25W (menjadi ~10W–14W); telemetri kernel membuktikan bahwa algoritma DV2 memotong arus input adaptor dari 3000mA ke 1500mA akibat suhu sensor motherboard (`tpcb`) menyentuh 45°C (Level 7) dan layar menyala (`game_limit_ita` 1500mA), serta kondisi tegangan baterai yang telah menyentuh fase jenuh Constant Voltage (>4.47V / >70%); versi ini menyuntikkan override langsung ke register driver pabrik ODM Transsion untuk menaikkan plafon suhu PCB ke 65°C, menonaktifkan derating cooling device `abcct`, serta mengoptimalkan aliran daya pada kondisi layar aktif dan mati.

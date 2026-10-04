@@ -734,17 +734,6 @@ fun TuningCpuCategory(
             onLockToggle = { policyId, isLock, min, max -> viewModel.setClusterLock(policyId, isLock, min, max) }
         )
 
-        // ── CPU Sets & Task Affinity Isolation (Task Shield) ────────────
-        CpuSetsTaskShieldCard(
-            cpuSets = uiState.cpuSets,
-            clusters = uiState.clusters,
-            onApplyPreset = { preset -> viewModel.applyCpuSetPreset(preset, context) },
-            onToggleCore = { group, coreId -> viewModel.toggleCpuSetCore(group, coreId, context) },
-            onApplyOnBootChange = { enabled -> viewModel.setCpuSetApplyOnBoot(enabled, context) },
-            onResetToOem = { pendingResetSection = "cpuset" to "CPU Sets & Task Shield" },
-            isModified = isCpuSetsModified
-        )
-
         // ── Core Parking & CPU Idle (C-States) ────────────
         CpuIdleCoreParkingCard(
             cpuIdle = uiState.cpuIdle,
@@ -756,6 +745,17 @@ fun TuningCpuCategory(
             onApplyOnBootChange = { enabled -> viewModel.setCpuIdleApplyOnBoot(enabled, context) },
             onResetToOem = { pendingResetSection = "cpuidle" to "Core Parking & CPU Idle" },
             isModified = isCpuIdleModified
+        )
+
+        // ── CPU Sets & Task Affinity Isolation (Task Shield) ────────────
+        CpuSetsTaskShieldCard(
+            cpuSets = uiState.cpuSets,
+            clusters = uiState.clusters,
+            onApplyPreset = { preset -> viewModel.applyCpuSetPreset(preset, context) },
+            onToggleCore = { group, coreId -> viewModel.toggleCpuSetCore(group, coreId, context) },
+            onApplyOnBootChange = { enabled -> viewModel.setCpuSetApplyOnBoot(enabled, context) },
+            onResetToOem = { pendingResetSection = "cpuset" to "CPU Sets & Task Shield" },
+            isModified = isCpuSetsModified
         )
 
         // ── Penjadwal Kernel & Arsitektur Multicore (CFS / EAS / HMP / BORE) ──────
