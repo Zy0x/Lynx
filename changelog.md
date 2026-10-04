@@ -1,3 +1,27 @@
+# Lynx [Codename: Deity] 3.0.40
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Fast Charging Ekstrem Tanpa Batas Termal Layar Nyala & Layar Mati (Unrestricted Screen-On Fast Charging & Full Hardware Thermal Bypass), Penembus Batas Termal PCB Transsion/MediaTek (Uncapped 85°C / 6000mA via pcb_thermal_debug), Pembuka Register Maksimum IC RT9759 (24576 Raw Step Limit / 33W Pump Express 4.0), Penguncian Hak Akses Sysfs Anti-Reset (chmod 444 Hardware Lock), serta Sistem Persistensi Cerdas Hibrida (LynxPowerReceiver ACTION_POWER_CONNECTED, Boot Restorer & Watchdog Latar Belakang 60 Detik)** — memecahkan pembatasan pengisian daya bawaan OEM Transsion dan MediaTek yang sebelumnya memangkas arus pengisian ke 1500mA saat temperatur PCB mencapai 44°C atau saat layar menyala; membuka rel arus hingga 6000mA dan arus register IC pompa RT9759 ke 24576; mematikan intervensi thermal zone AP/PCB (`thermal_zone1/mode disabled`); menonaktifkan seluruh cooling device (`abcct`, `bcct`, `cdev2`) dengan penguncian read-only; serta menjamin persistensi pengisian cepat tanpa interupsi saat kabel dicolok ulang atau saat ponsel ditinggal berjam-jam tanpa perlu intervensi manual pengguna.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.40)
+
+### 1. 🔥 Unrestricted Screen-On Fast Charging (Penghancur Batas Throttling Layar Nyala)
+- **Bypass Throttling Layar Nyala OEM**: Menghilangkan penurunan kecepatan pengisian saat layar aktif (`BN_TestMode = 1`, `BatteryNotify = 0`, `tran_charger_full = 0`), menjaga baterai tetap mengisi dengan arus penuh saat bermain game atau memutar media.
+- **Transsion ODM PCB Thermal Clamp Override (85°C / 6000mA)**: Mengganti batas PCB bawaan 45°C/1500mA menjadi `[85,6000,90,5000,4500]` pada node `pcb_thermal_debug`, mencegah algoritma PCA (`dv2_algo_task`) masuk ke status darurat termal level 7.
+- **Uncap Register IC RT9759 (24576 Steps)**: Membuka batas arus register keras pompa pengisian MediaTek RT9759 (`input_current`, `chg1_current`, `chg2_current`) hingga batas hardware maksimum 24576.
+
+### 2. 🛡️ Penonaktifan Thermal Throttling & Penguncian Hak Akses Sysfs (Read-Only Lock)
+- **Disable AP/PCB Thermal Zone**: Mematikan mode pemantauan termal pada `/sys/class/thermal/thermal_zone1/mode` dan menguncinya dengan `chmod 444` agar sistem tidak dapat mengaktifkannya kembali.
+- **Zero-Out & Read-Only Cooling Devices**: Mereset seluruh state cooling devices baterai dan charger (`abcct`, `bcct`, `cdev2`) ke `0` dan menguncinya dengan `chmod 444`.
+- **Framework Thermal Status Override**: Memaksa status framework Android ke kondisi dingin (`cmd thermalservice override-status 0`).
+
+### 3. ⚡ Sistem Persistensi Cerdas Hibrida (Watchdog & Power Listener)
+- **LynxPowerReceiver (ACTION_POWER_CONNECTED)**: Menangkap broadcast saat kabel pengisi daya dicolokkan ke perangkat, seketika menegaskan ulang bypass pengisian cepat tanpa jeda.
+- **Pemulihan Boot Otomatis (LynxBootReceiver)**: Mengembalikan konfigurasi pengisian cepat yang tersimpan seketika saat ponsel menyala (cold boot).
+- **Background Watchdog 60 Detik**: Mengawasi status pengisian di `LynxAppAutomationService` setiap 60 detik selama kabel terhubung untuk memastikan kernel tidak mereset status bypass secara diam-diam.
+- **Live Active Assertion**: Memeriksa dan memperkuat kunci bypass termal secara berkala saat pengguna berada di subhalaman Baterai & Pengisian Daya.
+
+---
+
 # Lynx [Codename: Deity] 3.0.39
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Master GPU Hero Card dengan Real-Time Bezier Waveform Canvas (Grafik Beban GPU 30 Detik, Peak Marker & Indikator Pulse) dan Top 5 Proses Render Grafis Aktif (SurfaceFlinger / RenderThread), GPU Governor Berlabel Semantik Manusiawi (Smart Descriptive Chips & Kartu Edukatif Karakteristik Teknis), 5-Engine UI Rendering Pipeline (Default Sistem, SkiaGL, SkiaVK, Skia Graphite Android 14+, dan Translasi ANGLE Khronos Vulkan dengan Badge Kompatibilitas), serta Manajemen Rendering Per-Aplikasi (Game Driver Hub)** — mengubah subhalaman *GPU & Display* menjadi pusat kendali rendering terlengkap setara konsol dan workstation tuning grafis modern; menggantikan tampilan utilisasi GPU lama dengan kanvas grafik gelombang Bezier bergradien dinamis dan pemantau proses grafis aktif berikon visual; menerjemahkan angka biner dan mode mentah MediaTek Mali GED (`0`, `1`, `2`) serta governor Qualcomm menjadi deskripsi teknis yang mudah dipahami; memperluas pipeline compositing HWUI ke 5 backend termasuk Skia Graphite modern dan translasi ANGLE; serta menyediakan kartu khusus manajemen game driver per aplikasi dengan dialog pencarian aplikasi terpasang, pemilihan driver (Default / Game Driver / Prerelease), switch translasi ANGLE Vulkan, dan penguncian refresh rate layar per judul game.
