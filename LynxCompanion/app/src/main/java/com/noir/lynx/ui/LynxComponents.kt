@@ -171,6 +171,7 @@ fun LynxSwitch(
     modifier: Modifier = Modifier,
     subLabel: String? = null,
     enabled: Boolean = true,
+    onInfoClick: (() -> Unit)? = null,
 ) {
     var lastClickTime by remember { mutableLongStateOf(0L) }
     Row(
@@ -178,10 +179,14 @@ fun LynxSwitch(
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .clickable(enabled = enabled) {
-                val now = System.currentTimeMillis()
-                if (now - lastClickTime >= 350L) {
-                    lastClickTime = now
-                    onCheckedChange(!checked)
+                if (onInfoClick != null) {
+                    onInfoClick()
+                } else {
+                    val now = System.currentTimeMillis()
+                    if (now - lastClickTime >= 350L) {
+                        lastClickTime = now
+                        onCheckedChange(!checked)
+                    }
                 }
             }
             .padding(vertical = 10.dp, horizontal = 4.dp),
@@ -193,16 +198,28 @@ fun LynxSwitch(
                 .weight(1f)
                 .padding(end = 14.dp)
         ) {
-            Text(
-                text = label,
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (enabled) TextPrimary else TextTertiary,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = label,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (enabled) TextPrimary else TextTertiary,
+                )
+                if (onInfoClick != null) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Panduan Informasi Lengkap",
+                        tint = TextTertiary,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+            }
             if (subLabel != null) {
                 Text(
                     text = subLabel,
                     fontSize = 11.sp,
+                    lineHeight = 14.sp,
                     color = TextSecondary,
                     modifier = Modifier.padding(top = 2.dp)
                 )
@@ -210,7 +227,13 @@ fun LynxSwitch(
         }
         Switch(
             checked = checked,
-            onCheckedChange = null,
+            onCheckedChange = { newChecked ->
+                val now = System.currentTimeMillis()
+                if (now - lastClickTime >= 350L) {
+                    lastClickTime = now
+                    onCheckedChange(newChecked)
+                }
+            },
             enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = BgDeepOled,
@@ -365,6 +388,22 @@ data class DualTweakConfig(
     val onResetAll: () -> Unit
 )
 
+data class SwitchTweakInfo(
+    val id: String,
+    val title: String,
+    val category: String,
+    val description: String,
+    val isChecked: Boolean,
+    val onCheckedChange: (Boolean) -> Unit,
+    val onStatusText: String = "Status Aktif (ON)",
+    val onEffect: String,
+    val offStatusText: String = "Status Non-Aktif (OFF)",
+    val offEffect: String,
+    val gamingRecommendation: String,
+    val balancedRecommendation: String,
+    val batteryRecommendation: String,
+)
+
 @Composable
 fun LynxTweakTile(
     title: String,
@@ -409,8 +448,9 @@ fun LynxTweakTile(
                     Text(
                         text = subtitle,
                         fontSize = 9.5.sp,
+                        lineHeight = 13.sp,
                         color = TextSecondary,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -507,8 +547,9 @@ fun LynxDualTweakTile(
                     Text(
                         text = subtitle,
                         fontSize = 9.5.sp,
+                        lineHeight = 13.sp,
                         color = TextSecondary,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -1038,6 +1079,244 @@ fun LynxDualTweakSheet(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+            }
+        }
+    }
+}
+
+// ============================================================
+//  LynxSwitchInfoSheet — Comprehensive Tweak Education Drawer
+// ============================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LynxSwitchInfoSheet(
+    info: SwitchTweakInfo,
+    onDismiss: () -> Unit
+) {
+    var checkedState by remember(info.id, info.isChecked) {
+        mutableStateOf(info.isChecked)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFA0D1017),
+        scrimColor = Color.Black.copy(alpha = 0.65f),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = {
+            Surface(
+                color = Color(0x33FFFFFF),
+                shape = CircleShape,
+                modifier = Modifier
+                    .padding(top = 10.dp, bottom = 6.dp)
+                    .size(width = 38.dp, height = 4.dp)
+            ) {}
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 36.dp)
+        ) {
+            // Category Badge & Current Status Pill
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        text = info.category.uppercase(),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentCyan,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (checkedState) AccentGreen.copy(alpha = 0.15f) else BgElevated,
+                    border = BorderStroke(0.8.dp, if (checkedState) AccentGreen.copy(alpha = 0.4f) else BorderGlass)
+                ) {
+                    Text(
+                        text = if (checkedState) "AKTIF" else "NONAKTIF",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (checkedState) AccentGreen else TextSecondary,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            // Title
+            Text(
+                text = info.title,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            // Interactive Toggle Control Card inside the Sheet
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xFF12151F),
+                border = BorderStroke(1.dp, if (checkedState) AccentCyan.copy(alpha = 0.35f) else BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            text = if (checkedState) "Sakelar Berstatus Aktif" else "Sakelar Berstatus Nonaktif",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (checkedState) AccentCyan else TextPrimary
+                        )
+                        Text(
+                            text = "Sentuh tombol untuk beralih status konfigurasi secara instan",
+                            fontSize = 10.5.sp,
+                            color = TextSecondary,
+                            lineHeight = 14.sp
+                        )
+                    }
+
+                    Switch(
+                        checked = checkedState,
+                        onCheckedChange = { newState ->
+                            checkedState = newState
+                            info.onCheckedChange(newState)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = BgDeepOled,
+                            checkedTrackColor = AccentCyan,
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = BgElevated,
+                            uncheckedBorderColor = BorderSubtle,
+                        )
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Explanation / Function
+            Text(
+                text = "FUNGSI & CARA KERJA KERNEL",
+                color = TextSecondary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = info.description,
+                color = TextPrimary,
+                fontSize = 12.sp,
+                lineHeight = 17.sp
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            // Impact Comparison: ON vs OFF
+            Text(
+                text = "PERBANDINGAN STATUS PENGGUNAAN",
+                color = TextSecondary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(Modifier.height(6.dp))
+
+            // ON State Card
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, if (checkedState) AccentCyan.copy(alpha = 0.4f) else BorderSubtle),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+            ) {
+                Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.Top) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = AccentCyan,
+                        modifier = Modifier.size(16.dp).padding(top = 1.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(info.onStatusText, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text(info.onEffect, fontSize = 10.5.sp, color = TextSecondary, lineHeight = 14.sp)
+                    }
+                }
+            }
+
+            // OFF State Card
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, if (!checkedState) AccentOrange.copy(alpha = 0.4f) else BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.Top) {
+                    Icon(
+                        imageVector = Icons.Default.Cancel,
+                        contentDescription = null,
+                        tint = TextTertiary,
+                        modifier = Modifier.size(16.dp).padding(top = 1.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(info.offStatusText, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text(info.offEffect, fontSize = 10.5.sp, color = TextSecondary, lineHeight = 14.sp)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Recommendations
+            Text(
+                text = "PANDUAN & REKOMENDASI SKENARIO",
+                color = TextSecondary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(Modifier.height(6.dp))
+
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("• 🎮 Gaming & Berat: ${info.gamingRecommendation}", fontSize = 10.5.sp, color = TextPrimary)
+                    Text("• ⚖️ Harian Seimbang: ${info.balancedRecommendation}", fontSize = 10.5.sp, color = TextSecondary)
+                    Text("• 🔋 Hemat Baterai: ${info.batteryRecommendation}", fontSize = 10.5.sp, color = TextSecondary)
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Close button
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(42.dp)
+            ) {
+                Text("Tutup Panduan", color = BgDeepOled, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
     }
@@ -6121,6 +6400,7 @@ fun PlatformHardwareEngineCard(
     onPpmPolicyChange: (Int, Boolean) -> Unit,
     onQcomTouchboostChange: (Boolean) -> Unit,
     onQcomInputBoostChange: (Long, Int) -> Unit,
+    onShowSwitchInfo: ((SwitchTweakInfo) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isMtk = schedInfo.isPpmSupported
@@ -6162,26 +6442,89 @@ fun PlatformHardwareEngineCard(
             if (isMtk) {
                 // MediaTek PPM Policies
                 LynxSwitch(
-                    label = "Bypass Power Throttling OEM (PPM)",
-                    subLabel = "Cegah kernel memotong frekuensi CPU saat baterai di bawah 20%",
+                    label = "Bypass Power Throttling OEM",
+                    subLabel = "Pertahankan clock CPU normal meski baterai di bawah 20%",
                     checked = !schedInfo.ppmPwrThrottlingEnabled,
                     onCheckedChange = { enableBypass ->
                         onPpmPolicyChange(3, !enableBypass)
+                    },
+                    onInfoClick = onShowSwitchInfo?.let { show ->
+                        {
+                            show(
+                                SwitchTweakInfo(
+                                    id = "ppm_power_throttling",
+                                    title = "Bypass Power Throttling OEM (PPM)",
+                                    category = "MediaTek PPM Driver",
+                                    description = "Driver Power Policy Manager (PPM) MediaTek secara default memangkas frekuensi CPU secara drastis saat daya baterai berada di bawah 20% demi menghemat sisa daya. Mengaktifkan bypass ini mencegah pemangkasan paksa tersebut agar aplikasi dan game tetap berjalan mulus.",
+                                    isChecked = !schedInfo.ppmPwrThrottlingEnabled,
+                                    onCheckedChange = { enableBypass -> onPpmPolicyChange(3, !enableBypass) },
+                                    onStatusText = "Bypass Aktif (Performa Terjaga)",
+                                    onEffect = "Frekuensi CPU tetap berjalan pada clock normal tanpa throttled saat baterai lemah.",
+                                    offStatusText = "Bawaan Pabrik (Throttling Aktif)",
+                                    offEffect = "Clock CPU dipangkas saat baterai <20% demi mencegah perangkat mati mendadak.",
+                                    gamingRecommendation = "Sangat Disarankan [ON]",
+                                    balancedRecommendation = "Disarankan [ON]",
+                                    batteryRecommendation = "[OFF] jika ingin menghemat sisa baterai kritis"
+                                )
+                            )
+                        }
                     }
                 )
 
                 LynxSwitch(
                     label = "Hardware System Boost (SYS_BOOST)",
-                    subLabel = "Akselerasi langsung level driver PPM untuk tugas komputasi berat",
+                    subLabel = "Akselerasi langsung driver PPM untuk tugas komputasi berat",
                     checked = schedInfo.ppmSysBoostEnabled,
-                    onCheckedChange = { onPpmPolicyChange(9, it) }
+                    onCheckedChange = { onPpmPolicyChange(9, it) },
+                    onInfoClick = onShowSwitchInfo?.let { show ->
+                        {
+                            show(
+                                SwitchTweakInfo(
+                                    id = "ppm_sys_boost",
+                                    title = "Hardware System Boost (SYS_BOOST)",
+                                    category = "MediaTek PPM Driver",
+                                    description = "Mengaktifkan instruksi akselerasi langsung pada driver PPM kernel MediaTek. Driver akan memprioritaskan penyediaan daya dan menaikkan respons cluster CPU saat mendeteksi lonjakan komputasi mendadak.",
+                                    isChecked = schedInfo.ppmSysBoostEnabled,
+                                    onCheckedChange = { onPpmPolicyChange(9, it) },
+                                    onStatusText = "System Boost Aktif",
+                                    onEffect = "Driver PPM merespons kenaikan beban komputasi secara instan tanpa jeda frekuensi.",
+                                    offStatusText = "System Boost Nonaktif",
+                                    offEffect = "Driver PPM mengikuti kurva daya standar pabrikan.",
+                                    gamingRecommendation = "Sangat Disarankan [ON]",
+                                    balancedRecommendation = "Disarankan [ON]",
+                                    batteryRecommendation = "[OFF] untuk kurva daya konservatif"
+                                )
+                            )
+                        }
+                    }
                 )
 
                 LynxSwitch(
                     label = "Sinkronisasi Thermal Policy PPM",
-                    subLabel = "Kaitkan pembatasan thermal langsung dengan driver manajemen daya MediaTek",
+                    subLabel = "Izinkan driver PPM memangkas clock CPU saat suhu melonjak",
                     checked = schedInfo.ppmThermalThrottlingEnabled,
-                    onCheckedChange = { onPpmPolicyChange(4, it) }
+                    onCheckedChange = { onPpmPolicyChange(4, it) },
+                    onInfoClick = onShowSwitchInfo?.let { show ->
+                        {
+                            show(
+                                SwitchTweakInfo(
+                                    id = "ppm_thermal_throttling",
+                                    title = "Sinkronisasi Thermal Policy PPM",
+                                    category = "MediaTek PPM Driver",
+                                    description = "Mengaitkan sensor suhu perangkat secara langsung dengan tabel frekuensi PPM MediaTek. Saat suhu naik, driver PPM akan memangkas frekuensi CPU secara bertahap.",
+                                    isChecked = schedInfo.ppmThermalThrottlingEnabled,
+                                    onCheckedChange = { onPpmPolicyChange(4, it) },
+                                    onStatusText = "Sinkronisasi Termal Aktif",
+                                    onEffect = "PPM ikut menurunkan frekuensi saat suhu tinggi demi menjaga suhu perangkat dingin.",
+                                    offStatusText = "Sinkronisasi Termal Nonaktif",
+                                    offEffect = "Driver PPM mengabaikan instruksi penurunan daya, mempertahankan frekuensi stabil.",
+                                    gamingRecommendation = "[OFF] demi pertahankan FPS game stabil",
+                                    balancedRecommendation = "Disarankan [ON] untuk suhu perangkat nyaman",
+                                    batteryRecommendation = "[ON] efisiensi termal maksimal"
+                                )
+                            )
+                        }
+                    }
                 )
             }
 
@@ -6191,7 +6534,28 @@ fun PlatformHardwareEngineCard(
                     label = "Qualcomm Touchboost Driver",
                     subLabel = "Lonjakan clock CPU seketika saat jari menyentuh panel layar",
                     checked = schedInfo.qcomTouchboostEnabled,
-                    onCheckedChange = onQcomTouchboostChange
+                    onCheckedChange = onQcomTouchboostChange,
+                    onInfoClick = onShowSwitchInfo?.let { show ->
+                        {
+                            show(
+                                SwitchTweakInfo(
+                                    id = "qcom_touchboost",
+                                    title = "Qualcomm Touchboost Driver",
+                                    category = "Snapdragon QTI HAL",
+                                    description = "Driver Qualcomm MSM Performance menaikkan frekuensi CPU seketika saat event sentuhan layar terdeteksi untuk menjamin interaksi geser, ketik, dan gulir 120Hz bebas frame drop.",
+                                    isChecked = schedInfo.qcomTouchboostEnabled,
+                                    onCheckedChange = onQcomTouchboostChange,
+                                    onStatusText = "Touchboost Aktif",
+                                    onEffect = "Clock CPU melonjak sesaat saat jari menyentuh layar, memangkas stuttering animasi UI dan aim.",
+                                    offStatusText = "Touchboost Nonaktif",
+                                    offEffect = "Frekuensi CPU hanya naik jika beban aplikasi meningkat, menghemat sedikit daya baterai.",
+                                    gamingRecommendation = "Sangat Disarankan [ON]",
+                                    balancedRecommendation = "Disarankan [ON]",
+                                    batteryRecommendation = "[OFF] jika ingin hemat daya saat navigasi ringan"
+                                )
+                            )
+                        }
+                    }
                 )
 
                 if (schedInfo.qcomInputBoostFreq > 0 || schedInfo.qcomInputBoostMs > 0) {

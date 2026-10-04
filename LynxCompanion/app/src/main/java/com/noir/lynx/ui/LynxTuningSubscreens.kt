@@ -783,6 +783,7 @@ fun TuningCpuCategory(
         var showPresetSheet by remember { mutableStateOf(false) }
         var activeTweakConfig by remember { mutableStateOf<TweakConfig?>(null) }
         var activeDualTweakConfig by remember { mutableStateOf<DualTweakConfig?>(null) }
+        var activeSwitchInfo by remember { mutableStateOf<SwitchTweakInfo?>(null) }
 
         LaunchedEffect(schedInfo) {
             if (activeTweakConfig == null && activeDualTweakConfig == null) {
@@ -814,7 +815,8 @@ fun TuningCpuCategory(
                 schedInfo = schedInfo,
                 onPpmPolicyChange = { idx, en -> viewModel.setPpmPolicy(idx, en, context) },
                 onQcomTouchboostChange = { en -> viewModel.setQcomTouchboost(en, context) },
-                onQcomInputBoostChange = { freq, ms -> viewModel.setQcomInputBoost(freq, ms, context) }
+                onQcomInputBoostChange = { freq, ms -> viewModel.setQcomInputBoost(freq, ms, context) },
+                onShowSwitchInfo = { activeSwitchInfo = it }
             )
         }
 
@@ -1386,9 +1388,26 @@ fun TuningCpuCategory(
 
                         LynxSwitch(
                             label = "Top-App Prefer Idle",
-                            subLabel = "Tempatkan thread game pada CPU core yang benar-benar menganggur",
+                            subLabel = "Alokasikan thread game ke core kosong tanpa antrean",
                             checked = schedInfo.topAppPreferIdle,
-                            onCheckedChange = { viewModel.setSchedtunePreferIdle("top-app", it, context) }
+                            onCheckedChange = { viewModel.setSchedtunePreferIdle("top-app", it, context) },
+                            onInfoClick = {
+                                activeSwitchInfo = SwitchTweakInfo(
+                                    id = "top_app_prefer_idle",
+                                    title = "Top-App Prefer Idle",
+                                    category = "EAS Schedtune",
+                                    description = "Menginstruksikan scheduler kernel untuk selalu memilih CPU core yang benar-benar menganggur saat menempatkan thread game atau aplikasi aktif di layar depan.",
+                                    isChecked = schedInfo.topAppPreferIdle,
+                                    onCheckedChange = { viewModel.setSchedtunePreferIdle("top-app", it, context) },
+                                    onStatusText = "Prefer Idle Aktif",
+                                    onEffect = "Thread game langsung dieksekusi di core kosong tanpa berbagi siklus CPU dengan background process.",
+                                    offStatusText = "Prefer Idle Nonaktif",
+                                    offEffect = "Task ditempatkan berdasarkan estimasi konsumsi daya tanpa memprioritaskan core kosong.",
+                                    gamingRecommendation = "Sangat Disarankan [ON]",
+                                    balancedRecommendation = "Disarankan [ON]",
+                                    batteryRecommendation = "[OFF] hemat daya konsolidasi"
+                                )
+                            }
                         )
                     }
 
@@ -1406,27 +1425,78 @@ fun TuningCpuCategory(
                         if (schedInfo.isBigTaskRotationSupported) {
                             LynxSwitch(
                                 label = "Big Task Rotation",
-                                subLabel = "Rotasi tugas berat antar Big Core untuk mencegah thermal hotspot",
+                                subLabel = "Gilir tugas berat antar Big Core demi suhu merata (Matikan demi latensi cache)",
                                 checked = schedInfo.schedBigTaskRotation,
-                                onCheckedChange = { viewModel.setSchedulerHint("sched_big_task_rotation", it, context) }
+                                onCheckedChange = { viewModel.setSchedulerHint("sched_big_task_rotation", it, context) },
+                                onInfoClick = {
+                                    activeSwitchInfo = SwitchTweakInfo(
+                                        id = "big_task_rotation",
+                                        title = "Big Task Rotation",
+                                        category = "Scheduler Hardware Hints",
+                                        description = "Secara berkala memindahkan thread beban tinggi di antara Big Core untuk meratakan titik panas termal silikon.",
+                                        isChecked = schedInfo.schedBigTaskRotation,
+                                        onCheckedChange = { viewModel.setSchedulerHint("sched_big_task_rotation", it, context) },
+                                        onStatusText = "Rotasi Tugas Aktif",
+                                        onEffect = "Penyebaran panas merata, mencegah satu core kepanasan lebih awal.",
+                                        offStatusText = "Rotasi Tugas Nonaktif",
+                                        offEffect = "Thread berat tetap terkunci di core yang sama, memaksimalkan cache L1/L2 hits dan memangkas micro-stutter.",
+                                        gamingRecommendation = "[OFF] untuk latensi cache mutlak",
+                                        balancedRecommendation = "Disarankan [ON] untuk suhu merata",
+                                        batteryRecommendation = "[ON] distribusi termal"
+                                    )
+                                }
                             )
                         }
 
                         if (schedInfo.isSyncHintSupported) {
                             LynxSwitch(
                                 label = "Sync Wakeup Acceleration",
-                                subLabel = "Percepat bangun thread dependen untuk kurangi latensi IPC",
+                                subLabel = "Bangunkan thread pendukung secara instan untuk memperlancar komunikasi aplikasi",
                                 checked = schedInfo.schedSyncHintEnable,
-                                onCheckedChange = { viewModel.setSchedulerHint("sched_sync_hint_enable", it, context) }
+                                onCheckedChange = { viewModel.setSchedulerHint("sched_sync_hint_enable", it, context) },
+                                onInfoClick = {
+                                    activeSwitchInfo = SwitchTweakInfo(
+                                        id = "sync_wakeup_acceleration",
+                                        title = "Sync Wakeup Acceleration",
+                                        category = "Scheduler Hardware Hints",
+                                        description = "Membangunkan thread dependen yang sinkron secara instan saat thread induk memanggilnya, mempercepat respons antar-proses.",
+                                        isChecked = schedInfo.schedSyncHintEnable,
+                                        onCheckedChange = { viewModel.setSchedulerHint("sched_sync_hint_enable", it, context) },
+                                        onStatusText = "Sync Wakeup Aktif",
+                                        onEffect = "Latensi bangun thread sangat rendah, mempercepat respon rendering UI.",
+                                        offStatusText = "Sync Wakeup Nonaktif",
+                                        offEffect = "Penjadwalan bangun thread mengikuti antrean waktu standar.",
+                                        gamingRecommendation = "Sangat Disarankan [ON]",
+                                        balancedRecommendation = "Disarankan [ON]",
+                                        batteryRecommendation = "Netral"
+                                    )
+                                }
                             )
                         }
 
                         if (schedInfo.isCstateAwareSupported) {
                             LynxSwitch(
                                 label = "C-State Aware Scheduling",
-                                subLabel = "Pilih inti dengan waktu sleep terendah demi respon tanpa jeda",
+                                subLabel = "Pilih inti dengan latensi bangun terendah demi respon tanpa jeda",
                                 checked = schedInfo.schedCstateAware,
-                                onCheckedChange = { viewModel.setSchedulerHint("sched_cstate_aware", it, context) }
+                                onCheckedChange = { viewModel.setSchedulerHint("sched_cstate_aware", it, context) },
+                                onInfoClick = {
+                                    activeSwitchInfo = SwitchTweakInfo(
+                                        id = "cstate_aware_scheduling",
+                                        title = "C-State Aware Scheduling",
+                                        category = "Scheduler Hardware Hints",
+                                        description = "Mempertimbangkan status tidur (C-State) setiap core saat memilih target eksekusi, memilih core dengan latensi bangun paling rendah.",
+                                        isChecked = schedInfo.schedCstateAware,
+                                        onCheckedChange = { viewModel.setSchedulerHint("sched_cstate_aware", it, context) },
+                                        onStatusText = "C-State Aware Aktif",
+                                        onEffect = "Memprioritaskan core yang tidur dangkal atau terjaga demi respon cepat tanpa jeda wake-up.",
+                                        offStatusText = "C-State Aware Nonaktif",
+                                        offEffect = "Mengabaikan status tidur dalam pemilihan target inti.",
+                                        gamingRecommendation = "Sangat Disarankan [ON]",
+                                        balancedRecommendation = "Disarankan [ON]",
+                                        batteryRecommendation = "[OFF] izinkan core tidur lelap"
+                                    )
+                                }
                             )
                         }
 
@@ -1577,9 +1647,26 @@ fun TuningCpuCategory(
                         if (schedInfo.isCfsChildFirstSupported) {
                             LynxSwitch(
                                 label = "Child Process Runs First",
-                                subLabel = "Prioritaskan eksekusi child process saat fork",
+                                subLabel = "Beri prioritas CPU ke thread turunan baru saat inisialisasi",
                                 checked = schedInfo.schedChildRunsFirst,
-                                onCheckedChange = { viewModel.setSchedulerTunable("sched_child_runs_first", if (it) 1L else 0L, context) }
+                                onCheckedChange = { viewModel.setSchedulerTunable("sched_child_runs_first", if (it) 1L else 0L, context) },
+                                onInfoClick = {
+                                    activeSwitchInfo = SwitchTweakInfo(
+                                        id = "child_runs_first",
+                                        title = "Child Process Runs First",
+                                        category = "CFS Architecture",
+                                        description = "Saat sebuah proses memicu pembuatan thread baru (fork), thread anak langsung diberi giliran CPU mendahului proses induk.",
+                                        isChecked = schedInfo.schedChildRunsFirst,
+                                        onCheckedChange = { viewModel.setSchedulerTunable("sched_child_runs_first", if (it) 1L else 0L, context) },
+                                        onStatusText = "Child First Aktif",
+                                        onEffect = "Mempercepat startup aplikasi, loading resource, dan inisialisasi modul game baru.",
+                                        offStatusText = "Parent First (Standar Linux)",
+                                        offEffect = "Proses induk tetap dieksekusi terlebih dahulu sebelum thread anak dijalankan.",
+                                        gamingRecommendation = "Disarankan [ON]",
+                                        balancedRecommendation = "Disarankan [ON]",
+                                        batteryRecommendation = "Netral"
+                                    )
+                                }
                             )
                         }
                     }
@@ -1688,18 +1775,40 @@ fun TuningCpuCategory(
                         )
 
                         if (schedInfo.isSchedStatsSupported) {
+                            val isPurged = !schedInfo.schedStatsEnabled
                             LynxSwitch(
-                                label = "Schedstats Profiling",
-                                subLabel = "Nonaktifkan pengumpulan statistik scheduler untuk memangkas CPU cycle overhead",
-                                checked = schedInfo.schedStatsEnabled,
-                                onCheckedChange = { viewModel.setSchedulerTunable("sched_schedstats", if (it) 1L else 0L, context) }
+                                label = "Purge Schedstats Overhead",
+                                subLabel = "Pangkas beban siklus CPU dengan mematikan statistik scheduler internal",
+                                checked = isPurged,
+                                onCheckedChange = { purge ->
+                                    viewModel.setSchedulerTunable("sched_schedstats", if (purge) 0L else 1L, context)
+                                },
+                                onInfoClick = {
+                                    activeSwitchInfo = SwitchTweakInfo(
+                                        id = "sched_schedstats",
+                                        title = "Purge Schedstats Overhead",
+                                        category = "Kernel Overhead",
+                                        description = "Fitur pelacak statistik internal scheduler Linux (sched_schedstats). Mematikan fitur ini (Purge ON) menghilangkan pencatatan waktu antrean proses dan statistik per-CPU yang memakan siklus pemrosesan instruksi CPU secara konstan.",
+                                        isChecked = isPurged,
+                                        onCheckedChange = { purge ->
+                                            viewModel.setSchedulerTunable("sched_schedstats", if (purge) 0L else 1L, context)
+                                        },
+                                        onStatusText = "Optimasi Aktif (Overhead Dipangkas)",
+                                        onEffect = "Siklus pemrosesan CPU murni dialokasikan untuk rendering grafis dan gameplay. Mengurangi interupsi latensi mikroskopis saat CPU clock tinggi.",
+                                        offStatusText = "Standar Kernel (Statistik Aktif)",
+                                        offEffect = "Kernel terus mencatat statistik scheduler di latar belakang. Tidak diperlukan kecuali Anda sedang melakukan profiling kernel debugging.",
+                                        gamingRecommendation = "Sangat Disarankan [ON] — Menghilangkan micro-jitter",
+                                        balancedRecommendation = "Disarankan [ON] — Menghemat beban CPU",
+                                        batteryRecommendation = "Bagus [ON] — Mengurangi instruksi latar belakang"
+                                    )
+                                }
                             )
                         }
 
                         if (schedInfo.isTunableScalingSupported) {
                             LynxTweakTile(
                                 title = "Sched Tunable Scaling",
-                                subtitle = "Metode penskalaan periode scheduler berdasarkan jumlah online CPU",
+                                subtitle = "Kunci periode latensi tetap saat core tidur/bangun demi stabilitas frame rate",
                                 displayValue = when (schedInfo.schedTunableScaling) {
                                     0 -> "0 (None / Konsisten)"
                                     1 -> "1 (Logarithmic)"
@@ -1737,7 +1846,7 @@ fun TuningCpuCategory(
                             val rtDisplay = if (schedInfo.schedRtRuntimeUs < 0) "Unlimited (-1)" else "${schedRtRuntimeMs.toInt()} ms"
                             LynxTweakTile(
                                 title = "Real-Time (RT) Runtime Bandwidth",
-                                subtitle = "Alokasi bandwidth CPU maksimum untuk task prioritas Real-Time per detik",
+                                subtitle = "Batas alokasi waktu CPU per detik untuk thread prioritas (audio & touch)",
                                 displayValue = rtDisplay,
                                 accentColor = AccentOrange,
                                 onClick = {
@@ -1795,6 +1904,12 @@ fun TuningCpuCategory(
             LynxDualTweakSheet(
                 config = activeDualTweakConfig!!,
                 onDismiss = { activeDualTweakConfig = null }
+            )
+        }
+        if (activeSwitchInfo != null) {
+            LynxSwitchInfoSheet(
+                info = activeSwitchInfo!!,
+                onDismiss = { activeSwitchInfo = null }
             )
         }
         if (showPresetSheet) {

@@ -1,3 +1,39 @@
+# Lynx [Codename: Deity] 3.0.27
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Pembaruan UX Menyeluruh: Dual-Action Glanceable Switch & Rak Edukasi Interaktif Bottom Sheet (LynxSwitchInfoSheet), Eliminasi Inverted State Trap (Purge Schedstats Overhead), dan Refinement Keterbacaan Subtitle Anti-Truncation** — merevolusi antarmuka toggle kernel dengan pola interaksi ganda di mana switch dapat di-toggle instan tanpa friksi sementara baris teks membuka laci edukasi mendalam (`LynxSwitchInfoSheet`) yang memaparkan cara kerja kernel, perbandingan status ON vs OFF, serta rekomendasi skenario (Gaming, Balanced, Baterai); membalik logika membingungkan sakelar "Nonaktifkan Schedstats" menjadi model mental positif "Purge Schedstats Overhead" (ON = Optimasi Aktif); serta memperluas subtitle tweak tile hingga 2 baris penuh bebas elipsis terpotong.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.27)
+
+### 1. 📖 Rak Edukasi Interaktif Bottom Sheet (`LynxSwitchInfoSheet`)
+- **Dual-Action Glanceable Pattern**: Pengguna dapat langsung menyalakan/mematikan toggle dari daftar utama secara instan, atau mengetuk baris teks/ikon info untuk membuka lembar panduan teknis mendalam.
+- **Sinkronisasi Status Live Real-Time**: Rak edukasi dilengkapi toggle switch interaktif di bagian atas lembar sehingga pengguna dapat langsung mengubah status sakelar sembari membaca penjelasan teknis tanpa perlu menutup lembar terlebih dahulu.
+- **Komparasi Status Visual & Terstruktur**:
+  - *Status Aktif (ON)*: Penjelasan efek positif, mekanisme kerja pada siklus CPU/cache, serta peningkatan latensi atau efisiensi.
+  - *Status Non-Aktif (OFF)*: Penjelasan perilaku standar kernel Linux dan dampaknya terhadap beban sistem.
+- **Matriks Rekomendasi 3-Skenario**:
+  - 🎮 **Gaming / Kompetitif**: Panduan pengaturan untuk frame pacing stabil dan zero-stutter.
+  - ⚖️ **Penggunaan Seimbang (Harian)**: Keseimbangan responsivitas dan konsumsi baterai.
+  - 🔋 **Hemat Daya (Baterai)**: Opsi optimal untuk memperpanjang daya tahan perangkat.
+
+### 2. 🧠 Eliminasi "Inverted State Trap": Purge Schedstats Overhead
+- **Model Mental Positif**: Mengganti sakelar membingungkan *"Schedstats Profiling: Nonaktifkan pengumpulan statistik..."* menjadi **"Purge Schedstats Overhead"**.
+- **Logika Bersih**: Toggle dalam posisi **ON (Aktif)** berarti optimasi sedang berjalan (beban overhead kernel dipangkas, `sched_schedstats = 0`), mengeliminasi kebingungan pengguna terhadap status negatif/terbalik.
+- **Copywriting Glanceable 1-Baris**: Subjudul diringkas menjadi ringkas dan padat: *"Pangkas beban siklus CPU dengan mematikan statistik scheduler internal"*.
+
+### 3. 🛡️ Integrasi Edukasi Komprehensif pada Seluruh Sakelar Kritis
+- **EAS Schedtune**: Panduan lengkap untuk `Top-App Prefer Idle` (penempatan thread game ke core kosong).
+- **Scheduler Hardware Hints**: Panduan mendalam untuk `Big Task Rotation` (efek rotasi vs cache L1/L2 hits) dan `Sync Wakeup Acceleration` (akselerasi komunikasi antar-thread).
+- **CFS Core Scheduling**: Edukasi interaktif untuk `Child Process Runs First` (prioritas fork thread baru untuk startup game instan).
+- **Platform Hardware Engine (MediaTek PPM & Qualcomm QTI)**: Edukasi mendalam untuk `Bypass Power Throttling OEM` (PPM Policy 3), `Hardware System Boost` (PPM Policy 9), `Sinkronisasi Thermal Policy PPM` (PPM Policy 4), dan `Qualcomm Touchboost Driver`.
+
+### 4. 📐 Keterbacaan Maksimal & Subtitle Anti-Truncation
+- **Ekspansi Subtitle `LynxTweakTile` & `LynxDualTweakTile`**: Menetapkan `maxLines = 2` dan `lineHeight = 13.sp` pada subteks ubin tweak sehingga kalimat penjelasan tidak terpotong elipsis (`...`) di layar ponsel dengan resolusi atau skala teks padat.
+- **Copywriting Refinements**:
+  - `Sched Tunable Scaling`: *"Kunci periode latensi tetap saat core tidur/bangun demi stabilitas frame rate"*.
+  - `Real-Time (RT) Runtime Bandwidth`: *"Batas alokasi waktu CPU per detik untuk thread prioritas (audio & touch)"*.
+
+---
+
 # Lynx [Codename: Deity] 3.0.26
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Sub-Halaman CPU Master Level Komprehensif & Driver Hardware Engine: Live Runqueue & Pressure Telemetry, Platform Hardware Engine (MediaTek PPM & Snapdragon QTI Boost), serta Deep Kernel Latency & Overhead Purge** — mentransformasikan monitoring CPU dengan chip telemetri langsung beban antrean kernel (`RQ Avg`), deteksi tugas komputasi berat (`H-Task`), dan status saturasi kapasitas energi EAS (`EAS Limit / Opt`), menyematkan kartu khusus `PlatformHardwareEngineCard` untuk kendali langsung driver MediaTek PPM (bypass power throttling baterai lemah, system boost, sinkronisasi thermal) dan Qualcomm Snapdragon QTI Input Boost/Touchboost, serta membuka akses penuh ke tuning latensi kernel ekstrem (`schedstats profiling overhead purge`, `sched_tunable_scaling` pengunci konsistensi frame FPS, dan bandwidth `sched_rt_runtime_us`).
