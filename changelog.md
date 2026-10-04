@@ -1,3 +1,27 @@
+# Lynx [Codename: Deity] 3.0.41
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Live Monitor Telemetri GPU Presisi 1 Detik (1000ms Real-Time Drift-Compensated Polling), Normalisasi Beban Komputasi Proses Grafis Multi-Core (Zero CPU Overflow), Efisiensi Pembacaan Top Process Latar Belakang (2.5s Adaptive Cache), serta Pemantapan Tata Letak Antarmuka GPU & Display Bersih & Responsif (Strict Touch-First Obsidian Dark Architecture)** — menyelaraskan siklus pembaruan grafik gelombang Bezier GPU, ring-buffer beban 30 detik, dan telemetri clock hardware tepat setiap 1 detik tanpa fluktuasi waktu; membagi persentase CPU proses render grafis dengan jumlah core aktif sehingga tidak lagi menampilkan nilai di atas 100%; mengeliminasi beban CPU saat polling dengan isolasi cache 2.5 detik untuk scan proses berat; serta memastikan tata letak subhalaman GPU & Display tertata rapi, bersih, bebas tumpang tindih elemen, dan sepenuhnya mematuhi standar desain mobile-first.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.41)
+
+### 1. ⏱️ Polling Live Monitor GPU Real-Time 1 Detik (1000ms Drift-Compensated Interval)
+- **Sinkronisasi Setiap Detik**: Memperbarui telemetri GPU (`readGpuInfo`) tepat setiap 1 detik (1000ms) di loop `startTelemetryPolling`, menggantikan siklus 2 detik sebelumnya.
+- **Drift-Compensated Delay**: Menghitung waktu eksekusi aktual (`1000ms - elapsed`) dengan batas pengaman 150ms agar ritme pembacaan tetap presisi tanpa lonjakan lag.
+- **Waveform Canvas 30 Detik Lebih Responsif**: Grafik kurva Bezier dan ring-buffer beban GPU kini menerima titik sampel baru secara mulus setiap 1 detik dengan titik pulsa bercahaya (*glowing pulse dot*) yang bergerak dinamis.
+
+### 2. 🎯 Normalisasi Beban CPU Proses Grafis (Multi-Core Aware)
+- **Koreksi Persentase CPU**: Menormalkan metrik utilisasi dari perintah `top` dengan membagi nilai mentah terhadap jumlah prosesor logis perangkat (`rawCpu / numCores`), mencegah angka anomali di atas 100% pada CPU multi-core.
+- **Badge Beban Bersih**: Menampilkan kontribusi beban SurfaceFlinger, Game, dan proses grafis dalam rentang terstandarisasi 0%–100%.
+
+### 3. ⚡ Optimasi Scan Latar Belakang (2.5-Second In-Memory Cache)
+- **Sub-10ms Polling Execution**: Menambahkan proteksi in-memory cache selama 2500ms pada `readTopGraphicsProcesses()`, sehingga pembacaan sysfs frekuensi/suhu GPU setiap 1 detik berjalan instan (<10ms) tanpa membebani CPU dengan pemanggilan shell berat berulang-kali.
+
+### 4. 🎨 Pemantapan Tata Letak & Estetika Antarmuka (Clean & Touch-First)
+- **Hierarki Kartu Visual Terstruktur**: Menata 5 kartu kontrol utama secara berjenjang (Master Tuner, Engine Pipeline, Per-App Hub, Refresh Rate, Color Management) dengan margin dan padding yang proporsional.
+- **Kepatuhan Touch-First**: Seluruh chip, tombol aksi, dan slider memiliki target sentuh minimal 48dp tanpa elemen bertabrakan di seluruh rasio layar.
+
+---
+
 # Lynx [Codename: Deity] 3.0.40
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Fast Charging Ekstrem Tanpa Batas Termal Layar Nyala & Layar Mati (Unrestricted Screen-On Fast Charging & Full Hardware Thermal Bypass), Penembus Batas Termal PCB Transsion/MediaTek (Uncapped 85°C / 6000mA via pcb_thermal_debug), Pembuka Register Maksimum IC RT9759 (24576 Raw Step Limit / 33W Pump Express 4.0), Penguncian Hak Akses Sysfs Anti-Reset (chmod 444 Hardware Lock), serta Sistem Persistensi Cerdas Hibrida (LynxPowerReceiver ACTION_POWER_CONNECTED, Boot Restorer & Watchdog Latar Belakang 60 Detik)** — memecahkan pembatasan pengisian daya bawaan OEM Transsion dan MediaTek yang sebelumnya memangkas arus pengisian ke 1500mA saat temperatur PCB mencapai 44°C atau saat layar menyala; membuka rel arus hingga 6000mA dan arus register IC pompa RT9759 ke 24576; mematikan intervensi thermal zone AP/PCB (`thermal_zone1/mode disabled`); menonaktifkan seluruh cooling device (`abcct`, `bcct`, `cdev2`) dengan penguncian read-only; serta menjamin persistensi pengisian cepat tanpa interupsi saat kabel dicolok ulang atau saat ponsel ditinggal berjam-jam tanpa perlu intervensi manual pengguna.

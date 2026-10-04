@@ -1039,11 +1039,19 @@ object LynxRepository {
     // ----------------------------------------------------------------
 
     private val gpuLoadRingBuffer = mutableListOf<Int>()
+    private var cachedTopGraphicsProcesses: List<GpuProcessInfo> = emptyList()
+    private var lastTopGraphicsScanMs = 0L
 
-    suspend fun readTopGraphicsProcesses(): List<GpuProcessInfo> = withContext(Dispatchers.IO) {
+    suspend fun readTopGraphicsProcesses(force: Boolean = false): List<GpuProcessInfo> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastTopGraphicsScanMs < 2500L && cachedTopGraphicsProcesses.isNotEmpty()) {
+            return@withContext cachedTopGraphicsProcesses
+        }
+        lastTopGraphicsScanMs = now
         try {
             val lines = Shell.cmd("top -b -n 1 -m 12 2>/dev/null").exec().out
             val result = mutableListOf<GpuProcessInfo>()
+            val numCores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
             var headerPassed = false
             for (line in lines) {
                 val trimmed = line.trim()
@@ -1056,6 +1064,7 @@ object LynxRepository {
                 if (parts.size >= 12) {
                     val pid = parts[0].toIntOrNull() ?: continue
                     val rawCpu = parts[8].toFloatOrNull() ?: continue
+                    val normalizedCpu = (rawCpu / numCores.toFloat()).coerceIn(0f, 100f)
                     val cmdRaw = parts.subList(11, parts.size).joinToString(" ")
                     if (cmdRaw.startsWith("top ") || cmdRaw == "top") continue
 
@@ -1104,14 +1113,15 @@ object LynxRepository {
                             pid = pid,
                             name = cleanName,
                             packageName = pkgName,
-                            cpuPercent = rawCpu,
+                            cpuPercent = normalizedCpu,
                             isGame = isGame,
                             iconType = iconType
                         )
                     )
                 }
             }
-            result.take(5)
+            cachedTopGraphicsProcesses = result.take(5)
+            cachedTopGraphicsProcesses
         } catch (e: Exception) {
             emptyList()
         }
@@ -2043,8 +2053,146 @@ object LynxRepository {
     }
 
     /**
+     * Build unified multi-vendor unthrottled hardware payload across Qualcomm, MediaTek,
+     * Xiaomi (HyperOS/MIUI), Samsung (One UI), OnePlus/OPPO/Realme (ColorOS), Google Pixel, ASUS, and Motorola.
+     */
+    private fun buildUniversalExtremeChargingScript(highTargetPercent: Int, lockoutBypass: Boolean): String {
+        return """
+            touch /dev/lynx_extreme_charging 2>/dev/null
+
+            # --- 1. Universal Linux Kernel Power Supply Class Rails (6A Headroom) ---
+            chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+            echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+            chmod 444 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+            chmod 644 /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+            echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+            echo 6000000 > /sys/class/power_supply/battery/current_max 2>/dev/null
+            echo 6000000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null
+            echo 6000000 > /sys/class/power_supply/main/constant_charge_current_max 2>/dev/null
+            echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
+            echo 6000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+            echo 6000000 > /sys/class/power_supply/usb/hw_current_max 2>/dev/null
+            echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
+            echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/fast_charge 2>/dev/null
+            echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
+
+            # --- 2. MediaTek (Dimensity & Helio) Architecture ---
+            echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
+            echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
+            echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
+            echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+            echo 24576 > /sys/devices/platform/charger/input_current 2>/dev/null
+            echo 24576 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+            echo 24576 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+            echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+            echo $highTargetPercent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
+            echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+            echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
+
+            # --- 3. Qualcomm Snapdragon Architecture ---
+            echo 1 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+            echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+            echo 6000000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+            echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
+            echo 0 > /sys/class/power_supply/battery/temp_state 2>/dev/null
+
+            # --- 4. Xiaomi / Redmi / POCO (HyperOS / MIUI) ---
+            echo 6000000 > /sys/class/power_supply/battery/thermal_input_current_limit 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/boost_current 2>/dev/null
+            echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
+            echo 2 > /sys/class/power_supply/battery/quick_charge_type 2>/dev/null
+            echo 6000000 > /sys/class/power_supply/battery/input_current_settled 2>/dev/null
+            for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -STOP "${'$'}jpid" 2>/dev/null; done
+
+            # --- 5. Samsung Galaxy (One UI - S/A/Z series) ---
+            if [ -e "/sys/class/power_supply/battery/siop_level" ]; then
+                chmod 666 "/sys/class/power_supply/battery/siop_level" 2>/dev/null
+                echo 100 > "/sys/class/power_supply/battery/siop_level" 2>/dev/null
+                chmod 444 "/sys/class/power_supply/battery/siop_level" 2>/dev/null
+            fi
+            echo 0 > /sys/class/power_supply/battery/store_mode 2>/dev/null
+            echo 0 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
+            echo 0 > /sys/class/power_supply/battery/wc_control 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/afc_result 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/direct_charger_mode 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/hv_charger_status 2>/dev/null
+
+            # --- 6. OnePlus / OPPO / Realme (ColorOS, OxygenOS, RealmeUI) ---
+            if [ -e "/sys/class/power_supply/battery/cool_mode" ]; then
+                chmod 666 "/sys/class/power_supply/battery/cool_mode" 2>/dev/null
+                echo 0 > "/sys/class/power_supply/battery/cool_mode" 2>/dev/null
+                chmod 444 "/sys/class/power_supply/battery/cool_mode" 2>/dev/null
+            fi
+            if [ -e "/sys/class/power_supply/battery/call_mode" ]; then
+                chmod 666 "/sys/class/power_supply/battery/call_mode" 2>/dev/null
+                echo 0 > "/sys/class/power_supply/battery/call_mode" 2>/dev/null
+                chmod 444 "/sys/class/power_supply/battery/call_mode" 2>/dev/null
+            fi
+            echo 1 > /sys/class/power_supply/battery/vooc_charging 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/fast_charge_user_type 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/authenticate 2>/dev/null
+
+            # --- 7. Transsion (Infinix, Tecno, Itel) ---
+            echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+            echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+            echo 0 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
+            for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo "[85,6000,90,5000,4500]" > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
+            if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
+                chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+            fi
+
+            # --- 8. Google Pixel (Tensor) ---
+            echo 100 > /sys/class/power_supply/battery/charge_stop_level 2>/dev/null
+            echo 100 > /sys/devices/platform/google,battery/charge_stop_level 2>/dev/null
+            echo 100 > /sys/devices/platform/google,charger/charge_stop_level 2>/dev/null
+            echo 0 > /sys/class/power_supply/battery/bd_trickle_dry_run 2>/dev/null
+
+            # --- 9. ASUS ROG & Motorola ---
+            echo 0 > /sys/class/power_supply/battery/charging_limit_mode 2>/dev/null
+            echo 0 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/mmi_charging_enable 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/factory_mode 2>/dev/null
+
+            # --- 10. Thermal Lockout & Universal Cooling Devices ---
+            ${if (lockoutBypass) """
+                chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+            """ else """
+                chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+            """}
+
+            for c in /sys/class/thermal/cooling_device*; do
+                type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
+                case "${'$'}type" in
+                    *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
+                        chmod 666 "${'$'}c/cur_state" 2>/dev/null
+                        echo 0 > "${'$'}c/cur_state" 2>/dev/null
+                        chmod 444 "${'$'}c/cur_state" 2>/dev/null
+                        ;;
+                esac
+            done
+            cmd thermalservice override-status 0 2>/dev/null
+            echo ok
+        """.trimIndent()
+    }
+
+    /**
      * Apply True Hardware Bypass Charging or Extreme Fast Charging directly to sysfs.
-     * Supports both MediaTek (Dimensity/Helio) and Qualcomm Snapdragon architectures.
+     * Supports Qualcomm Snapdragon, MediaTek (Dimensity/Helio), Samsung Exynos,
+     * Google Tensor, Xiaomi, OnePlus/OPPO, ASUS ROG, and Universal Linux kernels.
      */
     suspend fun applyChargingMode(
         bypass: Boolean,
@@ -2068,20 +2216,46 @@ object LynxRepository {
                     echo 4500000 > /sys/class/power_supply/usb/current_max 2>/dev/null
                     echo 4500000 > /sys/class/power_supply/main/current_max 2>/dev/null
 
-                    # OEM Bypass switches
+                    # 1. MediaTek / Transsion Hardware Bypass
                     echo 1 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
-                    echo 1 > /sys/class/qcom-battery/direct_charging 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/store_mode 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
-
-                    # MTK Smart Charging lock to current capacity (zero battery current)
                     echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                     echo "${'$'}cur_cap" > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                     echo 0 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                     echo 0 > /sys/devices/platform/charger/chg1_current 2>/dev/null
                     echo 0 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+
+                    # 2. ASUS ROG Hardware Bypass
+                    echo 1 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
+                    echo 1 > /sys/class/power_supply/battery/charging_limit_mode 2>/dev/null
+                    echo 1 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
+
+                    # 3. Sony Xperia Hardware Bypass
+                    echo 1 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
+                    echo 1 > /sys/class/power_supply/battery/battery_care 2>/dev/null
+
+                    # 4. Qualcomm Snapdragon Direct Bypass
+                    echo 1 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+                    echo 1 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+                    echo 0 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+
+                    # 5. Samsung One UI Slate / Store Mode Bypass
+                    echo 1 > /sys/class/power_supply/battery/store_mode 2>/dev/null
+                    echo 1 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
+                    echo 1 > /sys/class/power_supply/battery/wc_control 2>/dev/null
+
+                    # 6. Google Pixel (Tensor) Stop Level Latch
+                    echo "${'$'}cur_cap" > /sys/class/power_supply/battery/charge_stop_level 2>/dev/null
+                    echo "${'$'}cur_cap" > /sys/devices/platform/google,battery/charge_stop_level 2>/dev/null
+                    echo "${'$'}cur_cap" > /sys/devices/platform/google,charger/charge_stop_level 2>/dev/null
+                    echo 1 > /sys/class/power_supply/battery/bd_trickle_dry_run 2>/dev/null
+
+                    # 7. Motorola / BBK / Xiaomi Switches
+                    echo 0 > /sys/class/power_supply/battery/mmi_charging_enable 2>/dev/null
+                    echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
+
+                    # 8. Universal Linux Kernel Power Supply Class Bypass Rails
+                    echo 1 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
+                    echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
                     echo 0 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
                     echo 0 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
                     echo 0 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
@@ -2105,100 +2279,7 @@ object LynxRepository {
                 echo ok
                 """.trimIndent()
             } else if (extremeCharging) {
-                // Extreme Fast Charging: Unrestricted Current, Pump Express 4.0 / SC 33W, Screen-On & Thermal Bypass
-                """
-                touch /dev/lynx_extreme_charging 2>/dev/null
-
-                # 1. Unrestrict MediaTek Charger Platform & Fast Charging Protocols
-                echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
-                echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-
-                # 2. Uncap RT9759 Direct Charge Pump & Current limits to max hardware register steps (24576 = 6A+)
-                echo 24576 > /sys/devices/platform/charger/input_current 2>/dev/null
-                echo 24576 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                echo 24576 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                echo $highTargetPercent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
-
-                # 3. Bypass Transsion Screen-On Throttling, BatteryNotify Derating & Test Rig Clamping
-                echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                echo 0 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
-
-                # 4. Transsion ODM PCB Thermal Clamp Override & Read-Only Lock (Uncapped from 45C to 85C, deal current to 6000mA)
-                for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
-                    if [ -e "${'$'}node" ]; then
-                        chmod 666 "${'$'}node" 2>/dev/null
-                        echo "[85,6000,90,5000,4500]" > "${'$'}node" 2>/dev/null
-                        chmod 444 "${'$'}node" 2>/dev/null
-                    fi
-                done
-
-                # 5. Disable MediaTek AP/PCB Thermal Zone Throttle & Read-Only Lock
-                if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
-                    chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                    echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                    chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                fi
-
-                # 6. Thermal Lockout Bypass (DV2_TBAT 28°C Spoof & Read-Only Lock)
-                ${if (lockoutBypass) """
-                    chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                    echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                    chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                """ else """
-                    chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                    echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                """}
-
-                # 7. Unclamp & Lock All Battery / Charger Cooling Devices (bcct, abcct, cdev2, chg, etc.)
-                for c in /sys/class/thermal/cooling_device*; do
-                    type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
-                    case "${'$'}type" in
-                        *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
-                            chmod 666 "${'$'}c/cur_state" 2>/dev/null
-                            echo 0 > "${'$'}c/cur_state" 2>/dev/null
-                            chmod 444 "${'$'}c/cur_state" 2>/dev/null
-                            ;;
-                    esac
-                done
-                cmd thermalservice override-status 0 2>/dev/null
-
-                # 8. Universal & Qualcomm Maximum Rails (6A headroom)
-                chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                chmod 444 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                chmod 644 /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/battery/current_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/main/constant_charge_current_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/usb/hw_current_max 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
-                echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
-                echo 1 > /sys/class/power_supply/battery/fast_charge 2>/dev/null
-                echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
-                echo 6000000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
-
-                # 9. Release bypass locks and ensure charging enabled
-                echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
-                echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/store_mode 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
-                echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
-                echo ok
-                """.trimIndent()
+                buildUniversalExtremeChargingScript(highTargetPercent, lockoutBypass)
             } else {
                 // Standard Fast Charge or Manual Regulated Limit
                 val isUnrestricted = limitMa >= 3000
@@ -2217,10 +2298,28 @@ object LynxRepository {
                     chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
                     echo enabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
                 fi
+                echo 0 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+
+                # Revert Samsung SIOP
+                if [ -e "/sys/class/power_supply/battery/siop_level" ]; then
+                    chmod 666 "/sys/class/power_supply/battery/siop_level" 2>/dev/null
+                fi
+
+                # Revert OnePlus / OPPO Cool & Call mode
+                if [ -e "/sys/class/power_supply/battery/cool_mode" ]; then
+                    chmod 666 "/sys/class/power_supply/battery/cool_mode" 2>/dev/null
+                fi
+                if [ -e "/sys/class/power_supply/battery/call_mode" ]; then
+                    chmod 666 "/sys/class/power_supply/battery/call_mode" 2>/dev/null
+                fi
+
+                # Revert Xiaomi Joyose
+                for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -CONT "${'$'}jpid" 2>/dev/null; done
+
+                # Revert cooling devices
                 for c in /sys/class/thermal/cooling_device*; do
                     chmod 666 "${'$'}c/cur_state" 2>/dev/null
                 done
-                echo 0 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
                 cmd thermalservice reset 2>/dev/null
 
                 echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
@@ -2279,89 +2378,12 @@ object LynxRepository {
     }
 
     /**
-     * Force Maximum Super Charge Speed (Unthrottled 33W Transsion Super Charge / MediaTek PE40 / RT9759)
+     * Force Maximum Super Charge Speed across all SoCs & OEM architectures.
      * Overrides all thermal throttles, zeroes out cooling devices, and locks battery spoofing.
      */
     suspend fun forceMaxSuperCharge(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val script = """
-                touch /dev/lynx_extreme_charging 2>/dev/null
-
-                # 1. Unrestrict MediaTek Charger Platform & Fast Charging Protocols
-                echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
-                echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-
-                # 2. Uncap RT9759 Direct Charge Pump & Current limits to max hardware register steps (24576 = 6A+)
-                echo 24576 > /sys/devices/platform/charger/input_current 2>/dev/null
-                echo 24576 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                echo 24576 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                echo 100 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
-
-                # 3. Bypass Transsion Screen-On Throttling, BatteryNotify Derating & Test Rig Clamping
-                echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                echo 0 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
-
-                # 4. Transsion ODM PCB Thermal Clamp Override & Read-Only Lock (Uncapped from 45C to 85C, deal current to 6000mA)
-                for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
-                    if [ -e "${'$'}node" ]; then
-                        chmod 666 "${'$'}node" 2>/dev/null
-                        echo "[85,6000,90,5000,4500]" > "${'$'}node" 2>/dev/null
-                        chmod 444 "${'$'}node" 2>/dev/null
-                    fi
-                done
-
-                # 5. Disable MediaTek AP/PCB Thermal Zone Throttle & Read-Only Lock
-                if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
-                    chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                    echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                    chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                fi
-
-                # 6. Thermal Lockout Bypass (DV2_TBAT 28°C Spoof & Read-Only Lock)
-                chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-
-                # 7. Unclamp & Lock All Battery / Charger Cooling Devices (bcct, abcct, cdev2, chg, etc.)
-                for c in /sys/class/thermal/cooling_device*; do
-                    type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
-                    case "${'$'}type" in
-                        *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
-                            chmod 666 "${'$'}c/cur_state" 2>/dev/null
-                            echo 0 > "${'$'}c/cur_state" 2>/dev/null
-                            chmod 444 "${'$'}c/cur_state" 2>/dev/null
-                            ;;
-                    esac
-                done
-                cmd thermalservice override-status 0 2>/dev/null
-
-                # 8. Universal & Qualcomm Maximum Rails
-                chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                chmod 444 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                chmod 644 /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/battery/current_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/main/constant_charge_current_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/usb/hw_current_max 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
-                echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
-                echo 1 > /sys/class/power_supply/battery/fast_charge 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
-                echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
-                echo ok
-            """.trimIndent()
+            val script = buildUniversalExtremeChargingScript(highTargetPercent = 100, lockoutBypass = true)
             Shell.cmd(script).exec()
             writeStateKey("charging.extreme_charging_enabled", "true", "bool")
             writeStateKey("charging.thermal_lockout_bypass_enabled", "true", "bool")
