@@ -54,6 +54,8 @@ freeze_oem_throttlers() {
 }
 
 unfreeze_oem_throttlers() {
+    # Preserve thermal suppression if extreme charging is actively engaged
+    [ -f "/dev/lynx_extreme_charging" ] && return 0
     [ -f "$FROZEN_PID_FILE" ] || return 0
 
     while IFS= read -r pid; do

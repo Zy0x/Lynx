@@ -1803,6 +1803,7 @@ object LynxRepository {
             } else if (extremeCharging) {
                 // Extreme Fast Charging: Unrestricted Current, Pump Express 4.0 / SC 33W, Disable JEITA
                 """
+                touch /dev/lynx_extreme_charging 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
@@ -1838,6 +1839,7 @@ object LynxRepository {
                             ;;
                     esac
                 done
+                cmd thermalservice override-status 0 2>/dev/null
 
                 # Universal & Qualcomm Maximum Current (6A headroom)
                 chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
@@ -1878,6 +1880,7 @@ object LynxRepository {
                 val targetMa = if (isUnrestricted) 6000 else limitMa
                 val targetUa = targetMa * 1000
                 """
+                rm -f /dev/lynx_extreme_charging 2>/dev/null
                 echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
@@ -1891,9 +1894,8 @@ object LynxRepository {
                 echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
 
                 # Enable Pump Express & fast charging hardware
-                echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
                 echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
 
@@ -1940,6 +1942,8 @@ object LynxRepository {
     suspend fun forceMaxSuperCharge(): Boolean = withContext(Dispatchers.IO) {
         try {
             val script = """
+                touch /dev/lynx_extreme_charging 2>/dev/null
+
                 # 1. Unrestrict MediaTek Charger Platform
                 echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
@@ -1974,6 +1978,7 @@ object LynxRepository {
                             ;;
                     esac
                 done
+                cmd thermalservice override-status 0 2>/dev/null
 
                 # 4. Universal & Qualcomm Maximum Rails
                 chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
@@ -3039,7 +3044,17 @@ object LynxRepository {
                 fi
 
                 rfc=${'$'}([ "${'$'}chgtyp" = "9" ] && echo 1 || (cat /sys/bus/i2c/drivers/rt9759/*/rfc_dcp_ta 2>/dev/null | head -n 1 || echo 0))
-                rtmp=${'$'}(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || cat /sys/class/thermal/thermal_zone20/temp 2>/dev/null || cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null || echo 0)
+                rtmp=0
+                for tz in /sys/class/thermal/thermal_zone*; do
+                    tz_type=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                    case "${'$'}tz_type" in
+                        *battery*|*mtktsbattery*|*bms*)
+                            rtmp=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
+                            [ -n "${'$'}rtmp" ] && [ "${'$'}rtmp" -gt 0 ] 2>/dev/null && break
+                            ;;
+                    esac
+                done
+                [ -z "${'$'}rtmp" ] || [ "${'$'}rtmp" -le 0 ] 2>/dev/null && rtmp=${'$'}temp
                 grd=${'$'}([ -f /dev/lynx_charging_guard ] && echo 1 || echo 0)
                 cst=${'$'}(cat /dev/lynx_charging_state 2>/dev/null || echo "")
 
@@ -5317,7 +5332,7 @@ case "${'$'}PROFILE" in
 
         # Async Fast Background Fork (Zero-delay profile completion)
         (
-            if [ "${'$'}PROFILE" = "extreme" ]; then
+            if [ "${'$'}PROFILE" = "extreme" ] || [ -f "/dev/lynx_extreme_charging" ]; then
                 cmd thermalservice override-status 0 2>/dev/null
             else
                 cmd thermalservice reset 2>/dev/null
@@ -5570,7 +5585,7 @@ case "${'$'}PROFILE" in
             for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -CONT "${'$'}jpid" 2>/dev/null; done
             cmd wifi set-power-save-mode 1 >/dev/null 2>&1
             cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
-            cmd thermalservice reset 2>/dev/null
+            [ ! -f "/dev/lynx_extreme_charging" ] && cmd thermalservice reset 2>/dev/null
         ) >/dev/null 2>&1 &
 
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
@@ -5849,7 +5864,7 @@ case "${'$'}PROFILE" in
             for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -CONT "${'$'}jpid" 2>/dev/null; done
             cmd wifi set-power-save-mode 1 >/dev/null 2>&1
             cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
-            cmd thermalservice reset 2>/dev/null
+            [ ! -f "/dev/lynx_extreme_charging" ] && cmd thermalservice reset 2>/dev/null
         ) >/dev/null 2>&1 &
 
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1

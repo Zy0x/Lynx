@@ -1,3 +1,19 @@
+# Lynx [Codename: Deity] 3.0.32
+Released on: 2026-10-04
+> **Versi ini** menghadirkan **Persistent Background SuperCharge Protection: Pemisahan Sensor Termal Baterai Fisik Nyata (Anti-False Cutoff CPU 46°C), Independensi Subsistem Pengisian Lintas Profil (`apply_profile.sh` Balance Shield), dan Proteksi Kuncian Anti-Drop Saat Keluar Aplikasi Lynx (`/dev/lynx_extreme_charging`)** — menuntaskan investigasi mendalam di mana daya pengisian 30W sempat drop setelah beberapa saat akibat skrip daemon yang secara keliru membaca `thermal_zone0` (CPU/SoC yang wajar menyentuh 46°C saat pengisian cepat) dan langsung memicu Emergency Thermal Guard 1500mA, serta membasmi fenomena drop drastis saat aplikasi Lynx ditutup atau kehilangan fokus yang disebabkan oleh pemicuan `cmd thermalservice reset` dan `unfreeze_oem_throttlers` saat sistem beralih ke profil *Balance*; kini subsistem pengisian daya beroperasi secara mandiri dan persisten di semua profil sistem, sensor termal dipetakan secara akurat ke sel baterai fisik (`mtktsbattery`), dan penanganan termal dikunci rapat di latar belakang.
+
+## 🚀 Fitur Baru & Peningkatan (3.0.32)
+
+### 1. 🛡️ Pemisahan Sensor Termal Baterai Fisik Nyata (Anti-False Cutoff CPU)
+- **Deteksi Sensor Baterai Akurat**: Mengganti pembacaan hardcoded `thermal_zone0` (SoC CPU) dengan pemindaian dinamis tipe sensor `*battery*`, `mtktsbattery`, dan `bms` pada `/sys/class/thermal/thermal_zone*` serta fallback ke thermistor internal baterai.
+- **Plafon Keamanan Baterai Riil (49°C)**: Emergency Thermal Guard pada mode Extreme Charging kini hanya akan aktif jika suhu sel baterai fisik yang sesungguhnya menyentuh $\ge 49.0^\circ\text{C}$ (bukan suhu CPU yang wajar panas), menjamin aliran daya 30W–33W stabil terus menerus tanpa terpotong prematur.
+
+### 2. ⚡ Independensi Pengisian Lintas Profil (Anti-Drop Saat Tutup Aplikasi)
+- **Persistensi Pengisian di Semua Profil**: Memindahkan dan mendekopel seluruh blok pengisian daya pada `apply_profile.sh` sehingga setelan Extreme Charging (6000mA, Direct Pump, `BN_TestMode`, spoofing 28°C) tetap aktif sepenuhnya di latar belakang bahkan saat pengguna berada di Home Screen, berpindah aplikasi, atau sistem berjalan di profil *Balance*.
+- **Marker Atomik `/dev/lynx_extreme_charging`**: Melindungi sistem dari eksekusi `cmd thermalservice reset` dan `unfreeze_oem_throttlers` ketika mode Extreme Charging aktif, menjaga pendingin termal tetap terkunci pada `cur_state = 0` (`chmod 444`) dan daya pengisian tidak drop saat Lynx ditutup.
+
+---
+
 # Lynx [Codename: Deity] 3.0.31
 Released on: 2026-10-04
 > **Versi ini** menghadirkan **Direct 33W Charge Pump Engagement Engine: Eliminasi Kuncian Protokol PE 2.0 (18W Downgrade Fix) & Proteksi Read-Only Locking pada Arus Pengisian Sel Baterai (`constant_charge_current_max` 6000mA)** — membasmi pembatasan tidak disengaja di mana penulisan nilai `Pump_Express = 2` pada sysfs kernel MediaTek memaksa hardware melakukan downgrade ke protokol Pump Express 2.0 (plafon 18W: 9V / 2A), membuka prioritas penuh bagi negosiasi Pump Express 4.0 & Transsion Super Charge 33W (`enable_sc = 1`, `pe40 = 1`, `sc_ibat_limit = 8000`), serta menerapkan proteksi `chmod 444` pada `constant_charge_current_max` dan `charge_control_limit` agar Android BatteryService/Healthd tidak dapat mereset batas arus baterai kembali ke default 2000 mA.

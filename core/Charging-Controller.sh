@@ -118,6 +118,8 @@ apply_extreme_charging() {
     [ -z "$target_soc" ] && target_soc=90
     [ -z "$allow_lockout_bypass" ] && allow_lockout_bypass="true"
 
+    touch /dev/lynx_extreme_charging 2>/dev/null
+
     # 1. Disable JEITA thermal current clamp on MediaTek
     write_node "0" "$MTK_DIR/sw_jeita"
 
@@ -154,6 +156,7 @@ apply_extreme_charging() {
                     ;;
             esac
         done
+        cmd thermalservice override-status 0 2>/dev/null
     fi
 
     # 6. Universal & Qualcomm Maximum Current (6000mA = 6A max headroom, Read-Only Locked)
@@ -199,6 +202,8 @@ apply_regulated_charging() {
     local target_ma="$1"
     [ -z "$target_ma" ] && target_ma=1500
     local target_ua=$(( target_ma * 1000 ))
+
+    rm -f /dev/lynx_extreme_charging 2>/dev/null
 
     # Release bypass switches
     [ -n "$HW_BYPASS_NODE" ] && write_node "0" "$HW_BYPASS_NODE"
@@ -474,15 +479,35 @@ while true; do
     [ -z "$temp" ] && temp=300
     [ -z "$capacity" ] && capacity=50
 
-    # Read real physical battery thermal zone temp (thermal_zone0 = mtktsbattery)
-    real_temp_raw=$(read_node "/sys/class/thermal/thermal_zone0/temp")
-    [ -z "$real_temp_raw" ] && real_temp_raw=$(read_node "/sys/class/thermal/thermal_zone20/temp")
-    [ -z "$real_temp_raw" ] && real_temp_raw=$(read_node "/sys/class/thermal/thermal_zone1/temp")
-    [ -z "$real_temp_raw" ] && real_temp_raw="$temp"
-    if [ "$real_temp_raw" -gt 1000 ]; then
-        real_dC=$(( real_temp_raw / 100 ))
-    else
-        real_dC=$(( real_temp_raw * 10 ))
+    # Read real physical battery sensor (never use CPU/SoC thermal_zone0!)
+    real_dC=0
+    for tz in /sys/class/thermal/thermal_zone*; do
+        [ -d "$tz" ] || continue
+        tz_type=$(cat "$tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+        case "$tz_type" in
+            *battery*|*mtktsbattery*|*bms*)
+                raw_tz=$(cat "$tz/temp" 2>/dev/null)
+                if [ -n "$raw_tz" ] && [ "$raw_tz" -gt 0 ] 2>/dev/null; then
+                    if [ "$raw_tz" -gt 1000 ]; then
+                        real_dC=$(( raw_tz / 100 ))
+                    else
+                        real_dC=$(( raw_tz * 10 ))
+                    fi
+                    break
+                fi
+                ;;
+        esac
+    done
+
+    # Fallback to standard battery thermistor if no thermal zone matched
+    if [ "$real_dC" -le 0 ]; then
+        if [ "$temp" -gt 1000 ]; then
+            real_dC=$(( temp / 100 ))
+        elif [ "$temp" -gt 100 ]; then
+            real_dC="$temp"
+        else
+            real_dC=$(( temp * 10 ))
+        fi
     fi
 
     # Active profile check
@@ -522,17 +547,19 @@ while true; do
         [ -n "$c_lock" ] && lockout_byp_on="$c_lock"
         [ -n "$c_taper" ] && smart_taper_on="$c_taper"
     fi
+    [ -f "/dev/lynx_extreme_charging" ] && extreme_charging_on="true"
 
-    # 1. Emergency Thermal Guard (>46.0°C real physical temperature)
-    if [ "$temp_guard_on" = "true" ] && [ "$real_dC" -ge 460 ]; then
+    # 1. Emergency Thermal Guard: Only trigger on genuine physical battery cell danger (>= 49.0°C)
+    if [ "$temp_guard_on" = "true" ] && [ "$real_dC" -ge 490 ]; then
         # Critical Protection: Revoke spoofing, restore OEM thermal control, clamp to safe current
         echo "guard_active=true temp=${real_dC}" > /dev/lynx_charging_guard
+        rm -f /dev/lynx_extreme_charging 2>/dev/null
         write_node "65535" "/sys/devices/platform/battery/Battery_Temperature"
         apply_regulated_charging 1500
         sleep 8
         continue
     else
-        [ "$real_dC" -le 410 ] && rm -f /dev/lynx_charging_guard
+        [ "$real_dC" -le 430 ] && rm -f /dev/lynx_charging_guard
     fi
 
     # Convert Celsius to decicelsius (e.g. 45 -> 450)

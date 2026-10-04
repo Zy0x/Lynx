@@ -758,76 +758,14 @@ case "$PROFILE" in
             # Mali DVFS params — threshold tinggi agar tidak downscale
             [ -e "/proc/mali/dvfs_threshold" ] && echo "99 20" > /proc/mali/dvfs_threshold 2>/dev/null
             [ -e "/proc/mali/dvfs_deferred_count" ] && echo "1" > /proc/mali/dvfs_deferred_count 2>/dev/null
-
-            # ── Extreme Charging & Bypass Alignment ─────────────────────────────
-            # Memastikan saat bermain game di mode Extreme dengan charger terpasang,
-            # baterai TIDAK DROP. Jika bypass aktif: latch baterai & suplai via Vsys.
-            # Jika bypass nonaktif: buka arus maksimal (Pump Express & 6A headroom).
-            cfg_bypass="false"
-            for c_path in "/data/adb/modules/Lynx/config.json" "/data/adb/lynx/config.json" "/data/user/0/com.noir.lynx/files/config.json"; do
-                if [ -f "$c_path" ]; then
-                    cfg_bypass=$(awk -F': ' '/"bypass_enabled"/ {print $2}' "$c_path" 2>/dev/null | grep -q "true" && echo "true" || echo "false")
-                    break
-                fi
-            done
-
-            if [ "$cfg_bypass" = "true" ]; then
-                # True Hardware Bypass: input daya charger tetap hidup untuk menyuplai motherboard,
-                # tetapi pengisian sel baterai di-latch agar persentase tidak naik/turun dan tetap dingin.
-                write_node "0" "/sys/class/power_supply/battery/input_suspend"
-                write_node "6000" "/sys/devices/platform/charger/input_current"
-                write_node "4500000" "/sys/class/power_supply/usb/current_max"
-                write_node "4500000" "/sys/class/power_supply/main/current_max"
-                write_node "1" "/sys/devices/platform/charger/bypass_charger"
-                write_node "1" "/sys/class/power_supply/battery/device/smart_charging"
-                write_node "1" "/sys/class/power_supply/battery/smart_charging_activation"
-                write_node "1" "/sys/class/qcom-battery/direct_charging"
-                write_node "1" "/sys/class/power_supply/battery/store_mode"
-                write_node "1" "/sys/class/power_supply/battery/batt_slate_mode"
-                cur_cap=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null)
-                [ -n "$cur_cap" ] && write_node "1" "/sys/devices/platform/charger/enable_sc" && write_node "$cur_cap" "/sys/devices/platform/charger/sc_tuisoc"
-                write_node "0" "/sys/devices/platform/charger/sc_ibat_limit"
-                write_node "0" "/sys/devices/platform/charger/chg1_current"
-                write_node "0" "/sys/devices/platform/charger/chg2_current"
-                write_node "0" "/sys/class/power_supply/battery/constant_charge_current"
-                write_node "0" "/sys/class/power_supply/battery/constant_charge_current_max"
-                write_node "0" "/sys/class/power_supply/battery/charging_enabled"
-            else
-                # Extreme Charging: Bebaskan batasan arus, Pump Express 4.0 / SC 33W, dan disable JEITA
-                write_node "0" "/sys/devices/platform/charger/sw_jeita"
-                write_node "1" "/sys/devices/platform/charger/pe40"
-                write_node "1" "/sys/devices/platform/charger/pe20"
-                write_node "68" "/sys/devices/platform/charger/pdc_max_watt"
-                write_node "6000" "/sys/devices/platform/charger/input_current"
-                write_node "6000" "/sys/devices/platform/charger/chg1_current"
-                write_node "6000" "/sys/devices/platform/charger/chg2_current"
-                write_node "8000" "/sys/devices/platform/charger/sc_ibat_limit"
-                write_node "1" "/sys/devices/platform/charger/enable_sc"
-                write_node "1" "/sys/devices/platform/charger/BN_TestMode"
-                write_node "0" "/sys/devices/platform/charger/BatteryNotify"
-                write_node "0" "/sys/devices/platform/charger/tran_charger_full"
-                write_node "0" "/sys/class/power_supply/battery/input_suspend"
-                write_node "1" "/sys/class/power_supply/battery/charging_enabled"
-                chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current_max"
-                chmod 444 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                chmod 644 /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-                write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current"
-                write_node "6000000" "/sys/class/power_supply/battery/current_max"
-                write_node "6000000" "/sys/class/power_supply/battery/input_current_limit"
-                write_node "6000000" "/sys/class/power_supply/main/current_max"
-                write_node "6000000" "/sys/class/power_supply/usb/current_max"
-                write_node "0" "/sys/class/power_supply/battery/charge_control_limit_max"
-                write_node "0" "/sys/class/power_supply/battery/charge_control_limit"
-                write_node "0" "/sys/class/qcom-battery/restricted_charging"
-                write_node "6000000" "/sys/class/qcom-battery/restrict_cur"
-                write_node "1" "/sys/class/power_supply/battery/fastcharge_mode"
-            fi
-
         else
-            # Performance Mode: Safe Relaxed Thermal Bounds (85°C trip point)
+            # Performance & Balance Mode: Safe Relaxed Thermal Bounds (85°C trip point)
             write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
-            cmd thermalservice reset 2>/dev/null
+            if [ ! -f "/dev/lynx_extreme_charging" ]; then
+                cmd thermalservice reset 2>/dev/null
+            else
+                cmd thermalservice override-status 0 2>/dev/null
+            fi
             for tz in /sys/class/thermal/thermal_zone*; do
                 [ -d "$tz" ] || continue
                 write_node "enabled" "$tz/mode"
@@ -839,6 +777,90 @@ case "$PROFILE" in
                 [ -e "$path/cpu_capacity" ] && chmod 444 "$path/cpu_capacity" 2>/dev/null
                 [ -e "$path/topology/physical_package_id" ] && chmod 444 "$path/topology/physical_package_id" 2>/dev/null
             done
+        fi
+
+        # ── 13. Charging & Power Subsystem Alignment (Active Across ALL Profiles!) ─────────
+        # Ensures unthrottled 33W supercharging or bypass charging remains active even
+        # when switching apps, leaving Lynx Companion, or running in Balance profile.
+        cfg_bypass="false"
+        cfg_extreme_charging="false"
+        for c_path in "/data/adb/modules/Lynx/config.json" "/data/adb/lynx/config.json" "/data/user/0/com.noir.lynx/files/config.json"; do
+            if [ -f "$c_path" ]; then
+                cfg_bypass=$(awk -F': ' '/"bypass_enabled"/ {print $2}' "$c_path" 2>/dev/null | grep -q "true" && echo "true" || echo "false")
+                cfg_extreme_charging=$(awk -F': ' '/"extreme_charging_enabled"/ {print $2}' "$c_path" 2>/dev/null | grep -q "true" && echo "true" || echo "false")
+                break
+            fi
+        done
+        [ -f "/dev/lynx_extreme_charging" ] && cfg_extreme_charging="true"
+
+        if [ "$cfg_bypass" = "true" ]; then
+            # True Hardware Bypass: input daya charger tetap hidup untuk menyuplai motherboard,
+            # tetapi pengisian sel baterai di-latch agar persentase tidak naik/turun dan tetap dingin.
+            write_node "0" "/sys/class/power_supply/battery/input_suspend"
+            write_node "6000" "/sys/devices/platform/charger/input_current"
+            write_node "4500000" "/sys/class/power_supply/usb/current_max"
+            write_node "4500000" "/sys/class/power_supply/main/current_max"
+            write_node "1" "/sys/devices/platform/charger/bypass_charger"
+            write_node "1" "/sys/class/power_supply/battery/device/smart_charging"
+            write_node "1" "/sys/class/power_supply/battery/smart_charging_activation"
+            write_node "1" "/sys/class/qcom-battery/direct_charging"
+            write_node "1" "/sys/class/power_supply/battery/store_mode"
+            write_node "1" "/sys/class/power_supply/battery/batt_slate_mode"
+            cur_cap=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null)
+            [ -n "$cur_cap" ] && write_node "1" "/sys/devices/platform/charger/enable_sc" && write_node "$cur_cap" "/sys/devices/platform/charger/sc_tuisoc"
+            write_node "0" "/sys/devices/platform/charger/sc_ibat_limit"
+            write_node "0" "/sys/devices/platform/charger/chg1_current"
+            write_node "0" "/sys/devices/platform/charger/chg2_current"
+            write_node "0" "/sys/class/power_supply/battery/constant_charge_current"
+            write_node "0" "/sys/class/power_supply/battery/constant_charge_current_max"
+            write_node "0" "/sys/class/power_supply/battery/charging_enabled"
+        elif [ "$cfg_extreme_charging" = "true" ] || [ "$PROFILE" = "extreme" ]; then
+            # Extreme Charging: Bebaskan batasan arus, Pump Express 4.0 / SC 33W, dan disable JEITA
+            touch "/dev/lynx_extreme_charging" 2>/dev/null
+            write_node "0" "/sys/devices/platform/charger/sw_jeita"
+            write_node "1" "/sys/devices/platform/charger/pe40"
+            write_node "1" "/sys/devices/platform/charger/pe20"
+            write_node "68" "/sys/devices/platform/charger/pdc_max_watt"
+            write_node "6000" "/sys/devices/platform/charger/input_current"
+            write_node "6000" "/sys/devices/platform/charger/chg1_current"
+            write_node "6000" "/sys/devices/platform/charger/chg2_current"
+            write_node "8000" "/sys/devices/platform/charger/sc_ibat_limit"
+            write_node "1" "/sys/devices/platform/charger/enable_sc"
+            write_node "1" "/sys/devices/platform/charger/BN_TestMode"
+            write_node "0" "/sys/devices/platform/charger/BatteryNotify"
+            write_node "0" "/sys/devices/platform/charger/tran_charger_full"
+            write_node "0" "/sys/class/power_supply/battery/input_suspend"
+            write_node "1" "/sys/class/power_supply/battery/charging_enabled"
+            chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+            write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current_max"
+            chmod 444 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+            chmod 644 /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+            write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current"
+            write_node "6000000" "/sys/class/power_supply/battery/current_max"
+            write_node "6000000" "/sys/class/power_supply/battery/input_current_limit"
+            write_node "6000000" "/sys/class/power_supply/main/current_max"
+            write_node "6000000" "/sys/class/power_supply/usb/current_max"
+            write_node "0" "/sys/class/power_supply/battery/charge_control_limit_max"
+            write_node "0" "/sys/class/power_supply/battery/charge_control_limit"
+            write_node "0" "/sys/class/qcom-battery/restricted_charging"
+            write_node "6000000" "/sys/class/qcom-battery/restrict_cur"
+            write_node "1" "/sys/class/power_supply/battery/fastcharge_mode"
+
+            # Enforce 28C battery spoofing and cooling device unlocking
+            chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+            write_node "28" "/sys/devices/platform/battery/Battery_Temperature"
+            chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+            for c in /sys/class/thermal/cooling_device*; do
+                type=$(cat "$c/type" 2>/dev/null)
+                case "$type" in
+                    *bcct*|*chg*|*current*|*abcct*|*battery*)
+                        chmod 666 "$c/cur_state" 2>/dev/null
+                        echo 0 > "$c/cur_state" 2>/dev/null
+                        chmod 444 "$c/cur_state" 2>/dev/null
+                        ;;
+                esac
+            done
+            cmd thermalservice override-status 0 2>/dev/null
         fi
 
         # MediaTek DVFSRC / Interconnect & DDR RAM Clock Lock (4.266 GHz peak memory bandwidth)
