@@ -1,3 +1,30 @@
+# Lynx [Codename: Deity] 3.0.46
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Perombakan Menyeluruh Diagnostik GPU & Display Info, Eliminasi Total Pemotongan Teks (Zero-Truncation Policy), Integrasi Deteksi Ganda Hardware Vulkan API (PackageManager & Shell Driver Probing), Normalisasi Pelabelan Node Sysfs Kernel, serta Pembersihan Residu Format AI** — merombak tata letak subhalaman Info GPU & Display menjadi antarmuka diagnosa engineering yang presisi dan profesional; meniadakan seluruh pembatasan baris dan pemotongan teks elipsis (`...`) pada spesifikasi, judul, dan path file driver; menyempurnakan deteksi Vulkan melalui inspeksi fitur sistem Android native sehingga versi API dan driver teridentifikasi akurat; memperbaiki parser loop pengecekan sysfs sehingga seluruh node kernel tampil dengan nama deskriptif utuh berbahasa Indonesia; menempatkan tombol segarkan secara ergonomis di header kartu identitas silikon; serta menyingkirkan pengulangan subtitle redundan demi keterbacaan optimal.
+
+## Fitur Baru & Peningkatan (3.0.46)
+
+### 1. Perombakan Total Desain Subhalaman GPU & Display Info
+- **Hierarki Diagnostik Engineering**: Menggantikan pola komponen generik berulang dengan tata letak grid spesifikasi simetris terstruktur yang memadukan identitas silikon, runtime grafis, karakteristik fisik panel layar, pipeline komposisi grafis, dan inspeksi node kernel.
+- **Header Refresh Ergonomis**: Memindahkan tombol segarkan diagnostik dari bagian bawah kartu yang terisolasi ke slot aksi header `Identitas Silikon & Driver` untuk aksesibilitas yang cepat dan bersih.
+- **Pembersihan Subtitle Redundan**: Menghilangkan pengulangan label dan sub-label identik (seperti repetisi ruang warna dan deskripsi klise) sehingga setiap baris metrik memberikan informasi teknis bernilai tinggi.
+
+### 2. Standarisasi Tampilan Tanpa Pemotongan (Zero-Truncation Architecture)
+- **Eliminasi Elipsis Total**: Menghapus seluruh atribut `TextOverflow.Ellipsis` dan `maxLines = 1` pada kartu diagnosa GPU, baris spesifikasi, dialog, dan jalur driver biner.
+- **Soft Wrapping Monospace Terarah**: Menerapkan pemenggalan baris fleksibel (`softWrap = true`) dan font monospace terstruktur pada nama path binary driver fisik dan direktori sysfs sehingga pengguna dapat membaca dan memverifikasi path secara utuh.
+- **Tinggi Kartu Simetris (`IntrinsicSize.Min`)**: Mengunci tinggi baris kartu spesifikasi berpasangan menggunakan pengukuran intrinsik minimum agar tidak terjadi ketimpangan visual antar-kolom.
+
+### 3. Deteksi Ganda Vulkan API Berakurasi Tinggi
+- **Framework Fallback Direct Inspection**: Mengintegrasikan pengecekan native `PackageManager.systemAvailableFeatures` untuk mendeteksi `android.hardware.vulkan.version` dan `android.hardware.vulkan.level` secara instan dan tanpa latensi proses.
+- **Sinkronisasi Driver ID**: Memadukan data instance runtime dari `cmd gpu vkjson` dengan spesifikasi hardware untuk menyajikan versi API Vulkan (contoh: `Vulkan 1.1.0 (Level 1)`) dan nama driver asli (`Native Vulkan Driver` / `Mali-G57 MC2`) tanpa kesalahan deteksi.
+- **Resolusi Chipset Otentik**: Menampilkan penamaan keluarga chipset spesifik (seperti `MediaTek Helio G96`) berdasarkan platform board hardware aktual.
+
+### 4. Pelabelan Utuh Node Kernel GPU & Sysfs
+- **Pembersihan Bug Shell Parsing**: Menggantikan iterasi whitespace-split yang rentan memotong nama node menjadi satu kata (`Mali`) dengan fungsi pemeriksaan shell langsung.
+- **Nama Deskriptif Utuh**: Menyajikan identitas node secara lengkap dalam bahasa Indonesia (contoh: `Mali GED Frekuensi Aktif`, `Mali GED Utilisasi GPU`, `Mali GED Boost Level`, `MediaTek FPSGO Dynamic Engine`) disertai badge izin akses `R/W` dan `RO`.
+
+---
+
 # Lynx [Codename: Deity] 3.0.45
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Sticky Header Tab Row Subhalaman GPU & Display, Validasi Ketat Dukungan Hardware/OS terhadap Pipeline Rendering Grafis (HWUI Backends & ANGLE), Integrasi Icon Aplikasi Riil (Native PackageManager App Icons) dengan Caching Memori Berkecepatan Tinggi, Deteksi Multi-Tingkat Anti-Spoofing Berbasis Kernel Ground Truth, serta Ekspansi Telemetri GPU & Display Mendalam** — menempatkan tab navigasi (`Tuning`, `Lab`, `Info`) secara permanen di bagian atas layar agar tidak tergulung saat konten di-scroll; memverifikasi secara langsung ketersediaan Vulkan, Graphite (Android 14+), dan ANGLE pada level sistem operasi dan menonaktifkan opsi yang tidak didukung secara elegan; memuat icon aplikasi asli dari sistem Android untuk setiap judul game pada manajemen rendering dengan dukungan `LruCache` berkapasitas 150 item; mendeteksi manipulasi identitas SoC dan GPU oleh modul luar/spoofer melalui pengecekan kebenaran mutlak kernel Linux (DTB, node driver karakter, dan sysfs internal) disertai alert peringatan dan matriks perbandingan; serta memperkaya telemetri display dengan DPI, faktor densitas, format ruang warna aktif, dan status SurfaceFlinger Hardware Composer.

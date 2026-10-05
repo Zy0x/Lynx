@@ -1,12 +1,12 @@
 package com.noir.lynx.hardware
 
-enum class GpuBackend {
-    KGSL,
-    MTK_GED,
-    MALI_DEVFREQ,
-    EXYNOS_SYSFS,
-    GENERIC_DEVFREQ,
-    NONE
+enum class GpuBackend(val displayName: String) {
+    KGSL("Qualcomm KGSL"),
+    MTK_GED("MediaTek GED"),
+    MALI_DEVFREQ("ARM Mali Devfreq"),
+    EXYNOS_SYSFS("Samsung Exynos"),
+    GENERIC_DEVFREQ("Generic Devfreq"),
+    NONE("Generic Linux")
 }
 
 data class NodeStatus(

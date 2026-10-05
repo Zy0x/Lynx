@@ -2115,20 +2115,14 @@ fun TuningGpuCategory(
                 )
             }
             2 -> {
-                // ── TAB 2: INFO (CAPABILITY SCANNER & DIAGNOSTICS) ──
-                CapabilityScannerCard(
-                    caps = uiState.graphicsCapabilities,
-                    onRefresh = { viewModel.refreshGraphicsCapabilities() }
-                )
-
-                GraphicsDebugCard(
+                // ── TAB 2: INFO (UNIFIED HARDWARE & COMPOSITOR DIAGNOSTICS) ──
+                GpuHardwareInfoDashboard(
                     caps = uiState.graphicsCapabilities,
                     pipeline = uiState.displayPipeline,
-                    onRefresh = { viewModel.refreshDisplayPipeline() }
-                )
-
-                NodeExplorerCard(
-                    caps = uiState.graphicsCapabilities
+                    onRefresh = {
+                        viewModel.refreshGraphicsCapabilities()
+                        viewModel.refreshDisplayPipeline()
+                    }
                 )
             }
         }

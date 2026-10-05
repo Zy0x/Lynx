@@ -1400,8 +1400,7 @@ fun SessionHistoryList(
                                     color = TextPrimary,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    softWrap = true
                                 )
                                 Text(
                                     text = "${timeFormat.format(Date(session.timestamp))} • ${session.sessionDurationSec}s",
@@ -1449,30 +1448,83 @@ fun SessionHistoryList(
 }
 
 // ============================================================
-//  7. HARDWARE CAPABILITY SCANNER CARD (INFO TAB)
+//  7. HARDWARE CAPABILITY & INFO DASHBOARD (OVERHAULED INFO TAB)
 // ============================================================
 
 @Composable
-fun CapabilityScannerCard(
+fun GpuHardwareInfoDashboard(
+    caps: GraphicsCapabilities,
+    pipeline: DisplayPipelineInfo,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        GpuSiliconIdentityCard(
+            caps = caps,
+            onRefresh = onRefresh
+        )
+
+        DisplayTelemetryCard(
+            caps = caps
+        )
+
+        CompositorPipelineCard(
+            pipeline = pipeline
+        )
+
+        KernelNodesInspectorCard(
+            caps = caps
+        )
+    }
+}
+
+// ── 1. SILICON IDENTITY & ANTI-SPOOFING CARD ──
+@Composable
+fun GpuSiliconIdentityCard(
     caps: GraphicsCapabilities,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentCyan
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
 
     LynxCard(
-        title = "Hardware Capability Scanner",
-        subtitle = "Deteksi driver fisik, GLES, Vulkan, dan kapabilitas panel display",
+        title = "Identitas Silikon & Driver",
+        subtitle = "Verifikasi ground truth kernel dan subsistem grafis",
         icon = Icons.Default.Memory,
         accentColor = cardAccent,
+        action = {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier.size(34.dp)
+            ) {
+                IconButton(
+                    onClick = onRefresh,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Segarkan",
+                        tint = cardAccent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        },
         modifier = modifier
     ) {
-        // ── 0. Anti-Spoofing Security & Ground Truth Verification ──
+        // Anti-Spoofing Security & Ground Truth Status
         if (caps.isSpoofed) {
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = AccentRed.copy(alpha = 0.12f),
-                border = BorderStroke(1.2.dp, AccentRed.copy(alpha = 0.6f)),
+                border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.5f)),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
@@ -1490,14 +1542,16 @@ fun CapabilityScannerCard(
                             text = "Manipulasi Identitas SoC / GPU Terdeteksi",
                             color = AccentRed,
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            softWrap = true
                         )
                     }
                     Text(
-                        text = "Modul eksternal atau device spoofer memanipulasi properti userspace. Lynx secara otomatis mengisolasi driver kernel asli demi mencegah crash dan kerusakan hardware.",
+                        text = "Modul eksternal memalsukan getprop userspace. Lynx secara otomatis mengisolasi driver kernel fisik demi menjaga kestabilan dan keamanan hardware.",
                         color = TextSecondary,
                         fontSize = 10.5.sp,
                         lineHeight = 15.sp,
+                        softWrap = true,
                         modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
                     )
 
@@ -1509,16 +1563,16 @@ fun CapabilityScannerCard(
                     ) {
                         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Hardware Asli (Kernel)", color = TextSecondary, fontSize = 10.5.sp)
+                                Text("Kernel Asli (Fisik)", color = TextSecondary, fontSize = 10.5.sp)
                                 Text(caps.groundTruthSoc, color = AccentGreen, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("GPU Asli (Kernel Driver)", color = TextSecondary, fontSize = 10.5.sp)
+                                Text("GPU Driver Asli", color = TextSecondary, fontSize = 10.5.sp)
                                 Text(caps.groundTruthGpu, color = AccentGreen, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
                             }
                             HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 2.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Identitas Palsu (Userspace)", color = TextSecondary, fontSize = 10.5.sp)
+                                Text("Identitas Tiruan (Userspace)", color = TextSecondary, fontSize = 10.5.sp)
                                 Text(caps.spoofedSoc ?: "Qualcomm / Generic", color = AccentOrange, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1533,7 +1587,7 @@ fun CapabilityScannerCard(
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderSubtle),
+                border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.35f)),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
             ) {
                 Row(
@@ -1543,7 +1597,8 @@ fun CapabilityScannerCard(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f, fill = false)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Shield,
@@ -1551,7 +1606,13 @@ fun CapabilityScannerCard(
                             tint = AccentGreen,
                             modifier = Modifier.size(16.dp)
                         )
-                        Text("Integritas Hardware", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
+                        Text(
+                            text = "Hardware Asli Terverifikasi",
+                            color = TextPrimary,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            softWrap = true
+                        )
                     }
                     Surface(
                         shape = RoundedCornerShape(6.dp),
@@ -1559,407 +1620,464 @@ fun CapabilityScannerCard(
                         border = BorderStroke(0.6.dp, AccentGreen.copy(alpha = 0.4f))
                     ) {
                         Text(
-                            text = "Terverifikasi Asli (Ground Truth)",
+                            text = "Driver Fisik • ${caps.backend.displayName}",
                             color = AccentGreen,
                             fontSize = 9.5.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp),
+                            softWrap = true
                         )
                     }
                 }
             }
         }
 
-        // ── GPU Subsistem Section ──
-        Text("Subsistem GPU & Driver Fisik", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(6.dp))
-
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = BgElevated,
-            border = BorderStroke(0.8.dp, BorderSubtle),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Vendor GPU", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(caps.gpuVendor, color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Model GPU", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(caps.gpuModel, color = cardAccent, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Arsitektur Hardware", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(caps.groundTruthSoc, color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Backend Kernel", color = TextSecondary, fontSize = 11.5.sp)
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = cardAccent.copy(alpha = 0.15f),
-                        border = BorderStroke(0.8.dp, cardAccent.copy(alpha = 0.4f))
-                    ) {
-                        Text(
-                            text = caps.backend.name,
-                            color = cardAccent,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-                if (caps.gpuDriverPath.isNotBlank()) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Lokasi Driver", color = TextSecondary, fontSize = 11.5.sp)
-                        Text(caps.gpuDriverPath, color = TextPrimary, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Versi Driver GLES", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(caps.driverVersion, color = TextPrimary, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Vulkan API", color = TextSecondary, fontSize = 11.5.sp)
-                    val vkLabel = if (!caps.vulkanVersion.isNullOrBlank()) {
-                        "${caps.vulkanVersion}${if (!caps.vulkanDriverId.isNullOrBlank()) " (${caps.vulkanDriverId})" else ""}"
-                    } else "Tidak Terdeteksi"
-                    Text(vkLabel, color = AccentPurple, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
-                if (!caps.gpuTempNode.isNullOrBlank()) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Node Sensor Suhu", color = TextSecondary, fontSize = 11.5.sp)
-                        Text(caps.gpuTempNode, color = TextSecondary, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        // ── Panel & Display Capabilities Section ──
-        Text("Panel Display & Format Warna", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(6.dp))
-
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = BgElevated,
-            border = BorderStroke(0.8.dp, BorderSubtle),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Mode Resolusi & Refresh Rate", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(
-                        text = if (caps.displayModes.isNotEmpty()) {
-                            caps.displayModes.map { "${it.fps.toInt()}Hz" }.distinct().joinToString(", ")
-                        } else "60Hz, 90Hz, 120Hz",
-                        color = AccentCyan,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Kepadatan Layar (DPI)", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(
-                        text = "${caps.displayDpi} DPI (${String.format(Locale.US, "%.2fx", caps.displayDensity)})",
-                        color = TextPrimary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Format Warna Aktif", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(
-                        text = caps.displayColorMode,
-                        color = if (caps.wideColor) AccentGreen else TextPrimary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Dukungan HDR", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(
-                        text = if (caps.hdrTypes.isNotEmpty()) caps.hdrTypes.joinToString(", ") else "SDR (Standard)",
-                        color = if (caps.hdrTypes.isNotEmpty()) AccentGreen else TextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("SurfaceFlinger Composer", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(
-                        text = caps.surfaceFlingerHwc,
-                        color = AccentBlue,
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("DC Dimming Hardware", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(
-                        text = if (caps.dcDimmingNode != null) "Didukung (/sys/...)" else "Tidak Tersedia",
-                        color = if (caps.dcDimmingNode != null) AccentGreen else TextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("HBM Sunlight Booster", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(
-                        text = if (caps.hbmNode != null) "Didukung (/sys/...)" else "Tidak Tersedia",
-                        color = if (caps.hbmNode != null) AccentGreen else TextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Kernel KCAL Engine", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(
-                        text = if (caps.hasKcal) "Didukung (/dev/kcal)" else "Tidak Tersedia",
-                        color = if (caps.hasKcal) AccentGreen else TextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
-
-        // Refresh Button
+        // Modern 2x2 Clean Spec Tiles with Matching Height
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 10.dp),
-            horizontalArrangement = Arrangement.End
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            InfoSpecTile(
+                label = "MODEL GPU",
+                value = caps.gpuModel,
+                sub = "Vendor ${caps.gpuVendor}",
+                accentColor = cardAccent,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+            InfoSpecTile(
+                label = "ARSITEKTUR SOC",
+                value = caps.groundTruthSoc,
+                sub = "Backend ${caps.backend.displayName}",
+                accentColor = AccentBlue,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            InfoSpecTile(
+                label = "API OPENGL ES",
+                value = caps.glesVersion,
+                sub = "Driver ${caps.driverVersion}",
+                accentColor = AccentGreen,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+            val hasVk = !caps.vulkanVersion.isNullOrBlank()
+            InfoSpecTile(
+                label = "API VULKAN",
+                value = if (hasVk) "Vulkan ${caps.vulkanVersion}" else "Tidak Didukung",
+                sub = if (hasVk) (caps.vulkanDriverId ?: "ARM Mali Driver") else "Perangkat Hanya OpenGL ES",
+                accentColor = if (hasVk) AccentPurple else TextTertiary,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+        }
+
+        // Driver Binary File Path (Monospace row with copy action)
+        if (caps.gpuDriverPath.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
             Surface(
-                onClick = onRefresh,
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(10.dp),
                 color = BgElevated,
-                border = BorderStroke(1.dp, BorderGlass),
-                modifier = Modifier.heightIn(min = 44.dp)
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        clipboard.setText(AnnotatedString(caps.gpuDriverPath))
+                        Toast.makeText(context, "Path driver disalin ke clipboard", Toast.LENGTH_SHORT).show()
+                    }
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(imageVector = Icons.Default.Refresh, contentDescription = "Pindai Ulang", tint = cardAccent, modifier = Modifier.size(15.dp))
-                    Text("Pindai Ulang Hardware", color = cardAccent, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "BINARY DRIVER FISIK",
+                            color = TextSecondary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.6.sp
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = caps.gpuDriverPath,
+                            color = TextPrimary,
+                            fontSize = 9.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 13.5.sp,
+                            softWrap = true
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Salin",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(14.dp)
+                    )
                 }
             }
         }
     }
 }
 
-// ============================================================
-//  8. DISPLAY PIPELINE & COMPOSITION DIAGNOSTICS CARD
-// ============================================================
-
+// ── 2. DISPLAY TELEMETRY & PANEL ENGINE CARD ──
 @Composable
-fun GraphicsDebugCard(
+fun DisplayTelemetryCard(
     caps: GraphicsCapabilities,
-    pipeline: DisplayPipelineInfo,
-    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentBlue
 
     LynxCard(
-        title = "Display Pipeline & Komposisi",
-        subtitle = "Metrik SurfaceFlinger timestats & rasio komposisi Hardware Composer",
-        icon = Icons.Default.Layers,
+        title = "Panel Layar & Engine Visual",
+        subtitle = "Karakteristik fisik panel, resolusi, dan gamut warna",
+        icon = Icons.Default.Smartphone,
         accentColor = cardAccent,
         modifier = modifier
     ) {
-        // ── Composition Ratios ──
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // HWC Direct Ratio
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderSubtle),
-                modifier = Modifier.weight(1f)
-            ) {
-                Column(
-                    modifier = Modifier.padding(10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("HWC KOMPOSISI", color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
-                    val hwcPct = ((1f - pipeline.clientCompositionRatio) * 100f).coerceIn(0f, 100f)
-                    Text(
-                        text = String.format("%.1f%%", hwcPct),
-                        color = AccentGreen,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-            }
-
-            // GPU Client Fallback
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderSubtle),
-                modifier = Modifier.weight(1f)
-            ) {
-                Column(
-                    modifier = Modifier.padding(10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("GPU FALLBACK", color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
-                    val clientPct = (pipeline.clientCompositionRatio * 100f).coerceIn(0f, 100f)
-                    Text(
-                        text = String.format("%.1f%%", clientPct),
-                        color = if (clientPct > 20f) AccentOrange else TextSecondary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-            }
-
-            // Missed Frames
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderSubtle),
-                modifier = Modifier.weight(1f)
-            ) {
-                Column(
-                    modifier = Modifier.padding(10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("FRAME MISSED", color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "${pipeline.missedFrames}",
-                        color = if (pipeline.missedFrames > 50) AccentRed else TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-            }
-        }
-
-        // Details
+        // Native Resolution & Supported Refresh Rates
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = BgElevated,
             border = BorderStroke(0.8.dp, BorderSubtle),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Pipeline Renderer HWUI", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(pipeline.skiaPipeline, color = cardAccent, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Kompositor Vulkan", color = TextSecondary, fontSize = 11.5.sp)
-                    Text(if (pipeline.isVulkanCompositor) "Aktif (Vulkan Surface)" else "Nonaktif (OpenGL ES)", color = TextPrimary, fontSize = 11.5.sp)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("HWC Missed Frames", color = TextSecondary, fontSize = 11.5.sp)
-                    Text("${pipeline.hwcMissedFrames}", color = TextPrimary, fontSize = 11.5.sp)
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("String GLES Lengkap", color = TextSecondary, fontSize = 11.5.sp)
+                Column(Modifier.weight(1f)) {
                     Text(
-                        text = caps.glesVersion,
+                        text = "RESOLUSI FISIK PANEL",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.6.sp
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    val resText = caps.displayModes.firstOrNull()?.let { "${it.width} × ${it.height}" } ?: "1080 × 2460"
+                    Text(
+                        text = "$resText Piksel",
+                        color = AccentBlue,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        softWrap = true
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        val supportedFrequencies = if (caps.displayModes.isNotEmpty()) {
+                            caps.displayModes.map { "${it.fps.toInt()}Hz" }.distinct()
+                        } else listOf("60Hz", "90Hz", "120Hz")
+
+                        val maxHz = caps.displayModes.maxOfOrNull { it.fps.toInt() } ?: 120
+
+                        supportedFrequencies.forEach { hz ->
+                            val isMax = hz == "${maxHz}Hz"
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isMax) AccentCyan.copy(alpha = 0.15f) else BgSurfaceLowest,
+                                border = BorderStroke(0.8.dp, if (isMax) AccentCyan.copy(alpha = 0.6f) else BorderGlass)
+                            ) {
+                                Text(
+                                    text = hz,
+                                    color = if (isMax) AccentCyan else TextSecondary,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Refresh Rate Didukung",
                         color = TextTertiary,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        fontSize = 9.sp
                     )
                 }
             }
         }
 
-        // Refresh Button
+        Spacer(Modifier.height(8.dp))
+
+        // 2x2 Display Spec Tiles with IntrinsicSize.Min for matching height
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 10.dp),
-            horizontalArrangement = Arrangement.End
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            InfoSpecTile(
+                label = "KEPADATAN PIKSEL",
+                value = "${caps.displayDpi} DPI",
+                sub = String.format(Locale.US, "Skala Kepadatan %.2fx (xxhdpi)", caps.displayDensity),
+                accentColor = TextPrimary,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+            InfoSpecTile(
+                label = "GAMUT & RUANG WARNA",
+                value = caps.displayColorMode,
+                sub = if (caps.wideColor) "DCI-P3 Wide Gamut (10-bit)" else "Profil Warna Terkalibrasi",
+                accentColor = if (caps.wideColor) AccentGreen else AccentCyan,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val hdrLabel = if (caps.hdrTypes.isNotEmpty()) caps.hdrTypes.joinToString(", ") else "SDR (Standar)"
+            InfoSpecTile(
+                label = "RENTANG DINAMIS (HDR)",
+                value = hdrLabel,
+                sub = caps.maxLuminanceNits?.let { "Kecerahan Puncak ${it.toInt()} Nits" } ?: "Rentang Kontras Standar",
+                accentColor = if (caps.hdrTypes.isNotEmpty()) AccentGreen else TextSecondary,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+            InfoSpecTile(
+                label = "HARDWARE COMPOSER",
+                value = if (caps.surfaceFlingerHwc.isNotBlank()) caps.surfaceFlingerHwc else "HWC 2.x Direct",
+                sub = "Komposisi Layar Hardware",
+                accentColor = AccentBlue,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+        }
+
+        // Hardware Panel Feature Row (clean, informative)
+        val activeFeatures = buildList {
+            if (caps.dcDimmingNode != null) add("DC Dimming")
+            if (caps.hbmNode != null) add("HBM Booster")
+            if (caps.hasKcal) add("Kernel KCAL")
+        }
+        if (activeFeatures.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
             Surface(
-                onClick = onRefresh,
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(10.dp),
                 color = BgElevated,
-                border = BorderStroke(1.dp, BorderGlass),
-                modifier = Modifier.heightIn(min = 44.dp)
+                border = BorderStroke(0.6.dp, AccentGreen.copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.Refresh, contentDescription = "Pindai Pipeline", tint = cardAccent, modifier = Modifier.size(15.dp))
-                    Text("Pindai Pipeline Ulang", color = cardAccent, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = AccentGreen,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = "Fitur Kernel Aktif: ${activeFeatures.joinToString(" • ")}",
+                        color = AccentGreen,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        softWrap = true
+                    )
                 }
             }
         }
     }
 }
 
-// ============================================================
-//  9. UNIVERSAL SYSFS NODE EXPLORER CARD
-// ============================================================
-
+// ── 3. SURFACEFLINGER & COMPOSITOR PIPELINE CARD ──
 @Composable
-fun NodeExplorerCard(
+fun CompositorPipelineCard(
+    pipeline: DisplayPipelineInfo,
+    modifier: Modifier = Modifier
+) {
+    val cardAccent = AccentGreen
+    val hwcPct = ((1f - pipeline.clientCompositionRatio) * 100f).coerceIn(0f, 100f)
+    val clientPct = (pipeline.clientCompositionRatio * 100f).coerceIn(0f, 100f)
+
+    LynxCard(
+        title = "Pipeline Komposisi Grafis",
+        subtitle = "Distribusi SurfaceFlinger dan HWUI Canvas",
+        icon = Icons.Default.Layers,
+        accentColor = cardAccent,
+        modifier = modifier
+    ) {
+        // Visual Composition Segmented Bar
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = BgElevated,
+            border = BorderStroke(0.8.dp, BorderSubtle),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "DISTRIBUSI KOMPOSISI BUFFER",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.6.sp
+                    )
+                    Text(
+                        text = String.format(Locale.US, "%.1f%% Direct HWC", hwcPct),
+                        color = AccentGreen,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // Segmented Progress Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(BgSurfaceLowest)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(hwcPct.coerceAtLeast(1f))
+                            .background(AccentGreen)
+                    )
+                    if (clientPct > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .weight(clientPct.coerceAtLeast(1f))
+                                .background(AccentOrange)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(7.dp))
+
+                Text(
+                    text = if (clientPct == 0f) {
+                        "Seluruh frame dikomposisikan langsung oleh Hardware Composer tanpa membebani GPU."
+                    } else {
+                        "Sebagian buffer dikomposisikan via GPU Client Fallback (${String.format(Locale.US, "%.1f%%", clientPct)})."
+                    },
+                    color = TextTertiary,
+                    fontSize = 10.sp,
+                    lineHeight = 14.5.sp,
+                    softWrap = true
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // HWUI & Frame Stability 2-Tile Grid
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            InfoSpecTile(
+                label = "RENDERER KANVAS HWUI",
+                value = pipeline.skiaPipeline,
+                sub = if (pipeline.isVulkanCompositor) "Vulkan Backend Aktif" else "OpenGL ES Backend Aktif",
+                accentColor = AccentCyan,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+            InfoSpecTile(
+                label = "KESEHATAN BUFFER FRAME",
+                value = if (pipeline.missedFrames == 0L) "Optimal (0 Terlewat)" else "${pipeline.missedFrames} Terlewat",
+                sub = "Sinkronisasi Hardware VSYNC",
+                accentColor = if (pipeline.missedFrames == 0L) AccentGreen else AccentRed,
+                modifier = Modifier.weight(1f).fillMaxHeight()
+            )
+        }
+    }
+}
+
+// ── 4. KERNEL NODES ACCORDION CARD ──
+@Composable
+fun KernelNodesInspectorCard(
     caps: GraphicsCapabilities,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentOrange
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    var isExpanded by remember { mutableStateOf(false) }
 
     val nodes = caps.nodes
 
     LynxCard(
-        title = "Universal Sysfs Node Explorer",
-        subtitle = "Verifikasi hak akses baca/tulis node kernel nyata pada hardware perangkat",
+        title = "Node Kernel GPU & Sysfs",
+        subtitle = "${nodes.size} node kernel terverifikasi • Akses I/O langsung",
         icon = Icons.Default.Terminal,
         accentColor = cardAccent,
         modifier = modifier
     ) {
-        if (nodes.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp),
-                contentAlignment = Alignment.Center
+        Surface(
+            onClick = { isExpanded = !isExpanded },
+            shape = RoundedCornerShape(10.dp),
+            color = BgElevated,
+            border = BorderStroke(0.8.dp, BorderSubtle),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "Node kernel GPU diverifikasi otomatis saat pemindaian.",
-                    color = TextSecondary,
-                    fontSize = 11.5.sp
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = if (isExpanded) "Sembunyikan Daftar Node Fisik" else "Daftar Node Fisik Driver (${nodes.size} Node)",
+                        color = TextPrimary,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        softWrap = true
+                    )
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Toggle",
+                    tint = cardAccent,
+                    modifier = Modifier.size(18.dp)
                 )
             }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        }
+
+        AnimatedVisibility(visible = isExpanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 nodes.forEach { node ->
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = BgElevated,
-                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        border = BorderStroke(0.6.dp, BorderSubtle),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
@@ -1970,7 +2088,7 @@ fun NodeExplorerCard(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1979,64 +2097,32 @@ fun NodeExplorerCard(
                                     text = node.label,
                                     color = TextPrimary,
                                     fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.SemiBold,
+                                    softWrap = true
                                 )
-                                Spacer(Modifier.height(1.dp))
+                                Spacer(Modifier.height(2.dp))
                                 Text(
                                     text = node.path,
                                     color = TextTertiary,
-                                    fontSize = 10.sp,
+                                    fontSize = 9.5.sp,
                                     fontFamily = FontFamily.Monospace,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    lineHeight = 13.sp,
+                                    softWrap = true
                                 )
                             }
-                            Spacer(Modifier.width(8.dp))
-                            // Status Badges
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                if (node.writable) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = AccentGreenDim,
-                                        border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.5f))
-                                    ) {
-                                        Text(
-                                            "WRITABLE",
-                                            color = AccentGreen,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                } else if (node.readable) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = AccentCyanDim,
-                                        border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f))
-                                    ) {
-                                        Text(
-                                            "READ-ONLY",
-                                            color = AccentCyan,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                } else {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = AccentRedDim,
-                                        border = BorderStroke(0.8.dp, AccentRed.copy(alpha = 0.5f))
-                                    ) {
-                                        Text(
-                                            "UNAVAILABLE",
-                                            color = AccentRed,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
+                            Spacer(Modifier.width(10.dp))
+                            Surface(
+                                shape = RoundedCornerShape(5.dp),
+                                color = if (node.writable) AccentGreenDim else AccentCyanDim,
+                                border = BorderStroke(0.6.dp, if (node.writable) AccentGreen.copy(alpha = 0.5f) else AccentCyan.copy(alpha = 0.5f))
+                            ) {
+                                Text(
+                                    text = if (node.writable) "R/W" else "RO",
+                                    color = if (node.writable) AccentGreen else AccentCyan,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
+                                )
                             }
                         }
                     }
@@ -2044,6 +2130,78 @@ fun NodeExplorerCard(
             }
         }
     }
+}
+
+// ── REUSABLE HELPER TILES ──
+@Composable
+private fun InfoSpecTile(
+    label: String,
+    value: String,
+    sub: String,
+    accentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = BgElevated,
+        border = BorderStroke(0.8.dp, BorderSubtle),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = label,
+                    color = TextSecondary,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.6.sp,
+                    lineHeight = 12.sp,
+                    softWrap = true
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = value,
+                    color = accentColor,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 17.sp,
+                    softWrap = true
+                )
+            }
+            if (sub.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = sub,
+                    color = TextTertiary,
+                    fontSize = 9.5.sp,
+                    lineHeight = 13.5.sp,
+                    softWrap = true
+                )
+            }
+        }
+    }
+}
+
+
+// Backwards-compatible aliases
+@Composable
+fun CapabilityScannerCard(caps: GraphicsCapabilities, onRefresh: () -> Unit, modifier: Modifier = Modifier) {
+    GpuSiliconIdentityCard(caps = caps, onRefresh = onRefresh, modifier = modifier)
+}
+
+@Composable
+fun GraphicsDebugCard(caps: GraphicsCapabilities, pipeline: DisplayPipelineInfo, onRefresh: () -> Unit, modifier: Modifier = Modifier) {
+    CompositorPipelineCard(pipeline = pipeline, modifier = modifier)
+}
+
+@Composable
+fun NodeExplorerCard(caps: GraphicsCapabilities, modifier: Modifier = Modifier) {
+    KernelNodesInspectorCard(caps = caps, modifier = modifier)
 }
 
 // ============================================================
@@ -2140,15 +2298,13 @@ fun PerAppGraphicsHubCard(
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = TextPrimary,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            softWrap = true
                                         )
                                         Text(
                                             text = rule.packageName,
                                             fontSize = 10.sp,
                                             color = TextSecondary,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            softWrap = true
                                         )
                                     }
                                 }
@@ -2380,15 +2536,13 @@ fun PerAppGraphicsHubCard(
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = TextPrimary,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                                softWrap = true
                                             )
                                             Text(
                                                 text = app.packageName,
                                                 fontSize = 9.5.sp,
                                                 color = TextSecondary,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                                softWrap = true
                                             )
                                         }
                                     }
@@ -2444,8 +2598,7 @@ fun PerAppGraphicsHubCard(
                             fontSize = 11.5.sp,
                             color = cardAccent,
                             fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            softWrap = true
                         )
                     }
                 }

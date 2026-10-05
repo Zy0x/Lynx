@@ -147,9 +147,12 @@ object DisplayCapabilityDetector {
         val displayDpi = if (dm != null && dm.densityDpi > 0) dm.densityDpi else if (shellDpi > 0) shellDpi else 440
         val displayDensity = if (dm != null && dm.density > 0f) dm.density else (displayDpi / 160f)
         val resolvedColorMode = when {
-            colorMode.contains("7") || colorMode.contains("P3", ignoreCase = true) || wideColor -> "DCI-P3 / Wide Color"
-            colorMode.isNotBlank() -> colorMode.take(24)
-            else -> "sRGB / Standard"
+            colorMode.contains("7") || colorMode.contains("P3", ignoreCase = true) || wideColor -> "DCI-P3 (Wide Color)"
+            colorMode.contains("1") -> "Wide Color Gamut"
+            colorMode.contains("2") || colorMode.contains("Vivid", ignoreCase = true) -> "Vivid (Jenuh)"
+            colorMode.contains("0") || colorMode.contains("DEFAULT", ignoreCase = true) -> "Standar sRGB (Natural)"
+            wideColor -> "DCI-P3 (Wide Color)"
+            else -> "Standar sRGB"
         }
         val resolvedHwc = if (sfHwc.isNotBlank()) {
             sfHwc.replace("Hardware Composer", "HWC").take(32)

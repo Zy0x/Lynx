@@ -29,12 +29,21 @@ object GpuCapabilityDetector {
     }
 
     suspend fun detect(): PartialGpuInfo = withContext(Dispatchers.IO) {
+        val pm = try { com.noir.lynx.LynxApp.instance.packageManager } catch (_: Exception) { null }
+        val features = try { pm?.systemAvailableFeatures } catch (_: Exception) { null }
+        val vkFeature = features?.firstOrNull { it.name == "android.hardware.vulkan.version" }
+        val vkLevelFeature = features?.firstOrNull { it.name == "android.hardware.vulkan.level" }
+        val vkLevelStr = vkLevelFeature?.let { "Level ${it.version}" } ?: ""
+        val pmVkVer = if (vkFeature != null && vkFeature.version > 0) {
+            decodeVkApiVersion(vkFeature.version.toLong())
+        } else null
+
         val script = """
             # 1. GLES line
             dumpsys SurfaceFlinger 2>/dev/null | grep -i "GLES:" | head -n 1
             echo "---MARKER_VK---"
             # 2. Vulkan raw version & driver ID from vkjson
-            cmd gpu vkjson 2>/dev/null | grep -iE "\"apiVersion\"|\"driverID\"|\"driverName\"|\"driverInfo\"" | head -n 5
+            cmd gpu vkjson 2>/dev/null | grep -iE 'apiVersion|driverID|driverName|driverInfo' | head -n 16
             echo "---MARKER_TEMP---"
             # 3. GPU temperature node probe
             for z in /sys/class/thermal/thermal_zone*; do
@@ -62,34 +71,30 @@ object GpuCapabilityDetector {
             done
             [ -d "/sys/kernel/helio-dvfsrc" ] && echo "/sys/kernel/helio-dvfsrc"
             echo "---MARKER_NODES---"
-            # 5. Check existence and R/W of critical GPU nodes
-            nodes_to_check="
-            /sys/kernel/ged/hal/current_freqency|Mali GED Cur Freq
-            /sys/kernel/ged/hal/gpu_utilization|Mali GED Utilization
-            /sys/kernel/ged/hal/gpu_boost_level|Mali GED Boost Level
-            /sys/kernel/ged/hal/custom_upbound_gpu_freq|Mali GED Max Bound
-            /proc/gpufreqv2/gpufreq_opp_freq|Mali OPP Frequency Table
-            /sys/kernel/fpsgo/common/fpsgo_enable|MediaTek FPSGO Enable
-            /sys/class/misc/mali0/device/power_policy|Mali Power Policy
-            /sys/class/kgsl/kgsl-3d0/devfreq/cur_freq|Adreno Cur Freq
-            /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage|Adreno GPU Busy %
-            /sys/class/kgsl/kgsl-3d0/devfreq/governor|Adreno Governor
-            /sys/class/kgsl/kgsl-3d0/idle_timer|Adreno Idle Timer
-            /sys/kernel/gpu/gpu_clock|Exynos GPU Clock
-            /sys/kernel/gpu/gpu_load|Exynos GPU Load
-            /sys/devices/platform/kcal_ctrl.0/kcal|Qualcomm KCAL Ctrl
-            "
-            for item in ${'$'}nodes_to_check; do
-                [ -z "${'$'}item" ] && continue
-                path=${'$'}(echo "${'$'}item" | cut -d'|' -f1)
-                lbl=${'$'}(echo "${'$'}item" | cut -d'|' -f2)
-                if [ -e "${'$'}path" ]; then
+            # 5. Check existence and R/W of critical GPU nodes with clean names
+            chk() {
+                p="${'$'}1"; l="${'$'}2"
+                if [ -e "${'$'}p" ]; then
                     r=0; w=0
-                    [ -r "${'$'}path" ] && r=1
-                    [ -w "${'$'}path" ] && w=1
-                    echo "${'$'}path|${'$'}lbl|${'$'}r|${'$'}w"
+                    [ -r "${'$'}p" ] && r=1
+                    [ -w "${'$'}p" ] && w=1
+                    echo "${'$'}p|${'$'}l|${'$'}r|${'$'}w"
                 fi
-            done
+            }
+            chk "/sys/kernel/ged/hal/current_freqency" "Mali GED Frekuensi Aktif"
+            chk "/sys/kernel/ged/hal/gpu_utilization" "Mali GED Utilisasi GPU"
+            chk "/sys/kernel/ged/hal/gpu_boost_level" "Mali GED Boost Level"
+            chk "/sys/kernel/ged/hal/custom_upbound_gpu_freq" "Mali GED Batas Frekuensi Maksimum"
+            chk "/proc/gpufreqv2/gpufreq_opp_freq" "Mali OPP Frequency Table"
+            chk "/sys/kernel/fpsgo/common/fpsgo_enable" "MediaTek FPSGO Dynamic Engine"
+            chk "/sys/class/misc/mali0/device/power_policy" "Mali Power Policy"
+            chk "/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq" "Adreno Frekuensi Aktif"
+            chk "/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage" "Adreno Utilisasi GPU"
+            chk "/sys/class/kgsl/kgsl-3d0/devfreq/governor" "Adreno Devfreq Governor"
+            chk "/sys/class/kgsl/kgsl-3d0/idle_timer" "Adreno Idle Timer"
+            chk "/sys/kernel/gpu/gpu_clock" "Exynos GPU Clock"
+            chk "/sys/kernel/gpu/gpu_load" "Exynos GPU Load"
+            chk "/sys/devices/platform/kcal_ctrl.0/kcal" "Qualcomm KCAL Ctrl"
             echo "---MARKER_ANTI_SPOOF---"
             # 6. Kernel Ground Truth & Anti-Spoofing Probe
             dt=""
@@ -119,7 +124,8 @@ object GpuCapabilityDetector {
         var section = 0
         var glesLine = ""
         var vkLine = ""
-        var vkDriverId: String? = null
+        var vkDriverName: String? = null
+        var vkDriverInfo: String? = null
         var tempNode: String? = null
         val busNodes = mutableListOf<String>()
         val nodeStatuses = mutableListOf<NodeStatus>()
@@ -144,10 +150,20 @@ object GpuCapabilityDetector {
             when (section) {
                 0 -> if (line.contains("GLES:", ignoreCase = true)) glesLine = line
                 1 -> {
-                    if (line.contains("apiVersion", ignoreCase = true)) vkLine = line
-                    if (line.contains("driverName", ignoreCase = true) || line.contains("driverInfo", ignoreCase = true)) {
+                    if (line.contains("apiVersion", ignoreCase = true)) {
+                        val curVal = line.substringAfter(":").replace(",", "").replace("\"", "").trim().toDoubleOrNull()?.toLong() ?: 0L
+                        if (curVal > 0) {
+                            val prevVal = vkLine.substringAfter(":").replace(",", "").replace("\"", "").trim().toDoubleOrNull()?.toLong() ?: 0L
+                            if (curVal > prevVal) vkLine = line
+                        }
+                    }
+                    if (line.contains("driverName", ignoreCase = true)) {
                         val clean = line.substringAfter(":").replace("\"", "").replace(",", "").trim()
-                        if (clean.isNotBlank() && vkDriverId == null) vkDriverId = clean
+                        if (clean.isNotBlank()) vkDriverName = clean
+                    }
+                    if (line.contains("driverInfo", ignoreCase = true)) {
+                        val clean = line.substringAfter(":").replace("\"", "").replace(",", "").trim()
+                        if (clean.isNotBlank()) vkDriverInfo = clean
                     }
                 }
                 2 -> if (tempNode == null && line.isNotBlank()) tempNode = line.trim()
@@ -186,13 +202,29 @@ object GpuCapabilityDetector {
         val (vendor, model, glesRaw) = parseGlesLine(glesLine)
         val glesParts = glesRaw.split(" ")
         val glesVer = glesParts.take(3).joinToString(" ").ifBlank { "OpenGL ES" }
-        val driverVer = glesParts.drop(3).joinToString(" ").ifBlank { "System Driver" }
+        val rawDriverVer = glesParts.drop(3).joinToString(" ").ifBlank { "System Driver" }
+        val driverVer = Regex("""(v?\d+\.r\d+p\d+|r\d+p\d+|V@\d+)""").find(rawDriverVer)?.value ?: rawDriverVer.take(16)
 
-        val vkVer = if (vkLine.isNotBlank()) {
+        val vkjsonVer = if (vkLine.isNotBlank()) {
             val numStr = vkLine.substringAfter(":").replace(",", "").replace("\"", "").trim()
             val raw = numStr.toDoubleOrNull()?.toLong() ?: 0L
-            decodeVkApiVersion(raw)
+            if (raw > 0) decodeVkApiVersion(raw) else null
         } else null
+
+        val resolvedVkVer = when {
+            vkjsonVer != null && pmVkVer != null -> {
+                if (vkjsonVer >= pmVkVer) vkjsonVer else pmVkVer
+            }
+            vkjsonVer != null -> vkjsonVer
+            pmVkVer != null -> pmVkVer
+            else -> null
+        }
+
+        val finalVkVerWithLevel = if (resolvedVkVer != null) {
+            if (vkLevelStr.isNotBlank()) "$resolvedVkVer ($vkLevelStr)" else resolvedVkVer
+        } else null
+
+        val resolvedVkDriver = vkDriverName ?: vkDriverInfo ?: if (resolvedVkVer != null) "Native Vulkan Driver" else null
 
         // Determine GPU backend
         val backend = when {
@@ -209,8 +241,38 @@ object GpuCapabilityDetector {
         val isHardwareQcom = kgslNode || dtLower.contains("qcom") || dtLower.contains("qualcomm") || dtLower.contains("sm8") || dtLower.contains("sm7") || dtLower.contains("sm6")
 
         val groundTruthSoc = when {
-            isHardwareMtk && !isHardwareQcom -> "MediaTek Dimensity / Helio"
-            isHardwareQcom && !isHardwareMtk -> "Qualcomm Snapdragon"
+            isHardwareMtk && !isHardwareQcom -> {
+                val platLower = (propPlat + " " + propHw).lowercase()
+                when {
+                    platLower.contains("mt6781") -> "MediaTek Helio G96"
+                    platLower.contains("mt6785") -> "MediaTek Helio G90/G95"
+                    platLower.contains("mt6768") || platLower.contains("mt6769") -> "MediaTek Helio G80/G85"
+                    platLower.contains("mt6765") -> "MediaTek Helio P35/G35"
+                    platLower.contains("mt6877") -> "MediaTek Dimensity 900"
+                    platLower.contains("mt6893") -> "MediaTek Dimensity 1200"
+                    platLower.contains("mt6983") -> "MediaTek Dimensity 9000"
+                    platLower.contains("mt6985") -> "MediaTek Dimensity 9200"
+                    platLower.contains("mt6989") -> "MediaTek Dimensity 9300"
+                    platLower.contains("mt68") || platLower.contains("mt69") || platLower.contains("mt8") || platLower.contains("dimensity") -> "MediaTek Dimensity"
+                    platLower.contains("mt67") || platLower.contains("helio") -> "MediaTek Helio"
+                    else -> "MediaTek Platform"
+                }
+            }
+            isHardwareQcom && !isHardwareMtk -> {
+                val platLower = (propPlat + " " + propHw).lowercase()
+                when {
+                    platLower.contains("sm8550") -> "Snapdragon 8 Gen 2"
+                    platLower.contains("sm8450") -> "Snapdragon 8 Gen 1"
+                    platLower.contains("sm8350") -> "Snapdragon 888"
+                    platLower.contains("sm8250") -> "Snapdragon 865"
+                    platLower.contains("sm8150") -> "Snapdragon 855"
+                    platLower.contains("sdm845") -> "Snapdragon 845"
+                    platLower.contains("sm7") -> "Snapdragon 7-Series"
+                    platLower.contains("sm6") -> "Snapdragon 6-Series"
+                    platLower.contains("sm8") -> "Snapdragon 8-Series"
+                    else -> "Qualcomm Snapdragon"
+                }
+            }
             dtLower.contains("exynos") || dtLower.contains("samsung") -> "Samsung Exynos"
             else -> "Generic Linux Architecture"
         }
@@ -258,8 +320,8 @@ object GpuCapabilityDetector {
             model = model,
             glesVersion = glesVer,
             driverVersion = driverVer,
-            vulkanVersion = vkVer,
-            vulkanDriverId = vkDriverId,
+            vulkanVersion = finalVkVerWithLevel,
+            vulkanDriverId = resolvedVkDriver,
             backend = backend,
             tempNode = tempNode,
             busNodes = busNodes,
