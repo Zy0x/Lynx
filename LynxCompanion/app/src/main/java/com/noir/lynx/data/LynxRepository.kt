@@ -499,6 +499,8 @@ object LynxRepository {
                                     zTotal = sTotal
                                     zUsed = sUsed
                                 }
+                                val bStat = json.optString("batt_status", "")
+                                val isCharging = bStat.equals("Charging", ignoreCase = true) || (bStat != "Discharging" && bCurMa > 0)
                                 return@withContext TelemetryData(
                                     cpu = cpuList,
                                     gpuFreq = json.optInt("gpu_freq", 0),
@@ -508,7 +510,7 @@ object LynxRepository {
                                     battCurrentMa = bCurMa,
                                     battVoltMv = bVoltMv,
                                     battWatt = bWatt,
-                                    isCharging = bCurMa > 0,
+                                    isCharging = isCharging,
                                     ramUsedMb = json.optInt("ram_used_mb", 0),
                                     ramTotalMb = rTotal,
                                     zramUsedMb = zUsed,
@@ -580,9 +582,13 @@ object LynxRepository {
 
                 echo "mem_tot:${'$'}(grep MemTotal /proc/meminfo 2>/dev/null | tr -dc 0-9)"
                 echo "mem_avail:${'$'}(grep MemAvailable /proc/meminfo 2>/dev/null | tr -dc 0-9)"
+                echo "mem_free:${'$'}(grep MemFree /proc/meminfo 2>/dev/null | tr -dc 0-9)"
+                echo "mem_buf:${'$'}(grep Buffers /proc/meminfo 2>/dev/null | tr -dc 0-9)"
+                echo "mem_cached:${'$'}(grep '^Cached:' /proc/meminfo 2>/dev/null | tr -dc 0-9)"
                 echo "swap_tot:${'$'}(grep SwapTotal /proc/meminfo 2>/dev/null | tr -dc 0-9)"
                 echo "swap_free:${'$'}(grep SwapFree /proc/meminfo 2>/dev/null | tr -dc 0-9)"
                 echo "zram_swap:${'$'}(grep -m1 zram /proc/swaps 2>/dev/null | awk '{print ${'$'}3, ${'$'}4}')"
+                echo "zram_sysfs:${'$'}(cat /sys/block/zram0/disksize 2>/dev/null | tr -dc 0-9)"
             """.trimIndent()
 
             val fallbackRes = Shell.cmd(inlineScript).exec()
@@ -596,12 +602,16 @@ object LynxRepository {
             var battCurrentMa = 0
             var battVoltMv = 4000
             var isCharging = false
-            var ramUsedMb = 0
-            var ramTotalMb = 0
-            var zramUsedMb = 0
+            var rawMemTotKb: Long? = null
+            var rawMemAvailKb: Long? = null
+            var rawMemFreeKb: Long? = null
+            var rawMemBufKb: Long? = null
+            var rawMemCachedKb: Long? = null
+            var rawSwapTotKb: Long? = null
+            var rawSwapFreeKb: Long? = null
+            var rawZramSysfsBytes: Long? = null
             var zramTotalMb = 0
-            var swapUsedMb = 0
-            var swapTotalMb = 0
+            var zramUsedMb = 0
 
             for (line in fallbackRes.out) {
                 val trimmed = line.trim()
@@ -643,25 +653,25 @@ object LynxRepository {
                         isCharging = statStr.equals("Charging", ignoreCase = true)
                     }
                     trimmed.startsWith("mem_tot:") -> {
-                        val totKb = trimmed.removePrefix("mem_tot:").filter { it.isDigit() }.toLongOrNull() ?: 4194304L
-                        ramTotalMb = (totKb / 1024L).toInt()
+                        rawMemTotKb = trimmed.removePrefix("mem_tot:").filter { it.isDigit() }.toLongOrNull()
                     }
                     trimmed.startsWith("mem_avail:") -> {
-                        val availKb = trimmed.removePrefix("mem_avail:").filter { it.isDigit() }.toLongOrNull() ?: 2097152L
-                        if (ramTotalMb > 0) {
-                            ramUsedMb = ((ramTotalMb * 1024L - availKb) / 1024L).toInt().coerceAtLeast(0)
-                        }
+                        rawMemAvailKb = trimmed.removePrefix("mem_avail:").filter { it.isDigit() }.toLongOrNull()
+                    }
+                    trimmed.startsWith("mem_free:") -> {
+                        rawMemFreeKb = trimmed.removePrefix("mem_free:").filter { it.isDigit() }.toLongOrNull()
+                    }
+                    trimmed.startsWith("mem_buf:") -> {
+                        rawMemBufKb = trimmed.removePrefix("mem_buf:").filter { it.isDigit() }.toLongOrNull()
+                    }
+                    trimmed.startsWith("mem_cached:") -> {
+                        rawMemCachedKb = trimmed.removePrefix("mem_cached:").filter { it.isDigit() }.toLongOrNull()
                     }
                     trimmed.startsWith("swap_tot:") -> {
-                        val totKb = trimmed.removePrefix("swap_tot:").filter { it.isDigit() }.toLongOrNull() ?: 0L
-                        swapTotalMb = (totKb / 1024L).toInt()
+                        rawSwapTotKb = trimmed.removePrefix("swap_tot:").filter { it.isDigit() }.toLongOrNull()
                     }
                     trimmed.startsWith("swap_free:") -> {
-                        val freeKb = trimmed.removePrefix("swap_free:").filter { it.isDigit() }.toLongOrNull() ?: 0L
-                        val totKb = swapTotalMb * 1024L
-                        if (totKb > 0) {
-                            swapUsedMb = ((totKb - freeKb) / 1024L).toInt().coerceAtLeast(0)
-                        }
+                        rawSwapFreeKb = trimmed.removePrefix("swap_free:").filter { it.isDigit() }.toLongOrNull()
                     }
                     trimmed.startsWith("zram_swap:") -> {
                         val rawZ = trimmed.removePrefix("zram_swap:").trim()
@@ -671,7 +681,27 @@ object LynxRepository {
                             zramUsedMb = (parts[1] / 1024L).toInt()
                         }
                     }
+                    trimmed.startsWith("zram_sysfs:") -> {
+                        rawZramSysfsBytes = trimmed.removePrefix("zram_sysfs:").filter { it.isDigit() }.toLongOrNull()
+                    }
                 }
+            }
+
+            val totKb = rawMemTotKb ?: 4194304L
+            val availKb = rawMemAvailKb ?: ((rawMemFreeKb ?: 0L) + (rawMemBufKb ?: 0L) + (rawMemCachedKb ?: 0L)).takeIf { it > 0 } ?: (totKb / 2L)
+            val ramTotalMb = (totKb / 1024L).toInt()
+            val ramUsedMb = ((totKb - availKb) / 1024L).toInt().coerceIn(0, ramTotalMb)
+
+            var swapTotalMb = 0
+            var swapUsedMb = 0
+            if (rawSwapTotKb != null && rawSwapTotKb > 0) {
+                swapTotalMb = (rawSwapTotKb / 1024L).toInt()
+                val freeKb = rawSwapFreeKb ?: 0L
+                swapUsedMb = ((rawSwapTotKb - freeKb) / 1024L).toInt().coerceIn(0, swapTotalMb)
+            }
+
+            if (zramTotalMb == 0 && rawZramSysfsBytes != null && rawZramSysfsBytes > 0) {
+                zramTotalMb = (rawZramSysfsBytes / 1048576L).toInt()
             }
 
             if (zramTotalMb == 0 && swapTotalMb > 0) {
@@ -1106,7 +1136,7 @@ object LynxRepository {
         }
         lastTopGraphicsScanMs = now
         try {
-            val lines = Shell.cmd("top -b -n 1 -m 15 2>/dev/null").exec().out
+            val lines = Shell.cmd("top -b -n 1 -m 15 2>/dev/null || top -b -n 1 2>/dev/null").exec().out
             val result = mutableListOf<GpuProcessInfo>()
             val numCores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
             var headerPassed = false
@@ -4060,7 +4090,7 @@ object LynxRepository {
 
     suspend fun readTopCpuProcesses(): List<CpuProcessInfo> = withContext(Dispatchers.IO) {
         try {
-            val lines = Shell.cmd("top -b -n 1 -m 12 2>/dev/null").exec().out
+            val lines = Shell.cmd("top -b -n 1 -m 12 2>/dev/null || top -b -n 1 2>/dev/null").exec().out
             val result = mutableListOf<CpuProcessInfo>()
             var headerPassed = false
             var pidIdx = 0

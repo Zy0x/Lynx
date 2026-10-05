@@ -2193,6 +2193,42 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
                             color = TextSecondary
                         )
                     }
+                } else if (tel.swapTotalMb == 0) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(
+                        color = BorderSubtle,
+                        thickness = 0.6.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Layers,
+                                contentDescription = null,
+                                tint = TextSecondary,
+                                modifier = Modifier
+                                    .size(13.dp)
+                                    .padding(end = 4.dp)
+                            )
+                            Text(
+                                text = "ZRAM Swap",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = TextSecondary,
+                                letterSpacing = 0.sp
+                            )
+                        }
+                        Text(
+                            text = "Nonaktif (0 MB)",
+                            fontSize = 10.5.sp,
+                            color = TextSecondary
+                        )
+                    }
                 }
 
                 // ── 3. BAR SWAP MEMORY (Kecerdasan Dinamis Disk Swap) ──

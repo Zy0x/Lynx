@@ -95,6 +95,10 @@ fi
 batt_level=$(read_val "/sys/class/power_supply/battery/capacity" "")
 [ -z "$batt_level" ] && batt_level=$(read_val "/sys/class/power_supply/bms/capacity" "50")
 
+batt_status=$(read_val "/sys/class/power_supply/battery/status" "")
+[ -z "$batt_status" ] && batt_status=$(read_val "/sys/class/power_supply/bms/status" "Discharging")
+[ -z "$batt_status" ] && batt_status="Discharging"
+
 batt_cur_raw=$(read_val "/sys/class/power_supply/battery/current_now" "")
 [ -z "$batt_cur_raw" ] || [ "$batt_cur_raw" = "0" ] && batt_cur_raw=$(read_val "/sys/class/power_supply/battery/BatteryAverageCurrent" "")
 [ -z "$batt_cur_raw" ] || [ "$batt_cur_raw" = "0" ] && batt_cur_raw=$(read_val "/sys/class/power_supply/bms/current_now" "")
@@ -117,15 +121,33 @@ else
 fi
 
 # 4. RAM & ZRAM Utilization (MB)
-ram_total_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 4194304)
-ram_avail_kb=$(awk '/MemAvailable/ {print $2}' /proc/meminfo 2>/dev/null || echo 2097152)
+ram_total_kb=$(awk '/MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null)
+[ -z "$ram_total_kb" ] && ram_total_kb=4194304
+
+ram_avail_kb=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null)
+if [ -z "$ram_avail_kb" ]; then
+    mf=$(awk '/MemFree:/ {print $2}' /proc/meminfo 2>/dev/null)
+    mb=$(awk '/Buffers:/ {print $2}' /proc/meminfo 2>/dev/null)
+    mc=$(awk '/^Cached:/ {print $2}' /proc/meminfo 2>/dev/null)
+    [ -z "$mf" ] && mf=0
+    [ -z "$mb" ] && mb=0
+    [ -z "$mc" ] && mc=0
+    ram_avail_kb=$(( mf + mb + mc ))
+fi
+[ -z "$ram_avail_kb" ] || [ "$ram_avail_kb" -le 0 ] 2>/dev/null && ram_avail_kb=2097152
+
 ram_total_mb=$(( ram_total_kb / 1024 ))
 ram_used_mb=$(( (ram_total_kb - ram_avail_kb) / 1024 ))
+[ "$ram_used_mb" -lt 0 ] 2>/dev/null && ram_used_mb=0
 
-swap_total_kb=$(awk '/SwapTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
-swap_free_kb=$(awk '/SwapFree/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+swap_total_kb=$(awk '/SwapTotal:/ {print $2}' /proc/meminfo 2>/dev/null)
+[ -z "$swap_total_kb" ] && swap_total_kb=0
+swap_free_kb=$(awk '/SwapFree:/ {print $2}' /proc/meminfo 2>/dev/null)
+[ -z "$swap_free_kb" ] && swap_free_kb=0
+
 swap_total_mb=$(( swap_total_kb / 1024 ))
 swap_used_mb=$(( (swap_total_kb - swap_free_kb) / 1024 ))
+[ "$swap_used_mb" -lt 0 ] 2>/dev/null && swap_used_mb=0
 
 zram_total_mb=$swap_total_mb
 zram_used_mb=$swap_used_mb
@@ -136,6 +158,16 @@ if [ -r "/proc/swaps" ]; then
         z_usd=$(echo "$zram_info" | awk '{print $2}')
         [ -n "$z_tot" ] && [ "$z_tot" -gt 0 ] 2>/dev/null && zram_total_mb=$(( z_tot / 1024 ))
         [ -n "$z_usd" ] && [ "$z_usd" -ge 0 ] 2>/dev/null && zram_used_mb=$(( z_usd / 1024 ))
+    fi
+fi
+if [ "$zram_total_mb" -eq 0 ] 2>/dev/null && [ -f "/sys/block/zram0/disksize" ]; then
+    z_bytes=$(cat /sys/block/zram0/disksize 2>/dev/null | tr -dc 0-9)
+    if [ -n "$z_bytes" ] && [ "$z_bytes" -gt 0 ] 2>/dev/null; then
+        zram_total_mb=$(( z_bytes / 1048576 ))
+        if [ -f "/sys/block/zram0/mem_used_total" ]; then
+            u_bytes=$(cat /sys/block/zram0/mem_used_total 2>/dev/null | tr -dc 0-9)
+            [ -n "$u_bytes" ] && zram_used_mb=$(( u_bytes / 1048576 ))
+        fi
     fi
 fi
 
@@ -153,5 +185,5 @@ echo "$swap_used_mb" | grep -qE '^[0-9]+$' || swap_used_mb=0
 echo "$swap_total_mb" | grep -qE '^[0-9]+$' || swap_total_mb=0
 
 # 5. Output Unified JSON
-printf '{"cpu":[%s],"gpu_freq":%d,"gpu_busy":%d,"temp":"%s","batt_level":%d,"batt_current_ma":%d,"batt_volt_mv":%d,"ram_used_mb":%d,"ram_total_mb":%d,"zram_used_mb":%d,"zram_total_mb":%d,"swap_used_mb":%d,"swap_total_mb":%d}\n' \
-    "$cpu_freqs" "$gpu_freq" "$gpu_busy" "$batt_temp" "$batt_level" "$batt_cur_ma" "$batt_volt_mv" "$ram_used_mb" "$ram_total_mb" "$zram_used_mb" "$zram_total_mb" "$swap_used_mb" "$swap_total_mb"
+printf '{"cpu":[%s],"gpu_freq":%d,"gpu_busy":%d,"temp":"%s","batt_level":%d,"batt_current_ma":%d,"batt_volt_mv":%d,"batt_status":"%s","ram_used_mb":%d,"ram_total_mb":%d,"zram_used_mb":%d,"zram_total_mb":%d,"swap_used_mb":%d,"swap_total_mb":%d}\n' \
+    "$cpu_freqs" "$gpu_freq" "$gpu_busy" "$batt_temp" "$batt_level" "$batt_cur_ma" "$batt_volt_mv" "$batt_status" "$ram_used_mb" "$ram_total_mb" "$zram_used_mb" "$zram_total_mb" "$swap_used_mb" "$swap_total_mb"
