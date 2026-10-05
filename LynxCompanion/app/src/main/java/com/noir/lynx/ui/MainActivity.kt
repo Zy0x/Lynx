@@ -364,7 +364,7 @@ fun MainDashboard(
     BackHandler(enabled = uiState.currentTab == 1 && selectedCategory != null) {
         selectedCategory = null
     }
-    LaunchedEffect(selectedCategory, uiState.selectedGpuTab) {
+    LaunchedEffect(selectedCategory, uiState.selectedCpuTab, uiState.selectedGpuTab) {
         subscreenScrollState.scrollTo(0)
         scrollState.scrollTo(0)
         isNavbarVisible = true
@@ -1582,8 +1582,16 @@ fun MainDashboard(
                                     }
                                 }
 
-                                // 1.5. Sticky Category Header (GPU & Display Tabs)
-                                if (currentCategory == "gpu") {
+                                // 1.5. Sticky Category Header (CPU Tabs & GPU & Display Tabs)
+                                if (currentCategory == "cpu") {
+                                    CpuTabRow(
+                                        selectedTab = uiState.selectedCpuTab,
+                                        onSelectTab = { viewModel.selectCpuTab(it) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                                    )
+                                } else if (currentCategory == "gpu") {
                                     GpuDisplayTabRow(
                                         selectedTab = uiState.selectedGpuTab,
                                         onSelectTab = { viewModel.selectGpuTab(it) },

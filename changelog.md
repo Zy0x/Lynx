@@ -1,3 +1,33 @@
+# Lynx [Codename: Deity] 3.0.55
+Released on: 2026-10-06
+> **Versi ini** menghadirkan **Transformasi Menyeluruh Sub Halaman CPU Menjadi Pengalaman Consumer-Premium Berfilosofi "One Glance, One Action, Deep Control When Needed", Struktur 3 Tab Ergonomis (Performance | System | Monitor), 3 Level Keterbukaan Informasi (Progressive Disclosure), Dashboard Hero dengan Meter Skor Kesehatan Sistem (CPU Health Score), Smart Recommendation yang Cerdas & Dismissible, Panel Kontrol Terpadu dengan Pemilih Frekuensi Diskrit Dual-Pill OPP Tanpa Continuous Slider, Mode Ekstrem Terlindungi Dialog Konfirmasi Termal, serta Adopsi Bahasa Manusia (Core Efficiency, Task Shield, Task Priority Boost) Disertai Tooltip Hardware Asli** — merekonstruksi arsitektur subhalaman CPU dari daftar bertumpuk raksasa (~1.950 baris kode) menjadi sistem modular ramping; memisahkan domain tanggung jawab ke dalam 3 tab intuitif (`Performance`, `System`, dan `Monitor`); menyajikan status utama (peak clock, suhu CPU, utilisasi total, dan persentase skor kesehatan sistem gabungan) di permukaan; menyediakan baris 1-klik mode ramah pengguna (`Battery`, `Balanced`, `Gaming`) dengan menyembunyikan mode `Extreme` di balik panel ekspansi lanjutan guna mencegah risiko panas berlebih; memusatkan kontrol frekuensi kluster ke format Dual-Pill Modal Bottom Sheet yang presisi; mengonversi istilah teknis kernel ke bahasa manusia komunikatif dengan tooltip teknis sysfs untuk pengguna mahir; serta menyajikan telemetri real-time, matriks 8-core silicon dengan proteksi Master Core 0, dan pemantau proses Scene-style pada tab Monitor.
+
+## Fitur Baru & Peningkatan (3.0.55)
+
+### 1. Arsitektur 3 Tab Ramah Pengguna (Performance | System | Monitor)
+- **Navigasi Sticky CpuTabRow**: Menyematkan bilah navigasi 52dp ergonomis di bawah category header yang membagi kontrol CPU secara tegas:
+  - **Performance**: Dashboard status utama, smart recommendation, profil 1-klik, dan kontrol frekuensi kluster lanjutan.
+  - **System**: Optimasi sistem 1-klik, Core Efficiency (C-States/parking), Task Shield (CPU Sets), dan Task Priority Boost (EAS Uclamp/migration).
+  - **Monitor**: Matriks silikon 8-core real-time, grafik riwayat beban kurva bezier, topologi hardware & cache, serta pemantau proses aktif teratas.
+- **Auto-Scroll to Top**: Transisi antar-tab secara instan mengatur posisi scroll ke puncak layar demi kenyamanan pandangan pengguna.
+
+### 2. Dashboard Hero & CPU Health Score Meter
+- **Status Sistem dalam Satu Pandangan**: Menampilkan profil aktif, peak clock dalam GHz, suhu prosesor dengan indikator warna dinamis, beban CPU rata-rata, dan jumlah core aktif.
+- **Bilah Skor Kesehatan Sistem**: Algoritma kalkulasi dinamis yang menggabungkan beban kerja, suhu termal, status throttling, dan ketersediaan core online untuk memberikan persentase kesehatan sistem (misal: 88% Optimal).
+
+### 3. Smart Recommendation Cerdas & Non-Intrusif
+- **Saran Kontekstual Bersyarat**: Banner rekomendasi yang hanya muncul saat mendeteksi ambang batas kritis (suhu > 44°C atau beban tinggi berkepanjangan pada mode hemat daya), lengkap dengan tombol 1-klik untuk menerapkan solusi dan tombol tutup (dismissible) yang tidak mengganggu alur pengguna.
+
+### 4. Konsolidasi Kartu & Pemilih Frekuensi Diskrit Dual-Pill
+- **Pengaturan Lanjutan yang Terorganisasi**: Menyatukan puluhan kartu terpisah ke dalam `CpuUnifiedPerformanceCard` yang bersih. Kontrol frekuensi kluster disematkan di balik ekspansi "Pengaturan Lanjutan >" menggunakan format tombol Dual-Pill Min/Max MHz Picker via Modal Bottom Sheet, tanpa menggunakan continuous slider.
+- **Proteksi Mode Ekstrem**: Mode Ekstrem dipisahkan dari tombol cepat dan dilindungi dialog peringatan bahaya termal dengan konfirmasi sadar risiko.
+
+### 5. Human-Friendly Terminology & Tooltip Teknis
+- **Bahasa Manusia Komunikatif**: Mengganti istilah teknis membingungkan menjadi bahasa yang mudah dipahami: *Core Efficiency* (sebelumnya CPU Idle Core Parking), *Task Shield* (sebelumnya CPU Sets), *Task Priority Boost* (sebelumnya Uclamp), dan *Frequency Levels* (sebelumnya OPP Table).
+- **Tooltip Kernel untuk Power User**: Menyediakan ikon informasi yang menampilkan node sysfs asli (`/proc/sys/kernel/sched_util_clamp_min`, dll.) bagi pengembang dan antusias hardware.
+
+---
+
 # Lynx [Codename: Deity] 3.0.54
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Pembersihan Menyeluruh Kontrol Redundan pada Subhalaman GPU & Display, Perampingan Arsitektur GpuMasterTunerCard Menjadi Master Clock & OPP Telemetry Controller, Pemusatan Tunggal Seluruh Tweak Kernel Sysfs ke Adaptive Hardware HAL Card (Single Source of Truth), Konversi Chip Kecepatan Refresh Tab 2 Menjadi Spesifikasi Diagnostik Read-Only, Ekspansi Dynamic Probing pada Generic Devfreq HAL, serta Penerapan Domain Boundary Contract 8-Tingkat** — merekonstruksi komponen tuning GPU dan tampilan; mengeliminasi seluruh toggle statis legacy di dalam `GpuMasterTunerCard` (segmented boost engine, power policy, serta accordion kustomisasi lanjutan yang menduplikasi governor, bypass thermal, bus memory always-on, idle timer, FPSGO frame pacing, dan DVFS margin); memusatkan 100% kontrol hardware ke `AdaptiveGpuHardwareCard` yang memiliki verifikasi izin non-destruktif (`VERIFIED_WORKING` vs `READ_ONLY_LOCKED`) dan verifikasi baca-ulang transaksional dengan rollback otomatis; mengubah chip refresh rate di Tab 2 (Info) menjadi lencana spesifikasi panel fisik murni tanpa fungsi tombol interaktif; menambahkan probe `polling_interval` pada `GenericDevfreqAdapter`; serta mengukuhkan batas domain arsitektural pada dokumen panduan pengembang guna menjamin tidak ada lagi tweak tumpang-tindih di masa mendatang.

@@ -1468,6 +1468,76 @@ class LynxViewModel : ViewModel() {
 
     fun selectGpuTab(tab: Int) = setSelectedGpuTab(tab)
 
+    fun setSelectedCpuTab(tab: Int) {
+        _uiState.update { it.copy(selectedCpuTab = tab) }
+    }
+
+    fun selectCpuTab(tab: Int) = setSelectedCpuTab(tab)
+
+    fun dismissCpuRecommendation() {
+        _uiState.update { it.copy(isCpuRecommendationDismissed = true, cpuRecommendation = null) }
+    }
+
+    fun applyComprehensiveCpuProfile(profile: String, context: Context) {
+        recordStateMutation()
+        _uiState.update { it.copy(cpuComprehensiveProfile = profile) }
+        viewModelScope.launch {
+            val clusters = _uiState.value.clusters
+            when (profile.lowercase()) {
+                "battery" -> {
+                    clusters.forEach { c ->
+                        val min = c.availFreqs.firstOrNull() ?: c.curMin
+                        val maxTarget = if (c.availFreqs.size > 2) {
+                            c.availFreqs[(c.availFreqs.size * 0.65).toInt().coerceIn(0, c.availFreqs.lastIndex)]
+                        } else c.curMax
+                        setClusterFrequency(c.id, min, maxTarget)
+                        val gov = if (c.availGovs.contains("schedutil")) "schedutil" else (if (c.availGovs.contains("powersave")) "powersave" else c.curGov)
+                        setClusterGovernor(c.id, gov)
+                    }
+                    applySchedulerPreset("battery", context)
+                    _uiState.update { it.copy(successMessage = "Mode Efisiensi diterapkan: hemat daya maksimal.") }
+                }
+                "balanced" -> {
+                    clusters.forEach { c ->
+                        val min = c.availFreqs.firstOrNull() ?: c.curMin
+                        val max = c.availFreqs.lastOrNull() ?: c.curMax
+                        setClusterFrequency(c.id, min, max)
+                        val gov = if (c.availGovs.contains("schedutil")) "schedutil" else c.curGov
+                        setClusterGovernor(c.id, gov)
+                    }
+                    applySchedulerPreset("balanced", context)
+                    _uiState.update { it.copy(successMessage = "Mode Seimbang diterapkan: performa dan baterai optimal.") }
+                }
+                "gaming" -> {
+                    clusters.forEach { c ->
+                        val minTarget = if (c.availFreqs.size > 2) {
+                            c.availFreqs[(c.availFreqs.size * 0.45).toInt().coerceIn(0, c.availFreqs.lastIndex)]
+                        } else c.curMin
+                        val max = c.availFreqs.lastOrNull() ?: c.curMax
+                        setClusterFrequency(c.id, minTarget, max)
+                        val gov = if (c.availGovs.contains("schedutil")) "schedutil" else (if (c.availGovs.contains("performance")) "performance" else c.curGov)
+                        setClusterGovernor(c.id, gov)
+                    }
+                    applySchedulerPreset("gaming", context)
+                    _uiState.update { it.copy(successMessage = "Mode Gaming diterapkan: responsivitas tinggi dan latensi rendah.") }
+                }
+                "extreme" -> {
+                    clusters.forEach { c ->
+                        val max = c.availFreqs.lastOrNull() ?: c.curMax
+                        setClusterFrequency(c.id, max, max)
+                        val gov = if (c.availGovs.contains("performance")) "performance" else (if (c.availGovs.contains("schedutil")) "schedutil" else c.curGov)
+                        setClusterGovernor(c.id, gov)
+                    }
+                    applySchedulerPreset("extreme", context)
+                    _uiState.update { it.copy(successMessage = "Mode Ekstrem diterapkan: frekuensi maksimum terkunci.") }
+                }
+            }
+            delay(300L)
+            refreshClusters()
+            refreshCpuCores()
+        }
+    }
+
     fun refreshGraphicsCapabilities() {
         viewModelScope.launch {
             try {
@@ -2677,6 +2747,21 @@ class LynxViewModel : ViewModel() {
                         )
                     } else core
                 }
+                val totalLoad = statLoads.first.coerceIn(0, 100)
+                val tempC: Int = _uiState.value.thermalZones.firstOrNull { it.type.contains("cpu", true) }?.tempC?.toInt()
+                    ?: (_uiState.value.batteryDetails?.tempC?.toInt() ?: 38)
+                val loadPenalty = (totalLoad * 0.35f).toInt()
+                val tempPenalty = if (tempC > 44) ((tempC - 44) * 4).coerceAtMost(30) else 0
+                val offlineCoresCount = syncedCores.count { !it.isOnline }
+                val offlinePenalty = (offlineCoresCount * 3).coerceAtMost(15)
+                val calculatedHealthScore = (100 - loadPenalty - tempPenalty - offlinePenalty).coerceIn(15, 100)
+
+                val recommendation = when {
+                    tempC >= 45 -> "Suhu prosesor mencapai ${tempC}°C. Disarankan beralih ke Mode Seimbang guna menjaga suhu optimal."
+                    totalLoad >= 80 && _uiState.value.cpuComprehensiveProfile == "battery" -> "Beban kerja tinggi (${totalLoad}%) terdeteksi pada mode Efisiensi. Disarankan beralih ke Mode Gaming."
+                    else -> null
+                }
+
                 _uiState.update {
                     it.copy(
                         cpuCores = if (syncedCores.isNotEmpty()) syncedCores else it.cpuCores,
@@ -2684,6 +2769,8 @@ class LynxViewModel : ViewModel() {
                         totalCpuLoadPercent = statLoads.first,
                         socPlatformName = if (it.socPlatformName.isBlank()) socPlatform else it.socPlatformName,
                         socTopology = if (it.socTopology.isBlank()) socTopology else it.socTopology,
+                        cpuHealthScore = calculatedHealthScore,
+                        cpuRecommendation = if (it.isCpuRecommendationDismissed) null else recommendation
                     )
                 }
             } catch (_: Exception) {}
