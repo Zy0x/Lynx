@@ -978,8 +978,8 @@ fun CpuUnifiedPerformanceCard(
     var showDeveloperDrawer by remember { mutableStateOf(false) }
     val currentProfile = uiState.cpuComprehensiveProfile.lowercase()
 
-    // Master CPU Presets: Battery, Balanced, Performance
-    val profiles = listOf(
+    // Master CPU Presets: 3 Standard + 1 Ekstrem
+    val standardProfiles = listOf(
         Triple("battery", "Battery", Icons.Default.BatteryChargingFull),
         Triple("balanced", "Balanced", Icons.Default.Tune),
         Triple("performance", "Performance", Icons.Default.Speed)
@@ -992,9 +992,9 @@ fun CpuUnifiedPerformanceCard(
             accentColor = AccentCyan
         ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Level 1: 3-Pill 1-Click Profile Selector (Battery | Balanced | Performance)
+            // Level 1: 3+1 Master Profile Selector (Battery | Balanced | Performance | Ekstrem)
             Text(
-                text = "PILIH MODE PERFORMA",
+                text = "PILIH MODE PERFORMA (3+1)",
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextSecondary,
@@ -1005,7 +1005,8 @@ fun CpuUnifiedPerformanceCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                profiles.forEach { (key, label, icon) ->
+                // 3 Standard Profiles
+                standardProfiles.forEach { (key, label, icon) ->
                     val isSelected = currentProfile == key || (key == "performance" && currentProfile == "gaming")
                     val pillAccent = when (key) {
                         "battery" -> AccentGreen
@@ -1017,15 +1018,15 @@ fun CpuUnifiedPerformanceCard(
                         onClick = { onApplyProfile(key) },
                         modifier = Modifier
                             .weight(1f)
-                            .defaultMinSize(minHeight = 44.dp),
+                            .defaultMinSize(minHeight = 46.dp),
                         shape = RoundedCornerShape(10.dp),
                         color = if (isSelected) pillAccent.copy(alpha = 0.22f) else BgSurfaceLowest,
                         border = BorderStroke(1.dp, if (isSelected) pillAccent else BorderSubtle)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Icon(
                                 imageVector = icon,
@@ -1033,14 +1034,56 @@ fun CpuUnifiedPerformanceCard(
                                 tint = if (isSelected) pillAccent else TextSecondary,
                                 modifier = Modifier.size(15.dp)
                             )
-                            Spacer(Modifier.width(6.dp))
+                            Spacer(Modifier.height(3.dp))
                             Text(
                                 text = label,
-                                fontSize = 11.5.sp,
+                                fontSize = 10.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) TextPrimary else TextSecondary
+                                color = if (isSelected) TextPrimary else TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
+                    }
+                }
+
+                // +1 Ekstrem Profile (Requires safety confirmation dialog)
+                val isExtremeSelected = currentProfile == "extreme"
+                Surface(
+                    onClick = {
+                        if (isExtremeSelected) {
+                            onApplyProfile("balanced")
+                        } else {
+                            showExtremeConfirmDialog = true
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 46.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isExtremeSelected) AccentRed.copy(alpha = 0.22f) else AccentRed.copy(alpha = 0.06f),
+                    border = BorderStroke(1.dp, if (isExtremeSelected) AccentRed else AccentRed.copy(alpha = 0.35f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LocalFireDepartment,
+                            contentDescription = "Ekstrem",
+                            tint = if (isExtremeSelected) AccentRed else AccentRed.copy(alpha = 0.85f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = "Ekstrem",
+                            fontSize = 10.sp,
+                            fontWeight = if (isExtremeSelected) FontWeight.Bold else FontWeight.SemiBold,
+                            color = if (isExtremeSelected) TextPrimary else AccentRed,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -1049,7 +1092,7 @@ fun CpuUnifiedPerformanceCard(
             val profileDesc = when (currentProfile) {
                 "battery" -> "Mengoptimalkan frekuensi untuk daya tahan baterai maksimal dan suhu tetap dingin."
                 "performance", "gaming" -> "Menaikkan batas frekuensi bawah dan mempercepat responsivitas untuk gaming stabil dengan perlindungan termal aktif."
-                "extreme" -> "Mode Ekstrem aktif: Mengunci frekuensi tertinggi tanpa pembatasan daya untuk performa benchmark puncak."
+                "extreme" -> "Mode Ekstrem aktif: Seluruh core terkunci pada frekuensi puncak 100% tanpa batas daya OEM. Disarankan memakai cooler eksternal."
                 else -> "Menyeimbangkan efisiensi daya harian dengan akselerasi cerdas saat aplikasi dibuka."
             }
             Text(
@@ -1104,122 +1147,6 @@ fun CpuUnifiedPerformanceCard(
 
             }
         }
-
-        // Dedicated Card: Mode Ekstrem (Maximum Gaming)
-        val isExtremeActive = currentProfile == "extreme"
-        Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = if (isExtremeActive) AccentRed.copy(alpha = 0.12f) else BgCard,
-            border = BorderStroke(1.dp, if (isExtremeActive) AccentRed else AccentRed.copy(alpha = 0.35f)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 2.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f).padding(end = 8.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = AccentRed.copy(alpha = 0.16f),
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.LocalFireDepartment,
-                                    contentDescription = null,
-                                    tint = AccentRed,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Mode Ekstrem",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = if (isExtremeActive) AccentRed else AccentRed.copy(alpha = 0.18f)
-                                ) {
-                                    Text(
-                                        text = if (isExtremeActive) "AKTIF: 100% CLOCK" else "MAXIMUM GAMING",
-                                        fontSize = 8.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isExtremeActive) Color.White else AccentRed,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                            Text(
-                                text = if (isExtremeActive) "Semua bypass aktif & clock terkunci maksimum" else "Bypass throttling & kunci clock 100%",
-                                fontSize = 9.5.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                }
-
-                Text(
-                    text = "Mengunci seluruh kluster CPU ke frekuensi tertinggi, memaksimalkan task boost uclamp 100%, serta melewati batas perlindungan daya OEM. Hanya disarankan untuk benchmark atau gaming berat dengan pendingin eksternal (cooler).",
-                    fontSize = 10.sp,
-                    color = TextTertiary,
-                    lineHeight = 14.sp
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Button(
-                        onClick = {
-                            if (isExtremeActive) {
-                                onApplyProfile("balanced")
-                            } else {
-                                showExtremeConfirmDialog = true
-                            }
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isExtremeActive) BgSurfaceLowest else AccentRed,
-                            contentColor = if (isExtremeActive) AccentRed else Color.White
-                        ),
-                        border = if (isExtremeActive) BorderStroke(1.dp, AccentRed.copy(alpha = 0.5f)) else null,
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        modifier = Modifier.height(38.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isExtremeActive) Icons.Default.Close else Icons.Default.Bolt,
-                            contentDescription = null,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = if (isExtremeActive) "Nonaktifkan Ekstrem" else "Aktifkan Mode Ekstrem",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-
         // Standalone Level 2 Trigger: "Pengaturan Lanjutan"
         Surface(
             onClick = { isAdvancedExpanded = !isAdvancedExpanded },
