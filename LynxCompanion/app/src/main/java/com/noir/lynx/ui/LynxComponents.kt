@@ -4411,8 +4411,9 @@ fun GpuMasterTunerCard(
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = (-0.3).sp
                 )
+                val archName = gpu.activeBackendName.ifBlank { gpu.subArchitecture.ifBlank { platLabel } }
                 Text(
-                    text = "Arsitektur: $platLabel",
+                    text = "HAL: $archName",
                     color = TextSecondary,
                     fontSize = 11.sp
                 )
@@ -4493,8 +4494,9 @@ fun GpuMasterTunerCard(
                         tint = AccentRed,
                         modifier = Modifier.size(15.dp)
                     )
+                    val warnMsg = if (gpu.thermalThrottleReason?.isNotBlank() == true) gpu.thermalThrottleReason else "Suhu silikon GPU mendekati ambang batas kernel"
                     Text(
-                        text = "Thermal Throttling Terdeteksi — Suhu silikon GPU mendekati ambang batas kernel",
+                        text = "Thermal Throttling: $warnMsg",
                         color = TextPrimary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
@@ -5337,6 +5339,7 @@ fun GpuQuickProfilesCard(
 @Composable
 fun AdaptiveGpuHardwareCard(
     gpu: GpuInfo,
+    onSetFeature: (GpuHardwareFeature, String) -> Unit = { _, _ -> },
     onSetBusAlwaysOn: (Boolean) -> Unit = {},
     onSetIdleTimer: (Int) -> Unit = {},
     onSetThermalBypass: (Boolean) -> Unit = {},
@@ -5355,217 +5358,365 @@ fun AdaptiveGpuHardwareCard(
     val isMtk = gpu.platform == "mali_ged"
 
     val title = when {
+        gpu.activeBackendName.isNotBlank() -> gpu.activeBackendName
         isAdreno -> "Akselerasi Qualcomm Adreno (QTI KGSL)"
         isMtk -> "Akselerasi MediaTek (${gpu.mtkGenType.replaceFirstChar { it.uppercase() }} & FPSGO)"
         else -> "Akselerasi Hardware GPU (${gpu.subArchitecture})"
     }
-    val subtitle = when {
-        isAdreno -> "Kontrol bus memory DDR, idle timer, dan Trustzone target load"
-        isMtk -> "Kontrol engine frame pacing, ultra rescue, dan DVFS margin"
-        else -> "Kontrol shader core masking, devfreq governor, dan power policy"
-    }
+    val subtitle = "Pemeriksaan node kernel langsung, status perizinan, dan kendali clock"
+    val cardAccent = AccentOrange
 
     LynxCard(
         title = title,
         subtitle = subtitle,
         icon = Icons.Default.Memory,
-        accentColor = AccentOrange,
+        accentColor = cardAccent,
         modifier = modifier
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            if (isAdreno) {
-                // Adreno Controls
-                LynxSwitch(
-                    label = "KGSL Memory Bus Always-On",
-                    subLabel = "Kunci jalur DDR bus Adreno tetap aktif mencegah micro-stutter frame drop",
-                    checked = gpu.isBusAlwaysOn,
-                    onCheckedChange = { onSetBusAlwaysOn(it) }
-                )
-
-                LynxSwitch(
-                    label = "Adreno Force Rail Active",
-                    subLabel = "Paksa jalur daya power rail GPU aktif bertenaga selama game",
-                    checked = gpu.adrenoForceRail,
-                    onCheckedChange = { onSetAdrenoForceRail(it) }
-                )
-
-                LynxSwitch(
-                    label = "Bypass GPU Thermal Throttling",
-                    subLabel = "Abaikan batas pwrlevel thermal throttling kernel Qualcomm",
-                    checked = gpu.isThrottlingBypassed,
-                    onCheckedChange = { onSetThermalBypass(it) }
-                )
-
-                // Idle Timer Chips
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
-                    Text("Adreno Idle Timer (Waktu Tahan Clock)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Mencegah penurunan clock GPU tiba-tiba saat jeda frame game", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
+            if (gpu.hardwareFeatures.isNotEmpty()) {
+                // Header: Capability & Confidence Summary
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        listOf(
-                            Pair(20, "20ms (Agresif)"),
-                            Pair(40, "40ms (Responsif)"),
-                            Pair(64, "64ms (Bawaan)"),
-                            Pair(80, "80ms (Smooth)"),
-                            Pair(100, "100ms (Gaming)")
-                        ).forEach { (ms, label) ->
-                            val isSel = gpu.idleTimerMs == ms
-                            Surface(
-                                onClick = { onSetIdleTimer(ms) },
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
-                                border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
-                                modifier = Modifier.defaultMinSize(minHeight = 44.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                                    Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
-                                }
-                            }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "KEMAMPUAN HARDWARE TERVERIFIKASI",
+                                color = TextTertiary,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            val workingCount = gpu.hardwareFeatures.count { it.accessState == FeatureAccessState.VERIFIED_WORKING }
+                            val totalCount = gpu.hardwareFeatures.size
+                            Text(
+                                text = "$workingCount dari $totalCount Parameter Siap Dikonfigurasi",
+                                color = AccentGreen,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        val ratingColor = when (gpu.backendConfidence.rating) {
+                            ConfidenceRating.HIGH_CONFIDENCE -> AccentGreen
+                            ConfidenceRating.READ_ONLY_LOCK -> AccentOrange
+                            ConfidenceRating.UNCERTAIN -> AccentOrange
+                            ConfidenceRating.UNAVAILABLE -> TextTertiary
+                        }
+                        val ratingLabel = when (gpu.backendConfidence.rating) {
+                            ConfidenceRating.HIGH_CONFIDENCE -> "Verified HAL"
+                            ConfidenceRating.READ_ONLY_LOCK -> "Read-Only"
+                            ConfidenceRating.UNCERTAIN -> "Uncertain"
+                            ConfidenceRating.UNAVAILABLE -> "Fallback"
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = ratingColor.copy(alpha = 0.15f),
+                            border = BorderStroke(0.8.dp, ratingColor.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = ratingLabel,
+                                color = ratingColor,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
                         }
                     }
                 }
 
-                // Trustzone Target Load
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
-                    Text("Trustzone TZ Governor Target Load", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Ambang batas beban sebelum GPU melompat ke frekuensi lebih tinggi", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        listOf(
-                            Pair(50, "50% (Hardcore)"),
-                            Pair(60, "60% (Gaming)"),
-                            Pair(70, "70% (Responsif)"),
-                            Pair(80, "80% (Bawaan)")
-                        ).forEach { (load, label) ->
-                            val isSel = gpu.adrenoTzTargetLoad == load
-                            Surface(
-                                onClick = { onSetAdrenoTzTargetLoad(load) },
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
-                                border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
-                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)) {
-                                    Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                // Dynamically Render Scanned Features Grouped by Category
+                val grouped = gpu.hardwareFeatures.groupBy { it.category }
+                grouped.forEach { (category, features) ->
+                    Text(
+                        text = category.uppercase(),
+                        color = TextTertiary,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.6.sp,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                    )
+
+                    features.forEach { feat ->
+                        val isWritable = feat.accessState == FeatureAccessState.VERIFIED_WORKING
+                        when (feat.uiType) {
+                            FeatureUiType.SWITCH -> {
+                                val isChecked = feat.currentValue == "1" || feat.currentValue.equals("true", ignoreCase = true) || feat.currentValue.equals("always_on", ignoreCase = true)
+                                LynxSwitch(
+                                    label = feat.name,
+                                    subLabel = if (isWritable) feat.description else "${feat.description} (Terkunci oleh Kernel)",
+                                    checked = isChecked,
+                                    enabled = isWritable,
+                                    onCheckedChange = { checked ->
+                                        val newVal = if (checked) "1" else "0"
+                                        onSetFeature(feat, newVal)
+                                        when (feat.id) {
+                                            "kgsl_force_bus_on" -> onSetBusAlwaysOn(checked)
+                                            "adreno_force_rail" -> onSetAdrenoForceRail(checked)
+                                            "ged_frame_pacing" -> onSetFramePacing(checked)
+                                            "fpsgo_ultra_rescue" -> onSetFpsgoUltraRescue(checked)
+                                            "mali_core_mask" -> onSetMaliCoreMask(checked)
+                                            "mali_power_policy" -> onSetMaliPowerPolicy(if (checked) "always_on" else "coarse_demand")
+                                        }
+                                    }
+                                )
+                            }
+                            FeatureUiType.STEPPER, FeatureUiType.CHOICE -> {
+                                Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(feat.name, color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                                        if (!isWritable) {
+                                            Text("Read-Only", color = AccentOrange, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    Text(feat.description, color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        feat.options.forEach { opt ->
+                                            val isSel = feat.currentValue == opt
+                                            Surface(
+                                                onClick = {
+                                                    if (isWritable) {
+                                                        onSetFeature(feat, opt)
+                                                        when (feat.id) {
+                                                            "adreno_idle_timer" -> opt.toIntOrNull()?.let { onSetIdleTimer(it) }
+                                                            "adreno_tz_target_load" -> opt.toIntOrNull()?.let { onSetAdrenoTzTargetLoad(it) }
+                                                            "adreno_pwrlevel" -> opt.toIntOrNull()?.let { onSetAdrenoPwrLevel(it) }
+                                                            "ged_dvfs_margin" -> opt.toIntOrNull()?.let { onSetMaliDvfsMargin(it) }
+                                                            "devfreq_governor" -> onSetGovernor(opt)
+                                                        }
+                                                    }
+                                                },
+                                                enabled = isWritable,
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = if (isSel) cardAccent.copy(alpha = 0.2f) else BgElevated,
+                                                border = BorderStroke(1.dp, if (isSel) cardAccent else BorderGlass),
+                                                modifier = Modifier.defaultMinSize(minWidth = 54.dp, minHeight = 44.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                                    Text(
+                                                        text = opt,
+                                                        color = if (isSel) cardAccent else (if (isWritable) TextSecondary else TextTertiary),
+                                                        fontSize = 10.5.sp,
+                                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    }
-                }
-            } else if (isMtk) {
-                // MediaTek Controls
-                LynxSwitch(
-                    label = "MediaTek FPSGO Frame Pacing",
-                    subLabel = "Sinkronisasi buffer frame real-time untuk frametime gameplay datar",
-                    checked = gpu.isFramePacingActive,
-                    onCheckedChange = { onSetFramePacing(it) }
-                )
-
-                LynxSwitch(
-                    label = "FPSGO Ultra Rescue (Penyelamat Frame)",
-                    subLabel = "Akselerasi frekuensi instan jika frame terancam drop di bawah target FPS",
-                    checked = gpu.isFpsgoUltraRescue,
-                    onCheckedChange = { onSetFpsgoUltraRescue(it) }
-                )
-
-                LynxSwitch(
-                    label = "Bypass GPU Thermal Throttling",
-                    subLabel = "Override pembatasan throttling thermal daemon MediaTek saat beban berat",
-                    checked = gpu.isThrottlingBypassed,
-                    onCheckedChange = { onSetThermalBypass(it) }
-                )
-
-                // Mali DVFS Margin
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
-                    Text("Mali GED DVFS Margin (Sensitivitas Boost)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Menaikkan sensitivitas GPU agar instan melompat ke clock tinggi", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        listOf(
-                            Pair(0, "0% (Bawaan)"),
-                            Pair(10, "+10% (Responsif)"),
-                            Pair(20, "+20% (Gaming)"),
-                            Pair(30, "+30% (Agresif)")
-                        ).forEach { (margin, label) ->
-                            val isSel = gpu.maliDvfsMargin == margin
-                            Surface(
-                                onClick = { onSetMaliDvfsMargin(margin) },
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
-                                border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
-                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)) {
-                                    Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            FeatureUiType.SLIDER -> {
+                                Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                                    Text(feat.name, color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("${feat.description} (Nilai saat ini: ${feat.currentValue})", color = TextSecondary, fontSize = 10.sp)
                                 }
                             }
                         }
                     }
                 }
             } else {
-                // Mali Kbase / Exynos / Tensor / Generic
-                LynxSwitch(
-                    label = "Unmask Semua Shader Cores",
-                    subLabel = "Paksa seluruh unit komputasi shader core aktif tanpa pemadaman termal OEM",
-                    checked = gpu.isMaliAllCoresActive,
-                    onCheckedChange = { onSetMaliCoreMask(it) }
-                )
+                // Fallback rendering
+                if (isAdreno) {
+                    LynxSwitch(
+                        label = "KGSL Memory Bus Always-On",
+                        subLabel = "Kunci jalur DDR bus Adreno tetap aktif mencegah micro-stutter frame drop",
+                        checked = gpu.isBusAlwaysOn,
+                        onCheckedChange = { onSetBusAlwaysOn(it) }
+                    )
 
-                // Power Policy
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
-                    Text("Kebijakan Daya GPU (Power Policy)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Always-on meniadakan latensi bangun/tidur antara frame rendering", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        listOf(
-                            Pair("always_on", "Always-On (Performa Maksimum)"),
-                            Pair("coarse_demand", "Coarse Demand (Hemat Daya)")
-                        ).forEach { (pol, label) ->
-                            val isSel = gpu.maliPowerPolicy == pol
-                            Surface(
-                                onClick = { onSetMaliPowerPolicy(pol) },
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
-                                border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
-                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-                                    Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                                }
-                            }
-                        }
-                    }
-                }
+                    LynxSwitch(
+                        label = "Adreno Force Rail Active",
+                        subLabel = "Paksa jalur daya power rail GPU aktif bertenaga selama game",
+                        checked = gpu.adrenoForceRail,
+                        onCheckedChange = { onSetAdrenoForceRail(it) }
+                    )
 
-                if (gpu.availableGovernors.isNotEmpty()) {
+                    LynxSwitch(
+                        label = "Bypass GPU Thermal Throttling",
+                        subLabel = "Abaikan batas pwrlevel thermal throttling kernel Qualcomm",
+                        checked = gpu.isThrottlingBypassed,
+                        onCheckedChange = { onSetThermalBypass(it) }
+                    )
+
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
-                        Text("Devfreq Governor", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Adreno Idle Timer (Waktu Tahan Clock)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Mencegah penurunan clock GPU tiba-tiba saat jeda frame game", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            gpu.availableGovernors.forEach { gov ->
-                                val isSel = gpu.currentGovernor.trim() == gov.trim()
+                            listOf(
+                                Pair(20, "20ms (Agresif)"),
+                                Pair(40, "40ms (Responsif)"),
+                                Pair(64, "64ms (Bawaan)"),
+                                Pair(80, "80ms (Smooth)"),
+                                Pair(100, "100ms (Gaming)")
+                            ).forEach { (ms, label) ->
+                                val isSel = gpu.idleTimerMs == ms
                                 Surface(
-                                    onClick = { onSetGovernor(gov) },
+                                    onClick = { onSetIdleTimer(ms) },
                                     shape = RoundedCornerShape(8.dp),
                                     color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
                                     border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
                                     modifier = Modifier.defaultMinSize(minHeight = 44.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                                        Text(gov, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                        Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                        Text("Trustzone TZ Governor Target Load", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Ambang batas beban sebelum GPU melompat ke frekuensi lebih tinggi", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                Pair(50, "50% (Hardcore)"),
+                                Pair(60, "60% (Gaming)"),
+                                Pair(70, "70% (Responsif)"),
+                                Pair(80, "80% (Bawaan)")
+                            ).forEach { (load, label) ->
+                                val isSel = gpu.adrenoTzTargetLoad == load
+                                Surface(
+                                    onClick = { onSetAdrenoTzTargetLoad(load) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
+                                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)) {
+                                        Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if (isMtk) {
+                    LynxSwitch(
+                        label = "MediaTek FPSGO Frame Pacing",
+                        subLabel = "Sinkronisasi buffer frame real-time untuk frametime gameplay datar",
+                        checked = gpu.isFramePacingActive,
+                        onCheckedChange = { onSetFramePacing(it) }
+                    )
+
+                    LynxSwitch(
+                        label = "FPSGO Ultra Rescue (Penyelamat Frame)",
+                        subLabel = "Akselerasi frekuensi instan jika frame terancam drop di bawah target FPS",
+                        checked = gpu.isFpsgoUltraRescue,
+                        onCheckedChange = { onSetFpsgoUltraRescue(it) }
+                    )
+
+                    LynxSwitch(
+                        label = "Bypass GPU Thermal Throttling",
+                        subLabel = "Override pembatasan throttling thermal daemon MediaTek saat beban berat",
+                        checked = gpu.isThrottlingBypassed,
+                        onCheckedChange = { onSetThermalBypass(it) }
+                    )
+
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                        Text("Mali GED DVFS Margin (Sensitivitas Boost)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Menaikkan sensitivitas GPU agar instan melompat ke clock tinggi", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                Pair(0, "0% (Bawaan)"),
+                                Pair(10, "+10% (Responsif)"),
+                                Pair(20, "+20% (Gaming)"),
+                                Pair(30, "+30% (Agresif)")
+                            ).forEach { (margin, label) ->
+                                val isSel = gpu.maliDvfsMargin == margin
+                                Surface(
+                                    onClick = { onSetMaliDvfsMargin(margin) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
+                                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)) {
+                                        Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    LynxSwitch(
+                        label = "Unmask Semua Shader Cores",
+                        subLabel = "Paksa seluruh unit komputasi shader core aktif tanpa pemadaman termal OEM",
+                        checked = gpu.isMaliAllCoresActive,
+                        onCheckedChange = { onSetMaliCoreMask(it) }
+                    )
+
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                        Text("Kebijakan Daya GPU (Power Policy)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Always-on meniadakan latensi bangun/tidur antara frame rendering", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                Pair("always_on", "Always-On (Performa Maksimum)"),
+                                Pair("coarse_demand", "Coarse Demand (Hemat Daya)")
+                            ).forEach { (pol, label) ->
+                                val isSel = gpu.maliPowerPolicy == pol
+                                Surface(
+                                    onClick = { onSetMaliPowerPolicy(pol) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
+                                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                                        Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (gpu.availableGovernors.isNotEmpty()) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                            Text("Devfreq Governor", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                gpu.availableGovernors.forEach { gov ->
+                                    val isSel = gpu.currentGovernor.trim() == gov.trim()
+                                    Surface(
+                                        onClick = { onSetGovernor(gov) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                        border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
+                                        modifier = Modifier.defaultMinSize(minHeight = 44.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                            Text(gov, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                        }
                                     }
                                 }
                             }
@@ -5997,22 +6148,23 @@ fun DisplayRefreshRateTouchCard(
             }
         }
 
-        // 4-Way Refresh Rate Chip Selector: Auto + Fixed Rates
+        // Dynamic Refresh Rate Chip Selector: Auto + Fixed Rates
         Row(
-            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             // Auto Chip
             Surface(
                 onClick = { onSetRefreshRate(maxHz, true) },
-                modifier = Modifier.weight(1.2f),
                 shape = RoundedCornerShape(10.dp),
                 color = if (isAuto) cardAccent.copy(alpha = 0.22f) else BgElevated,
-                border = BorderStroke(1.5.dp, if (isAuto) cardAccent else BorderGlass)
+                border = BorderStroke(1.5.dp, if (isAuto) cardAccent else BorderGlass),
+                modifier = Modifier.defaultMinSize(minWidth = 72.dp, minHeight = 48.dp)
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                 ) {
                     Text("Auto", color = if (isAuto) cardAccent else TextPrimary, fontWeight = if (isAuto) FontWeight.Bold else FontWeight.Medium, fontSize = 12.sp)
                     Text("0 - ${maxHz}Hz", color = if (isAuto) cardAccent.copy(alpha = 0.8f) else TextSecondary, fontSize = 9.5.sp)
@@ -6024,14 +6176,15 @@ fun DisplayRefreshRateTouchCard(
                 val isSelected = (!isAuto && currentHz == hz)
                 Surface(
                     onClick = { onSetRefreshRate(hz, false) },
-                    modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                     color = if (isSelected) cardAccent.copy(alpha = 0.22f) else BgElevated,
-                    border = BorderStroke(1.5.dp, if (isSelected) cardAccent else BorderGlass)
+                    border = BorderStroke(1.5.dp, if (isSelected) cardAccent else BorderGlass),
+                    modifier = Modifier.defaultMinSize(minWidth = 64.dp, minHeight = 48.dp)
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(vertical = 8.dp)
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                     ) {
                         Text("${hz}Hz", color = if (isSelected) cardAccent else TextPrimary, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, fontSize = 12.sp)
                         Text(
@@ -6040,6 +6193,7 @@ fun DisplayRefreshRateTouchCard(
                                 90 -> "Halus"
                                 120 -> "Gaming"
                                 144, 165 -> "Ultra"
+                                240 -> "E-Sport"
                                 else -> "Tersedia"
                             },
                             color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,

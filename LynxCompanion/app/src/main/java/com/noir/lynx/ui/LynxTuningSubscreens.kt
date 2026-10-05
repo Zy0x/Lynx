@@ -2043,6 +2043,7 @@ fun TuningGpuCategory(
                 // 2b. Adaptive Hardware Acceleration Card (SoC-Specific Engine)
                 AdaptiveGpuHardwareCard(
                     gpu = gpu,
+                    onSetFeature = { feature, targetVal -> viewModel.setGpuFeature(feature, targetVal) },
                     onSetBusAlwaysOn = { viewModel.setGpuBusAlwaysOn(it) },
                     onSetIdleTimer = { viewModel.setGpuIdleTimer(it) },
                     onSetThermalBypass = { viewModel.setGpuThermalBypass(it) },
@@ -2075,6 +2076,7 @@ fun TuningGpuCategory(
                 PerAppGraphicsHubCard(
                     rules = uiState.perAppGraphicsRules,
                     installedApps = uiState.installedAppList,
+                    supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(60, 90, 120) },
                     isAngleSupported = graphics.isAngleSupported,
                     onSaveRule = { rule -> viewModel.savePerAppGraphicsRule(rule, context) },
                     onDeleteRule = { pkg -> viewModel.deletePerAppGraphicsRule(pkg, context) }

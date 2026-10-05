@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.noir.lynx.data.*
+import com.noir.lynx.hardware.WriteResult
 import com.noir.lynx.engine.CpuPolicyManager
 import com.noir.lynx.engine.RecoveryManager
 import com.noir.lynx.kernel.CpuIdleDetector
@@ -1143,6 +1144,55 @@ class LynxViewModel : ViewModel() {
             LynxRepository.setGpuFramePacing(enabled)
             delay(200L)
             refreshGpuInfo()
+        }
+    }
+
+    fun setGpuFeature(feature: GpuHardwareFeature, targetValue: String) {
+        recordStateMutation()
+        val prevValue = feature.currentValue
+        // Optimistic UI update
+        val updatedFeatures = _uiState.value.gpuInfo.hardwareFeatures.map {
+            if (it.id == feature.id) it.copy(currentValue = targetValue) else it
+        }
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(hardwareFeatures = updatedFeatures)) }
+
+        viewModelScope.launch {
+            val result = LynxRepository.writeGpuFeature(feature.nodePath, targetValue)
+            when (result) {
+                is WriteResult.Applied -> {
+                    delay(200L)
+                    refreshGpuInfo()
+                }
+                is WriteResult.Rejected -> {
+                    // Rollback optimistic update and mark as locked
+                    val rolledBack = _uiState.value.gpuInfo.hardwareFeatures.map {
+                        if (it.id == feature.id) it.copy(
+                            currentValue = prevValue,
+                            accessState = FeatureAccessState.READ_ONLY_LOCKED
+                        ) else it
+                    }
+                    _uiState.update {
+                        it.copy(
+                            gpuInfo = it.gpuInfo.copy(hardwareFeatures = rolledBack),
+                            errorMessage = "Kernel menolak perubahan (nilai terbaca: ${result.readBack}). Parameter dikunci read-only."
+                        )
+                    }
+                }
+                is WriteResult.Unsupported -> {
+                    val rolledBack = _uiState.value.gpuInfo.hardwareFeatures.map {
+                        if (it.id == feature.id) it.copy(
+                            currentValue = prevValue,
+                            accessState = FeatureAccessState.UNSUPPORTED
+                        ) else it
+                    }
+                    _uiState.update {
+                        it.copy(
+                            gpuInfo = it.gpuInfo.copy(hardwareFeatures = rolledBack),
+                            errorMessage = "Fitur tidak didukung oleh kernel."
+                        )
+                    }
+                }
+            }
         }
     }
 

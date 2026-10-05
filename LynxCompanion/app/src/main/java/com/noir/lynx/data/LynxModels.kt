@@ -217,6 +217,53 @@ data class PerAppGraphicsRule(
     val targetRefreshRate: Int = 0 // 0 = default, 60, 90, 120
 )
 
+enum class FeatureAccessState {
+    VERIFIED_WORKING,  // Node ada dan terbukti bisa ditulis serta dibaca (R/W)
+    READ_ONLY_LOCKED,  // Node ada namun kernel menolak penulisan (R/O)
+    UNSUPPORTED        // Node tidak ditemukan pada hardware ini
+}
+
+enum class ConfidenceRating {
+    HIGH_CONFIDENCE,   // 100% verified working
+    READ_ONLY_LOCK,    // Terdeteksi 100%, write 0%
+    UNCERTAIN,         // Terdeteksi parsial
+    UNAVAILABLE
+}
+
+data class HardwareConfidence(
+    val detectionScore: Int = 100,
+    val writeScore: Int = 100,
+    val stabilityScore: Int = 100,
+    val rating: ConfidenceRating = ConfidenceRating.HIGH_CONFIDENCE
+)
+
+enum class FeatureUiType {
+    SWITCH,
+    STEPPER,
+    CHOICE,
+    SLIDER
+}
+
+data class GpuHardwareFeature(
+    val id: String,
+    val name: String,
+    val description: String,
+    val nodePath: String,
+    val currentValue: String,
+    val accessState: FeatureAccessState = FeatureAccessState.VERIFIED_WORKING,
+    val confidence: HardwareConfidence = HardwareConfidence(),
+    val uiType: FeatureUiType = FeatureUiType.SWITCH,
+    val options: List<String> = emptyList(),
+    val category: String = "Akselerasi Hardware"
+)
+
+data class DisplayCapabilityInfo(
+    val panelModes: List<Int> = emptyList(),          // Fisik panel: 60, 90, 120, 144, 165, 240
+    val systemAllowedModes: List<Int> = emptyList(),  // Batas min/peak settings Android
+    val gameRequestedHz: Int? = null,                 // Target frame rate dari game aktif
+    val activePresentationHz: Int = 60                // Nilai riil yang sedang disajikan
+)
+
 data class GpuInfo(
     val minFreqMhz: Int = 0,
     val maxFreqMhz: Int = 0,
@@ -252,6 +299,11 @@ data class GpuInfo(
     val maliPowerPolicy: String = "always_on",
     val isLatchUnsignaled: Boolean = false,
     val isDisableBackpressure: Boolean = false,
+    val hardwareFeatures: List<GpuHardwareFeature> = emptyList(),
+    val activeBackendName: String = "Universal Devfreq",
+    val isThermalThrottlingActive: Boolean = false,
+    val thermalThrottleReason: String? = null,
+    val backendConfidence: HardwareConfidence = HardwareConfidence(),
 )
 
 data class GraphicsHwuiInfo(

@@ -1783,7 +1783,10 @@ fun DisplayTelemetryCard(
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    ) {
                         val supportedFrequencies = if (caps.displayModes.isNotEmpty()) {
                             caps.displayModes.map { "${it.fps.toInt()}Hz" }.distinct()
                         } else listOf("60Hz", "90Hz", "120Hz")
@@ -2227,6 +2230,7 @@ fun NodeExplorerCard(caps: GraphicsCapabilities, modifier: Modifier = Modifier) 
 fun PerAppGraphicsHubCard(
     rules: List<PerAppGraphicsRule>,
     installedApps: List<AppInfo>,
+    supportedRates: List<Int> = listOf(60, 90, 120),
     isAngleSupported: Boolean = true,
     onSaveRule: (PerAppGraphicsRule) -> Unit,
     onDeleteRule: (String) -> Unit,
@@ -2703,22 +2707,21 @@ fun PerAppGraphicsHubCard(
                     Column {
                         Text("Kunci Refresh Rate Layar", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                         Text("Target frame rate display saat game ini berada di layar depan", fontSize = 10.sp, color = TextSecondary, modifier = Modifier.padding(bottom = 6.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(
-                                Pair(0, "Bawaan"),
-                                Pair(60, "60 Hz"),
-                                Pair(90, "90 Hz"),
-                                Pair(120, "120 Hz")
-                            ).forEach { (hz, label) ->
+                        val refreshOptions = listOf(Pair(0, "Bawaan")) + supportedRates.map { Pair(it, "$it Hz") }
+                        Row(
+                            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            refreshOptions.forEach { (hz, label) ->
                                 val isSel = selectedRefreshRate == hz
                                 Surface(
                                     onClick = { selectedRefreshRate = hz },
-                                    modifier = Modifier.weight(1f).heightIn(min = 40.dp),
+                                    modifier = Modifier.defaultMinSize(minWidth = 60.dp, minHeight = 44.dp),
                                     shape = RoundedCornerShape(8.dp),
                                     color = if (isSel) AccentBlue.copy(alpha = 0.2f) else BgElevated,
                                     border = BorderStroke(1.dp, if (isSel) AccentBlue else BorderGlass)
                                 ) {
-                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 6.dp)) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
                                         Text(
                                             text = label,
                                             fontSize = 10.sp,

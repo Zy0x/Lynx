@@ -1,3 +1,28 @@
+# Lynx [Codename: Deity] 3.0.52
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Universal Hardware Abstraction Framework (HAL Multi-SoC) Dinamis untuk Penyetelan GPU & Diagnostik Layar, Pemindaian Node Fisik Kernel Berbasis Izin Non-Destruktif (Non-Destructive Permission Probing), Verifikasi Penulisan Transaksional dengan Rollback Otomatis (Transactional Write Verification & Rollback), Penilaian Tingkat Kepercayaan Hardware (Hardware Confidence Scoring), Dekomposisi 4-Tier Frekuensi Layar hingga 240Hz, serta Antarmuka Responsif Adaptif Berbasis Komponen M3** — merevolusi subhalaman GPU & Display dari sistem berbasis vendor statis menjadi kerangka kerja abstraksi hardware universal lintas chipset (Qualcomm Adreno KGSL, MediaTek GED/FPSGO, ARM Mali Kbase, Samsung AMD RDNA, dan Universal Devfreq); menerapkan prinsip keamanan ketat di mana node fisik dipindai hak aksesnya secara non-destruktif tanpa `chmod 644` buta; mengimplementasikan siklus verifikasi transaksional yang secara otomatis membatalkan (*rollback*) perubahan dan mengunci sakelar ke status *Read-Only* jika kernel menolak nilai baru; menyajikan lencana status verifikasi hardware (`Verified HAL`, `VERIFIED_WORKING`, `READ_ONLY_LOCKED`); mendukung kecepatan refresh layar ultra-tinggi hingga 240Hz dengan baris pemilih scrollable yang mempertahankan target sentuh ergonomis minimal 48dp; serta menyelaraskan pilihan frekuensi khusus pada dialog aturan rendering grafis per-aplikasi secara dinamis.
+
+## Fitur Baru & Peningkatan (3.0.52)
+
+### 1. Universal Dynamic GPU Backend HAL Adapter
+- **Arsitektur Multi-SoC Terpadu**: Mengintegrasikan `GpuBackendManager` yang secara dinamis memilih adapter driver GPU yang sesuai dengan perangkat: `QualcommAdrenoAdapter`, `MediaTekGedAdapter`, `MaliKbaseAdapter`, dan `GenericDevfreqAdapter`.
+- **Pemetaan Parameter Dinamis Tanpa Asumsi Vendor**: Menghilangkan pengkondisian statis vendor pada UI. Kartu `AdaptiveGpuHardwareCard` memindai dan merender seluruh parameter GPU yang benar-benar ada di kernel (`force_bus_on`, `idle_timer`, `fpsgo frame pacing`, `ultra rescue`, `dvfs margin`, `core masking`, `power policy`, dan `governor`).
+
+### 2. Probing Izin Non-Destruktif & Verifikasi Transaksional (Zero Fake Power)
+- **Batch Permission Probe Sub-30ms**: Menguji status keberadaan dan izin baca/tulis node via `[ -r ]` dan `[ -w ]` dalam satu eksekusi batch shell, meniadakan `chmod 644` membabi-buta yang dapat mengganggu izin driver atau memicu penolakan SELinux.
+- **Transactional Verification & Auto-Rollback**: Setiap perubahan parameter diverifikasi melalui pembacaan ulang nilai kernel (*read-back verification*). Jika nilai tidak berubah atau ditolak kernel, sistem secara otomatis mengembalikan nilai UI (*rollback*), mengunci opsi sebagai `READ_ONLY_LOCKED`, dan menampilkan pesan informatif tanpa tombol palsu.
+
+### 3. Penilaian Tingkat Kepercayaan Hardware (Confidence Scoring)
+- **Status Validasi Transparan**: Setiap driver GPU dan parameter dilengkapi skor deteksi, skor tulis, dan skor stabilitas, menampilkan lencana terverifikasi (`Verified HAL`, `Read-Only`, `Fallback`) langsung pada kartu akselerasi hardware.
+- **Deteksi Alasan Throttling Spesifik**: Menampilkan penyebab nyata thermal throttling (misal: suhu silikon melampaui batas batas aman atau DVFS thermal clamping aktif).
+
+### 4. Dekomposisi 4-Tier Display & Dukungan Layar 240Hz
+- **Deteksi Refresh Rate Dinamis Multi-Tier**: Memisahkan kemampuan fisik panel (`dumpsys display`), izin Android framework (`peak_refresh_rate`), dan frame rate aplikasi aktif tanpa hardcode 60/90/120Hz.
+- **Selektor Scrollable 48dp**: Mengganti baris kaku pada `DisplayRefreshRateTouchCard` dan `DisplayTelemetryCard` dengan baris scrollable dinamis yang mendukung frekuensi 60Hz, 90Hz, 120Hz, 144Hz, 165Hz, hingga 240Hz dengan target sentuh ergonomis.
+- **Per-App Graphics Hub Refresh Selector**: Mengintegrasikan pilihan refresh rate dinamis ke dalam dialog aturan rendering grafis per-aplikasi.
+
+---
+
 # Lynx [Codename: Deity] 3.0.51
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Penguncian Imutabel Izin Hardware (Read-Only chmod 444 Locks) untuk Pengendali Pengisian Daya Ekstrem (Extreme Fast Charging), Bypass Menyeluruh Throttling Layar Nyala (Screen-On Throttling) dan Limitasi Termal Multi-OEM, Elevasi Plafon Ambang Suhu Termal Universal ke 95°C, Pembekuan Perangkat Pendingin (Cooling Devices Freeze), serta Pemulihan Hak Akses Bersih (Reversible Unlatch Architecture)** — mengeliminasi pembatasan pengisian daya yang dipicu oleh kernel saat layar ponsel aktif (*Screen-On*) maupun saat temperatur motherboard/AP mendekati ambang batas konservatif pabrikan; menerapkan kunci proteksi `chmod 444` secara permanen pada node krusial seperti `BN_TestMode`, `BatteryNotify`, `sw_jeita`, `input_current`, `chg1_current`, dan `chg2_current` sehingga driver kernel tidak dapat lagi menurunkan arus pengisian secara sepihak; menaikkan kurva trip point PCB termal Transsion/Infinix dari 44°C ke 85°C–90°C dengan plafon 6000mA; melumpuhkan pembatasan pengisian daya multi-OEM (Xiaomi HyperOS Joyose freeze, Samsung One UI SIOP uncap, OnePlus/OPPO/Realme SuperVOOC Cool & Call mode bypass, Google Pixel Tensor charge stop uncap); menonaktifkan regulasi termal baterai/charger serta menaikkan trip point termal universal ke 95°C di seluruh zona sensor; serta mengimplementasikan mekanisme unlatch reversibel saat pengguna kembali ke mode pengisian teratur atau mode hardware bypass.

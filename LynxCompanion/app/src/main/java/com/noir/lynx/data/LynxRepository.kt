@@ -5,6 +5,9 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import com.noir.lynx.LynxApp
+import com.noir.lynx.hardware.NodeWriter
+import com.noir.lynx.hardware.WriteResult
+import com.noir.lynx.hardware.gpu.GpuBackendManager
 import com.noir.lynx.service.LynxAppAutomationService
 import com.topjohnwu.superuser.Shell
 import java.io.File
@@ -1503,6 +1506,15 @@ object LynxRepository {
                 else -> "balanced"
             }
 
+            // Query Universal Dynamic HAL Adapter
+            val activeAdapter = GpuBackendManager.getActiveAdapter()
+            val backendFeatures = try { activeAdapter.scanFeatures() } catch (_: Exception) { emptyList() }
+            val backendConfidence = try { activeAdapter.getConfidence() } catch (_: Exception) { HardwareConfidence() }
+            val throttleReason = if (isThrottled) {
+                if (rawGpuTemp >= 65f) "Suhu Silicon GPU Melampaui Batas (${rawGpuTemp.toInt()}°C)"
+                else "DVFS Thermal Clamping Aktif"
+            } else "Normal (Bebas Throttling)"
+
             GpuInfo(
                 platform = platform,
                 curFreqMhz = toMhz(curHz),
@@ -1536,13 +1548,29 @@ object LynxRepository {
                 isMaliAllCoresActive = coreMask.isNotBlank() && coreMask != "0",
                 maliPowerPolicy = maliPol,
                 isLatchUnsignaled = latch,
-                isDisableBackpressure = disableBackpressure
+                isDisableBackpressure = disableBackpressure,
+                hardwareFeatures = backendFeatures,
+                activeBackendName = activeAdapter.displayName,
+                isThermalThrottlingActive = isThrottled,
+                thermalThrottleReason = throttleReason,
+                backendConfidence = backendConfidence
             )
         } catch (e: Exception) { Log.e(TAG, "readGpuInfo: ${e.message}"); GpuInfo() }
     }
 
+    suspend fun writeGpuFeature(nodePath: String, value: String): WriteResult = withContext(Dispatchers.IO) {
+        try {
+            NodeWriter.writeVerified(nodePath, value)
+        } catch (e: Exception) {
+            WriteResult.Rejected("Eksepsi: ${e.message}")
+        }
+    }
+
     suspend fun setGpuBoostLevel(level: Int): Boolean = withContext(Dispatchers.IO) {
         try {
+            val adapterRes = GpuBackendManager.getActiveAdapter().setBoost(level)
+            if (adapterRes !is WriteResult.Rejected) return@withContext true
+
             val script = """
                 if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
                     for b in /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost /sys/class/devfreq/*kgsl*/adrenoboost; do
@@ -1583,6 +1611,13 @@ object LynxRepository {
 
     suspend fun setGpuFreq(minHz: Long?, maxHz: Long?): Boolean = withContext(Dispatchers.IO) {
         try {
+            fun toMhz(hz: Long?): Int? {
+                if (hz == null || hz <= 0L) return null
+                return if (hz > 1_000_000L) (hz / 1_000_000L).toInt() else if (hz > 10_000L) (hz / 1000L).toInt() else hz.toInt()
+            }
+            val adapterRes = GpuBackendManager.getActiveAdapter().setFrequencyRange(toMhz(minHz), toMhz(maxHz))
+            if (adapterRes !is WriteResult.Rejected) return@withContext true
+
             val script = """
                 if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
                     D="/sys/class/kgsl/kgsl-3d0/devfreq"
@@ -1624,6 +1659,9 @@ object LynxRepository {
     suspend fun setGpuGovernor(governor: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val cleanGov = governor.split(Regex("[\\s•]+")).firstOrNull()?.trim() ?: governor.trim()
+            val adapterRes = GpuBackendManager.getActiveAdapter().setGovernor(cleanGov)
+            if (adapterRes !is WriteResult.Rejected) return@withContext true
+
             val script = """
                 if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
                     chmod 644 /sys/class/kgsl/kgsl-3d0/devfreq/governor 2>/dev/null
@@ -1652,6 +1690,9 @@ object LynxRepository {
 
     suspend fun setGpuThermalBypass(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
+            val adapterRes = GpuBackendManager.getActiveAdapter().setThermalBypass(enabled)
+            if (adapterRes !is WriteResult.Rejected) return@withContext true
+
             val script = """
                 if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
                     chmod 644 /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel 2>/dev/null
@@ -1847,6 +1888,9 @@ object LynxRepository {
 
     suspend fun setGpuPowerPolicy(policy: String): Boolean = withContext(Dispatchers.IO) {
         try {
+            val adapterRes = GpuBackendManager.getActiveAdapter().applyPowerPolicy(policy)
+            if (adapterRes !is WriteResult.Rejected) return@withContext true
+
             val isPerf = policy == "always_on"
             setMaliPowerPolicy(policy)
             if (isPerf) {
@@ -3742,30 +3786,47 @@ object LynxRepository {
     suspend fun readSupportedRefreshRates(): List<Int> = withContext(Dispatchers.IO) {
         try {
             val script = """
-                # Method 1: parse dumpsys SurfaceFlinger Refresh Rate Map
-                rates=${'$'}(dumpsys SurfaceFlinger 2>/dev/null | grep -oE "refreshRate=[0-9]+" | cut -d= -f2 | sort -nu)
-                # Method 2: parse dumpsys display
+                # Method 1: parse dumpsys display DisplayMode entries & fps values
+                rates=${'$'}(dumpsys display 2>/dev/null | grep -oE "([0-9]{2,3})\.0+ fps" | awk '{print int(${'$'}1)}' | sort -nu)
+                # Method 2: parse fps= entries in display configs
                 if [ -z "${'$'}rates" ]; then
-                    rates=${'$'}(dumpsys display 2>/dev/null | grep -oE "([0-9]{2,3})\.0+ fps" | awk '{print int(${'$'}1)}' | sort -nu)
+                    rates=${'$'}(dumpsys display 2>/dev/null | grep -oE "fps=[0-9]+" | cut -d= -f2 | sort -nu)
                 fi
-                # Method 3: parse DisplayMode or refreshRate configs
+                # Method 3: parse SurfaceFlinger Refresh Rate Map
                 if [ -z "${'$'}rates" ]; then
-                    rates=${'$'}(dumpsys display 2>/dev/null | grep -oE "refreshRate=[0-9]+" | cut -d= -f2 | sort -nu)
+                    rates=${'$'}(dumpsys SurfaceFlinger 2>/dev/null | grep -oE "(refreshRate|fps)=[0-9]+" | cut -d= -f2 | sort -nu)
                 fi
+                # Method 4: check system peak rate
+                peak=${'$'}(settings get system peak_refresh_rate 2>/dev/null | tr -d ' \n' | cut -d. -f1)
+                [ -n "${'$'}peak" ] && [ "${'$'}peak" -gt 0 ] 2>/dev/null && rates="${'$'}rates ${'$'}peak"
+
                 if [ -n "${'$'}rates" ]; then
                     echo "${'$'}rates"
-                else
-                    echo "60 90 120"
                 fi
             """.trimIndent()
             val r = Shell.cmd(script).exec()
             val detected = r.out.flatMap { line ->
-                line.trim().split(Regex("\\s+")).mapNotNull { it.toIntOrNull() }
+                line.trim().split(Regex("[\\s,]+")).mapNotNull { it.toIntOrNull() }
             }.distinct().filter { it in 48..240 }.sorted()
 
             if (detected.isNotEmpty()) detected else listOf(60, 90, 120)
         } catch (e: Exception) {
             listOf(60, 90, 120)
+        }
+    }
+
+    suspend fun readDisplayCapabilityInfo(): DisplayCapabilityInfo = withContext(Dispatchers.IO) {
+        try {
+            val panelRates = readSupportedRefreshRates()
+            val activeHz = readDisplayRefreshRate()
+            DisplayCapabilityInfo(
+                panelModes = panelRates,
+                systemAllowedModes = panelRates,
+                gameRequestedHz = activeHz,
+                activePresentationHz = if (activeHz > 0) activeHz else (panelRates.firstOrNull() ?: 60)
+            )
+        } catch (e: Exception) {
+            DisplayCapabilityInfo()
         }
     }
 
