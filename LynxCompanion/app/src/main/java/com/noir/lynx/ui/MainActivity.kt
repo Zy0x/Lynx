@@ -364,7 +364,7 @@ fun MainDashboard(
     BackHandler(enabled = uiState.currentTab == 1 && selectedCategory != null) {
         selectedCategory = null
     }
-    LaunchedEffect(selectedCategory) {
+    LaunchedEffect(selectedCategory, uiState.selectedGpuTab) {
         subscreenScrollState.scrollTo(0)
         scrollState.scrollTo(0)
         isNavbarVisible = true
@@ -1589,7 +1589,7 @@ fun MainDashboard(
                                         onSelectTab = { viewModel.selectGpuTab(it) },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(top = 8.dp, bottom = 4.dp)
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
                                     )
                                 }
 

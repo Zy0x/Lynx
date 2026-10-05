@@ -70,16 +70,17 @@ fun GpuDisplayTabRow(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        shape = RoundedCornerShape(16.dp),
+            .height(52.dp),
+        shape = RoundedCornerShape(14.dp),
         color = BgCard,
         border = BorderStroke(0.8.dp, BorderSubtle)
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             tabs.forEach { (index, title, icon) ->
                 val isSelected = selectedTab == index
@@ -91,17 +92,17 @@ fun GpuDisplayTabRow(
 
                 Surface(
                     onClick = { onSelectTab(index) },
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = if (isSelected) tabAccent.copy(alpha = 0.15f) else Color.Transparent,
                     border = if (isSelected) BorderStroke(1.dp, tabAccent.copy(alpha = 0.5f)) else null,
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 48.dp) // Touch target >= 48dp
+                        .fillMaxHeight()
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 8.dp, vertical = 10.dp),
+                            .padding(horizontal = 6.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
