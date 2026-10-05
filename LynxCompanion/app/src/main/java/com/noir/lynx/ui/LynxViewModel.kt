@@ -381,12 +381,12 @@ class LynxViewModel : ViewModel() {
                     val rawCores = LynxRepository.readCpuCores()
                     val cores = if (rawCores.isNotEmpty()) mergeCoresWithActiveIntents(rawCores) else emptyList()
                     val totalLoad = LynxRepository.latestTotalCpuLoadPercent
-                    val procs = if (counter % 3 == 0) LynxRepository.readTopCpuProcesses() else emptyList()
+                    val procs = if (counter == 1 || counter % 3 == 0) LynxRepository.readTopCpuProcesses() else emptyList()
                     val batt = LynxRepository.readBatteryDetails()
                     val rawGpu = LynxRepository.readGpuInfo()
                     val gpu = mergeGpuInfoWithIntent(rawGpu)
                     val therm = if (counter % 3 == 0) LynxRepository.readThermalZones() else null
-                    val freshClusters = if (counter % 3 == 0) LynxRepository.readClusters() else null
+                    val freshClusters = if (counter == 1 || counter % 3 == 0) LynxRepository.readClusters() else null
 
                     if (tel != null || cores.isNotEmpty() || batt != null || gpu != null || therm != null || procs.isNotEmpty() || (freshClusters != null && freshClusters.isNotEmpty())) {
                         _uiState.update { current ->

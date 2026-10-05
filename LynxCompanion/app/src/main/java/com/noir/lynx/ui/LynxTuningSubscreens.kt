@@ -2843,7 +2843,7 @@ fun TuningMemoryCategory(
                 }
             }
 
-            val ramTotal = (uiState.telemetry?.ramTotalMb ?: 4096).toFloat()
+            val ramTotal = (uiState.telemetry?.ramTotalMb?.takeIf { it > 0 } ?: 4096).toFloat()
             val minZram = 512f
             val maxZram = maxOf(4096f, ramTotal)
             val zramSteps = (((maxZram - minZram) / 512f).toInt() - 1).coerceAtLeast(0)

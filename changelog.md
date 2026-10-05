@@ -1,3 +1,26 @@
+# Lynx [Codename: Deity] 3.0.49
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Perbaikan Menyeluruh Telemetri RAM Fisik & Alokasi ZRAM Swap, Penguatan Arsitektur Dual-Tier Telemetry Engine dengan Cascading Fallback Tanpa Jeda, Rekonstruksi Script Telemetri Shell POSIX Murni, Pendeteksian Dinamis Kolom Proses CPU & Render Grafis, serta Mitigasi Komprehensif Zero-Value State pada Dashboard Utama** — mengatasi kegagalan pembacaan data RAM fisik dan ZRAM swap yang disebabkan oleh sintaks escape shell pada skrip telemetri root; menambahkan ekstraksi data ZRAM dan swap meminfo secara presisi ke dalam struktur JSON telemetri modul; mengimplementasikan arsitektur fallback bertingkat (dual-tier cascading fallback) pada `LynxRepository.readTelemetry()` dan `readClusters()` sehingga sistem secara otomatis beralih ke pembacaan langsung sysfs dan meminfo tanpa menampilkan nilai nol apabila skrip eksternal modul mengalami gangguan; memodernisasi pemindaian baris `top` dan `ps` dengan deteksi header kolom dinamis pada pemantau proses CPU dan thread render grafis; memperluas pemantauan arus dan temperatur baterai untuk arsitektur multi-vendor (termasuk Transsion/MediaTek MT6781); serta memastikan seluruh indikator hardware beroperasi secara akurat dan konsisten pada build debug maupun release.
+
+## Fitur Baru & Peningkatan (3.0.49)
+
+### 1. Perbaikan Kritis & Pemulihan Telemetri RAM & ZRAM Swap
+- **Rekonstruksi Skrip Telemetri Core**: Menghapus seluruh karakter escape ilegal pada `core/lib/telemetry.sh`, memulihkan kompatibilitas POSIX murni di bawah Toybox/sh Android.
+- **Integrasi Penuh Swap & ZRAM**: Menambahkan pembacaan `zram_used_mb`, `zram_total_mb`, `swap_used_mb`, dan `swap_total_mb` secara langsung dari `/proc/meminfo` dan `/proc/swaps` ke dalam payload JSON telemetri berkecepatan tinggi (<10ms).
+- **Sinkronisasi Otomatis Antarmuka**: Menghilangkan status 0 MB pada indikator RAM Fisik dan kartu ZRAM Swap di dashboard beranda serta slider skala alokasi memori virtual.
+
+### 2. Penguatan Arsitektur Dual-Tier Telemetry Engine
+- **Cascading Fallback Otomatis**: Apabila pembacaan skrip modul root tidak menghasilkan data valid atau melaporkan total memori 0 MB, sistem secara instan mengeksekusi parser sysfs inline internal tanpa jeda dan tanpa mengembalikan nilai null.
+- **Topologi Cluster CPU Anti-Gagal**: Memperbarui `readClusters()` dengan mekanisme fallback sysfs bertingkat sehingga informasi cluster CPU tidak akan pernah tertahan pada status 0 Cluster.
+- **Deteksi Baterai Multi-Node**: Memperluas probe arus dan temperatur baterai ke node sekunder (`BatteryAverageCurrent`, `current_avg`, `bms/current_now`, `bms/temp`) guna menjamin akurasi telemetri daya pada chipset MediaTek.
+
+### 3. Pendeteksian Dinamis Kolom Proses CPU & Render Grafis
+- **Parsing Kolom Header Adaptif**: Menggantikan indeks kolom statis dengan penentuan indeks dinamis berdasarkan nama kolom header (`PID`, `%CPU`, `ARGS`/`CMD`), mencegah kegagalan pembacaan pada berbagai varian Android Toybox.
+- **Fallback Layanan Sistem**: Menambahkan fallback inspeksi proses via `ps -A` apabila utilitas `top` tidak menghasilkan baris proses, memastikan daftar proses CPU dan thread render grafis selalu terisi aktif.
+- **Pengambilan Data Iterasi Awal**: Menjamin pemindaian proses dan topologi cluster langsung dieksekusi pada iterasi pertama loop pemantau tanpa harus menunggu jeda awal 3 detik.
+
+---
+
 # Lynx [Codename: Deity] 3.0.48
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Pemisahan Identitas Eksplisit Varian Build Debug & Release, Desain Ikon Adaptif Vektor Mandiri (Cyber Cyan Deity vs Amber Debug Tag), Resolusi Konflik Label Quick Settings Tile, serta Fasilitasi Instalasi Berdampingan Bersih (Side-by-Side Coexistence)** — mengakhiri kebingungan duplikasi aplikasi pada launcher dengan memberikan identitas nama visual terpisah (*Lynx* untuk Release dan *Lynx (Debug)* untuk Debug); mengimplementasikan sistem ikon adaptif modern berbasis vektor Android (API 26+) menggantikan ikon dialog bawaan; menyematkan lencana sudut debug visual dan skema warna oranye pada build pengembang; mengisolasi string nama Quick Settings Tile (*Lynx Profile*, *Lynx HBM*, *Lynx HUD* vs varian Debug); serta menjamin stabilitas instalasi bersamaan antara build produksi dan uji coba tanpa tabrakan resource atau konflik cache.

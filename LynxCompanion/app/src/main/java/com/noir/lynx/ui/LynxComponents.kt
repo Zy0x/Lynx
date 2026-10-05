@@ -2031,8 +2031,8 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
             Column(modifier = Modifier.padding(14.dp)) {
                 val ramProgress = if (tel.ramTotalMb > 0) {
                     (tel.ramUsedMb.toFloat() / tel.ramTotalMb.toFloat()).coerceIn(0f, 1f)
-                } else 0.70f
-                val ramPercent = (ramProgress * 100).toInt()
+                } else 0f
+                val ramPercent = if (tel.ramTotalMb > 0) (ramProgress * 100).toInt() else 0
                 val freeRamMb = (tel.ramTotalMb - tel.ramUsedMb).coerceAtLeast(0)
 
                 // ── 1. BAR RAM FISIK (Dominan & Menonjol) ────────────

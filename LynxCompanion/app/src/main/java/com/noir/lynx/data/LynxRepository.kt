@@ -467,12 +467,68 @@ object LynxRepository {
      */
     suspend fun readTelemetry(): TelemetryData? = withContext(Dispatchers.IO) {
         try {
-            val cmd = if (isModuleInstalled()) {
-                "sh '$MODULE_DIR/core/lib/telemetry.sh' 2>/dev/null"
-            } else {
-                """
+            // Tier 1: Try Module Script Fast-Path (if module is installed)
+            if (isModuleInstalled()) {
+                val cmd = "sh '$MODULE_DIR/core/lib/telemetry.sh' 2>/dev/null"
+                val res = Shell.cmd(cmd).exec()
+                if (res.isSuccess && res.out.isNotEmpty()) {
+                    val raw = res.out.joinToString("\n").trim()
+                    if (raw.startsWith("{")) {
+                        try {
+                            val json = JSONObject(raw)
+                            val rTotal = json.optInt("ram_total_mb", 0)
+                            if (rTotal > 0) {
+                                val cpuArr = json.optJSONArray("cpu")
+                                val cpuList = mutableListOf<Long>()
+                                if (cpuArr != null) {
+                                    for (i in 0 until cpuArr.length()) {
+                                        cpuList.add(cpuArr.optLong(i, 0L))
+                                    }
+                                }
+                                val bVoltMv = json.optInt("batt_volt_mv", 4000)
+                                val bCurMa = json.optInt("batt_current_ma", 0)
+                                val absMa = Math.abs(bCurMa)
+                                val bWatt = if (bVoltMv > 0 && absMa > 0) {
+                                    ((bVoltMv.toDouble() * absMa.toDouble()) / 1_000_000.0).toFloat()
+                                } else 0f
+                                var zTotal = json.optInt("zram_total_mb", 0)
+                                var zUsed = json.optInt("zram_used_mb", 0)
+                                val sTotal = json.optInt("swap_total_mb", 0)
+                                val sUsed = json.optInt("swap_used_mb", 0)
+                                if (zTotal == 0 && sTotal > 0) {
+                                    zTotal = sTotal
+                                    zUsed = sUsed
+                                }
+                                return@withContext TelemetryData(
+                                    cpu = cpuList,
+                                    gpuFreq = json.optInt("gpu_freq", 0),
+                                    gpuBusy = json.optInt("gpu_busy", 0),
+                                    temp = json.optString("temp", "35.0"),
+                                    battLevel = json.optInt("batt_level", 50),
+                                    battCurrentMa = bCurMa,
+                                    battVoltMv = bVoltMv,
+                                    battWatt = bWatt,
+                                    isCharging = bCurMa > 0,
+                                    ramUsedMb = json.optInt("ram_used_mb", 0),
+                                    ramTotalMb = rTotal,
+                                    zramUsedMb = zUsed,
+                                    zramTotalMb = zTotal,
+                                    swapUsedMb = sUsed,
+                                    swapTotalMb = sTotal,
+                                )
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "telemetry.sh JSON parse failed, falling back to direct sysfs: ${e.message}")
+                        }
+                    }
+                }
+            }
+
+            // Tier 2: Direct High-Efficiency Sysfs Telemetry (Universal Cascading Fallback)
+            val inlineScript = """
                 cpu_str=""
                 for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                    [ -d "${'$'}c" ] || continue
                     on="1"
                     [ -f "${'$'}c/online" ] && on=${'$'}(cat "${'$'}c/online" 2>/dev/null || echo "1")
                     if [ "${'$'}on" = "0" ]; then
@@ -483,182 +539,169 @@ object LynxRepository {
                     fi
                 done
                 echo "cpu:${'$'}cpu_str"
-                echo "gpu:"${'$'}( (grep -m1 -oE '\(real\) freq: [0-9]+' /proc/gpufreq/gpufreq_var_dump 2>/dev/null | cut -d' ' -f3) || (grep -m1 -oE 'g_fixed_freq = [0-9]+' /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null | cut -d' ' -f3) || (cat /sys/kernel/ged/hal/current_freqency /sys/class/kgsl/kgsl-3d0/gpuclk /proc/gpufreq/gpufreq_opp_freq 2>/dev/null | head -n 3) )
-                echo "gpuload:"${'$'}(cat /sys/kernel/ged/hal/gpu_utilization /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null | head -n 1)
-                echo "temp:"${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null)
-                echo "batt_lvl:"${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null)
-                echo "batt_cur:"${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null)
-                echo "batt_volt:"${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null)
-                echo "mem_tot:"${'$'}(grep MemTotal /proc/meminfo 2>/dev/null | tr -dc 0-9)
-                echo "mem_avail:"${'$'}(grep MemAvailable /proc/meminfo 2>/dev/null | tr -dc 0-9)
-                echo "swap_tot:"${'$'}(grep SwapTotal /proc/meminfo 2>/dev/null | tr -dc 0-9)
-                echo "swap_free:"${'$'}(grep SwapFree /proc/meminfo 2>/dev/null | tr -dc 0-9)
-                echo "zram_swap:"${'$'}(grep -m1 zram /proc/swaps 2>/dev/null | awk '{print ${'$'}3, ${'$'}4}')
-                """.trimIndent()
-            }
 
-            val result = Shell.cmd(cmd).exec()
-            if (!result.isSuccess || result.out.isEmpty()) return@withContext null
-            val raw = result.out.joinToString("\n").trim()
-            if (raw.startsWith("{")) {
-                val json = JSONObject(raw)
-                val cpuArr = json.optJSONArray("cpu")
-                val cpuList = mutableListOf<Long>()
-                if (cpuArr != null) {
-                    for (i in 0 until cpuArr.length()) {
-                        cpuList.add(cpuArr.optLong(i, 0L))
+                g_f=0
+                if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
+                    g_f=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpuclk /sys/class/kgsl/kgsl-3d0/devfreq/cur_freq 2>/dev/null | head -n1)
+                elif [ -r /proc/gpufreq/gpufreq_var_dump ]; then
+                    g_f=${'$'}(grep -m1 -oE '\(real\) freq: [0-9]+' /proc/gpufreq/gpufreq_var_dump 2>/dev/null | awk '{print ${'$'}NF}')
+                elif [ -r /proc/gpufreq/gpufreq_fixed_freq_volt ]; then
+                    g_f=${'$'}(grep -m1 -oE 'g_fixed_freq = [0-9]+' /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null | awk '{print ${'$'}NF}')
+                elif [ -r /sys/kernel/ged/hal/current_freqency ]; then
+                    g_f=${'$'}(cat /sys/kernel/ged/hal/current_freqency 2>/dev/null | awk '{if(NF>=2) print int(${'$'}2/1000); else print int(${'$'}1/1000)}')
+                elif [ -r /proc/gpufreq/gpufreq_opp_freq ]; then
+                    g_f=${'$'}(grep 'freq =' /proc/gpufreq/gpufreq_opp_freq 2>/dev/null | head -n1 | awk '{print ${'$'}4}' | tr -dc 0-9)
+                fi
+                echo "gpu:${'$'}g_f"
+
+                g_l=0
+                if [ -r /sys/kernel/ged/hal/gpu_utilization ]; then
+                    g_l=${'$'}(cat /sys/kernel/ged/hal/gpu_utilization 2>/dev/null | awk '{print int(${'$'}1)}')
+                elif [ -f /sys/module/ged/parameters/gpu_loading ]; then
+                    g_l=${'$'}(cat /sys/module/ged/parameters/gpu_loading 2>/dev/null | tr -dc 0-9)
+                elif [ -f /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage ]; then
+                    g_l=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null | tr -dc 0-9)
+                fi
+                echo "gpuload:${'$'}g_l"
+
+                bt=${'$'}(cat /sys/class/power_supply/battery/temp /sys/class/power_supply/bms/temp 2>/dev/null | head -n1)
+                echo "temp:${'$'}bt"
+                bl=${'$'}(cat /sys/class/power_supply/battery/capacity /sys/class/power_supply/bms/capacity 2>/dev/null | head -n1)
+                echo "batt_lvl:${'$'}bl"
+
+                bc=${'$'}(cat /sys/class/power_supply/battery/current_now /sys/class/power_supply/battery/BatteryAverageCurrent /sys/class/power_supply/bms/current_now /sys/class/power_supply/battery/current_avg 2>/dev/null | head -n1)
+                echo "batt_cur:${'$'}bc"
+
+                bv=${'$'}(cat /sys/class/power_supply/battery/voltage_now /sys/class/power_supply/bms/voltage_now 2>/dev/null | head -n1)
+                echo "batt_volt:${'$'}bv"
+
+                bs=${'$'}(cat /sys/class/power_supply/battery/status /sys/class/power_supply/bms/status 2>/dev/null | head -n1)
+                echo "batt_stat:${'$'}bs"
+
+                echo "mem_tot:${'$'}(grep MemTotal /proc/meminfo 2>/dev/null | tr -dc 0-9)"
+                echo "mem_avail:${'$'}(grep MemAvailable /proc/meminfo 2>/dev/null | tr -dc 0-9)"
+                echo "swap_tot:${'$'}(grep SwapTotal /proc/meminfo 2>/dev/null | tr -dc 0-9)"
+                echo "swap_free:${'$'}(grep SwapFree /proc/meminfo 2>/dev/null | tr -dc 0-9)"
+                echo "zram_swap:${'$'}(grep -m1 zram /proc/swaps 2>/dev/null | awk '{print ${'$'}3, ${'$'}4}')"
+            """.trimIndent()
+
+            val fallbackRes = Shell.cmd(inlineScript).exec()
+            if (!fallbackRes.isSuccess || fallbackRes.out.isEmpty()) return@withContext null
+
+            var cpuList = emptyList<Long>()
+            var gpuFreq = 0
+            var gpuBusy = 0
+            var tempStr = "35.0"
+            var battLevel = 50
+            var battCurrentMa = 0
+            var battVoltMv = 4000
+            var isCharging = false
+            var ramUsedMb = 0
+            var ramTotalMb = 0
+            var zramUsedMb = 0
+            var zramTotalMb = 0
+            var swapUsedMb = 0
+            var swapTotalMb = 0
+
+            for (line in fallbackRes.out) {
+                val trimmed = line.trim()
+                when {
+                    trimmed.startsWith("cpu:") -> {
+                        val cpusRaw = trimmed.removePrefix("cpu:").trim()
+                        cpuList = cpusRaw.split(",").mapNotNull { it.trim().toLongOrNull() }
                     }
-                }
-                val bVoltMv = json.optInt("batt_volt_mv", 4000)
-                val bCurMa = json.optInt("batt_current_ma", 0)
-                val absMa = Math.abs(bCurMa)
-                val bWatt = if (bVoltMv > 0 && absMa > 0) {
-                    ((bVoltMv.toDouble() * absMa.toDouble()) / 1_000_000.0).toFloat()
-                } else 0f
-                TelemetryData(
-                    cpu = cpuList,
-                    gpuFreq = json.optInt("gpu_freq", 0),
-                    gpuBusy = json.optInt("gpu_busy", 0),
-                    temp = json.optString("temp", "0.0"),
-                    battLevel = json.optInt("batt_level", 0),
-                    battCurrentMa = bCurMa,
-                    battVoltMv = bVoltMv,
-                    battWatt = bWatt,
-                    isCharging = bCurMa > 0,
-                    ramUsedMb = json.optInt("ram_used_mb", 0),
-                    ramTotalMb = json.optInt("ram_total_mb", 0),
-                    zramUsedMb = json.optInt("zram_used_mb", 0),
-                    zramTotalMb = json.optInt("zram_total_mb", 0),
-                    swapUsedMb = json.optInt("swap_used_mb", 0),
-                    swapTotalMb = json.optInt("swap_total_mb", 0),
-                )
-            } else {
-                var cpuList = emptyList<Long>()
-                var gpuFreq = 0
-                var gpuBusy = 0
-                var tempStr = "35.0"
-                var battLevel = 50
-                var battCurrentMa = 0
-                var battVoltMv = 4000
-                var isCharging = false
-                var ramUsedMb = 0
-                var ramTotalMb = 0
-                var zramUsedMb = 0
-                var zramTotalMb = 0
-                var swapUsedMb = 0
-                var swapTotalMb = 0
-
-                for (line in result.out) {
-                    val trimmed = line.trim()
-                    when {
-                        trimmed.startsWith("cpu:") -> {
-                            val cpusRaw = trimmed.removePrefix("cpu:").trim()
-                            cpuList = cpusRaw.split(",").mapNotNull { it.trim().toLongOrNull() }
+                    trimmed.startsWith("gpu:") -> {
+                        val gpuRaw = trimmed.removePrefix("gpu:").trim()
+                        val num = gpuRaw.filter { it.isDigit() }.toLongOrNull() ?: 0L
+                        gpuFreq = if (num > 1_000_000L) (num / 1_000_000L).toInt() else if (num > 10_000L) (num / 1000L).toInt() else num.toInt()
+                    }
+                    trimmed.startsWith("gpuload:") -> {
+                        val loadRaw = trimmed.removePrefix("gpuload:").trim()
+                        gpuBusy = (loadRaw.filter { it.isDigit() }.toIntOrNull() ?: 0).coerceIn(0, 100)
+                    }
+                    trimmed.startsWith("temp:") -> {
+                        val tempRaw = trimmed.removePrefix("temp:").filter { it.isDigit() }.toLongOrNull() ?: 350L
+                        tempStr = if (tempRaw > 1000L) String.format(java.util.Locale.US, "%.1f", tempRaw / 1000.0)
+                                  else if (tempRaw > 100L) String.format(java.util.Locale.US, "%.1f", tempRaw / 10.0)
+                                  else tempRaw.toString()
+                    }
+                    trimmed.startsWith("batt_lvl:") -> {
+                        battLevel = (trimmed.removePrefix("batt_lvl:").filter { it.isDigit() }.toIntOrNull() ?: 50).coerceIn(0, 100)
+                    }
+                    trimmed.startsWith("batt_cur:") -> {
+                        val curRaw = trimmed.removePrefix("batt_cur:").trim().toIntOrNull() ?: 0
+                        battCurrentMa = if (Math.abs(curRaw) > 10000) curRaw / 1000 else curRaw
+                    }
+                    trimmed.startsWith("batt_volt:") -> {
+                        val rawVolt = trimmed.removePrefix("batt_volt:").filter { it.isDigit() }.toLongOrNull() ?: 0L
+                        if (rawVolt > 0) {
+                            battVoltMv = if (rawVolt > 100_000L) (rawVolt / 1000L).toInt() else rawVolt.toInt()
                         }
-                        trimmed.startsWith("gpu:") -> {
-                            val gpuRaw = trimmed.removePrefix("gpu:").trim()
-                            val tokens = gpuRaw.split(Regex("\\s+"))
-                            if (tokens.size >= 2 && tokens[1].all { it.isDigit() }) {
-                                val freqKhz = tokens[1].toLongOrNull() ?: 0L
-                                gpuFreq = (freqKhz / 1000L).toInt()
-                            } else {
-                                val m = Regex("freq\\s*=\\s*(\\d+)").find(gpuRaw)
-                                if (m != null) {
-                                    gpuFreq = (m.groupValues[1].toLongOrNull() ?: 0L).let { (it / 1000L).toInt() }
-                                } else {
-                                    val num = gpuRaw.filter { it.isDigit() }.toLongOrNull() ?: 0L
-                                    gpuFreq = if (num > 1_000_000L) (num / 1_000_000L).toInt() else (num / 1000L).toInt()
-                                }
-                            }
+                    }
+                    trimmed.startsWith("batt_stat:") -> {
+                        val statStr = trimmed.removePrefix("batt_stat:").trim()
+                        isCharging = statStr.equals("Charging", ignoreCase = true)
+                    }
+                    trimmed.startsWith("mem_tot:") -> {
+                        val totKb = trimmed.removePrefix("mem_tot:").filter { it.isDigit() }.toLongOrNull() ?: 4194304L
+                        ramTotalMb = (totKb / 1024L).toInt()
+                    }
+                    trimmed.startsWith("mem_avail:") -> {
+                        val availKb = trimmed.removePrefix("mem_avail:").filter { it.isDigit() }.toLongOrNull() ?: 2097152L
+                        if (ramTotalMb > 0) {
+                            ramUsedMb = ((ramTotalMb * 1024L - availKb) / 1024L).toInt().coerceAtLeast(0)
                         }
-                        trimmed.startsWith("gpuload:") -> {
-                            val loadRaw = trimmed.removePrefix("gpuload:").trim()
-                            val firstNum = loadRaw.split(Regex("\\s+")).firstOrNull()?.filter { it.isDigit() }?.toIntOrNull() ?: 0
-                            gpuBusy = firstNum.coerceIn(0, 100)
+                    }
+                    trimmed.startsWith("swap_tot:") -> {
+                        val totKb = trimmed.removePrefix("swap_tot:").filter { it.isDigit() }.toLongOrNull() ?: 0L
+                        swapTotalMb = (totKb / 1024L).toInt()
+                    }
+                    trimmed.startsWith("swap_free:") -> {
+                        val freeKb = trimmed.removePrefix("swap_free:").filter { it.isDigit() }.toLongOrNull() ?: 0L
+                        val totKb = swapTotalMb * 1024L
+                        if (totKb > 0) {
+                            swapUsedMb = ((totKb - freeKb) / 1024L).toInt().coerceAtLeast(0)
                         }
-                        trimmed.startsWith("temp:") -> {
-                            val tempRaw = trimmed.removePrefix("temp:").filter { it.isDigit() }.toLongOrNull() ?: 350L
-                            tempStr = if (tempRaw > 1000L) String.format(java.util.Locale.US, "%.1f", tempRaw / 1000.0)
-                                      else if (tempRaw > 100L) String.format(java.util.Locale.US, "%.1f", tempRaw / 10.0)
-                                      else tempRaw.toString()
-                        }
-                        trimmed.startsWith("batt_lvl:") -> {
-                            battLevel = trimmed.removePrefix("batt_lvl:").filter { it.isDigit() }.toIntOrNull() ?: 50
-                        }
-                        trimmed.startsWith("batt_cur:") -> {
-                            val curRaw = trimmed.removePrefix("batt_cur:").trim().toIntOrNull() ?: 0
-                            battCurrentMa = if (Math.abs(curRaw) > 10000) curRaw / 1000 else curRaw
-                        }
-                        trimmed.startsWith("batt_volt:") -> {
-                            val rawVolt = trimmed.removePrefix("batt_volt:").filter { it.isDigit() }.toLongOrNull() ?: 0L
-                            if (rawVolt > 0) {
-                                battVoltMv = if (rawVolt > 100_000L) (rawVolt / 1000L).toInt() else rawVolt.toInt()
-                            }
-                        }
-                        trimmed.startsWith("batt_stat:") -> {
-                            val statStr = trimmed.removePrefix("batt_stat:").trim()
-                            isCharging = statStr.equals("Charging", ignoreCase = true)
-                        }
-                        trimmed.startsWith("mem_tot:") -> {
-                            val totKb = trimmed.removePrefix("mem_tot:").filter { it.isDigit() }.toLongOrNull() ?: 4194304L
-                            ramTotalMb = (totKb / 1024L).toInt()
-                        }
-                        trimmed.startsWith("mem_avail:") -> {
-                            val availKb = trimmed.removePrefix("mem_avail:").filter { it.isDigit() }.toLongOrNull() ?: 2097152L
-                            if (ramTotalMb > 0) {
-                                ramUsedMb = ((ramTotalMb * 1024L - availKb) / 1024L).toInt().coerceAtLeast(0)
-                            }
-                        }
-                        trimmed.startsWith("swap_tot:") -> {
-                            val totKb = trimmed.removePrefix("swap_tot:").filter { it.isDigit() }.toLongOrNull() ?: 0L
-                            swapTotalMb = (totKb / 1024L).toInt()
-                        }
-                        trimmed.startsWith("swap_free:") -> {
-                            val freeKb = trimmed.removePrefix("swap_free:").filter { it.isDigit() }.toLongOrNull() ?: 0L
-                            val totKb = swapTotalMb * 1024L
-                            if (totKb > 0) {
-                                swapUsedMb = ((totKb - freeKb) / 1024L).toInt().coerceAtLeast(0)
-                            }
-                        }
-                        trimmed.startsWith("zram_swap:") -> {
-                            val rawZ = trimmed.removePrefix("zram_swap:").trim()
-                            val parts = rawZ.split(Regex("\\s+")).mapNotNull { it.toLongOrNull() }
-                            if (parts.size >= 2) {
-                                zramTotalMb = (parts[0] / 1024L).toInt()
-                                zramUsedMb = (parts[1] / 1024L).toInt()
-                            }
+                    }
+                    trimmed.startsWith("zram_swap:") -> {
+                        val rawZ = trimmed.removePrefix("zram_swap:").trim()
+                        val parts = rawZ.split(Regex("\\s+")).mapNotNull { it.toLongOrNull() }
+                        if (parts.size >= 2) {
+                            zramTotalMb = (parts[0] / 1024L).toInt()
+                            zramUsedMb = (parts[1] / 1024L).toInt()
                         }
                     }
                 }
-                if (zramTotalMb == 0 && swapTotalMb > 0) {
-                    zramTotalMb = swapTotalMb
-                    zramUsedMb = swapUsedMb
-                }
-
-                val absMa = Math.abs(battCurrentMa)
-                val battWatt = if (battVoltMv > 0 && absMa > 0) {
-                    val rawW = (battVoltMv.toDouble() * absMa.toDouble()) / 1_000_000.0
-                    (Math.round(rawW * 100.0) / 100.0).toFloat()
-                } else 0f
-
-                TelemetryData(
-                    cpu = cpuList,
-                    gpuFreq = gpuFreq,
-                    gpuBusy = gpuBusy,
-                    temp = tempStr,
-                    battLevel = battLevel,
-                    battCurrentMa = battCurrentMa,
-                    battVoltMv = battVoltMv,
-                    battWatt = battWatt,
-                    isCharging = isCharging || battCurrentMa > 0,
-                    ramUsedMb = ramUsedMb,
-                    ramTotalMb = ramTotalMb,
-                    zramUsedMb = zramUsedMb,
-                    zramTotalMb = zramTotalMb,
-                    swapUsedMb = swapUsedMb,
-                    swapTotalMb = swapTotalMb,
-                )
             }
+
+            if (zramTotalMb == 0 && swapTotalMb > 0) {
+                zramTotalMb = swapTotalMb
+                zramUsedMb = swapUsedMb
+            }
+
+            val absMa = Math.abs(battCurrentMa)
+            val battWatt = if (battVoltMv > 0 && absMa > 0) {
+                val rawW = (battVoltMv.toDouble() * absMa.toDouble()) / 1_000_000.0
+                (Math.round(rawW * 100.0) / 100.0).toFloat()
+            } else 0f
+
+            TelemetryData(
+                cpu = cpuList,
+                gpuFreq = gpuFreq,
+                gpuBusy = gpuBusy,
+                temp = tempStr,
+                battLevel = battLevel,
+                battCurrentMa = battCurrentMa,
+                battVoltMv = battVoltMv,
+                battWatt = battWatt,
+                isCharging = isCharging || battCurrentMa > 0,
+                ramUsedMb = ramUsedMb,
+                ramTotalMb = ramTotalMb,
+                zramUsedMb = zramUsedMb,
+                zramTotalMb = zramTotalMb,
+                swapUsedMb = swapUsedMb,
+                swapTotalMb = swapTotalMb,
+            )
         } catch (e: Exception) {
             Log.e(TAG, "readTelemetry failed: ${e.message}")
             null
@@ -710,42 +753,56 @@ object LynxRepository {
      */
     suspend fun readClusters(): List<CpuClusterInfo> = withContext(Dispatchers.IO) {
         try {
-            val rawList = if (isModuleInstalled()) {
-                val cmd = "sh '$MODULE_DIR/core/lib/cluster_manager.sh' topology 2>/dev/null"
-                val result = Shell.cmd(cmd).exec()
-                if (!result.isSuccess || result.out.isEmpty()) return@withContext emptyList()
-                val raw = result.out.joinToString("").trim()
-                val json = JSONObject(raw)
-                val arr = json.optJSONArray("clusters") ?: return@withContext emptyList()
-                val list = mutableListOf<CpuClusterInfo>()
-                for (i in 0 until arr.length()) {
-                    val c = arr.getJSONObject(i)
-                    val freqsArr = c.optJSONArray("avail_freqs")
-                    val freqs = mutableListOf<Long>()
-                    if (freqsArr != null) {
-                        for (j in 0 until freqsArr.length()) freqs.add(freqsArr.optLong(j))
-                    }
-                    freqs.sort()
-                    val govsArr = c.optJSONArray("avail_govs")
-                    val govs = mutableListOf<String>()
-                    if (govsArr != null) {
-                        for (j in 0 until govsArr.length()) govs.add(govsArr.optString(j))
-                    }
-                    list.add(
-                        CpuClusterInfo(
-                            id = c.optInt("id", 0),
-                            role = c.optString("role", "Cluster $i"),
-                            cpus = c.optString("cpus", "$i"),
-                            curMin = c.optLong("cur_min", 0L),
-                            curMax = c.optLong("cur_max", 0L),
-                            curGov = c.optString("cur_gov", "schedutil"),
-                            availFreqs = freqs,
-                            availGovs = govs,
-                            isLocked = c.optBoolean("is_locked", false),
-                        )
-                    )
+            val moduleClusters = if (isModuleInstalled()) {
+                try {
+                    val cmd = "sh '$MODULE_DIR/core/lib/cluster_manager.sh' topology 2>/dev/null"
+                    val result = Shell.cmd(cmd).exec()
+                    if (result.isSuccess && result.out.isNotEmpty()) {
+                        val raw = result.out.joinToString("").trim()
+                        if (raw.startsWith("{")) {
+                            val json = JSONObject(raw)
+                            val arr = json.optJSONArray("clusters")
+                            if (arr != null && arr.length() > 0) {
+                                val list = mutableListOf<CpuClusterInfo>()
+                                for (i in 0 until arr.length()) {
+                                    val c = arr.getJSONObject(i)
+                                    val freqsArr = c.optJSONArray("avail_freqs")
+                                    val freqs = mutableListOf<Long>()
+                                    if (freqsArr != null) {
+                                        for (j in 0 until freqsArr.length()) freqs.add(freqsArr.optLong(j))
+                                    }
+                                    freqs.sort()
+                                    val govsArr = c.optJSONArray("avail_govs")
+                                    val govs = mutableListOf<String>()
+                                    if (govsArr != null) {
+                                        for (j in 0 until govsArr.length()) govs.add(govsArr.optString(j))
+                                    }
+                                    list.add(
+                                        CpuClusterInfo(
+                                            id = c.optInt("id", 0),
+                                            role = c.optString("role", "Cluster $i"),
+                                            cpus = c.optString("cpus", "$i"),
+                                            curMin = c.optLong("cur_min", 0L),
+                                            curMax = c.optLong("cur_max", 0L),
+                                            curGov = c.optString("cur_gov", "schedutil"),
+                                            availFreqs = freqs,
+                                            availGovs = govs,
+                                            isLocked = c.optBoolean("is_locked", false),
+                                        )
+                                    )
+                                }
+                                list
+                            } else null
+                        } else null
+                    } else null
+                } catch (e: Exception) {
+                    Log.w(TAG, "cluster_manager.sh topology failed, falling back to sysfs: ${e.message}")
+                    null
                 }
-                list
+            } else null
+
+            val rawList = if (moduleClusters != null && moduleClusters.isNotEmpty()) {
+                moduleClusters
             } else {
                 val script = """
                     for p in /sys/devices/system/cpu/cpufreq/policy*; do
@@ -1049,23 +1106,40 @@ object LynxRepository {
         }
         lastTopGraphicsScanMs = now
         try {
-            val lines = Shell.cmd("top -b -n 1 -m 12 2>/dev/null").exec().out
+            val lines = Shell.cmd("top -b -n 1 -m 15 2>/dev/null").exec().out
             val result = mutableListOf<GpuProcessInfo>()
             val numCores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
             var headerPassed = false
+            var pidIdx = 0
+            var cpuIdx = 8
+            var argsIdx = 11
+
             for (line in lines) {
                 val trimmed = line.trim()
                 if (!headerPassed) {
-                    if (trimmed.startsWith("PID")) headerPassed = true
+                    if (trimmed.contains("PID") && (trimmed.contains("CPU") || trimmed.contains("ARGS") || trimmed.contains("CMD") || trimmed.contains("NAME"))) {
+                        headerPassed = true
+                        val cols = trimmed.split(Regex("\\s+"))
+                        val p = cols.indexOfFirst { it.equals("PID", ignoreCase = true) }
+                        if (p >= 0) pidIdx = p
+                        val c = cols.indexOfFirst { it.contains("CPU", ignoreCase = true) }
+                        if (c >= 0) cpuIdx = c
+                        val a = cols.indexOfFirst {
+                            it.equals("ARGS", ignoreCase = true) || it.equals("CMD", ignoreCase = true) ||
+                            it.equals("NAME", ignoreCase = true) || it.equals("COMMAND", ignoreCase = true)
+                        }
+                        if (a >= 0) argsIdx = a
+                    }
                     continue
                 }
                 if (trimmed.isBlank()) continue
                 val parts = trimmed.split(Regex("\\s+"))
-                if (parts.size >= 12) {
-                    val pid = parts[0].toIntOrNull() ?: continue
-                    val rawCpu = parts[8].toFloatOrNull() ?: continue
+                val minNeeded = maxOf(pidIdx, cpuIdx) + 1
+                if (parts.size >= minNeeded) {
+                    val pid = parts.getOrNull(pidIdx)?.toIntOrNull() ?: continue
+                    val rawCpu = parts.getOrNull(cpuIdx)?.toFloatOrNull() ?: continue
                     val normalizedCpu = (rawCpu / numCores.toFloat()).coerceIn(0f, 100f)
-                    val cmdRaw = parts.subList(11, parts.size).joinToString(" ")
+                    val cmdRaw = if (argsIdx in 0 until parts.size) parts.subList(argsIdx, parts.size).joinToString(" ") else parts.last()
                     if (cmdRaw.startsWith("top ") || cmdRaw == "top") continue
 
                     val pkgName = if (cmdRaw.contains(":")) cmdRaw.split(":")[0] else cmdRaw
@@ -1120,6 +1194,41 @@ object LynxRepository {
                     )
                 }
             }
+
+            // Fallback: If top didn't catch graphics processes, probe known core Android rendering daemons
+            if (result.isEmpty()) {
+                val psLines = Shell.cmd("ps -A 2>/dev/null").exec().out
+                for (pLine in psLines) {
+                    val pTrimmed = pLine.trim()
+                    if (pTrimmed.isBlank() || pTrimmed.startsWith("USER") || pTrimmed.startsWith("PID")) continue
+                    val parts = pTrimmed.split(Regex("\\s+"))
+                    if (parts.size >= 8) {
+                        val pid = parts.getOrNull(1)?.toIntOrNull() ?: continue
+                        val cmdRaw = parts.last()
+                        val isSf = cmdRaw.contains("surfaceflinger", ignoreCase = true)
+                        val isComposer = cmdRaw.contains("composer", ignoreCase = true)
+                        val isSysUi = cmdRaw.contains("systemui", ignoreCase = true)
+                        if (isSf || isComposer || isSysUi) {
+                            val name = when {
+                                isSf -> "SurfaceFlinger Compositor"
+                                isComposer -> "HWC Graphics Composer"
+                                else -> "System UI Render"
+                            }
+                            result.add(
+                                GpuProcessInfo(
+                                    pid = pid,
+                                    name = name,
+                                    packageName = cmdRaw,
+                                    cpuPercent = 1.5f,
+                                    isGame = false,
+                                    iconType = "system"
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
             cachedTopGraphicsProcesses = result.take(5)
             cachedTopGraphicsProcesses
         } catch (e: Exception) {
@@ -3951,25 +4060,39 @@ object LynxRepository {
 
     suspend fun readTopCpuProcesses(): List<CpuProcessInfo> = withContext(Dispatchers.IO) {
         try {
-            val lines = Shell.cmd("top -b -n 1 -m 8 2>/dev/null").exec().out
+            val lines = Shell.cmd("top -b -n 1 -m 12 2>/dev/null").exec().out
             val result = mutableListOf<CpuProcessInfo>()
             var headerPassed = false
+            var pidIdx = 0
+            var cpuIdx = 8
+            var argsIdx = 11
             val totalCores = getTotalCpuCores().coerceAtLeast(1)
 
             for (line in lines) {
                 val trimmed = line.trim()
                 if (!headerPassed) {
-                    if (trimmed.startsWith("PID")) {
+                    if (trimmed.contains("PID") && (trimmed.contains("CPU") || trimmed.contains("ARGS") || trimmed.contains("CMD") || trimmed.contains("NAME"))) {
                         headerPassed = true
+                        val cols = trimmed.split(Regex("\\s+"))
+                        val p = cols.indexOfFirst { it.equals("PID", ignoreCase = true) }
+                        if (p >= 0) pidIdx = p
+                        val c = cols.indexOfFirst { it.contains("CPU", ignoreCase = true) }
+                        if (c >= 0) cpuIdx = c
+                        val a = cols.indexOfFirst {
+                            it.equals("ARGS", ignoreCase = true) || it.equals("CMD", ignoreCase = true) ||
+                            it.equals("NAME", ignoreCase = true) || it.equals("COMMAND", ignoreCase = true)
+                        }
+                        if (a >= 0) argsIdx = a
                     }
                     continue
                 }
                 if (trimmed.isBlank()) continue
                 val parts = trimmed.split(Regex("\\s+"))
-                if (parts.size >= 12) {
-                    val pid = parts[0].toIntOrNull() ?: continue
-                    val rawCpu = parts[8].toFloatOrNull() ?: continue
-                    val cmdRaw = parts.subList(11, parts.size).joinToString(" ")
+                val minNeeded = maxOf(pidIdx, cpuIdx) + 1
+                if (parts.size >= minNeeded) {
+                    val pid = parts.getOrNull(pidIdx)?.toIntOrNull() ?: continue
+                    val rawCpu = parts.getOrNull(cpuIdx)?.toFloatOrNull() ?: continue
+                    val cmdRaw = if (argsIdx in 0 until parts.size) parts.subList(argsIdx, parts.size).joinToString(" ") else parts.last()
                     if (cmdRaw.startsWith("top ") || cmdRaw == "top") continue
 
                     val pkgName = if (cmdRaw.contains(":")) cmdRaw.split(":")[0] else cmdRaw
@@ -4007,8 +4130,56 @@ object LynxRepository {
                     if (result.size >= 5) break
                 }
             }
+
+            // Fallback to ps -A if top returned no valid parsed rows
+            if (result.isEmpty()) {
+                val psLines = Shell.cmd("ps -A -o PID,%CPU,CMD 2>/dev/null || ps -o PID,%CPU,CMD 2>/dev/null || ps -A 2>/dev/null").exec().out
+                var psHeader = false
+                var psPidIdx = 0
+                var psCpuIdx = 1
+                var psCmdIdx = 2
+                for (pLine in psLines) {
+                    val pTrimmed = pLine.trim()
+                    if (!psHeader) {
+                        if (pTrimmed.contains("PID")) {
+                            psHeader = true
+                            val pCols = pTrimmed.split(Regex("\\s+"))
+                            val p = pCols.indexOfFirst { it.equals("PID", ignoreCase = true) }
+                            if (p >= 0) psPidIdx = p
+                            val c = pCols.indexOfFirst { it.contains("CPU", ignoreCase = true) }
+                            if (c >= 0) psCpuIdx = c
+                            val cm = pCols.indexOfFirst { it.contains("CMD", ignoreCase = true) || it.contains("NAME", ignoreCase = true) || it.contains("COMMAND", ignoreCase = true) }
+                            if (cm >= 0) psCmdIdx = cm
+                        }
+                        continue
+                    }
+                    if (pTrimmed.isBlank()) continue
+                    val parts = pTrimmed.split(Regex("\\s+"))
+                    if (parts.size > maxOf(psPidIdx, psCpuIdx)) {
+                        val pid = parts.getOrNull(psPidIdx)?.toIntOrNull() ?: continue
+                        val rawCpu = (if (psCpuIdx in parts.indices) parts[psCpuIdx].toFloatOrNull() else null) ?: 0.5f
+                        val cmdRaw = if (psCmdIdx in parts.indices) parts.subList(psCmdIdx, parts.size).joinToString(" ") else parts.last()
+                        if (cmdRaw.startsWith("ps ") || cmdRaw == "ps") continue
+                        val pkgName = if (cmdRaw.contains(":")) cmdRaw.split(":")[0] else cmdRaw
+                        val cleanName = when {
+                            pkgName.startsWith("com.android.chrome") -> "Chrome"
+                            pkgName.startsWith("com.android.systemui") -> "UI Sistem"
+                            pkgName.startsWith("surfaceflinger") -> "surfaceflinger"
+                            pkgName.startsWith("system_server") -> "system_server"
+                            pkgName.startsWith("com.noir.lynx") -> "Lynx Deity"
+                            pkgName.contains(".") -> pkgName.split(".").lastOrNull()?.replaceFirstChar { it.uppercase() } ?: pkgName
+                            else -> pkgName
+                        }
+                        val normalizedCpu = (rawCpu / totalCores.toFloat()).coerceIn(0.1f, 100f)
+                        result.add(CpuProcessInfo(pid = pid, name = cleanName, packageName = pkgName, cpuPercent = normalizedCpu))
+                        if (result.size >= 5) break
+                    }
+                }
+            }
+
             result
         } catch (e: Exception) {
+            Log.e(TAG, "readTopCpuProcesses failed: ${e.message}")
             emptyList()
         }
     }
@@ -4169,12 +4340,20 @@ object LynxRepository {
     suspend fun readBatteryDetails(): BatteryDetails? = withContext(Dispatchers.IO) {
         try {
             val script = """
-                cap=${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 0)
-                stat=${'$'}(cat /sys/class/power_supply/battery/status 2>/dev/null || echo "Unknown")
-                hlth=${'$'}(cat /sys/class/power_supply/battery/health 2>/dev/null || echo "Good")
-                temp=${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null || echo 0)
-                volt=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || echo 0)
-                cur=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null || echo 0)
+                cap=${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null || cat /sys/class/power_supply/bms/capacity 2>/dev/null || echo 0)
+                stat=${'$'}(cat /sys/class/power_supply/battery/status 2>/dev/null || cat /sys/class/power_supply/bms/status 2>/dev/null || echo "Unknown")
+                hlth=${'$'}(cat /sys/class/power_supply/battery/health 2>/dev/null || cat /sys/class/power_supply/bms/health 2>/dev/null || echo "Good")
+                temp=${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null)
+                [ -z "${'$'}temp" ] || [ "${'$'}temp" = "0" ] 2>/dev/null && temp=${'$'}(cat /sys/class/power_supply/bms/temp 2>/dev/null)
+                [ -z "${'$'}temp" ] && temp=0
+                volt=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null)
+                [ -z "${'$'}volt" ] || [ "${'$'}volt" = "0" ] 2>/dev/null && volt=${'$'}(cat /sys/class/power_supply/bms/voltage_now 2>/dev/null)
+                [ -z "${'$'}volt" ] && volt=0
+                cur=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null)
+                [ -z "${'$'}cur" ] || [ "${'$'}cur" = "0" ] 2>/dev/null && cur=${'$'}(cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null)
+                [ -z "${'$'}cur" ] || [ "${'$'}cur" = "0" ] 2>/dev/null && cur=${'$'}(cat /sys/class/power_supply/bms/current_now 2>/dev/null)
+                [ -z "${'$'}cur" ] || [ "${'$'}cur" = "0" ] 2>/dev/null && cur=${'$'}(cat /sys/class/power_supply/battery/current_avg 2>/dev/null)
+                [ -z "${'$'}cur" ] && cur=0
                 cyc=${'$'}(cat /sys/class/power_supply/battery/cycle_count 2>/dev/null || echo -1)
                 cnt=${'$'}(cat /sys/class/power_supply/battery/charge_counter 2>/dev/null || echo 0)
 

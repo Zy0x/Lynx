@@ -293,13 +293,13 @@ if ($targetSubnets.Count -eq 0) {
     }
     
     # Priority subnets = detected from active PC adapters
-    $primarySubnets = $detectedSubnets | Sort-Object -Unique
+    $primarySubnets = @($detectedSubnets | Sort-Object -Unique)
 
     if ($DeepScan -or $primarySubnets.Count -eq 0) {
         # Combine adapter subnets with common 192.168.X pool
-        $targetSubnets = ($primarySubnets + $Common192Subnets) | Sort-Object -Unique
+        $targetSubnets = @(@($primarySubnets) + @($Common192Subnets) | Sort-Object -Unique)
     } else {
-        $targetSubnets = $primarySubnets
+        $targetSubnets = @($primarySubnets)
     }
 }
 
