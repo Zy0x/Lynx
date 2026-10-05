@@ -34,7 +34,7 @@ show_header() {
     fi
     [ -z "$soc" ] && soc="generic"
     echo -e "${C_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
-    echo -e "${C_CYAN}  L Y N X   [Codename: Deity]   3.0.44${C_RESET}"
+    echo -e "${C_CYAN}  L Y N X   [Codename: Deity]   3.0.45${C_RESET}"
     echo -e "${C_CYAN}  Author: ɴᴏɪʀ  |  SoC: ${C_GREEN}${soc}${C_CYAN}  |  Profile: ${C_YELLOW}${prof}${C_RESET}"
     echo -e "${C_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
 }

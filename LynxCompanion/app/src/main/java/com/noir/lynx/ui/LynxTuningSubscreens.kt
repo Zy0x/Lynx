@@ -2016,12 +2016,6 @@ fun TuningGpuCategory(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ── 0. Top Navigation Segmented Switcher (Tuning | Lab | Info) ──
-        GpuDisplayTabRow(
-            selectedTab = uiState.selectedGpuTab,
-            onSelectTab = { viewModel.selectGpuTab(it) }
-        )
-
         when (uiState.selectedGpuTab) {
             0 -> {
                 // ── TAB 0: TUNING ──
@@ -2054,6 +2048,7 @@ fun TuningGpuCategory(
                 PerAppGraphicsHubCard(
                     rules = uiState.perAppGraphicsRules,
                     installedApps = uiState.installedAppList,
+                    isAngleSupported = graphics.isAngleSupported,
                     onSaveRule = { rule -> viewModel.savePerAppGraphicsRule(rule, context) },
                     onDeleteRule = { pkg -> viewModel.deletePerAppGraphicsRule(pkg, context) }
                 )

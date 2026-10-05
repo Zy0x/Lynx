@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -295,11 +296,13 @@ fun ErrorScreen(uiState: LynxUiState) {
 //  App Icon Loader Composable
 // ============================================================
 
+private val appIconMemoryCache = android.util.LruCache<String, ImageBitmap>(150)
+
 @Composable
 fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val bitmapState = remember(packageName) {
-        try {
+        appIconMemoryCache.get(packageName) ?: try {
             val pm = context.packageManager
             val drawable = pm.getApplicationIcon(packageName)
             val bmp = Bitmap.createBitmap(
@@ -310,7 +313,9 @@ fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
             val canvas = Canvas(bmp)
             drawable.setBounds(0, 0, canvas.width, canvas.height)
             drawable.draw(canvas)
-            bmp.asImageBitmap()
+            val img = bmp.asImageBitmap()
+            appIconMemoryCache.put(packageName, img)
+            img
         } catch (_: Exception) {
             null
         }
@@ -1575,6 +1580,17 @@ fun MainDashboard(
                                             thickness = 0.8.dp
                                         )
                                     }
+                                }
+
+                                // 1.5. Sticky Category Header (GPU & Display Tabs)
+                                if (currentCategory == "gpu") {
+                                    GpuDisplayTabRow(
+                                        selectedTab = uiState.selectedGpuTab,
+                                        onSelectTab = { viewModel.selectGpuTab(it) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp, bottom = 4.dp)
+                                    )
                                 }
 
                                 // 2. Scrollable Subscreen Content Area

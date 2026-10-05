@@ -1,3 +1,33 @@
+# Lynx [Codename: Deity] 3.0.45
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Sticky Header Tab Row Subhalaman GPU & Display, Validasi Ketat Dukungan Hardware/OS terhadap Pipeline Rendering Grafis (HWUI Backends & ANGLE), Integrasi Icon Aplikasi Riil (Native PackageManager App Icons) dengan Caching Memori Berkecepatan Tinggi, Deteksi Multi-Tingkat Anti-Spoofing Berbasis Kernel Ground Truth, serta Ekspansi Telemetri GPU & Display Mendalam** — menempatkan tab navigasi (`Tuning`, `Lab`, `Info`) secara permanen di bagian atas layar agar tidak tergulung saat konten di-scroll; memverifikasi secara langsung ketersediaan Vulkan, Graphite (Android 14+), dan ANGLE pada level sistem operasi dan menonaktifkan opsi yang tidak didukung secara elegan; memuat icon aplikasi asli dari sistem Android untuk setiap judul game pada manajemen rendering dengan dukungan `LruCache` berkapasitas 150 item; mendeteksi manipulasi identitas SoC dan GPU oleh modul luar/spoofer melalui pengecekan kebenaran mutlak kernel Linux (DTB, node driver karakter, dan sysfs internal) disertai alert peringatan dan matriks perbandingan; serta memperkaya telemetri display dengan DPI, faktor densitas, format ruang warna aktif, dan status SurfaceFlinger Hardware Composer.
+
+## Fitur Baru & Peningkatan (3.0.45)
+
+### 1. Sticky Header Tab Row Subhalaman GPU & Display
+- **Posisi Tab Tetap (Non-Scrollable Anchor)**: Memindahkan `GpuDisplayTabRow` ke antara top bar navigasi dan scrollable container, menjamin tab `Tuning`, `Lab`, dan `Info` tetap terlihat dan dapat diakses cepat kapan pun pengguna menggulir halaman.
+- **Normalisasi Margin & Padding**: Menghilangkan redundansi padding horizontal ganda (inset 32dp menjadi 16dp terpadu) agar lebar tab simetris dengan batas tepi kartu konten.
+
+### 2. Validasi Sistem Terhadap Pipeline Rendering Grafis (HWUI & ANGLE)
+- **Verifikasi Ketersediaan Backend**: Sistem memeriksa kapabilitas perangkat secara aktual sebelum mengizinkan pemilihan renderer. SkiaVK diverifikasi via ketersediaan Vulkan, Graphite diverifikasi via Android 14+ (API 34) dan Vulkan, serta ANGLE diverifikasi via keberadaan layer terpasang atau APEX.
+- **Visual Feedback & Proteksi Klik**: Opsi pipeline yang tidak didukung oleh hardware atau OS otomatis diredupkan (alpha 0.45), dikunci dari interaksi sentuh, dan diberi badge informatif `Tidak Didukung`.
+- **Proteksi Saklar ANGLE Per-Aplikasi**: Pada modal konfigurasi Game Driver, saklar translasi ANGLE dinonaktifkan jika sistem tidak mendukung library translasi tersebut.
+
+### 3. Icon Aplikasi Asli (Native PackageManager) & Caching Memori
+- **Dukungan Icon Riil**: Menghapus placeholder icon generik dan memuat icon aplikasi resmi yang terpasang di sistem (`PackageManager.getApplicationIcon`) pada Per-App Graphics Hub, dialog pencarian aplikasi (App Picker), dan dialog pengaturan rule.
+- **LruCache Berkecepatan Tinggi**: Mengimplementasikan `LruCache<String, ImageBitmap>` dengan batas 150 icon untuk mencegah pembacaan ulang I/O disk dan menjaga frame rate rendering antarmuka tetap stabil pada 120Hz.
+
+### 4. Perlindungan Anti-Spoofing & Telemetri Kernel Ground Truth
+- **Pengecekan Kebenaran Mutlak Hardware**: Menginspeksi kompatibilitas Device Tree Blob kernel (`/sys/firmware/devicetree/base/compatible`), node karakter driver GPU (`/dev/mali0`, `/dev/ged`, `/dev/kgsl-3d0`), dan sysfs internal yang tidak dapat dipalsukan oleh modul spoofer userspace.
+- **Banner Peringatan Spoofer**: Jika terdeteksi ketidakcocokan antara arsitektur hardware kernel dengan properti userspace (`ro.soc.manufacturer`, `ro.board.platform`, `dumpsys SurfaceFlinger`), antarmuka menampilkan kartu peringatan manipulasi identitas dan tabel komparasi berdampingan.
+- **Badge Integritas Hardware**: Menampilkan konfirmasi status integritas terverifikasi jika tidak terdeteksi adanya manipulasi data.
+
+### 5. Ekspansi Metrik Telemetri GPU & Display
+- **Metrik Panel Display**: Menyajikan resolusi display, densitas DPI fisik dan float ratio, format ruang warna aktif (DCI-P3 / sRGB), dukungan HDR, serta versi SurfaceFlinger Hardware Composer (HWC).
+- **Metrik Driver GPU**: Menyajikan Vulkan API version beserta driver ID, jalur file library driver GPU fisik (`/vendor/lib64/egl/...`), dan path node sensor suhu internal.
+
+---
+
 # Lynx [Codename: Deity] 3.0.44
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Pembersihan Total Residu Emotikon & Pseudo-Font pada Seluruh Modul Core, WebUI, CLI Interaktif, Installer, dan Daemons (Strict Universal Zero-Emoji Professional Standard), Transisi ke Indikator Bracket Standar POSIX Linux, Standardisasi Notifikasi Sistem Bersih, serta Konsistensi Desain Antarmuka Tanpa Distorsi Visual** — menuntaskan pembersihan sisa emotikon dan karakter pseudo-font matematika pada seluruh repositori (`hw_probe.sh`, `flasher.sh`, `dns.sh`, `dex2oat.sh`, `zram.sh`, `swap.sh`, `lynx` CLI menu interaktif, `Lxcore`, `package_module.sh`, `customize.sh`, `service.sh`, `action.sh`, `tests/mock_sandbox/run_test.sh`, `webroot/app.js`, `webroot/index.html`, dan `module.prop`); menggantikan seluruh dekorasi visual berlebihan dengan indikator bracket standar profesional (`[*]`, `[+]`, `[!]`, `[OK]`, `[ERROR]`); serta menjamin seluruh komponen antarmuka, konsol CLI, dan log telemetri tampil bersih, rapi, estetik, dan berstandar teknis tinggi.

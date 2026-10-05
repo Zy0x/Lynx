@@ -2597,11 +2597,33 @@ object LynxRepository {
                 # Shader cache stats across system apps and games
                 sc_kb=${'$'}(du -sk /data/user_de/0/*/cache/*shader* /data/data/*/cache/*shader* /data/data/*/code_cache/*shader* 2>/dev/null | awk '{s+=${'$'}1; c++} END {print s "|" c}')
                 echo "scache:${'$'}sc_kb"
+
+                # Vulkan support probe
+                vk_probe=0
+                if pm list features 2>/dev/null | grep -q "android.hardware.vulkan"; then
+                    vk_probe=1
+                elif [ -f "/vendor/lib64/hw/vulkan.mali.so" ] || [ -f "/vendor/lib64/hw/vulkan.adreno.so" ] || [ -c "/dev/mali0" ] || [ -c "/dev/kgsl-3d0" ]; then
+                    vk_probe=1
+                fi
+                echo "vk:${'$'}vk_probe"
+
+                # ANGLE support probe
+                angle_probe=0
+                if pm list features 2>/dev/null | grep -q "android.software.angle"; then
+                    angle_probe=1
+                elif [ -d "/apex/com.android.angle" ] || [ -d "/system/apex/com.android.angle" ] || [ -f "/vendor/lib64/egl/libGLESv2_angle.so" ] || [ -f "/system/lib64/egl/libGLESv2_angle.so" ] || [ -f "/system/lib/egl/libGLESv2_angle.so" ]; then
+                    angle_probe=1
+                elif settings list global 2>/dev/null | grep -qi "angle"; then
+                    angle_probe=1
+                fi
+                echo "angle:${'$'}angle_probe"
             """.trimIndent()
             val res = Shell.cmd(script).exec()
             var driver = "default"; var renderer = "auto"; var latch = false; var msaa = false
             var oem = ""; var isDcSupported = false; var dcEnabled = false
             var shaderBytes = 0L; var shaderCount = 0
+            var isVulkanFromShell = false
+            var isAngleFromShell = false
             for (line in res.out) {
                 val t = line.trim()
                 when {
@@ -2629,10 +2651,20 @@ object LynxRepository {
                         shaderBytes = kb * 1024L
                         shaderCount = parts.getOrNull(1)?.trim()?.toIntOrNull() ?: 0
                     }
+                    t.startsWith("vk:") -> isVulkanFromShell = t.removePrefix("vk:") == "1"
+                    t.startsWith("angle:") -> isAngleFromShell = t.removePrefix("angle:") == "1"
                 }
             }
-            val isGraphite = android.os.Build.VERSION.SDK_INT >= 34
-            val isAngle = android.os.Build.VERSION.SDK_INT >= 29
+            val hasVulkanHardware = try {
+                val pm = LynxApp.instance.packageManager
+                pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_VULKAN_HARDWARE_VERSION) ||
+                pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL)
+            } catch (e: Exception) {
+                false
+            }
+            val isVulkan = hasVulkanHardware || isVulkanFromShell
+            val isGraphite = (android.os.Build.VERSION.SDK_INT >= 34) && isVulkan
+            val isAngle = (android.os.Build.VERSION.SDK_INT >= 29) && isVulkan && isAngleFromShell
             GraphicsHwuiInfo(
                 updatableGameDriver = driver,
                 hwuiRenderer = renderer,
@@ -2643,6 +2675,7 @@ object LynxRepository {
                 dcDimmingEnabled = dcEnabled,
                 shaderCacheSizeBytes = shaderBytes,
                 shaderCacheCount = shaderCount,
+                isVulkanSupported = isVulkan,
                 isGraphiteSupported = isGraphite,
                 isAngleSupported = isAngle
             )
@@ -2888,6 +2921,7 @@ object LynxRepository {
                 glesVersion = gpu.glesVersion,
                 driverVersion = gpu.driverVersion,
                 vulkanVersion = gpu.vulkanVersion,
+                vulkanDriverId = gpu.vulkanDriverId,
                 backend = gpu.backend,
                 gpuTempNode = gpu.tempNode,
                 memBusNodes = gpu.busNodes,
@@ -2898,7 +2932,17 @@ object LynxRepository {
                 hasKcal = disp.hasKcal,
                 dcDimmingNode = disp.dcDimmingNode,
                 hbmNode = disp.hbmNode,
-                nodes = gpu.nodeStatuses
+                nodes = gpu.nodeStatuses,
+                isSpoofed = gpu.isSpoofed,
+                spoofedGpuModel = gpu.spoofedGpuModel,
+                spoofedSoc = gpu.spoofedSoc,
+                groundTruthSoc = gpu.groundTruthSoc,
+                groundTruthGpu = gpu.groundTruthGpu,
+                gpuDriverPath = gpu.gpuDriverPath,
+                displayDpi = disp.displayDpi,
+                displayDensity = disp.displayDensity,
+                displayColorMode = disp.displayColorMode,
+                surfaceFlingerHwc = disp.surfaceFlingerHwc
             )
         } catch (e: Exception) {
             com.noir.lynx.hardware.GraphicsCapabilities()

@@ -21,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -5257,9 +5258,9 @@ fun GraphicsDriverHwuiCard(
             val backends = listOf(
                 Triple("auto", "Default", "Stabil"),
                 Triple("skiagl", "SkiaGL", "OpenGL ES"),
-                Triple("skiavk", "SkiaVK", "Vulkan"),
-                Triple("skiagraphite", "Graphite", if (graphics.isGraphiteSupported) "Android 14+" else "Info"),
-                Triple("angle", "ANGLE", if (graphics.isAngleSupported) "Khronos" else "Translasi")
+                Triple("skiavk", "SkiaVK", if (graphics.isVulkanSupported) "Vulkan" else "Tidak Didukung"),
+                Triple("skiagraphite", "Graphite", if (graphics.isGraphiteSupported) "Android 14+" else "Tidak Didukung"),
+                Triple("angle", "ANGLE", if (graphics.isAngleSupported) "Khronos" else "Tidak Didukung")
             )
 
             Row(
@@ -5267,13 +5268,17 @@ fun GraphicsDriverHwuiCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 backends.forEach { (backend, title, badge) ->
+                    val isSupported = graphics.isBackendSupported(backend)
                     val isSel = graphics.hwuiRenderer == backend
                     Surface(
-                        onClick = { onSetRenderer(backend) },
+                        onClick = { if (isSupported) onSetRenderer(backend) },
+                        enabled = isSupported,
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isSel) cardAccent.copy(alpha = 0.22f) else BgElevated,
+                        color = if (isSel) cardAccent.copy(alpha = 0.22f) else if (!isSupported) BgElevated.copy(alpha = 0.35f) else BgElevated,
                         border = BorderStroke(1.2.dp, if (isSel) cardAccent else BorderGlass),
-                        modifier = Modifier.defaultMinSize(minWidth = 100.dp, minHeight = 48.dp)
+                        modifier = Modifier
+                            .defaultMinSize(minWidth = 100.dp, minHeight = 48.dp)
+                            .alpha(if (isSupported) 1f else 0.45f)
                     ) {
                         Column(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -5282,7 +5287,7 @@ fun GraphicsDriverHwuiCard(
                         ) {
                             Text(
                                 text = title,
-                                color = if (isSel) cardAccent else TextPrimary,
+                                color = if (isSel) cardAccent else if (!isSupported) TextSecondary else TextPrimary,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
                             )
@@ -5293,8 +5298,8 @@ fun GraphicsDriverHwuiCard(
                                 border = BorderStroke(0.6.dp, if (isSel) cardAccent.copy(alpha = 0.5f) else BorderGlass)
                             ) {
                                 Text(
-                                    text = badge,
-                                    color = if (isSel) cardAccent else TextSecondary,
+                                    text = if (!isSupported) "Tidak Didukung" else badge,
+                                    color = if (isSel) cardAccent else if (!isSupported) TextSecondary.copy(alpha = 0.8f) else TextSecondary,
                                     fontSize = 8.5.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)

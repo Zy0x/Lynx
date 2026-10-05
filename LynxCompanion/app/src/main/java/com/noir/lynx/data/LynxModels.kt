@@ -254,9 +254,18 @@ data class GraphicsHwuiInfo(
     val cabcEnabled: Boolean = false,
     val shaderCacheSizeBytes: Long = 0L,
     val shaderCacheCount: Int = 0,
+    val isVulkanSupported: Boolean = false,
     val isGraphiteSupported: Boolean = false,
     val isAngleSupported: Boolean = false,
-)
+) {
+    fun isBackendSupported(backend: String): Boolean = when (backend.lowercase()) {
+        "auto", "skiagl" -> true
+        "skiavk" -> isVulkanSupported
+        "skiagraphite" -> isGraphiteSupported
+        "angle" -> isAngleSupported
+        else -> true
+    }
+}
 
 data class WakelockItem(
     val name: String = "",

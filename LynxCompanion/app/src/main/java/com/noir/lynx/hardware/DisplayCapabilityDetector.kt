@@ -1,5 +1,6 @@
 package com.noir.lynx.hardware
 
+import com.noir.lynx.LynxApp
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -53,10 +54,12 @@ object DisplayCapabilityDetector {
     suspend fun detect(): PartialDisplayInfo = withContext(Dispatchers.IO) {
         val script = """
             # 1. dumpsys display info
-            dumpsys display 2>/dev/null | grep -iE "supportedModes|hdrCapabilities|wideColor" | head -n 10
+            dumpsys display 2>/dev/null | grep -iE "supportedModes|hdrCapabilities|wideColor|colorMode" | head -n 12
             echo "---MARKER_SF_COLOR---"
             # 2. SurfaceFlinger wide color support
             dumpsys SurfaceFlinger 2>/dev/null | grep -i "Device supports wide color:" | head -n 1
+            echo "---MARKER_SF_HWC---"
+            dumpsys SurfaceFlinger 2>/dev/null | grep -iE "Hardware Composer|HWC version|hwcomposer" | head -n 3
             echo "---MARKER_PANEL_NODES---"
             # 3. Check DC Dimming, HBM, KCAL
             for d in /sys/devices/virtual/graphics/fb0/dc_dimming /sys/class/drm/card0-DSI-1/dc_dimming /sys/kernel/display/dc_dimming /sys/devices/platform/soc/soc:qcom,dsi-display-primary/dc_dimming; do
@@ -74,6 +77,9 @@ object DisplayCapabilityDetector {
             if [ -f "/sys/devices/platform/kcal_ctrl.0/kcal" ]; then
                 echo "KCAL_EXISTS"
             fi
+            echo "---MARKER_DPI---"
+            wm density 2>/dev/null | tr -d '\r'
+            getprop ro.sf.lcd_density 2>/dev/null | tr -d '\r'
         """.trimIndent()
 
         val lines = Shell.cmd(script).exec().out
@@ -81,6 +87,9 @@ object DisplayCapabilityDetector {
         var displayModesRaw = ""
         var hdrCapsRaw = ""
         var wideColor = false
+        var colorMode = ""
+        var sfHwc = ""
+        var shellDpi = 0
         var dcDimmingNode: String? = null
         var hbmNode: String? = null
         var hasKcal = false
@@ -88,12 +97,17 @@ object DisplayCapabilityDetector {
         for (line in lines) {
             when (line.trim()) {
                 "---MARKER_SF_COLOR---" -> { section = 1; continue }
-                "---MARKER_PANEL_NODES---" -> { section = 2; continue }
+                "---MARKER_SF_HWC---" -> { section = 2; continue }
+                "---MARKER_PANEL_NODES---" -> { section = 3; continue }
+                "---MARKER_DPI---" -> { section = 4; continue }
             }
             when (section) {
                 0 -> {
                     if (line.contains("supportedModes")) displayModesRaw = line
                     if (line.contains("hdrCapabilities")) hdrCapsRaw = line
+                    if (line.contains("colorMode", ignoreCase = true) && colorMode.isBlank()) {
+                        colorMode = line.trim()
+                    }
                 }
                 1 -> {
                     if (line.contains("Device supports wide color:", ignoreCase = true)) {
@@ -102,10 +116,25 @@ object DisplayCapabilityDetector {
                     }
                 }
                 2 -> {
+                    if (sfHwc.isBlank() && line.isNotBlank()) {
+                        sfHwc = line.trim()
+                    }
+                }
+                3 -> {
                     when {
                         line.startsWith("DCDIM:") -> dcDimmingNode = line.removePrefix("DCDIM:").trim()
                         line.startsWith("HBM:") -> hbmNode = line.removePrefix("HBM:").trim()
                         line == "KCAL_EXISTS" -> hasKcal = true
+                    }
+                }
+                4 -> {
+                    if (shellDpi == 0) {
+                        val match = Regex("""(?:Physical density|Override density)?:\s*(\d+)""").find(line)
+                        if (match != null) {
+                            shellDpi = match.groupValues[1].toIntOrNull() ?: 0
+                        } else {
+                            shellDpi = line.trim().toIntOrNull() ?: 0
+                        }
                     }
                 }
             }
@@ -114,6 +143,20 @@ object DisplayCapabilityDetector {
         val displayModes = parseDisplayModes(displayModesRaw)
         val (hdrTypes, maxLum) = parseHdrCaps(hdrCapsRaw)
 
+        val dm = try { LynxApp.instance.resources.displayMetrics } catch (_: Exception) { null }
+        val displayDpi = if (dm != null && dm.densityDpi > 0) dm.densityDpi else if (shellDpi > 0) shellDpi else 440
+        val displayDensity = if (dm != null && dm.density > 0f) dm.density else (displayDpi / 160f)
+        val resolvedColorMode = when {
+            colorMode.contains("7") || colorMode.contains("P3", ignoreCase = true) || wideColor -> "DCI-P3 / Wide Color"
+            colorMode.isNotBlank() -> colorMode.take(24)
+            else -> "sRGB / Standard"
+        }
+        val resolvedHwc = if (sfHwc.isNotBlank()) {
+            sfHwc.replace("Hardware Composer", "HWC").take(32)
+        } else {
+            "Hardware Composer (HWC 2.x)"
+        }
+
         PartialDisplayInfo(
             displayModes = displayModes,
             hdrTypes = hdrTypes,
@@ -121,7 +164,11 @@ object DisplayCapabilityDetector {
             maxLuminanceNits = maxLum,
             hasKcal = hasKcal,
             dcDimmingNode = dcDimmingNode,
-            hbmNode = hbmNode
+            hbmNode = hbmNode,
+            displayDpi = displayDpi,
+            displayDensity = displayDensity,
+            displayColorMode = resolvedColorMode,
+            surfaceFlingerHwc = resolvedHwc
         )
     }
 
@@ -132,6 +179,10 @@ object DisplayCapabilityDetector {
         val maxLuminanceNits: Float?,
         val hasKcal: Boolean,
         val dcDimmingNode: String?,
-        val hbmNode: String?
+        val hbmNode: String?,
+        val displayDpi: Int,
+        val displayDensity: Float,
+        val displayColorMode: String,
+        val surfaceFlingerHwc: String
     )
 }

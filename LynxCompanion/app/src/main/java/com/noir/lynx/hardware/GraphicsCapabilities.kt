@@ -29,6 +29,7 @@ data class GraphicsCapabilities(
     val glesVersion: String = "OpenGL ES",
     val driverVersion: String = "Unknown",
     val vulkanVersion: String? = null,
+    val vulkanDriverId: String? = null,
     val backend: GpuBackend = GpuBackend.NONE,
     val gpuTempNode: String? = null,
     val memBusNodes: List<String> = emptyList(),
@@ -39,7 +40,18 @@ data class GraphicsCapabilities(
     val hasKcal: Boolean = false,
     val dcDimmingNode: String? = null,
     val hbmNode: String? = null,
-    val nodes: List<NodeStatus> = emptyList()
+    val nodes: List<NodeStatus> = emptyList(),
+    // Anti-Spoofing & Detailed Telemetry
+    val isSpoofed: Boolean = false,
+    val spoofedGpuModel: String? = null,
+    val spoofedSoc: String? = null,
+    val groundTruthSoc: String = "Generic",
+    val groundTruthGpu: String = "Generic",
+    val gpuDriverPath: String = "",
+    val displayDpi: Int = 0,
+    val displayDensity: Float = 0f,
+    val displayColorMode: String = "Standard",
+    val surfaceFlingerHwc: String = "Hardware Composer"
 )
 
 sealed class WriteResult {
