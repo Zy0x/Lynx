@@ -45,6 +45,11 @@ if [ -d "$KGSL" ]; then
         write_node "$((num_pwr - 1))" "$KGSL/min_pwrlevel"
     fi
     write_node "0" "$KGSL/devfreq/adreno_boost"
+    write_node "0" "$KGSL/devfreq/adrenoboost"
+    for b in /sys/class/devfreq/*kgsl*/adrenoboost /sys/class/devfreq/*kgsl*/adreno_boost; do
+        [ -f "$b" ] && write_node "0" "$b"
+    done
+    write_node "80" "$KGSL/pwrscale/trustzone/target_load"
 fi
 
 # ── 3. Restore CPU Frequency Bounds & Schedutil Defaults ─────────────

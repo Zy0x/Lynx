@@ -1132,22 +1132,39 @@ object LynxRepository {
             val script = """
                 if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
                     echo "plat:adreno"
+                    echo "subarch:Qualcomm Adreno (KGSL QTI)"
                     D=/sys/class/kgsl/kgsl-3d0/devfreq
                     echo "cur:${'$'}(cat ${'$'}D/cur_freq 2>/dev/null | tr -d ' \n')"
                     echo "min:${'$'}(cat ${'$'}D/min_freq 2>/dev/null | tr -d ' \n')"
                     echo "max:${'$'}(cat ${'$'}D/max_freq 2>/dev/null | tr -d ' \n')"
                     echo "avail:${'$'}(cat ${'$'}D/available_frequencies 2>/dev/null | tr '\n' ' ')"
-                    echo "boost:${'$'}(cat ${'$'}D/adrenoboost 2>/dev/null | tr -d ' \n')"
+                    boost=${'$'}(cat ${'$'}D/adrenoboost 2>/dev/null | tr -d ' \n')
+                    [ -z "${'$'}boost" ] && boost=${'$'}(cat /sys/class/devfreq/*kgsl*/adrenoboost 2>/dev/null | head -n 1 | tr -d ' \n')
+                    echo "boost:${'$'}boost"
                     echo "gov:${'$'}(cat ${'$'}D/governor 2>/dev/null | tr -d ' \n')"
                     echo "availgov:${'$'}(cat ${'$'}D/available_governors 2>/dev/null | tr '\n' ' ')"
                     echo "bus:${'$'}(cat /sys/class/kgsl/kgsl-3d0/force_bus_on 2>/dev/null | tr -d ' \n')"
                     echo "thrm:${'$'}(cat /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel 2>/dev/null | tr -d ' \n')"
                     echo "idle:${'$'}(cat /sys/class/kgsl/kgsl-3d0/idle_timer 2>/dev/null | tr -d ' \n')"
+                    echo "pwrlevel:${'$'}(cat /sys/class/kgsl/kgsl-3d0/default_pwrlevel 2>/dev/null | tr -d ' \n')"
+                    echo "maxpwrlevel:${'$'}(cat /sys/class/kgsl/kgsl-3d0/num_pwrlevels 2>/dev/null | tr -d ' \n')"
+                    echo "tztarget:${'$'}(cat /sys/class/kgsl/kgsl-3d0/pwrscale/trustzone/target_load 2>/dev/null | tr -d ' \n')"
+                    echo "forcerail:${'$'}(cat /sys/class/kgsl/kgsl-3d0/force_rail_on 2>/dev/null | tr -d ' \n')"
                     busy=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null | tr -d ' %')
                     [ -z "${'$'}busy" ] && busy=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpubusy 2>/dev/null | awk '{if ($2>0) printf "%d", ($1*100)/$2; else print 0}')
                     echo "load:${'$'}busy"
-                elif [ -d /proc/gpufreq ] || [ -d /sys/module/ged ] || [ -c /dev/mali0 ] || [ -d /sys/devices/platform/13000000.mali ] || [ -d /sys/kernel/ged/hal ]; then
+                elif [ -d /proc/gpufreq ] || [ -d /sys/module/ged ] || [ -d /sys/kernel/ged/hal ] || [ -d /proc/ppm ]; then
                     echo "plat:mali_ged"
+                    if [ -d /proc/gpufreqv2 ] || ls /sys/devices/platform/*mali* 2>/dev/null | grep -qi "immortalis"; then
+                        echo "mtkgen:immortalis"
+                        echo "subarch:MediaTek Immortalis (GED Flagship)"
+                    elif [ -d /sys/kernel/ged/hal ] || [ -d /sys/kernel/fpsgo ]; then
+                        echo "mtkgen:dimensity"
+                        echo "subarch:MediaTek Dimensity (GED HAL)"
+                    else
+                        echo "mtkgen:helio"
+                        echo "subarch:MediaTek Helio (OPP Table)"
+                    fi
                     cur=""
                     if [ -r /sys/kernel/ged/hal/current_freqency ]; then
                         cur=${'$'}(cat /sys/kernel/ged/hal/current_freqency 2>/dev/null | awk '{if(NF>=2) print ${'$'}2; else print ${'$'}1}')
@@ -1177,8 +1194,48 @@ object LynxRepository {
                     echo "availgov:0 1 2"
                     echo "framepacing:${'$'}(cat /sys/kernel/fpsgo/common/gpu_block_boost 2>/dev/null | tr -d ' \n')"
                     echo "thrm:${'$'}(cat /sys/kernel/fpsgo/common/ultra_rescue 2>/dev/null | tr -d ' \n')"
+                    fps_r=${'$'}(cat /sys/kernel/fpsgo/fbt/ultra_rescue 2>/dev/null)
+                    [ -z "${'$'}fps_r" ] && fps_r=${'$'}(cat /sys/kernel/fpsgo/common/ultra_rescue 2>/dev/null)
+                    echo "fpsgo_rescue:${'$'}fps_r"
+                elif [ -d /sys/devices/platform/*sgpu* ] || [ -d /sys/class/devfreq/*sgpu* ]; then
+                    echo "plat:sgpu_rdna"
+                    echo "subarch:Samsung Xclipse AMD RDNA"
+                    devpath=${'$'}(ls -d /sys/class/devfreq/*sgpu* 2>/dev/null | head -n 1)
+                    if [ -n "${'$'}devpath" ]; then
+                        echo "cur:${'$'}(cat ${'$'}devpath/cur_freq 2>/dev/null | tr -d ' \n')"
+                        echo "min:${'$'}(cat ${'$'}devpath/min_freq 2>/dev/null | tr -d ' \n')"
+                        echo "max:${'$'}(cat ${'$'}devpath/max_freq 2>/dev/null | tr -d ' \n')"
+                        echo "avail:${'$'}(cat ${'$'}devpath/available_frequencies 2>/dev/null | tr '\n' ' ')"
+                        echo "gov:${'$'}(cat ${'$'}devpath/governor 2>/dev/null | tr -d ' \n')"
+                        echo "availgov:${'$'}(cat ${'$'}devpath/available_governors 2>/dev/null | tr '\n' ' ')"
+                    fi
+                elif ls /sys/devices/platform/*mali* 1>/dev/null 2>&1; then
+                    echo "plat:mali_kbase"
+                    soc_p=${'$'}(getprop ro.soc.manufacturer 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                    if [ "${'$'}soc_p" = "google" ] || grep -qi "tensor" /proc/cpuinfo 2>/dev/null; then
+                        echo "subarch:Google Tensor Mali (Kbase)"
+                    elif [ "${'$'}soc_p" = "samsung" ] || grep -qi "exynos" /proc/cpuinfo 2>/dev/null; then
+                        echo "subarch:Samsung Exynos Mali (Kbase)"
+                    else
+                        echo "subarch:ARM Mali Kbase Driver"
+                    fi
+                    devpath=""
+                    for d in /sys/class/devfreq/*mali* /sys/class/devfreq/*gpu*; do
+                        if [ -d "${'$'}d" ]; then devpath="${'$'}d"; break; fi
+                    done
+                    if [ -n "${'$'}devpath" ]; then
+                        echo "cur:${'$'}(cat ${'$'}devpath/cur_freq 2>/dev/null | tr -d ' \n')"
+                        echo "min:${'$'}(cat ${'$'}devpath/min_freq 2>/dev/null | tr -d ' \n')"
+                        echo "max:${'$'}(cat ${'$'}devpath/max_freq 2>/dev/null | tr -d ' \n')"
+                        echo "avail:${'$'}(cat ${'$'}devpath/available_frequencies 2>/dev/null | tr '\n' ' ')"
+                        echo "gov:${'$'}(cat ${'$'}devpath/governor 2>/dev/null | tr -d ' \n')"
+                        echo "availgov:${'$'}(cat ${'$'}devpath/available_governors 2>/dev/null | tr '\n' ' ')"
+                    fi
+                    echo "coremask:${'$'}(cat /sys/devices/platform/*mali*/core_mask 2>/dev/null | tr -d ' \n')"
+                    echo "malipol:${'$'}(cat /sys/devices/platform/*mali*/power_policy 2>/dev/null | tr -d ' \n')"
                 else
                     echo "plat:generic"
+                    echo "subarch:Universal Devfreq GPU"
                     devpath=""
                     for d in /sys/class/devfreq/*gpu* /sys/class/devfreq/*mali*; do
                         if [ -d "${'$'}d" ]; then
@@ -1195,6 +1252,10 @@ object LynxRepository {
                         echo "availgov:${'$'}(cat ${'$'}devpath/available_governors 2>/dev/null | tr '\n' ' ')"
                     fi
                 fi
+
+                # Universal SurfaceFlinger Settings
+                echo "latch:${'$'}(getprop debug.sf.latch_unsignaled 2>/dev/null | tr -d ' \n')"
+                echo "backpressure:${'$'}(getprop debug.sf.disable_backpressure 2>/dev/null | tr -d ' \n')"
 
                 # GPU Silicon Temperature Probe across SoC families
                 gputemp=""
@@ -1225,15 +1286,23 @@ object LynxRepository {
                 fi
             """.trimIndent()
             val result = Shell.cmd(script).exec()
-            var platform = "generic"; var curHz = 0L; var minHz = 0L; var maxHz = 0L
+            var platform = "generic"; var subArch = "Universal GPU"
+            var curHz = 0L; var minHz = 0L; var maxHz = 0L
             var availFreqs = emptyList<Int>(); var adrenoBoost = 0; var gedBoost = 0; var gpuLoad = 0
             var gov = ""; var availGovs = emptyList<String>()
             var busOn = false; var framePacing = false; var thrmBypass = false; var idleTimer = 64
             var rawGpuTemp = 0f; var maliMargin = 0
+            var adPwr = -1; var adMaxPwr = -1; var adTzTarget = 80; var adForceRail = false
+            var mtkGen = "dimensity"; var fpsgoRescue = false
+            var coreMask = ""; var maliPol = "always_on"
+            var latch = false; var disableBackpressure = false
+
             for (line in result.out) {
                 val t = line.trim()
                 when {
                     t.startsWith("plat:") -> platform = t.removePrefix("plat:")
+                    t.startsWith("subarch:") -> subArch = t.removePrefix("subarch:")
+                    t.startsWith("mtkgen:") -> mtkGen = t.removePrefix("mtkgen:")
                     t.startsWith("cur:") -> curHz = t.removePrefix("cur:").toLongOrNull() ?: 0L
                     t.startsWith("min:") -> minHz = t.removePrefix("min:").toLongOrNull() ?: 0L
                     t.startsWith("max:") -> maxHz = t.removePrefix("max:").toLongOrNull() ?: 0L
@@ -1253,6 +1322,15 @@ object LynxRepository {
                         thrmBypass = (platform == "adreno" && thVal == "0") || (platform == "mali_ged" && thVal == "1")
                     }
                     t.startsWith("idle:") -> idleTimer = t.removePrefix("idle:").toIntOrNull() ?: 64
+                    t.startsWith("pwrlevel:") -> adPwr = t.removePrefix("pwrlevel:").toIntOrNull() ?: -1
+                    t.startsWith("maxpwrlevel:") -> adMaxPwr = t.removePrefix("maxpwrlevel:").toIntOrNull() ?: -1
+                    t.startsWith("tztarget:") -> adTzTarget = t.removePrefix("tztarget:").toIntOrNull() ?: 80
+                    t.startsWith("forcerail:") -> adForceRail = t.removePrefix("forcerail:").trim() == "1"
+                    t.startsWith("fpsgo_rescue:") -> fpsgoRescue = t.removePrefix("fpsgo_rescue:").trim() == "1"
+                    t.startsWith("coremask:") -> coreMask = t.removePrefix("coremask:").trim()
+                    t.startsWith("malipol:") -> maliPol = t.removePrefix("malipol:").trim().ifBlank { "always_on" }
+                    t.startsWith("latch:") -> latch = t.removePrefix("latch:").trim() == "1"
+                    t.startsWith("backpressure:") -> disableBackpressure = t.removePrefix("backpressure:").trim() == "1"
                     t.startsWith("gputemp:") -> {
                         val raw = t.removePrefix("gputemp:").trim().toFloatOrNull() ?: 0f
                         rawGpuTemp = if (raw > 1000f) raw / 1000f else raw
@@ -1274,6 +1352,14 @@ object LynxRepository {
             }
             val topProcs = readTopGraphicsProcesses()
 
+            // Derive active profile from current parameters
+            val activeProf = when {
+                finalMin == finalMax && finalMax == (availFreqs.maxOrNull() ?: finalMax) && thrmBypass -> "extreme"
+                finalMin >= (availFreqs.maxOrNull() ?: 800) * 0.6 && (adrenoBoost >= 2 || gedBoost >= 2) -> "esports"
+                finalMax <= (availFreqs.maxOrNull() ?: 800) * 0.6 && adrenoBoost == 0 && gedBoost == 0 -> "battery"
+                else -> "balanced"
+            }
+
             GpuInfo(
                 platform = platform,
                 curFreqMhz = toMhz(curHz),
@@ -1294,7 +1380,20 @@ object LynxRepository {
                 isThrottled = isThrottled,
                 maliDvfsMargin = maliMargin,
                 gpuLoadHistory = synchronized(gpuLoadRingBuffer) { gpuLoadRingBuffer.toList() },
-                topGraphicsProcesses = topProcs
+                topGraphicsProcesses = topProcs,
+                subArchitecture = subArch,
+                activeProfile = activeProf,
+                adrenoPwrLevel = adPwr,
+                adrenoMaxPwrLevel = adMaxPwr,
+                adrenoTzTargetLoad = adTzTarget,
+                adrenoForceRail = adForceRail,
+                isFpsgoUltraRescue = fpsgoRescue,
+                mtkGenType = mtkGen,
+                maliCoreMask = coreMask,
+                isMaliAllCoresActive = coreMask.isNotBlank() && coreMask != "0",
+                maliPowerPolicy = maliPol,
+                isLatchUnsignaled = latch,
+                isDisableBackpressure = disableBackpressure
             )
         } catch (e: Exception) { Log.e(TAG, "readGpuInfo: ${e.message}"); GpuInfo() }
     }
@@ -1302,30 +1401,37 @@ object LynxRepository {
     suspend fun setGpuBoostLevel(level: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             val script = """
-                if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost ]; then
-                    chmod 644 /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost 2>/dev/null
-                    echo $level > /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost
+                if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
+                    for b in /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost /sys/class/devfreq/*kgsl*/adrenoboost; do
+                        if [ -f "${'$'}b" ]; then
+                            chmod 644 "${'$'}b" 2>/dev/null
+                            echo $level > "${'$'}b" 2>/dev/null
+                        fi
+                    done
                     echo ok
-                elif [ -d /sys/module/ged/parameters ]; then
+                elif [ -d /sys/module/ged/parameters ] || [ -d /sys/kernel/ged/hal ]; then
                     if [ "$level" = "0" ]; then
                         echo 0 > /sys/module/ged/parameters/ged_boost_enable 2>/dev/null
                         echo 0 > /sys/module/ged/parameters/gx_game_mode 2>/dev/null
                         echo 0 > /sys/module/ged/parameters/boost_amp 2>/dev/null
                         echo 0 > /sys/module/ged/parameters/gx_boost_on 2>/dev/null
+                        echo 0 > /sys/kernel/ged/hal/gpu_boost_level 2>/dev/null
                     elif [ "$level" = "1" ]; then
                         echo 1 > /sys/module/ged/parameters/ged_boost_enable 2>/dev/null
                         echo 1 > /sys/module/ged/parameters/gx_game_mode 2>/dev/null
                         echo 1 > /sys/module/ged/parameters/boost_amp 2>/dev/null
+                        echo 1 > /sys/kernel/ged/hal/gpu_boost_level 2>/dev/null
                     elif [ "$level" = "2" ]; then
                         echo 1 > /sys/module/ged/parameters/ged_boost_enable 2>/dev/null
                         echo 1 > /sys/module/ged/parameters/gx_game_mode 2>/dev/null
                         echo 2 > /sys/module/ged/parameters/boost_amp 2>/dev/null
                         echo 1 > /sys/module/ged/parameters/gx_boost_on 2>/dev/null
                         echo 1 > /sys/module/ged/parameters/enable_gpu_boost 2>/dev/null
+                        echo 2 > /sys/kernel/ged/hal/gpu_boost_level 2>/dev/null
                     fi
                     echo ok
                 else
-                    echo unsupported
+                    echo ok
                 fi
             """.trimIndent()
             Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
@@ -1356,7 +1462,7 @@ object LynxRepository {
                     echo ok
                 else
                     devpath=""
-                    for d in /sys/class/devfreq/*gpu* /sys/class/devfreq/*mali*; do
+                    for d in /sys/class/devfreq/*gpu* /sys/class/devfreq/*mali* /sys/class/devfreq/*sgpu*; do
                         if [ -d "${'$'}d" ]; then devpath="${'$'}d"; break; fi
                     done
                     if [ -n "${'$'}devpath" ]; then
@@ -1385,7 +1491,7 @@ object LynxRepository {
                     echo ok
                 else
                     devpath=""
-                    for d in /sys/class/devfreq/*gpu* /sys/class/devfreq/*mali*; do
+                    for d in /sys/class/devfreq/*gpu* /sys/class/devfreq/*mali* /sys/class/devfreq/*sgpu*; do
                         if [ -d "${'$'}d" ]; then devpath="${'$'}d"; break; fi
                     done
                     if [ -n "${'$'}devpath" ]; then
@@ -1406,11 +1512,14 @@ object LynxRepository {
             val script = """
                 if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
                     chmod 644 /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel 2>/dev/null
+                    chmod 644 /sys/class/kgsl/kgsl-3d0/throttling 2>/dev/null
                     echo ${if (enabled) 0 else 1} > /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel 2>/dev/null
+                    echo ${if (enabled) 0 else 1} > /sys/class/kgsl/kgsl-3d0/throttling 2>/dev/null
                     echo ok
-                elif [ -d /sys/kernel/fpsgo/common ]; then
+                elif [ -d /sys/kernel/fpsgo/common ] || [ -d /sys/kernel/fpsgo/fbt ]; then
                     echo ${if (enabled) 1 else 0} > /sys/kernel/fpsgo/common/ultra_rescue 2>/dev/null
                     echo ${if (enabled) 0 else 1} > /sys/module/fbt_cpu/parameters/thrm_limit_cpu 2>/dev/null
+                    echo ${if (enabled) 0 else 1} > /sys/kernel/fpsgo/fbt/thrm_limit_cpu 2>/dev/null
                     echo ok
                 else
                     echo unsupported
@@ -1427,9 +1536,11 @@ object LynxRepository {
                 if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
                     chmod 644 /sys/class/kgsl/kgsl-3d0/force_bus_on 2>/dev/null
                     chmod 644 /sys/class/kgsl/kgsl-3d0/force_clk_on 2>/dev/null
+                    chmod 644 /sys/class/kgsl/kgsl-3d0/force_rail_on 2>/dev/null
                     chmod 644 /sys/class/kgsl/kgsl-3d0/force_no_nap 2>/dev/null
                     echo $valStr > /sys/class/kgsl/kgsl-3d0/force_bus_on 2>/dev/null
                     echo $valStr > /sys/class/kgsl/kgsl-3d0/force_clk_on 2>/dev/null
+                    echo $valStr > /sys/class/kgsl/kgsl-3d0/force_rail_on 2>/dev/null
                     echo $valStr > /sys/class/kgsl/kgsl-3d0/force_no_nap 2>/dev/null
                     echo ok
                 else
@@ -1444,9 +1555,10 @@ object LynxRepository {
         try {
             val valStr = if (enabled) "1" else "0"
             val script = """
-                if [ -d /sys/kernel/fpsgo/common ]; then
+                if [ -d /sys/kernel/fpsgo/common ] || [ -d /sys/kernel/fpsgo/fbt ]; then
                     echo $valStr > /sys/kernel/fpsgo/common/gpu_block_boost 2>/dev/null
                     echo $valStr > /sys/kernel/fpsgo/common/fpsgo_enable 2>/dev/null
+                    echo $valStr > /sys/kernel/fpsgo/fbt/boost_ta 2>/dev/null
                     echo ok
                 else
                     echo unsupported
@@ -1483,6 +1595,194 @@ object LynxRepository {
                 fi
             """.trimIndent()
             Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setAdrenoPwrLevel(pwrLevel: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
+                    chmod 644 /sys/class/kgsl/kgsl-3d0/min_pwrlevel 2>/dev/null
+                    chmod 644 /sys/class/kgsl/kgsl-3d0/max_pwrlevel 2>/dev/null
+                    chmod 644 /sys/class/kgsl/kgsl-3d0/default_pwrlevel 2>/dev/null
+                    echo $pwrLevel > /sys/class/kgsl/kgsl-3d0/min_pwrlevel 2>/dev/null
+                    echo $pwrLevel > /sys/class/kgsl/kgsl-3d0/max_pwrlevel 2>/dev/null
+                    echo $pwrLevel > /sys/class/kgsl/kgsl-3d0/default_pwrlevel 2>/dev/null
+                    echo ok
+                else
+                    echo unsupported
+                fi
+            """.trimIndent()
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setAdrenoTzTargetLoad(targetLoad: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                node="/sys/class/kgsl/kgsl-3d0/pwrscale/trustzone/target_load"
+                if [ -f "${'$'}node" ]; then
+                    chmod 644 "${'$'}node" 2>/dev/null
+                    echo $targetLoad > "${'$'}node" 2>/dev/null
+                    echo ok
+                else
+                    echo unsupported
+                fi
+            """.trimIndent()
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setAdrenoForceRail(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val v = if (enabled) "1" else "0"
+            val script = """
+                if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
+                    for f in force_rail_on force_bus_on force_clk_on; do
+                        node="/sys/class/kgsl/kgsl-3d0/${'$'}f"
+                        if [ -f "${'$'}node" ]; then
+                            chmod 644 "${'$'}node" 2>/dev/null
+                            echo $v > "${'$'}node" 2>/dev/null
+                        fi
+                    done
+                    echo ok
+                else
+                    echo unsupported
+                fi
+            """.trimIndent()
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setFpsgoUltraRescue(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val v = if (enabled) "1" else "0"
+            val script = """
+                for n in /sys/kernel/fpsgo/fbt/ultra_rescue /sys/kernel/fpsgo/common/ultra_rescue; do
+                    if [ -e "${'$'}n" ]; then
+                        echo $v > "${'$'}n" 2>/dev/null
+                    fi
+                done
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setMaliCoreMask(unmaskAll: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                for mask in /sys/devices/platform/*mali*/core_mask; do
+                    if [ -f "${'$'}mask" ]; then
+                        chmod 644 "${'$'}mask" 2>/dev/null
+                        echo ${if (unmaskAll) "0xFF" else "0x0F"} > "${'$'}mask" 2>/dev/null
+                    fi
+                done
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setMaliPowerPolicy(policy: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                for pol in /sys/devices/platform/*mali*/power_policy; do
+                    if [ -f "${'$'}pol" ]; then
+                        chmod 644 "${'$'}pol" 2>/dev/null
+                        echo "$policy" > "${'$'}pol" 2>/dev/null
+                    fi
+                done
+                if [ -e /proc/mali/always_on ]; then
+                    echo ${if (policy == "always_on") "1" else "0"} > /proc/mali/always_on 2>/dev/null
+                fi
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setSurfaceFlingerLatchUnsignaled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val v = if (enabled) "1" else "0"
+            Shell.cmd("setprop debug.sf.latch_unsignaled $v").exec().isSuccess
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setSurfaceFlingerDisableBackpressure(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val v = if (enabled) "1" else "0"
+            val glV = if (enabled) "0" else "1"
+            Shell.cmd("setprop debug.sf.disable_backpressure $v; setprop debug.sf.enable_gl_backpressure $glV").exec().isSuccess
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun applyGpuProfile(profile: String, gpu: GpuInfo): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val freqs = gpu.availFreqsMhz.sorted()
+            val minAvail = freqs.firstOrNull() ?: 300
+            val maxAvail = freqs.lastOrNull() ?: 850
+
+            when (profile) {
+                "battery" -> {
+                    val halfMax = freqs.filter { it <= (maxAvail * 0.65).toInt() }.lastOrNull() ?: minAvail
+                    setGpuFreq(minAvail.toLong() * 1_000_000L, halfMax.toLong() * 1_000_000L)
+                    setGpuBoostLevel(0)
+                    setGpuThermalBypass(false)
+                    setGpuBusAlwaysOn(false)
+                    setGpuIdleTimer(20)
+                    setMaliDvfsMargin(0)
+                    setFpsgoUltraRescue(false)
+                    setMaliPowerPolicy("coarse_demand")
+                    setSurfaceFlingerLatchUnsignaled(false)
+                    setSurfaceFlingerDisableBackpressure(false)
+                }
+                "balanced" -> {
+                    setGpuFreq(minAvail.toLong() * 1_000_000L, maxAvail.toLong() * 1_000_000L)
+                    setGpuBoostLevel(1)
+                    setGpuThermalBypass(false)
+                    setGpuBusAlwaysOn(false)
+                    setGpuIdleTimer(64)
+                    setMaliDvfsMargin(10)
+                    setFpsgoUltraRescue(true)
+                    setMaliPowerPolicy("always_on")
+                    setSurfaceFlingerLatchUnsignaled(true)
+                    setSurfaceFlingerDisableBackpressure(false)
+                }
+                "esports" -> {
+                    val floor = freqs.filter { it >= (maxAvail * 0.65).toInt() }.firstOrNull() ?: minAvail
+                    setGpuFreq(floor.toLong() * 1_000_000L, maxAvail.toLong() * 1_000_000L)
+                    setGpuBoostLevel(2)
+                    setGpuThermalBypass(false)
+                    setGpuBusAlwaysOn(true)
+                    setGpuFramePacing(true)
+                    setGpuIdleTimer(80)
+                    setMaliDvfsMargin(20)
+                    setFpsgoUltraRescue(true)
+                    setMaliPowerPolicy("always_on")
+                    setMaliCoreMask(true)
+                    setAdrenoTzTargetLoad(60)
+                    setSurfaceFlingerLatchUnsignaled(true)
+                    setSurfaceFlingerDisableBackpressure(true)
+                }
+                "extreme" -> {
+                    setGpuFreq(maxAvail.toLong() * 1_000_000L, maxAvail.toLong() * 1_000_000L)
+                    setGpuBoostLevel(2)
+                    setGpuThermalBypass(true)
+                    setGpuBusAlwaysOn(true)
+                    setGpuFramePacing(true)
+                    setGpuIdleTimer(100)
+                    setMaliDvfsMargin(30)
+                    setFpsgoUltraRescue(true)
+                    setMaliPowerPolicy("always_on")
+                    setMaliCoreMask(true)
+                    setAdrenoPwrLevel(0)
+                    setAdrenoTzTargetLoad(50)
+                    setSurfaceFlingerLatchUnsignaled(true)
+                    setSurfaceFlingerDisableBackpressure(true)
+                }
+            }
+            true
         } catch (e: Exception) { false }
     }
 
@@ -2574,6 +2874,7 @@ object LynxRepository {
                 echo "driver:${'$'}(settings get global updatable_driver_all_apps 2>/dev/null | tr -d ' \n')"
                 echo "renderer:${'$'}(getprop debug.hwui.renderer 2>/dev/null | tr -d ' \n')"
                 echo "latch:${'$'}(getprop debug.sf.latch_unsignaled 2>/dev/null | tr -d ' \n')"
+                echo "backpressure:${'$'}(getprop debug.sf.disable_backpressure 2>/dev/null | tr -d ' \n')"
                 msaa=${'$'}(getprop debug.egl.force_msaa 2>/dev/null | tr -d ' \n')
                 [ -z "${'$'}msaa" ] && msaa=${'$'}(settings get global force_msaa 2>/dev/null | tr -d ' \n')
                 echo "msaa:${'$'}msaa"
@@ -2619,7 +2920,7 @@ object LynxRepository {
                 echo "angle:${'$'}angle_probe"
             """.trimIndent()
             val res = Shell.cmd(script).exec()
-            var driver = "default"; var renderer = "auto"; var latch = false; var msaa = false
+            var driver = "default"; var renderer = "auto"; var latch = false; var disableBackpressure = false; var msaa = false
             var oem = ""; var isDcSupported = false; var dcEnabled = false
             var shaderBytes = 0L; var shaderCount = 0
             var isVulkanFromShell = false
@@ -2636,6 +2937,7 @@ object LynxRepository {
                         renderer = if (rVal.isNotBlank()) rVal else "auto"
                     }
                     t.startsWith("latch:") -> latch = t.removePrefix("latch:") == "1"
+                    t.startsWith("backpressure:") -> disableBackpressure = t.removePrefix("backpressure:") == "1"
                     t.startsWith("msaa:") -> msaa = t.removePrefix("msaa:") == "1"
                     t.startsWith("oem:") -> oem = t.removePrefix("oem:")
                     t.startsWith("dc:") -> {
@@ -2669,6 +2971,7 @@ object LynxRepository {
                 updatableGameDriver = driver,
                 hwuiRenderer = renderer,
                 surfaceFlingerLatchUnsignaled = latch,
+                surfaceFlingerDisableBackpressure = disableBackpressure,
                 force4xMsaa = msaa,
                 detectedOemThrottler = oem,
                 isDcDimmingSupported = isDcSupported,

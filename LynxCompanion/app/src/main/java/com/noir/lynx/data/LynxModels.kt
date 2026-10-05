@@ -239,12 +239,26 @@ data class GpuInfo(
     val maliDvfsMargin: Int = 0,
     val gpuLoadHistory: List<Int> = emptyList(),
     val topGraphicsProcesses: List<GpuProcessInfo> = emptyList(),
+    val subArchitecture: String = "Universal GPU",
+    val activeProfile: String = "", // "battery", "balanced", "esports", "extreme"
+    val adrenoPwrLevel: Int = -1,
+    val adrenoMaxPwrLevel: Int = -1,
+    val adrenoTzTargetLoad: Int = 80,
+    val adrenoForceRail: Boolean = false,
+    val isFpsgoUltraRescue: Boolean = false,
+    val mtkGenType: String = "dimensity",
+    val maliCoreMask: String = "",
+    val isMaliAllCoresActive: Boolean = false,
+    val maliPowerPolicy: String = "always_on",
+    val isLatchUnsignaled: Boolean = false,
+    val isDisableBackpressure: Boolean = false,
 )
 
 data class GraphicsHwuiInfo(
     val updatableGameDriver: String = "default", // "default", "all_apps", "custom"
     val hwuiRenderer: String = "auto",           // "auto", "skiavk", "skiagl", "skiagraphite", "angle"
     val surfaceFlingerLatchUnsignaled: Boolean = false,
+    val surfaceFlingerDisableBackpressure: Boolean = false,
     val force4xMsaa: Boolean = false,
     val detectedOemThrottler: String = "",        // e.g. "Xiaomi Joyose", "Samsung GOS", "Transsion Darwin"
     val isOemThrottlerDisabled: Boolean = false,

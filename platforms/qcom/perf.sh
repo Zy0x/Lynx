@@ -47,14 +47,29 @@ if [ -d "$KGSL" ]; then
         write_node "0" "$KGSL/max_pwrlevel"
         write_node "0" "$KGSL/min_pwrlevel"
         write_node "3" "$KGSL/devfreq/adreno_boost"
+        write_node "3" "$KGSL/devfreq/adrenoboost"
+        for b in /sys/class/devfreq/*kgsl*/adrenoboost /sys/class/devfreq/*kgsl*/adreno_boost; do
+            [ -f "$b" ] && write_node "3" "$b"
+        done
+        write_node "50" "$KGSL/pwrscale/trustzone/target_load"
         write_node "100000" "$KGSL/idle_timer"
     else
         write_node "1" "$KGSL/min_pwrlevel"
-        write_node "1" "$KGSL/devfreq/adreno_boost"
-        write_node "60" "$KGSL/idle_timer"
+        write_node "2" "$KGSL/devfreq/adreno_boost"
+        write_node "2" "$KGSL/devfreq/adrenoboost"
+        for b in /sys/class/devfreq/*kgsl*/adrenoboost /sys/class/devfreq/*kgsl*/adreno_boost; do
+            [ -f "$b" ] && write_node "2" "$b"
+        done
+        write_node "60" "$KGSL/pwrscale/trustzone/target_load"
+        write_node "80" "$KGSL/idle_timer"
     fi
     write_node "0" "$KGSL/bus_split"
 fi
+
+# Universal Low-Latency SurfaceFlinger Pipeline
+setprop debug.sf.latch_unsignaled 1
+setprop debug.sf.disable_backpressure 1
+setprop debug.sf.enable_gl_backpressure 0
 
 # ── 3. CPU Cluster Scaling & Governor Tuning ─────────────────────────
 for policy in /sys/devices/system/cpu/cpufreq/policy*; do

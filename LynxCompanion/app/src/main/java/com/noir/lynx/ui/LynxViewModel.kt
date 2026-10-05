@@ -1156,6 +1156,101 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun setAdrenoPwrLevel(pwrLevel: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(adrenoPwrLevel = pwrLevel)) }
+        viewModelScope.launch {
+            LynxRepository.setAdrenoPwrLevel(pwrLevel)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
+    fun setAdrenoTzTargetLoad(targetLoad: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(adrenoTzTargetLoad = targetLoad)) }
+        viewModelScope.launch {
+            LynxRepository.setAdrenoTzTargetLoad(targetLoad)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
+    fun setAdrenoForceRail(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(adrenoForceRail = enabled)) }
+        viewModelScope.launch {
+            LynxRepository.setAdrenoForceRail(enabled)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
+    fun setFpsgoUltraRescue(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isFpsgoUltraRescue = enabled)) }
+        viewModelScope.launch {
+            LynxRepository.setFpsgoUltraRescue(enabled)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
+    fun setMaliCoreMask(unmaskAll: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isMaliAllCoresActive = unmaskAll)) }
+        viewModelScope.launch {
+            LynxRepository.setMaliCoreMask(unmaskAll)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
+    fun setMaliPowerPolicy(policy: String) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(maliPowerPolicy = policy)) }
+        viewModelScope.launch {
+            LynxRepository.setMaliPowerPolicy(policy)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
+    fun setSurfaceFlingerDisableBackpressure(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(
+            gpuInfo = it.gpuInfo.copy(isDisableBackpressure = enabled),
+            graphicsHwui = it.graphicsHwui.copy(surfaceFlingerDisableBackpressure = enabled)
+        ) }
+        viewModelScope.launch {
+            LynxRepository.setSurfaceFlingerDisableBackpressure(enabled)
+            delay(200L)
+            refreshGraphicsHwui()
+            refreshGpuInfo()
+        }
+    }
+
+    fun applyGpuProfile(profile: String, context: android.content.Context) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(activeProfile = profile)) }
+        viewModelScope.launch {
+            val ok = LynxRepository.applyGpuProfile(profile, _uiState.value.gpuInfo)
+            if (ok) {
+                val label = when (profile) {
+                    "battery" -> "Profil GPU Hemat Daya Aktif"
+                    "balanced" -> "Profil GPU Seimbang Aktif"
+                    "esports" -> "Profil GPU Esports Aktif"
+                    "extreme" -> "Profil GPU Ekstrem Aktif"
+                    else -> "Profil GPU Diterapkan"
+                }
+                android.widget.Toast.makeText(context, label, android.widget.Toast.LENGTH_SHORT).show()
+            }
+            delay(300L)
+            refreshGpuInfo()
+            refreshGraphicsHwui()
+        }
+    }
+
     fun refreshGraphicsHwui() {
         viewModelScope.launch {
             try {

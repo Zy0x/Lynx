@@ -197,12 +197,27 @@ for i in 0 1 2 3 4 5 6 7 8; do
     write_node "$i 0 0" "/proc/gpufreq/gpufreq_limit_table"
 done
 
+# DVFS Margin & Shader Core Unmasking
+if [ "$MODE" = "extreme" ]; then
+    write_node "30" "/sys/kernel/ged/hal/dvfs_margin_value"
+else
+    write_node "20" "/sys/kernel/ged/hal/dvfs_margin_value"
+fi
+for mask in /sys/devices/platform/*mali*/core_mask; do
+    [ -f "$mask" ] && write_node "0xFF" "$mask"
+done
+
 # Disable MediaTek Syslimiter
 write_node "1" "/proc/perfmgr/syslimiter/syslimiter_force_disable"
 write_node "0" "/proc/perfmgr/syslimiter/syslimiter_fps_60"
 write_node "0" "/proc/perfmgr/syslimiter/syslimiter_fps_90"
 write_node "0" "/proc/perfmgr/syslimiter/syslimiter_fps_120"
 write_node "0" "/proc/perfmgr/syslimiter/syslimiter_fps_144"
+
+# Universal Low-Latency SurfaceFlinger Pipeline
+setprop debug.sf.latch_unsignaled 1
+setprop debug.sf.disable_backpressure 1
+setprop debug.sf.enable_gl_backpressure 0
 
 # ── 4. CPUSet, SchedTune, VM, UFS, & Latency Tuning ──────────────────
 write_node "0-7" "/dev/cpuset/foreground/cpus"

@@ -2019,7 +2019,13 @@ fun TuningGpuCategory(
         when (uiState.selectedGpuTab) {
             0 -> {
                 // ── TAB 0: TUNING ──
-                // 1. Master GPU Tuner & Telemetri Card (Dual-Pill Clock, Boost, & Advanced)
+                // 1. One-Click GPU Quick Profiles (Harmonic Presets)
+                GpuQuickProfilesCard(
+                    activeProfile = gpu.activeProfile,
+                    onSelectProfile = { viewModel.applyGpuProfile(it, context) }
+                )
+
+                // 2. Master GPU Tuner & Telemetri Card (Dual-Pill Clock, Boost, & Waveform)
                 GpuMasterTunerCard(
                     gpu = gpu,
                     onSetFreq = { minMhz, maxMhz -> viewModel.setGpuFreq(minMhz, maxMhz) },
@@ -2033,12 +2039,30 @@ fun TuningGpuCategory(
                     onSetMaliDvfsMargin = { margin -> viewModel.setMaliDvfsMargin(margin) }
                 )
 
-                // 2. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, MSAA, Shader Cache)
+                // 2b. Adaptive Hardware Acceleration Card (SoC-Specific Engine)
+                AdaptiveGpuHardwareCard(
+                    gpu = gpu,
+                    onSetBusAlwaysOn = { viewModel.setGpuBusAlwaysOn(it) },
+                    onSetIdleTimer = { viewModel.setGpuIdleTimer(it) },
+                    onSetThermalBypass = { viewModel.setGpuThermalBypass(it) },
+                    onSetAdrenoPwrLevel = { viewModel.setAdrenoPwrLevel(it) },
+                    onSetAdrenoTzTargetLoad = { viewModel.setAdrenoTzTargetLoad(it) },
+                    onSetAdrenoForceRail = { viewModel.setAdrenoForceRail(it) },
+                    onSetFramePacing = { viewModel.setGpuFramePacing(it) },
+                    onSetFpsgoUltraRescue = { viewModel.setFpsgoUltraRescue(it) },
+                    onSetMaliDvfsMargin = { viewModel.setMaliDvfsMargin(it) },
+                    onSetMaliCoreMask = { viewModel.setMaliCoreMask(it) },
+                    onSetMaliPowerPolicy = { viewModel.setMaliPowerPolicy(it) },
+                    onSetGovernor = { viewModel.setGpuGovernor(it) }
+                )
+
+                // 3. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, Backpressure, Shader Cache)
                 GraphicsDriverHwuiCard(
                     graphics = graphics,
                     onSetGameDriver = { mode -> viewModel.setUpdatableGameDriver(mode) },
                     onSetRenderer = { backend -> viewModel.setHwuiRenderer(backend) },
                     onSetLatch = { latch -> viewModel.setSurfaceFlingerLatch(latch) },
+                    onSetDisableBackpressure = { viewModel.setSurfaceFlingerDisableBackpressure(it) },
                     onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
                     onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) },
                     onClearShaderCache = { viewModel.clearShaderCache(context) }

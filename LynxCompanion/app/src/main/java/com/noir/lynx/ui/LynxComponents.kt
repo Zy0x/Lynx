@@ -5179,6 +5179,325 @@ fun GpuMasterTunerCard(
 }
 
 // ============================================================
+//  GPU QUICK PROFILES (1-CLICK HARMONIC PRESETS)
+// ============================================================
+
+@Composable
+fun GpuQuickProfilesCard(
+    activeProfile: String,
+    onSelectProfile: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val profiles = listOf(
+        Triple("battery", "Hemat Daya", "Batas 60% OPP • Hemat Baterai"),
+        Triple("balanced", "Seimbang", "Skalabilitas Cerdas • Harian"),
+        Triple("esports", "Esports", "Bus On • Low Latency Gaming"),
+        Triple("extreme", "Ekstrem", "Lock 100% Clock • Bypass Thermal")
+    )
+
+    LynxCard(
+        title = "Preset Cepat GPU (One-Click Profiles)",
+        subtitle = "Aplikasi harmonis clock, boost, bus memori, dan pipeline render",
+        icon = Icons.Default.Speed,
+        accentColor = AccentCyan,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            profiles.forEach { (id, title, sub) ->
+                val isSelected = activeProfile == id
+                val profAccent = when (id) {
+                    "battery" -> AccentGreen
+                    "balanced" -> AccentCyan
+                    "esports" -> AccentOrange
+                    else -> AccentRed
+                }
+
+                Surface(
+                    onClick = { onSelectProfile(id) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) profAccent.copy(alpha = 0.2f) else BgElevated,
+                    border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, if (isSelected) profAccent else BorderGlass),
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 56.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = title,
+                            color = if (isSelected) profAccent else TextPrimary,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                            softWrap = true,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Text(
+                            text = sub,
+                            color = TextSecondary,
+                            fontSize = 8.5.sp,
+                            softWrap = true,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+//  ADAPTIVE GPU HARDWARE ACCELERATION CARD (SOC-SPECIFIC)
+// ============================================================
+
+@Composable
+fun AdaptiveGpuHardwareCard(
+    gpu: GpuInfo,
+    onSetBusAlwaysOn: (Boolean) -> Unit = {},
+    onSetIdleTimer: (Int) -> Unit = {},
+    onSetThermalBypass: (Boolean) -> Unit = {},
+    onSetAdrenoPwrLevel: (Int) -> Unit = {},
+    onSetAdrenoTzTargetLoad: (Int) -> Unit = {},
+    onSetAdrenoForceRail: (Boolean) -> Unit = {},
+    onSetFramePacing: (Boolean) -> Unit = {},
+    onSetFpsgoUltraRescue: (Boolean) -> Unit = {},
+    onSetMaliDvfsMargin: (Int) -> Unit = {},
+    onSetMaliCoreMask: (Boolean) -> Unit = {},
+    onSetMaliPowerPolicy: (String) -> Unit = {},
+    onSetGovernor: (String) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val isAdreno = gpu.platform == "adreno"
+    val isMtk = gpu.platform == "mali_ged"
+
+    val title = when {
+        isAdreno -> "Akselerasi Qualcomm Adreno (QTI KGSL)"
+        isMtk -> "Akselerasi MediaTek (${gpu.mtkGenType.replaceFirstChar { it.uppercase() }} & FPSGO)"
+        else -> "Akselerasi Hardware GPU (${gpu.subArchitecture})"
+    }
+    val subtitle = when {
+        isAdreno -> "Kontrol bus memory DDR, idle timer, dan Trustzone target load"
+        isMtk -> "Kontrol engine frame pacing, ultra rescue, dan DVFS margin"
+        else -> "Kontrol shader core masking, devfreq governor, dan power policy"
+    }
+
+    LynxCard(
+        title = title,
+        subtitle = subtitle,
+        icon = Icons.Default.Memory,
+        accentColor = AccentOrange,
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (isAdreno) {
+                // Adreno Controls
+                LynxSwitch(
+                    label = "KGSL Memory Bus Always-On",
+                    subLabel = "Kunci jalur DDR bus Adreno tetap aktif mencegah micro-stutter frame drop",
+                    checked = gpu.isBusAlwaysOn,
+                    onCheckedChange = { onSetBusAlwaysOn(it) }
+                )
+
+                LynxSwitch(
+                    label = "Adreno Force Rail Active",
+                    subLabel = "Paksa jalur daya power rail GPU aktif bertenaga selama game",
+                    checked = gpu.adrenoForceRail,
+                    onCheckedChange = { onSetAdrenoForceRail(it) }
+                )
+
+                LynxSwitch(
+                    label = "Bypass GPU Thermal Throttling",
+                    subLabel = "Abaikan batas pwrlevel thermal throttling kernel Qualcomm",
+                    checked = gpu.isThrottlingBypassed,
+                    onCheckedChange = { onSetThermalBypass(it) }
+                )
+
+                // Idle Timer Chips
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                    Text("Adreno Idle Timer (Waktu Tahan Clock)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Mencegah penurunan clock GPU tiba-tiba saat jeda frame game", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            Pair(20, "20ms (Agresif)"),
+                            Pair(40, "40ms (Responsif)"),
+                            Pair(64, "64ms (Bawaan)"),
+                            Pair(80, "80ms (Smooth)"),
+                            Pair(100, "100ms (Gaming)")
+                        ).forEach { (ms, label) ->
+                            val isSel = gpu.idleTimerMs == ms
+                            Surface(
+                                onClick = { onSetIdleTimer(ms) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
+                                modifier = Modifier.defaultMinSize(minHeight = 44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                    Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Trustzone Target Load
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                    Text("Trustzone TZ Governor Target Load", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Ambang batas beban sebelum GPU melompat ke frekuensi lebih tinggi", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            Pair(50, "50% (Hardcore)"),
+                            Pair(60, "60% (Gaming)"),
+                            Pair(70, "70% (Responsif)"),
+                            Pair(80, "80% (Bawaan)")
+                        ).forEach { (load, label) ->
+                            val isSel = gpu.adrenoTzTargetLoad == load
+                            Surface(
+                                onClick = { onSetAdrenoTzTargetLoad(load) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
+                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)) {
+                                    Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (isMtk) {
+                // MediaTek Controls
+                LynxSwitch(
+                    label = "MediaTek FPSGO Frame Pacing",
+                    subLabel = "Sinkronisasi buffer frame real-time untuk frametime gameplay datar",
+                    checked = gpu.isFramePacingActive,
+                    onCheckedChange = { onSetFramePacing(it) }
+                )
+
+                LynxSwitch(
+                    label = "FPSGO Ultra Rescue (Penyelamat Frame)",
+                    subLabel = "Akselerasi frekuensi instan jika frame terancam drop di bawah target FPS",
+                    checked = gpu.isFpsgoUltraRescue,
+                    onCheckedChange = { onSetFpsgoUltraRescue(it) }
+                )
+
+                LynxSwitch(
+                    label = "Bypass GPU Thermal Throttling",
+                    subLabel = "Override pembatasan throttling thermal daemon MediaTek saat beban berat",
+                    checked = gpu.isThrottlingBypassed,
+                    onCheckedChange = { onSetThermalBypass(it) }
+                )
+
+                // Mali DVFS Margin
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                    Text("Mali GED DVFS Margin (Sensitivitas Boost)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Menaikkan sensitivitas GPU agar instan melompat ke clock tinggi", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            Pair(0, "0% (Bawaan)"),
+                            Pair(10, "+10% (Responsif)"),
+                            Pair(20, "+20% (Gaming)"),
+                            Pair(30, "+30% (Agresif)")
+                        ).forEach { (margin, label) ->
+                            val isSel = gpu.maliDvfsMargin == margin
+                            Surface(
+                                onClick = { onSetMaliDvfsMargin(margin) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
+                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)) {
+                                    Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Mali Kbase / Exynos / Tensor / Generic
+                LynxSwitch(
+                    label = "Unmask Semua Shader Cores",
+                    subLabel = "Paksa seluruh unit komputasi shader core aktif tanpa pemadaman termal OEM",
+                    checked = gpu.isMaliAllCoresActive,
+                    onCheckedChange = { onSetMaliCoreMask(it) }
+                )
+
+                // Power Policy
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                    Text("Kebijakan Daya GPU (Power Policy)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Always-on meniadakan latensi bangun/tidur antara frame rendering", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            Pair("always_on", "Always-On (Performa Maksimum)"),
+                            Pair("coarse_demand", "Coarse Demand (Hemat Daya)")
+                        ).forEach { (pol, label) ->
+                            val isSel = gpu.maliPowerPolicy == pol
+                            Surface(
+                                onClick = { onSetMaliPowerPolicy(pol) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
+                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                                    Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (gpu.availableGovernors.isNotEmpty()) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                        Text("Devfreq Governor", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            gpu.availableGovernors.forEach { gov ->
+                                val isSel = gpu.currentGovernor.trim() == gov.trim()
+                                Surface(
+                                    onClick = { onSetGovernor(gov) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
+                                    modifier = Modifier.defaultMinSize(minHeight = 44.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                        Text(gov, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
 //  GRAPHICS DRIVER & HWUI ENGINE CARD
 // ============================================================
 
@@ -5191,6 +5510,7 @@ fun GraphicsDriverHwuiCard(
     onSetMsaa: (Boolean) -> Unit,
     onSetOemShield: (Boolean) -> Unit,
     onClearShaderCache: () -> Unit = {},
+    onSetDisableBackpressure: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentPurple
@@ -5319,6 +5639,14 @@ fun GraphicsDriverHwuiCard(
             subLabel = "Memangkas antrean render buffer dan memotong input lag touch hingga 1 frame (~8.3ms)",
             checked = graphics.surfaceFlingerLatchUnsignaled,
             onCheckedChange = { onSetLatch(it) }
+        )
+
+        // 3b. Bypass SurfaceFlinger Backpressure
+        LynxSwitch(
+            label = "Bypass SurfaceFlinger Backpressure",
+            subLabel = "Cegah jeda penundaan antrian buffer grafis untuk respon input instan tanpa stutter",
+            checked = graphics.surfaceFlingerDisableBackpressure,
+            onCheckedChange = { onSetDisableBackpressure(it) }
         )
 
         // 4. Force 4x MSAA

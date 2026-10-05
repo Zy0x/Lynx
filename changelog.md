@@ -1,3 +1,33 @@
+# Lynx [Codename: Deity] 3.0.47
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Ekspansi Universal Tweak GPU Multi-SoC Lintas Vendor (Qualcomm Adreno, MediaTek Helio/Dimensity/Immortalis, Samsung Exynos, Google Tensor, & Unisoc), Preset Cepat Harmonik 1-Klik (One-Click GPU Profiles), Kartu Akselerasi Hardware Adaptif Mandiri (SoC-Adaptive Acceleration Card), Bypass Buffer Backpressure SurfaceFlinger, serta Sinkronisasi Engine Shell Kernel Terpadu** — memperluas arsitektur tuning grafis dengan membedakan penanganan sysfs secara presisi antara Qualcomm KGSL (PwrLevels, Trustzone target load, DDR bus always-on, rail force), MediaTek GED & FPSGO (Ultra Rescue, DVFS margin, frame pacing), serta ARM Mali Kbase (shader core unmasking, power policy); menyajikan kartu preset cepat 1-klik (*Hemat Daya*, *Seimbang*, *Esports*, *Ekstrem*) dengan aplikasi terpadu ke seluruh lapisan hardware dan pipeline grafis; menambahkan opsi mitigasi latensi sentuh via bypass backpressure SurfaceFlinger; serta memperbarui skrip performa dan keseimbangan Qualcomm dan MediaTek dengan kontrol low-latency terintegrasi.
+
+## Fitur Baru & Peningkatan (3.0.47)
+
+### 1. Preset Cepat Harmonik GPU 1-Klik (One-Click GPU Profiles)
+- **4 Profil Khusus Terkoordinasi**: Menyediakan 4 preset instan di bagian atas Tab Tuning:
+  - **Hemat Daya (Battery Saver)**: Membatasi frekuensi maksimum hingga ~60% OPP, menonaktifkan boost, mengaktifkan idle timer agresif (20ms), dan mengatur power policy efisien.
+  - **Seimbang (Balanced)**: Skalabilitas dinamis harian yang halus dengan latensi sentuh dipercepat dan batas keamanan termal OEM aktif penuh.
+  - **Esports (Gaming Stabil)**: Mengunci batas frekuensi bawah (65% clock floor), mengaktifkan bus memori always-on, latch unsignaled, bypass backpressure, dan frame pacing datar.
+  - **Ekstrem (Unrestricted)**: Mengunci 100% frekuensi puncak GPU, bypass thermal throttling, boost maksimal, seluruh shader core aktif, dan sampling Trustzone agresif (50%).
+- **Feedback Interaktif Visual**: Indikator status aktif yang menyorot preset yang sedang berlaku dan notifikasi toast konfirmasi saat profil berhasil diaplikasikan.
+
+### 2. Kartu Akselerasi Hardware Adaptif (SoC-Adaptive Acceleration Card)
+- **Deteksi Karakteristik Hardware Otomatis**: Antarmuka secara cerdas hanya merender setelan yang didukung oleh arsitektur silikon aktif:
+  - **Qualcomm Snapdragon (Adreno QTI KGSL)**: Kontrol KGSL Memory Bus Always-On, Adreno Force Rail, Bypass Thermal Throttling, pilihan Idle Timer (20ms s/d 100ms), dan Trustzone Target Load (50% s/d 80%).
+  - **MediaTek (Helio, Dimensity, & Immortalis)**: Kontrol MediaTek FPSGO Frame Pacing, FPSGO Ultra Rescue (penyelamat frame drop instan), Mali GED DVFS Margin (+0% s/d +30%), dan bypass thermal throttling vendor.
+  - **Mali Kbase / Samsung Exynos / Google Tensor / Unisoc**: Kontrol Unmask Semua Shader Cores (mencegah pemadaman komputasi GPU oleh vendor), Power Policy (`always_on` vs `coarse_demand`), dan devfreq governor.
+
+### 3. Optimasi Pipeline Grafis Universal Android (OS Stack)
+- **Bypass SurfaceFlinger Backpressure**: Opsi kontrol langsung `debug.sf.disable_backpressure` dan `debug.sf.enable_gl_backpressure` untuk mengeliminasi antrean buffer yang menyebabkan stutter dan input lag.
+- **Harmonisasi Low-Latency Latch**: Mengintegrasikan `debug.sf.latch_unsignaled` secara harmonis ke dalam profil performa dan skrip root module.
+
+### 4. Sinkronisasi Skrip Shell Kernel Root Module
+- **Penyempurnaan `platforms/qcom/perf.sh` & `balance.sh`**: Menambahkan deteksi dual node `adrenoboost`/`adreno_boost` pada SoC Snapdragon modern, tuning Trustzone target load, dan reset bersih saat beralih ke mode balance.
+- **Penyempurnaan `platforms/mtk/perf.sh` & `balance.sh`**: Memadukan shader core unmasking (`0xFF` ke seluruh node `core_mask`) dan injeksi otomatis DVFS margin value ke dalam eksekusi profil.
+
+---
+
 # Lynx [Codename: Deity] 3.0.46
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Perombakan Menyeluruh Diagnostik GPU & Display Info, Eliminasi Total Pemotongan Teks (Zero-Truncation Policy), Integrasi Deteksi Ganda Hardware Vulkan API (PackageManager & Shell Driver Probing), Normalisasi Pelabelan Node Sysfs Kernel, serta Pembersihan Residu Format AI** — merombak tata letak subhalaman Info GPU & Display menjadi antarmuka diagnosa engineering yang presisi dan profesional; meniadakan seluruh pembatasan baris dan pemotongan teks elipsis (`...`) pada spesifikasi, judul, dan path file driver; menyempurnakan deteksi Vulkan melalui inspeksi fitur sistem Android native sehingga versi API dan driver teridentifikasi akurat; memperbaiki parser loop pengecekan sysfs sehingga seluruh node kernel tampil dengan nama deskriptif utuh berbahasa Indonesia; menempatkan tombol segarkan secara ergonomis di header kartu identitas silikon; serta menyingkirkan pengulangan subtitle redundan demi keterbacaan optimal.
