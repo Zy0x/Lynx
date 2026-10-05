@@ -149,12 +149,14 @@ fun CpuDashboardHeroCard(
     val isThrottled = uiState.isCpuThermalThrottled || tempC >= 55
 
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(22.dp),
         color = BgCard,
-        border = BorderStroke(1.dp, BorderSubtle),
-        modifier = modifier.fillMaxWidth()
+        border = BorderStroke(0.8.dp, BorderSubtle),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
             // Header: Status Mode & Chipset
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -372,15 +374,17 @@ fun CpuSmartRecommendationBanner(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(16.dp),
         color = AccentOrange.copy(alpha = 0.12f),
         border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.35f)),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1685,12 +1689,15 @@ fun CpuHardwareMonitorCard(
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // Master Hero Card (Bezier Waveform & Core Activity Summary)
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(22.dp),
             color = BgCard,
-            border = BorderStroke(1.dp, BorderSubtle),
-            modifier = Modifier.fillMaxWidth().animateContentSize()
+            border = BorderStroke(0.8.dp, BorderSubtle),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .animateContentSize()
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
+            Column(modifier = Modifier.padding(18.dp)) {
                 // Header: Title
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),

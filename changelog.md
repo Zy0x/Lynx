@@ -1,3 +1,20 @@
+# Lynx [Codename: Deity] 3.0.59
+Released on: 2026-10-06
+> **Versi ini** menghadirkan **Penyelarasan Margin Horizontal & Radius Sudut Kartu Atas Sub Halaman CPU (Grid Margin Harmonization), Eliminasi Tampilan Mepet & Menempel Pada Tepi Layar Untuk Hero Dashboard & Smart Recommendation Banner, Standardisasi Radius Kartu Menjadi 22dp Sesuai LynxCard Design System, Serta Penataan Jarak Vertikal Antar-Elemen Yang Lega & Konsisten** — menyelesaikan ketidakkonsistenan visual pada Tab 0 (Performance) dan Tab 2 (Monitor) di mana kartu status utama (Hero Dashboard Card) dan banner rekomendasi pintar sebelumnya membentang penuh tanpa padding horizontal (0dp margin) sehingga terlihat menempel rapat ke pinggir layar ponsel dan tampak tidak serasi dengan kartu di bawahnya yang memiliki indentasi 16dp; menambahkan padding horizontal standar 16dp dan padding vertikal 6dp/4dp; menyelaraskan radius sudut kartu utama menjadi 22dp dan radius banner menjadi 16dp; serta memperluas bantalan internal kartu menjadi 18dp agar informasi telemetri dan status termal bernapas dengan lega dan estetis.
+
+## Fitur Baru & Peningkatan (3.0.59)
+
+### 1. Penyelarasan Margin Horizontal Kartu Atas (Tab Performance & Monitor)
+- **Konsistensi Grid Layout 16dp**: Kartu Hero Dashboard dan Banner Rekomendasi Pintar kini menerapkan padding horizontal standar 16dp, sejajar sempurna dengan batas tepi kartu Performa CPU & Kluster dan tombol Pengaturan Lanjutan.
+- **Eliminasi Tampilan Mepet ke Tepi Layar**: Kartu tidak lagi membentang 100% penuh tanpa jarak ke bezel perangkat, memberikan tampilan visual yang proporsional, simetris, dan mewah.
+
+### 2. Standardisasi Radius Sudut & Padding Internal
+- **Radius Sudut Terpadu 22dp**: Menyelaraskan kelengkungan sudut Hero Dashboard Card (Tab 0) dan Master Live Monitor Card (Tab 2) menjadi 22dp agar seragam dengan seluruh komponen LynxCard lainnya.
+- **Radius Banner Rekomendasi 16dp**: Memperhalus lengkungan kartu peringatan/rekomendasi pintar agar selaras dengan hirarki kartu modern.
+- **Bantalan Konten Internal 18dp**: Memberikan ruang baca yang lebih lega untuk matriks 4-metrik utama (Peak Clock, Suhu CPU, Beban CPU, Status Throttle) dan bilah kualitatif Status CPU.
+
+---
+
 # Lynx [Codename: Deity] 3.0.58
 Released on: 2026-10-06
 > **Versi ini** menghadirkan **Pemisahan Tombol Pengaturan Lanjutan Menjadi Komponen Mandiri di Luar Kartu Induk (Standalone Gateway Trigger), Penegasan Batas Ruang Lingkup Kartu Utama CPU & System, Penyelarasan Kausalitas Visual Tingkat Kontrol (Spatial Causality Alignment), Serta Penyempurnaan Tampilan Tombol Accordion Mandiri dengan Kontainer Ikon Tematik** — menyelesaikan kerancuan visual di mana tombol pemicu pengaturan lanjutan sebelumnya berada di dalam kartu induk tetapi memunculkan kartu di luar kartu induk; memindahkan tombol "Pengaturan Lanjutan" (Tab Performance) dan "Pengaturan Sistem Lanjutan" (Tab System) keluar dari kartu induk masing-masing sehingga kartu utama fokus murni pada fungsinya (Profil & Kluster pada Tab 0, Preset Optimasi pada Tab 1); mendesain tombol pemicu sebagai kartu aksi mandiri berlebar penuh dengan kontainer ikon beraksen halus dan panah ekspansi yang memperjelas hierarki Level 1 menuju Level 2.
