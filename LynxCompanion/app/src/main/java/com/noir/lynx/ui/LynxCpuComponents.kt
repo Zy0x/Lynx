@@ -993,13 +993,31 @@ fun CpuUnifiedPerformanceCard(
         ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // Level 1: 3+1 Master Profile Selector (Battery | Balanced | Performance | Ekstrem)
-            Text(
-                text = "PILIH MODE PERFORMA (3+1)",
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextSecondary,
-                letterSpacing = 0.8.sp
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "PILIH MODE PERFORMA (3+1)",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextSecondary,
+                    letterSpacing = 0.8.sp
+                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (uiState.isCpuModified) AccentOrange.copy(alpha = 0.16f) else AccentGreen.copy(alpha = 0.16f)
+                ) {
+                    Text(
+                        text = if (uiState.isCpuModified) "Terkustomisasi" else "Standar Profil",
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (uiState.isCpuModified) AccentOrange else AccentGreen,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
