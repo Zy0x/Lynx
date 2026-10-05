@@ -2036,7 +2036,8 @@ fun TuningGpuCategory(
                     onSetBusAlwaysOn = { busOn -> viewModel.setGpuBusAlwaysOn(busOn) },
                     onSetFramePacing = { fp -> viewModel.setGpuFramePacing(fp) },
                     onSetIdleTimer = { idle -> viewModel.setGpuIdleTimer(idle) },
-                    onSetMaliDvfsMargin = { margin -> viewModel.setMaliDvfsMargin(margin) }
+                    onSetMaliDvfsMargin = { margin -> viewModel.setMaliDvfsMargin(margin) },
+                    onSetPowerPolicy = { viewModel.setGpuPowerPolicy(it) }
                 )
 
                 // 2b. Adaptive Hardware Acceleration Card (SoC-Specific Engine)
@@ -2063,9 +2064,11 @@ fun TuningGpuCategory(
                     onSetRenderer = { backend -> viewModel.setHwuiRenderer(backend) },
                     onSetLatch = { latch -> viewModel.setSurfaceFlingerLatch(latch) },
                     onSetDisableBackpressure = { viewModel.setSurfaceFlingerDisableBackpressure(it) },
+                    onSetEarlyPhase = { viewModel.setSurfaceFlingerEarlyPhase(it) },
                     onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
                     onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) },
-                    onClearShaderCache = { viewModel.clearShaderCache(context) }
+                    onClearShaderCache = { viewModel.clearShaderCache(context) },
+                    onPrewarmShaderCache = { viewModel.prewarmShaderCache(context) }
                 )
 
                 // 2b. Manajemen Rendering Per-Aplikasi (Game Driver Hub)
@@ -2143,6 +2146,8 @@ fun TuningGpuCategory(
                 GpuHardwareInfoDashboard(
                     caps = uiState.graphicsCapabilities,
                     pipeline = uiState.displayPipeline,
+                    currentHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60,
+                    onSetRefreshRate = { hz -> viewModel.setDisplayRefreshRate(hz, isAuto = false) },
                     onRefresh = {
                         viewModel.refreshGraphicsCapabilities()
                         viewModel.refreshDisplayPipeline()

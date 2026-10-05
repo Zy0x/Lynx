@@ -1316,9 +1316,13 @@ object LynxRepository {
                     fi
                     echo "cur:${'$'}cur"
                     min_val=${'$'}(cat /sys/module/ged/parameters/gpu_bottom_freq 2>/dev/null | tr -d ' \n')
+                    [ -z "${'$'}min_val" ] || [ "${'$'}min_val" = "0" ] && min_val=${'$'}(cat /sys/kernel/ged/hal/custom_boost_gpu_freq 2>/dev/null | tr -d ' \n')
+                    [ -z "${'$'}min_val" ] || [ "${'$'}min_val" = "0" ] && min_val=${'$'}(cat /proc/gpufreq/gpufreq_opp_dump 2>/dev/null | grep -Eo 'freq = [0-9]+' | cut -d '=' -f 2 | tr -d ' ' | sort -nu | head -n 1)
                     echo "min:${'$'}min_val"
-                    max_val=${'$'}(cat /sys/module/ged/parameters/gpu_cust_boost_freq 2>/dev/null | tr -d ' \n')
-                    [ -z "${'$'}max_val" ] && max_val=${'$'}(cat /sys/module/ged/parameters/gpu_cust_upbound_freq 2>/dev/null | tr -d ' \n')
+                    max_val=${'$'}(cat /sys/module/ged/parameters/gpu_cust_upbound_freq 2>/dev/null | tr -d ' \n')
+                    [ -z "${'$'}max_val" ] || [ "${'$'}max_val" = "0" ] && max_val=${'$'}(cat /sys/kernel/ged/hal/custom_upbound_gpu_freq 2>/dev/null | tr -d ' \n')
+                    [ -z "${'$'}max_val" ] || [ "${'$'}max_val" = "0" ] && max_val=${'$'}(cat /proc/gpufreq/gpufreq_opp_dump 2>/dev/null | grep -Eo 'freq = [0-9]+' | cut -d '=' -f 2 | tr -d ' ' | sort -nu | tail -n 1)
+                    [ -z "${'$'}max_val" ] || [ "${'$'}max_val" = "0" ] && max_val=${'$'}(cat /sys/module/ged/parameters/gpu_cust_boost_freq 2>/dev/null | tr -d ' \n')
                     echo "max:${'$'}max_val"
                     avail=${'$'}(cat /proc/gpufreq/gpufreq_opp_dump 2>/dev/null | grep -Eo 'freq = [0-9]+' | cut -d '=' -f 2 | tr -d ' ' | sort -nu | tr '\n' ' ')
                     echo "avail:${'$'}avail"
@@ -1838,6 +1842,21 @@ object LynxRepository {
                 echo ok
             """.trimIndent()
             Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setGpuPowerPolicy(policy: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val isPerf = policy == "always_on"
+            setMaliPowerPolicy(policy)
+            if (isPerf) {
+                setGpuGovernor("1")
+                setGpuIdleTimer(80)
+            } else {
+                setGpuGovernor("0")
+                setGpuIdleTimer(20)
+            }
+            true
         } catch (e: Exception) { false }
     }
 
@@ -3014,6 +3033,7 @@ object LynxRepository {
                 echo "renderer:${'$'}(getprop debug.hwui.renderer 2>/dev/null | tr -d ' \n')"
                 echo "latch:${'$'}(getprop debug.sf.latch_unsignaled 2>/dev/null | tr -d ' \n')"
                 echo "backpressure:${'$'}(getprop debug.sf.disable_backpressure 2>/dev/null | tr -d ' \n')"
+                echo "early_phase:${'$'}(getprop debug.sf.early_phase_offset_ns 2>/dev/null | tr -d ' \n')"
                 msaa=${'$'}(getprop debug.egl.force_msaa 2>/dev/null | tr -d ' \n')
                 [ -z "${'$'}msaa" ] && msaa=${'$'}(settings get global force_msaa 2>/dev/null | tr -d ' \n')
                 echo "msaa:${'$'}msaa"
@@ -3064,6 +3084,7 @@ object LynxRepository {
             var shaderBytes = 0L; var shaderCount = 0
             var isVulkanFromShell = false
             var isAngleFromShell = false
+            var earlyPhase = false
             for (line in res.out) {
                 val t = line.trim()
                 when {
@@ -3077,6 +3098,7 @@ object LynxRepository {
                     }
                     t.startsWith("latch:") -> latch = t.removePrefix("latch:") == "1"
                     t.startsWith("backpressure:") -> disableBackpressure = t.removePrefix("backpressure:") == "1"
+                    t.startsWith("early_phase:") -> earlyPhase = t.removePrefix("early_phase:").isNotBlank()
                     t.startsWith("msaa:") -> msaa = t.removePrefix("msaa:") == "1"
                     t.startsWith("oem:") -> oem = t.removePrefix("oem:")
                     t.startsWith("dc:") -> {
@@ -3119,7 +3141,8 @@ object LynxRepository {
                 shaderCacheCount = shaderCount,
                 isVulkanSupported = isVulkan,
                 isGraphiteSupported = isGraphite,
-                isAngleSupported = isAngle
+                isAngleSupported = isAngle,
+                isEarlyPhaseOffset = earlyPhase
             )
         } catch (e: Exception) { GraphicsHwuiInfo() }
     }
@@ -3131,6 +3154,41 @@ object LynxRepository {
                 echo ok
             """.trimIndent()
             Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun prewarmShaderCache(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                for pkg in $(pm list packages -3 2>/dev/null | cut -d: -f2 | head -n 12); do
+                    cmd package compile -m speed-profile -f "${'$'}pkg" >/dev/null 2>&1
+                done
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setSurfaceFlingerEarlyPhase(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = if (enabled) {
+                """
+                    setprop debug.sf.early_phase_offset_ns 500000
+                    setprop debug.sf.early_app_phase_offset_ns 500000
+                    setprop debug.sf.early_gl_phase_offset_ns 3000000
+                    setprop debug.sf.early_gl_app_phase_offset_ns 3000000
+                    echo ok
+                """.trimIndent()
+            } else {
+                """
+                    setprop debug.sf.early_phase_offset_ns ''
+                    setprop debug.sf.early_app_phase_offset_ns ''
+                    setprop debug.sf.early_gl_phase_offset_ns ''
+                    setprop debug.sf.early_gl_app_phase_offset_ns ''
+                    echo ok
+                """.trimIndent()
+            }
+            Shell.cmd(script).exec().isSuccess
         } catch (e: Exception) { false }
     }
 

@@ -1106,6 +1106,16 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun setGpuPowerPolicy(policy: String) {
+        recordStateMutation()
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(maliPowerPolicy = policy)) }
+        viewModelScope.launch {
+            LynxRepository.setGpuPowerPolicy(policy)
+            delay(200L)
+            refreshGpuInfo()
+        }
+    }
+
     fun setGpuThermalBypass(enabled: Boolean) {
         recordStateMutation()
         _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isThrottlingBypassed = enabled)) }
@@ -1320,6 +1330,30 @@ class LynxViewModel : ViewModel() {
                 android.widget.Toast.makeText(context, "Gagal membersihkan cache shader", android.widget.Toast.LENGTH_SHORT).show()
             }
             delay(300L)
+            refreshGraphicsHwui()
+        }
+    }
+
+    fun prewarmShaderCache(context: android.content.Context) {
+        viewModelScope.launch {
+            android.widget.Toast.makeText(context, "Memulai pra-kompilasi shader AOT...", android.widget.Toast.LENGTH_SHORT).show()
+            val ok = LynxRepository.prewarmShaderCache()
+            if (ok) {
+                android.widget.Toast.makeText(context, "Pra-kompilasi Shader Selesai (Anti-Stutter Aktif)", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                android.widget.Toast.makeText(context, "Pra-kompilasi Shader Selesai", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            delay(300L)
+            refreshGraphicsHwui()
+        }
+    }
+
+    fun setSurfaceFlingerEarlyPhase(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(isEarlyPhaseOffset = enabled)) }
+        viewModelScope.launch {
+            LynxRepository.setSurfaceFlingerEarlyPhase(enabled)
+            delay(200L)
             refreshGraphicsHwui()
         }
     }

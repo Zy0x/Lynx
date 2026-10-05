@@ -271,6 +271,7 @@ data class GraphicsHwuiInfo(
     val isVulkanSupported: Boolean = false,
     val isGraphiteSupported: Boolean = false,
     val isAngleSupported: Boolean = false,
+    val isEarlyPhaseOffset: Boolean = false,
 ) {
     fun isBackendSupported(backend: String): Boolean = when (backend.lowercase()) {
         "auto", "skiagl" -> true

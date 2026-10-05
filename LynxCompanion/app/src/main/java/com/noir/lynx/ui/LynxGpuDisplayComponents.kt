@@ -1455,6 +1455,8 @@ fun SessionHistoryList(
 fun GpuHardwareInfoDashboard(
     caps: GraphicsCapabilities,
     pipeline: DisplayPipelineInfo,
+    currentHz: Int = 0,
+    onSetRefreshRate: ((Int) -> Unit)? = null,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1468,7 +1470,9 @@ fun GpuHardwareInfoDashboard(
         )
 
         DisplayTelemetryCard(
-            caps = caps
+            caps = caps,
+            currentHz = currentHz,
+            onSetRefreshRate = onSetRefreshRate
         )
 
         CompositorPipelineCard(
@@ -1734,6 +1738,8 @@ fun GpuSiliconIdentityCard(
 @Composable
 fun DisplayTelemetryCard(
     caps: GraphicsCapabilities,
+    currentHz: Int = 0,
+    onSetRefreshRate: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentBlue
@@ -1785,25 +1791,33 @@ fun DisplayTelemetryCard(
                         val maxHz = caps.displayModes.maxOfOrNull { it.fps.toInt() } ?: 120
 
                         supportedFrequencies.forEach { hz ->
-                            val isMax = hz == "${maxHz}Hz"
+                            val hzInt = hz.removeSuffix("Hz").toIntOrNull() ?: 60
+                            val isCurrent = (currentHz > 0 && currentHz == hzInt) || (currentHz == 0 && hz == "${maxHz}Hz")
                             Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (isMax) AccentCyan.copy(alpha = 0.15f) else BgSurfaceLowest,
-                                border = BorderStroke(0.8.dp, if (isMax) AccentCyan.copy(alpha = 0.6f) else BorderGlass)
+                                onClick = { onSetRefreshRate?.invoke(hzInt) },
+                                enabled = onSetRefreshRate != null,
+                                shape = RoundedCornerShape(7.dp),
+                                color = if (isCurrent) AccentCyan.copy(alpha = 0.22f) else BgSurfaceLowest,
+                                border = BorderStroke(1.dp, if (isCurrent) AccentCyan else BorderGlass),
+                                modifier = Modifier.defaultMinSize(minHeight = 36.dp)
                             ) {
-                                Text(
-                                    text = hz,
-                                    color = if (isMax) AccentCyan else TextSecondary,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                )
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = hz,
+                                        color = if (isCurrent) AccentCyan else TextSecondary,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
                             }
                         }
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Refresh Rate Didukung",
+                        text = "Refresh Rate Layar (Ketuk untuk Kunci)",
                         color = TextTertiary,
                         fontSize = 9.sp
                     )

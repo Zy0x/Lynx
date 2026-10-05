@@ -1,3 +1,30 @@
+# Lynx [Codename: Deity] 3.0.50
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Normalisasi Akurasi Frekuensi Maksimum Silikon GPU MediaTek GED, Penambahan Pra-Kompilasi Shader Ahead-Of-Time (AOT Pre-Warm) Anti Micro-Stutter, Kontrol Terpadu Kebijakan Manajemen Daya GPU (GPU Power Policy), Akselerasi Latensi Respon Sentuh via SurfaceFlinger VSync Early Offset, serta Pemilih Refresh Rate Interaktif pada Tab Diagnostik Layar** — memulihkan keakuratan pembacaan plafon frekuensi tertinggi GPU pada chipset MediaTek (Helio & Dimensity) dengan memprioritaskan parameter `gpu_cust_upbound_freq` dan tabel OPP kernel alih-alih ambang boost awal; menambahkan kapabilitas pra-kompilasi shader Ahead-Of-Time (AOT) untuk mengeliminasi lonjakan latensi kompilasi shader pada menit-menit pertama menjalankan game 3D; mengintegrasikan sakelar profil daya GPU yang menyelaraskan kebijakan daya ARM Mali Kbase, MediaTek GED, dan Qualcomm Adreno dalam dua mode tegas (Efisiensi Daya vs Responsif Gaming); mengimplementasikan tweak latensi sentuh ultra-rendah melalui pemajuan fase dispatch buffer SurfaceFlinger (`debug.sf.early_phase_offset_ns`); serta mengaktifkan interaktivitas penuh pada pill indikator refresh rate di Tab Info untuk penguncian instan kecepatan penyegaran layar (60Hz, 90Hz, 120Hz).
+
+## Fitur Baru & Peningkatan (3.0.50)
+
+### 1. Normalisasi Akurasi Frekuensi Maksimum Silikon GPU
+- **Koreksi Plafon Clock MediaTek GED**: Memperbaiki logika probe pada `LynxRepository.readGpuInfo` dengan memprioritaskan `gpu_cust_upbound_freq` dan nilai teratas tabel OPP `/proc/gpufreq/gpufreq_opp_dump`, meniadakan ketidaksesuaian tampilan clock aktif (950 MHz) dengan badge batas frekuensi (sebelumnya tertahan di 495 MHz).
+- **Normalisasi Indikator Dual-Pill**: Menjamin badge frekuensi maksimum selalu merefleksikan kemampuan puncak silikon hardware dan tidak pernah menampilkan nilai yang lebih rendah dari frekuensi yang sedang berjalan secara real-time.
+
+### 2. Pra-Kompilasi Shader Ahead-Of-Time (AOT Anti-Stutter)
+- **Kompilasi Profil Kecepatan AOT**: Menambahkan fungsi `prewarmShaderCache()` yang mengeksekusi kompilasi kode dex dan shader game terpasang (`cmd package compile -m speed-profile`) guna meminimalkan insiden micro-stuttering saat render adegan visual kompleks.
+- **Antarmuka Kontrol Berdampingan**: Menyediakan tombol aksi `Pre-Warm (AOT)` tepat di samping tombol `Bersihkan` pada kartu manajemen cache shader dengan target sentuh standar 48dp.
+
+### 3. Kontrol Terpadu Kebijakan Daya GPU (GPU Power Policy)
+- **Manajemen Profil Daya Instan**: Menambahkan selector dua mode terpadu pada kartu Master GPU Tuner: mode *Efisiensi Daya* (Dynamic Downclock / Coarse Demand) dan mode *Responsif Gaming* (Low Latency / Always-On).
+- **Kompatibilitas Multi-SoC Transparan**: Perubahan kebijakan daya secara otomatis menerapkan parameter yang sesuai pada driver yang terdeteksi, baik MediaTek GED (`dvfs_loading_mode`), ARM Mali Kbase (`power_policy`), maupun Qualcomm Adreno (`idle_timer`).
+
+### 4. Akselerasi Latensi Sentuh & VSync Early Offset
+- **Pemajuan Dispatch Buffer SurfaceFlinger**: Menghadirkan opsi *Ultra-Low Touch Latency (VSync Early Offset)* yang mengonfigurasi properti `debug.sf.early_phase_offset_ns` dan `debug.sf.early_gl_phase_offset_ns`, memotong latensi respon input sentuhan hingga satu siklus render.
+- **Penyelarasan Tampilan Mesin HWUI**: Menyesuaikan padding dan jarak kontainer pemilih engine rendering (Default, SkiaGL, SkiaVK, Graphite, ANGLE) untuk navigasi sentuh yang lebih rapi dan responsif.
+
+### 5. Pemilih Refresh Rate Interaktif pada Tab Info
+- **Kunci Refresh Rate Langsung dari Spesifikasi**: Mengubah badge frekuensi penyegaran layar pada Tab Info menjadi kontrol interaktif, memungkinkan pengguna langsung mengunci panel pada kecepatan 60Hz, 90Hz, atau 120Hz dengan indikator visual status aktif.
+
+---
+
 # Lynx [Codename: Deity] 3.0.49
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Perbaikan Menyeluruh Telemetri RAM Fisik & Alokasi ZRAM Swap, Penguatan Arsitektur Dual-Tier Telemetry Engine dengan Cascading Fallback Tanpa Jeda, Rekonstruksi Script Telemetri Shell POSIX Murni, Pendeteksian Dinamis Kolom Proses CPU & Render Grafis, serta Mitigasi Komprehensif Zero-Value State pada Dashboard Utama** — mengatasi kegagalan pembacaan data RAM fisik dan ZRAM swap yang disebabkan oleh sintaks escape shell pada skrip telemetri root; menambahkan ekstraksi data ZRAM dan swap meminfo serta sysfs `disksize` secara presisi ke dalam struktur JSON telemetri modul; mengimplementasikan arsitektur fallback bertingkat (dual-tier cascading fallback) pada `LynxRepository.readTelemetry()` dan `readClusters()` sehingga sistem secara otomatis beralih ke pembacaan langsung sysfs dan meminfo tanpa menampilkan nilai nol apabila skrip eksternal modul mengalami gangguan; memodernisasi pemindaian baris `top` dan `ps` dengan deteksi header kolom dinamis serta toleransi flag `-m` pada pemantau proses CPU dan thread render grafis; memperluas pemantauan status pengisian daya (charging), arus, dan temperatur baterai untuk arsitektur multi-vendor; serta memastikan seluruh indikator hardware beroperasi secara akurat dan konsisten pada build debug maupun release.

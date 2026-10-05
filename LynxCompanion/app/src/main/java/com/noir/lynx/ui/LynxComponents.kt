@@ -4375,6 +4375,7 @@ fun GpuMasterTunerCard(
     onSetFramePacing: (Boolean) -> Unit,
     onSetIdleTimer: (Int) -> Unit = {},
     onSetMaliDvfsMargin: (Int) -> Unit = {},
+    onSetPowerPolicy: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isMali = gpu.platform.contains("mali", ignoreCase = true)
@@ -4459,8 +4460,11 @@ fun GpuMasterTunerCard(
                     color = cardAccent.copy(alpha = 0.15f),
                     border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.4f))
                 ) {
+                    val displayMax = if (gpu.maxFreqMhz > 0) {
+                        if (gpu.curFreqMhz > gpu.maxFreqMhz) gpu.curFreqMhz else gpu.maxFreqMhz
+                    } else (gpu.availFreqsMhz.maxOrNull() ?: 0)
                     Text(
-                        text = if (gpu.maxFreqMhz > 0) "Maks: ${gpu.maxFreqMhz} MHz" else "Dynamic Clock",
+                        text = if (displayMax > 0) "Maks: $displayMax MHz" else "Dynamic Clock",
                         color = cardAccent,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -4897,6 +4901,46 @@ fun GpuMasterTunerCard(
                 val isSelected = activeBoost == lvl
                 Surface(
                     onClick = { onSetBoostLevel(lvl) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isSelected) cardAccent.copy(alpha = 0.22f) else BgElevated,
+                    border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass)
+                ) {
+                    Column(
+                        Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            title,
+                            color = if (isSelected) cardAccent else TextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(sub, color = TextSecondary, fontSize = 9.sp)
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // --- 4b. GPU Power Policy (Efisiensi Daya vs Responsif Gaming) ---
+        Text(
+            "Kebijakan Daya GPU (Power Policy)",
+            color = TextPrimary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        val isAlwaysOnPolicy = gpu.maliPowerPolicy == "always_on" || gpu.currentGovernor == "1" || gpu.currentGovernor == "2" || gpu.idleTimerMs >= 80
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                Triple(false, "Efisiensi Daya", "Dynamic Downclock"),
+                Triple(true, "Responsif Gaming", "Low Latency Always-On")
+            ).forEach { (isPerf, title, sub) ->
+                val isSelected = isPerf == isAlwaysOnPolicy
+                Surface(
+                    onClick = { onSetPowerPolicy(if (isPerf) "always_on" else "coarse_demand") },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                     color = if (isSelected) cardAccent.copy(alpha = 0.22f) else BgElevated,
@@ -5547,6 +5591,8 @@ fun GraphicsDriverHwuiCard(
     onSetOemShield: (Boolean) -> Unit,
     onClearShaderCache: () -> Unit = {},
     onSetDisableBackpressure: (Boolean) -> Unit = {},
+    onSetEarlyPhase: (Boolean) -> Unit = {},
+    onPrewarmShaderCache: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentPurple
@@ -5685,6 +5731,14 @@ fun GraphicsDriverHwuiCard(
             onCheckedChange = { onSetDisableBackpressure(it) }
         )
 
+        // 3c. Ultra-Low Touch Latency (VSync Early Offset)
+        LynxSwitch(
+            label = "Ultra-Low Touch Latency (VSync Early Offset)",
+            subLabel = "Memajukan dispatch buffer grafis SurfaceFlinger untuk memangkas latensi respon sentuhan",
+            checked = graphics.isEarlyPhaseOffset,
+            onCheckedChange = { onSetEarlyPhase(it) }
+        )
+
         // 4. Force 4x MSAA
         LynxSwitch(
             label = "Paksa 4x Multisample Anti-Aliasing (MSAA)",
@@ -5745,17 +5799,48 @@ fun GraphicsDriverHwuiCard(
                             )
                         }
                     }
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { onPrewarmShaderCache() },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = cardAccent.copy(alpha = 0.22f),
+                            contentColor = cardAccent
+                        ),
+                        border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.5f)),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.weight(1.2f).defaultMinSize(minHeight = 48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "Pre-Warm (AOT)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
 
                     Button(
                         onClick = { showClearShaderConfirm = true },
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = cardAccent.copy(alpha = 0.2f),
-                            contentColor = cardAccent
+                            containerColor = BgSurfaceLowest,
+                            contentColor = TextSecondary
                         ),
-                        border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.5f)),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                        border = BorderStroke(1.dp, BorderGlass),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
@@ -5765,14 +5850,14 @@ fun GraphicsDriverHwuiCard(
                         Spacer(Modifier.width(6.dp))
                         Text(
                             "Bersihkan",
-                            fontSize = 11.5.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
                 Text(
-                    text = "Menghapus cache shader grafis yang bengkak/korup untuk mencegah micro-stutter saat compile shader game 3D. Tidak menghapus akun atau save game.",
+                    text = "Pre-Warm mengompilasi Ahead-of-Time shader game untuk mencegah micro-stutter saat bermain. Bersihkan menghapus cache shader yang bengkak atau korup.",
                     color = TextTertiary,
                     fontSize = 10.sp,
                     lineHeight = 14.sp,
