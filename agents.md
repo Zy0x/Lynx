@@ -259,6 +259,17 @@ WebUI adalah **antarmuka kontrol utama** pasca-instalasi bagi pengguna (diakses 
   - Penanganan error (*error boundary*) yang tangguh jika perintah gagal dieksekusi.
   - Sanitasi input untuk mencegah injeksi perintah shell yang merusak sistem.
 
+### 7.2 Tata Kelola Batas Domain & Single Source of Truth (GPU & Display Tuning)
+Untuk mencegah komplikasi dan redundansi kontrol di masa mendatang, seluruh pengembang dan AI Agent **WAJIB** mematuhi pembagian domain tanggung jawab berikut:
+1. **Domain Macro Preset (`GpuQuickProfilesCard`)**: Murni 1-click harmonized presets (Battery, Balanced, Esports, Extreme).
+2. **Domain Clock OPP & Telemetri (`GpuMasterTunerCard`)**: Murni bertanggung jawab atas frekuensi clock fisik (Min/Max MHz picker), lock clock, grafik real-time load bezier waveform, dan proses render aktif. **DILARANG** menambahkan kontrol kernel sysfs, toggle governor, atau bypass termal di kartu ini.
+3. **Domain Kernel Hardware Abstraction (`AdaptiveGpuHardwareCard`)**: Menjadi **satu-satunya Single Source of Truth** untuk seluruh parameter sysfs driver GPU (Adreno KGSL, MTK GED/FPSGO, ARM Mali Kbase, Generic Linux Devfreq). Wajib diverifikasi via permission probe (`VERIFIED_WORKING` vs `READ_ONLY_LOCKED`) dan transaction write verification. Dilarang menduplikasi tweak ini di kartu lain.
+4. **Domain Compositor & Render Engine (`GraphicsDriverHwuiCard`)**: Mengontrol global Android HWUI, Updatable Game Driver, SurfaceFlinger latching, dan shader cache.
+5. **Domain Per-App Graphics Hub (`PerAppGraphicsHubCard`)**: Mengontrol preferensi driver grafis dan refresh rate per-paket aplikasi.
+6. **Domain Display Hardware Output (`DisplayRefreshRateTouchCard`)**: Mengontrol SurfaceFlinger HWC physical mode switching, Auto dynamic mode, TouchBoost multi-OEM, dan DC Dimming.
+7. **Domain Kalibrasi Warna (`ColorManagementCard`)**: Mengontrol SurfaceFlinger ColorMatrix 1015 universal, D65 White Point, KCAL, dan HBM.
+8. **Domain Diagnostik Murni Tab 2 (`GpuHardwareInfoDashboard`)**: Berstatus **Murni Read-Only (Spec & Telemetry)**. Dilarang mengekspos tombol interaktif pengubah pengaturan sistem di Tab 2.
+
 ---
 
 ## 📦 8. Alur Interaksi Penginstal (Installer UX) & First-Boot Safety

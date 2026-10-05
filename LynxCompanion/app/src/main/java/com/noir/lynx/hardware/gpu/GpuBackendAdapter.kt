@@ -558,6 +558,26 @@ class GenericDevfreqAdapter : GpuBackendAdapter {
             }
         }
 
+        probeMap["$devfreqGpuPath/polling_interval"]?.let { access ->
+            if (access.exists) {
+                val curVal = Shell.cmd("cat '$devfreqGpuPath/polling_interval' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "50"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "devfreq_polling_interval",
+                        name = "Devfreq Polling Interval",
+                        description = "Interval sampling beban GPU dalam milidetik (ms)",
+                        nodePath = "$devfreqGpuPath/polling_interval",
+                        currentValue = curVal,
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.STEPPER,
+                        options = listOf("10", "20", "50", "100"),
+                        category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
         features
     }
 

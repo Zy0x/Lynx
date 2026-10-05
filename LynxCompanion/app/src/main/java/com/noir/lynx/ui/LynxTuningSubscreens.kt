@@ -2025,19 +2025,11 @@ fun TuningGpuCategory(
                     onSelectProfile = { viewModel.applyGpuProfile(it, context) }
                 )
 
-                // 2. Master GPU Tuner & Telemetri Card (Dual-Pill Clock, Boost, & Waveform)
+                // 2. Master GPU Tuner & Telemetri Card (Dual-Pill Clock, Lock, & Waveform)
                 GpuMasterTunerCard(
                     gpu = gpu,
                     onSetFreq = { minMhz, maxMhz -> viewModel.setGpuFreq(minMhz, maxMhz) },
-                    onSetLock = { locked -> viewModel.setGpuLock(locked) },
-                    onSetBoostLevel = { lvl -> viewModel.setGpuBoostLevel(lvl) },
-                    onSetGovernor = { gov -> viewModel.setGpuGovernor(gov) },
-                    onSetThermalBypass = { bypass -> viewModel.setGpuThermalBypass(bypass) },
-                    onSetBusAlwaysOn = { busOn -> viewModel.setGpuBusAlwaysOn(busOn) },
-                    onSetFramePacing = { fp -> viewModel.setGpuFramePacing(fp) },
-                    onSetIdleTimer = { idle -> viewModel.setGpuIdleTimer(idle) },
-                    onSetMaliDvfsMargin = { margin -> viewModel.setMaliDvfsMargin(margin) },
-                    onSetPowerPolicy = { viewModel.setGpuPowerPolicy(it) }
+                    onSetLock = { locked -> viewModel.setGpuLock(locked) }
                 )
 
                 // 2b. Adaptive Hardware Acceleration Card (SoC-Specific Engine)
@@ -2149,7 +2141,6 @@ fun TuningGpuCategory(
                     caps = uiState.graphicsCapabilities,
                     pipeline = uiState.displayPipeline,
                     currentHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60,
-                    onSetRefreshRate = { hz -> viewModel.setDisplayRefreshRate(hz, isAuto = false) },
                     onRefresh = {
                         viewModel.refreshGraphicsCapabilities()
                         viewModel.refreshDisplayPipeline()

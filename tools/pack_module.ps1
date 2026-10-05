@@ -1,9 +1,22 @@
 param(
-    [string]$Version = "3.0.49"
+    [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
 $rootDir = Split-Path -Parent $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $propFile = Join-Path $rootDir "module.prop"
+    if (Test-Path $propFile) {
+        $verLine = Get-Content $propFile | Where-Object { $_ -match "^version=(.+)$" } | Select-Object -First 1
+        if ($verLine -match "^version=(.+)$") {
+            $Version = $Matches[1].Trim()
+        }
+    }
+}
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = "3.0.54"
+}
+
 $distDir = Join-Path $rootDir "dist"
 if (-not (Test-Path $distDir)) {
     New-Item -ItemType Directory -Path $distDir | Out-Null

@@ -1456,7 +1456,6 @@ fun GpuHardwareInfoDashboard(
     caps: GraphicsCapabilities,
     pipeline: DisplayPipelineInfo,
     currentHz: Int = 0,
-    onSetRefreshRate: ((Int) -> Unit)? = null,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1471,8 +1470,7 @@ fun GpuHardwareInfoDashboard(
 
         DisplayTelemetryCard(
             caps = caps,
-            currentHz = currentHz,
-            onSetRefreshRate = onSetRefreshRate
+            currentHz = currentHz
         )
 
         CompositorPipelineCard(
@@ -1739,7 +1737,6 @@ fun GpuSiliconIdentityCard(
 fun DisplayTelemetryCard(
     caps: GraphicsCapabilities,
     currentHz: Int = 0,
-    onSetRefreshRate: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentBlue
@@ -1797,19 +1794,17 @@ fun DisplayTelemetryCard(
                             val hzInt = hz.removeSuffix("Hz").toIntOrNull() ?: 60
                             val isCurrent = (currentHz > 0 && currentHz == hzInt) || (currentHz == 0 && hz == "${maxHz}Hz")
                             Surface(
-                                onClick = { onSetRefreshRate?.invoke(hzInt) },
-                                enabled = onSetRefreshRate != null,
                                 shape = RoundedCornerShape(7.dp),
                                 color = if (isCurrent) AccentCyan.copy(alpha = 0.22f) else BgSurfaceLowest,
                                 border = BorderStroke(1.dp, if (isCurrent) AccentCyan else BorderGlass),
-                                modifier = Modifier.defaultMinSize(minHeight = 36.dp)
+                                modifier = Modifier.defaultMinSize(minHeight = 32.dp)
                             ) {
                                 Box(
                                     contentAlignment = Alignment.Center,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
                                 ) {
                                     Text(
-                                        text = hz,
+                                        text = if (isCurrent) "$hz (Aktif)" else hz,
                                         color = if (isCurrent) AccentCyan else TextSecondary,
                                         fontSize = 10.5.sp,
                                         fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium
@@ -1820,7 +1815,7 @@ fun DisplayTelemetryCard(
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Refresh Rate Layar (Ketuk untuk Kunci)",
+                        text = "Mode Refresh Rate Panel (Kontrol di Tab Tuning)",
                         color = TextTertiary,
                         fontSize = 9.sp
                     )

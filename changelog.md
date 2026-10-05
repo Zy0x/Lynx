@@ -1,3 +1,29 @@
+# Lynx [Codename: Deity] 3.0.54
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Pembersihan Menyeluruh Kontrol Redundan pada Subhalaman GPU & Display, Perampingan Arsitektur GpuMasterTunerCard Menjadi Master Clock & OPP Telemetry Controller, Pemusatan Tunggal Seluruh Tweak Kernel Sysfs ke Adaptive Hardware HAL Card (Single Source of Truth), Konversi Chip Kecepatan Refresh Tab 2 Menjadi Spesifikasi Diagnostik Read-Only, Ekspansi Dynamic Probing pada Generic Devfreq HAL, serta Penerapan Domain Boundary Contract 8-Tingkat** — merekonstruksi komponen tuning GPU dan tampilan; mengeliminasi seluruh toggle statis legacy di dalam `GpuMasterTunerCard` (segmented boost engine, power policy, serta accordion kustomisasi lanjutan yang menduplikasi governor, bypass thermal, bus memory always-on, idle timer, FPSGO frame pacing, dan DVFS margin); memusatkan 100% kontrol hardware ke `AdaptiveGpuHardwareCard` yang memiliki verifikasi izin non-destruktif (`VERIFIED_WORKING` vs `READ_ONLY_LOCKED`) dan verifikasi baca-ulang transaksional dengan rollback otomatis; mengubah chip refresh rate di Tab 2 (Info) menjadi lencana spesifikasi panel fisik murni tanpa fungsi tombol interaktif; menambahkan probe `polling_interval` pada `GenericDevfreqAdapter`; serta mengukuhkan batas domain arsitektural pada dokumen panduan pengembang guna menjamin tidak ada lagi tweak tumpang-tindih di masa mendatang.
+
+## Fitur Baru & Peningkatan (3.0.54)
+
+### 1. Eliminasi Redundansi Tweak & Perampingan GpuMasterTunerCard
+- **Fokus Tunggal pada Clock & OPP Telemetri**: Kartu `GpuMasterTunerCard` dirampingkan secara ergonomis untuk memegang tanggung jawab eksklusif terhadap pemilihan frekuensi clock OPP (Dual-Pill Min/Max MHz Picker via Modal Bottom Sheet), status penguncian clock (*clock lock*), grafik kurva bezier beban GPU real-time, dan pemantauan proses render aktif SurfaceFlinger/HWUI.
+- **Pembersihan Kontrol Ganda**: Menghapus seluruh bagian Segmented Boost Engine, GPU Power Policy, dan Accordion *Kustomisasi Lanjutan GPU & Kernel* yang sebelumnya bertumpuk dengan kartu akselerasi hardware di bawahnya.
+
+### 2. Pemusatan Eksklusif Kernel Sysfs ke AdaptiveGpuHardwareCard (Single Source of Truth)
+- **Satu Pintu Tuning Kernel**: Seluruh parameter sysfs driver GPU (Qualcomm KGSL, MediaTek GED/FPSGO, ARM Mali Kbase, dan Generic Devfreq) kini dikelola secara eksklusif oleh `AdaptiveGpuHardwareCard`.
+- **Integritas Hardware Tanpa Tombol Palsu**: Setiap interaksi pada kartu ini dilindungi oleh siklus penulisan transaksional: pengujian hak akses baca/tulis (`[ -r ]` dan `[ -w ]`), penulisan atomik, verifikasi baca-ulang (*read-back verification*), dan pembatalan otomatis (*auto-rollback*) jika kernel menolak nilai baru.
+
+### 3. Konversi Tab 2 (Info) Menjadi Diagnostik Murni Read-Only
+- **Pemisahan Peran Tegas**: Menghilangkan fungsi klik pengubah refresh rate pada `DisplayTelemetryCard` dan `GpuHardwareInfoDashboard` di Tab 2. Chip mode frekuensi kini berfungsi sebagai lencana diagnostik fisik (`60Hz`, `90Hz`, `120Hz (Aktif)`) dengan teks panduan yang mengarahkan pengguna ke Tab 0 (Tuning).
+- **Pengendali Terpusat di Tab 0**: Kontrol interaktif mode display (HWC direct mode switching, Auto dynamic mode, TouchBoost, dan DC Dimming) dikukuhkan terpusat pada `DisplayRefreshRateTouchCard`.
+
+### 4. Ekspansi Dynamic Hardware Probing (Generic Linux Devfreq)
+- **Probe Devfreq Polling Interval**: Memperluas `GenericDevfreqAdapter` untuk memindai node `polling_interval` secara dinamis, melengkapi dukungan governor, step frekuensi OPP, dan batasan min/max clock pada SoC seperti Samsung Exynos Xclipse (AMD RDNA), Unisoc Tiger, dan platform Linux generic.
+
+### 5. Tata Kelola Batas Domain Arsitektur (Domain Boundary Contract)
+- **Pedoman Pengembang Mengikat (AGENTS.md Section 7.2)**: Mengesahkan aturan pemisahan tanggung jawab 8-domain guna mencegah pengembang atau agen kecerdasan buatan memperkenalkan kembali kontrol ganda atau tumpang tindih sysfs pada subhalaman GPU & Display di masa depan.
+
+---
+
 # Lynx [Codename: Deity] 3.0.53
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Telemetri Real-Time Refresh Rate Layar Berbasis DisplayManager Listener (Event-Driven Panel Rate Callback), Penghapusan Lencana Statis Redundan pada Kartu Kecepatan Refresh, Desain Tipografi Digital Minimalis Tanpa Wadah Badge, serta Penyelarasan Deskripsi Mode Auto Dinamis** — merekonstruksi komponen `DisplayRefreshRateTouchCard` pada subhalaman GPU & Display; menghilangkan lencana statis `Auto (120 Hz)` yang redundan dengan chip pemilih frekuensi; mengimplementasikan pemantauan refresh rate layar aktif secara instan (0ms latency event callback) melalui `DisplayManager.DisplayListener` terdaftar tanpa polling berkala dan tanpa konsumsi baterai latar belakang; menampilkan metrik frekuensi aktual dalam format tipografi digital bersih (`REAL-TIME` berhuruf kapital tegas dengan angka frekuensi tebal dinamis); serta memperjelas deskripsi mode Auto dinamis saat panel beralih clock antara kondisi statis dan interaksi sentuhan.
