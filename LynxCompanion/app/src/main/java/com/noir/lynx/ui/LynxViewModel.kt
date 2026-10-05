@@ -522,8 +522,8 @@ class LynxViewModel : ViewModel() {
     //  CPU Cluster & Governor Controls (Kernel Manager)
     // ----------------------------------------------------------------
 
-    fun setClusterFrequency(policyId: Int, minFreq: Long?, maxFreq: Long?) {
-        recordStateMutation()
+    fun setClusterFrequency(policyId: Int, minFreq: Long?, maxFreq: Long?, fromMasterProfile: Boolean = false) {
+        if (!fromMasterProfile) recordStateMutation()
         val curCluster = _uiState.value.clusters.find { it.id == policyId }
         val newMin = minFreq ?: curCluster?.curMin
         val newMax = maxFreq ?: curCluster?.curMax
@@ -556,16 +556,23 @@ class LynxViewModel : ViewModel() {
                         )
                     } else core
                 }
-                current.copy(clusters = updatedClusters, cpuCores = updatedCores, isCpuModified = true)
+                current.copy(
+                    clusters = updatedClusters,
+                    cpuCores = updatedCores,
+                    isCpuModified = if (fromMasterProfile) current.isCpuModified else true
+                )
             }
             LynxRepository.setClusterFreq(policyId, minFreq, maxFreq)
             refreshClusters()
             refreshCpuCores()
+            if (fromMasterProfile) {
+                _uiState.update { it.copy(isCpuModified = false) }
+            }
         }
     }
 
-    fun setClusterGovernor(policyId: Int, gov: String) {
-        recordStateMutation()
+    fun setClusterGovernor(policyId: Int, gov: String, fromMasterProfile: Boolean = false) {
+        if (!fromMasterProfile) recordStateMutation()
         val curCluster = _uiState.value.clusters.find { it.id == policyId }
         val prev = activeClusterIntents[policyId]
         activeClusterIntents[policyId] = ClusterIntent(
@@ -581,11 +588,14 @@ class LynxViewModel : ViewModel() {
                 val updated = current.clusters.map { c ->
                     if (c.id == policyId) c.copy(curGov = gov) else c
                 }
-                current.copy(clusters = updated, isCpuModified = true)
+                current.copy(clusters = updated, isCpuModified = if (fromMasterProfile) current.isCpuModified else true)
             }
             LynxRepository.setClusterGov(policyId, gov)
             refreshClusters()
             refreshCpuCores()
+            if (fromMasterProfile) {
+                _uiState.update { it.copy(isCpuModified = false) }
+            }
         }
     }
 
@@ -1494,26 +1504,26 @@ class LynxViewModel : ViewModel() {
                         val maxTarget = if (c.availFreqs.size > 2) {
                             c.availFreqs[(c.availFreqs.size * 0.65).toInt().coerceIn(0, c.availFreqs.lastIndex)]
                         } else c.curMax
-                        setClusterFrequency(c.id, min, maxTarget)
+                        setClusterFrequency(c.id, min, maxTarget, fromMasterProfile = true)
                         val gov = if (c.availGovs.contains("schedutil")) "schedutil" else (if (c.availGovs.contains("powersave")) "powersave" else c.curGov)
-                        setClusterGovernor(c.id, gov)
+                        setClusterGovernor(c.id, gov, fromMasterProfile = true)
                     }
-                    applySchedulerPreset("battery", context)
-                    applyCpuSetPreset("battery", context)
-                    applyCpuIdlePreset("battery", context)
+                    applySchedulerPreset("battery", context, fromMasterProfile = true)
+                    applyCpuSetPreset("battery", context, fromMasterProfile = true)
+                    applyCpuIdlePreset("battery", context, fromMasterProfile = true)
                     _uiState.update { it.copy(successMessage = "Mode Efisiensi diterapkan: hemat daya maksimal.", isCpuModified = false) }
                 }
                 "balanced" -> {
                     clusters.forEach { c ->
                         val min = c.availFreqs.firstOrNull() ?: c.curMin
                         val max = c.availFreqs.lastOrNull() ?: c.curMax
-                        setClusterFrequency(c.id, min, max)
+                        setClusterFrequency(c.id, min, max, fromMasterProfile = true)
                         val gov = if (c.availGovs.contains("schedutil")) "schedutil" else c.curGov
-                        setClusterGovernor(c.id, gov)
+                        setClusterGovernor(c.id, gov, fromMasterProfile = true)
                     }
-                    applySchedulerPreset("balanced", context)
-                    applyCpuSetPreset("balanced", context)
-                    applyCpuIdlePreset("balanced", context)
+                    applySchedulerPreset("balanced", context, fromMasterProfile = true)
+                    applyCpuSetPreset("balanced", context, fromMasterProfile = true)
+                    applyCpuIdlePreset("balanced", context, fromMasterProfile = true)
                     _uiState.update { it.copy(successMessage = "Mode Seimbang diterapkan: performa dan baterai optimal.", isCpuModified = false) }
                 }
                 "performance" -> {
@@ -1522,25 +1532,25 @@ class LynxViewModel : ViewModel() {
                             c.availFreqs[(c.availFreqs.size * 0.45).toInt().coerceIn(0, c.availFreqs.lastIndex)]
                         } else c.curMin
                         val max = c.availFreqs.lastOrNull() ?: c.curMax
-                        setClusterFrequency(c.id, minTarget, max)
+                        setClusterFrequency(c.id, minTarget, max, fromMasterProfile = true)
                         val gov = if (c.availGovs.contains("schedutil")) "schedutil" else (if (c.availGovs.contains("performance")) "performance" else c.curGov)
-                        setClusterGovernor(c.id, gov)
+                        setClusterGovernor(c.id, gov, fromMasterProfile = true)
                     }
-                    applySchedulerPreset("gaming", context)
-                    applyCpuSetPreset("gaming", context)
-                    applyCpuIdlePreset("gaming", context)
+                    applySchedulerPreset("gaming", context, fromMasterProfile = true)
+                    applyCpuSetPreset("gaming", context, fromMasterProfile = true)
+                    applyCpuIdlePreset("gaming", context, fromMasterProfile = true)
                     _uiState.update { it.copy(successMessage = "Mode Performa diterapkan: responsivitas tinggi & gaming stabil.", isCpuModified = false) }
                 }
                 "extreme" -> {
                     clusters.forEach { c ->
                         val max = c.availFreqs.lastOrNull() ?: c.curMax
-                        setClusterFrequency(c.id, max, max)
+                        setClusterFrequency(c.id, max, max, fromMasterProfile = true)
                         val gov = if (c.availGovs.contains("performance")) "performance" else (if (c.availGovs.contains("schedutil")) "schedutil" else c.curGov)
-                        setClusterGovernor(c.id, gov)
+                        setClusterGovernor(c.id, gov, fromMasterProfile = true)
                     }
-                    applySchedulerPreset("extreme", context)
-                    applyCpuSetPreset("gaming", context)
-                    applyCpuIdlePreset("gaming", context)
+                    applySchedulerPreset("extreme", context, fromMasterProfile = true)
+                    applyCpuSetPreset("gaming", context, fromMasterProfile = true)
+                    applyCpuIdlePreset("gaming", context, fromMasterProfile = true)
                     try {
                         LynxRepository.setPpmPolicy(0, true, context)
                         LynxRepository.setPpmPolicy(4, true, context)
@@ -1548,7 +1558,7 @@ class LynxViewModel : ViewModel() {
                     _uiState.update { it.copy(successMessage = "Mode Ekstrem diterapkan: frekuensi puncak terkunci tanpa batas.", isCpuModified = false) }
                 }
             }
-            delay(300L)
+            delay(500L)
             refreshClusters()
             refreshCpuCores()
             _uiState.update { it.copy(isCpuModified = false) }
@@ -2395,9 +2405,9 @@ class LynxViewModel : ViewModel() {
         }
     }
 
-    fun applySchedulerPreset(preset: String, context: Context? = null) {
-        recordStateMutation()
-        _uiState.update { it.copy(schedulerInfo = it.schedulerInfo.copy(activePreset = preset), isCpuModified = true) }
+    fun applySchedulerPreset(preset: String, context: Context? = null, fromMasterProfile: Boolean = false) {
+        if (!fromMasterProfile) recordStateMutation()
+        _uiState.update { it.copy(schedulerInfo = it.schedulerInfo.copy(activePreset = preset), isCpuModified = if (fromMasterProfile) it.isCpuModified else true) }
         viewModelScope.launch {
             val ok = LynxRepository.applySchedulerPreset(preset, context)
             if (ok) {
@@ -2408,9 +2418,14 @@ class LynxViewModel : ViewModel() {
                     "battery" -> "Efisiensi Daya"
                     else -> "Seimbang"
                 }
-                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Preset Penjadwal '$presetTitle' berhasil diterapkan", isCpuModified = true) }
+                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = if (fromMasterProfile) it.successMessage else "Preset Penjadwal '$presetTitle' berhasil diterapkan", isCpuModified = if (fromMasterProfile) it.isCpuModified else true) }
             } else {
-                _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset penjadwal '$preset'") }
+                if (!fromMasterProfile) {
+                    _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset penjadwal '$preset'") }
+                }
+            }
+            if (fromMasterProfile) {
+                _uiState.update { it.copy(isCpuModified = false) }
             }
         }
     }
@@ -2427,10 +2442,10 @@ class LynxViewModel : ViewModel() {
         }
     }
 
-    fun applyCpuSetPreset(preset: String, context: Context? = null) {
-        recordStateMutation()
+    fun applyCpuSetPreset(preset: String, context: Context? = null, fromMasterProfile: Boolean = false) {
+        if (!fromMasterProfile) recordStateMutation()
         val totalCores = _uiState.value.cpuSets.totalCoresCount
-        _uiState.update { it.copy(cpuSets = it.cpuSets.copy(activePreset = preset), isCpuModified = true) }
+        _uiState.update { it.copy(cpuSets = it.cpuSets.copy(activePreset = preset), isCpuModified = if (fromMasterProfile) it.isCpuModified else true) }
         viewModelScope.launch {
             val ok = LynxRepository.applyCpuSetPreset(preset, totalCores, context)
             if (ok) {
@@ -2440,9 +2455,14 @@ class LynxViewModel : ViewModel() {
                     "battery" -> "Hemat Ekstrem"
                     else -> "Standar Android"
                 }
-                _uiState.update { it.copy(cpuSets = fresh, successMessage = "Profil CPU Sets '$presetTitle' berhasil diterapkan", isCpuModified = true) }
+                _uiState.update { it.copy(cpuSets = fresh, successMessage = if (fromMasterProfile) it.successMessage else "Profil CPU Sets '$presetTitle' berhasil diterapkan", isCpuModified = if (fromMasterProfile) it.isCpuModified else true) }
             } else {
-                _uiState.update { it.copy(errorMessage = "Gagal menerapkan profil CPU Sets '$preset'") }
+                if (!fromMasterProfile) {
+                    _uiState.update { it.copy(errorMessage = "Gagal menerapkan profil CPU Sets '$preset'") }
+                }
+            }
+            if (fromMasterProfile) {
+                _uiState.update { it.copy(isCpuModified = false) }
             }
         }
     }
@@ -2645,10 +2665,10 @@ class LynxViewModel : ViewModel() {
         }
     }
 
-    fun applyCpuIdlePreset(preset: String, context: Context? = null) {
-        recordStateMutation()
+    fun applyCpuIdlePreset(preset: String, context: Context? = null, fromMasterProfile: Boolean = false) {
+        if (!fromMasterProfile) recordStateMutation()
         _uiState.update { current ->
-            current.copy(cpuIdle = current.cpuIdle.copy(activePreset = preset), isCpuModified = true)
+            current.copy(cpuIdle = current.cpuIdle.copy(activePreset = preset), isCpuModified = if (fromMasterProfile) current.isCpuModified else true)
         }
         viewModelScope.launch {
             val ok = LynxRepository.applyCpuIdlePreset(preset, context)
@@ -2664,13 +2684,18 @@ class LynxViewModel : ViewModel() {
                         cpuIdle = fresh.copy(
                             applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
                         ),
-                        successMessage = "Profil CPU Idle '$presetTitle' berhasil diterapkan",
-                        isCpuModified = true
+                        successMessage = if (fromMasterProfile) current.successMessage else "Profil CPU Idle '$presetTitle' berhasil diterapkan",
+                        isCpuModified = if (fromMasterProfile) current.isCpuModified else true
                     )
                 }
                 refreshCpuCores()
             } else {
-                _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset CPU Idle '$preset'") }
+                if (!fromMasterProfile) {
+                    _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset CPU Idle '$preset'") }
+                }
+            }
+            if (fromMasterProfile) {
+                _uiState.update { it.copy(isCpuModified = false) }
             }
         }
     }
