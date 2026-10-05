@@ -978,11 +978,11 @@ fun CpuUnifiedPerformanceCard(
     var showDeveloperDrawer by remember { mutableStateOf(false) }
     val currentProfile = uiState.cpuComprehensiveProfile.lowercase()
 
-    // Mode labels: Battery, Balanced, Gaming
+    // Master CPU Presets: Battery, Balanced, Performance
     val profiles = listOf(
         Triple("battery", "Battery", Icons.Default.BatteryChargingFull),
         Triple("balanced", "Balanced", Icons.Default.Tune),
-        Triple("gaming", "Gaming", Icons.Default.Bolt)
+        Triple("performance", "Performance", Icons.Default.Speed)
     )
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -992,7 +992,7 @@ fun CpuUnifiedPerformanceCard(
             accentColor = AccentCyan
         ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Level 1: 3-Pill 1-Click Profile Selector (Battery | Balanced | Gaming)
+            // Level 1: 3-Pill 1-Click Profile Selector (Battery | Balanced | Performance)
             Text(
                 text = "PILIH MODE PERFORMA",
                 fontSize = 9.sp,
@@ -1006,10 +1006,10 @@ fun CpuUnifiedPerformanceCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 profiles.forEach { (key, label, icon) ->
-                    val isSelected = currentProfile == key
+                    val isSelected = currentProfile == key || (key == "performance" && currentProfile == "gaming")
                     val pillAccent = when (key) {
                         "battery" -> AccentGreen
-                        "gaming" -> AccentOrange
+                        "performance" -> AccentBlue
                         else -> AccentCyan
                     }
 
@@ -1048,8 +1048,8 @@ fun CpuUnifiedPerformanceCard(
             // Description of active profile
             val profileDesc = when (currentProfile) {
                 "battery" -> "Mengoptimalkan frekuensi untuk daya tahan baterai maksimal dan suhu tetap dingin."
-                "gaming" -> "Menaikkan batas frekuensi bawah dan mempercepat akselerasi tugas untuk stabilitas frame rate."
-                "extreme" -> "Mengunci frekuensi tertinggi tanpa pembatasan termal untuk performa benchmark puncak."
+                "performance", "gaming" -> "Menaikkan batas frekuensi bawah dan mempercepat responsivitas untuk gaming stabil dengan perlindungan termal aktif."
+                "extreme" -> "Mode Ekstrem aktif: Mengunci frekuensi tertinggi tanpa pembatasan daya untuk performa benchmark puncak."
                 else -> "Menyeimbangkan efisiensi daya harian dengan akselerasi cerdas saat aplikasi dibuka."
             }
             Text(
@@ -1105,6 +1105,121 @@ fun CpuUnifiedPerformanceCard(
             }
         }
 
+        // Dedicated Card: Mode Ekstrem (Maximum Gaming)
+        val isExtremeActive = currentProfile == "extreme"
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = if (isExtremeActive) AccentRed.copy(alpha = 0.12f) else BgCard,
+            border = BorderStroke(1.dp, if (isExtremeActive) AccentRed else AccentRed.copy(alpha = 0.35f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = AccentRed.copy(alpha = 0.16f),
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalFireDepartment,
+                                    contentDescription = null,
+                                    tint = AccentRed,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Mode Ekstrem",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isExtremeActive) AccentRed else AccentRed.copy(alpha = 0.18f)
+                                ) {
+                                    Text(
+                                        text = if (isExtremeActive) "AKTIF: 100% CLOCK" else "MAXIMUM GAMING",
+                                        fontSize = 8.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isExtremeActive) Color.White else AccentRed,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = if (isExtremeActive) "Semua bypass aktif & clock terkunci maksimum" else "Bypass throttling & kunci clock 100%",
+                                fontSize = 9.5.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = "Mengunci seluruh kluster CPU ke frekuensi tertinggi, memaksimalkan task boost uclamp 100%, serta melewati batas perlindungan daya OEM. Hanya disarankan untuk benchmark atau gaming berat dengan pendingin eksternal (cooler).",
+                    fontSize = 10.sp,
+                    color = TextTertiary,
+                    lineHeight = 14.sp
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = {
+                            if (isExtremeActive) {
+                                onApplyProfile("balanced")
+                            } else {
+                                showExtremeConfirmDialog = true
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isExtremeActive) BgSurfaceLowest else AccentRed,
+                            contentColor = if (isExtremeActive) AccentRed else Color.White
+                        ),
+                        border = if (isExtremeActive) BorderStroke(1.dp, AccentRed.copy(alpha = 0.5f)) else null,
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier.height(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isExtremeActive) Icons.Default.Close else Icons.Default.Bolt,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = if (isExtremeActive) "Nonaktifkan Ekstrem" else "Aktifkan Mode Ekstrem",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
         // Standalone Level 2 Trigger: "Pengaturan Lanjutan"
         Surface(
             onClick = { isAdvancedExpanded = !isAdvancedExpanded },
@@ -1147,7 +1262,7 @@ fun CpuUnifiedPerformanceCard(
                             color = TextPrimary
                         )
                         Text(
-                            text = if (isAdvancedExpanded) "Tutup pengaturan terperinci" else "Hardware engine, mode ekstrem & verifikasi pengembang",
+                            text = if (isAdvancedExpanded) "Tutup pengaturan terperinci" else "Hardware engine & verifikasi pengembang",
                             fontSize = 9.5.sp,
                             color = TextSecondary
                         )
@@ -1163,102 +1278,50 @@ fun CpuUnifiedPerformanceCard(
             }
         }
 
-    // Level 2 Expanded Area: Platform Engine, Hidden Extreme Mode & Developer Drawer (Full Width Sibling Cards)
-    AnimatedVisibility(
-        visible = isAdvancedExpanded,
-        enter = expandVertically() + fadeIn(),
-        exit = shrinkVertically() + fadeOut()
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Platform Hardware Boost (MediaTek PPM / Qualcomm Input Boost)
-            if (schedInfo.isPpmSupported || schedInfo.isQcomBoostSupported) {
-                PlatformHardwareEngineCard(
-                    schedInfo = schedInfo,
-                    onPpmPolicyChange = onPpmPolicyChange,
-                    onQcomTouchboostChange = onQcomTouchboostChange,
-                    onQcomInputBoostChange = onQcomInputBoostChange
-                )
-            }
-
-            // Hidden Extreme Mode Trigger with Safety Confirmation
-            Surface(
-                shape = RoundedCornerShape(22.dp),
-                color = AccentRed.copy(alpha = 0.08f),
-                border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.3f)),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.LocalFireDepartment,
-                                contentDescription = null,
-                                tint = AccentRed,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = "Mode Ekstrem (Tanpa Batas)",
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = AccentRed
-                            )
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = "Kunci frekuensi maksimum CPU. Menghasilkan panas tinggi dan baterai lebih boros.",
-                            fontSize = 10.sp,
-                            color = TextSecondary,
-                            lineHeight = 14.sp
-                        )
-                    }
-
-                    Button(
-                        onClick = { showExtremeConfirmDialog = true },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AccentRed,
-                            contentColor = Color.White
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                        modifier = Modifier.height(36.dp)
-                    ) {
-                        Text("Aktifkan", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
+        // Level 2 Expanded Area: Platform Engine & Developer Drawer (Full Width Sibling Cards)
+        AnimatedVisibility(
+            visible = isAdvancedExpanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Platform Hardware Boost (MediaTek PPM / Qualcomm Input Boost)
+                if (schedInfo.isPpmSupported || schedInfo.isQcomBoostSupported) {
+                    PlatformHardwareEngineCard(
+                        schedInfo = schedInfo,
+                        onPpmPolicyChange = onPpmPolicyChange,
+                        onQcomTouchboostChange = onQcomTouchboostChange,
+                        onQcomInputBoostChange = onQcomInputBoostChange
+                    )
                 }
-            }
 
-            // Developer Verification Drawer Trigger (Phase 10: Hidden in Advanced)
-            Surface(
-                onClick = { showDeveloperDrawer = true },
-                shape = RoundedCornerShape(22.dp),
-                color = BgCard,
-                border = BorderStroke(0.8.dp, BorderSubtle),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).defaultMinSize(minHeight = 52.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // Developer Verification Drawer Trigger (Phase 10: Hidden in Advanced)
+                Surface(
+                    onClick = { showDeveloperDrawer = true },
+                    shape = RoundedCornerShape(22.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).defaultMinSize(minHeight = 52.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Terminal, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text("Verifikasi Pengembang (Sysfs)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                            Text("Status keaslian node kernel & perizinan hardware", fontSize = 9.5.sp, color = TextSecondary)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Terminal, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text("Verifikasi Pengembang (Sysfs)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                Text("Status keaslian node kernel & perizinan hardware", fontSize = 9.5.sp, color = TextSecondary)
+                            }
                         }
+                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(18.dp))
                     }
-                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(18.dp))
                 }
             }
         }
     }
-}
 
     // Extreme Mode Confirmation Dialog
     if (showExtremeConfirmDialog) {
@@ -1340,6 +1403,7 @@ fun CpuUnifiedSystemCard(
     onUclampChange: (Float, Float) -> Unit,
     onMigrationChange: (Float, Float) -> Unit,
     onResetSection: (Pair<String, String>) -> Unit,
+    onResetToStandardProfile: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isAdvancedSystemExpanded by remember { mutableStateOf(false) }
@@ -1348,70 +1412,133 @@ fun CpuUnifiedSystemCard(
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         LynxCard(
-            title = "OPTIMASI SISTEM & PENJADWAL",
+            title = "STATUS PROFIL SISTEM",
             icon = Icons.Default.SettingsSuggest,
             accentColor = AccentOrange
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Level 1: 1-Click System Optimization Presets (Balanced | Gaming | Battery)
-                Text(
-                    text = "PRESET OPTIMASI SISTEM",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextSecondary,
-                    letterSpacing = 0.8.sp
-                )
+                val masterProfile = uiState.cpuComprehensiveProfile.lowercase()
+                val masterLabel = when (masterProfile) {
+                    "battery" -> "Battery Mode (Hemat Daya)"
+                    "performance", "gaming" -> "Performance Mode (Gaming Stabil)"
+                    "extreme" -> "Extreme Mode (100% Clock Max)"
+                    else -> "Balanced Mode (Seimbang)"
+                }
+                val masterIcon = when (masterProfile) {
+                    "battery" -> Icons.Default.BatteryChargingFull
+                    "performance", "gaming" -> Icons.Default.Speed
+                    "extreme" -> Icons.Default.LocalFireDepartment
+                    else -> Icons.Default.Tune
+                }
+                val masterAccent = when (masterProfile) {
+                    "battery" -> AccentGreen
+                    "performance", "gaming" -> AccentBlue
+                    "extreme" -> AccentRed
+                    else -> AccentCyan
+                }
+                val isModified = uiState.isCpuModified
 
-                val presets = listOf(
-                    Triple("balanced", "Balanced", Icons.Default.Tune),
-                    Triple("gaming", "Gaming", Icons.Default.Bolt),
-                    Triple("battery", "Battery", Icons.Default.BatteryChargingFull)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(0.8.dp, if (isModified) AccentOrange.copy(alpha = 0.5f) else BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    presets.forEach { (key, label, icon) ->
-                        val isSelected = schedInfo.activePreset.equals(key, true)
-                        Surface(
-                            onClick = { onApplySystemPreset(key) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .defaultMinSize(minHeight = 44.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isSelected) AccentOrange.copy(alpha = 0.22f) else BgSurfaceLowest,
-                            border = BorderStroke(1.dp, if (isSelected) AccentOrange else BorderSubtle)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = masterAccent.copy(alpha = 0.16f),
+                                modifier = Modifier.size(36.dp)
                             ) {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = label,
-                                    tint = if (isSelected) AccentOrange else TextSecondary,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = masterIcon,
+                                        contentDescription = null,
+                                        tint = masterAccent,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
                                 Text(
-                                    text = label,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) TextPrimary else TextSecondary
+                                    text = masterLabel,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    text = if (isModified) "Parameter telah dimodifikasi manual" else "Parameter tersinkronisasi penuh",
+                                    fontSize = 9.5.sp,
+                                    color = if (isModified) AccentOrange else TextSecondary
                                 )
                             }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isModified) AccentOrange.copy(alpha = 0.16f) else AccentGreen.copy(alpha = 0.16f)
+                        ) {
+                            Text(
+                                text = if (isModified) "Terkustomisasi (Modified)" else "Standar Profil",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isModified) AccentOrange else AccentGreen,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
                         }
                     }
                 }
 
                 Text(
-                    text = "Preset menyelaraskan latensi kernel, alokasi beban aplikasi penting, dan status hemat daya secara otomatis.",
+                    text = if (isModified) {
+                        "Beberapa konfigurasi penjadwal, afinitas inti, atau efisiensi daya telah disesuaikan manual di luar profil master. Gunakan tombol reset di bawah untuk mengembalikan konfigurasi ke baseline standar profil."
+                    } else {
+                        "Penjadwal kernel, alokasi inti (Task Shield CPU Sets), dan status efisiensi daya (C-States & Core Parking) diselaraskan secara otomatis oleh Master Profil di Tab Performance."
+                    },
                     fontSize = 10.5.sp,
                     color = TextTertiary,
                     lineHeight = 14.sp
                 )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = onResetToStandardProfile,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isModified) AccentOrange else BgSurfaceLowest,
+                            contentColor = if (isModified) Color.Black else TextPrimary
+                        ),
+                        border = if (!isModified) BorderStroke(0.8.dp, BorderSubtle) else null,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Reset ke Standar Profil",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
 

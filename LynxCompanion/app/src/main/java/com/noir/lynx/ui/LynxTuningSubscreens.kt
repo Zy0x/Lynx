@@ -120,7 +120,8 @@ fun TuningCpuCategory(
                         viewModel.setSchedulerTunable("sched_upmigrate", up.toLong(), context)
                         viewModel.setSchedulerTunable("sched_downmigrate", down.toLong(), context)
                     },
-                    onResetSection = { pendingResetSection = it }
+                    onResetSection = { pendingResetSection = it },
+                    onResetToStandardProfile = { viewModel.resetCpuToActiveProfile(context) }
                 )
             }
             2 -> {

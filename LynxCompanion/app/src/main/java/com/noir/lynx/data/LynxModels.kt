@@ -560,6 +560,7 @@ data class LynxUiState(
     val cpuRecommendation: String? = null,
     val isCpuRecommendationDismissed: Boolean = false,
     val cpuComprehensiveProfile: String = "balanced",
+    val isCpuModified: Boolean = false,
     val cpuHealthQuality: CpuHealthQuality = CpuHealthQuality.HEALTHY,
     val isCpuThermalThrottled: Boolean = false,
     val isCoreMatrixExpanded: Boolean = false,

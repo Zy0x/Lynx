@@ -556,7 +556,7 @@ class LynxViewModel : ViewModel() {
                         )
                     } else core
                 }
-                current.copy(clusters = updatedClusters, cpuCores = updatedCores)
+                current.copy(clusters = updatedClusters, cpuCores = updatedCores, isCpuModified = true)
             }
             LynxRepository.setClusterFreq(policyId, minFreq, maxFreq)
             refreshClusters()
@@ -581,7 +581,7 @@ class LynxViewModel : ViewModel() {
                 val updated = current.clusters.map { c ->
                     if (c.id == policyId) c.copy(curGov = gov) else c
                 }
-                current.copy(clusters = updated)
+                current.copy(clusters = updated, isCpuModified = true)
             }
             LynxRepository.setClusterGov(policyId, gov)
             refreshClusters()
@@ -624,7 +624,7 @@ class LynxViewModel : ViewModel() {
                         )
                     } else core
                 }
-                current.copy(clusters = updatedClusters, cpuCores = updatedCores)
+                current.copy(clusters = updatedClusters, cpuCores = updatedCores, isCpuModified = true)
             }
             LynxRepository.setClusterLock(policyId, lock, effectiveMin, effectiveMax)
             refreshClusters()
@@ -1480,10 +1480,14 @@ class LynxViewModel : ViewModel() {
 
     fun applyComprehensiveCpuProfile(profile: String, context: Context) {
         recordStateMutation()
-        _uiState.update { it.copy(cpuComprehensiveProfile = profile) }
+        val normalized = when (profile.lowercase()) {
+            "gaming" -> "performance"
+            else -> profile.lowercase()
+        }
+        _uiState.update { it.copy(cpuComprehensiveProfile = normalized, isCpuModified = false) }
         viewModelScope.launch {
             val clusters = _uiState.value.clusters
-            when (profile.lowercase()) {
+            when (normalized) {
                 "battery" -> {
                     clusters.forEach { c ->
                         val min = c.availFreqs.firstOrNull() ?: c.curMin
@@ -1495,7 +1499,9 @@ class LynxViewModel : ViewModel() {
                         setClusterGovernor(c.id, gov)
                     }
                     applySchedulerPreset("battery", context)
-                    _uiState.update { it.copy(successMessage = "Mode Efisiensi diterapkan: hemat daya maksimal.") }
+                    applyCpuSetPreset("battery", context)
+                    applyCpuIdlePreset("battery", context)
+                    _uiState.update { it.copy(successMessage = "Mode Efisiensi diterapkan: hemat daya maksimal.", isCpuModified = false) }
                 }
                 "balanced" -> {
                     clusters.forEach { c ->
@@ -1506,9 +1512,11 @@ class LynxViewModel : ViewModel() {
                         setClusterGovernor(c.id, gov)
                     }
                     applySchedulerPreset("balanced", context)
-                    _uiState.update { it.copy(successMessage = "Mode Seimbang diterapkan: performa dan baterai optimal.") }
+                    applyCpuSetPreset("balanced", context)
+                    applyCpuIdlePreset("balanced", context)
+                    _uiState.update { it.copy(successMessage = "Mode Seimbang diterapkan: performa dan baterai optimal.", isCpuModified = false) }
                 }
-                "gaming" -> {
+                "performance" -> {
                     clusters.forEach { c ->
                         val minTarget = if (c.availFreqs.size > 2) {
                             c.availFreqs[(c.availFreqs.size * 0.45).toInt().coerceIn(0, c.availFreqs.lastIndex)]
@@ -1519,7 +1527,9 @@ class LynxViewModel : ViewModel() {
                         setClusterGovernor(c.id, gov)
                     }
                     applySchedulerPreset("gaming", context)
-                    _uiState.update { it.copy(successMessage = "Mode Gaming diterapkan: responsivitas tinggi dan latensi rendah.") }
+                    applyCpuSetPreset("gaming", context)
+                    applyCpuIdlePreset("gaming", context)
+                    _uiState.update { it.copy(successMessage = "Mode Performa diterapkan: responsivitas tinggi & gaming stabil.", isCpuModified = false) }
                 }
                 "extreme" -> {
                     clusters.forEach { c ->
@@ -1529,13 +1539,23 @@ class LynxViewModel : ViewModel() {
                         setClusterGovernor(c.id, gov)
                     }
                     applySchedulerPreset("extreme", context)
-                    _uiState.update { it.copy(successMessage = "Mode Ekstrem diterapkan: frekuensi maksimum terkunci.") }
+                    applyCpuSetPreset("gaming", context)
+                    applyCpuIdlePreset("gaming", context)
+                    setPpmPolicy(0, true, context)
+                    setPpmPolicy(4, true, context)
+                    _uiState.update { it.copy(successMessage = "Mode Ekstrem diterapkan: frekuensi puncak terkunci tanpa batas.", isCpuModified = false) }
                 }
             }
             delay(300L)
             refreshClusters()
             refreshCpuCores()
+            _uiState.update { it.copy(isCpuModified = false) }
         }
+    }
+
+    fun resetCpuToActiveProfile(context: Context) {
+        val active = _uiState.value.cpuComprehensiveProfile.ifBlank { "balanced" }
+        applyComprehensiveCpuProfile(active, context)
     }
 
     fun refreshGraphicsCapabilities() {
@@ -2311,7 +2331,7 @@ class LynxViewModel : ViewModel() {
                 else -> current.schedulerInfo
             }
             val finalSched = if (tunable != "apply_on_boot") updated.copy(activePreset = "custom") else updated
-            current.copy(schedulerInfo = finalSched)
+            current.copy(schedulerInfo = finalSched, isCpuModified = true)
         }
         viewModelScope.launch {
             val ok = LynxRepository.setSchedulerTunable(tunable, value, context)
@@ -2332,7 +2352,7 @@ class LynxViewModel : ViewModel() {
                 schedUpmigrate = safeUp,
                 schedDownmigrate = safeDown,
                 activePreset = "custom"
-            ))
+            ), isCpuModified = true)
         }
         viewModelScope.launch {
             val ok = LynxRepository.setSchedulerHysteresis(safeUp, safeDown, context)
@@ -2360,7 +2380,7 @@ class LynxViewModel : ViewModel() {
             current.copy(schedulerInfo = current.schedulerInfo.copy(
                 activeArchitectureMode = mode,
                 activePreset = "custom"
-            ))
+            ), isCpuModified = true)
         }
         viewModelScope.launch {
             val ok = LynxRepository.setSchedulerArchitectureMode(mode, context)
@@ -2375,7 +2395,7 @@ class LynxViewModel : ViewModel() {
 
     fun applySchedulerPreset(preset: String, context: Context? = null) {
         recordStateMutation()
-        _uiState.update { it.copy(schedulerInfo = it.schedulerInfo.copy(activePreset = preset)) }
+        _uiState.update { it.copy(schedulerInfo = it.schedulerInfo.copy(activePreset = preset), isCpuModified = true) }
         viewModelScope.launch {
             val ok = LynxRepository.applySchedulerPreset(preset, context)
             if (ok) {
@@ -2386,7 +2406,7 @@ class LynxViewModel : ViewModel() {
                     "battery" -> "Efisiensi Daya"
                     else -> "Seimbang"
                 }
-                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Preset Penjadwal '$presetTitle' berhasil diterapkan") }
+                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Preset Penjadwal '$presetTitle' berhasil diterapkan", isCpuModified = true) }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset penjadwal '$preset'") }
             }
@@ -2408,7 +2428,7 @@ class LynxViewModel : ViewModel() {
     fun applyCpuSetPreset(preset: String, context: Context? = null) {
         recordStateMutation()
         val totalCores = _uiState.value.cpuSets.totalCoresCount
-        _uiState.update { it.copy(cpuSets = it.cpuSets.copy(activePreset = preset)) }
+        _uiState.update { it.copy(cpuSets = it.cpuSets.copy(activePreset = preset), isCpuModified = true) }
         viewModelScope.launch {
             val ok = LynxRepository.applyCpuSetPreset(preset, totalCores, context)
             if (ok) {
@@ -2418,7 +2438,7 @@ class LynxViewModel : ViewModel() {
                     "battery" -> "Hemat Ekstrem"
                     else -> "Standar Android"
                 }
-                _uiState.update { it.copy(cpuSets = fresh, successMessage = "Profil CPU Sets '$presetTitle' berhasil diterapkan") }
+                _uiState.update { it.copy(cpuSets = fresh, successMessage = "Profil CPU Sets '$presetTitle' berhasil diterapkan", isCpuModified = true) }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal menerapkan profil CPU Sets '$preset'") }
             }
@@ -2455,12 +2475,12 @@ class LynxViewModel : ViewModel() {
             else -> currentSets
         }
 
-        _uiState.update { it.copy(cpuSets = updatedSets) }
+        _uiState.update { it.copy(cpuSets = updatedSets, isCpuModified = true) }
         viewModelScope.launch {
             val ok = LynxRepository.setCpuSetCores(group, newCoresStr, context)
             if (ok) {
                 val fresh = LynxRepository.readCpuSetsInfo(context)
-                _uiState.update { it.copy(cpuSets = fresh) }
+                _uiState.update { it.copy(cpuSets = fresh, isCpuModified = true) }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal memperbarui Core $coreId pada $group") }
             }
@@ -2601,7 +2621,8 @@ class LynxViewModel : ViewModel() {
                 cpuIdle = current.cpuIdle.copy(
                     states = updatedStates,
                     activePreset = "custom"
-                )
+                ),
+                isCpuModified = true
             )
         }
         viewModelScope.launch {
@@ -2612,7 +2633,8 @@ class LynxViewModel : ViewModel() {
                     current.copy(
                         cpuIdle = fresh.copy(
                             applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
-                        )
+                        ),
+                        isCpuModified = true
                     )
                 }
             } else {
@@ -2624,7 +2646,7 @@ class LynxViewModel : ViewModel() {
     fun applyCpuIdlePreset(preset: String, context: Context? = null) {
         recordStateMutation()
         _uiState.update { current ->
-            current.copy(cpuIdle = current.cpuIdle.copy(activePreset = preset))
+            current.copy(cpuIdle = current.cpuIdle.copy(activePreset = preset), isCpuModified = true)
         }
         viewModelScope.launch {
             val ok = LynxRepository.applyCpuIdlePreset(preset, context)
@@ -2640,7 +2662,8 @@ class LynxViewModel : ViewModel() {
                         cpuIdle = fresh.copy(
                             applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
                         ),
-                        successMessage = "Profil CPU Idle '$presetTitle' berhasil diterapkan"
+                        successMessage = "Profil CPU Idle '$presetTitle' berhasil diterapkan",
+                        isCpuModified = true
                     )
                 }
                 refreshCpuCores()
@@ -2653,7 +2676,7 @@ class LynxViewModel : ViewModel() {
     fun setCoreParkingMode(mode: String, totalCores: Int = 8, context: Context? = null) {
         recordStateMutation()
         _uiState.update { current ->
-            current.copy(cpuIdle = current.cpuIdle.copy(coreParkingMode = mode, activePreset = "custom"))
+            current.copy(cpuIdle = current.cpuIdle.copy(coreParkingMode = mode, activePreset = "custom"), isCpuModified = true)
         }
         viewModelScope.launch {
             val ok = LynxRepository.setCoreParkingMode(mode, totalCores, context)

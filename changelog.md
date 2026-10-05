@@ -1,3 +1,25 @@
+# Lynx [Codename: Deity] 3.0.60
+Released on: 2026-10-06
+> **Versi ini** menghadirkan **Konsolidasi Master CPU Preset Terpadu (Single Source of Truth CPU Profile Architecture), Diferensiasi Tegas Mode Performa vs Mode Ekstrem (Maximum Gaming All Bypass), Redesain Tab Sistem Menggantikan Tombol Preset Duplikat Menjadi Kartu Status Profil Sistem dengan Deteksi Modifikasi Manual (Terkustomisasi / Modified State), Serta Tombol Pemulihan Cepat (Reset ke Standar Profil)** — menyelaraskan seluruh parameter CPU (kluster OPP clock, governor, penjadwal EAS, afinitas inti CPU Sets, dan efisiensi C-States/Core Parking) di bawah satu kendali master pada Tab 0 (Performance); membedakan secara tegas antara Mode Performa (untuk gaming responsif harian dengan perlindungan termal aktif) dan Mode Ekstrem (kunci clock 100% maksimum, bypass pembatasan daya OEM, peringatan pendingin eksternal, dan dialog konfirmasi bahaya); mengeliminasi tombol preset redundan di Tab 1 (System) dan menggantikannya dengan Kartu Status Profil Sistem yang menampilkan profil aktif, badge status sinkronisasi, dan aksi 1-klik untuk mereset setelan granular kembali ke baseline profil master; serta mempertahankan standar visual konsisten dengan margin horizontal 16dp dan radius sudut 22dp.
+
+## Fitur Baru & Peningkatan (3.0.60)
+
+### 1. Master CPU Preset Terpadu (Single Source of Truth)
+- **Kendali Sentral di Tab Performance**: Pemilihan profil di Tab 0 (Battery, Balanced, Performance) secara otomatis mengonfigurasi dan menyelaraskan seluruh lapisan kernel: frekuensi kluster CPU, governor CPU, profil penjadwal kernel, afinitas inti aplikasi (CPU Sets), dan mode hemat daya CPU Idle.
+- **Diferensiasi Mode Performa vs Mode Ekstrem**:
+  - **Mode Performa (Performance)**: Dirancang untuk gaming responsif harian, mengunci batas frekuensi bawah menengah-ke-atas dan mengoptimalkan latensi tanpa menonaktifkan mekanisme keselamatan termal perangkat.
+  - **Mode Ekstrem (Maximum Gaming)**: Hadir sebagai kartu beraksen merah/oranye khusus di bawah kontrol kluster, mengunci seluruh core ke frekuensi puncak tertinggi (100% OPP), menonaktifkan pembatasan daya OEM, dan dilengkapi dialog konfirmasi risiko termal yang mewajibkan pendingin eksternal (cooler).
+
+### 2. Redesain Tab Sistem & Status Profil Terkustomisasi
+- **Eliminasi Tombol Preset Duplikat**: Menghapus deretan 3 tombol preset usang pada Tab 1 (System) untuk mencegah konflik konfigurasi dan kebingungan pengguna.
+- **Kartu Status Profil Sistem**: Menampilkan nama profil master yang sedang aktif beserta indikator visual status: "Standar Profil" saat parameter tersinkronisasi, atau "Terkustomisasi (Modified)" saat pengguna mengubah pengaturan lanjutan secara manual.
+- **Tombol Reset ke Standar Profil**: Tombol pemulihan 1-klik yang mengembalikan seluruh parameter granular penjadwal, afinitas, dan idle kembali ke standar profil aktif tanpa perlu beralih tab.
+
+### 3. Pelacakan Status Modifikasi Manual (Modified State Tracking)
+- **Deteksi Interaksi Granular**: Setiap modifikasi manual pada slider penjadwal, toggle afinitas inti CPU Sets, status C-State, atau core parking secara instan menandai status CPU sebagai termodifikasi dan memperbarui kartu status sistem.
+
+---
+
 # Lynx [Codename: Deity] 3.0.59
 Released on: 2026-10-06
 > **Versi ini** menghadirkan **Penyelarasan Margin Horizontal & Radius Sudut Kartu Atas Sub Halaman CPU (Grid Margin Harmonization), Eliminasi Tampilan Mepet & Menempel Pada Tepi Layar Untuk Hero Dashboard & Smart Recommendation Banner, Standardisasi Radius Kartu Menjadi 22dp Sesuai LynxCard Design System, Serta Penataan Jarak Vertikal Antar-Elemen Yang Lega & Konsisten** — menyelesaikan ketidakkonsistenan visual pada Tab 0 (Performance) dan Tab 2 (Monitor) di mana kartu status utama (Hero Dashboard Card) dan banner rekomendasi pintar sebelumnya membentang penuh tanpa padding horizontal (0dp margin) sehingga terlihat menempel rapat ke pinggir layar ponsel dan tampak tidak serasi dengan kartu di bawahnya yang memiliki indentasi 16dp; menambahkan padding horizontal standar 16dp dan padding vertikal 6dp/4dp; menyelaraskan radius sudut kartu utama menjadi 22dp dan radius banner menjadi 16dp; serta memperluas bantalan internal kartu menjadi 18dp agar informasi telemetri dan status termal bernapas dengan lega dan estetis.
