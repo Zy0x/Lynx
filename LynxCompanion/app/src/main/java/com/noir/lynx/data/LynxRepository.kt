@@ -2519,50 +2519,131 @@ object LynxRepository {
             touch /dev/lynx_extreme_charging 2>/dev/null
 
             # --- 1. Universal Linux Kernel Power Supply Class Rails (6A Headroom) ---
-            chmod 644 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-            echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-            chmod 444 /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-            chmod 644 /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-            echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-            echo 6000000 > /sys/class/power_supply/battery/current_max 2>/dev/null
-            echo 6000000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null
-            echo 6000000 > /sys/class/power_supply/main/constant_charge_current_max 2>/dev/null
-            echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
-            echo 6000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
-            echo 6000000 > /sys/class/power_supply/usb/hw_current_max 2>/dev/null
-            echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
-            echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/fast_charge 2>/dev/null
-            echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
+            for node in /sys/class/power_supply/battery/constant_charge_current_max \
+                        /sys/class/power_supply/battery/constant_charge_current \
+                        /sys/class/power_supply/battery/current_max \
+                        /sys/class/power_supply/battery/input_current_limit \
+                        /sys/class/power_supply/main/constant_charge_current_max \
+                        /sys/class/power_supply/main/current_max \
+                        /sys/class/power_supply/usb/current_max \
+                        /sys/class/power_supply/usb/hw_current_max; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 6000000 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
+            for node in /sys/class/power_supply/battery/charge_control_limit_max \
+                        /sys/class/power_supply/battery/charge_control_limit \
+                        /sys/class/power_supply/battery/input_suspend; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 0 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
+            for node in /sys/class/power_supply/battery/fastcharge_mode \
+                        /sys/class/power_supply/battery/fast_charge \
+                        /sys/class/power_supply/battery/charging_enabled; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 1 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
 
-            # --- 2. MediaTek (Dimensity & Helio) Architecture ---
-            echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
-            echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
-            echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
-            echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-            echo 24576 > /sys/devices/platform/charger/input_current 2>/dev/null
-            echo 24576 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-            echo 24576 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-            echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+            # --- 2. MediaTek (Dimensity & Helio) Architecture & Hardware Bypass ---
+            for node in /sys/devices/platform/charger/BN_TestMode \
+                        /sys/devices/platform/charger/pe40 \
+                        /sys/devices/platform/charger/pe20 \
+                        /sys/devices/platform/charger/enable_sc; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 1 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
+            for node in /sys/devices/platform/charger/BatteryNotify \
+                        /sys/devices/platform/charger/sw_jeita \
+                        /sys/devices/platform/charger/tran_charger_full \
+                        /sys/devices/platform/charger/bypass_charger \
+                        /sys/devices/platform/charger/tran_game_mode; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 0 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
+            for node in /sys/devices/platform/charger/input_current \
+                        /sys/devices/platform/charger/chg1_current \
+                        /sys/devices/platform/charger/chg2_current; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 24576 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
+            if [ -e /sys/devices/platform/charger/pdc_max_watt ]; then
+                chmod 666 /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+                echo 120 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+                chmod 444 /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+            fi
+            if [ -e /sys/devices/platform/charger/sc_ibat_limit ]; then
+                chmod 666 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                echo 8000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                chmod 444 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+            fi
             echo $highTargetPercent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
-            echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-            echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
 
             # --- 3. Qualcomm Snapdragon Architecture ---
-            echo 1 > /sys/class/qcom-battery/direct_charging 2>/dev/null
-            echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
-            echo 6000000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
-            echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
-            echo 0 > /sys/class/power_supply/battery/temp_state 2>/dev/null
+            if [ -e /sys/class/qcom-battery/direct_charging ]; then
+                chmod 666 /sys/class/qcom-battery/direct_charging 2>/dev/null
+                echo 1 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+                chmod 444 /sys/class/qcom-battery/direct_charging 2>/dev/null
+            fi
+            if [ -e /sys/class/qcom-battery/restricted_charging ]; then
+                chmod 666 /sys/class/qcom-battery/restricted_charging 2>/dev/null
+                echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+                chmod 444 /sys/class/qcom-battery/restricted_charging 2>/dev/null
+            fi
+            if [ -e /sys/class/qcom-battery/restrict_cur ]; then
+                chmod 666 /sys/class/qcom-battery/restrict_cur 2>/dev/null
+                echo 6000000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+                chmod 444 /sys/class/qcom-battery/restrict_cur 2>/dev/null
+            fi
+            for node in /sys/class/power_supply/battery/system_temp_level \
+                        /sys/class/power_supply/battery/temp_state; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 0 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
 
             # --- 4. Xiaomi / Redmi / POCO (HyperOS / MIUI) ---
-            echo 6000000 > /sys/class/power_supply/battery/thermal_input_current_limit 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/boost_current 2>/dev/null
-            echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
-            echo 2 > /sys/class/power_supply/battery/quick_charge_type 2>/dev/null
-            echo 6000000 > /sys/class/power_supply/battery/input_current_settled 2>/dev/null
+            for node in /sys/class/power_supply/battery/thermal_input_current_limit \
+                        /sys/class/power_supply/battery/input_current_settled; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 6000000 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
+            if [ -e /sys/class/power_supply/battery/boost_current ]; then
+                chmod 666 /sys/class/power_supply/battery/boost_current 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/boost_current 2>/dev/null
+                chmod 444 /sys/class/power_supply/battery/boost_current 2>/dev/null
+            fi
+            if [ -e /sys/class/power_supply/battery/step_charging_enabled ]; then
+                chmod 666 /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
+                chmod 444 /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
+            fi
+            if [ -e /sys/class/power_supply/battery/quick_charge_type ]; then
+                chmod 666 /sys/class/power_supply/battery/quick_charge_type 2>/dev/null
+                echo 2 > /sys/class/power_supply/battery/quick_charge_type 2>/dev/null
+                chmod 444 /sys/class/power_supply/battery/quick_charge_type 2>/dev/null
+            fi
             for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -STOP "${'$'}jpid" 2>/dev/null; done
 
             # --- 5. Samsung Galaxy (One UI - S/A/Z series) ---
@@ -2571,58 +2652,89 @@ object LynxRepository {
                 echo 100 > "/sys/class/power_supply/battery/siop_level" 2>/dev/null
                 chmod 444 "/sys/class/power_supply/battery/siop_level" 2>/dev/null
             fi
-            echo 0 > /sys/class/power_supply/battery/store_mode 2>/dev/null
-            echo 0 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
-            echo 0 > /sys/class/power_supply/battery/wc_control 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/afc_result 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/direct_charger_mode 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/hv_charger_status 2>/dev/null
+            for node in /sys/class/power_supply/battery/store_mode \
+                        /sys/class/power_supply/battery/batt_slate_mode \
+                        /sys/class/power_supply/battery/wc_control; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 0 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
+            for node in /sys/class/power_supply/battery/afc_result \
+                        /sys/class/power_supply/battery/direct_charger_mode \
+                        /sys/class/power_supply/battery/hv_charger_status; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 1 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
 
             # --- 6. OnePlus / OPPO / Realme (ColorOS, OxygenOS, RealmeUI) ---
-            if [ -e "/sys/class/power_supply/battery/cool_mode" ]; then
-                chmod 666 "/sys/class/power_supply/battery/cool_mode" 2>/dev/null
-                echo 0 > "/sys/class/power_supply/battery/cool_mode" 2>/dev/null
-                chmod 444 "/sys/class/power_supply/battery/cool_mode" 2>/dev/null
-            fi
-            if [ -e "/sys/class/power_supply/battery/call_mode" ]; then
-                chmod 666 "/sys/class/power_supply/battery/call_mode" 2>/dev/null
-                echo 0 > "/sys/class/power_supply/battery/call_mode" 2>/dev/null
-                chmod 444 "/sys/class/power_supply/battery/call_mode" 2>/dev/null
-            fi
-            echo 1 > /sys/class/power_supply/battery/vooc_charging 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/fast_charge_user_type 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/authenticate 2>/dev/null
+            for node in /sys/class/power_supply/battery/cool_mode \
+                        /sys/class/power_supply/battery/call_mode; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 0 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
+            for node in /sys/class/power_supply/battery/vooc_charging \
+                        /sys/class/power_supply/battery/fast_charge_user_type \
+                        /sys/class/power_supply/battery/authenticate; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 1 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
 
-            # --- 7. Transsion (Infinix, Tecno, Itel) ---
-            echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-            echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-            echo 0 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
-            for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+            # --- 7. Transsion (Infinix, Tecno, Itel) PCB Thermal Bypass ---
+            for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug \
+                        /sys/devices/platform/tran_battery/pcb_thermal_debug; do
                 if [ -e "${'$'}node" ]; then
                     chmod 666 "${'$'}node" 2>/dev/null
                     echo "[85,6000,90,5000,4500]" > "${'$'}node" 2>/dev/null
                     chmod 444 "${'$'}node" 2>/dev/null
                 fi
             done
-            if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
-                chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-            fi
 
             # --- 8. Google Pixel (Tensor) ---
-            echo 100 > /sys/class/power_supply/battery/charge_stop_level 2>/dev/null
-            echo 100 > /sys/devices/platform/google,battery/charge_stop_level 2>/dev/null
-            echo 100 > /sys/devices/platform/google,charger/charge_stop_level 2>/dev/null
-            echo 0 > /sys/class/power_supply/battery/bd_trickle_dry_run 2>/dev/null
+            for node in /sys/class/power_supply/battery/charge_stop_level \
+                        /sys/devices/platform/google,battery/charge_stop_level \
+                        /sys/devices/platform/google,charger/charge_stop_level; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 100 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
+            if [ -e /sys/class/power_supply/battery/bd_trickle_dry_run ]; then
+                chmod 666 /sys/class/power_supply/battery/bd_trickle_dry_run 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/bd_trickle_dry_run 2>/dev/null
+                chmod 444 /sys/class/power_supply/battery/bd_trickle_dry_run 2>/dev/null
+            fi
 
             # --- 9. ASUS ROG & Motorola ---
-            echo 0 > /sys/class/power_supply/battery/charging_limit_mode 2>/dev/null
-            echo 0 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/mmi_charging_enable 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/factory_mode 2>/dev/null
+            for node in /sys/class/power_supply/battery/charging_limit_mode \
+                        /sys/class/power_supply/battery/device/smart_charging; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 0 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
+            for node in /sys/class/power_supply/battery/mmi_charging_enable \
+                        /sys/class/power_supply/battery/factory_mode; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 1 > "${'$'}node" 2>/dev/null
+                    chmod 444 "${'$'}node" 2>/dev/null
+                fi
+            done
 
-            # --- 10. Thermal Lockout & Universal Cooling Devices ---
+            # --- 10. Thermal Lockout & Universal Thermal Zones / Trip Points ---
             ${if (lockoutBypass) """
                 chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
                 echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
@@ -2632,10 +2744,31 @@ object LynxRepository {
                 echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
             """}
 
+            for tz in /sys/class/thermal/thermal_zone*; do
+                [ -d "${'$'}tz" ] || continue
+                tz_type=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                case "${'$'}tz_type" in
+                    *battery*|*bms*|*chg*|*charger*|*mtktsap*|*tsbuck*|*skin*|*pcb*|*sub_batt*|*quiet*|*xo_therm*|*pmic*)
+                        if [ -e "${'$'}tz/mode" ]; then
+                            chmod 666 "${'$'}tz/mode" 2>/dev/null
+                            echo disabled > "${'$'}tz/mode" 2>/dev/null
+                            chmod 444 "${'$'}tz/mode" 2>/dev/null
+                        fi
+                        for tp in "${'$'}tz"/trip_point_*_temp; do
+                            if [ -e "${'$'}tp" ]; then
+                                chmod 666 "${'$'}tp" 2>/dev/null
+                                echo 95000 > "${'$'}tp" 2>/dev/null
+                                chmod 444 "${'$'}tp" 2>/dev/null
+                            fi
+                        done
+                        ;;
+                esac
+            done
+
             for c in /sys/class/thermal/cooling_device*; do
-                type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
+                type=${'$'}(cat "${'$'}c/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
                 case "${'$'}type" in
-                    *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
+                    *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*|*skin*|*thermal*)
                         chmod 666 "${'$'}c/cur_state" 2>/dev/null
                         echo 0 > "${'$'}c/cur_state" 2>/dev/null
                         chmod 444 "${'$'}c/cur_state" 2>/dev/null
@@ -2746,30 +2879,75 @@ object LynxRepository {
                 """
                 rm -f /dev/lynx_extreme_charging 2>/dev/null
 
-                # Revert Transsion PCB thermal override locks & screen-on test mode
-                for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
-                    if [ -e "${'$'}node" ]; then
-                        chmod 666 "${'$'}node" 2>/dev/null
-                    fi
+                # Revert all immutable locks and restore write permissions
+                for node in /sys/class/power_supply/battery/constant_charge_current_max \
+                            /sys/class/power_supply/battery/constant_charge_current \
+                            /sys/class/power_supply/battery/current_max \
+                            /sys/class/power_supply/battery/input_current_limit \
+                            /sys/class/power_supply/main/constant_charge_current_max \
+                            /sys/class/power_supply/main/current_max \
+                            /sys/class/power_supply/usb/current_max \
+                            /sys/class/power_supply/usb/hw_current_max \
+                            /sys/class/power_supply/battery/charge_control_limit_max \
+                            /sys/class/power_supply/battery/charge_control_limit \
+                            /sys/class/power_supply/battery/input_suspend \
+                            /sys/class/power_supply/battery/fastcharge_mode \
+                            /sys/class/power_supply/battery/fast_charge \
+                            /sys/class/power_supply/battery/charging_enabled \
+                            /sys/devices/platform/charger/BN_TestMode \
+                            /sys/devices/platform/charger/BatteryNotify \
+                            /sys/devices/platform/charger/sw_jeita \
+                            /sys/devices/platform/charger/tran_charger_full \
+                            /sys/devices/platform/charger/bypass_charger \
+                            /sys/devices/platform/charger/tran_game_mode \
+                            /sys/devices/platform/charger/input_current \
+                            /sys/devices/platform/charger/chg1_current \
+                            /sys/devices/platform/charger/chg2_current \
+                            /sys/devices/platform/charger/sc_ibat_limit \
+                            /sys/devices/platform/charger/pe40 \
+                            /sys/devices/platform/charger/pe20 \
+                            /sys/devices/platform/charger/pdc_max_watt \
+                            /sys/devices/platform/charger/enable_sc \
+                            /sys/class/qcom-battery/direct_charging \
+                            /sys/class/qcom-battery/restricted_charging \
+                            /sys/class/qcom-battery/restrict_cur \
+                            /sys/class/power_supply/battery/system_temp_level \
+                            /sys/class/power_supply/battery/temp_state \
+                            /sys/class/power_supply/battery/thermal_input_current_limit \
+                            /sys/class/power_supply/battery/input_current_settled \
+                            /sys/class/power_supply/battery/boost_current \
+                            /sys/class/power_supply/battery/step_charging_enabled \
+                            /sys/class/power_supply/battery/quick_charge_type \
+                            /sys/class/power_supply/battery/siop_level \
+                            /sys/class/power_supply/battery/store_mode \
+                            /sys/class/power_supply/battery/batt_slate_mode \
+                            /sys/class/power_supply/battery/wc_control \
+                            /sys/class/power_supply/battery/afc_result \
+                            /sys/class/power_supply/battery/direct_charger_mode \
+                            /sys/class/power_supply/battery/hv_charger_status \
+                            /sys/class/power_supply/battery/cool_mode \
+                            /sys/class/power_supply/battery/call_mode \
+                            /sys/class/power_supply/battery/vooc_charging \
+                            /sys/class/power_supply/battery/fast_charge_user_type \
+                            /sys/class/power_supply/battery/authenticate \
+                            /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug \
+                            /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+                    [ -e "${'$'}node" ] && chmod 666 "${'$'}node" 2>/dev/null
                 done
-                if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
-                    chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                    echo enabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                fi
-                echo 0 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
 
-                # Revert Samsung SIOP
-                if [ -e "/sys/class/power_supply/battery/siop_level" ]; then
-                    chmod 666 "/sys/class/power_supply/battery/siop_level" 2>/dev/null
-                fi
-
-                # Revert OnePlus / OPPO Cool & Call mode
-                if [ -e "/sys/class/power_supply/battery/cool_mode" ]; then
-                    chmod 666 "/sys/class/power_supply/battery/cool_mode" 2>/dev/null
-                fi
-                if [ -e "/sys/class/power_supply/battery/call_mode" ]; then
-                    chmod 666 "/sys/class/power_supply/battery/call_mode" 2>/dev/null
-                fi
+                # Re-enable thermal zone modes
+                for tz in /sys/class/thermal/thermal_zone*; do
+                    [ -d "${'$'}tz" ] || continue
+                    tz_type=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                    case "${'$'}tz_type" in
+                        *battery*|*bms*|*chg*|*charger*|*mtktsap*|*tsbuck*|*skin*|*pcb*|*sub_batt*|*quiet*|*xo_therm*|*pmic*)
+                            if [ -e "${'$'}tz/mode" ]; then
+                                chmod 666 "${'$'}tz/mode" 2>/dev/null
+                                echo enabled > "${'$'}tz/mode" 2>/dev/null
+                            fi
+                            ;;
+                    esac
+                done
 
                 # Revert Xiaomi Joyose
                 for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -CONT "${'$'}jpid" 2>/dev/null; done

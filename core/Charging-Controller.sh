@@ -33,6 +33,103 @@ write_node() {
     fi
 }
 
+write_node_lock() {
+    local val="$1"
+    local node="$2"
+    if [ -e "$node" ]; then
+        chmod 666 "$node" 2>/dev/null
+        echo "$val" > "$node" 2>/dev/null
+        chmod 444 "$node" 2>/dev/null
+    fi
+}
+
+unlock_node() {
+    local node="$1"
+    [ -e "$node" ] && chmod 666 "$node" 2>/dev/null
+}
+
+unlock_extreme_nodes() {
+    for node in \
+        "$BATT_DIR/constant_charge_current_max" \
+        "$BATT_DIR/constant_charge_current" \
+        "$BATT_DIR/current_max" \
+        "$BATT_DIR/input_current_limit" \
+        "$MAIN_DIR/constant_charge_current_max" \
+        "$MAIN_DIR/current_max" \
+        "$USB_DIR/current_max" \
+        "$USB_DIR/hw_current_max" \
+        "$BATT_DIR/charge_control_limit_max" \
+        "$BATT_DIR/charge_control_limit" \
+        "$BATT_DIR/input_suspend" \
+        "$BATT_DIR/fastcharge_mode" \
+        "$BATT_DIR/fast_charge" \
+        "$BATT_DIR/charging_enabled" \
+        "$MTK_DIR/BN_TestMode" \
+        "$MTK_DIR/BatteryNotify" \
+        "$MTK_DIR/sw_jeita" \
+        "$MTK_DIR/tran_charger_full" \
+        "$MTK_DIR/bypass_charger" \
+        "$MTK_DIR/tran_game_mode" \
+        "$MTK_DIR/input_current" \
+        "$MTK_DIR/chg1_current" \
+        "$MTK_DIR/chg2_current" \
+        "$MTK_DIR/sc_ibat_limit" \
+        "$MTK_DIR/pe40" \
+        "$MTK_DIR/pe20" \
+        "$MTK_DIR/pdc_max_watt" \
+        "$MTK_DIR/enable_sc" \
+        "$QC_DIR/direct_charging" \
+        "$QC_DIR/restricted_charging" \
+        "$QC_DIR/restrict_cur" \
+        "$BATT_DIR/system_temp_level" \
+        "$BATT_DIR/temp_state" \
+        "$BATT_DIR/thermal_input_current_limit" \
+        "$BATT_DIR/input_current_settled" \
+        "$BATT_DIR/boost_current" \
+        "$BATT_DIR/step_charging_enabled" \
+        "$BATT_DIR/quick_charge_type" \
+        "$BATT_DIR/siop_level" \
+        "$BATT_DIR/store_mode" \
+        "$BATT_DIR/batt_slate_mode" \
+        "$BATT_DIR/wc_control" \
+        "$BATT_DIR/afc_result" \
+        "$BATT_DIR/direct_charger_mode" \
+        "$BATT_DIR/hv_charger_status" \
+        "$BATT_DIR/cool_mode" \
+        "$BATT_DIR/call_mode" \
+        "$BATT_DIR/vooc_charging" \
+        "$BATT_DIR/fast_charge_user_type" \
+        "$BATT_DIR/authenticate" \
+        "$BATT_DIR/charge_stop_level" \
+        "/sys/devices/platform/google,battery/charge_stop_level" \
+        "/sys/devices/platform/google,charger/charge_stop_level" \
+        "$BATT_DIR/bd_trickle_dry_run" \
+        "$BATT_DIR/device/smart_charging" \
+        "$BATT_DIR/charging_limit_mode" \
+        "$BATT_DIR/mmi_charging_enable" \
+        "$BATT_DIR/factory_mode" \
+        /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug \
+        /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+        [ -e "$node" ] && chmod 666 "$node" 2>/dev/null
+    done
+
+    for tz in /sys/class/thermal/thermal_zone*; do
+        [ -d "$tz" ] || continue
+        tz_type=$(cat "$tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+        case "$tz_type" in
+            *battery*|*bms*|*chg*|*charger*|*mtktsap*|*tsbuck*|*skin*|*pcb*|*sub_batt*|*quiet*|*xo_therm*|*pmic*)
+                if [ -e "$tz/mode" ]; then
+                    chmod 666 "$tz/mode" 2>/dev/null
+                    echo enabled > "$tz/mode" 2>/dev/null
+                fi
+                ;;
+        esac
+    done
+
+    killall -CONT com.xiaomi.joyose 2>/dev/null
+    cmd thermalservice reset 2>/dev/null
+}
+
 # Detect OEM Hardware Bypass nodes
 detect_hw_bypass() {
     # Infinix / Transsion
@@ -68,6 +165,9 @@ HW_BYPASS_NODE=$(detect_hw_bypass)
 # Ensures zero battery drain and zero battery charge (percentage latched).
 # -----------------------------------------------------------------------------
 apply_bypass_charging() {
+    rm -f /dev/lynx_extreme_charging 2>/dev/null
+    unlock_extreme_nodes
+
     # CRITICAL: DO NOT SUSPEND INPUT! System must draw 100% operating power from charger!
     write_node "0" "$BATT_DIR/input_suspend"
 
@@ -144,97 +244,125 @@ apply_extreme_charging() {
     touch /dev/lynx_extreme_charging 2>/dev/null
 
     # 1. Universal Linux & Android Rails (Uncap to 6A / 6000mA max headroom)
-    chmod 644 "$BATT_DIR/constant_charge_current_max" 2>/dev/null
-    write_node "6000000" "$BATT_DIR/constant_charge_current_max"
-    chmod 444 "$BATT_DIR/constant_charge_current_max" 2>/dev/null
-    chmod 644 "$BATT_DIR/constant_charge_current" 2>/dev/null
-    write_node "6000000" "$BATT_DIR/constant_charge_current"
-    write_node "6000000" "$BATT_DIR/current_max"
-    write_node "6000000" "$BATT_DIR/input_current_limit"
-    write_node "6000000" "$MAIN_DIR/constant_charge_current_max"
-    write_node "6000000" "$MAIN_DIR/current_max"
-    write_node "6000000" "$USB_DIR/current_max"
-    write_node "6000000" "$USB_DIR/hw_current_max"
-    write_node "0" "$BATT_DIR/charge_control_limit_max"
-    write_node "0" "$BATT_DIR/charge_control_limit"
-    write_node "1" "$BATT_DIR/fastcharge_mode"
-    write_node "1" "$BATT_DIR/fast_charge"
-    write_node "0" "$BATT_DIR/input_suspend"
-    write_node "1" "$BATT_DIR/charging_enabled"
+    for node in "$BATT_DIR/constant_charge_current_max" \
+                "$BATT_DIR/constant_charge_current" \
+                "$BATT_DIR/current_max" \
+                "$BATT_DIR/input_current_limit" \
+                "$MAIN_DIR/constant_charge_current_max" \
+                "$MAIN_DIR/current_max" \
+                "$USB_DIR/current_max" \
+                "$USB_DIR/hw_current_max"; do
+        write_node_lock "6000000" "$node"
+    done
+    for node in "$BATT_DIR/charge_control_limit_max" \
+                "$BATT_DIR/charge_control_limit" \
+                "$BATT_DIR/input_suspend"; do
+        write_node_lock "0" "$node"
+    done
+    for node in "$BATT_DIR/fastcharge_mode" \
+                "$BATT_DIR/fast_charge" \
+                "$BATT_DIR/charging_enabled"; do
+        write_node_lock "1" "$node"
+    done
 
-    # 2. MediaTek (Dimensity & Helio) Extreme Power Rails
-    write_node "0" "$MTK_DIR/sw_jeita"
-    write_node "1" "$MTK_DIR/pe40"
-    write_node "1" "$MTK_DIR/pe20"
-    write_node "120" "$MTK_DIR/pdc_max_watt"
-    write_node "24576" "$MTK_DIR/input_current"
-    write_node "24576" "$MTK_DIR/chg1_current"
-    write_node "24576" "$MTK_DIR/chg2_current"
-    write_node "8000" "$MTK_DIR/sc_ibat_limit"
+    # 2. MediaTek (Dimensity & Helio) Architecture & Hardware Bypass
+    for node in "$MTK_DIR/BN_TestMode" \
+                "$MTK_DIR/pe40" \
+                "$MTK_DIR/pe20" \
+                "$MTK_DIR/enable_sc"; do
+        write_node_lock "1" "$node"
+    done
+    for node in "$MTK_DIR/BatteryNotify" \
+                "$MTK_DIR/sw_jeita" \
+                "$MTK_DIR/tran_charger_full" \
+                "$MTK_DIR/bypass_charger" \
+                "$MTK_DIR/tran_game_mode"; do
+        write_node_lock "0" "$node"
+    done
+    for node in "$MTK_DIR/input_current" \
+                "$MTK_DIR/chg1_current" \
+                "$MTK_DIR/chg2_current"; do
+        write_node_lock "24576" "$node"
+    done
+    write_node_lock "120" "$MTK_DIR/pdc_max_watt"
+    write_node_lock "8000" "$MTK_DIR/sc_ibat_limit"
     write_node "$target_soc" "$MTK_DIR/sc_tuisoc"
-    write_node "1" "$MTK_DIR/enable_sc"
 
-    # 3. Qualcomm Snapdragon Extreme Charging Uncap
-    write_node "0" "$QC_DIR/restricted_charging"
-    write_node "6000000" "$QC_DIR/restrict_cur"
-    write_node "1" "$QC_DIR/direct_charging"
-    write_node "0" "$QC_DIR/system_temp_level"
-    write_node "6000000" "$BATT_DIR/system_temp_level"
+    # 3. Qualcomm Snapdragon Architecture
+    write_node_lock "1" "$QC_DIR/direct_charging"
+    write_node_lock "0" "$QC_DIR/restricted_charging"
+    write_node_lock "6000000" "$QC_DIR/restrict_cur"
+    write_node_lock "0" "$QC_DIR/system_temp_level"
+    write_node_lock "0" "$BATT_DIR/system_temp_level"
+    write_node_lock "0" "$BATT_DIR/temp_state"
 
     # 4. Xiaomi / HyperOS / MIUI Screen-On & Thermal Throttling Bypass
-    write_node "6000000" "$BATT_DIR/thermal_input_current_limit"
-    write_node "1" "$BATT_DIR/boost_current"
-    write_node "0" "$BATT_DIR/step_charging_enabled"
+    write_node_lock "6000000" "$BATT_DIR/thermal_input_current_limit"
+    write_node_lock "6000000" "$BATT_DIR/input_current_settled"
+    write_node_lock "1" "$BATT_DIR/boost_current"
+    write_node_lock "0" "$BATT_DIR/step_charging_enabled"
+    write_node_lock "2" "$BATT_DIR/quick_charge_type"
     killall -STOP com.xiaomi.joyose 2>/dev/null
 
     # 5. Samsung One UI (Exynos / Qualcomm) Screen-On Throttling Bypass
-    chmod 666 "$BATT_DIR/siop_level" 2>/dev/null
-    write_node "100" "$BATT_DIR/siop_level"
-    chmod 444 "$BATT_DIR/siop_level" 2>/dev/null
-    write_node "0" "$BATT_DIR/store_mode"
-    write_node "0" "$BATT_DIR/batt_slate_mode"
-    write_node "0" "$BATT_DIR/wc_control"
-    write_node "1" "$BATT_DIR/afc_result"
-    write_node "1" "$BATT_DIR/direct_charger_mode"
+    write_node_lock "100" "$BATT_DIR/siop_level"
+    write_node_lock "0" "$BATT_DIR/store_mode"
+    write_node_lock "0" "$BATT_DIR/batt_slate_mode"
+    write_node_lock "0" "$BATT_DIR/wc_control"
+    write_node_lock "1" "$BATT_DIR/afc_result"
+    write_node_lock "1" "$BATT_DIR/direct_charger_mode"
+    write_node_lock "1" "$BATT_DIR/hv_charger_status"
 
     # 6. OnePlus / OPPO / Realme (ColorOS / OxygenOS) SuperVOOC Screen-On Bypass
-    chmod 666 "$BATT_DIR/cool_mode" 2>/dev/null
-    write_node "0" "$BATT_DIR/cool_mode"
-    chmod 444 "$BATT_DIR/cool_mode" 2>/dev/null
-    chmod 666 "$BATT_DIR/call_mode" 2>/dev/null
-    write_node "0" "$BATT_DIR/call_mode"
-    chmod 444 "$BATT_DIR/call_mode" 2>/dev/null
-    write_node "1" "$BATT_DIR/vooc_charging"
-    write_node "1" "$BATT_DIR/fast_charge_user_type"
+    write_node_lock "0" "$BATT_DIR/cool_mode"
+    write_node_lock "0" "$BATT_DIR/call_mode"
+    write_node_lock "1" "$BATT_DIR/vooc_charging"
+    write_node_lock "1" "$BATT_DIR/fast_charge_user_type"
+    write_node_lock "1" "$BATT_DIR/authenticate"
 
     # 7. Google Tensor (Pixel) Fast Charging Unlock
-    write_node "100" "$BATT_DIR/charge_stop_level"
-    write_node "0" "$BATT_DIR/bd_trickle_dry_run"
+    write_node_lock "100" "$BATT_DIR/charge_stop_level"
+    write_node_lock "100" "/sys/devices/platform/google,battery/charge_stop_level"
+    write_node_lock "100" "/sys/devices/platform/google,charger/charge_stop_level"
+    write_node_lock "0" "$BATT_DIR/bd_trickle_dry_run"
 
-    # 8. ASUS ROG Charging Throttling Unlock
-    write_node "0" "$BATT_DIR/device/smart_charging"
-    write_node "0" "$BATT_DIR/charging_limit_mode"
+    # 8. ASUS ROG & Motorola Charging Throttling Unlock
+    write_node_lock "0" "$BATT_DIR/device/smart_charging"
+    write_node_lock "0" "$BATT_DIR/charging_limit_mode"
+    write_node_lock "1" "$BATT_DIR/mmi_charging_enable"
+    write_node_lock "1" "$BATT_DIR/factory_mode"
 
-    # 9. Motorola Fast Charging Unlock
-    write_node "1" "$BATT_DIR/mmi_charging_enable"
-    write_node "1" "$BATT_DIR/factory_mode"
-
-    # 10. Transsion (Infinix / Tecno) Screen-On Throttling & PCB Thermal Bypass
-    write_node "1" "$MTK_DIR/BN_TestMode"
-    write_node "0" "$MTK_DIR/BatteryNotify"
-    write_node "0" "$MTK_DIR/tran_charger_full"
-    for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+    # 9. Transsion (Infinix / Tecno) Screen-On Throttling & PCB Thermal Bypass
+    for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug \
+                /sys/devices/platform/tran_battery/pcb_thermal_debug; do
         if [ -e "$node" ]; then
             chmod 666 "$node" 2>/dev/null
             echo "[85,6000,90,5000,4500]" > "$node" 2>/dev/null
             chmod 444 "$node" 2>/dev/null
         fi
     done
-    if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
-        chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-        echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-        chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-    fi
+
+    # 10. Universal Thermal Zones & Trip Points Bypass
+    for tz in /sys/class/thermal/thermal_zone*; do
+        [ -d "$tz" ] || continue
+        tz_type=$(cat "$tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+        case "$tz_type" in
+            *battery*|*bms*|*chg*|*charger*|*mtktsap*|*tsbuck*|*skin*|*pcb*|*sub_batt*|*quiet*|*xo_therm*|*pmic*)
+                if [ -e "$tz/mode" ]; then
+                    chmod 666 "$tz/mode" 2>/dev/null
+                    echo disabled > "$tz/mode" 2>/dev/null
+                    chmod 444 "$tz/mode" 2>/dev/null
+                fi
+                for tp in "$tz"/trip_point_*_temp; do
+                    if [ -e "$tp" ]; then
+                        chmod 666 "$tp" 2>/dev/null
+                        echo 95000 > "$tp" 2>/dev/null
+                        chmod 444 "$tp" 2>/dev/null
+                    fi
+                done
+                ;;
+        esac
+    done
 
     # 11. Universal Thermal Lockout Bypass (Spoof 28°C & Freeze Cooling Devices)
     if [ "$allow_lockout_bypass" = "true" ]; then
@@ -242,9 +370,9 @@ apply_extreme_charging() {
         write_node "28" "/sys/devices/platform/battery/Battery_Temperature"
         chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
         for c in /sys/class/thermal/cooling_device*; do
-            type=$(cat "$c/type" 2>/dev/null)
+            type=$(cat "$c/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
             case "$type" in
-                *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
+                *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*|*skin*|*thermal*)
                     chmod 666 "$c/cur_state" 2>/dev/null
                     echo 0 > "$c/cur_state" 2>/dev/null
                     chmod 444 "$c/cur_state" 2>/dev/null
@@ -268,6 +396,7 @@ apply_regulated_charging() {
     local target_ua=$(( target_ma * 1000 ))
 
     rm -f /dev/lynx_extreme_charging 2>/dev/null
+    unlock_extreme_nodes
 
     # Release bypass switches
     [ -n "$HW_BYPASS_NODE" ] && write_node "0" "$HW_BYPASS_NODE"
@@ -758,7 +887,7 @@ while true; do
     emergency_dC=$(( cutoff_dC + 35 )) # ~3.5C buffer before critical protection
 
     # 2. Hardware Thermal Protection & Bed Insulation Guard
-    if [ "$temp" -ge "$emergency_dC" ]; then
+    if [ "$temp_guard_on" = "true" ] && [ "$temp" -ge "$emergency_dC" ]; then
         # Critical Cutoff: suspend charging to prevent hardware damage, keep system running
         write_node "0" "$BATT_DIR/charging_enabled"
         write_node "1000000" "$BATT_DIR/constant_charge_current_max"

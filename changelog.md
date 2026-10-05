@@ -1,3 +1,31 @@
+# Lynx [Codename: Deity] 3.0.51
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Penguncian Imutabel Izin Hardware (Read-Only chmod 444 Locks) untuk Pengendali Pengisian Daya Ekstrem (Extreme Fast Charging), Bypass Menyeluruh Throttling Layar Nyala (Screen-On Throttling) dan Limitasi Termal Multi-OEM, Elevasi Plafon Ambang Suhu Termal Universal ke 95°C, Pembekuan Perangkat Pendingin (Cooling Devices Freeze), serta Pemulihan Hak Akses Bersih (Reversible Unlatch Architecture)** — mengeliminasi pembatasan pengisian daya yang dipicu oleh kernel saat layar ponsel aktif (*Screen-On*) maupun saat temperatur motherboard/AP mendekati ambang batas konservatif pabrikan; menerapkan kunci proteksi `chmod 444` secara permanen pada node krusial seperti `BN_TestMode`, `BatteryNotify`, `sw_jeita`, `input_current`, `chg1_current`, dan `chg2_current` sehingga driver kernel tidak dapat lagi menurunkan arus pengisian secara sepihak; menaikkan kurva trip point PCB termal Transsion/Infinix dari 44°C ke 85°C–90°C dengan plafon 6000mA; melumpuhkan pembatasan pengisian daya multi-OEM (Xiaomi HyperOS Joyose freeze, Samsung One UI SIOP uncap, OnePlus/OPPO/Realme SuperVOOC Cool & Call mode bypass, Google Pixel Tensor charge stop uncap); menonaktifkan regulasi termal baterai/charger serta menaikkan trip point termal universal ke 95°C di seluruh zona sensor; serta mengimplementasikan mekanisme unlatch reversibel saat pengguna kembali ke mode pengisian teratur atau mode hardware bypass.
+
+## Fitur Baru & Peningkatan (3.0.51)
+
+### 1. Penguncian Imutabel Node Daya Hardware (Read-Only chmod 444)
+- **Anti-Kernel Reset Protection**: Membungkus seluruh penulisan node charging krusial (`BN_TestMode`, `BatteryNotify`, `sw_jeita`, `input_current`, `chg1_current`, `chg2_current`, `pdc_max_watt`, `sc_ibat_limit`) dengan izin read-only permanen (`chmod 444`). Hal ini mencegah *daemon* atau *state machine* kernel internal membatalkan konfigurasi ke nilai default pabrikan.
+- **Transsion Screen-On Throttling Bypass**: Memaksa mode pengujian pabrik (`BN_TestMode=1`) terkunci permanen, menonaktifkan logika pembatasan arus charging ke 1500mA saat layar menyala (`fb_on=1`).
+
+### 2. Bypass Limitasi Termal Multi-OEM & Elevasi Ambang PCB
+- **Transsion PCB Thermal Debug Overhaul**: Menggeser kurva trip point proteksi termal Level 7 dari 44°C menjadi 85°C dengan batas arus 6000mA via `/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug`.
+- **Xiaomi / Redmi / POCO (HyperOS / MIUI)**: Membekukan layanan `com.xiaomi.joyose` dan membuka limit `thermal_input_current_limit` serta `boost_current` ke 6000mA secara imutabel.
+- **Samsung One UI**: Mengunci batas SIOP (`siop_level=100`) dengan `chmod 444`, mengeliminasi *screen-on derating* pada perangkat seri Galaxy S/A/Z.
+- **OnePlus / OPPO / Realme (ColorOS / OxygenOS)**: Mengunci `cool_mode=0` dan `call_mode=0` dengan `chmod 444` serta memvalidasi sinyal protokol SuperVOOC murni.
+- **Google Tensor, ASUS ROG & Motorola**: Membuka limit kapasitas `charge_stop_level=100` dan mengaktifkan bypass mode pabrik/fast charge secara menyeluruh.
+
+### 3. Elevasi Ambang Batas Sensor Termal Universal (Universal Thermal Zones)
+- **Deaktivasi Mode Sensor Baterai/Charger**: Memindai seluruh `/sys/class/thermal/thermal_zone*` terkait baterai, charger, PMIC, AP, dan skin, lalu menonaktifkan modenya (`mode=disabled`) serta mengunci izinnya.
+- **Elevasi Trip Points ke 95°C**: Menaikkan parameter `trip_point_*_temp` pada zona sensor terkait ke 95000 (95°C) dengan proteksi `chmod 444`, menjamin subsistem termal kernel tidak pernah memicu status *throttling*.
+- **Pembekuan Cooling Devices**: Memaksa seluruh cooling device bertipe *bcct*, *chg*, *current*, *battery*, dan *cdev* ke status 0 (`cur_state=0`) dengan kunci `chmod 444`.
+- **Framework Thermal Severity Nullification**: Mengabaikan status peringatan termal sistem Android framework via `cmd thermalservice override-status 0`.
+
+### 4. Arsitektur Pemulihan Reversibel (Clean Unlatch Mechanism)
+- **Restorasi Izin Penuh (unlock_extreme_nodes)**: Menyediakan fungsi pelepasan kunci yang secara otomatis mengembalikan izin tulis (`chmod 666 / 644`) serta mengaktifkan kembali zona termal (`mode=enabled`) dan framework thermalservice saat pengguna beralih ke mode pengisian daya normal atau hardware bypass.
+
+---
+
 # Lynx [Codename: Deity] 3.0.50
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Normalisasi Akurasi Frekuensi Maksimum Silikon GPU MediaTek GED, Penambahan Pra-Kompilasi Shader Ahead-Of-Time (AOT Pre-Warm) Anti Micro-Stutter, Kontrol Terpadu Kebijakan Manajemen Daya GPU (GPU Power Policy), Akselerasi Latensi Respon Sentuh via SurfaceFlinger VSync Early Offset, serta Pemilih Refresh Rate Interaktif pada Tab Diagnostik Layar** — memulihkan keakuratan pembacaan plafon frekuensi tertinggi GPU pada chipset MediaTek (Helio & Dimensity) dengan memprioritaskan parameter `gpu_cust_upbound_freq` dan tabel OPP kernel alih-alih ambang boost awal; menambahkan kapabilitas pra-kompilasi shader Ahead-Of-Time (AOT) untuk mengeliminasi lonjakan latensi kompilasi shader pada menit-menit pertama menjalankan game 3D; mengintegrasikan sakelar profil daya GPU yang menyelaraskan kebijakan daya ARM Mali Kbase, MediaTek GED, dan Qualcomm Adreno dalam dua mode tegas (Efisiensi Daya vs Responsif Gaming); mengimplementasikan tweak latensi sentuh ultra-rendah melalui pemajuan fase dispatch buffer SurfaceFlinger (`debug.sf.early_phase_offset_ns`); serta mengaktifkan interaktivitas penuh pada pill indikator refresh rate di Tab Info untuk penguncian instan kecepatan penyegaran layar (60Hz, 90Hz, 120Hz).
