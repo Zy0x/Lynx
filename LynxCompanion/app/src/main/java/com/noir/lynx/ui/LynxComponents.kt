@@ -1,6 +1,14 @@
 package com.noir.lynx.ui
 
 import java.util.Locale
+import android.content.Context
+import android.hardware.display.DisplayManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.view.WindowManager
+import androidx.compose.ui.platform.LocalContext
+import kotlin.math.roundToInt
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -6112,6 +6120,43 @@ fun DisplayRefreshRateTouchCard(
     val cardAccent = AccentCyan
     val maxHz = supportedRates.maxOrNull() ?: 120
 
+    val context = LocalContext.current
+    val displayManager = remember { context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager }
+    var liveHz by remember { mutableIntStateOf(if (currentHz > 0) currentHz else 60) }
+
+    LaunchedEffect(currentHz, isAuto) {
+        if (!isAuto && currentHz > 0) {
+            liveHz = currentHz
+        }
+    }
+
+    DisposableEffect(displayManager, currentHz) {
+        val listener = object : DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) {}
+            override fun onDisplayRemoved(displayId: Int) {}
+            override fun onDisplayChanged(displayId: Int) {
+                val display = displayManager?.getDisplay(displayId)
+                val hz = display?.refreshRate?.roundToInt() ?: 0
+                if (hz > 0) {
+                    liveHz = hz
+                }
+            }
+        }
+        val defaultDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            context.display
+        } else {
+            @Suppress("DEPRECATION")
+            (context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager)?.defaultDisplay
+        }
+        val initialHz = defaultDisplay?.refreshRate?.roundToInt() ?: currentHz
+        if (initialHz > 0) liveHz = initialHz
+
+        displayManager?.registerDisplayListener(listener, Handler(Looper.getMainLooper()))
+        onDispose {
+            displayManager?.unregisterDisplayListener(listener)
+        }
+    }
+
     LynxCard(
         title = "Display Refresh Rate & Touch",
         subtitle = "Kecepatan refresh layar dinamis, sentuhan touchboost, dan panel",
@@ -6120,30 +6165,34 @@ fun DisplayRefreshRateTouchCard(
         modifier = modifier
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            Modifier.fillMaxWidth().padding(bottom = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f)) {
-                Text("Kecepatan Refresh Layar (Display FPS)", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                Text("Kecepatan Refresh Layar", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Text(
-                    if (isAuto) "Mode Auto Dinamis: 0Hz saat statis, instan melonjak ke ${currentHz}Hz saat disentuh"
-                    else "Kunci tetap pada $currentHz Hz",
+                    if (isAuto) "Mode Auto Dinamis: Panel menyesuaikan clock instan saat layar disentuh"
+                    else "Panel dikunci tetap pada frekuensi stabil",
                     color = TextSecondary,
                     fontSize = 11.sp
                 )
             }
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = cardAccent.copy(alpha = 0.18f),
-                border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.5f))
-            ) {
+            // Minimalist Digital Real-Time Metric (Non-Badge)
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = if (isAuto) "Auto ($currentHz Hz)" else "$currentHz Hz",
-                    color = cardAccent,
-                    fontSize = 11.sp,
+                    text = "REAL-TIME",
+                    color = cardAccent.copy(alpha = 0.85f),
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                    letterSpacing = 0.6.sp
+                )
+                Text(
+                    text = "$liveHz Hz",
+                    color = cardAccent,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.2).sp
                 )
             }
         }

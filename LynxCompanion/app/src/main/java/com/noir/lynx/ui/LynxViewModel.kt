@@ -1888,7 +1888,15 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setDisplayRefreshRate(hz, isAuto)
             if (ok) {
-                _uiState.update { it.copy(successMessage = if (isAuto) "Mode Refresh Rate Auto Dinamis diaktifkan" else "Refresh rate diatur ke ${hz}Hz") }
+                val freshHz = LynxRepository.readDisplayRefreshRate()
+                val freshAuto = LynxRepository.readIsAutoRefreshRate()
+                _uiState.update {
+                    it.copy(
+                        displayRefreshRate = if (freshHz > 0) freshHz else hz,
+                        isAutoRefreshRate = freshAuto,
+                        successMessage = if (isAuto) "Mode Refresh Rate Auto Dinamis diaktifkan" else "Refresh rate diatur ke ${hz}Hz"
+                    )
+                }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal mengatur refresh rate layar") }
             }

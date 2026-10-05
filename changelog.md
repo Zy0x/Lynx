@@ -1,3 +1,24 @@
+# Lynx [Codename: Deity] 3.0.53
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Telemetri Real-Time Refresh Rate Layar Berbasis DisplayManager Listener (Event-Driven Panel Rate Callback), Penghapusan Lencana Statis Redundan pada Kartu Kecepatan Refresh, Desain Tipografi Digital Minimalis Tanpa Wadah Badge, serta Penyelarasan Deskripsi Mode Auto Dinamis** — merekonstruksi komponen `DisplayRefreshRateTouchCard` pada subhalaman GPU & Display; menghilangkan lencana statis `Auto (120 Hz)` yang redundan dengan chip pemilih frekuensi; mengimplementasikan pemantauan refresh rate layar aktif secara instan (0ms latency event callback) melalui `DisplayManager.DisplayListener` terdaftar tanpa polling berkala dan tanpa konsumsi baterai latar belakang; menampilkan metrik frekuensi aktual dalam format tipografi digital bersih (`REAL-TIME` berhuruf kapital tegas dengan angka frekuensi tebal dinamis); serta memperjelas deskripsi mode Auto dinamis saat panel beralih clock antara kondisi statis dan interaksi sentuhan.
+
+## Fitur Baru & Peningkatan (3.0.53)
+
+### 1. Telemetri Real-Time Refresh Rate Layar (Event-Driven DisplayListener)
+- **Zero-Latency Hardware Callback**: Menggunakan `DisplayManager.DisplayListener` yang mendengarkan perubahan refresh rate layar secara native saat panel berpindah frekuensi antara mode idle dan interaksi sentuh.
+- **Efisiensi Daya & Zero Polling**: Meniadakan loop polling latar belakang, menjamin tidak ada dampak terhadap konsumsi daya baterai maupun beban thread UI.
+- **Siklus Hidup DisposableEffect Terintegrasi**: Pendaftaran listener dibungkus secara aman di dalam `DisposableEffect` Compose dengan pembersihan otomatis (`unregisterDisplayListener`) saat kartu keluar dari komposisi.
+
+### 2. Tipografi Digital Minimalis & Eliminasi Lencana Redundan
+- **Penghapusan Badge Pill Statis**: Menghapus kontainer badge pill (`Surface` dengan border/background) yang sebelumnya menampilkan teks redundan terhadap chip pilihan.
+- **Metrik Tipografi Bersih (Non-Badge)**: Mengganti lencana dengan teks digital hierarkis di sudut kanan atas kartu: label kecil `REAL-TIME` (9sp, bold, letterSpacing 0.6sp) dan nilai metrik dinamis `${liveHz} Hz` (18sp, extra bold) dengan warna aksen cyan murni.
+### 3. Penguncian Frekuensi Fisik Panel (Multi-Tier SurfaceFlinger HWC & cmd display)
+- **Direct SurfaceFlinger Mode Switching**: Mengimplementasikan eksekusi langsung transaksi Hardware Composer SurfaceFlinger (`service call SurfaceFlinger 1035`) dengan pemetaan dinamis mode fisik (`id` vs `Hz`). Mengeliminasi masalah di mana pengaturan 60Hz/90Hz/120Hz diabaikan oleh driver OEM Transsion/MediaTek/Xiaomi sehingga monitor layar tetap tertahan di 120Hz.
+- **Pelepasan Kunci Backdoor pada Mode Auto**: Saat pengguna memilih mode Auto, sistem secara otomatis merilis kunci backdoor (`service call SurfaceFlinger 1035 i32 -1`) dan membersihkan preferensi mode (`cmd display clear-user-preferred-display-mode 0`), mengembalikan kontrol pergantian frekuensi adaptif ke DisplayManager.
+- **Dukungan Multi-Tier DisplayManager**: Menyelaraskan pengaturan Android 11+ `cmd display set-user-preferred-display-mode`, basis data Settings Provider (`min_refresh_rate`, `peak_refresh_rate`, `user_refresh_rate`), serta node sysfs panel (`disp_fps`, `fb0/mode`) secara simultan dalam satu transaksi atomik.
+
+---
+
 # Lynx [Codename: Deity] 3.0.52
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Universal Hardware Abstraction Framework (HAL Multi-SoC) Dinamis untuk Penyetelan GPU & Diagnostik Layar, Pemindaian Node Fisik Kernel Berbasis Izin Non-Destruktif (Non-Destructive Permission Probing), Verifikasi Penulisan Transaksional dengan Rollback Otomatis (Transactional Write Verification & Rollback), Penilaian Tingkat Kepercayaan Hardware (Hardware Confidence Scoring), Dekomposisi 4-Tier Frekuensi Layar hingga 240Hz, serta Antarmuka Responsif Adaptif Berbasis Komponen M3** — merevolusi subhalaman GPU & Display dari sistem berbasis vendor statis menjadi kerangka kerja abstraksi hardware universal lintas chipset (Qualcomm Adreno KGSL, MediaTek GED/FPSGO, ARM Mali Kbase, Samsung AMD RDNA, dan Universal Devfreq); menerapkan prinsip keamanan ketat di mana node fisik dipindai hak aksesnya secara non-destruktif tanpa `chmod 644` buta; mengimplementasikan siklus verifikasi transaksional yang secara otomatis membatalkan (*rollback*) perubahan dan mengunci sakelar ke status *Read-Only* jika kernel menolak nilai baru; menyajikan lencana status verifikasi hardware (`Verified HAL`, `VERIFIED_WORKING`, `READ_ONLY_LOCKED`); mendukung kecepatan refresh layar ultra-tinggi hingga 240Hz dengan baris pemilih scrollable yang mempertahankan target sentuh ergonomis minimal 48dp; serta menyelaraskan pilihan frekuensi khusus pada dialog aturan rendering grafis per-aplikasi secara dinamis.

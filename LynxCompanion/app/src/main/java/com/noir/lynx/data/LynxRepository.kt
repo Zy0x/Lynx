@@ -3219,6 +3219,14 @@ object LynxRepository {
 
     suspend fun readDisplayRefreshRate(): Int = withContext(Dispatchers.IO) {
         try {
+            // 1. Query active SurfaceFlinger physical display mode
+            val sf = Shell.cmd("dumpsys SurfaceFlinger 2>/dev/null | grep -E 'activeMode=|refresh-rate' | head -n 1").exec()
+            val sfMatch = sf.out.firstOrNull()?.let { line ->
+                Regex("""([0-9]+(?:\.[0-9]+)?)\s*Hz""").find(line)?.groupValues?.get(1)?.toFloatOrNull()?.toInt()
+            }
+            if (sfMatch != null && sfMatch > 0) return@withContext sfMatch
+
+            // 2. Fallback to settings provider
             val r = Shell.cmd("settings get system peak_refresh_rate 2>/dev/null").exec()
             val raw = r.out.firstOrNull()?.trim()?.toFloatOrNull()?.toInt() ?: 0
             if (raw > 0) raw else 60
@@ -3227,6 +3235,12 @@ object LynxRepository {
 
     suspend fun readIsAutoRefreshRate(): Boolean = withContext(Dispatchers.IO) {
         try {
+            // If backdoor is active, display is hard-locked to a specific mode (not auto)
+            val backdoor = Shell.cmd("dumpsys SurfaceFlinger 2>/dev/null | grep -i 'debugDisplayModeSetByBackdoor=true'").exec()
+            if (backdoor.isSuccess && backdoor.out.isNotEmpty()) {
+                return@withContext false
+            }
+
             val r = Shell.cmd("settings get system min_refresh_rate 2>/dev/null").exec()
             val minRate = r.out.firstOrNull()?.trim()?.toFloatOrNull() ?: 60f
             minRate <= 1.0f
@@ -3238,9 +3252,53 @@ object LynxRepository {
             val minVal = if (isAuto) "0.0" else "$hz.0"
             val peakVal = "$hz.0"
             val script = """
-                settings put system min_refresh_rate $minVal
-                settings put system peak_refresh_rate $peakVal
+                # 1. Standard Android Settings Provider
+                settings put system min_refresh_rate $minVal 2>/dev/null
+                settings put system peak_refresh_rate $peakVal 2>/dev/null
                 settings put secure user_refresh_rate $hz 2>/dev/null
+                settings put global user_refresh_rate $hz 2>/dev/null
+
+                # 2. Android DisplayManager User Preferred Display Mode (Android 11+)
+                if [ "$isAuto" = "true" ]; then
+                    cmd display clear-user-preferred-display-mode 0 2>/dev/null
+                else
+                    res=${'$'}(wm size 2>/dev/null | grep -oE '[0-9]+x[0-9]+' | head -n 1)
+                    if [ -n "${'$'}res" ]; then
+                        w=${'$'}(echo "${'$'}res" | cut -dx -f1)
+                        h=${'$'}(echo "${'$'}res" | cut -dx -f2)
+                        cmd display set-user-preferred-display-mode "${'$'}w" "${'$'}h" "$hz.0" 0 2>/dev/null
+                    fi
+                fi
+
+                # 3. Direct SurfaceFlinger Hardware Composer Mode Switching (Multi-SoC Physical Lock)
+                if [ "$isAuto" = "true" ]; then
+                    # Release backdoor lock to allow adaptive / dynamic switching
+                    service call SurfaceFlinger 1035 i32 -1 2>/dev/null
+                else
+                    # Query exact SurfaceFlinger mode index matching target Hz
+                    sf_mode=${'$'}(dumpsys SurfaceFlinger 2>/dev/null | grep -E "id=[0-9]+.*refreshRate=$hz\." | grep -oE 'id=[0-9]+' | cut -d= -f2 | head -n 1)
+                    if [ -n "${'$'}sf_mode" ]; then
+                        service call SurfaceFlinger 1035 i32 "${'$'}sf_mode" 2>/dev/null
+                    else
+                        # Fallback: query dumpsys display supported modes (1-based index)
+                        disp_mode=${'$'}(dumpsys display 2>/dev/null | grep -E "id=[0-9]+.*fps=$hz\." | grep -oE 'id=[0-9]+' | cut -d= -f2 | head -n 1)
+                        if [ -n "${'$'}disp_mode" ]; then
+                            sf_idx=${'$'}((disp_mode - 1))
+                            service call SurfaceFlinger 1035 i32 "${'$'}sf_idx" 2>/dev/null
+                        fi
+                    fi
+                fi
+
+                # 4. Kernel / Vendor Panel Sysfs Nodes
+                for node in /sys/devices/virtual/graphics/fb0/mode \
+                            /sys/class/graphics/fb0/mode \
+                            /proc/driver/disp_fps \
+                            /sys/devices/platform/soc/soc:qcom,dsi-display-primary/fps; do
+                    if [ -w "${'$'}node" ]; then
+                        echo "$hz" > "${'$'}node" 2>/dev/null
+                    fi
+                done
+
                 echo ok
             """.trimIndent()
             val r = Shell.cmd(script).exec()
