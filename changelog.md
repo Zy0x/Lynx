@@ -1,3 +1,20 @@
+# Lynx [Codename: Deity] 3.0.58
+Released on: 2026-10-06
+> **Versi ini** menghadirkan **Pemisahan Tombol Pengaturan Lanjutan Menjadi Komponen Mandiri di Luar Kartu Induk (Standalone Gateway Trigger), Penegasan Batas Ruang Lingkup Kartu Utama CPU & System, Penyelarasan Kausalitas Visual Tingkat Kontrol (Spatial Causality Alignment), Serta Penyempurnaan Tampilan Tombol Accordion Mandiri dengan Kontainer Ikon Tematik** — menyelesaikan kerancuan visual di mana tombol pemicu pengaturan lanjutan sebelumnya berada di dalam kartu induk tetapi memunculkan kartu di luar kartu induk; memindahkan tombol "Pengaturan Lanjutan" (Tab Performance) dan "Pengaturan Sistem Lanjutan" (Tab System) keluar dari kartu induk masing-masing sehingga kartu utama fokus murni pada fungsinya (Profil & Kluster pada Tab 0, Preset Optimasi pada Tab 1); mendesain tombol pemicu sebagai kartu aksi mandiri berlebar penuh dengan kontainer ikon beraksen halus dan panah ekspansi yang memperjelas hierarki Level 1 menuju Level 2.
+
+## Fitur Baru & Peningkatan (3.0.58)
+
+### 1. Tombol Pengaturan Lanjutan Mandiri (Tab Performance)
+- **Pemisahan dari Kartu Performa & Kluster**: Tombol "Pengaturan Lanjutan" kini berdiri sendiri di bawah kartu utama, mengeliminasi kerancuan bahwa pengaturan tersebut hanya berlaku untuk kluster tertentu.
+- **Kausalitas Visual yang Jelas**: Kartu-kartu lanjutan (Platform Hardware Engine, Mode Ekstrem, Verifikasi Pengembang) mengembang tepat di bawah tombol pemicunya secara alami.
+- **Desain Tombol Mandiri**: Menggunakan kontainer kartu mandiri setinggi 52dp dengan kotak ikon beraksen Cyan halus, teks judul tegas, dan deskripsi fungsi.
+
+### 2. Tombol Pengaturan Sistem Lanjutan Mandiri (Tab System)
+- **Pemisahan dari Kartu Preset Sistem**: Tombol "Pengaturan Sistem Lanjutan" dipindahkan keluar dari kartu preset sistem, menjaga kartu preset tetap bersih dan berfokus tunggal.
+- **Hierarki Aksi Jelas**: Mengetuk tombol mandiri beraksen Oranye ini memunculkan kartu Core Efficiency, Task Shield, dan Penjadwal Kernel langsung di bawahnya secara mulus.
+
+---
+
 # Lynx [Codename: Deity] 3.0.57
 Released on: 2026-10-06
 > **Versi ini** menghadirkan **Perbaikan Tata Letak Menu Pengaturan Lanjutan (Full-Width Sibling Layout), Eliminasi Total Padding Bertumpuk Pada Menu Lanjutan CPU Tab Performance & Tab System, Pembebasan Margin Horizontal Untuk Opsi Platform Hardware Engine, Mode Ekstrem, Dan Verifikasi Pengembang, Serta Penyempurnaan Hirarki Visual Sibling Card Tanpa Frame Bersarang** — mengatasi masalah tampilan yang menyempit dan sesak saat menu Pengaturan Lanjutan dibuka; memindahkan blok ekspansi `AnimatedVisibility` keluar dari container kartu induk sehingga menjadi kartu saudara sejajar (sibling cards) berukuran penuh; membebaskan lebih dari 136dp margin horizontal yang sebelumnya terbuang akibat pembungkusan kartu di dalam kartu; memastikan opsi MediaTek PPM, Snapdragon QTI HAL, Mode Ekstrem, Verifikasi Pengembang, Core Efficiency, Task Shield, dan Penjadwal Kernel memiliki ruang baca teks yang luas dan rapi.

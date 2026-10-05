@@ -1098,54 +1098,66 @@ fun CpuUnifiedPerformanceCard(
                 }
             }
 
-            HorizontalDivider(color = BorderSubtle, thickness = 0.8.dp, modifier = Modifier.padding(vertical = 2.dp))
+            }
+        }
 
-            // Progressive Disclosure: "Pengaturan Lanjutan >"
-            Surface(
-                onClick = { isAdvancedExpanded = !isAdvancedExpanded },
-                shape = RoundedCornerShape(10.dp),
-                color = BgElevated,
-                border = BorderStroke(1.dp, if (isAdvancedExpanded) AccentCyan.copy(alpha = 0.4f) else BorderGlass),
-                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp)
+        // Standalone Level 2 Trigger: "Pengaturan Lanjutan"
+        Surface(
+            onClick = { isAdvancedExpanded = !isAdvancedExpanded },
+            shape = RoundedCornerShape(16.dp),
+            color = BgCard,
+            border = BorderStroke(1.dp, if (isAdvancedExpanded) AccentCyan.copy(alpha = 0.5f) else BorderSubtle),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp)
+                .defaultMinSize(minHeight = 52.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = null,
-                            tint = AccentCyan,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "Pengaturan Lanjutan",
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = if (isAdvancedExpanded) "Tutup pengaturan terperinci" else "Hardware engine, mode ekstrem & verifikasi pengembang",
-                                fontSize = 9.5.sp,
-                                color = TextSecondary
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentCyan.copy(alpha = 0.12f),
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = AccentCyan,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
-
-                    Icon(
-                        imageVector = if (isAdvancedExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = AccentCyan,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Pengaturan Lanjutan",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = if (isAdvancedExpanded) "Tutup pengaturan terperinci" else "Hardware engine, mode ekstrem & verifikasi pengembang",
+                            fontSize = 9.5.sp,
+                            color = TextSecondary
+                        )
+                    }
                 }
+
+                Icon(
+                    imageVector = if (isAdvancedExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = AccentCyan,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
-    }
 
     // Level 2 Expanded Area: Platform Engine, Hidden Extreme Mode & Developer Drawer (Full Width Sibling Cards)
     AnimatedVisibility(
@@ -1396,53 +1408,64 @@ fun CpuUnifiedSystemCard(
                     color = TextTertiary,
                     lineHeight = 14.sp
                 )
+            }
+        }
 
-                HorizontalDivider(color = BorderSubtle, thickness = 0.8.dp, modifier = Modifier.padding(vertical = 2.dp))
-
-                // Progressive Disclosure: "Pengaturan Sistem Lanjutan >"
-                Surface(
-                    onClick = { isAdvancedSystemExpanded = !isAdvancedSystemExpanded },
-                    shape = RoundedCornerShape(10.dp),
-                    color = BgElevated,
-                    border = BorderStroke(1.dp, if (isAdvancedSystemExpanded) AccentOrange.copy(alpha = 0.4f) else BorderGlass),
-                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+        // Standalone Level 2 Trigger: "Pengaturan Sistem Lanjutan"
+        Surface(
+            onClick = { isAdvancedSystemExpanded = !isAdvancedSystemExpanded },
+            shape = RoundedCornerShape(16.dp),
+            color = BgCard,
+            border = BorderStroke(1.dp, if (isAdvancedSystemExpanded) AccentOrange.copy(alpha = 0.5f) else BorderSubtle),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp)
+                .defaultMinSize(minHeight = 52.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentOrange.copy(alpha = 0.12f),
+                        modifier = Modifier.size(32.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.Tune,
                                 contentDescription = null,
                                 tint = AccentOrange,
                                 modifier = Modifier.size(16.dp)
                             )
-                            Spacer(Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text = "Pengaturan Sistem Lanjutan",
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
-                                )
-                                Text(
-                                    text = if (isAdvancedSystemExpanded) "Tutup pengaturan lanjutan" else "Task Shield, Core Efficiency & Penjadwal Kernel",
-                                    fontSize = 9.5.sp,
-                                    color = TextSecondary
-                                )
-                            }
                         }
-
-                        Icon(
-                            imageVector = if (isAdvancedSystemExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = AccentOrange,
-                            modifier = Modifier.size(18.dp)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Pengaturan Sistem Lanjutan",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = if (isAdvancedSystemExpanded) "Tutup pengaturan lanjutan" else "Task Shield, Core Efficiency & Penjadwal Kernel",
+                            fontSize = 9.5.sp,
+                            color = TextSecondary
                         )
                     }
                 }
+
+                Icon(
+                    imageVector = if (isAdvancedSystemExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = AccentOrange,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
 
