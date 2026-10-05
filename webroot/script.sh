@@ -17,7 +17,7 @@ case "$ACTION" in
             sh "$MODULE_DIR/core/CCleaner.sh"
         else
             echo "1" > /proc/sys/vm/compact_memory 2>/dev/null
-            am start -a android.intent.action.MAIN -e toasttext "🧹 Cᴀᴄʜᴇ Cʟᴇᴀɴᴇᴅ" \
+            am start -a android.intent.action.MAIN -e toasttext "Cache Cleaned" \
                 -n bellavita.toast/.MainActivity > /dev/null 2>&1
         fi
         echo "Cache and memory optimization executed."

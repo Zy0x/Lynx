@@ -25,10 +25,10 @@ dex2oat_opt_enable() {
     log_msg "Starting Android ART Dex2oat Optimization..."
 
     if [ -f "$MODPROP" ]; then
-        sed -Ei "s/^description=\[.*\]/description=[ ⚡ Dex2oat Compilation Active ]/" "$MODPROP" 2>/dev/null
+        sed -Ei "s/^description=\[.*\]/description=[ Dex2oat Compilation Active ]/" "$MODPROP" 2>/dev/null
     fi
 
-    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '⚡ Mengoptimalkan ART Dex2oat paket aplikasi...'" >/dev/null 2>&1
+    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'Mengoptimalkan ART Dex2oat paket aplikasi...'" >/dev/null 2>&1
 
     # 1. Preferred modern Android ART compilation method
     if command -v cmd >/dev/null 2>&1; then
@@ -44,5 +44,5 @@ dex2oat_opt_enable() {
     fi
 
     log_msg "Dex2oat ART Compilation completed successfully."
-    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '✅ Dex2oat Selesai Dioptimalkan'" >/dev/null 2>&1
+    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'Dex2oat Selesai Dioptimalkan'" >/dev/null 2>&1
 }

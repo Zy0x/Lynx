@@ -34,7 +34,7 @@ show_header() {
     fi
     [ -z "$soc" ] && soc="generic"
     echo -e "${C_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
-    echo -e "${C_CYAN}  ⚡ L Y N X   [Codename: Deity]   3.0.0${C_RESET}"
+    echo -e "${C_CYAN}  L Y N X   [Codename: Deity]   3.0.44${C_RESET}"
     echo -e "${C_CYAN}  Author: ɴᴏɪʀ  |  SoC: ${C_GREEN}${soc}${C_CYAN}  |  Profile: ${C_YELLOW}${prof}${C_RESET}"
     echo -e "${C_CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
 }
@@ -42,13 +42,13 @@ show_header() {
 menu_profile() {
     show_header
     echo -e "  ${C_GREEN}PILIH PROFIL PERFORMA:${C_RESET}"
-    echo -e "  [1] 🤖 Auto (AI)      - Adaptive Foreground Watcher"
-    echo -e "  [2] ⚖️  Balance        - Daily Energy-Aware Efficiency"
-    echo -e "  [3] 🚀 Performance    - Sustained High Clocks for Gaming"
-    echo -e "  [4] 🔥 Extreme        - Unrestricted (Phone Cooler Req.)"
-    echo -e "  [5] 🔋 Powersave      - Maximum Battery Life"
-    echo -e "  [6] 💤 Standby/Dormant- Safe Baseline Mode"
-    echo -e "  [0] ↩️  Kembali"
+    echo -e "  [1] Auto (AI)       - Adaptive Foreground Watcher"
+    echo -e "  [2] Balance         - Daily Energy-Aware Efficiency"
+    echo -e "  [3] Performance     - Sustained High Clocks for Gaming"
+    echo -e "  [4] Extreme         - Unrestricted (Phone Cooler Req.)"
+    echo -e "  [5] Powersave       - Maximum Battery Life"
+    echo -e "  [6] Standby/Dormant - Safe Baseline Mode"
+    echo -e "  [0] Kembali"
     echo ""
     printf "  Pilih opsi [0-6]: "
     read -r opt
@@ -61,7 +61,7 @@ menu_profile() {
         6) sh "$LXCORE" profile dormant ;;
         *) return ;;
     esac
-    echo -e "${C_GREEN}✅ Profil berhasil diperbarui!${C_RESET}"
+    echo -e "${C_GREEN}[OK] Profil berhasil diperbarui!${C_RESET}"
     sleep 1.2
 }
 
@@ -77,7 +77,7 @@ menu_charging() {
     echo -e "  [2] Set Batas Arus (1500mA - Aman)"
     echo -e "  [3] Set Batas Arus (2400mA - Cepat)"
     echo -e "  [4] Set Batas Arus (3500mA - Turbo)"
-    echo -e "  [0] ↩️  Kembali"
+    echo -e "  [0] Kembali"
     echo ""
     printf "  Pilih opsi [0-4]: "
     read -r opt
@@ -94,7 +94,7 @@ menu_charging() {
         4) sh "$LXCORE" state set "charging.limit_current_ma" 3500 ;;
         *) return ;;
     esac
-    echo -e "${C_GREEN}✅ Setelan charging diperbarui!${C_RESET}"
+    echo -e "${C_GREEN}[OK] Setelan charging diperbarui!${C_RESET}"
     sleep 1.2
 }
 
@@ -109,7 +109,7 @@ menu_advanced() {
     echo -e "  [2] Full Thermal Bypass     : ${C_YELLOW}${therm}${C_RESET}"
     echo -e "  [3] TouchBoost & 120Hz Lock : ${C_YELLOW}${touch}${C_RESET}"
     echo -e "  [4] Netralkan Joyose/GOS    : ${C_YELLOW}${joyose}${C_RESET}"
-    echo -e "  [0] ↩️  Kembali"
+    echo -e "  [0] Kembali"
     echo ""
     printf "  Pilih toggle [0-4]: "
     read -r opt
@@ -120,20 +120,20 @@ menu_advanced() {
         4) [ "$joyose" = "true" ] && val=false || val=true; sh "$LXCORE" state set "oem_neutralizer.joyose_neutralize" $val ;;
         *) return ;;
     esac
-    echo -e "${C_GREEN}✅ Status fitur berhasil diperbarui!${C_RESET}"
+    echo -e "${C_GREEN}[OK] Status fitur berhasil diperbarui!${C_RESET}"
     sleep 1.2
 }
 
 menu_busybox() {
     show_header
     echo -e "  ${C_GREEN}PENGATURAN VARIAN BUSYBOX:${C_RESET}"
-    echo -e "  [1] ⚡ Feravolt ARM64 (Default Modern 64-bit)"
-    echo -e "  [2] 🚀 Feravolt ARMv8 (High-Performance)"
-    echo -e "  [3] 📱 Feravolt ARMv7 (32-bit Legacy)"
-    echo -e "  [4] 💻 Feravolt x86/x86_64"
-    echo -e "  [5] 🔥 Brutal BusyBox (Chimera Edition)"
-    echo -e "  [6] ℹ️  Cek Status BusyBox Saat Ini"
-    echo -e "  [0] ↩️  Kembali"
+    echo -e "  [1] Feravolt ARM64 (Default Modern 64-bit)"
+    echo -e "  [2] Feravolt ARMv8 (High-Performance)"
+    echo -e "  [3] Feravolt ARMv7 (32-bit Legacy)"
+    echo -e "  [4] Feravolt x86/x86_64"
+    echo -e "  [5] Brutal BusyBox (Chimera Edition)"
+    echo -e "  [6] Cek Status BusyBox Saat Ini"
+    echo -e "  [0] Kembali"
     echo ""
     printf "  Pilih opsi [0-6]: "
     read -r opt
@@ -157,15 +157,15 @@ menu_busybox() {
 
 while true; do
     show_header
-    echo -e "  [1] ⚡ Ganti Profil Performa"
-    echo -e "  [2] 🔋 Charging Controller & Motherboard Bypass"
-    echo -e "  [3] ⚙️  Advanced Engine (Thermal, Touch, Wi-Fi, Joyose)"
-    echo -e "  [4] 🧹 Jalankan CCleaner (Memory & Cache Compaction)"
-    echo -e "  [5] 🗄️  Optimasi SQLite & Storage TRIM"
-    echo -e "  [6] 📦 Ekspor Laporan Diagnostik 1-Klik (.ZIP)"
-    echo -e "  [7] 📊 Status Lengkap Sistem"
-    echo -e "  [8] 🧰 Pengaturan Varian BusyBox"
-    echo -e "  [0] 🚪 Keluar"
+    echo -e "  [1] Ganti Profil Performa"
+    echo -e "  [2] Charging Controller & Motherboard Bypass"
+    echo -e "  [3] Advanced Engine (Thermal, Touch, Wi-Fi, Joyose)"
+    echo -e "  [4] Jalankan CCleaner (Memory & Cache Compaction)"
+    echo -e "  [5] Optimasi SQLite & Storage TRIM"
+    echo -e "  [6] Ekspor Laporan Diagnostik (.ZIP)"
+    echo -e "  [7] Status Lengkap Sistem"
+    echo -e "  [8] Pengaturan Varian BusyBox"
+    echo -e "  [0] Keluar"
     echo ""
     printf "  Pilih menu [0-8]: "
     read -r choice

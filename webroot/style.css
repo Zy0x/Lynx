@@ -515,6 +515,17 @@ body {
 .nav-icon {
     font-size: 20px;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+}
+
+.nav-icon svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
 }
 
 .tab-pane {

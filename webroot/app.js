@@ -194,12 +194,12 @@ function renderUI(state) {
     const socEl = document.getElementById('soc-info');
     if (socEl) {
         if (state.hardware && state.hardware.soc_name) {
-            const spoofTag = state.is_spoofed ? ' ⚠️ Spoofed' : '';
+            const spoofTag = state.is_spoofed ? ' [Spoofed]' : '';
             socEl.textContent = `${state.hardware.soc_name} (${state.hardware.soc_type || 'unknown'})${spoofTag}`;
         } else if (state.target_soc) {
             const socLabel = state.target_soc === 'qcom' ? 'Qualcomm' :
                              state.target_soc === 'mtk'  ? 'MediaTek'  : 'Generic';
-            const spoofTag = state.is_spoofed ? ' ⚠️ Spoofed' : '';
+            const spoofTag = state.is_spoofed ? ' [Spoofed]' : '';
             socEl.textContent = `${socLabel}${spoofTag}`;
         }
     }
@@ -223,7 +223,7 @@ async function updateStateKey(key, value, isString = false) {
 // 5. User Interaction Handlers
 async function setProfile(profile) {
     if (profile === 'extreme') {
-        const confirmExtreme = confirm("⚠️ PERINGATAN MODE EXTREME:\nMode ini membuka batas termal dan mengunci frekuensi CPU/GPU 100%. Disarankan menggunakan cooler pendingin eksternal untuk menjaga suhu silikon SoC. Lanjutkan?");
+        const confirmExtreme = confirm("PERINGATAN MODE EXTREME:\nMode ini membuka batas termal dan mengunci frekuensi CPU/GPU 100%. Disarankan menggunakan cooler pendingin eksternal untuk menjaga suhu silikon SoC. Lanjutkan?");
         if (!confirmExtreme) return;
     }
     await updateStateKey('active_profile', profile, true);
@@ -236,10 +236,10 @@ async function exportBugReport() {
     const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh export_log");
     if (res.stdout && !res.stdout.startsWith("Error")) {
         const path = res.stdout.trim();
-        logToConsole(`✅ Laporan berhasil dibuat: ${path}`, 'success');
+        logToConsole(`Laporan berhasil dibuat: ${path}`, 'success');
         alert(`Laporan Diagnostik Berhasil Diekspor!\nLokasi file: ${path}`);
     } else {
-        logToConsole(`❌ Export gagal: ${res.stderr || res.stdout}`, 'error');
+        logToConsole(`Export gagal: ${res.stderr || res.stdout}`, 'error');
     }
 }
 
@@ -369,7 +369,9 @@ async function loadClusterTopology(forceRebuild = false) {
                         if (!item) return;
                         const lockBtn = item.querySelector('.btn-lock-cluster');
                         if (lockBtn) {
-                            lockBtn.textContent = c.is_locked ? '🔒' : '🔓';
+                            lockBtn.innerHTML = c.is_locked 
+                                ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>'
+                                : '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h1.9c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
                             lockBtn.style.color = c.is_locked ? '#00e676' : 'var(--text-secondary)';
                             lockBtn.style.background = c.is_locked ? 'rgba(0,230,118,0.2)' : 'rgba(255,255,255,0.08)';
                             lockBtn.style.borderColor = c.is_locked ? '#00e676' : 'var(--border-subtle)';
@@ -413,6 +415,10 @@ async function loadClusterTopology(forceRebuild = false) {
                         return `<option value="${f}" ${f === c.cur_max ? 'selected' : ''}>${mhz} MHz</option>`;
                     }).join('');
 
+                    const lockSvg = c.is_locked 
+                        ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>'
+                        : '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h1.9c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
+
                     item.innerHTML = `
                         <div class="cluster-header">
                             <div>
@@ -437,7 +443,7 @@ async function loadClusterTopology(forceRebuild = false) {
                                 style="cursor:pointer; width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:${c.is_locked ? 'rgba(0,230,118,0.2)' : 'rgba(255,255,255,0.08)'}; color:${c.is_locked ? '#00e676' : 'var(--text-secondary)'}; border: 1px solid ${c.is_locked ? '#00e676' : 'var(--border-subtle)'}; border-radius:8px; font-size:16px;"
                                 title="${c.is_locked ? 'Terkunci (Proteksi Aktif)' : 'Buka Kunci'}"
                                 onclick="toggleClusterLock(${c.id}, ${!c.is_locked})">
-                                ${c.is_locked ? '🔒' : '🔓'}
+                                ${lockSvg}
                             </button>
                         </div>
                         <div style="margin-top: 10px;">
@@ -533,7 +539,7 @@ async function flashAnyKernel() {
         return;
     }
     const zipPath = input.value.trim();
-    const confirmFlash = confirm(`⚠️ PERINGATAN FLASHING KERNEL:\nApakah Anda yakin ingin mem-flash kernel dari:\n${zipPath}?\n\nBoot image saat ini akan otomatis dicadangkan terlebih dahulu.`);
+    const confirmFlash = confirm(`PERINGATAN FLASHING KERNEL:\nApakah Anda yakin ingin mem-flash kernel dari:\n${zipPath}?\n\nBoot image saat ini akan otomatis dicadangkan terlebih dahulu.`);
     if (!confirmFlash) return;
 
     logToConsole(`Memulai flashing AnyKernel3: ${zipPath}...`, 'warn');
@@ -543,9 +549,9 @@ async function flashAnyKernel() {
     logToConsole(output, res.errno === 0 ? 'success' : 'error');
 
     if (res.errno === 0) {
-        alert("✅ Flashing kernel selesai dengan sukses!\nSilakan reboot perangkat untuk menerapkan kernel baru.");
+        alert("Flashing kernel selesai dengan sukses!\nSilakan reboot perangkat untuk menerapkan kernel baru.");
     } else {
-        alert("❌ Flashing kernel gagal. Periksa konsol log untuk detail error.");
+        alert("Flashing kernel gagal. Periksa konsol log untuk detail error.");
     }
     loadBackups();
 }
@@ -590,7 +596,7 @@ async function loadBackups() {
 }
 
 async function restoreBoot(path) {
-    const confirmRestore = confirm(`⚠️ PERINGATAN RESTORE BOOT:\nApakah Anda yakin ingin memulihkan partisi dari backup:\n${path}?`);
+    const confirmRestore = confirm(`PERINGATAN RESTORE BOOT:\nApakah Anda yakin ingin memulihkan partisi dari backup:\n${path}?`);
     if (!confirmRestore) return;
 
     logToConsole(`Memulihkan partisi dari ${path}...`, 'warn');
@@ -762,7 +768,7 @@ async function loadApplist() {
                 const chip = document.createElement('div');
                 chip.style.cssText = 'background:var(--bg-elevated); border:1px solid var(--border-glass); border-radius:8px; padding:4px 8px; font-size:11px; display:flex; align-items:center; gap:6px; color:var(--accent-green);';
                 const label = pkg.split('.').pop() || pkg;
-                chip.innerHTML = `<span>${label}</span><span style="cursor:pointer; color:var(--text-secondary);" onclick="removeAppFromWhitelist('${pkg}')">✕</span>`;
+                chip.innerHTML = `<span>${label}</span><span style="cursor:pointer; color:var(--text-secondary); font-size:14px; line-height:1;" onclick="removeAppFromWhitelist('${pkg}')">&times;</span>`;
                 container.appendChild(chip);
             });
             if (apps.length > 15) {
@@ -973,10 +979,10 @@ async function runDeepScan() {
     if (!container) return;
 
     if (btn) {
-        btn.textContent = '⏳ Memindai Kernel & Hardware...';
+        btn.textContent = 'Memindai Kernel & Hardware...';
         btn.disabled = true;
     }
-    container.innerHTML = '<div style="font-size:12px; color:var(--accent-cyan); text-align:center; padding:20px 0;">🔍 Sedang memindai subsistem kernel, vendor OEM, dan sysfs/procfs...</div>';
+    container.innerHTML = '<div style="font-size:12px; color:var(--accent-cyan); text-align:center; padding:20px 0;">Sedang memindai subsistem kernel, vendor OEM, dan sysfs/procfs...</div>';
 
     try {
         const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh deep_scan");
@@ -1000,7 +1006,7 @@ async function runDeepScan() {
         container.innerHTML = `<div style="font-size:12px; color:var(--accent-red); text-align:center; padding:16px 0;">Error: ${e.message}</div>`;
     } finally {
         if (btn) {
-            btn.textContent = '⚡ Pindai Seluruh Sistem & Hardware (Deep Scan)';
+            btn.textContent = 'Pindai Seluruh Sistem & Hardware (Deep Scan)';
             btn.disabled = false;
         }
     }
@@ -1042,13 +1048,13 @@ function renderDeepTunables() {
         }
         let recHtml = '';
         if (t.recommendation && t.recommendation.trim()) {
-            recHtml = `<div style="font-size:10px; color:var(--accent-green); background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); border-radius:6px; padding:4px 8px; margin-bottom:8px;">💡 <b>Tips:</b> ${t.recommendation}</div>`;
+            recHtml = `<div style="font-size:10px; color:var(--accent-green); background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); border-radius:6px; padding:4px 8px; margin-bottom:8px;"><b>Tips:</b> ${t.recommendation}</div>`;
         }
 
         // Help text banner (extracting '#' comment lines)
         let helpHtml = '';
         if (t.help && t.help.trim()) {
-            helpHtml = `<div class="tunable-help">💡 <b># Petunjuk Kernel:</b> ${t.help}</div>`;
+            helpHtml = `<div class="tunable-help"><b># Petunjuk Kernel:</b> ${t.help}</div>`;
         }
 
         // Control element based on auto-discovered type
@@ -1109,9 +1115,9 @@ async function applyDeepTunable(path, value) {
     logToConsole(`Menyetel ${path} -> ${value}...`);
     const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh deep_set "${path}" "${value}"`);
     if (res.errno === 0) {
-        logToConsole(`✅ Berhasil menyetel ${path} = ${value}`, 'success');
+        logToConsole(`Berhasil menyetel ${path} = ${value}`, 'success');
     } else {
-        logToConsole(`❌ Gagal menyetel ${path}: ${res.stderr || res.stdout}`, 'error');
+        logToConsole(`Gagal menyetel ${path}: ${res.stderr || res.stdout}`, 'error');
     }
 }
 
@@ -1127,7 +1133,7 @@ async function inspectManualNode() {
     if (res.errno === 0 && res.stdout && res.stdout.startsWith('{')) {
         try {
             const data = JSON.parse(res.stdout);
-            let helpHtml = data.help ? `<div class="tunable-help" style="margin-top:6px;">💡 <b># Petunjuk Kernel:</b> ${data.help}</div>` : '';
+            let helpHtml = data.help ? `<div class="tunable-help" style="margin-top:6px;"><b># Petunjuk Kernel:</b> ${data.help}</div>` : '';
             resultBox.innerHTML = `
                 <div class="tunable-card" style="margin-top:6px;">
                     <div class="tunable-header">
@@ -1135,7 +1141,7 @@ async function inspectManualNode() {
                             <div class="tunable-title">${data.name || path}</div>
                             <div class="tunable-path">${data.path}</div>
                         </div>
-                        <span class="tunable-cat-badge">${data.writable ? 'Writable ✍️' : 'Read-Only 🔒'}</span>
+                        <span class="tunable-cat-badge">${data.writable ? 'Writable' : 'Read-Only'}</span>
                     </div>
                     ${helpHtml}
                     <div class="tunable-ctrl-row">

@@ -80,5 +80,5 @@ main_dns() {
     fi
 
     log_msg "DNS successfully configured for provider: $provider"
-    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '🌐 𝘿𝙉𝙎 𝙎𝙚𝙩 𝙩𝙤 $provider'" >/dev/null 2>&1
+    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'DNS set to $provider'" >/dev/null 2>&1
 }

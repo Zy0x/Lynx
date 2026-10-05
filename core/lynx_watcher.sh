@@ -177,7 +177,7 @@ while true; do
             fi
 
             # Visual notification via Android shell command
-            cmd notification post -t "Lynx Deity" lynx_automation "⚡ [$target_profile] aktif untuk $app_label" >/dev/null 2>&1
+            cmd notification post -t "Lynx Deity" lynx_automation "[$target_profile] aktif untuk $app_label" >/dev/null 2>&1
         fi
     else
         # Non-target app in foreground
@@ -202,7 +202,7 @@ while true; do
                 fi
 
                 CURRENT_ACTIVE_APP=""
-                cmd notification post -t "Lynx Deity" lynx_automation "⚖️ Kembali ke mode $BASELINE_PROFILE" >/dev/null 2>&1
+                cmd notification post -t "Lynx Deity" lynx_automation "Kembali ke mode $BASELINE_PROFILE" >/dev/null 2>&1
             fi
         fi
     fi

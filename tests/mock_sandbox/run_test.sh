@@ -10,9 +10,9 @@ mkdir -p "$MOCK_ROOT"
 trap 'rm -rf "$MOCK_ROOT"' EXIT INT TERM
 
 echo "=========================================================="
-echo "🧪 LYNX UNIVERSAL - VIRTUAL SYSFS MOCK SANDBOX TEST SUITE"
+echo "  LYNX UNIVERSAL - VIRTUAL SYSFS MOCK SANDBOX TEST SUITE"
 echo "=========================================================="
-echo "📁 Sandbox Directory: $MOCK_ROOT"
+echo "  Sandbox Directory: $MOCK_ROOT"
 
 # Setup Mock Architecture
 mkdir -p "$MOCK_ROOT/sys/block/zram0"
@@ -36,10 +36,10 @@ assert_equal() {
     local expected="$2"
     local actual="$3"
     if [ "$expected" = "$actual" ]; then
-        echo "  ✅ [PASS] $test_name -> Expected: '$expected', Got: '$actual'"
+        echo "  [PASS] $test_name -> Expected: '$expected', Got: '$actual'"
         PASS_COUNT=$((PASS_COUNT + 1))
     else
-        echo "  ❌ [FAIL] $test_name -> Expected: '$expected', Got: '$actual'"
+        echo "  [FAIL] $test_name -> Expected: '$expected', Got: '$actual'"
         FAIL_COUNT=$((FAIL_COUNT + 1))
     fi
 }
@@ -145,13 +145,13 @@ assert_equal "MGLRU Memory Reclamation Enabled" "7" "$mglru_state"
 
 # --- Summary ---
 echo "=========================================================="
-echo "📊 TEST RESULTS: $PASS_COUNT PASSED, $FAIL_COUNT FAILED"
+echo "  TEST RESULTS: $PASS_COUNT PASSED, $FAIL_COUNT FAILED"
 echo "=========================================================="
 
 if [ "$FAIL_COUNT" -eq 0 ]; then
-    echo "🎉 ALL VIRTUAL SYSFS MOCK TESTS PASSED SUCCESSFULLY!"
+    echo "  [OK] ALL VIRTUAL SYSFS MOCK TESTS PASSED SUCCESSFULLY!"
     exit 0
 else
-    echo "💥 SOME TESTS FAILED! Review output above."
+    echo "  [FAIL] SOME TESTS FAILED! Review output above."
     exit 1
 fi

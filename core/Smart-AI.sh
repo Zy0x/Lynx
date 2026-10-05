@@ -180,20 +180,20 @@ switch_mode() {
                 fi
             fi
             if [ "$target" = "extreme" ]; then
-                am start -a android.intent.action.MAIN -e toasttext "🔥 Lʏɴx: Exᴛʀᴇᴍᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+                am start -a android.intent.action.MAIN -e toasttext "Lynx: Extreme Mode" -n bellavita.toast/.MainActivity >/dev/null 2>&1
             else
-                am start -a android.intent.action.MAIN -e toasttext "⚡ Lʏɴx: Pᴇʀꜰᴏʀᴍᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+                am start -a android.intent.action.MAIN -e toasttext "Lynx: Performance Mode" -n bellavita.toast/.MainActivity >/dev/null 2>&1
             fi
             ;;
         powersave)
             rm -f "/dev/lynx_active_game" 2>/dev/null
             [ -e /sys/module/ged/parameters/gx_top_app_pid ] && echo "0" > /sys/module/ged/parameters/gx_top_app_pid 2>/dev/null
-            am start -a android.intent.action.MAIN -e toasttext "🔋 Lʏɴx: Pᴏᴡᴇʀsᴀᴠᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+            am start -a android.intent.action.MAIN -e toasttext "Lynx: Powersave Mode" -n bellavita.toast/.MainActivity >/dev/null 2>&1
             ;;
         *)
             rm -f "/dev/lynx_active_game" 2>/dev/null
             [ -e /sys/module/ged/parameters/gx_top_app_pid ] && echo "0" > /sys/module/ged/parameters/gx_top_app_pid 2>/dev/null
-            am start -a android.intent.action.MAIN -e toasttext "⚖️ Lʏɴx: Bᴀʟᴀɴᴄᴇ Mᴏᴅᴇ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+            am start -a android.intent.action.MAIN -e toasttext "Lynx: Balance Mode" -n bellavita.toast/.MainActivity >/dev/null 2>&1
             ;;
     esac
 

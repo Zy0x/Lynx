@@ -151,9 +151,9 @@ probe_hardware() {
     fi
 
     if [ "$SPOOF_ACTIVE" = "true" ]; then
-        log_probe "🛡️ SoC/Device Spoofer Detected! Props: '$PROP_MODEL', Hardware Ground Truth: '$REAL_BOARD' (SoC: $REAL_PLATFORM, GPU: $REAL_GPU)"
+        log_probe "[!] SoC/Device Spoofer Detected! Props: '$PROP_MODEL', Hardware Ground Truth: '$REAL_BOARD' (SoC: $REAL_PLATFORM, GPU: $REAL_GPU)"
     else
-        log_probe "✅ Hardware Verified: '$REAL_BOARD' (SoC: $REAL_SOC, GPU: $REAL_GPU)"
+        log_probe "[OK] Hardware Verified: '$REAL_BOARD' (SoC: $REAL_SOC, GPU: $REAL_GPU)"
     fi
 }
 
@@ -177,19 +177,19 @@ load_hardware_subprofiles() {
         case "$GPU_LOWER" in
             *g57*|*mali-g57*|*g-57*)
                 if [ -f "$profiles_dir/gpu_mali_g57.sh" ]; then
-                    log_probe "⚡ Loading targeted profile: gpu_mali_g57.sh"
+                    log_probe "[*] Loading targeted profile: gpu_mali_g57.sh"
                     . "$profiles_dir/gpu_mali_g57.sh"
                 fi
                 ;;
             *g68*|*g77*|*g78*)
                 if [ -f "$profiles_dir/gpu_mali_valhall2.sh" ]; then
-                    log_probe "⚡ Loading targeted profile: gpu_mali_valhall2.sh"
+                    log_probe "[*] Loading targeted profile: gpu_mali_valhall2.sh"
                     . "$profiles_dir/gpu_mali_valhall2.sh"
                 fi
                 ;;
             *g710*|*g715*|*g720*|*immortalis*)
                 if [ -f "$profiles_dir/gpu_immortalis.sh" ]; then
-                    log_probe "⚡ Loading targeted profile: gpu_immortalis.sh"
+                    log_probe "[*] Loading targeted profile: gpu_immortalis.sh"
                     . "$profiles_dir/gpu_immortalis.sh"
                 fi
                 ;;
@@ -199,7 +199,7 @@ load_hardware_subprofiles() {
         case "$BOARD_LOWER" in
             *x698*|*infinix*|*transsion*|*mt6781*)
                 if [ -f "$profiles_dir/infinix_x698.sh" ]; then
-                    log_probe "⚡ Loading test device profile: infinix_x698.sh (Ground truth match)"
+                    log_probe "[*] Loading test device profile: infinix_x698.sh (Ground truth match)"
                     . "$profiles_dir/infinix_x698.sh"
                 fi
                 ;;
@@ -212,13 +212,13 @@ load_hardware_subprofiles() {
         case "$GPU_LOWER" in
             *610*|*612*|*615*|*616*|*618*|*619*|*620*|*630*|*640*|*642*|*650*|*660*|*adreno*6*)
                 if [ -f "$profiles_dir/gpu_adreno_600.sh" ]; then
-                    log_probe "⚡ Loading targeted profile: gpu_adreno_600.sh"
+                    log_probe "[*] Loading targeted profile: gpu_adreno_600.sh"
                     . "$profiles_dir/gpu_adreno_600.sh"
                 fi
                 ;;
             *710*|*720*|*725*|*730*|*732*|*740*|*750*|*adreno*7*)
                 if [ -f "$profiles_dir/gpu_adreno_700.sh" ]; then
-                    log_probe "⚡ Loading targeted profile: gpu_adreno_700.sh"
+                    log_probe "[*] Loading targeted profile: gpu_adreno_700.sh"
                     . "$profiles_dir/gpu_adreno_700.sh"
                 fi
                 ;;
@@ -228,7 +228,7 @@ load_hardware_subprofiles() {
         case "$BOARD_LOWER" in
             *xiaomi*|*redmi*|*poco*)
                 if [ -f "$profiles_dir/xiaomi_qcom.sh" ]; then
-                    log_probe "⚡ Loading targeted profile: xiaomi_qcom.sh"
+                    log_probe "[*] Loading targeted profile: xiaomi_qcom.sh"
                     . "$profiles_dir/xiaomi_qcom.sh"
                 fi
                 ;;

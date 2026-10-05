@@ -21,13 +21,13 @@
 
         <!-- Standalone Browser Alert (Magisk / Termux) -->
         <div id="standalone-banner" class="banner banner-warning" style="display:none;">
-            ⚠️ <b>Akses WebUI Standalone Terdeteksi</b><br>
+            <b>Akses WebUI Standalone Terdeteksi</b><br>
             Aplikasi Lynx Kernel Manager dapat diakses langsung via WebUI atau Aplikasi Native Companion.
         </div>
 
         <!-- First-Boot Dormant Onboarding Banner -->
         <div id="dormant-banner" class="banner banner-dormant" style="display:none;">
-            💤 <b>Konfigurasi Awal Diperlukan (Safe First-Boot)</b><br>
+            <b>Konfigurasi Awal Diperlukan (Safe First-Boot)</b><br>
             Modul sedang dalam mode Standby. Silakan pilih profil performa di bawah untuk mengaktifkan tuning kernel!
         </div>
 
@@ -37,7 +37,7 @@
         <div class="tab-pane active" id="tab-dashboard">
             <!-- Live Telemetry Card -->
             <div class="card">
-                <div class="card-title">📊 Live Hardware Telemetry</div>
+                <div class="card-title">Live Hardware Telemetry</div>
                 <div class="telemetry-grid">
                     <div class="metric-box">
                         <div class="metric-title">GPU Clock</div>
@@ -65,26 +65,26 @@
 
             <!-- Performance Profile Switcher -->
             <div class="card">
-                <div class="card-title">⚡ Profil Performa</div>
+                <div class="card-title">Profil Performa</div>
                 <div class="profile-grid">
                     <button class="btn-profile" data-profile="auto" onclick="setProfile('auto')">
-                        Auto (AI) ⚡
+                        Auto (AI)
                         <span>Adaptive foreground gaming</span>
                     </button>
                     <button class="btn-profile" data-profile="balance" onclick="setProfile('balance')">
-                        Balance ⚖️
+                        Balance
                         <span>EAS daily efficiency</span>
                     </button>
                     <button class="btn-profile" data-profile="performance" onclick="setProfile('performance')">
-                        Performance 🚀
+                        Performance
                         <span>High clock sustained</span>
                     </button>
                     <button class="btn-profile" data-profile="extreme" onclick="setProfile('extreme')">
-                        Extreme 🔥
+                        Extreme
                         <span>Unrestricted (Cooler req.)</span>
                     </button>
                     <button class="btn-profile" data-profile="powersave" onclick="setProfile('powersave')" style="grid-column: span 2;">
-                        Powersave 🔋
+                        Powersave
                         <span>Maximum battery endurance</span>
                     </button>
                 </div>
@@ -92,7 +92,7 @@
 
             <!-- Hardware Thermal Zones Matrix (Live) -->
             <div class="card" id="card-thermal-zones">
-                <div class="card-title">🌡️ Matriks Sensor Termal Hardware (Real-Time)</div>
+                <div class="card-title">Matriks Sensor Termal Hardware (Real-Time)</div>
                 <div id="thermal-zones-grid" class="stat-grid" style="grid-template-columns: repeat(2, 1fr); gap: 8px;">
                     <div style="font-size: 11px; color: var(--text-muted); grid-column: span 2;">Memuat sensor termal hardware...</div>
                 </div>
@@ -105,7 +105,7 @@
         <div class="tab-pane" id="tab-tuner">
             <!-- CPU Clusters & Governor Tuner -->
             <div class="card">
-                <div class="card-title">🎛️ CPU Clusters & Governor Tuner</div>
+                <div class="card-title">CPU Clusters & Governor Tuner</div>
                 <div id="clusters-container">
                     <div style="color: var(--text-muted); font-size: 12px;">Memuat topologi cluster CPU...</div>
                 </div>
@@ -113,7 +113,7 @@
 
             <!-- Universal GPU Advanced Control & Live Telemetry -->
             <div class="card">
-                <div class="card-title">🎮 Kontrol GPU & Live Telemetri</div>
+                <div class="card-title">Kontrol GPU & Live Telemetri</div>
                 <div class="stat-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 10px;">
                     <div class="stat-box">
                         <div class="stat-value" id="web-gpu-clock">-- MHz</div>
@@ -142,19 +142,19 @@
 
             <!-- Intelligent Governor Schedutil Presets -->
             <div class="card">
-                <div class="card-title">⚡ Tuning Governor Inteligen (Schedutil)</div>
+                <div class="card-title">Tuning Governor Inteligen (Schedutil)</div>
                 <div style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 8px;">
                     Optimasi waktu respon frekuensi CPU. Preset gaming mempercepat kenaikan clock ke frekuensi puncak (0µs ramp-up).
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
                     <button class="btn-profile" id="web-btn-gov-resp" onclick="setWebGovPreset('responsive')" style="padding: 8px;">
-                        🚀 Responsif<span>0µs ramp-up</span>
+                        Responsif<span>0µs ramp-up</span>
                     </button>
                     <button class="btn-profile" id="web-btn-gov-bal" onclick="setWebGovPreset('balanced')" style="padding: 8px;">
-                        ⚖️ Seimbang<span>1000µs default</span>
+                        Seimbang<span>1000µs default</span>
                     </button>
                     <button class="btn-profile" id="web-btn-gov-power" onclick="setWebGovPreset('powersave')" style="padding: 8px;">
-                        🍃 Hemat<span>4000µs hemat</span>
+                        Hemat<span>4000µs hemat</span>
                     </button>
                 </div>
             </div>
@@ -162,7 +162,7 @@
 
             <!-- Overclock & Thermal Limits -->
             <div class="card">
-                <div class="card-title">🚀 Overclock & Thermal Safety</div>
+                <div class="card-title">Overclock & Thermal Safety</div>
 
                 <div class="switch-row">
                     <span class="switch-label">Mode Kernel Overclock (OC)</span>
@@ -213,7 +213,7 @@
 
             <!-- Display Refresh Rate Card -->
             <div class="card">
-                <div class="card-title">📱 Display Refresh Rate</div>
+                <div class="card-title">Display Refresh Rate</div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
                     Kunci refresh rate layar untuk animasi ultra-halus dan respon sentuh gaming.
                 </div>
@@ -226,7 +226,7 @@
 
             <!-- Game Mode & Per-App Profiles Card -->
             <div class="card">
-                <div class="card-title">🎮 Game Mode & Per-App Profiles</div>
+                <div class="card-title">Game Mode & Per-App Profiles</div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
                     AI otomatis beralih ke profil Performa saat game/aplikasi aktif.
                 </div>
@@ -243,12 +243,12 @@
 
             <!-- Deep Kernel & System Tunables (Auto-Discovery Engine) -->
             <div class="card" id="card-deep-tunables">
-                <div class="card-title">🔍 Deep Kernel & System Tunables</div>
+                <div class="card-title">Deep Kernel & System Tunables</div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
                     Pindai seluruh node kernel, OEM, GPU, CPU, dan ROM secara dinamis. Mendeteksi petunjuk konfigurasi <code>#</code> secara otomatis.
                 </div>
                 <button class="btn btn-accent" onclick="runDeepScan()" style="margin-bottom: 12px;" id="btn-deep-scan">
-                    ⚡ Pindai Seluruh Sistem & Hardware (Deep Scan)
+                    Pindai Seluruh Sistem & Hardware (Deep Scan)
                 </button>
                 
                 <!-- Category Filter Chips -->
@@ -272,7 +272,7 @@
                 <!-- Manual Node Inspector & Custom Controller -->
                 <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--card-border);">
                     <div style="font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
-                        ➕ Inspeksi Node Sysfs / Proc Kustom
+                        Inspeksi Node Sysfs / Proc Kustom
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="manual-node-input" class="input-text" placeholder="/proc/ppm/policy_status" style="margin-bottom: 0; flex: 1;">
@@ -291,7 +291,7 @@
         <div class="tab-pane" id="tab-engine">
             <!-- Memory & ZRAM -->
             <div class="card">
-                <div class="card-title">🧠 Memory & Swappiness</div>
+                <div class="card-title">Memory & Swappiness</div>
                 <div class="control-group">
                     <div class="control-label">
                         <span>Ukuran Alokasi ZRAM</span>
@@ -315,7 +315,7 @@
 
             <!-- Charging Controller & Bypass -->
             <div class="card">
-                <div class="card-title">🔋 Charging Controller & Bypass</div>
+                <div class="card-title">Charging Controller & Bypass</div>
                 
                 <div class="switch-row">
                     <span class="switch-label">Bypass Charging (Direct Motherboard)</span>
@@ -348,7 +348,7 @@
 
             <!-- Subsystem Tweaks -->
             <div class="card">
-                <div class="card-title">⚡ Subsystem & OEM Neutralizer</div>
+                <div class="card-title">Subsystem & OEM Neutralizer</div>
                 
                 <div class="switch-row">
                     <span class="switch-label">Wi-Fi Ping Stabilizer & FQ-CoDel</span>
@@ -385,17 +385,17 @@
 
             <!-- Virtual Memory & Cache Tuners -->
             <div class="card">
-                <div class="card-title">🧹 VM Cache & Memory Tuner</div>
+                <div class="card-title">VM Cache & Memory Tuner</div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
                     Konfigurasi manajemen swap, flush dirty page ke storage, dan agresivitas reclaim cache kernel.
                 </div>
                 <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                    <button class="btn btn-primary" onclick="applyWebVmPreset('gaming')" id="btn-vm-gaming" style="flex:1;">⚡ Gaming</button>
-                    <button class="btn btn-primary" onclick="applyWebVmPreset('balanced')" id="btn-vm-balanced" style="flex:1;">⚖️ Balanced</button>
-                    <button class="btn btn-primary" onclick="applyWebVmPreset('battery')" id="btn-vm-battery" style="flex:1;">🔋 Battery</button>
+                    <button class="btn btn-primary" onclick="applyWebVmPreset('gaming')" id="btn-vm-gaming" style="flex:1;">Gaming</button>
+                    <button class="btn btn-primary" onclick="applyWebVmPreset('balanced')" id="btn-vm-balanced" style="flex:1;">Balanced</button>
+                    <button class="btn btn-primary" onclick="applyWebVmPreset('battery')" id="btn-vm-battery" style="flex:1;">Battery</button>
                 </div>
                 <button class="btn btn-primary" onclick="dropCaches()" style="margin-bottom: 14px; border-color: var(--accent-green); color: var(--accent-green);">
-                    🧹 Bebaskan Cache RAM (Drop Caches)
+                    Bebaskan Cache RAM (Drop Caches)
                 </button>
                 <div class="control-group">
                     <div class="control-label">
@@ -464,7 +464,7 @@
 
             <!-- TCP Congestion Control -->
             <div class="card">
-                <div class="card-title">🌐 TCP Congestion Control</div>
+                <div class="card-title">TCP Congestion Control</div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
                     Algoritma TCP aktif mempengaruhi throughput, latensi, dan stabilitas koneksi game online.
                 </div>
@@ -475,7 +475,7 @@
 
             <!-- Storage I/O Scheduler Manager -->
             <div class="card" id="card-io-sched">
-                <div class="card-title">💽 Storage I/O Scheduler Manager</div>
+                <div class="card-title">Storage I/O Scheduler Manager</div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
                     Pilih antrian I/O storage per block device (UFS/eMMC/NVMe) untuk efisiensi loading dan throughput baca/tulis.
                 </div>
@@ -491,24 +491,24 @@
         <div class="tab-pane" id="tab-tools">
             <!-- AnyKernel3 Flasher Card -->
             <div class="card">
-                <div class="card-title">🚀 AnyKernel3 Flasher</div>
+                <div class="card-title">AnyKernel3 Flasher</div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
                     Flash kernel kustom (ZIP) langsung dari sistem. Kernel lama akan otomatis dicadangkan ke <code>/sdcard/Lynx/backups/</code> sebelum penulisan.
                 </div>
                 <input type="text" id="flasher-zip-path" class="input-text" placeholder="/sdcard/Download/kernel.zip">
                 <button class="btn btn-accent" onclick="flashAnyKernel()">
-                    ⚡ Flash Kernel Sekarang
+                    Flash Kernel Sekarang
                 </button>
             </div>
 
             <!-- Boot Partition Backup & Restore -->
             <div class="card">
-                <div class="card-title">💾 Cadangan Partisi Boot</div>
+                <div class="card-title">Cadangan Partisi Boot</div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
                     Cadangkan dan pulihkan partisi <code>boot</code> dan <code>init_boot</code> perangkat Anda kapan saja.
                 </div>
                 <button class="btn btn-primary" onclick="backupBootPartition()">
-                    📥 Buat Backup Boot Baru
+                    Buat Backup Boot Baru
                 </button>
                 <div style="margin-top: 14px; font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">
                     Riwayat Backup Tersimpan:
@@ -520,7 +520,7 @@
 
             <!-- SELinux & Kernel Logging Card -->
             <div class="card">
-                <div class="card-title">🛡️ Status SELinux & Kernel Printk</div>
+                <div class="card-title">Status SELinux & Kernel Printk</div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <span style="font-size: 13px; color: var(--text-primary); font-weight: 600;">
                         Mode SELinux: <b id="selinux-mode-label" style="color: var(--accent-green);">Enforcing</b>
@@ -541,7 +541,7 @@
 
             <!-- Wake Guard — Wakelock Telemetry & Deep Sleep -->
             <div class="card" id="card-wakeguard">
-                <div class="card-title">🛡️ Wake Guard — Wakelock & Deep Sleep</div>
+                <div class="card-title">Wake Guard — Wakelock & Deep Sleep</div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
                     Pantau driver kernel dan proses yang menahan CPU agar tidak masuk deep sleep.
                 </div>
@@ -560,7 +560,7 @@
                     </label>
                 </div>
                 <button class="btn btn-primary" onclick="pollWebWakelocks()" style="margin-bottom: 10px; font-size: 12px; padding: 6px 12px; border-color: var(--accent-cyan); color: var(--accent-cyan);">
-                    🔄 Pindai Wakelock Aktif
+                    Pindai Wakelock Aktif
                 </button>
                 <div id="wakelock-list" style="display: flex; flex-direction: column; gap: 6px;">
                     <div style="font-size: 11px; color: var(--text-muted);">Menunggu pemindaian wakelock...</div>
@@ -569,24 +569,24 @@
 
             <!-- Maintenance & Diagnostics -->
             <div class="card">
-                <div class="card-title">🛠️ Pemeliharaan & Diagnostik</div>
+                <div class="card-title">Pemeliharaan & Diagnostik</div>
                 <button class="btn btn-primary" onclick="runMaintenance()">
-                    🗄️ Optimasi SQLite & FSTRIM (Storage Maintenance)
+                    Optimasi SQLite & FSTRIM (Storage Maintenance)
                 </button>
                 <button class="btn btn-primary" onclick="runCCleaner()" style="margin-top: 8px;">
-                    🧹 Jalankan CCleaner (Memory Compaction)
+                    Jalankan CCleaner (Memory Compaction)
                 </button>
                 <button class="btn btn-accent" onclick="exportBugReport()" style="margin-top: 8px;">
-                    📦 Ekspor Laporan Diagnostik 1-Klik (.ZIP)
+                    Ekspor Laporan Diagnostik 1-Klik (.ZIP)
                 </button>
                 <button class="btn btn-primary" onclick="openNativeApp()" style="margin-top: 8px; border-color: var(--accent-blue); color: var(--accent-blue);">
-                    📱 Buka Aplikasi Lynx Companion Native
+                    Buka Aplikasi Lynx Companion Native
                 </button>
             </div>
 
             <!-- Activity Log Console -->
             <div class="card">
-                <div class="card-title">📟 Konsol Log Aktivitas</div>
+                <div class="card-title">Konsol Log Aktivitas</div>
                 <div id="console" class="console">Memuat aktivitas modul...</div>
             </div>
         </div>
@@ -596,19 +596,27 @@
         <!-- ======================================================== -->
         <nav class="bottom-nav">
             <button class="nav-item active" onclick="switchTab('dashboard')" id="nav-dashboard">
-                <span class="nav-icon">📊</span>
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+                </span>
                 <span>Dashboard</span>
             </button>
             <button class="nav-item" onclick="switchTab('tuner')" id="nav-tuner">
-                <span class="nav-icon">🎛️</span>
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+                </span>
                 <span>SoC Tuner</span>
             </button>
             <button class="nav-item" onclick="switchTab('engine')" id="nav-engine">
-                <span class="nav-icon">⚡</span>
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+                </span>
                 <span>Lynx Engine</span>
             </button>
             <button class="nav-item" onclick="switchTab('tools')" id="nav-tools">
-                <span class="nav-icon">🛠️</span>
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
+                </span>
                 <span>Tools</span>
             </button>
         </nav>

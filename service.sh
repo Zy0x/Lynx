@@ -92,13 +92,13 @@ if [ -d "$MODPATH/webroot" ]; then
     elif command -v toybox >/dev/null; then
         toybox httpd -p 127.0.0.1:8080 -h "$MODPATH/webroot" 2>/dev/null
     fi
-    log_msg "🌐 WebUI HTTP Server active on 127.0.0.1:8080"
+    log_msg "[*] WebUI HTTP Server active on 127.0.0.1:8080"
 fi
 
 if command -v inotifyd >/dev/null && [ -f "$CONFIG_JSON" ] && [ -f "$LIB/state_watcher.sh" ]; then
     pkill -f "inotifyd.*state_watcher.sh" 2>/dev/null
     nohup inotifyd "$LIB/state_watcher.sh" "$CONFIG_JSON:w" >/dev/null 2>&1 &
-    log_msg "🔄 Inotifyd state watcher active"
+    log_msg "[*] Inotifyd state watcher active"
 fi
 
 # ── 5. Profile Enforcement & First-Boot Dormant Safety Guard ────────
@@ -112,8 +112,8 @@ log_msg "Active profile: $active_profile"
 
 # FIRST-BOOT DORMANT SAFETY: If dormant, EXIT NOW without modifying any kernel hardware!
 if [ "$active_profile" = "dormant" ]; then
-    sed -Ei "s/^description=\[.*\]/description=[ 💤 Dormant (Pending Setup) ]/" "$MODPROP" 2>/dev/null
-    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '💤 Modul terpasang aman (Standby). Buka WebUI atau Aplikasi Lynx untuk konfigurasi awal.'" >/dev/null 2>&1
+    sed -Ei "s/^description=\[.*\]/description=[ Dormant (Pending Setup) ]/" "$MODPROP" 2>/dev/null
+    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'Modul terpasang aman (Standby). Buka WebUI atau Aplikasi Lynx untuk konfigurasi awal.'" >/dev/null 2>&1
     log_msg "Lynx initialized safely in dormant standby mode. No hardware sysfs applied."
     exit 0
 fi
@@ -121,7 +121,7 @@ fi
 # ── 6. Platform-Specific Hardware Initialization (Only when active) ─
 if [ -f "$MODPATH/platforms/$TARGET_SOC/sysfs.sh" ]; then
     sh "$MODPATH/platforms/$TARGET_SOC/sysfs.sh" >/dev/null 2>&1
-    log_msg "⚡ Platform HAL ($TARGET_SOC) sysfs initialized"
+    log_msg "[*] Platform HAL ($TARGET_SOC) sysfs initialized"
 fi
 
 # ── 7. Universal Subsystem Optimization (Lxcore Modular Categories) ──
@@ -133,7 +133,7 @@ if [ -x "$MODPATH/system/bin/Lxcore" ]; then
     "$MODPATH/system/bin/Lxcore" -io apply >/dev/null 2>&1
     "$MODPATH/system/bin/Lxcore" -ram apply >/dev/null 2>&1
     "$MODPATH/system/bin/Lxcore" -network apply >/dev/null 2>&1
-    log_msg "✅ Core modular subsystems optimized via Lxcore"
+    log_msg "[+] Core modular subsystems optimized via Lxcore"
 fi
 
 # Touch & Compositor Phase Latency Offsets
@@ -159,15 +159,15 @@ fi
 # ── 9. Profile Action Execution ─────────────────────────────────────
 case "$active_profile" in
     auto)
-        sed -Ei "s/^description=\[.*\]/description=[ ⚡ Auto (AI) Mode Active ]/" "$MODPROP" 2>/dev/null
+        sed -Ei "s/^description=\[.*\]/description=[ Auto (AI) Mode Active ]/" "$MODPROP" 2>/dev/null
         nohup sh "$CORE/Smart-AI.sh" >/dev/null 2>&1 &
         ;;
     powersave|balance|performance|extreme)
         case "$active_profile" in
-            powersave) sed -Ei "s/^description=\[.*\]/description=[ 🔋 Powersave Mode Active ]/" "$MODPROP" 2>/dev/null ;;
-            balance) sed -Ei "s/^description=\[.*\]/description=[ ⚖️ Balance Mode Active ]/" "$MODPROP" 2>/dev/null ;;
-            performance) sed -Ei "s/^description=\[.*\]/description=[ 🚀 Performance Mode Active ]/" "$MODPROP" 2>/dev/null ;;
-            extreme) sed -Ei "s/^description=\[.*\]/description=[ 🔥 Extreme Mode Active ]/" "$MODPROP" 2>/dev/null ;;
+            powersave) sed -Ei "s/^description=\[.*\]/description=[ Powersave Mode Active ]/" "$MODPROP" 2>/dev/null ;;
+            balance) sed -Ei "s/^description=\[.*\]/description=[ Balance Mode Active ]/" "$MODPROP" 2>/dev/null ;;
+            performance) sed -Ei "s/^description=\[.*\]/description=[ Performance Mode Active ]/" "$MODPROP" 2>/dev/null ;;
+            extreme) sed -Ei "s/^description=\[.*\]/description=[ Extreme Mode Active ]/" "$MODPROP" 2>/dev/null ;;
         esac
         if [ -f "$CORE/apply_profile.sh" ]; then
             sh "$CORE/apply_profile.sh" "$active_profile" >/dev/null 2>&1
@@ -185,14 +185,14 @@ esac
 
 # ── 10. Execute Custom User Rules & Deep Tunables ───────────────────
 if [ -f "$CORE/custom_tunables.sh" ]; then
-    log_msg "⚡ Applying custom deep kernel tunables ($CORE/custom_tunables.sh)..."
+    log_msg "[*] Applying custom deep kernel tunables ($CORE/custom_tunables.sh)..."
     sh "$CORE/custom_tunables.sh" >> "$MODPATH/logs/custom_tunables.log" 2>&1
 fi
 if [ -f "$MODPATH/custom_rules.sh" ]; then
-    log_msg "⚡ Executing custom user boot rules ($MODPATH/custom_rules.sh)..."
+    log_msg "[*] Executing custom user boot rules ($MODPATH/custom_rules.sh)..."
     sh "$MODPATH/custom_rules.sh" >> "$MODPATH/logs/custom_rules.log" 2>&1
     log_msg "Custom rules execution finished."
 fi
 
-su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '✅ $active_profile Mode Applied...'" >/dev/null 2>&1
+su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' '$active_profile Mode Applied...'" >/dev/null 2>&1
 log_msg "Lynx service completed successfully."

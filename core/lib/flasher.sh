@@ -73,7 +73,7 @@ backup_boot() {
         rm -f "$boot_out"
         return 1
     fi
-    echo "✅ Berhasil mencadangkan boot: $boot_out"
+    echo "[OK] Berhasil mencadangkan boot: $boot_out"
 
     # Also check init_boot if present (Android 13+)
     init_boot_dev=$(find_block_dev "init_boot")
@@ -82,7 +82,7 @@ backup_boot() {
         echo "Mencadangkan init_boot partition dari $init_boot_dev ..."
         dd if="$init_boot_dev" of="$init_boot_out" bs=4096 2>/dev/null
         if [ -s "$init_boot_out" ]; then
-            echo "✅ Berhasil mencadangkan init_boot: $init_boot_out"
+            echo "[OK] Berhasil mencadangkan init_boot: $init_boot_out"
         else
             rm -f "$init_boot_out"
         fi
@@ -136,7 +136,7 @@ restore_boot() {
     echo "Memulihkan $filename ke $target_dev..."
     dd if="$backup_file" of="$target_dev" bs=4096 2>/dev/null
     sync
-    echo "✅ Partisi $target_part berhasil dipulihkan dari $filename."
+    echo "[OK] Partisi $target_part berhasil dipulihkan dari $filename."
     return 0
 }
 
@@ -149,7 +149,7 @@ flash_anykernel() {
     fi
 
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🚀 Lynx Kernel Manager - AnyKernel3 Flasher"
+    echo "  Lynx Kernel Manager - AnyKernel3 Flasher"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "Target ZIP: $(basename "$zip_path")"
     
@@ -206,12 +206,12 @@ flash_anykernel() {
 
     if [ "$exit_code" -eq 0 ]; then
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "✅ Flashing Kernel Berhasil! Silakan reboot perangkat."
+        echo "[OK] Flashing Kernel Berhasil! Silakan reboot perangkat."
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         return 0
     else
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "❌ Flashing Kernel Gagal (Exit code: $exit_code)."
+        echo "[ERROR] Flashing Kernel Gagal (Exit code: $exit_code)."
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         return 1
     fi

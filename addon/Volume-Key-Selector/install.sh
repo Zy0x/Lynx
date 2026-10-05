@@ -23,7 +23,7 @@ chooseport_legacy() {
             [ -n "$1" ] && return 0 || return 1
         else
             error=true
-            echo "⚠️ Timeout waiting for volume key, using default..."
+            echo "[!] Timeout waiting for volume key, using default..."
             [ -n "$1" ] && return 0 || return 1
         fi
     done

@@ -59,4 +59,4 @@ done
 log_msg "Storage Fstrim discard completed."
 
 # Visual Toast Feedback
-am start -a android.intent.action.MAIN -e toasttext "🧹 Cᴀᴄʜᴇ & Mᴇᴍᴏʀʏ Oᴘᴛɪᴍɪᴢᴇᴅ" -n bellavita.toast/.MainActivity >/dev/null 2>&1
+am start -a android.intent.action.MAIN -e toasttext "Cache & Memory Optimized" -n bellavita.toast/.MainActivity >/dev/null 2>&1

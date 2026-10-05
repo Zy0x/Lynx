@@ -225,9 +225,9 @@ case "$1" in
         if [ -f "$target" ]; then
             cp -af "$target" "$MODPATH/system/bin/busybox"
             chmod 755 "$MODPATH/system/bin/busybox"
-            echo "✅ Switched active BusyBox to $(basename "$target")"
+            echo "[OK] Switched active BusyBox to $(basename "$target")"
         else
-            echo "❌ Error: $target not found"
+            echo "[ERROR] Error: $target not found"
             exit 1
         fi
         ;;

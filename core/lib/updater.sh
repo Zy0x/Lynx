@@ -20,10 +20,9 @@ update_url="$(read_prop 'updateJson')"
 [ -z "$update_url" ] && exit 0
 
 notify_user() {
-    local title="𝗟𝘆𝗻𝘅 - 𝗨𝗽𝗱𝗮𝘁𝗲𝗿"
+    local title="Lynx - Updater"
     local message="$1"
-    local icon="$2"
-    su -lp 2000 -c "cmd notification post -S bigtext -t '$title' 'LynxUpdaterTag' '$icon $message'" >/dev/null 2>&1
+    su -lp 2000 -c "cmd notification post -S bigtext -t '$title' 'LynxUpdaterTag' '$message'" >/dev/null 2>&1
 }
 
 check_internet() {
@@ -52,22 +51,8 @@ base_release_type=$(echo "$raw_json" | grep '"releaseType":' | awk '{print $2}' 
 
 [ -z "$ori_ver_code" ] || [ -z "$base_ver_code" ] && exit 0
 
-get_release_icon() {
-    case "$1" in
-        stable) echo "🟢";;
-        beta) echo "🔵";;
-        dev) echo "🔴";;
-        alpha) echo "🟡";;
-        canary) echo "🟣";;
-        *) echo "⚪";;
-    esac
-}
-
-base_icon=$(get_release_icon "$base_release_type")
-current_icon=$(get_release_icon "$ori_release_type")
-
 if [ "$base_ver_code" -gt "$ori_ver_code" ] 2>/dev/null; then
-    notify_user "𝙐𝙥𝙙𝙖𝙩𝙚 𝙖𝙫𝙖𝙞𝙡𝙖𝙗𝙡𝙚: $base_ver ($base_ver_code) [$base_release_type]" "$base_icon"
+    notify_user "Update available: $base_ver ($base_ver_code) [$base_release_type]"
     log_msg "Update available to $base_ver ($base_ver_code) [$base_release_type]."
 else
     log_msg "Version is up to date: $ori_ver ($ori_ver_code)."

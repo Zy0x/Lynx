@@ -25,9 +25,9 @@ list_swap_files() {
                 }')
 
             if grep -q "$f" /proc/swaps; then
-                echo "  ✔️ $f [ACTIVE] - $human_size ($size_bytes bytes)"
+                echo "  [+] $f [ACTIVE] - $human_size ($size_bytes bytes)"
             else
-                echo "  ⚠️ $f [INACTIVE] - $human_size ($size_bytes bytes)"
+                echo "  [*] $f [INACTIVE] - $human_size ($size_bytes bytes)"
             fi
             found=1
         fi
@@ -89,15 +89,15 @@ main_enableswap() {
         su -c swapon /data/swap -p 3 >/dev/null 2>&1
         if [ $? -eq 0 ]; then
             log_msg "SWAP successfully enabled."
-            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʯ' 'Lʏɴx' '☣️ 𝙎𝙬𝙖𝙥 𝙀𝙣𝙖𝙗𝙡𝙚𝙙'" >/dev/null 2>&1
+            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'Swap Enabled'" >/dev/null 2>&1
         else
             log_msg "ERROR: Failed to enable SWAP."
-            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʯ' 'Lʏɴx' '❌ 𝙎𝙬𝙖𝙥 𝙁𝙖𝙞𝙡𝙚𝙙 𝙩𝙤 𝙀𝙣𝙖𝙗𝙡𝙚'" >/dev/null 2>&1
+            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'Swap Failed to Enable'" >/dev/null 2>&1
             return 1
         fi
     else
         log_msg "ERROR: No SWAP file found. Please run 'set' first."
-        su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʯ' 'Lʏɴx' '❌ 𝙉𝙤 𝙎𝙬𝙖𝙥 𝙁𝙞𝙡𝙚 𝙁𝙤𝙪𝙣𝙙'" >/dev/null 2>&1
+        su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'No Swap File Found'" >/dev/null 2>&1
         return 1
     fi
 }
@@ -108,7 +108,7 @@ main_disableswap() {
     if awk 'NR>1 {print $1}' /proc/swaps | grep -v '/dev/block/zram' | grep -q .; then
         disable_all_swaps
         log_msg "All SWAP files disabled."
-        su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʯ' 'Lʏɴx' '⚠️ 𝘼𝙡𝙡 𝙎𝙬𝙖𝙥 𝘿𝙞𝙨𝙖𝙗𝙡𝙚𝙙'" >/dev/null 2>&1
+        su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'All Swap Disabled'" >/dev/null 2>&1
     else
         log_msg "No active SWAP files to disable."
     fi
@@ -206,24 +206,24 @@ main_setswap() {
         dd if=/dev/zero of=/data/swap bs=1 count="$size_bytes" >/dev/null 2>&1
         if [ $? -ne 0 ]; then
             log_msg "ERROR: Failed to create SWAP file."
-            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʯ' 'Lʏɴx' '❌ 𝙁𝙖𝙞𝙡𝙚𝙙 𝙩𝙤 𝘾𝙧𝙚𝙖𝙩𝙚 𝙎𝙬𝙖𝙥'" >/dev/null 2>&1
+            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'Failed to Create Swap'" >/dev/null 2>&1
             return 1
         fi
 
         mkswap /data/swap >/dev/null 2>&1
         if [ $? -ne 0 ]; then
             log_msg "ERROR: Failed to initialize SWAP file."
-            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʯ' 'Lʏɴx' '❌ 𝙁𝙖𝙞𝙡𝙚𝙙 𝙩𝙤 𝙄𝙣𝙞𝙩𝙞𝙖𝙡𝙞𝙯𝙚 𝙎𝙬𝙖𝙥'" >/dev/null 2>&1
+            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'Failed to Initialize Swap'" >/dev/null 2>&1
             return 1
         fi
 
         su -c swapon /data/swap -p 3 >/dev/null 2>&1
         if [ $? -eq 0 ]; then
             log_msg "SWAP successfully created and enabled: $size_bytes bytes."
-            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʯ' 'Lʏɴx' '☣️ 𝙎𝙬𝙖𝙥 𝙀𝙣𝙖𝙗𝙡𝙚𝙙'" >/dev/null 2>&1
+            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'Swap Enabled'" >/dev/null 2>&1
         else
             log_msg "ERROR: Failed to enable SWAP."
-            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʯ' 'Lʏɴx' '❌ 𝙎𝙬𝙖𝙥 𝙀𝙣𝙖𝙗𝙡𝙞𝙣𝙜 𝙁𝙖𝙞𝙡𝙚𝙙'" >/dev/null 2>&1
+            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'Swap Enabling Failed'" >/dev/null 2>&1
             return 1
         fi
     else
@@ -247,7 +247,7 @@ main_removeswap() {
                 if [ $? -eq 0 ]; then
                     log_msg "SWAP disabled: $f"
                 else
-                    log_msg "⚠️ Failed to disable SWAP: $f"
+                    log_msg "Failed to disable SWAP: $f"
                 fi
             fi
 
@@ -256,12 +256,12 @@ main_removeswap() {
             if [ $? -eq 0 ]; then
                 log_msg "SWAP file deleted: $f"
             else
-                log_msg "⚠️ Failed to delete SWAP file: $f"
+                log_msg "Failed to delete SWAP file: $f"
             fi
         fi
     done
 
     rm -f "$MODPATH/swapram_installed"
 
-    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʯ' 'Lʏɴx' '🗑️ 𝘼𝙡𝙡 𝙎𝙬𝙖𝙥 𝙁𝙞𝙡𝙚𝙨 𝙍𝙚𝙢𝙤𝙫𝙚𝙙'" >/dev/null 2>&1
+    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'All Swap Files Removed'" >/dev/null 2>&1
 }

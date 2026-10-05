@@ -1,3 +1,26 @@
+# Lynx [Codename: Deity] 3.0.44
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Pembersihan Total Residu Emotikon & Pseudo-Font pada Seluruh Modul Core, WebUI, CLI Interaktif, Installer, dan Daemons (Strict Universal Zero-Emoji Professional Standard), Transisi ke Indikator Bracket Standar POSIX Linux, Standardisasi Notifikasi Sistem Bersih, serta Konsistensi Desain Antarmuka Tanpa Distorsi Visual** — menuntaskan pembersihan sisa emotikon dan karakter pseudo-font matematika pada seluruh repositori (`hw_probe.sh`, `flasher.sh`, `dns.sh`, `dex2oat.sh`, `zram.sh`, `swap.sh`, `lynx` CLI menu interaktif, `Lxcore`, `package_module.sh`, `customize.sh`, `service.sh`, `action.sh`, `tests/mock_sandbox/run_test.sh`, `webroot/app.js`, `webroot/index.html`, dan `module.prop`); menggantikan seluruh dekorasi visual berlebihan dengan indikator bracket standar profesional (`[*]`, `[+]`, `[!]`, `[OK]`, `[ERROR]`); serta menjamin seluruh komponen antarmuka, konsol CLI, dan log telemetri tampil bersih, rapi, estetik, dan berstandar teknis tinggi.
+
+## Fitur Baru & Peningkatan (3.0.44)
+
+### 1. Eliminasi Menyeluruh Residu Emotikon & Karakter Pseudo-Font
+- **Hardware Probing & Sub-Profiles (`hw_probe.sh`)**: Menghilangkan seluruh simbol dekoratif pada log verifikasi hardware dan pemanggilan sub-profil GPU/Board, beralih ke format tag teknis `[*] Loading targeted profile` dan `[OK] Hardware Verified`.
+- **AnyKernel3 Flasher & Partition Guard (`flasher.sh`)**: Menstandarkan seluruh luaran pencadangan partisi boot/init_boot dan flashing kernel menggunakan tag `[OK]` dan `[ERROR]`.
+- **Networking & DNS Controller (`dns.sh`)**: Menghapus teks unicode bergaya tebal miring dan simbol dekoratif pada notifikasi provider DNS.
+- **Memory & ART Compilation Optimization (`dex2oat.sh` & `zram.sh`)**: Membersihkan deskripsi status modul dan toast notifikasi sistem saat kompilasi ART dan manajemen ZRAM dieksekusi.
+- **Installer & Volume Key Selector (`customize.sh` & `addon/Volume-Key-Selector/install.sh`)**: Menghilangkan simbol emoji pada peringatan batas waktu pemilihan tombol volume dan konfirmasi arsitektur chipset.
+
+### 2. Standar Baru Konsol Interaktif CLI (`system/bin/lynx` & `Lxcore`)
+- **Menu Navigasi Bersih**: Membersihkan seluruh menu profil performa (Auto, Balance, Performance, Extreme, Powersave, Standby), menu pengisian daya, tombol fitur lanjutan, dan menu switch BusyBox dari dekorasi emotikon.
+- **Umpan Balik Eksekusi Rapi**: Mengganti pesan sukses dan galat CLI dengan tag indikator konsisten `[OK]` dan `[ERROR]`.
+
+### 3. Konsistensi WebUI & Metadata Modul
+- **Dashboard & SoC Tuner**: Menjamin seluruh kartu kontrol, badge status, tombol aksi, dan dialog peringatan bebas dari simbol amatir, menggunakan representasi Material Vector SVG yang presisi.
+- **Module Metadata (`module.prop`)**: Memperbarui deskripsi modul menjadi teks standar bersih tanpa karakter terdistorsi.
+
+---
+
 # Lynx [Codename: Deity] 3.0.43
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Pembersihan Total Estetika Antarmuka & Eliminasi Menyeluruh Dekorasi Emotikon (Strict Zero-Emoji Professional Clean Architecture), Standardisasi Ikon Vektor Material Design pada Seluruh Panel Kontrol, Penataan Bahasa Sistem Ringkas & Lugas Tanpa Clutter, serta Konsistensi Komponen Interaktif Seluruh Subhalaman** — membasmi tuntas seluruh penggunaan emotikon visual yang berlebihan dan tidak teratur pada chip pemilih (Auto refresh rate, Game Driver, ANGLE Vulkan, HWUI backends), tombol kontrol profil CPU/GPU, banner notifikasi latar belakang, Floating HUD OSD, dan dialog sistem; mentransisikan seluruh representasi visual ke ikon vektor Material Design yang presisi dan elegan; serta menyelaraskan hierarki tipografi dan redaksi teks agar berstandar perangkat lunak tuning kernel tingkat profesional tanpa distorsi visual.

@@ -120,7 +120,7 @@ main_setzram() {
         swapon /dev/block/zram0 -p 5 >/dev/null 2>&1
         if [ $? -eq 0 ]; then
             log_msg "ZRAM successfully enabled with size: $size_bytes bytes."
-            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '☢️ Zʀᴀᴍ Eɴᴀʙʟᴇᴅ'" >/dev/null 2>&1
+            su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'ZRAM Enabled'" >/dev/null 2>&1
         else
             log_msg "ERROR: Failed to enable ZRAM."
             return 1
@@ -158,7 +158,7 @@ main_disablezram() {
         echo "0" > /sys/class/zram-control/hot_remove 2>/dev/null
         log_msg "Successfully disabled ZRAM for $zram_device."
     done
-    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lʏɴx - Dᴇɪᴛʏ' 'Lʏɴx' '⛔ ZRAM Dɪꜱᴀʙʟᴇᴅ'" >/dev/null 2>&1
+    su -lp 2000 -c "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' 'ZRAM Disabled'" >/dev/null 2>&1
 }
 
 # Main entry point for Lxcore dispatcher
