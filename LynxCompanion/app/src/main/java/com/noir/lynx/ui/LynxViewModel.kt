@@ -1541,8 +1541,10 @@ class LynxViewModel : ViewModel() {
                     applySchedulerPreset("extreme", context)
                     applyCpuSetPreset("gaming", context)
                     applyCpuIdlePreset("gaming", context)
-                    setPpmPolicy(0, true, context)
-                    setPpmPolicy(4, true, context)
+                    try {
+                        LynxRepository.setPpmPolicy(0, true, context)
+                        LynxRepository.setPpmPolicy(4, true, context)
+                    } catch (_: Exception) {}
                     _uiState.update { it.copy(successMessage = "Mode Ekstrem diterapkan: frekuensi puncak terkunci tanpa batas.", isCpuModified = false) }
                 }
             }
