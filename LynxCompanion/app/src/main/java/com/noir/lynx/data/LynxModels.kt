@@ -166,6 +166,12 @@ data class CpuCoreInfo(
     val isLocked: Boolean = false,
 )
 
+enum class CpuHealthQuality(val label: String, val subtitle: String) {
+    HEALTHY("Healthy", "CPU bekerja normal"),
+    WARM("Warm", "Suhu meningkat"),
+    THROTTLED("Throttled", "Performa dibatasi sistem")
+}
+
 data class BatteryDetails(
     val level: Int = 0,
     val status: String = "Discharging",
@@ -554,6 +560,10 @@ data class LynxUiState(
     val cpuRecommendation: String? = null,
     val isCpuRecommendationDismissed: Boolean = false,
     val cpuComprehensiveProfile: String = "balanced",
+    val cpuHealthQuality: CpuHealthQuality = CpuHealthQuality.HEALTHY,
+    val isCpuThermalThrottled: Boolean = false,
+    val isCoreMatrixExpanded: Boolean = false,
+    val isDeveloperDrawerOpen: Boolean = false,
     val customRulesScript: String = "",
     val customRulesOutput: String? = null,
     val customRulesRunning: Boolean = false,

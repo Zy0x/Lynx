@@ -2755,10 +2755,16 @@ class LynxViewModel : ViewModel() {
                 val offlineCoresCount = syncedCores.count { !it.isOnline }
                 val offlinePenalty = (offlineCoresCount * 3).coerceAtMost(15)
                 val calculatedHealthScore = (100 - loadPenalty - tempPenalty - offlinePenalty).coerceIn(15, 100)
+                val isThrottled = tempC >= 55 || calculatedHealthScore < 40
+                val healthQuality = when {
+                    isThrottled -> CpuHealthQuality.THROTTLED
+                    tempC >= 44 || totalLoad >= 75 -> CpuHealthQuality.WARM
+                    else -> CpuHealthQuality.HEALTHY
+                }
 
                 val recommendation = when {
-                    tempC >= 45 -> "Suhu prosesor mencapai ${tempC}°C. Disarankan beralih ke Mode Seimbang guna menjaga suhu optimal."
-                    totalLoad >= 80 && _uiState.value.cpuComprehensiveProfile == "battery" -> "Beban kerja tinggi (${totalLoad}%) terdeteksi pada mode Efisiensi. Disarankan beralih ke Mode Gaming."
+                    tempC >= 45 -> "Suhu prosesor mencapai ${tempC}°C. Disarankan beralih ke Mode Balanced guna menjaga suhu optimal."
+                    totalLoad >= 80 && _uiState.value.cpuComprehensiveProfile == "battery" -> "Beban kerja tinggi (${totalLoad}%) terdeteksi pada mode Battery. Disarankan beralih ke Mode Gaming."
                     else -> null
                 }
 
@@ -2770,6 +2776,8 @@ class LynxViewModel : ViewModel() {
                         socPlatformName = if (it.socPlatformName.isBlank()) socPlatform else it.socPlatformName,
                         socTopology = if (it.socTopology.isBlank()) socTopology else it.socTopology,
                         cpuHealthScore = calculatedHealthScore,
+                        cpuHealthQuality = healthQuality,
+                        isCpuThermalThrottled = isThrottled,
                         cpuRecommendation = if (it.isCpuRecommendationDismissed) null else recommendation
                     )
                 }
@@ -2796,6 +2804,14 @@ class LynxViewModel : ViewModel() {
             delay(150L)
             refreshCpuCores()
         }
+    }
+
+    fun toggleCoreMatrixExpansion() {
+        _uiState.update { it.copy(isCoreMatrixExpanded = !it.isCoreMatrixExpanded) }
+    }
+
+    fun setDeveloperDrawerOpen(open: Boolean) {
+        _uiState.update { it.copy(isDeveloperDrawerOpen = open) }
     }
 
     fun setAllCpuCoresOnline() {

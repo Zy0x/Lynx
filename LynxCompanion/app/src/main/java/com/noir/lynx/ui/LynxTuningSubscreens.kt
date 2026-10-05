@@ -71,7 +71,7 @@ fun TuningCpuCategory(
                 // Smart Recommendation Banner (Non-intrusive & Dismissible)
                 val rec = uiState.cpuRecommendation
                 if (rec != null && !uiState.isCpuRecommendationDismissed) {
-                    CpuSmartRecommendationCard(
+                    CpuSmartRecommendationBanner(
                         recommendation = rec,
                         onApplyRecommendation = {
                             viewModel.applyComprehensiveCpuProfile("balanced", context)

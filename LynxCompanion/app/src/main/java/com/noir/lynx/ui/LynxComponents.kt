@@ -6730,8 +6730,8 @@ enum class TuningCategory(
 ) {
     CPU(
         id = "cpu",
-        title = "CPU & Governor",
-        subtitle = "Topologi Core, Hotplug & Schedutil",
+        title = "CPU Performance",
+        subtitle = "Kluster, Respon Daya & Penjadwal",
         icon = Icons.Default.Memory,
         accentColor = AccentCyan
     ),

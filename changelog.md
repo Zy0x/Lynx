@@ -1,3 +1,34 @@
+# Lynx [Codename: Deity] 3.0.56
+Released on: 2026-10-06
+> **Versi ini** menghadirkan **Penyempurnaan Menyeluruh UX Sub Halaman CPU Menuju Pengalaman OEM Premium (Lynx Performance Center), Eliminasi Total Multi-Nested Card Frames Menjadi Hirarki Permukaan Datar Elegan, Standardisasi Mode 1-Klik Global (Battery | Balanced | Gaming), Transparansi Teknis Ganda (Bahasa Manusia Disertai Label Sekunder Kernel), Smart Health Indicator Kualitatif & Status Termal Permanen (Healthy / Warm / Throttled), Redesain Baris Kluster Kompak dengan Transisi Motion Halus, Penyederhanaan Tab Monitor dengan Ringkasan Rata-Rata MHz & Matriks Inti Expandable, Serta Developer Verification Drawer Tersembunyi di Menu Lanjutan** — mengeliminasi kesan kartu di dalam kartu yang bertumpuk; merestrukturisasi tata letak menjadi `Surface Utama -> Section -> Compact Expandable Row`; menyematkan baris kluster kompak 56dp yang mengembang secara mulus melalui `animateContentSize()`; menyajikan pemilih frekuensi diskrit Dual-Pill OPP dan pemilih respon CPU ramah pengguna; menggantikan angka kesehatan sistem arbitrer dengan indikator status kualitatif yang pasti; mengintegrasikan status suhu dan proteksi throttling secara permanen pada kartu hero; merampingkan tampilan tab Monitor dengan menyajikan rata-rata frekuensi kluster Little dan Big sebelum membuka detail 8-core per-silikon; serta menyembunyikan lembar verifikasi sysfs pengembang di dalam panel pengaturan lanjutan demi menjaga kerapian dan keamanan antarmuka bagi pengguna umum.
+
+## Fitur Baru & Peningkatan (3.0.56)
+
+### 1. Eliminasi Multi-Nested Frames & Design System Cleanup
+- **Struktur Permukaan Datar**: Menghilangkan kartu di dalam kartu yang membuat antarmuka terasa seperti BIOS atau utilitas engineer lama. Tata letak kini mengikuti hirarki modern: `Surface Utama -> Section Header -> Compact Expandable Row`.
+- **Aksen Kluster Halus**: Mempertahankan pembeda visual kluster Little (Hijau halus) dan Big (Oranye halus) melalui indikator dot dan garis aksen tipis, tanpa border mencolok.
+
+### 2. Standarisasi Mode 1-Klik (Battery | Balanced | Gaming)
+- **Konvensi Android Global**: Mengganti label Performa menjadi Gaming, menyelaraskan 3 mode utama (`Battery`, `Balanced`, `Gaming`) yang langsung intuitif dan memiliki konteks penggunaan yang jelas.
+- **Transparansi Teknis Ganda**: Seluruh elemen kontrol menyajikan bahasa manusia komunikatif sebagai judul utama dan istilah kernel asli sebagai label sekunder (contoh: `Balanced (schedutil)`).
+
+### 3. Smart Health Indicator Kualitatif & Status Termal Permanen
+- **Indikator Kredibel Tanpa Persentase Arbitrer**: Menggantikan persentase kesehatan sistem dengan status kualitatif terukur: `Healthy (CPU bekerja normal)`, `Warm (Suhu meningkat)`, dan `Throttled (Performa dibatasi sistem)`.
+- **Status Throttling Permanen di Hero**: Kartu status kini selalu menampilkan metrik Suhu CPU dan Status Throttling (`None` / `Aktif`) secara permanen.
+
+### 4. Baris Kluster Kompak dengan Motion Animation
+- **Desain Baris 56dp**: Saat tertutup, setiap kluster hanya memakan ruang minimal setinggi 56dp berisi nama kluster, jumlah inti, rentang frekuensi, dan respon governor aktif.
+- **Transisi Halus**: Menggunakan `animateContentSize()` dan `AnimatedVisibility()` untuk animasi buka-tutup yang mulus ke panel frekuensi diskrit Dual-Pill OPP.
+
+### 5. Penyederhanaan Tab Monitor & Core Activity Summary
+- **Ringkasan Kluster Default**: Tab Monitor menyajikan jumlah inti aktif dan rata-rata frekuensi real-time untuk Kluster Efisiensi dan Kluster Performa secara bersih.
+- **Matriks 8-Core Expandable**: Matriks individual C0 s/d C7 disembunyikan di balik tombol ekspansi "Tampilkan Semua Inti (Show All Cores)" untuk menjaga layar tetap ringkas.
+
+### 6. Developer Verification Drawer Tersembunyi
+- **Akses Pengembang di Menu Lanjutan**: Lembar verifikasi sysfs kernel ditempatkan di dalam menu "Pengaturan Lanjutan >" untuk memvalidasi transparansi node kernel (`/sys/devices/system/cpu/cpufreq/`, dll.) dan perizinan hardware tanpa membingungkan pengguna biasa.
+
+---
+
 # Lynx [Codename: Deity] 3.0.55
 Released on: 2026-10-06
 > **Versi ini** menghadirkan **Transformasi Menyeluruh Sub Halaman CPU Menjadi Pengalaman Consumer-Premium Berfilosofi "One Glance, One Action, Deep Control When Needed", Struktur 3 Tab Ergonomis (Performance | System | Monitor), 3 Level Keterbukaan Informasi (Progressive Disclosure), Dashboard Hero dengan Meter Skor Kesehatan Sistem (CPU Health Score), Smart Recommendation yang Cerdas & Dismissible, Panel Kontrol Terpadu dengan Pemilih Frekuensi Diskrit Dual-Pill OPP Tanpa Continuous Slider, Mode Ekstrem Terlindungi Dialog Konfirmasi Termal, serta Adopsi Bahasa Manusia (Core Efficiency, Task Shield, Task Priority Boost) Disertai Tooltip Hardware Asli** — merekonstruksi arsitektur subhalaman CPU dari daftar bertumpuk raksasa (~1.950 baris kode) menjadi sistem modular ramping; memisahkan domain tanggung jawab ke dalam 3 tab intuitif (`Performance`, `System`, dan `Monitor`); menyajikan status utama (peak clock, suhu CPU, utilisasi total, dan persentase skor kesehatan sistem gabungan) di permukaan; menyediakan baris 1-klik mode ramah pengguna (`Battery`, `Balanced`, `Gaming`) dengan menyembunyikan mode `Extreme` di balik panel ekspansi lanjutan guna mencegah risiko panas berlebih; memusatkan kontrol frekuensi kluster ke format Dual-Pill Modal Bottom Sheet yang presisi; mengonversi istilah teknis kernel ke bahasa manusia komunikatif dengan tooltip teknis sysfs untuk pengguna mahir; serta menyajikan telemetri real-time, matriks 8-core silicon dengan proteksi Master Core 0, dan pemantau proses Scene-style pada tab Monitor.
