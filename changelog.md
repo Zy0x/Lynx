@@ -1,3 +1,19 @@
+# Lynx [Codename: Deity] 3.0.57
+Released on: 2026-10-06
+> **Versi ini** menghadirkan **Perbaikan Tata Letak Menu Pengaturan Lanjutan (Full-Width Sibling Layout), Eliminasi Total Padding Bertumpuk Pada Menu Lanjutan CPU Tab Performance & Tab System, Pembebasan Margin Horizontal Untuk Opsi Platform Hardware Engine, Mode Ekstrem, Dan Verifikasi Pengembang, Serta Penyempurnaan Hirarki Visual Sibling Card Tanpa Frame Bersarang** — mengatasi masalah tampilan yang menyempit dan sesak saat menu Pengaturan Lanjutan dibuka; memindahkan blok ekspansi `AnimatedVisibility` keluar dari container kartu induk sehingga menjadi kartu saudara sejajar (sibling cards) berukuran penuh; membebaskan lebih dari 136dp margin horizontal yang sebelumnya terbuang akibat pembungkusan kartu di dalam kartu; memastikan opsi MediaTek PPM, Snapdragon QTI HAL, Mode Ekstrem, Verifikasi Pengembang, Core Efficiency, Task Shield, dan Penjadwal Kernel memiliki ruang baca teks yang luas dan rapi.
+
+## Fitur Baru & Peningkatan (3.0.57)
+
+### 1. Eliminasi Frame Bersarang pada Pengaturan Lanjutan (Tab Performance)
+- **Tata Letak Kartu Sejajar Penuh (Full-Width Sibling Cards)**: Konten lanjutan saat accordion "Pengaturan Lanjutan" dibuka kini tampil sebagai kartu mandiri berlebar penuh di bawah kartu utama, bukan di dalam bantalan kartu utama.
+- **Peningkatan Ruang Baca Opsi**: Memberikan lebar penuh untuk opsi Platform Hardware Engine (MediaTek PPM / Qualcomm TouchBoost), Mode Ekstrem, dan tombol laci Verifikasi Pengembang tanpa pemotongan atau pelipatan teks yang sempit.
+
+### 2. Eliminasi Frame Bersarang pada Pengaturan Sistem Lanjutan (Tab System)
+- **Kartu Mandiri Berlebar Penuh**: Memindahkan kartu Core Efficiency, Task Shield, dan Penjadwal Kernel keluar dari pembungkus kartu preset sistem, sehingga masing-masing kartu mendapatkan lebar tampilan 100% tanpa margin ganda.
+- **Transisi Ekspansi Mulus**: Mempertahankan animasi buka-tutup halus dengan `AnimatedVisibility()` saat pengguna mengetuk "Pengaturan Sistem Lanjutan".
+
+---
+
 # Lynx [Codename: Deity] 3.0.56
 Released on: 2026-10-06
 > **Versi ini** menghadirkan **Penyempurnaan Menyeluruh UX Sub Halaman CPU Menuju Pengalaman OEM Premium (Lynx Performance Center), Eliminasi Total Multi-Nested Card Frames Menjadi Hirarki Permukaan Datar Elegan, Standardisasi Mode 1-Klik Global (Battery | Balanced | Gaming), Transparansi Teknis Ganda (Bahasa Manusia Disertai Label Sekunder Kernel), Smart Health Indicator Kualitatif & Status Termal Permanen (Healthy / Warm / Throttled), Redesain Baris Kluster Kompak dengan Transisi Motion Halus, Penyederhanaan Tab Monitor dengan Ringkasan Rata-Rata MHz & Matriks Inti Expandable, Serta Developer Verification Drawer Tersembunyi di Menu Lanjutan** — mengeliminasi kesan kartu di dalam kartu yang bertumpuk; merestrukturisasi tata letak menjadi `Surface Utama -> Section -> Compact Expandable Row`; menyematkan baris kluster kompak 56dp yang mengembang secara mulus melalui `animateContentSize()`; menyajikan pemilih frekuensi diskrit Dual-Pill OPP dan pemilih respon CPU ramah pengguna; menggantikan angka kesehatan sistem arbitrer dengan indikator status kualitatif yang pasti; mengintegrasikan status suhu dan proteksi throttling secara permanen pada kartu hero; merampingkan tampilan tab Monitor dengan menyajikan rata-rata frekuensi kluster Little dan Big sebelum membuka detail 8-core per-silikon; serta menyembunyikan lembar verifikasi sysfs pengembang di dalam panel pengaturan lanjutan demi menjaga kerapian dan keamanan antarmuka bagi pengguna umum.
