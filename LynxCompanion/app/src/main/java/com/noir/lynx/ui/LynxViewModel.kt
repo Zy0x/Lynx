@@ -14,6 +14,11 @@ import com.noir.lynx.profiles.CpuControlProfile
 import com.noir.lynx.safety.ProtectedTaskManager
 import com.noir.lynx.service.LynxAppAutomationService
 import com.noir.lynx.sync.StateFileObserver
+import android.util.Log
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -262,6 +267,7 @@ class LynxViewModel : ViewModel() {
     private val activeReadAheadIntents = java.util.concurrent.ConcurrentHashMap<String, Pair<Int, Long>>() // dev -> (kb, timestamp)
 
     @Volatile private var lastStateMutationTime = 0L
+    private var cpuProfileJob: Job? = null
 
     fun recordStateMutation() {
         lastStateMutationTime = System.currentTimeMillis()
@@ -1495,118 +1501,210 @@ class LynxViewModel : ViewModel() {
         _uiState.update { it.copy(isCpuRecommendationDismissed = true, cpuRecommendation = null) }
     }
 
+    private data class CpuProfileClusterTarget(
+        val minFreq: Long,
+        val maxFreq: Long,
+        val gov: String,
+        val isLocked: Boolean
+    )
+
     fun applyComprehensiveCpuProfile(profile: String, context: Context) {
         recordStateMutation()
         val normalized = when (profile.lowercase()) {
             "gaming" -> "performance"
             else -> profile.lowercase()
         }
-        _uiState.update { it.copy(cpuComprehensiveProfile = normalized, isCpuModified = false) }
-        viewModelScope.launch {
-            val clusters = _uiState.value.clusters
-            when (normalized) {
+
+        // 1. Cancel any active in-flight profile transition job to prevent race conditions & IO choke
+        cpuProfileJob?.cancel()
+
+        val clusters = _uiState.value.clusters
+        val (schedPreset, schedHystUp, schedHystDown) = when (normalized) {
+            "battery" -> Triple("battery", 95, 75)
+            "performance" -> Triple("gaming", 70, 50)
+            "extreme" -> Triple("extreme", 50, 30)
+            else -> Triple("balanced", 85, 65)
+        }
+        val cpuSetPreset = when (normalized) {
+            "battery" -> "battery"
+            "performance", "extreme" -> "gaming"
+            else -> "balanced"
+        }
+        val idlePreset = when (normalized) {
+            "battery" -> "battery"
+            "performance", "extreme" -> "gaming"
+            else -> "balanced"
+        }
+        val parkingMode = when (normalized) {
+            "battery" -> "park_big"
+            "extreme" -> "unpark_all"
+            else -> "dinamis"
+        }
+        val companionModuleProfile = when (normalized) {
+            "battery" -> "powersave"
+            "performance" -> "performance"
+            "extreme" -> "extreme"
+            else -> "balance"
+        }
+        val isExtremeOrPerf = (normalized == "extreme" || normalized == "performance")
+        val isBalanced = (normalized == "balanced")
+        val successMsg = when (normalized) {
+            "battery" -> "Mode Efisiensi diterapkan: hemat daya maksimal."
+            "performance" -> "Mode Performa diterapkan: responsivitas tinggi & gaming stabil."
+            "extreme" -> "Mode Ekstrem diterapkan: frekuensi puncak terkunci tanpa batas."
+            else -> "Mode Seimbang diterapkan: performa dan baterai optimal."
+        }
+
+        // Calculate targets for each cluster
+        val clusterTargets = clusters.associate { c ->
+            val target = when (normalized) {
                 "battery" -> {
-                    clusters.forEach { c ->
-                        val min = c.availFreqs.firstOrNull() ?: c.curMin
-                        val maxTarget = if (c.availFreqs.size > 2) {
-                            c.availFreqs[(c.availFreqs.size * 0.65).toInt().coerceIn(0, c.availFreqs.lastIndex)]
-                        } else c.curMax
-                        setClusterFrequency(c.id, min, maxTarget, fromMasterProfile = true)
-                        val gov = if (c.availGovs.contains("schedutil")) "schedutil" else (if (c.availGovs.contains("powersave")) "powersave" else c.curGov)
-                        setClusterGovernor(c.id, gov, fromMasterProfile = true)
-                        setClusterLock(c.id, false, min, maxTarget, fromMasterProfile = true)
-                    }
-                    applySchedulerPreset("battery", context, fromMasterProfile = true)
-                    setSchedulerArchitectureMode("eas", context, fromMasterProfile = true)
-                    setSchedulerHysteresis(95, 75, context, fromMasterProfile = true)
-                    applyCpuSetPreset("battery", context, fromMasterProfile = true)
-                    applyCpuIdlePreset("battery", context, fromMasterProfile = true)
-                    setCoreParkingMode("park_big", context = context, fromMasterProfile = true)
-                    try {
-                        LynxRepository.setPpmPolicy(0, false, context)
-                        LynxRepository.setPpmPolicy(4, false, context)
-                        LynxRepository.setQcomTouchboost(false, context)
-                    } catch (_: Exception) {}
-                    _uiState.update { it.copy(successMessage = "Mode Efisiensi diterapkan: hemat daya maksimal.", isCpuModified = false) }
-                }
-                "balanced" -> {
-                    clusters.forEach { c ->
-                        val min = c.availFreqs.firstOrNull() ?: c.curMin
-                        val max = c.availFreqs.lastOrNull() ?: c.curMax
-                        setClusterFrequency(c.id, min, max, fromMasterProfile = true)
-                        val gov = if (c.availGovs.contains("schedutil")) "schedutil" else c.curGov
-                        setClusterGovernor(c.id, gov, fromMasterProfile = true)
-                        setClusterLock(c.id, false, min, max, fromMasterProfile = true)
-                    }
-                    applySchedulerPreset("balanced", context, fromMasterProfile = true)
-                    setSchedulerArchitectureMode("eas", context, fromMasterProfile = true)
-                    setSchedulerHysteresis(85, 65, context, fromMasterProfile = true)
-                    applyCpuSetPreset("balanced", context, fromMasterProfile = true)
-                    applyCpuIdlePreset("balanced", context, fromMasterProfile = true)
-                    setCoreParkingMode("dinamis", context = context, fromMasterProfile = true)
-                    try {
-                        LynxRepository.setPpmPolicy(0, false, context)
-                        LynxRepository.setPpmPolicy(4, false, context)
-                        LynxRepository.setQcomTouchboost(true, context)
-                    } catch (_: Exception) {}
-                    _uiState.update { it.copy(successMessage = "Mode Seimbang diterapkan: performa dan baterai optimal.", isCpuModified = false) }
+                    val min = c.availFreqs.firstOrNull() ?: c.curMin
+                    val maxTarget = if (c.availFreqs.size > 2) {
+                        c.availFreqs[(c.availFreqs.size * 0.65).toInt().coerceIn(0, c.availFreqs.lastIndex)]
+                    } else c.curMax
+                    val gov = if (c.availGovs.contains("schedutil")) "schedutil" else (if (c.availGovs.contains("powersave")) "powersave" else c.curGov)
+                    CpuProfileClusterTarget(min, maxTarget, gov, isLocked = false)
                 }
                 "performance" -> {
-                    clusters.forEach { c ->
-                        val minTarget = if (c.availFreqs.size > 2) {
-                            c.availFreqs[(c.availFreqs.size * 0.45).toInt().coerceIn(0, c.availFreqs.lastIndex)]
-                        } else c.curMin
-                        val max = c.availFreqs.lastOrNull() ?: c.curMax
-                        setClusterFrequency(c.id, minTarget, max, fromMasterProfile = true)
-                        val gov = if (c.availGovs.contains("schedutil")) "schedutil" else (if (c.availGovs.contains("performance")) "performance" else c.curGov)
-                        setClusterGovernor(c.id, gov, fromMasterProfile = true)
-                        setClusterLock(c.id, false, minTarget, max, fromMasterProfile = true)
-                    }
-                    applySchedulerPreset("gaming", context, fromMasterProfile = true)
-                    setSchedulerArchitectureMode("eas", context, fromMasterProfile = true)
-                    setSchedulerHysteresis(70, 50, context, fromMasterProfile = true)
-                    applyCpuSetPreset("gaming", context, fromMasterProfile = true)
-                    applyCpuIdlePreset("gaming", context, fromMasterProfile = true)
-                    setCoreParkingMode("dinamis", context = context, fromMasterProfile = true)
-                    try {
-                        LynxRepository.setPpmPolicy(0, true, context)
-                        LynxRepository.setPpmPolicy(4, true, context)
-                        LynxRepository.setQcomTouchboost(true, context)
-                    } catch (_: Exception) {}
-                    _uiState.update { it.copy(successMessage = "Mode Performa diterapkan: responsivitas tinggi & gaming stabil.", isCpuModified = false) }
+                    val minTarget = if (c.availFreqs.size > 2) {
+                        c.availFreqs[(c.availFreqs.size * 0.45).toInt().coerceIn(0, c.availFreqs.lastIndex)]
+                    } else c.curMin
+                    val max = c.availFreqs.lastOrNull() ?: c.curMax
+                    val gov = if (c.availGovs.contains("schedutil")) "schedutil" else (if (c.availGovs.contains("performance")) "performance" else c.curGov)
+                    CpuProfileClusterTarget(minTarget, max, gov, isLocked = false)
                 }
                 "extreme" -> {
-                    clusters.forEach { c ->
-                        val max = c.availFreqs.lastOrNull() ?: c.curMax
-                        setClusterFrequency(c.id, max, max, fromMasterProfile = true)
-                        val gov = if (c.availGovs.contains("performance")) "performance" else (if (c.availGovs.contains("schedutil")) "schedutil" else c.curGov)
-                        setClusterGovernor(c.id, gov, fromMasterProfile = true)
-                        setClusterLock(c.id, true, max, max, fromMasterProfile = true)
-                    }
-                    applySchedulerPreset("extreme", context, fromMasterProfile = true)
-                    setSchedulerArchitectureMode("eas", context, fromMasterProfile = true)
-                    setSchedulerHysteresis(50, 30, context, fromMasterProfile = true)
-                    applyCpuSetPreset("gaming", context, fromMasterProfile = true)
-                    applyCpuIdlePreset("gaming", context, fromMasterProfile = true)
-                    setCoreParkingMode("unpark_all", context = context, fromMasterProfile = true)
-                    try {
-                        LynxRepository.setPpmPolicy(0, true, context)
-                        LynxRepository.setPpmPolicy(4, true, context)
-                        LynxRepository.setQcomTouchboost(true, context)
-                    } catch (_: Exception) {}
-                    _uiState.update { it.copy(successMessage = "Mode Ekstrem diterapkan: frekuensi puncak terkunci tanpa batas.", isCpuModified = false) }
+                    val max = c.availFreqs.lastOrNull() ?: c.curMax
+                    val gov = if (c.availGovs.contains("performance")) "performance" else (if (c.availGovs.contains("schedutil")) "schedutil" else c.curGov)
+                    CpuProfileClusterTarget(max, max, gov, isLocked = true)
+                }
+                else -> { // balanced
+                    val min = c.availFreqs.firstOrNull() ?: c.curMin
+                    val max = c.availFreqs.lastOrNull() ?: c.curMax
+                    val gov = if (c.availGovs.contains("schedutil")) "schedutil" else c.curGov
+                    CpuProfileClusterTarget(min, max, gov, isLocked = false)
                 }
             }
-            delay(600L)
-            refreshClusters()
-            refreshCpuCores()
+            c.id to target
+        }
+
+        // Register active intents immediately so any concurrent read telemetry maintains target values
+        val now = System.currentTimeMillis()
+        clusterTargets.forEach { (cid, tgt) ->
+            activeClusterIntents[cid] = ClusterIntent(
+                minFreq = tgt.minFreq,
+                maxFreq = tgt.maxFreq,
+                gov = tgt.gov,
+                isLocked = tgt.isLocked,
+                timestamp = now
+            )
+        }
+
+        // 2. Synchronous Optimistic UI State Update (Zero Latency / 0ms touch responsiveness)
+        _uiState.update { current ->
+            val updatedClusters = current.clusters.map { c ->
+                val tgt = clusterTargets[c.id]
+                if (tgt != null) {
+                    c.copy(curMin = tgt.minFreq, curMax = tgt.maxFreq, curGov = tgt.gov, isLocked = tgt.isLocked)
+                } else c
+            }
+            val updatedCores = current.cpuCores.map { core ->
+                val parent = updatedClusters.find { it.containsCore(core.coreId) }
+                if (parent != null) {
+                    core.copy(minFreqKhz = parent.curMin, maxFreqKhz = parent.curMax, isLocked = parent.isLocked)
+                } else core
+            }
+            current.copy(
+                cpuComprehensiveProfile = normalized,
+                isCpuModified = false,
+                clusters = updatedClusters,
+                cpuCores = updatedCores,
+                schedulerInfo = current.schedulerInfo.copy(
+                    activePreset = schedPreset,
+                    schedUpmigrate = schedHystUp,
+                    schedDownmigrate = schedHystDown
+                ),
+                cpuSets = current.cpuSets.copy(activePreset = cpuSetPreset),
+                cpuIdle = current.cpuIdle.copy(
+                    activePreset = idlePreset,
+                    coreParkingMode = parkingMode
+                ),
+                state = current.state.copy(activeProfile = companionModuleProfile)
+            )
+        }
+
+        // 3. Batched Sequential Background Root Execution (No coroutine stampede, no sysfs race condition)
+        cpuProfileJob = viewModelScope.launch(Dispatchers.IO) {
             try {
-                val sched = LynxRepository.readSchedulerInfo(context)
-                val idle = LynxRepository.readCpuIdleInfo(context)
-                val sets = LynxRepository.readCpuSetsInfo(context)
-                _uiState.update { it.copy(schedulerInfo = sched, cpuIdle = idle, cpuSets = sets, isCpuModified = false) }
-            } catch (_: Exception) {}
-            _uiState.update { it.copy(isCpuModified = false) }
+                // Step 3a: Sequential cluster frequencies, governors, and locks
+                clusterTargets.forEach { (cid, tgt) ->
+                    ensureActive()
+                    LynxRepository.setClusterFreq(cid, tgt.minFreq, tgt.maxFreq)
+                    LynxRepository.setClusterGov(cid, tgt.gov)
+                    LynxRepository.setClusterLock(cid, tgt.isLocked, tgt.minFreq, tgt.maxFreq)
+                }
+
+                // Step 3b: Sequential Scheduler Architecture, Preset, and Hysteresis
+                ensureActive()
+                LynxRepository.applySchedulerPreset(schedPreset, context)
+                LynxRepository.setSchedulerArchitectureMode("eas", context)
+                LynxRepository.setSchedulerHysteresis(schedHystUp, schedHystDown, context)
+
+                // Step 3c: Sequential Task Shield CPU Sets, CPU Idle, and Core Parking
+                ensureActive()
+                val totalCores = _uiState.value.cpuSets.totalCoresCount.coerceAtLeast(8)
+                LynxRepository.applyCpuSetPreset(cpuSetPreset, totalCores, context)
+                LynxRepository.applyCpuIdlePreset(idlePreset, context)
+                LynxRepository.setCoreParkingMode(parkingMode, totalCores, context)
+
+                // Step 3d: Hardware Platform Policies (MTK PPM & Qualcomm Touchboost)
+                ensureActive()
+                try {
+                    LynxRepository.setPpmPolicy(0, isExtremeOrPerf, context)
+                    LynxRepository.setPpmPolicy(4, isExtremeOrPerf, context)
+                    LynxRepository.setQcomTouchboost(isExtremeOrPerf || isBalanced, context)
+                } catch (_: Exception) {}
+
+                // Step 3e: Sync companion module profile
+                ensureActive()
+                try {
+                    LynxRepository.setProfile(companionModuleProfile)
+                } catch (_: Exception) {}
+
+                // Step 3f: Single consolidated read pass after settling
+                delay(200L)
+                ensureActive()
+                val freshClusters = LynxRepository.readClusters()
+                val freshSched = LynxRepository.readSchedulerInfo(context)
+                val freshIdle = LynxRepository.readCpuIdleInfo(context)
+                val freshSets = LynxRepository.readCpuSetsInfo(context)
+
+                withContext(Dispatchers.Main) {
+                    _uiState.update { current ->
+                        val finalClusters = if (freshClusters.isNotEmpty()) mergeClustersWithActiveIntents(freshClusters) else current.clusters
+                        val syncedCores = current.cpuCores.map { core ->
+                            val parent = finalClusters.find { it.containsCore(core.coreId) }
+                            if (parent != null) {
+                                core.copy(minFreqKhz = parent.curMin, maxFreqKhz = parent.curMax, isLocked = parent.isLocked)
+                            } else core
+                        }
+                        current.copy(
+                            clusters = finalClusters,
+                            cpuCores = syncedCores,
+                            schedulerInfo = freshSched,
+                            cpuIdle = freshIdle,
+                            cpuSets = freshSets,
+                            isCpuModified = false,
+                            successMessage = successMsg
+                        )
+                    }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Preempted by a newer profile selection; clean exit without fighting
+            } catch (e: Exception) {
+                Log.e("LynxViewModel", "Error applying CPU profile: ${e.message}")
+            }
         }
     }
 

@@ -15,6 +15,12 @@ Released on: 2026-10-06
 - **Pill Status Langsung (Tab 0)**: Menyematkan lencana status visual "Standar Profil" (hijau) atau "Terkustomisasi" (oranye) tepat di samping header "PILIH MODE PERFORMA (3+1)" pada Tab 0, memberikan umpan balik visual langsung saat pengguna menyesuaikan slider frekuensi, governor, atau parameter subsistem lainnya.
 - **Sinkronisasi Status Tanpa Efek Samping**: Menambahkan parameter pelacak fromMasterProfile pada seluruh pemanggil mutasi subsistem sehingga penerapan profil master tidak lagi memicu tanda modifikasi manual secara keliru.
 
+### 3. Arsitektur Eksekusi Atomik & Pipeline Tunggal Bebas Race Condition
+- **Eliminasi Coroutine Stampede**: Menghilangkan lebih dari 12 coroutine terpisah yang sebelumnya diluncurkan bersamaan saat pergantian mode, mencegah perebutan antrean libsu root shell dan race condition pada sysfs kernel cpufreq/ppm.
+- **Responsivitas Antarmuka Optimistik (0ms Latency)**: Status tombol mode, batas frekuensi kluster, status gembok kunci frekuensi, penjadwal, cpusets, dan lencana status profil diperbarui secara instan pada frame yang sama saat tombol ditekan tanpa menunggu respons shell.
+- **Pipeline Sekuensial & Pembatalan Transisi Usang (Job Cancellation)**: Seluruh penulisan parameter kluster, penjadwal kernel, Task Shield CPU Sets, CPU Idle, Core Parking, dan kebijakan perangkat keras (MTK PPM & Qualcomm Touchboost) dijalankan secara sekuensial dalam satu coroutine tunggal; jika pengguna berpindah mode kembali sebelum operasi selesai, operasi sebelumnya dibatalkan secara bersih (cancellable) tanpa membebani antrean kernel.
+- **Konsolidasi Pembacaan Telemetri Akhir**: Menggantikan pemanggilan berulang `refreshClusters()` di tengah penulisan dengan satu lintasan pembacaan terpadu setelah jeda stabilisasi kernel (200ms), memastikan tampilan UI dan kondisi nyata kernel selalu sinkron 100%.
+
 ---
 
 # Lynx [Codename: Deity] 3.0.60
