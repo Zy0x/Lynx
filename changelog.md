@@ -1,3 +1,26 @@
+# Lynx [Codename: Deity] 3.0.48
+Released on: 2026-10-05
+> **Versi ini** menghadirkan **Pemisahan Identitas Eksplisit Varian Build Debug & Release, Desain Ikon Adaptif Vektor Mandiri (Cyber Cyan Deity vs Amber Debug Tag), Resolusi Konflik Label Quick Settings Tile, serta Fasilitasi Instalasi Berdampingan Bersih (Side-by-Side Coexistence)** — mengakhiri kebingungan duplikasi aplikasi pada launcher dengan memberikan identitas nama visual terpisah (*Lynx* untuk Release dan *Lynx (Debug)* untuk Debug); mengimplementasikan sistem ikon adaptif modern berbasis vektor Android (API 26+) menggantikan ikon dialog bawaan; menyematkan lencana sudut debug visual dan skema warna oranye pada build pengembang; mengisolasi string nama Quick Settings Tile (*Lynx Profile*, *Lynx HBM*, *Lynx HUD* vs varian Debug); serta menjamin stabilitas instalasi bersamaan antara build produksi dan uji coba tanpa tabrakan resource atau konflik cache.
+
+## Fitur Baru & Peningkatan (3.0.48)
+
+### 1. Diferensiasi Identitas Visual Build (Release vs Debug)
+- **Nama Aplikasi Terpisah**: Build produksi resmi dinamai *Lynx* (`com.noir.lynx`), sedangkan build kompilasi uji coba dinamai *Lynx (Debug)* (`com.noir.lynx.debug`).
+- **Ikon Adaptif Vektor Mandiri**: Menggantikan ikon dialog sistem bawaan dengan vektor geometris bertema Obsidian & Cyan Deity untuk build rilis.
+- **Badge Sudut Pengembang**: Build debug kini otomatis menampilkan aksen amber/oranye dengan lencana sudut pengembang agar dapat dibedakan secara instan di laci aplikasi (app drawer).
+
+### 2. Isolasi Label Quick Settings Tile
+- **Pemisahan String Resource**: Label tile Quick Settings di AndroidManifest kini merujuk pada resource lokal terisolasi:
+  - *Lynx Profile*, *Lynx HBM*, dan *Lynx HUD* untuk versi Release.
+  - *Lynx Profile (Debug)*, *Lynx HBM (Debug)*, dan *Lynx HUD (Debug)* untuk versi Debug.
+- **Mencegah Ambiguitas Panel Notifikasi**: Menghilangkan kebingungan saat kedua varian terpasang secara bersamaan pada perangkat pengujian.
+
+### 3. Pembersihan & Harmonisasi Instalasi Multi-Varian
+- **Dukungan Coexistence**: Memastikan build release dan debug dapat diinstal berdampingan di lingkungan APatch/Magisk/KernelSU tanpa benturan authority atau permission.
+- **Sinkronisasi Installer Modul**: Pembaruan installer modul root [customize.sh](file:///e:/Data/GitHub/Lynx/customize.sh) dan metadata [module.prop](file:///e:/Data/GitHub/Lynx/module.prop) ke versi 3.0.48.
+
+---
+
 # Lynx [Codename: Deity] 3.0.47
 Released on: 2026-10-05
 > **Versi ini** menghadirkan **Ekspansi Universal Tweak GPU Multi-SoC Lintas Vendor (Qualcomm Adreno, MediaTek Helio/Dimensity/Immortalis, Samsung Exynos, Google Tensor, & Unisoc), Preset Cepat Harmonik 1-Klik (One-Click GPU Profiles), Kartu Akselerasi Hardware Adaptif Mandiri (SoC-Adaptive Acceleration Card), Bypass Buffer Backpressure SurfaceFlinger, serta Sinkronisasi Engine Shell Kernel Terpadu** — memperluas arsitektur tuning grafis dengan membedakan penanganan sysfs secara presisi antara Qualcomm KGSL (PwrLevels, Trustzone target load, DDR bus always-on, rail force), MediaTek GED & FPSGO (Ultra Rescue, DVFS margin, frame pacing), serta ARM Mali Kbase (shader core unmasking, power policy); menyajikan kartu preset cepat 1-klik (*Hemat Daya*, *Seimbang*, *Esports*, *Ekstrem*) dengan aplikasi terpadu ke seluruh lapisan hardware dan pipeline grafis; menambahkan opsi mitigasi latensi sentuh via bypass backpressure SurfaceFlinger; serta memperbarui skrip performa dan keseimbangan Qualcomm dan MediaTek dengan kontrol low-latency terintegrasi.

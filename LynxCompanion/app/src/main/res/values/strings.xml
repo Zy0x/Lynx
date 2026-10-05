@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Lynx</string>
+    <string name="tile_profile_label">Lynx Profile</string>
+    <string name="tile_hbm_label">Lynx HBM</string>
+    <string name="tile_hud_label">Lynx HUD</string>
 </resources>
