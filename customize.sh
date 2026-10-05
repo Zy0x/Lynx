@@ -11,7 +11,7 @@ command -v set_perm_recursive >/dev/null 2>&1 || set_perm_recursive() { chmod -R
 
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ui_print "  [*] L Y N X   [Codename: Deity]"
-ui_print "  Version: 3.0.45  |  Author: ɴᴏɪʀ"
+ui_print "  Version: 3.0.47  |  Author: ɴᴏɪʀ"
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ── 1. Root Implementation Verification ────────────────────────────
