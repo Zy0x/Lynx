@@ -75,7 +75,7 @@ Lynx/
 └── archive/                     # 📦 ARSIP & REFERENSI (TIDAK di-flash)
     ├── packages/                # Berkas ZIP rilis mentah (Lynx Beta 3, Chimera, dll.)
     ├── Chimera/                 # Ekstraksi modul MediaTek Chimera untuk acuan kode
-    └── device_reference/        # Catatan runtime nyata dari perangkat uji Infinix X698
+    └── device_reference/        # Sampel & referensi nyata (Infinix X698 Helio G96 & Redmi Note 7 SD660)
 ```
 
 ---
@@ -299,25 +299,29 @@ Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman oper
 1. **Local-First Staging (No Unsolicited Commits)**:
    - Dilarang melakukan `git commit` atau `git push` kecuali jika pengguna secara eksplisit memberikan perintah untuk commit/push.
    - Seluruh perubahan, restrukturisasi, dan pengujian file harus dilakukan pada *local working tree*.
-2. **Pengujian Nyata via ADB & Dynamic Connection Protocol**:
-   - Perangkat pengujian aktif di jaringan lokal: **Infinix X698 (MediaTek Dimensity 920, Android 14, Magisk Root)** pada port tetap **`5555`**.
-   - **Protokol Koneksi Dinamis (Anti-Stuck & Zero-Manual-Trial)**: Alamat IP perangkat bersifat dinamis karena pengguna berpindah jaringan Wi-Fi/Hotspot (namun port **SELALU 5555**).
+2. **Pengujian Nyata via ADB & Dynamic Connection Protocol (Dual-Device Laboratory Matrix)**:
+   - Laboratorium pengembangan memiliki **2 perangkat fisik** dengan otoritas yang **berbeda secara mutlak**:
+     1. **Perangkat Uji Utama (Active Read-Write Test Device)**: **Infinix Note 11S (`X698`, MediaTek Helio G96 / `mt6781`, Android 14, Magisk Root)** pada port tetap **`5555`**. Satu-satunya perangkat yang diizinkan menerima instalasi APK uji, penulisan sysfs live, dan penyimpanan berkas di `/storage/emulated/0/Debug/`.
+     2. **Perangkat Referensi & Sampel (Strict Read-Only Daily Driver — ZERO-TOUCH)**: **Xiaomi Redmi Note 7 (`lavender`, Qualcomm Snapdragon 660 / `sdm660`, Rooted)** via Wireless ADB (Port **`5555`**) atau Kabel USB. Perangkat krusial *daily driver* pengguna yang **HANYA** boleh dibaca (`cat`, `ls`, `find`, `getprop`) via stdout ADB ke PC lokal dan **HARAM** dimodifikasi sedikit pun (lihat Sub-bab 9.3).
+   - **Protokol Koneksi Dinamis (Anti-Stuck & Hardware Identity Interlock)**: Alamat IP perangkat bersifat dinamis karena pengguna berpindah jaringan Wi-Fi/Hotspot (namun port Wireless ADB **SELALU 5555**).
    - **Aturan Eksekusi Agen**:
      - Sebelum menjalankan pengujian ADB pertama kali atau jika koneksi terputus, agen **WAJIB** menjalankan utilitas auto-discovery:
-       `.\tools\connect_device.cmd` atau `$target = powershell -ExecutionPolicy Bypass -File .\tools\connect_device.ps1 -Quiet`
-     - Perintah ini secara otomatis mendeteksi perangkat melalui 4 tingkat verifikasi bertingkat:
-       1. Verifikasi koneksi `adb devices` yang sudah aktif,
+       - Untuk pengujian aktif (Infinix X698): `.\tools\connect_device.cmd` atau `$target = powershell -ExecutionPolicy Bypass -File .\tools\connect_device.ps1 -Quiet`
+       - Untuk pengambilan sampel referensi Read-Only (Redmi Note 7): `.\tools\connect_device.cmd -Role reference` atau `$refTarget = powershell -ExecutionPolicy Bypass -File .\tools\connect_device.ps1 -Role reference -Quiet`
+     - Perintah ini secara otomatis mendeteksi perangkat melalui 4 tingkat verifikasi bertingkat + **Hardware Identity Interlock**:
+       1. Verifikasi koneksi `adb devices` yang sudah aktif (memvalidasi `ro.product.device` & `ro.board.platform`),
        2. mDNS Zero-Config Discovery (`adb mdns services`),
-       3. Cache IP terakhir (`tools/.last_device_ip`),
+       3. Cache IP terakhir (`tools/.last_device_ip` untuk Test Device, `tools/.last_reference_ip` untuk Reference Device),
        4. Pemindaian paralel multi-subnet kecepatan tinggi (.NET Async Sockets, <1 detik di semua subnet lokal aktif).
-     - **Selalu Gunakan Flag Target (`-s <SERIAL>`)**: Karena host PC dapat memiliki emulator lokal (seperti `emulator-5580`), seluruh perintah adb wajib menyertakan flag serial perangkat target (contoh: `adb -s 192.168.0.162:5555 shell ...`).
+     - **Selalu Gunakan Flag Target (`-s <SERIAL>`)**: Karena host PC dapat memiliki beberapa perangkat/emulator sekaligus, seluruh perintah adb wajib menyertakan flag serial perangkat target (contoh: `adb -s 192.168.1.5:5555 shell ...`).
      - **Dilarang Keras**: Menebak IP secara acak, melakukan perulangan `Test-Connection` lambat, atau menyimpulkan daemon adbd mati sebelum menjalankan utilitas `connect_device`.
-3. **Lokasi Penyimpanan Berkas Pengujian & Debugging di Perangkat (Mandatory)**:
-   - Setiap kali melakukan remote testing, inspeksi, atau penulisan berkas uji ke perangkat target via ADB, seluruh berkas luaran (seperti hasil screenshot `.png`, dump UI `.xml`, log tes, berkas sementara, maupun binary pengujian) **WAJIB** diletakkan terpusat di direktori:
+3. **Lokasi Penyimpanan Berkas Pengujian & Debugging di Perangkat (Khusus Infinix X698 — Mandatory)**:
+   - Setiap kali melakukan remote testing, inspeksi, atau penulisan berkas uji ke perangkat uji aktif (**Infinix X698**) via ADB, seluruh berkas luaran (seperti hasil screenshot `.png`, dump UI `.xml`, log tes, berkas sementara, maupun binary pengujian) **WAJIB** diletakkan terpusat di direktori:
      `/storage/emulated/0/Debug/` (atau alias `/sdcard/Debug/`).
    - **Dilarang Keras** meletakkan berkas di luar folder tersebut, termasuk di root storage (`/sdcard/`, `/storage/emulated/0/`) maupun menumpuk berkas di folder temp sistem (`/data/local/tmp/`), karena menyebabkan penyimpanan berantakan dan sulit dibersihkan oleh pengguna.
-   - Sebelum mengeksekusi penulisan atau penyimpanan berkas, selalu pastikan folder telah dibuat:
+   - Sebelum mengeksekusi penulisan atau penyimpanan berkas pada **Infinix X698**, selalu pastikan folder telah dibuat:
      `mkdir -p /storage/emulated/0/Debug 2>/dev/null`
+   - ⚠️ **Pengecualian Mutlak untuk Redmi Note 7 (`lavender`)**: Dilarang membuat folder `/storage/emulated/0/Debug/` atau menulis berkas apapun di Redmi Note 7! Seluruh sampel dari Redmi Note 7 wajib dialirkan via stdout ADB langsung ke PC lokal di `archive/device_reference/redmi_note_7_sdm660/`.
 4. **Kompatibilitas Shell Android**:
    - Seluruh skrip shell (`.sh`) wajib kompatibel dengan shell standar Android (`/system/bin/sh` / Toybox / BusyBox ash).
    - Hindari dependensi bash-eksklusif yang tidak didukung secara *native* oleh shell Android murni.
@@ -328,9 +332,9 @@ Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman oper
    - **DILARANG KERAS** menginstall, mem-flash berkas modul ZIP (`Lynx-Deity-*.zip`), memodifikasi folder modul root (`/data/adb/modules/Lynx/`), atau mengeksekusi installer modul ke perangkat target pengguna via ADB maupun shell root, **KECUALI** jika pengguna secara EKSPLISIT memberikan instruksi tertulis untuk menginstallnya.
    - Pengujian aplikasi (Native Companion APK `LynxKernelManager.apk`) dan inspeksi sistem harus mampu berjalan secara independen dan aman dengan graceful fallback tanpa mengasumsikan modul root telah terpasang di sistem.
 
-### 9.1 Protokol Pengujian Aplikasi Tanpa Modul (Standalone Root Testing Protocol)
-Untuk memverifikasi stabilitas dan fungsionalitas Lynx Companion tanpa memodifikasi sistem root:
-1. **Instalasi Non-Invasif**: APK dipasang via ADB (`adb install -r LynxKernelManager.apk`) tanpa mem-flash atau menyentuh `/data/adb/modules/Lynx/`.
+### 9.1 Protokol Pengujian Aplikasi Tanpa Modul (Standalone Root Testing Protocol — Khusus Infinix X698)
+Untuk memverifikasi stabilitas dan fungsionalitas Lynx Companion pada **Infinix X698** tanpa memodifikasi sistem root:
+1. **Instalasi Non-Invasif**: APK dipasang via ADB (`adb -s <X698_SERIAL> install -r LynxKernelManager.apk`) tanpa mem-flash atau menyentuh `/data/adb/modules/Lynx/`.
 2. **Deteksi Status**: Aplikasi mendeteksi `isModuleInstalled = false` dan menampilkan badge status `Standalone Root Mode` (warna oranye) serta banner informatif di Tab Engine tanpa popup mengganggu.
 3. **Penyimpanan Konfigurasi Mandiri**: Dalam mode standalone, setelan disimpan di data lokal aplikasi (`/data/user/0/com.noir.lynx/files/config.json`). Jika modul diinstal di masa depan, data akan otomatis disinkronisasi ke `/data/adb/modules/Lynx/config.json`.
 4. **Kontrol Hardware Langsung (Direct Sysfs Execution)**:
@@ -350,6 +354,39 @@ Sesuai arahan pengguna, siklus penomoran versi Lynx Universal saat ini **DIBEKUK
 **Ketentuan Operasional Agent**:
 1. **Dilarang Menaikkan Nomor Versi**: Agen dilarang keras mengubah atau menaikkan nomor versi pada berkas apapun (`module.prop`, `LynxCompanion/app/build.gradle.kts`, `changelog.md`, maupun WebUI), kecuali jika pengguna memberikan instruksi eksplisit tertulis untuk menaikkan versi.
 2. **Commit & Push Saja**: Seluruh perbaikan bug, penyempurnaan fitur, refactoring, atau tuning hardware tetap diuji dan di-commit ke Git serta di-push ke GitHub tanpa mengubah versi (version bump).
+
+### 9.3 Matriks Perangkat Laboratorium & Protokol Proteksi Mutlak Redmi Note 7 (Strict Read-Only Daily Driver)
+
+> [!CAUTION]
+> **PERINGATAN KRITIS TINGKAT TERTINGGI (ZERO-TOLERANCE DAILY DRIVER PROTECTION)**:
+> Perangkat **Xiaomi Redmi Note 7 (`lavender` — Qualcomm Snapdragon 660 / `sdm660`)** adalah perangkat utama (*vital daily driver*) milik pengguna. Kesalahan sekecil apapun yang mengubah parameter sistem, memodifikasi berkas, atau mengganggu stabilitas pada Redmi Note 7 **TIDAK DAPAT DITOLERANSI**.
+
+| Atribut Perangkat | Perangkat 1: Infinix Note 11S (`X698`) | Perangkat 2: Xiaomi Redmi Note 7 (`lavender`) |
+| :--- | :--- | :--- |
+| **SoC / Arsitektur** | MediaTek Helio G96 (`mt6781`) | Qualcomm Snapdragon 660 (`sdm660`) |
+| **Metode Koneksi** | Wireless ADB (Port `5555`) | Wireless ADB (Port `5555`) & Kabel USB |
+| **Status Root** | Magisk Root (`su`) | Rooted (`su` tersedia untuk baca node terproteksi) |
+| **Peran & Otoritas** | **Active Read-Write Test Device** | **🔒 STRICT READ-ONLY REFERENCE (ZERO-TOUCH)** |
+| **Instalasi APK / UI Test** | ✅ Diizinkan (`adb install -r`) | ❌ **DILARANG KERAS** |
+| **Modifikasi Sysfs / Prop** | ✅ Diizinkan (Pengujian Tweak) | ❌ **DILARANG KERAS** |
+| **Penulisan File di Device** | ✅ Diizinkan hanya di `/sdcard/Debug/` | ❌ **DILARANG KERAS (0 Byte Written)** |
+| **Lokasi Simpan Sampel** | `/storage/emulated/0/Debug/` (Device) | `archive/device_reference/redmi_note_7_sdm660/` (PC Lokal) |
+
+#### Aturan Mutlak Interaksi dengan Redmi Note 7 (`lavender` / `sdm660`):
+1. **Hanya untuk Pengambilan Sampel & Referensi Arsitektur Snapdragon (`qcom`)**:
+   - Redmi Note 7 digunakan **murni sebagai sumber observasi pasif** guna mempelajari jalur sysfs/procfs nyata pada kernel Qualcomm Snapdragon (seperti `/sys/class/kgsl/kgsl-3d0/`, `/sys/class/devfreq/`, `/sys/devices/system/cpu/cpufreq/`, `/sys/class/qcom-battery/`, `/sys/class/power_supply/`, `/sys/class/thermal/`, dan `getprop`).
+2. **Daftar Perintah yang DILARANG KERAS pada Redmi Note 7 (Zero-Write Policy)**:
+   - **Dilarang mengubah nilai kernel/sistem**: Haram menjalankan `echo ... > ...`, `printf ... > ...`, `tee`, `sysctl -w`, `setprop`, `settings put`, `cmd`, `service call`, atau `content insert/update/delete`.
+   - **Dilarang mengubah izin/atribut file**: Haram menjalankan `chmod`, `chown`, `chgrp`, `chcon`, `restorecon`, `mount`, `umount`, `remount`.
+   - **Dilarang menulis/menghapus berkas di storage perangkat**: Haram menjalankan `mkdir`, `touch`, `rm`, `mv`, `cp`, `dd`, `tar`, `unzip`, `adb push`, termasuk **DILARANG** membuat folder `/storage/emulated/0/Debug/` atau `/data/local/tmp/` di Redmi Note 7.
+   - **Dilarang mengintervensi proses atau paket**: Haram menjalankan `adb install`, `adb uninstall`, `pm`, `am`, `kill`, `killall`, `pkill`, `stop`, `start`, `reboot`, `input keyevent/tap/swipe`.
+3. **Daftar Perintah yang DIIZINKAN pada Redmi Note 7 (Passive Stdout Read-Only)**:
+   - Hanya perintah pembacaan pasif tanpa efek samping: `cat`, `ls`, `find`, `grep`, `awk`, `sed` (tanpa `-i`), `head`, `tail`, `stat`, `id`, `uname -a`, `getprop` (tanpa argumen tulis), dan `dumpsys` (tanpa flag pengubah status).
+   - Penggunaan `su -c "<perintah_baca>"` diizinkan **HANYA** untuk membaca (`cat` / `ls` / `find`) node sysfs/procfs yang memiliki permission terbatas (misal `0400` atau `0600` milik root) dan wajib diverifikasi bahwa string perintah di dalam `su -c` tidak mengandung operator redirect tulis (`>`, `>>`) atau perintah mutasi.
+   - Seluruh hasil pembacaan harus langsung di-redirect ke file di **PC Lokal** (contoh: `adb -s <LAVENDER_SERIAL> shell "su -c 'cat /sys/class/kgsl/kgsl-3d0/gpu_available_frequencies'" > archive/device_reference/redmi_note_7_sdm660/gpu_freqs.txt`).
+4. **Protokol Verifikasi Identitas Sebelum Eksekusi (Hardware Identity Interlock)**:
+   - Sebelum mengeksekusi skrip pengujian (Read-Write) apapun via ADB, agen **WAJIB** memastikan target bukan Redmi Note 7 (`ro.product.device != lavender` dan `ro.board.platform != sdm660`).
+   - Skrip `tools/connect_device.ps1` telah dilengkapi pengaman otomatis (*Hardware Identity Interlock*): pemanggilan standar `.\tools\connect_device.cmd` hanya akan mengembalikan serial perangkat uji **Infinix X698** dan secara otomatis mengecualikan **Redmi Note 7** dari target pengujian tulis.
 
 ---
 

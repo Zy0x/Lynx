@@ -18,6 +18,12 @@
 .PARAMETER Port
     Target ADB TCP port (defaults to 5555).
 
+.PARAMETER Role
+    Target device role:
+    - 'test' (default): Active Read-Write Test Device (Infinix Note 11S X698 / Helio G96). Automatically blocks Redmi Note 7!
+    - 'reference': Strict Read-Only Reference Device (Xiaomi Redmi Note 7 / lavender / Snapdragon 660). Supports USB & Wireless ADB.
+    - 'any': Any available device (still prints Read-Only warning if Redmi Note 7).
+
 .PARAMETER ForceScan
     Bypass cache and force an active network scan.
 
@@ -33,6 +39,8 @@ param(
     [Parameter(Position = 0)]
     [string]$Target,
     [int]$Port = 5555,
+    [ValidateSet("test", "reference", "any")]
+    [string]$Role = "test",
     [switch]$ForceScan,
     [switch]$DeepScan,
     [switch]$Quiet
@@ -40,7 +48,11 @@ param(
 
 $ErrorActionPreference = "Continue"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$CacheFile = Join-Path $ScriptDir ".last_device_ip"
+$CacheFile = if ($Role -eq "reference") {
+    Join-Path $ScriptDir ".last_reference_ip"
+} else {
+    Join-Path $ScriptDir ".last_device_ip"
+}
 
 # Pool of most common 192.168.X router and Android hotspot subnets
 $Common192Subnets = @(
@@ -98,35 +110,73 @@ function Test-PortOpen([string]$targetIp, [int]$targetPort, [int]$timeoutMs = 40
     }
 }
 
-# Helper: Validate and verify ADB responsiveness and device model
+# Helper: Validate and verify ADB responsiveness, device codename, and Hardware Identity Interlock
 function Test-AdbDevice([string]$serial) {
     try {
         $res = & adb.exe -s $serial shell "echo lynx_ok" 2>$null
         if ($res -like "*lynx_ok*") {
             $model = (& adb.exe -s $serial shell "getprop ro.product.model" 2>$null)
+            $device = (& adb.exe -s $serial shell "getprop ro.product.device" 2>$null)
             $platform = (& adb.exe -s $serial shell "getprop ro.board.platform" 2>$null)
             if ($model) { $model = $model.Trim() } else { $model = "Unknown" }
+            if ($device) { $device = $device.Trim() } else { $device = "Unknown" }
             if ($platform) { $platform = $platform.Trim() } else { $platform = "Unknown" }
+
+            $isRedmiNote7 = ($device -match "lavender") -or ($platform -match "sdm660") -or ($model -match "Redmi Note 7")
             return @{
-                Success  = $true
-                Model    = $model
-                Platform = $platform
+                Success               = $true
+                Model                 = $model
+                Device                = $device
+                Platform              = $platform
+                IsReadOnlyDailyDriver = [bool]$isRedmiNote7
             }
         }
     } catch {}
-    return @{ Success = $false; Model = ""; Platform = "" }
+    return @{ Success = $false; Model = ""; Device = ""; Platform = ""; IsReadOnlyDailyDriver = $false }
 }
 
-# Helper: Save last known working IP
-function Save-Cache([string]$targetIp) {
+# Helper: Hardware Identity Interlock check against requested Role
+function Test-RoleInterlock([hashtable]$devInfo, [string]$serial) {
+    if (-not $devInfo.Success) { return $false }
+    if ($Role -eq "test" -and $devInfo.IsReadOnlyDailyDriver) {
+        Write-Warn "SAFETY INTERLOCK: Blocked $($devInfo.Model) ($($devInfo.Device) / $($devInfo.Platform)) at $serial — STRICT READ-ONLY DAILY DRIVER! Use '-Role reference' only for passive read-only sampling."
+        return $false
+    }
+    if ($Role -eq "reference" -and -not $devInfo.IsReadOnlyDailyDriver) {
+        Write-Info "Skipping active test device $($devInfo.Model) ($($devInfo.Device)) at $serial while searching for 'reference' device (Redmi Note 7)..."
+        return $false
+    }
+    return $true
+}
+
+# Helper: Print Read-Only Warning Banner when connecting to Redmi Note 7
+function Write-DeviceBanner([hashtable]$devInfo, [string]$serial) {
+    if ($devInfo.IsReadOnlyDailyDriver -and -not $Quiet) {
+        Write-Host "  ==================================================================" -ForegroundColor Red
+        Write-Host "  [!] STRICT READ-ONLY DAILY DRIVER: $($devInfo.Model) ($($devInfo.Device) / $($devInfo.Platform))" -ForegroundColor Red
+        Write-Host "  [!] ZERO-TOUCH POLICY: NO SYSFS WRITE, NO APK INSTALL, NO FILE WRITE!" -ForegroundColor Yellow
+        Write-Host "  [!] Only passive stdout commands (cat, ls, find, getprop) allowed." -ForegroundColor Yellow
+        Write-Host "  ==================================================================" -ForegroundColor Red
+    }
+}
+
+# Helper: Save last known working IP (only for IPv4 wireless serials)
+function Save-Cache([string]$targetIp, [hashtable]$devInfo) {
     try {
-        Set-Content -Path $CacheFile -Value $targetIp -Force -ErrorAction SilentlyContinue
+        if ($targetIp -match "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$") {
+            $destFile = if ($devInfo.IsReadOnlyDailyDriver) {
+                Join-Path $ScriptDir ".last_reference_ip"
+            } else {
+                Join-Path $ScriptDir ".last_device_ip"
+            }
+            Set-Content -Path $destFile -Value $targetIp -Force -ErrorAction SilentlyContinue
+        }
     } catch {}
 }
 
 if (-not $Quiet) {
     Write-Host "====================================================" -ForegroundColor Cyan
-    Write-Host "  Lynx Universal - Smart ADB Device Connector" -ForegroundColor Yellow
+    Write-Host "  Lynx Universal - Smart ADB Device Connector (Role: $Role)" -ForegroundColor Yellow
     Write-Host "====================================================" -ForegroundColor Cyan
 }
 
@@ -138,20 +188,39 @@ $targetSubnets = @()
 
 if ($Target) {
     $cleanTarget = $Target.Trim()
-    
+
+    # Shortcut keywords for device roles
+    if ($cleanTarget -in @("lavender", "redmi", "sdm660", "reference")) {
+        $Role = "reference"
+        $CacheFile = Join-Path $ScriptDir ".last_reference_ip"
+        $cleanTarget = ""
+        Write-Info "Switched target role to 'reference' (Redmi Note 7 - Strict Read-Only Daily Driver)."
+    }
+    elseif ($cleanTarget -in @("x698", "infinix", "test")) {
+        $Role = "test"
+        $CacheFile = Join-Path $ScriptDir ".last_device_ip"
+        $cleanTarget = ""
+        Write-Info "Switched target role to 'test' (Infinix X698 - Active Test Device)."
+    }
+}
+
+if ($Target -and $cleanTarget) {
     # Format A: Full IP address (e.g. 192.168.0.162)
     if ($cleanTarget -match "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$") {
         $serial = "$cleanTarget" + ":" + "$Port"
         Write-Info "Connecting to explicitly specified IP: $serial..."
         & adb.exe connect $serial | Out-Null
         $test = Test-AdbDevice $serial
-        if ($test.Success) {
-            Save-Cache $cleanTarget
-            Write-Success "Connected to $serial ($($test.Model), Platform: $($test.Platform))"
+        if (Test-RoleInterlock $test $serial) {
+            Save-Cache $cleanTarget $test
+            Write-Success "Connected to $serial ($($test.Model), Device: $($test.Device), Platform: $($test.Platform))"
+            Write-DeviceBanner $test $serial
             if ($Quiet) { Write-Output $serial }
             exit 0
-        } else {
+        } elseif (-not $test.Success) {
             Write-Warn "Device at $serial did not respond to ADB shell."
+        } else {
+            exit 1
         }
     }
     # Format B: Subnet pattern (e.g. 192.168.43.x, 192.168.43.*, 192.168.43)
@@ -175,7 +244,7 @@ if ($Target) {
 }
 
 # -------------------------------------------------------------------------
-# TIER 1: Check existing devices already in `adb devices`
+# TIER 1: Check existing devices already in `adb devices` (Wireless & USB)
 # -------------------------------------------------------------------------
 if (-not $ForceScan -and -not $manualSubnetMode) {
     Write-Info "Checking currently connected ADB devices..."
@@ -185,7 +254,8 @@ if (-not $ForceScan -and -not $manualSubnetMode) {
     foreach ($line in ($devicesOutput -split "`r?`n")) {
         if ($line -match "^\s*([^\s]+)\s+device\s*$") {
             $devSerial = $matches[1]
-            if ($devSerial.EndsWith($portSuffix)) {
+            if ($devSerial -like "emulator-*") { continue }
+            if ($devSerial.EndsWith($portSuffix) -or ($devSerial -notmatch ":")) {
                 $candidates += $devSerial
             }
         }
@@ -193,10 +263,11 @@ if (-not $ForceScan -and -not $manualSubnetMode) {
 
     foreach ($cand in $candidates) {
         $test = Test-AdbDevice $cand
-        if ($test.Success) {
+        if (Test-RoleInterlock $test $cand) {
             $candIp = ($cand -split ":")[0]
-            Save-Cache $candIp
-            Write-Success "Device already connected: $cand ($($test.Model), Platform: $($test.Platform))"
+            Save-Cache $candIp $test
+            Write-Success "Device already connected: $cand ($($test.Model), Device: $($test.Device), Platform: $($test.Platform))"
+            Write-DeviceBanner $test $cand
             if ($Quiet) { Write-Output $cand }
             exit 0
         }
@@ -225,15 +296,22 @@ if (-not $manualSubnetMode) {
         }
 
         if ($mdnsTargets.Count -gt 0) {
-            $mdnsTargets = $mdnsTargets | Sort-Object { if ($_.Instance -match "X698|Infinix") { 0 } else { 1 } }
+            $mdnsTargets = $mdnsTargets | Sort-Object {
+                if ($Role -eq "reference") {
+                    if ($_.Instance -match "lavender|Redmi") { 0 } else { 1 }
+                } else {
+                    if ($_.Instance -match "X698|Infinix") { 0 } else { 1 }
+                }
+            }
 
             foreach ($t in $mdnsTargets) {
                 Write-Info "Discovered via mDNS: $($t.Serial) ($($t.Instance)). Connecting..."
                 & adb.exe connect $t.Serial | Out-Null
                 $test = Test-AdbDevice $t.Serial
-                if ($test.Success) {
-                    Save-Cache $t.Ip
-                    Write-Success "Connected via mDNS: $($t.Serial) ($($test.Model), Platform: $($test.Platform))"
+                if (Test-RoleInterlock $test $t.Serial) {
+                    Save-Cache $t.Ip $test
+                    Write-Success "Connected via mDNS: $($t.Serial) ($($test.Model), Device: $($test.Device), Platform: $($test.Platform))"
+                    Write-DeviceBanner $test $t.Serial
                     if ($Quiet) { Write-Output $t.Serial }
                     exit 0
                 }
@@ -247,7 +325,7 @@ if (-not $manualSubnetMode) {
 }
 
 # -------------------------------------------------------------------------
-# TIER 3: Cached Last Known IP Check (.last_device_ip)
+# TIER 3: Cached Last Known IP Check (.last_device_ip / .last_reference_ip)
 # -------------------------------------------------------------------------
 if (-not $ForceScan -and -not $manualSubnetMode -and (Test-Path $CacheFile)) {
     $cachedIp = (Get-Content $CacheFile -Raw).Trim()
@@ -257,8 +335,9 @@ if (-not $ForceScan -and -not $manualSubnetMode -and (Test-Path $CacheFile)) {
             $serial = "$cachedIp" + ":" + "$Port"
             & adb.exe connect $serial | Out-Null
             $test = Test-AdbDevice $serial
-            if ($test.Success) {
-                Write-Success "Reconnected to cached device: $serial ($($test.Model), Platform: $($test.Platform))"
+            if (Test-RoleInterlock $test $serial) {
+                Write-Success "Reconnected to cached device: $serial ($($test.Model), Device: $($test.Device), Platform: $($test.Platform))"
+                Write-DeviceBanner $test $serial
                 if ($Quiet) { Write-Output $serial }
                 exit 0
             }
@@ -369,11 +448,12 @@ foreach ($discIp in $discoveredIps) {
     Write-Info "Attempting connection to $serial..."
     & adb.exe connect $serial | Out-Null
     $test = Test-AdbDevice $serial
-    if ($test.Success) {
-        Save-Cache $discIp
+    if (Test-RoleInterlock $test $serial) {
+        Save-Cache $discIp $test
         Write-Success "Successfully connected and verified: $serial"
-        Write-Host "       Device Model    : $($test.Model)" -ForegroundColor Green
+        Write-Host "       Device Model    : $($test.Model) ($($test.Device))" -ForegroundColor Green
         Write-Host "       SoC / Platform  : $($test.Platform)" -ForegroundColor Green
+        Write-DeviceBanner $test $serial
         if ($Quiet) { Write-Output $serial }
         exit 0
     }
