@@ -112,26 +112,31 @@ function Test-PortOpen([string]$targetIp, [int]$targetPort, [int]$timeoutMs = 40
 
 # Helper: Validate and verify ADB responsiveness, device codename, and Hardware Identity Interlock
 function Test-AdbDevice([string]$serial) {
-    try {
-        $res = & adb.exe -s $serial shell "echo lynx_ok" 2>$null
-        if ($res -like "*lynx_ok*") {
-            $model = (& adb.exe -s $serial shell "getprop ro.product.model" 2>$null)
-            $device = (& adb.exe -s $serial shell "getprop ro.product.device" 2>$null)
-            $platform = (& adb.exe -s $serial shell "getprop ro.board.platform" 2>$null)
-            if ($model) { $model = $model.Trim() } else { $model = "Unknown" }
-            if ($device) { $device = $device.Trim() } else { $device = "Unknown" }
-            if ($platform) { $platform = $platform.Trim() } else { $platform = "Unknown" }
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            $res = & adb.exe -s $serial shell "echo lynx_ok" 2>$null
+            if ($res -like "*lynx_ok*") {
+                $model = (& adb.exe -s $serial shell "getprop ro.product.model" 2>$null)
+                $device = (& adb.exe -s $serial shell "getprop ro.product.device" 2>$null)
+                $platform = (& adb.exe -s $serial shell "getprop ro.board.platform" 2>$null)
+                if ($model) { $model = $model.Trim() } else { $model = "Unknown" }
+                if ($device) { $device = $device.Trim() } else { $device = "Unknown" }
+                if ($platform) { $platform = $platform.Trim() } else { $platform = "Unknown" }
 
-            $isRedmiNote7 = ($device -match "lavender") -or ($platform -match "sdm660") -or ($model -match "Redmi Note 7")
-            return @{
-                Success               = $true
-                Model                 = $model
-                Device                = $device
-                Platform              = $platform
-                IsReadOnlyDailyDriver = [bool]$isRedmiNote7
+                $isRedmiNote7 = ($device -match "lavender") -or ($platform -match "sdm660") -or ($model -match "Redmi Note 7")
+                return @{
+                    Success               = $true
+                    Model                 = $model
+                    Device                = $device
+                    Platform              = $platform
+                    IsReadOnlyDailyDriver = [bool]$isRedmiNote7
+                }
             }
+        } catch {}
+        if ($attempt -lt 3) {
+            Start-Sleep -Milliseconds 300
         }
-    } catch {}
+    }
     return @{ Success = $false; Model = ""; Device = ""; Platform = ""; IsReadOnlyDailyDriver = $false }
 }
 
@@ -139,7 +144,7 @@ function Test-AdbDevice([string]$serial) {
 function Test-RoleInterlock([hashtable]$devInfo, [string]$serial) {
     if (-not $devInfo.Success) { return $false }
     if ($Role -eq "test" -and $devInfo.IsReadOnlyDailyDriver) {
-        Write-Warn "SAFETY INTERLOCK: Blocked $($devInfo.Model) ($($devInfo.Device) / $($devInfo.Platform)) at $serial — STRICT READ-ONLY DAILY DRIVER! Use '-Role reference' only for passive read-only sampling."
+        Write-Warn "SAFETY INTERLOCK: Blocked $($devInfo.Model) ($($devInfo.Device) / $($devInfo.Platform)) at $serial -- STRICT READ-ONLY DAILY DRIVER! Use '-Role reference' only for passive read-only sampling."
         return $false
     }
     if ($Role -eq "reference" -and -not $devInfo.IsReadOnlyDailyDriver) {
