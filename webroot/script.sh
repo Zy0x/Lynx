@@ -131,7 +131,13 @@ case "$ACTION" in
 
     set_gpu_freq)
         if [ -f "$MODULE_DIR/core/lib/gpu_manager.sh" ]; then
-            sh "$MODULE_DIR/core/lib/gpu_manager.sh" set_freq "$PARAM"
+            sh "$MODULE_DIR/core/lib/gpu_manager.sh" set_freq "$PARAM" "$PARAM2"
+        fi
+        ;;
+
+    set_gpu_gov)
+        if [ -f "$MODULE_DIR/core/lib/gpu_manager.sh" ]; then
+            sh "$MODULE_DIR/core/lib/gpu_manager.sh" set_gov "$PARAM"
         fi
         ;;
 

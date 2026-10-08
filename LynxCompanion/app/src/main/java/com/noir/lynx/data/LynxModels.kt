@@ -153,6 +153,26 @@ data class CpuProcessInfo(
     val name: String = "",
     val packageName: String = "",
     val cpuPercent: Float = 0f,
+    val rawCpuPercent: Float = 0f,
+)
+
+data class CpuProcessDetail(
+    val pid: Int = 0,
+    val name: String = "",
+    val packageName: String = "",
+    val state: String = "S (Sleeping)",
+    val threadsCount: Int = 1,
+    val rssMemoryMb: Float = 0f,
+    val nicePriority: Int = 0,
+    val oomScoreAdj: Int = 0,
+    val cpusAllowedList: String = "0-7",
+    val isSystemCritical: Boolean = false,
+)
+
+data class CpuMonitorSnapshot(
+    val totalCpuLoadPercent: Int = 0,
+    val topProcesses: List<CpuProcessInfo> = emptyList(),
+    val timestampMs: Long = System.currentTimeMillis()
 )
 
 data class CpuCoreInfo(
@@ -165,6 +185,38 @@ data class CpuCoreInfo(
     val maxFreqKhz: Long = 0L,
     val isLocked: Boolean = false,
 )
+
+data class OppResidencyItem(
+    val freqMhz: Int = 0,
+    val percentage: Float = 0f,
+)
+
+data class ClusterSiliconDetail(
+    val policyId: Int = 0,
+    val microArchName: String = "ARM Cortex",
+    val revisionLabel: String = "",
+    val coreCount: Int = 0,
+    val coreRangeLabel: String = "0",
+    val easCapacity: Int = 1024,
+    val vprocMv: Int = 0,
+    val vsramMv: Int = 0,
+    val transitionLatencyUs: Int = 0,
+    val totalTransitions: Long = 0L,
+    val topResidencies: List<OppResidencyItem> = emptyList(),
+)
+
+data class CpuSiliconTopologyDetails(
+    val isaArchitecture: String = "ARMv8.2-A (64-bit)",
+    val implementerName: String = "ARM Limited",
+    val scalingDriver: String = "cpufreq",
+    val cciFreqMhz: Int = 0,
+    val cciVoltMv: Int = 0,
+    val interconnectBusLabel: String = "",
+    val cStateSummary: String = "",
+    val instructionSummary: String = "",
+    val clusterDetails: Map<Int, ClusterSiliconDetail> = emptyMap(),
+)
+
 
 enum class CpuHealthQuality(val label: String, val subtitle: String) {
     HEALTHY("Healthy", "CPU bekerja normal"),
@@ -193,7 +245,9 @@ data class BatteryDetails(
     val isEmergencyGuardActive: Boolean = false,
     val isOvernightBypassLatched: Boolean = false,
     val isSmartTaperingActive: Boolean = false,
-)
+) {
+    val isCharging: Boolean get() = status.equals("Charging", ignoreCase = true) || currentMa > 100
+}
 
 data class BootBackupInfo(
     val name: String = "",
@@ -580,6 +634,7 @@ data class LynxUiState(
     val cpuLoadHistory: List<Int> = emptyList(),
     val socPlatformName: String = "",
     val socTopology: String = "",
+    val siliconTopologyDetails: CpuSiliconTopologyDetails = CpuSiliconTopologyDetails(),
     val batteryDetails: BatteryDetails? = null,
     val topWakelocks: List<WakelockItem> = emptyList(),
     val activeGovernorPreset: String = "balanced",
@@ -626,7 +681,30 @@ data class LynxUiState(
     val isCpusetSupported: Boolean = true,
     val schedulerBackendType: String = "EAS",
     val clusterIdleInfo: List<com.noir.lynx.kernel.ClusterIdleInfo> = emptyList(),
-)
+) {
+    fun resolveCpuTempC(): Int {
+        val validZones = thermalZones.filter { it.tempC in 20f..115f }
+        // Stage 1: Primary CPU / SoC / TSENS sensors
+        validZones.firstOrNull { z ->
+            val t = z.type.lowercase()
+            t.contains("cpu") || t.contains("soc") || t.contains("tsens") ||
+                t.contains("cpuss") || t.contains("mtktscpu") || t.contains("tsmcu") ||
+                t.contains("xo_therm") || t.contains("quiet_therm")
+        }?.let { return it.tempC.toInt() }
+
+        // Stage 2: Secondary AP / BMS / Battery thermal zones (used when custom kernels disable CPU thermal zones)
+        validZones.firstOrNull { z ->
+            val t = z.type.lowercase()
+            t.contains("ap") || t.contains("bms") || t.contains("battery")
+        }?.let { return it.tempC.toInt() }
+
+        // Stage 3: BatteryDetails or Telemetry fallback
+        batteryDetails?.tempC?.takeIf { it in 15f..95f }?.let { return it.toInt() }
+        telemetry?.temp?.toFloatOrNull()?.takeIf { it in 15f..95f }?.let { return it.toInt() }
+
+        return 38
+    }
+}
 
 // ============================================================
 //  LIVE HARDWARE BENCHMARK & FRAME PACING PROFILER
@@ -751,15 +829,35 @@ data class SchedulerInfo(
     val schedRtRuntimeUs: Long = 950000L,
     val isRtRuntimeSupported: Boolean = false,
 
-    // Platform Hardware Engine (MediaTek PPM / Qualcomm Input Boost)
+    // Platform Hardware Engine (Universal Intent Layer: MediaTek PPM/CCI/DVFSRC/PerfMgr & Qualcomm Devfreq/Boost)
     val isPpmSupported: Boolean = false,
     val ppmPwrThrottlingEnabled: Boolean = false,
     val ppmThermalThrottlingEnabled: Boolean = false,
     val ppmSysBoostEnabled: Boolean = false,
+    val ppmDlptBypassEnabled: Boolean = false,
+    val isMtkCciSupported: Boolean = false,
+    val mtkCciPerfMode: Boolean = false,
+    val mtkCciFreqMhz: Int = 0,
+    val mtkDvfsrcBoostEnabled: Boolean = false,
+    val isMtkPowerModeSupported: Boolean = false,
+    val mtkCpuPowerMode: Int = 0,
     val isQcomBoostSupported: Boolean = false,
     val qcomTouchboostEnabled: Boolean = false,
     val qcomInputBoostFreq: Long = 0L,
     val qcomInputBoostMs: Int = 0,
+    val isQcomDevfreqBusSupported: Boolean = false,
+    val qcomDevfreqBusBoostEnabled: Boolean = false,
+    val workqueuePowerEfficient: Boolean = true,
+
+    // Universal Intent Controls (Multi-SoC Abstracted)
+    val busBandwidthProfile: String = "auto", // "auto", "efficient", "balanced", "max"
+    val ddrCurrentFreqMhz: Int = 0,
+    val ddrAvailFreqsMhz: List<Int> = emptyList(),
+    val universalTouchBoostSupported: Boolean = false,
+    val universalTouchBoostEnabled: Boolean = false,
+    val antiThrottlingGuardEnabled: Boolean = false,
+    val isEasSwitchSupported: Boolean = false,
+    val easMode: Int = 1, // 0: HMP, 1: EAS, 2: Hybrid
 
     // Preset & Persistence
     val activePreset: String = "balanced", // "gaming", "balanced", "battery", "custom"
@@ -919,5 +1017,29 @@ data class DeepTunable(
     val help: String = "",
     val recommendation: String = ""
 )
+
+// ============================================================
+//  CPU ATOMIC BATCH PROFILE PARAMS
+// ============================================================
+
+data class CpuProfileClusterTarget(
+    val minFreq: Long,
+    val maxFreq: Long,
+    val gov: String,
+    val isLocked: Boolean
+)
+
+data class CpuBatchProfileParams(
+    val companionProfile: String,
+    val clusterTargets: Map<Int, CpuProfileClusterTarget>,
+    val schedPreset: String,
+    val schedHystUp: Int,
+    val schedHystDown: Int,
+    val cpuSetPreset: String,
+    val idlePreset: String,
+    val parkingMode: String,
+    val totalCores: Int = 8
+)
+
 
 

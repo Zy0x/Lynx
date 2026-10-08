@@ -39,6 +39,7 @@ class LynxAppAutomationService : Service() {
     private var autoStartedHud = false
     private var cooldownJob: Job? = null
     private var rulesCache: List<AppProfileRule> = emptyList()
+    private var graphicsRulesCache: List<com.noir.lynx.data.PerAppGraphicsRule> = emptyList()
 
     private var isScreenOn = true
     private val categoryProfileCache = mutableMapOf<String, String>()
@@ -139,6 +140,7 @@ class LynxAppAutomationService : Service() {
             ACTION_RELOAD_RULES -> {
                 serviceScope.launch {
                     rulesCache = LynxRepository.readAppProfileRules()
+                    graphicsRulesCache = LynxRepository.readPerAppGraphicsRules(this@LynxAppAutomationService)
                 }
             }
             ACTION_UPDATE_BASELINE -> {
@@ -159,10 +161,11 @@ class LynxAppAutomationService : Service() {
 
         serviceScope.launch {
             rulesCache = LynxRepository.readAppProfileRules()
+            graphicsRulesCache = LynxRepository.readPerAppGraphicsRules(this@LynxAppAutomationService)
             val current = LynxRepository.readBaselineProfile()
             baselineProfile = if (current.isBlank() || current == "auto" || current == "extreme" || current == "performance") "balance" else current
             baselineRefreshRate = LynxRepository.readDisplayRefreshRate()
-            Log.i(TAG, "Watcher initialized: ${rulesCache.size} rules loaded, baseline profile=[$baselineProfile], baseline refreshRate=[${baselineRefreshRate}Hz]")
+            Log.i(TAG, "Watcher initialized: ${rulesCache.size} rules loaded, ${graphicsRulesCache.size} gfx rules loaded, baseline profile=[$baselineProfile], baseline refreshRate=[${baselineRefreshRate}Hz]")
 
             while (isActive) {
                 if (!isScreenOn) {
@@ -272,10 +275,14 @@ class LynxAppAutomationService : Service() {
     }
 
     private suspend fun handleForegroundPackage(pkg: String) {
-        // 1. Find matching explicit rule
+        // 1. Find matching explicit rule & per-app graphics rule
         var matchingRule = rulesCache.firstOrNull { it.enabled && it.packageName.equals(pkg, ignoreCase = true) }
+        val matchingGfxRule = graphicsRulesCache.firstOrNull { it.packageName.equals(pkg, ignoreCase = true) && it.targetRefreshRate > 0 }
+        if (matchingRule != null && matchingGfxRule != null && (matchingRule.targetRefreshRate ?: 0) <= 0) {
+            matchingRule = matchingRule.copy(targetRefreshRate = matchingGfxRule.targetRefreshRate)
+        }
 
-        // 2. Multi-tier Category Intelligence if no explicit rule
+        // 2. Multi-tier Category Intelligence or Per-App Graphics Refresh Rate if no explicit profile rule
         if (matchingRule == null && !isHomeLauncher(pkg)) {
             val catProfile = resolveAppCategoryProfile(pkg)
             if (catProfile != "balance") {
@@ -283,13 +290,22 @@ class LynxAppAutomationService : Service() {
                     val appInfo = packageManager.getApplicationInfo(pkg, 0)
                     packageManager.getApplicationLabel(appInfo).toString()
                 } catch (_: Exception) { pkg }
-                val targetHz = if (catProfile == "powersave") 60 else (baselineRefreshRate ?: 120)
+                val targetHz = matchingGfxRule?.targetRefreshRate ?: if (catProfile == "powersave") 60 else (baselineRefreshRate ?: 120)
                 matchingRule = AppProfileRule(
                     packageName = pkg,
                     appName = appLabel,
                     targetProfile = catProfile,
                     targetRefreshRate = targetHz,
                     autoFloatingHud = (catProfile == "performance" || catProfile == "extreme"),
+                    enabled = true
+                )
+            } else if (matchingGfxRule != null) {
+                matchingRule = AppProfileRule(
+                    packageName = pkg,
+                    appName = matchingGfxRule.appName.ifBlank { pkg },
+                    targetProfile = baselineProfile.ifBlank { "balance" },
+                    targetRefreshRate = matchingGfxRule.targetRefreshRate,
+                    autoFloatingHud = false,
                     enabled = true
                 )
             }

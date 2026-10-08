@@ -127,11 +127,11 @@ for cpu in 0 1 2 3 4 5 6 7; do
 done
 
 # ── 2. GPU & GED Subsystem: Responsive Render Engine (Chimera Core) ───
-for mali in /sys/devices/platform/*mali*; do
+for mali in /sys/devices/platform/*mali* /sys/devices/platform/soc/*mali* /sys/class/misc/mali*/device; do
     [ -d "$mali" ] || continue
-    write_node "always_on" "$mali/power_policy"
+    write_node "coarse_demand" "$mali/power_policy"
 done
-write_node "1" "/proc/mali/always_on"
+write_node "0" "/proc/mali/always_on"
 write_node "1" "/proc/mali/dvfs_enable"
 write_node "0" "/proc/mali/debug_log"
 
@@ -156,7 +156,24 @@ write_node "1" "/sys/module/ged/parameters/gpu_idle"
 write_node "0" "/sys/module/ged/parameters/gx_boost_on"
 write_node "0" "/sys/module/ged/parameters/gx_force_cpu_boost"
 write_node "0" "/sys/module/ged/parameters/gx_game_mode"
-write_node "36" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+write_node "0" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
+if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
+    opp_top=$(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+    opp_bot=$(tail -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+    peak_f=$(echo "$opp_top" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+    min_f=$(echo "$opp_bot" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+    last_idx=$(echo "$opp_bot" | awk -F'[][]' '{print int($2)}')
+    [ -z "$last_idx" ] && last_idx="48"
+    write_node "$last_idx" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+    [ -n "$peak_f" ] && write_node "$peak_f" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
+    [ -n "$min_f" ] && write_node "$min_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
+    [ -n "$min_f" ] && write_node "$min_f" "/sys/module/ged/parameters/gpu_bottom_freq"
+else
+    write_node "48" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+fi
+for i in 0 1 2 3 4 5 6 7 8; do
+    write_node "$i 1 1" "/proc/gpufreq/gpufreq_limit_table"
+done
 write_node "0" "/sys/kernel/ged/hal/gpu_boost_level"
 write_node "10" "/sys/kernel/ged/hal/dvfs_margin_value"
 write_node "0" "/proc/gpufreq/gpufreq_opp_freq"

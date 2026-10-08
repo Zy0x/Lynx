@@ -36,6 +36,9 @@ class LynxBootReceiver : BroadcastReceiver() {
                     // Restore charging config (extreme charging / bypass if active)
                     LynxRepository.applySavedChargingConfig()
 
+                    // Restore display color calibration matrix if enabled by user
+                    LynxRepository.applySavedColorProfileIfEnabled()
+
                     val enabledResult = Shell.cmd("cat /data/adb/lynx/automation_enabled 2>/dev/null").exec()
                     val isEnabled = enabledResult.out.firstOrNull()?.trim() == "1"
 

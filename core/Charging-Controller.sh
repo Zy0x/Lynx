@@ -108,9 +108,15 @@ unlock_extreme_nodes() {
         "$BATT_DIR/charging_limit_mode" \
         "$BATT_DIR/mmi_charging_enable" \
         "$BATT_DIR/factory_mode" \
+        /proc/driver/thermal/clabcct \
+        /proc/driver/thermal/clabcct_lcmoff \
         /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug \
         /sys/devices/platform/tran_battery/pcb_thermal_debug; do
         [ -e "$node" ] && chmod 666 "$node" 2>/dev/null
+    done
+
+    for c in /sys/class/thermal/cooling_device*; do
+        chmod 666 "$c/cur_state" 2>/dev/null
     done
 
     for tz in /sys/class/thermal/thermal_zone*; do
@@ -127,6 +133,7 @@ unlock_extreme_nodes() {
     done
 
     killall -CONT com.xiaomi.joyose 2>/dev/null
+    for p in $(pgrep -f thermalloadalgod 2>/dev/null); do kill -CONT "$p" 2>/dev/null; done
     cmd thermalservice reset 2>/dev/null
 }
 
@@ -272,6 +279,7 @@ apply_extreme_charging() {
                 "$MTK_DIR/enable_sc"; do
         write_node_lock "1" "$node"
     done
+    write_node_lock "2" "$MTK_DIR/Pump_Express"
     for node in "$MTK_DIR/BatteryNotify" \
                 "$MTK_DIR/sw_jeita" \
                 "$MTK_DIR/tran_charger_full" \
@@ -279,14 +287,28 @@ apply_extreme_charging() {
                 "$MTK_DIR/tran_game_mode"; do
         write_node_lock "0" "$node"
     done
-    for node in "$MTK_DIR/input_current" \
-                "$MTK_DIR/chg1_current" \
-                "$MTK_DIR/chg2_current"; do
-        write_node_lock "24576" "$node"
-    done
-    write_node_lock "120" "$MTK_DIR/pdc_max_watt"
-    write_node_lock "8000" "$MTK_DIR/sc_ibat_limit"
+    # MTK input/charge currents are in mA (not µA) on Helio/Dimensity.
+    # Max for Helio G96 is 6000 mA. Values >6000 overflow and get ignored by driver,
+    # causing fallback to 500 mA OEM cap. pdc_max_watt=33 (Helio G96 max PE spec).
+    write_node_lock "6000" "$MTK_DIR/input_current"
+    write_node_lock "6000" "$MTK_DIR/chg1_current"
+    write_node_lock "6000" "$MTK_DIR/chg2_current"
+    write_node_lock "33" "$MTK_DIR/pdc_max_watt"
+    write_node_lock "6000" "$MTK_DIR/sc_ibat_limit"
     write_node "$target_soc" "$MTK_DIR/sc_tuisoc"
+
+    # MediaTek Kernel PID Thermal Derater (ABCCT) & Userspace Algorithm Pause
+    if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
+        chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+        echo 0 > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+        chmod 444 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+    fi
+    if [ -e /proc/driver/thermal/clabcct ]; then
+        chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
+        echo "0 70000 1000 200000 5 6000 0" > /proc/driver/thermal/clabcct 2>/dev/null
+        chmod 444 /proc/driver/thermal/clabcct 2>/dev/null
+    fi
+    for p in $(pgrep -f thermalloadalgod 2>/dev/null); do kill -STOP "$p" 2>/dev/null; done
 
     # 3. Qualcomm Snapdragon Architecture
     write_node_lock "1" "$QC_DIR/direct_charging"
@@ -337,7 +359,7 @@ apply_extreme_charging() {
                 /sys/devices/platform/tran_battery/pcb_thermal_debug; do
         if [ -e "$node" ]; then
             chmod 666 "$node" 2>/dev/null
-            echo "[85,6000,90,5000,4500]" > "$node" 2>/dev/null
+            echo "[90,6000,100,6000,6000]" > "$node" 2>/dev/null
             chmod 444 "$node" 2>/dev/null
         fi
     done
@@ -417,6 +439,19 @@ apply_regulated_charging() {
 
     # Restore JEITA on MediaTek
     write_node "1" "$MTK_DIR/sw_jeita"
+
+    # Restore MediaTek ABCCT PID thermal derater & unpause userspace daemons
+    for p in $(pgrep -f thermalloadalgod 2>/dev/null); do kill -CONT "$p" 2>/dev/null; done
+    if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
+        chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+        echo 1 > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+        chmod 644 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+    fi
+    if [ -e /proc/driver/thermal/clabcct ]; then
+        chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
+        echo "1 42000 1000 200000 5 2000 0" > /proc/driver/thermal/clabcct 2>/dev/null
+        chmod 644 /proc/driver/thermal/clabcct 2>/dev/null
+    fi
 
     # Restore genuine battery temperature reporting
     write_node "65535" "/sys/devices/platform/battery/Battery_Temperature"
@@ -949,6 +984,8 @@ while true; do
     elif [ "$extreme_charging_on" = "true" ] || [ "$cur_prof" = "extreme" ] || [ "$limit_ma" -ge 3000 ]; then
         echo "state=extreme cap=$capacity" > /dev/lynx_charging_state
         apply_extreme_charging "$high_target_pct" "$lockout_byp_on"
+        sleep 3
+        continue
     else
         echo "state=regulated cap=$capacity" > /dev/lynx_charging_state
         apply_regulated_charging "$limit_ma"

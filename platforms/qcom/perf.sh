@@ -19,7 +19,10 @@ for dev in /sys/class/devfreq/*; do
     gov_node="$dev/governor"
     if [ -f "$gov_node" ]; then
         case "$dev" in
-            *ufshc*|*cpubw*|*gpubw*|*llccbw*|*l3-cpu*|*bus_ddr*)
+            *latfloor*)
+                write_node "compute" "$gov_node"
+                ;;
+            *ufshc*|*cpubw*|*gpubw*|*llccbw*|*l3-cpu*|*bus_ddr*|*cpu-ddr-bw*|*ddr-bw*|*cpu-ddr-lat*|*memlat-cpu*)
                 write_node "performance" "$gov_node"
                 ;;
         esac
@@ -110,6 +113,7 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
                 write_node "0" "$s_dir/up_rate_limit_us"
                 write_node "10000" "$s_dir/down_rate_limit_us"
                 write_node "85" "$s_dir/hispeed_load"
+                write_node "0" "$s_dir/sched_load_boost"
             else
                 # Big/Prime Cluster (Gold/Kryo): Lompatan instan 0µs, tahan clock 5ms (ekstrem: 2ms)
                 write_node "0" "$s_dir/up_rate_limit_us"
@@ -120,11 +124,17 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
                     write_node "5000" "$s_dir/down_rate_limit_us"
                     write_node "80" "$s_dir/hispeed_load"
                 fi
+                write_node "15" "$s_dir/sched_load_boost"
             fi
             write_node "$max_freq" "$s_dir/hispeed_freq"
             write_node "1" "$s_dir/pl"
         fi
     done
+    if [ "$pol_id" = "0" ]; then
+        write_node "0" "$policy/sched_load_boost"
+    else
+        write_node "15" "$policy/sched_load_boost"
+    fi
 done
 
 # Core Control Jitter Prevention & Qualcomm Core Retention
@@ -157,6 +167,7 @@ write_node "5" "/dev/stune/schedtune.boost"
 write_node "0" "/dev/stune/schedtune.prefer_idle"
 write_node "5" "/dev/stune/foreground/schedtune.boost"
 write_node "5" "/dev/stune/top-app/schedtune.boost"
+write_node "1" "/dev/stune/top-app/schedtune.prefer_high_cap"
 
 # VM & Memory Response
 sync

@@ -139,7 +139,7 @@ for cpu in 0 1 2 3 4 5 6 7; do
 done
 
 # ── 3. GPU Mali & GED Hardcore Boost Engine ───────────────────────────
-for mali in /sys/devices/platform/*mali*; do
+for mali in /sys/devices/platform/*mali* /sys/devices/platform/soc/*mali* /sys/class/misc/mali*/device; do
     [ -d "$mali" ] || continue
     write_node "always_on" "$mali/power_policy"
 done
@@ -180,13 +180,14 @@ if grep -q "is enabled" /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null; then
 fi
 
 # Extract Peak GPU Frequency from OPP Dump
+write_node "0" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
+write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
 if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
     opp_val=$(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
     gpu_peak_freq=$(echo "$opp_val" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
     if [ -n "$gpu_peak_freq" ]; then
         write_node "$gpu_peak_freq" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
         write_node "$gpu_peak_freq" "/sys/module/ged/parameters/gpu_cust_boost_freq"
-        write_node "$gpu_peak_freq" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
         write_node "$gpu_peak_freq" "/sys/module/ged/parameters/gpu_bottom_freq"
         write_node "$gpu_peak_freq" "/proc/gpufreq/gpufreq_opp_freq"
     fi

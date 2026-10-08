@@ -16,9 +16,20 @@ get_cluster_topology_json() {
     local first_policy=1
     printf '{"clusters":['
 
-    for policy in /sys/devices/system/cpu/cpufreq/policy*; do
+    # Count total policies and iterate in strict numerical order (0..15) for 10-core+ safety
+    local total_policies=0
+    local policy_ids=""
+    for idx in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+        if [ -d "/sys/devices/system/cpu/cpufreq/policy$idx" ]; then
+            total_policies=$((total_policies + 1))
+            policy_ids="$policy_ids $idx"
+        fi
+    done
+
+    local cur_ord=0
+    for p_num in $policy_ids; do
+        policy="/sys/devices/system/cpu/cpufreq/policy$p_num"
         [ -d "$policy" ] || continue
-        p_num="${policy##*policy}"
 
         affected=$(cat "$policy/affected_cpus" 2>/dev/null || cat "$policy/related_cpus" 2>/dev/null || echo "$p_num")
         cur_min=$(cat "$policy/scaling_min_freq" 2>/dev/null || echo 0)
@@ -45,13 +56,25 @@ get_cluster_topology_json() {
             done
         fi
 
-        # Determine cluster role name
-        role="Little"
-        case "$p_num" in
-            0) role="Efficiency" ;;
-            3|4) role="Performance" ;;
-            6|7) role="Prime" ;;
-        esac
+        # Determine cluster role name dynamically by ordinal position
+        if [ "$total_policies" -le 1 ]; then
+            role="Kluster Utama"
+        elif [ "$total_policies" -eq 2 ]; then
+            if [ "$cur_ord" -eq 0 ]; then
+                role="Efisiensi Little"
+            else
+                role="Performa Big"
+            fi
+        else
+            if [ "$cur_ord" -eq 0 ]; then
+                role="Efisiensi Little"
+            elif [ "$cur_ord" -eq $((total_policies - 1)) ]; then
+                role="Prime Super"
+            else
+                role="Performa Mid"
+            fi
+        fi
+        cur_ord=$((cur_ord + 1))
 
         is_locked="false"
         perms=$(ls -ld "$policy/scaling_max_freq" 2>/dev/null | awk '{print $1}')

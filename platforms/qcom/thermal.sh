@@ -42,6 +42,7 @@ elif [ "$ACTION" = "enable" ] || [ "$ACTION" = "1" ]; then
 
     # 2. KGSL Throttling Restore
     write_node "1" "/sys/class/kgsl/kgsl-3d0/throttling"
+    write_node "1" "/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel"
 
     # 3. Thermal Zones Restore
     for tz in /sys/class/thermal/thermal_zone*; do

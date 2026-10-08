@@ -162,18 +162,6 @@ fun ColorManagementCard(
         subtitle = "SurfaceFlinger Color Matrix 1015, D65 White Point, & KCAL",
         icon = Icons.Default.Palette,
         accentColor = cardAccent,
-        action = {
-            Switch(
-                checked = isCalibrationEnabled,
-                onCheckedChange = { onToggleCalibration(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = BgDeepOled,
-                    checkedTrackColor = cardAccent,
-                    uncheckedThumbColor = TextTertiary,
-                    uncheckedTrackColor = BgSurfaceLowest
-                )
-            )
-        },
         modifier = modifier
     ) {
         // ── Conflict Warning Banner (Night Light / Extra Dim) ──

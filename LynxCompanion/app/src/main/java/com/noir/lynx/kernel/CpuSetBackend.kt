@@ -26,7 +26,7 @@ class LegacyCpusetBackend : CpuSetBackend {
 
     override fun isSupported(): Boolean {
         return try {
-            val r = Shell.cmd("[ -d '/dev/cpuset' ] && [ -f '/dev/cpuset/cpus' ] && echo 1 || echo 0").exec()
+            val r = Shell.cmd("[ -d '/dev/cpuset' ] && ( [ -f '/dev/cpuset/cpus' ] || [ -f '/dev/cpuset/effective_cpus' ] || [ -d '/dev/cpuset/top-app' ] ) && echo 1 || echo 0").exec()
             r.out.firstOrNull()?.trim() == "1"
         } catch (_: Exception) {
             false
@@ -47,7 +47,7 @@ class LegacyCpusetBackend : CpuSetBackend {
 
     override fun readGroupMask(group: String): String {
         return try {
-            val r = Shell.cmd("cat /dev/cpuset/$group/cpus 2>/dev/null").exec()
+            val r = Shell.cmd("cat /dev/cpuset/$group/cpus /dev/cpuset/$group/cpuset.cpus /dev/cpuset/$group/effective_cpus 2>/dev/null | head -n1").exec()
             r.out.firstOrNull()?.trim() ?: ""
         } catch (_: Exception) {
             ""
@@ -56,9 +56,8 @@ class LegacyCpusetBackend : CpuSetBackend {
 
     override fun writeGroupMask(group: String, mask: String): Boolean {
         if (mask.isBlank()) return false
-        val node = "/dev/cpuset/$group/cpus"
-        val cmd = "chmod 644 $node 2>/dev/null; echo '$mask' > $node 2>/dev/null"
-        val res = Shell.cmd(cmd).exec()
+        val cmd = "for n in /dev/cpuset/$group/cpus /dev/cpuset/$group/cpuset.cpus; do [ -f \"\$n\" ] && chmod 644 \"\$n\" 2>/dev/null && echo '$mask' > \"\$n\" 2>/dev/null; done"
+        Shell.cmd(cmd).exec()
         val verify = readGroupMask(group)
         return verify == mask
     }
@@ -101,7 +100,7 @@ class ModernCgroupBackend : CpuSetBackend {
 
     override fun readGroupMask(group: String): String {
         return try {
-            val r = Shell.cmd("cat /sys/fs/cgroup/cpuset/$group/cpus 2>/dev/null").exec()
+            val r = Shell.cmd("cat /sys/fs/cgroup/cpuset/$group/cpus /sys/fs/cgroup/cpuset/$group/cpuset.cpus 2>/dev/null | head -n1").exec()
             r.out.firstOrNull()?.trim() ?: ""
         } catch (_: Exception) {
             ""
@@ -110,8 +109,7 @@ class ModernCgroupBackend : CpuSetBackend {
 
     override fun writeGroupMask(group: String, mask: String): Boolean {
         if (mask.isBlank()) return false
-        val node = "/sys/fs/cgroup/cpuset/$group/cpus"
-        val cmd = "chmod 644 $node 2>/dev/null; echo '$mask' > $node 2>/dev/null"
+        val cmd = "for n in /sys/fs/cgroup/cpuset/$group/cpus /sys/fs/cgroup/cpuset/$group/cpuset.cpus; do [ -f \"\$n\" ] && chmod 644 \"\$n\" 2>/dev/null && echo '$mask' > \"\$n\" 2>/dev/null; done"
         Shell.cmd(cmd).exec()
         return readGroupMask(group) == mask
     }

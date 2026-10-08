@@ -110,32 +110,72 @@ object CpuIdleDetector {
         val driver = detectDriverName()
         val clusters = mutableListOf<ClusterIdleInfo>()
 
-        // Cluster 0 (Core 0 reference)
-        val littleStates = detectStatesForCore(0)
-        val littleRange = if (totalCores > 4) "CPU 0-3 (Efficiency)" else "CPU 0-${totalCores - 1}"
-        clusters.add(
-            ClusterIdleInfo(
-                clusterId = 0,
-                driverName = driver,
-                cpuRange = littleRange,
-                states = littleStates
-            )
-        )
+        val policyLines = Shell.cmd(
+            "for idx in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do " +
+            "p=\"/sys/devices/system/cpu/cpufreq/policy\$idx\"; " +
+            "[ -d \"\$p\" ] || continue; " +
+            "cpus=\$(cat \"\$p/related_cpus\" 2>/dev/null | tr -s '[:space:]' ' ' | sed 's/^ //;s/ \$//'); " +
+            "echo \"\$idx:\$cpus\"; " +
+            "done"
+        ).exec().out
 
-        // Cluster 1 (Core 4 or Core 6 reference if multi-cluster)
-        val bigCoreRef = if (totalCores >= 8) 6 else if (totalCores > 4) 4 else -1
-        if (bigCoreRef > 0) {
-            val bigStates = detectStatesForCore(bigCoreRef)
-            if (bigStates.isNotEmpty()) {
-                val bigRange = if (totalCores == 8 && bigCoreRef == 6) "CPU 6-7 (Performance)" else "CPU $bigCoreRef-${totalCores - 1} (Performance)"
-                clusters.add(
-                    ClusterIdleInfo(
-                        clusterId = 1,
-                        driverName = driver,
-                        cpuRange = bigRange,
-                        states = bigStates
-                    )
+        if (policyLines.isNotEmpty()) {
+            val totalPolicies = policyLines.size
+            policyLines.forEachIndexed { idx, line ->
+                val parts = line.split(":", limit = 2)
+                if (parts.size == 2) {
+                    val coresList = parts[1].trim().split(" ").mapNotNull { it.toIntOrNull() }.sorted()
+                    if (coresList.isNotEmpty()) {
+                        val refCore = coresList.first()
+                        val states = detectStatesForCore(refCore)
+                        if (states.isNotEmpty()) {
+                            val roleLabel = when {
+                                totalPolicies <= 1 -> "Main"
+                                totalPolicies == 2 -> if (idx == 0) "Efficiency" else "Performance"
+                                else -> when (idx) {
+                                    0 -> "Efficiency"
+                                    totalPolicies - 1 -> "Prime"
+                                    else -> "Mid Performance"
+                                }
+                            }
+                            clusters.add(
+                                ClusterIdleInfo(
+                                    clusterId = idx,
+                                    driverName = driver,
+                                    cpuRange = "CPU ${coresList.first()}-${coresList.last()} ($roleLabel)",
+                                    states = states
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (clusters.isEmpty()) {
+            val littleStates = detectStatesForCore(0)
+            val littleRange = if (totalCores > 4) "CPU 0-3 (Efficiency)" else "CPU 0-${totalCores - 1}"
+            clusters.add(
+                ClusterIdleInfo(
+                    clusterId = 0,
+                    driverName = driver,
+                    cpuRange = littleRange,
+                    states = littleStates
                 )
+            )
+            val bigCoreRef = if (totalCores >= 8) 4 else -1
+            if (bigCoreRef > 0) {
+                val bigStates = detectStatesForCore(bigCoreRef)
+                if (bigStates.isNotEmpty()) {
+                    clusters.add(
+                        ClusterIdleInfo(
+                            clusterId = 1,
+                            driverName = driver,
+                            cpuRange = "CPU $bigCoreRef-${totalCores - 1} (Performance)",
+                            states = bigStates
+                        )
+                    )
+                }
             }
         }
 

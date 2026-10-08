@@ -88,22 +88,64 @@ object CpuPolicyManager {
     }
 
     /**
+     * Resolves safe Efficiency/Base core boundary and parkable Big/Prime cores.
+     * Guarantees at least 4 active cores on 2+5+1 (SD 8 Gen 3), 1+3+2+2, or 10-core topologies.
+     */
+    private fun resolveSafeClusterSplit(totalCores: Int): Pair<Int, String> {
+        val fallbackLast = if (totalCores >= 8) (totalCores - 3).coerceAtLeast(3) else (totalCores / 2).coerceAtLeast(1)
+        return try {
+            val script = """
+                little_cores=""
+                big_cores=""
+                for idx in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+                    pol="/sys/devices/system/cpu/cpufreq/policy${'$'}idx"
+                    [ -d "${'$'}pol" ] || continue
+                    c_list=${'$'}(cat "${'$'}pol/related_cpus" 2>/dev/null | tr -s '[:space:]' ' ')
+                    cur_cnt=${'$'}(echo "${'$'}little_cores" | wc -w)
+                    if [ "${'$'}cur_cnt" -lt 4 ]; then
+                        little_cores="${'$'}little_cores ${'$'}c_list"
+                    else
+                        big_cores="${'$'}big_cores ${'$'}c_list"
+                    fi
+                done
+                little_last=${'$'}(echo "${'$'}little_cores" | awk '{print ${'$'}NF}')
+                echo "LAST:${'$'}little_last"
+                echo "BIG:${'$'}big_cores"
+            """.trimIndent()
+            val out = Shell.cmd(script).exec().out
+            var last = fallbackLast
+            var big = if (totalCores >= 8) "6 7" else ""
+            out.forEach { line ->
+                if (line.startsWith("LAST:")) {
+                    last = line.removePrefix("LAST:").trim().toIntOrNull() ?: fallbackLast
+                } else if (line.startsWith("BIG:")) {
+                    val b = line.removePrefix("BIG:").trim()
+                    if (b.isNotEmpty()) big = b
+                }
+            }
+            Pair(last.coerceIn(1, (totalCores - 1).coerceAtLeast(1)), big)
+        } catch (_: Exception) {
+            Pair(fallbackLast, if (totalCores >= 8) "6 7" else "")
+        }
+    }
+
+    /**
      * Apply one of the high-level profiles across all subsystems.
      */
     fun applyProfile(profile: CpuControlProfile, totalCores: Int = 8, context: Context): Boolean {
         activeProfile = profile
         isMasterOverride = (profile != CpuControlProfile.OEM_MANAGED)
+        val (littleLast, bigCoresStr) = resolveSafeClusterSplit(totalCores)
 
         when (profile) {
             CpuControlProfile.OEM_MANAGED -> {
                 return restoreOemFactory(context, totalCores)
             }
             CpuControlProfile.GAMING -> {
-                // 1. CPU Sets: Game on Big Cores (e.g. 2-7 or 4-7), Background on Little (0-1)
+                // 1. CPU Sets: Game on all cores, Foreground on Little/Mid base, Background on 0-1
                 if (isCpusetModuleEnabled && cpusetBackend.isSupported()) {
-                    val bigMask = if (totalCores >= 8) "2-7" else "0-${totalCores - 1}"
-                    cpusetBackend.writeGroupMask("top-app", bigMask)
-                    cpusetBackend.writeGroupMask("foreground", "0-${totalCores - 1}")
+                    cpusetBackend.writeGroupMask("top-app", "0-${totalCores - 1}")
+                    cpusetBackend.writeGroupMask("foreground", "0-$littleLast")
                     cpusetBackend.writeGroupMask("background", "0-1")
                     cpusetBackend.writeGroupMask("system-background", "0-1")
                 }
@@ -120,9 +162,9 @@ object CpuPolicyManager {
                 }
                 Shell.cmd(unparkCmd.toString()).exec()
 
-                // 4. Scheduler: Game Boost (e.g. +20% / Prefer Idle ON)
+                // 4. Scheduler: Game Boost
                 if (isSchedulerModuleEnabled && schedulerBackend.isSupported()) {
-                    schedulerBackend.applyProfile(boostTopApp = 25, boostFg = 0, boostBg = 0, preferIdle = true)
+                    schedulerBackend.applyProfile(boostTopApp = 50, boostFg = 10, boostBg = 0, preferIdle = true)
                 }
             }
             CpuControlProfile.BALANCED -> {
@@ -130,8 +172,8 @@ object CpuPolicyManager {
                 if (isCpusetModuleEnabled && cpusetBackend.isSupported()) {
                     cpusetBackend.writeGroupMask("top-app", "0-${totalCores - 1}")
                     cpusetBackend.writeGroupMask("foreground", "0-${totalCores - 1}")
-                    cpusetBackend.writeGroupMask("background", "0-3")
-                    cpusetBackend.writeGroupMask("system-background", "0-3")
+                    cpusetBackend.writeGroupMask("background", "0-$littleLast")
+                    cpusetBackend.writeGroupMask("system-background", "0-$littleLast")
                 }
 
                 // 2. CPU Idle: Balanced OEM all states on
@@ -148,14 +190,14 @@ object CpuPolicyManager {
 
                 // 4. Scheduler: Standard vendor boost
                 if (isSchedulerModuleEnabled && schedulerBackend.isSupported()) {
-                    schedulerBackend.applyProfile(boostTopApp = 15, boostFg = 0, boostBg = 0, preferIdle = true)
+                    schedulerBackend.applyProfile(boostTopApp = 20, boostFg = 5, boostBg = 0, preferIdle = true)
                 }
             }
             CpuControlProfile.BATTERY -> {
-                // 1. CPU Sets: Restrict background & foreground to Little Cores
+                // 1. CPU Sets: Restrict background & foreground to Little/Mid base Cores (min 4 cores)
                 if (isCpusetModuleEnabled && cpusetBackend.isSupported()) {
-                    cpusetBackend.writeGroupMask("top-app", "0-5")
-                    cpusetBackend.writeGroupMask("foreground", "0-3")
+                    cpusetBackend.writeGroupMask("top-app", "0-$littleLast")
+                    cpusetBackend.writeGroupMask("foreground", "0-$littleLast")
                     cpusetBackend.writeGroupMask("background", "0-1")
                     cpusetBackend.writeGroupMask("system-background", "0-1")
                 }
@@ -165,10 +207,11 @@ object CpuPolicyManager {
                     CpuIdleDetector.applySemanticMode(IdleSemanticMode.DEEP_SLEEP_PRIORITY, totalCores)
                 }
 
-                // 3. Core Parking: Park Big Cores if 8 cores (e.g. cpu6 & cpu7)
-                if (totalCores == 8) {
-                    Shell.cmd("chmod 644 /sys/devices/system/cpu/cpu6/online 2>/dev/null && echo 0 > /sys/devices/system/cpu/cpu6/online 2>/dev/null; " +
-                            "chmod 644 /sys/devices/system/cpu/cpu7/online 2>/dev/null && echo 0 > /sys/devices/system/cpu/cpu7/online 2>/dev/null").exec()
+                // 3. Core Parking: Park Big/Prime Cores dynamically while keeping >= 4 base cores online
+                if (totalCores >= 6 && bigCoresStr.isNotBlank()) {
+                    Shell.cmd(
+                        "for c in $bigCoresStr; do chmod 644 /sys/devices/system/cpu/cpu\$c/online 2>/dev/null && echo 0 > /sys/devices/system/cpu/cpu\$c/online 2>/dev/null; done"
+                    ).exec()
                 }
 
                 // 4. Scheduler: 0% boost
@@ -206,13 +249,14 @@ object CpuPolicyManager {
     fun restoreOemFactory(context: Context, totalCores: Int = 8): Boolean {
         isMasterOverride = false
         activeProfile = CpuControlProfile.OEM_MANAGED
+        val (littleLast, _) = resolveSafeClusterSplit(totalCores)
 
         // 1. Reset Cpusets
         if (cpusetBackend.isSupported()) {
             cpusetBackend.writeGroupMask("top-app", "0-${totalCores - 1}")
             cpusetBackend.writeGroupMask("foreground", "0-${totalCores - 1}")
-            cpusetBackend.writeGroupMask("background", "0-3")
-            cpusetBackend.writeGroupMask("system-background", "0-3")
+            cpusetBackend.writeGroupMask("background", "0-$littleLast")
+            cpusetBackend.writeGroupMask("system-background", "0-$littleLast")
         }
 
         // 2. Reset CPU Idle to OEM
@@ -229,7 +273,7 @@ object CpuPolicyManager {
 
         // 4. Reset Scheduler
         if (schedulerBackend.isSupported()) {
-            schedulerBackend.applyProfile(boostTopApp = 15, boostFg = 0, boostBg = 0, preferIdle = true)
+            schedulerBackend.applyProfile(boostTopApp = 20, boostFg = 5, boostBg = 0, preferIdle = true)
         }
 
         val snapshot = captureCurrentSnapshot(context).copy(
@@ -254,7 +298,9 @@ object CpuPolicyManager {
     fun resetCpuSetsToOem(totalCores: Int = 8): Boolean {
         if (!cpusetBackend.isSupported()) return false
         val allCores = "0-${totalCores - 1}"
-        val littleCores = if (totalCores >= 8) "0-3" else "0-${(totalCores / 2) - 1}"
+        val littleLast = Shell.cmd("cat /sys/devices/system/cpu/cpufreq/policy0/related_cpus 2>/dev/null | awk '{print \$NF}'").exec().out.firstOrNull()?.trim()?.toIntOrNull()
+            ?: if (totalCores >= 8) (totalCores - 3).coerceAtLeast(3) else (totalCores / 2)
+        val littleCores = "0-$littleLast"
         cpusetBackend.writeGroupMask("top-app", allCores)
         cpusetBackend.writeGroupMask("foreground", allCores)
         cpusetBackend.writeGroupMask("background", littleCores)

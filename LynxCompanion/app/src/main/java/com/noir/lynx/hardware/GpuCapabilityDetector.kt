@@ -78,23 +78,42 @@ object GpuCapabilityDetector {
                     r=0; w=0
                     [ -r "${'$'}p" ] && r=1
                     [ -w "${'$'}p" ] && w=1
+                    if [ "${'$'}w" = "0" ]; then
+                        chmod 0644 "${'$'}p" 2>/dev/null || chmod 0664 "${'$'}p" 2>/dev/null
+                        [ -w "${'$'}p" ] && w=1
+                    fi
                     echo "${'$'}p|${'$'}l|${'$'}r|${'$'}w"
                 fi
             }
             chk "/sys/kernel/ged/hal/current_freqency" "Mali GED Frekuensi Aktif"
             chk "/sys/kernel/ged/hal/gpu_utilization" "Mali GED Utilisasi GPU"
-            chk "/sys/kernel/ged/hal/gpu_boost_level" "Mali GED Boost Level"
-            chk "/sys/kernel/ged/hal/custom_upbound_gpu_freq" "Mali GED Batas Frekuensi Maksimum"
-            chk "/proc/gpufreqv2/gpufreq_opp_freq" "Mali OPP Frequency Table"
+            chk "/sys/module/ged/parameters/ged_boost_enable" "MediaTek GED Engine Boost"
+            chk "/sys/module/ged/parameters/ged_smart_boost" "MediaTek GED Smart Boost"
+            chk "/sys/module/ged/parameters/gx_game_mode" "MediaTek GED Game Mode"
+            chk "/sys/module/ged/parameters/ged_monitor_3D_fence_disable" "MediaTek GED 3D Fence Bypass"
+            chk "/sys/kernel/ged/hal/dvfs_margin_value" "MediaTek GED DVFS Margin"
+            chk "/sys/module/ged/parameters/gpu_bottom_freq" "MediaTek GED Frekuensi Minimum"
+            chk "/sys/module/ged/parameters/gpu_cust_upbound_freq" "MediaTek GED Frekuensi Maksimum"
+            chk "/proc/gpufreq/gpufreq_opp_freq" "MediaTek GPU Fixed OPP Lock"
+            chk "/proc/gpufreq/gpufreq_limit_table" "MediaTek GPU Thermal & Power Limit Table"
+            chk "/proc/gpufreqv2/gpufreq_opp_freq" "MediaTek GPUFreq v2 OPP Lock"
             chk "/sys/kernel/fpsgo/common/fpsgo_enable" "MediaTek FPSGO Dynamic Engine"
-            chk "/sys/class/misc/mali0/device/power_policy" "Mali Power Policy"
+            chk "/sys/kernel/fpsgo/common/gpu_block_boost" "MediaTek FPSGO GPU Block Boost"
+            chk "/sys/kernel/fpsgo/fbt/boost_ta" "MediaTek FPSGO FBT Top-App Boost"
+            chk "/sys/kernel/fpsgo/fbt/enable_switch_sync_flag" "MediaTek FPSGO Render Sync"
+            chk "/sys/class/misc/mali0/device/power_policy" "ARM Mali Power Policy"
+            chk "/sys/class/misc/mali0/device/dvfs_period" "ARM Mali DVFS Polling Interval"
             chk "/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq" "Adreno Frekuensi Aktif"
             chk "/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage" "Adreno Utilisasi GPU"
             chk "/sys/class/kgsl/kgsl-3d0/devfreq/governor" "Adreno Devfreq Governor"
+            chk "/sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost" "Adreno Boost Algorithm"
+            chk "/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel" "Adreno Thermal Power Level"
             chk "/sys/class/kgsl/kgsl-3d0/idle_timer" "Adreno Idle Timer"
-            chk "/sys/kernel/gpu/gpu_clock" "Exynos GPU Clock"
-            chk "/sys/kernel/gpu/gpu_load" "Exynos GPU Load"
-            chk "/sys/devices/platform/kcal_ctrl.0/kcal" "Qualcomm KCAL Ctrl"
+            chk "/sys/class/kgsl/kgsl-3d0/force_bus_on" "Adreno Force Bus On"
+            chk "/sys/class/kgsl/kgsl-3d0/throttling" "Adreno Thermal Throttling Gate"
+            chk "/sys/kernel/gpu/gpu_clock" "Unified Kernel GPU Clock"
+            chk "/sys/kernel/gpu/gpu_busy" "Unified Kernel GPU Busy"
+            chk "/sys/devices/platform/kcal_ctrl.0/kcal" "Qualcomm KCAL Display Control"
             echo "---MARKER_ANTI_SPOOF---"
             # 6. Kernel Ground Truth & Anti-Spoofing Probe
             dt=""

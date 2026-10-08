@@ -59,7 +59,21 @@ if [ "$ACTION" = "disable" ] || [ "$ACTION" = "0" ]; then
         write_node "0" "$cooling/cur_state"
     done
 
-    # 6. Stop Vendor Thermal Daemons
+    # 6. MediaTek GPU Thermal & PBM Bypass
+    if [ -f "/proc/gpufreq/gpufreq_limit_table" ]; then
+        for id in 3 4 5 6 7; do
+            write_node "$id 0 0" "/proc/gpufreq/gpufreq_limit_table"
+        done
+    fi
+    if [ -f "/proc/gpufreqv2/gpufreq_power_limited" ]; then
+        echo "ignore_thermal_protect 1" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
+        echo "ignore_pbm_limited 1" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
+    fi
+    write_node "0" "/sys/module/fbt_cpu/parameters/thrm_limit_cpu"
+    write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+    write_node "0" "/sys/kernel/eara_thermal/enable"
+
+    # 7. Stop Vendor Thermal Daemons
     stop android.thermal-hal debug_pid.sec-thermal-1-0 mi_thermald thermal thermal-engine \
          thermal_mnt_hal_service thermal-hal thermald thermalloadalgod thermalservice \
          sec-thermal-1-0 vendor.thermal-hal-1-0 vendor.semc.hardware.thermal-1-0 \
@@ -77,10 +91,24 @@ elif [ "$ACTION" = "enable" ] || [ "$ACTION" = "1" ]; then
     write_node "5 1" "/proc/ppm/policy_status"
     write_node "1" "/proc/ppm/cpi/cpi_enabled"
 
-    # 3. Reset Android Framework Thermal Status
+    # 3. Restore MediaTek GPU Thermal Limits
+    if [ -f "/proc/gpufreq/gpufreq_limit_table" ]; then
+        for id in 3 4 5 6 7; do
+            write_node "$id 1 1" "/proc/gpufreq/gpufreq_limit_table"
+        done
+    fi
+    if [ -f "/proc/gpufreqv2/gpufreq_power_limited" ]; then
+        echo "ignore_thermal_protect 0" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
+        echo "ignore_pbm_limited 0" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
+    fi
+    write_node "1" "/sys/module/fbt_cpu/parameters/thrm_limit_cpu"
+    write_node "1" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+    write_node "1" "/sys/kernel/eara_thermal/enable"
+
+    # 4. Reset Android Framework Thermal Status
     cmd thermalservice reset 2>/dev/null
 
-    # 4. Enable Thermal Zones & Reset Trip Points
+    # 5. Enable Thermal Zones & Reset Trip Points
     for tz in /sys/class/thermal/thermal_zone*; do
         [ -d "$tz" ] || continue
         write_node "enabled" "$tz/mode"
@@ -88,13 +116,13 @@ elif [ "$ACTION" = "enable" ] || [ "$ACTION" = "1" ]; then
         write_node "80000" "$tz/trip_point_0_temp"
     done
 
-    # 5. Reset Cooling Devices
+    # 6. Reset Cooling Devices
     for cooling in /sys/class/thermal/cooling_device*; do
         [ -d "$cooling" ] || continue
         write_node "0" "$cooling/cur_state"
     done
 
-    # 6. Restart Vendor Thermal Services
+    # 7. Restart Vendor Thermal Services
     start android.thermal-hal mi_thermald thermal thermal-engine thermald \
           vendor.thermal-hal-1-0 vendor.thermal-engine vendor.thermal-manager 2>/dev/null
 fi

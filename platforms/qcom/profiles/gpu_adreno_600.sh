@@ -13,8 +13,10 @@ write_node() {
 
 KGSL="/sys/class/kgsl/kgsl-3d0"
 if [ -d "$KGSL" ]; then
-    write_node "0" "$KGSL/min_pwrlevel"
-    write_node "0" "$KGSL/default_pwrlevel"
+    if [ "$MODE" = "perf" ] || [ "$MODE" = "extreme" ]; then
+        write_node "0" "$KGSL/min_pwrlevel"
+        write_node "0" "$KGSL/default_pwrlevel"
+    fi
     write_node "1" "$KGSL/force_bus_on"
     write_node "1" "$KGSL/force_clk_on"
     write_node "1" "$KGSL/force_rail_on"

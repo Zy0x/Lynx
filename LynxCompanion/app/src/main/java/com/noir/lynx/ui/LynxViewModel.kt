@@ -86,6 +86,7 @@ class LynxViewModel : ViewModel() {
                 val statLoads = LynxRepository.readCpuStatLoads()
                 val socPlatformName = LynxRepository.getSocPlatformName()
                 val socTopology = LynxRepository.getSocTopology(clusters, cpuCores.size.coerceAtLeast(8))
+                val siliconDetails = LynxRepository.readCpuSiliconTopologyDetails(clusters)
                 val batteryDetails = LynxRepository.readBatteryDetails()
                 val topWakelocks = LynxRepository.readTopWakelocks()
                 val cachedTunables = LynxRepository.loadCachedDeepTunables()
@@ -114,6 +115,8 @@ class LynxViewModel : ViewModel() {
                 val displayPipe = LynxRepository.readDisplayPipeline()
                 val colorConflict = LynxRepository.checkColorConflict()
                 val isColorCalEnabled = LynxRepository.isColorCalibrationEnabled()
+                val savedColorProf = LynxRepository.readSavedColorProfile()
+                val perAppGfxRules = LynxRepository.readPerAppGraphicsRules(appContext)
                 val savedSessions = LynxRepository.listLabSessions(appContext)
 
                 val resolvedState = if (currentTcp.isNotBlank()) {
@@ -126,6 +129,7 @@ class LynxViewModel : ViewModel() {
                         isRootAvailable = true,
                         isModuleInstalled = moduleInstalled,
                         state = resolvedState,
+                        cpuComprehensiveProfile = mapModuleProfileToCpuProfile(resolvedState.activeProfile),
                         clusters = clusters,
                         telemetry = telemetry,
                         backups = backups,
@@ -134,6 +138,8 @@ class LynxViewModel : ViewModel() {
                         displayPipeline = displayPipe,
                         colorConflictWarning = colorConflict,
                         isColorCalibrationEnabled = isColorCalEnabled,
+                        colorMatrixProfile = savedColorProf,
+                        perAppGraphicsRules = perAppGfxRules,
                         savedLabSessions = savedSessions,
                         ksmStats = ksmStats,
                         ioDevices = ioDevices,
@@ -174,6 +180,7 @@ class LynxViewModel : ViewModel() {
                         cpuLoadHistory = listOf(statLoads.first),
                         socPlatformName = socPlatformName,
                         socTopology = socTopology,
+                        siliconTopologyDetails = siliconDetails,
                         batteryDetails = batteryDetails,
                         deepTunables = cachedTunables,
                         appProfileRules = appRules,
@@ -229,12 +236,47 @@ class LynxViewModel : ViewModel() {
     // ----------------------------------------------------------------
 
     private var isForeground = true
+    private var cpuMonitorStreamJob: Job? = null
+
+    fun startCpuMonitorStream() {
+        if (cpuMonitorStreamJob?.isActive == true) return
+        cpuMonitorStreamJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                LynxRepository.streamCpuMonitor().collect { snapshot ->
+                    _uiState.update { current ->
+                        val newHistory = if (current.cpuLoadHistory.isEmpty()) {
+                            List(15) { snapshot.totalCpuLoadPercent }
+                        } else {
+                            (current.cpuLoadHistory + snapshot.totalCpuLoadPercent).takeLast(30)
+                        }
+                        current.copy(
+                            totalCpuLoadPercent = snapshot.totalCpuLoadPercent,
+                            cpuLoadHistory = newHistory,
+                            topCpuProcesses = snapshot.topProcesses
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d("LynxCPU", "cpuMonitorStream ended: ${e.message}")
+            }
+        }
+    }
+
+    fun stopCpuMonitorStream() {
+        cpuMonitorStreamJob?.cancel()
+        cpuMonitorStreamJob = null
+    }
 
     fun setAppForeground(foreground: Boolean) {
         isForeground = foreground
         if (foreground) {
             refreshState()
             refreshClusters()
+            if (_uiState.value.currentTab == 1 && _uiState.value.selectedCpuTab == 2) {
+                startCpuMonitorStream()
+            }
+        } else {
+            stopCpuMonitorStream()
         }
     }
 
@@ -387,9 +429,19 @@ class LynxViewModel : ViewModel() {
                     counter++
                     val rawCores = LynxRepository.readCpuCores()
                     val cores = if (rawCores.isNotEmpty()) mergeCoresWithActiveIntents(rawCores) else emptyList()
-                    val totalLoad = LynxRepository.latestTotalCpuLoadPercent
-                    val procs = if (counter == 1 || counter % 3 == 0) LynxRepository.readTopCpuProcesses() else emptyList()
+                    val isMonitorTabActive = _uiState.value.selectedCpuTab == 2 && _uiState.value.currentTab == 1
+                    val totalLoad = if (isMonitorTabActive && LynxRepository.latestStreamSnapshot != null) {
+                        LynxRepository.latestStreamSnapshot!!.totalCpuLoadPercent
+                    } else {
+                        LynxRepository.latestTotalCpuLoadPercent
+                    }
+                    val procs = if (isMonitorTabActive) emptyList() else if (counter == 1 || counter % 3 == 0) LynxRepository.readTopCpuProcesses() else emptyList()
                     val batt = LynxRepository.readBatteryDetails()
+                    if (_uiState.value.state.charging.extremeChargingEnabled && (batt?.isCharging == true || (batt?.currentMa ?: 0) > 200)) {
+                        if (counter % 3 == 0) {
+                            LynxRepository.reapplyExtremeChargingLock()
+                        }
+                    }
                     val rawGpu = LynxRepository.readGpuInfo()
                     val gpu = mergeGpuInfoWithIntent(rawGpu)
                     val therm = if (counter % 3 == 0) LynxRepository.readThermalZones() else null
@@ -397,7 +449,9 @@ class LynxViewModel : ViewModel() {
 
                     if (tel != null || cores.isNotEmpty() || batt != null || gpu != null || therm != null || procs.isNotEmpty() || (freshClusters != null && freshClusters.isNotEmpty())) {
                         _uiState.update { current ->
-                            val newHistory = if (current.cpuLoadHistory.isEmpty()) {
+                            val newHistory = if (isMonitorTabActive) {
+                                current.cpuLoadHistory
+                            } else if (current.cpuLoadHistory.isEmpty()) {
                                 List(15) { totalLoad }
                             } else {
                                 (current.cpuLoadHistory + totalLoad).takeLast(30)
@@ -418,8 +472,8 @@ class LynxViewModel : ViewModel() {
                             current.copy(
                                 telemetry = tel ?: current.telemetry,
                                 cpuCores = syncedCores,
-                                topCpuProcesses = if (procs.isNotEmpty()) procs else current.topCpuProcesses,
-                                totalCpuLoadPercent = totalLoad,
+                                topCpuProcesses = if (isMonitorTabActive) current.topCpuProcesses else if (procs.isNotEmpty()) procs else current.topCpuProcesses,
+                                totalCpuLoadPercent = if (isMonitorTabActive) current.totalCpuLoadPercent else totalLoad,
                                 cpuLoadHistory = newHistory,
                                 batteryDetails = batt ?: current.batteryDetails,
                                 gpuInfo = gpu ?: current.gpuInfo,
@@ -468,6 +522,7 @@ class LynxViewModel : ViewModel() {
                     }
                     current.copy(
                         state = freshState.copy(activeProfile = finalProfile),
+                        cpuComprehensiveProfile = if (current.isCpuModified) current.cpuComprehensiveProfile else mapModuleProfileToCpuProfile(finalProfile),
                         clusters = finalClusters,
                         cpuCores = syncedCores,
                         lastSyncedAt = System.currentTimeMillis()
@@ -659,38 +714,72 @@ class LynxViewModel : ViewModel() {
     //  Profile Management
     // ----------------------------------------------------------------
 
-    fun setProfile(profile: String, context: Context? = null) {
-        recordStateMutation()
-        viewModelScope.launch {
-            // Optimistically update activeProfile in UI state for immediate visual responsiveness
-            _uiState.update {
-                it.copy(state = it.state.copy(activeProfile = profile))
-            }
-            val success = LynxRepository.setProfile(profile)
-            if (success) {
-                if (profile == "auto") {
-                    context?.let { LynxRepository.startAppAutomation(it) }
-                } else {
-                    context?.let { LynxAppAutomationService.updateBaselineProfile(it, profile) }
-                }
-            }
-            // Fast targeted telemetry refresh: only update dynamic values (CPU clusters, GPU, display refresh rate)
-            // Eliminates heavy 35-query refreshState() on profile switch for instant sub-200ms transitions
-            try {
-                val freshClusters = LynxRepository.readClusters()
-                val mergedClusters = if (freshClusters.isNotEmpty()) mergeClustersWithActiveIntents(freshClusters) else emptyList()
-                val freshGpu = mergeGpuInfoWithIntent(LynxRepository.readGpuInfo())
-                val freshRr = mergeRefreshRateWithIntent(LynxRepository.readDisplayRefreshRate())
-                _uiState.update {
-                    it.copy(
-                        clusters = if (mergedClusters.isNotEmpty()) mergedClusters else it.clusters,
-                        gpuInfo = freshGpu,
-                        displayRefreshRate = freshRr
-                    )
-                }
-            } catch (e: Exception) {
-            }
+    private fun mapModuleProfileToCpuProfile(profile: String): String {
+        return when (profile.lowercase().trim()) {
+            "powersave", "battery", "eco" -> "battery"
+            "performance", "gaming", "esports" -> "performance"
+            "extreme", "monster" -> "extreme"
+            "balance", "balanced", "auto", "dormant" -> "balanced"
+            else -> "balanced"
         }
+    }
+
+    private fun pickDefaultDynamicGovernor(availGovs: List<String>, fallback: String): String {
+        val priority = listOf("walt", "sugov_ext", "schedutil", "energy_step", "interactive", "ondemand")
+        for (g in priority) {
+            if (availGovs.contains(g)) return g
+        }
+        return if (availGovs.contains(fallback)) fallback else (availGovs.firstOrNull() ?: fallback)
+    }
+
+    private fun computeClusterTargetsForProfile(
+        clusters: List<CpuClusterInfo>,
+        normalized: String
+    ): Map<Int, CpuProfileClusterTarget> {
+        return clusters.associate { c ->
+            val defaultHwMin = if (c.id > 0) 774000L else 500000L
+            val defaultHwMax = if (c.id > 0) 2050000L else 2000000L
+            val minHw = c.availFreqs.firstOrNull() ?: defaultHwMin
+            val maxHw = c.availFreqs.lastOrNull() ?: defaultHwMax
+            val dynGov = pickDefaultDynamicGovernor(c.availGovs, c.curGov)
+            val target = when (normalized) {
+                "battery" -> {
+                    val pct = if (c.id == 0) 65L else 55L
+                    val rawCap = (maxHw * pct) / 100L
+                    val maxTarget = c.availFreqs.filter { it <= rawCap }.maxOrNull() ?: minHw
+                    val gov = if (dynGov in listOf("walt", "sugov_ext", "schedutil", "energy_step", "interactive", "ondemand")) {
+                        dynGov
+                    } else if (c.availGovs.contains("conservative")) {
+                        "conservative"
+                    } else if (c.availGovs.contains("powersave")) {
+                        "powersave"
+                    } else dynGov
+                    CpuProfileClusterTarget(minHw, maxTarget, gov, isLocked = false)
+                }
+                "performance" -> {
+                    val rawFloor = (maxHw * 85L) / 100L
+                    val minTarget = c.availFreqs.filter { it <= rawFloor }.maxOrNull() ?: minHw
+                    val gov = if (dynGov in listOf("walt", "sugov_ext", "schedutil", "energy_step", "interactive", "ondemand")) {
+                        dynGov
+                    } else if (c.availGovs.contains("performance")) {
+                        "performance"
+                    } else dynGov
+                    CpuProfileClusterTarget(minTarget, maxHw, gov, isLocked = false)
+                }
+                "extreme" -> {
+                    val gov = if (c.availGovs.contains("performance")) "performance" else dynGov
+                    CpuProfileClusterTarget(maxHw, maxHw, gov, isLocked = true)
+                }
+                else -> { // balanced
+                    CpuProfileClusterTarget(minHw, maxHw, dynGov, isLocked = false)
+                }
+            }
+            c.id to target
+        }
+    }
+
+    fun setProfile(profile: String, context: Context? = null) {
+        applyComprehensiveCpuProfile(profile, context)
     }
 
     // ----------------------------------------------------------------
@@ -809,6 +898,7 @@ class LynxViewModel : ViewModel() {
         }
         viewModelScope.launch {
             val ok = LynxRepository.forceMaxSuperCharge()
+            LynxRepository.reapplyExtremeChargingLock()
             val details = LynxRepository.readBatteryDetails()
             if (details != null) {
                 _uiState.update { it.copy(batteryDetails = details, successMessage = if (ok) "Kecepatan Super Charge Maksimal Dipaksa (33W Unthrottled)" else "Gagal memaksa kecepatan super charge") }
@@ -1173,14 +1263,58 @@ class LynxViewModel : ViewModel() {
     fun setGpuFeature(feature: GpuHardwareFeature, targetValue: String) {
         recordStateMutation()
         val prevValue = feature.currentValue
-        // Optimistic UI update
+        val boolVal = targetValue == "1" || targetValue.equals("true", ignoreCase = true) || targetValue.equals("always_on", ignoreCase = true)
+        val intVal = targetValue.toIntOrNull()
+
+        // Optimistic UI update for both hardwareFeatures and top-level gpuInfo properties
         val updatedFeatures = _uiState.value.gpuInfo.hardwareFeatures.map {
             if (it.id == feature.id) it.copy(currentValue = targetValue) else it
         }
-        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(hardwareFeatures = updatedFeatures)) }
+        _uiState.update { state ->
+            var nextGpu = state.gpuInfo.copy(hardwareFeatures = updatedFeatures)
+            nextGpu = when (feature.id) {
+                "kgsl_force_bus_on" -> nextGpu.copy(isBusAlwaysOn = boolVal)
+                "adreno_force_rail" -> nextGpu.copy(adrenoForceRail = boolVal)
+                "adreno_thermal_bypass", "mtk_gpufreq_thermal_bypass" -> nextGpu.copy(isThrottlingBypassed = boolVal)
+                "adreno_idle_timer" -> nextGpu.copy(idleTimerMs = intVal ?: nextGpu.idleTimerMs)
+                "adreno_tz_target_load" -> nextGpu.copy(adrenoTzTargetLoad = intVal ?: nextGpu.adrenoTzTargetLoad)
+                "adreno_pwrlevel" -> nextGpu.copy(adrenoPwrLevel = intVal ?: nextGpu.adrenoPwrLevel)
+                "adrenoboost_level" -> nextGpu.copy(adrenoBoostLevel = intVal ?: nextGpu.adrenoBoostLevel)
+                "mtk_ged_boost_level" -> nextGpu.copy(gedBoostLevel = intVal ?: nextGpu.gedBoostLevel)
+                "mtk_frame_pacing", "ged_frame_pacing" -> nextGpu.copy(isFramePacingActive = boolVal)
+                "mtk_ultra_rescue", "fpsgo_ultra_rescue" -> nextGpu.copy(isFpsgoUltraRescue = boolVal)
+                "mtk_dvfs_margin", "ged_dvfs_margin" -> nextGpu.copy(maliDvfsMargin = intVal ?: nextGpu.maliDvfsMargin)
+                "mali_core_mask" -> nextGpu.copy(isMaliAllCoresActive = boolVal)
+                "mali_power_policy" -> nextGpu.copy(maliPowerPolicy = targetValue)
+                "devfreq_governor", "kernel_gpu_governor" -> nextGpu.copy(currentGovernor = targetValue)
+                else -> nextGpu
+            }
+            state.copy(gpuInfo = nextGpu)
+        }
 
         viewModelScope.launch {
-            val result = LynxRepository.writeGpuFeature(feature.nodePath, targetValue)
+            when (feature.id) {
+                "kgsl_force_bus_on" -> LynxRepository.setGpuBusAlwaysOn(boolVal)
+                "adreno_force_rail" -> LynxRepository.setAdrenoForceRail(boolVal)
+                "adreno_thermal_bypass", "mtk_gpufreq_thermal_bypass" -> LynxRepository.setGpuThermalBypass(boolVal)
+                "adreno_idle_timer" -> intVal?.let { LynxRepository.setGpuIdleTimer(it) }
+                "adreno_tz_target_load" -> intVal?.let { LynxRepository.setAdrenoTzTargetLoad(it) }
+                "adreno_pwrlevel" -> intVal?.let { LynxRepository.setAdrenoPwrLevel(it) }
+                "adrenoboost_level", "mtk_ged_boost_level" -> intVal?.let { LynxRepository.setGpuBoostLevel(it) }
+                "mtk_frame_pacing", "ged_frame_pacing" -> LynxRepository.setGpuFramePacing(boolVal)
+                "mtk_ultra_rescue", "fpsgo_ultra_rescue" -> LynxRepository.setFpsgoUltraRescue(boolVal)
+                "mtk_dvfs_margin", "ged_dvfs_margin" -> intVal?.let { LynxRepository.setMaliDvfsMargin(it) }
+                "mali_core_mask" -> LynxRepository.setMaliCoreMask(boolVal)
+                "mali_power_policy" -> LynxRepository.setMaliPowerPolicy(targetValue)
+                "devfreq_governor", "kernel_gpu_governor" -> LynxRepository.setGpuGovernor(targetValue)
+            }
+
+            val actualNodeValue = when (feature.id) {
+                "adreno_thermal_bypass", "adreno_bus_split_disable" -> if (boolVal) "0" else "1"
+                "mali_core_mask" -> if (boolVal) "0xFF" else "0x0F"
+                else -> targetValue
+            }
+            val result = LynxRepository.writeGpuFeature(feature.nodePath, actualNodeValue)
             when (result) {
                 is WriteResult.Applied -> {
                     delay(200L)
@@ -1315,9 +1449,58 @@ class LynxViewModel : ViewModel() {
 
     fun applyGpuProfile(profile: String, context: android.content.Context) {
         recordStateMutation()
-        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(activeProfile = profile)) }
+        val curGpu = _uiState.value.gpuInfo
+        val freqs = curGpu.availFreqsMhz.sorted()
+        val minAvail = freqs.firstOrNull() ?: 300
+        val maxAvail = freqs.lastOrNull() ?: 850
+        val targetMin = when (profile) {
+            "esports" -> freqs.filter { it >= (maxAvail * 0.65).toInt() }.firstOrNull() ?: minAvail
+            "extreme" -> maxAvail
+            else -> minAvail
+        }
+        val targetMax = when (profile) {
+            "battery" -> freqs.filter { it <= (maxAvail * 0.65).toInt() }.lastOrNull() ?: minAvail
+            else -> maxAvail
+        }
+        val targetBoost = when (profile) {
+            "battery" -> 0
+            "balanced" -> 1
+            else -> 2
+        }
+        val targetThermalBypass = profile == "extreme"
+        val isGaming = profile == "esports" || profile == "extreme"
+        activeGpuIntent = GpuIntent(
+            adrenoBoost = if (curGpu.platform == "adreno") targetBoost else null,
+            gedBoost = if (curGpu.platform == "mali_ged") targetBoost else null,
+            minMhz = targetMin,
+            maxMhz = targetMax,
+            timestamp = System.currentTimeMillis()
+        )
+        _uiState.update {
+            it.copy(
+                gpuInfo = it.gpuInfo.copy(
+                    activeProfile = profile,
+                    minFreqMhz = targetMin,
+                    maxFreqMhz = targetMax,
+                    isLocked = targetMin == targetMax && targetMax > 0,
+                    adrenoBoostLevel = if (it.gpuInfo.platform == "adreno") targetBoost else it.gpuInfo.adrenoBoostLevel,
+                    gedBoostLevel = if (it.gpuInfo.platform == "mali_ged") targetBoost else it.gpuInfo.gedBoostLevel,
+                    isThrottlingBypassed = targetThermalBypass,
+                    isBusAlwaysOn = isGaming,
+                    isFramePacingActive = isGaming,
+                    maliDvfsMargin = when (profile) {
+                        "battery" -> 0
+                        "balanced" -> 10
+                        "esports" -> 20
+                        else -> 30
+                    },
+                    maliPowerPolicy = if (isGaming) "always_on" else "coarse_demand",
+                    isFpsgoUltraRescue = isGaming
+                )
+            )
+        }
         viewModelScope.launch {
-            val ok = LynxRepository.applyGpuProfile(profile, _uiState.value.gpuInfo)
+            val ok = LynxRepository.applyGpuProfile(profile, curGpu)
             if (ok) {
                 val label = when (profile) {
                     "battery" -> "Profil GPU Hemat Daya Aktif"
@@ -1461,6 +1644,13 @@ class LynxViewModel : ViewModel() {
             val ok = LynxRepository.savePerAppGraphicsRule(rule, context)
             if (ok) {
                 val rules = LynxRepository.readPerAppGraphicsRules(context)
+                if (com.noir.lynx.service.LynxAppAutomationService.isRunning) {
+                    try {
+                        context.startService(android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
+                            action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
+                        })
+                    } catch (_: Exception) {}
+                }
                 _uiState.update { it.copy(perAppGraphicsRules = rules, successMessage = "Aturan grafis untuk ${rule.appName} disimpan") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal menyimpan aturan grafis") }
@@ -1474,6 +1664,13 @@ class LynxViewModel : ViewModel() {
             val ok = LynxRepository.deletePerAppGraphicsRule(packageName, context)
             if (ok) {
                 val rules = LynxRepository.readPerAppGraphicsRules(context)
+                if (com.noir.lynx.service.LynxAppAutomationService.isRunning) {
+                    try {
+                        context.startService(android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
+                            action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
+                        })
+                    } catch (_: Exception) {}
+                }
                 _uiState.update { it.copy(perAppGraphicsRules = rules, successMessage = "Aturan grafis dihapus") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal menghapus aturan grafis") }
@@ -1493,6 +1690,32 @@ class LynxViewModel : ViewModel() {
 
     fun setSelectedCpuTab(tab: Int) {
         _uiState.update { it.copy(selectedCpuTab = tab) }
+        if (tab == 2 && _uiState.value.currentTab == 1 && isForeground) {
+            startCpuMonitorStream()
+        } else {
+            stopCpuMonitorStream()
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            when (tab) {
+                0 -> {
+                    val freshClusters = LynxRepository.readClusters()
+                    if (freshClusters.isNotEmpty()) {
+                        val merged = mergeClustersWithActiveIntents(freshClusters)
+                        _uiState.update { it.copy(clusters = merged) }
+                    }
+                }
+                2 -> {
+                    val freshCores = LynxRepository.readCpuCores()
+                    val freshSilicon = LynxRepository.readCpuSiliconTopologyDetails(_uiState.value.clusters)
+                    _uiState.update { current ->
+                        current.copy(
+                            cpuCores = if (freshCores.isNotEmpty()) mergeCoresWithActiveIntents(freshCores) else current.cpuCores,
+                            siliconTopologyDetails = freshSilicon
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fun selectCpuTab(tab: Int) = setSelectedCpuTab(tab)
@@ -1501,19 +1724,10 @@ class LynxViewModel : ViewModel() {
         _uiState.update { it.copy(isCpuRecommendationDismissed = true, cpuRecommendation = null) }
     }
 
-    private data class CpuProfileClusterTarget(
-        val minFreq: Long,
-        val maxFreq: Long,
-        val gov: String,
-        val isLocked: Boolean
-    )
-
-    fun applyComprehensiveCpuProfile(profile: String, context: Context) {
+    fun applyComprehensiveCpuProfile(profile: String, context: Context? = null) {
         recordStateMutation()
-        val normalized = when (profile.lowercase()) {
-            "gaming" -> "performance"
-            else -> profile.lowercase()
-        }
+        val rawLower = profile.lowercase().trim()
+        val normalized = mapModuleProfileToCpuProfile(rawLower)
 
         // 1. Cancel any active in-flight profile transition job to prevent race conditions & IO choke
         cpuProfileJob?.cancel()
@@ -1528,7 +1742,7 @@ class LynxViewModel : ViewModel() {
         val cpuSetPreset = when (normalized) {
             "battery" -> "battery"
             "performance", "extreme" -> "gaming"
-            else -> "balanced"
+            else -> "standard"
         }
         val idlePreset = when (normalized) {
             "battery" -> "battery"
@@ -1538,59 +1752,40 @@ class LynxViewModel : ViewModel() {
         val parkingMode = when (normalized) {
             "battery" -> "park_big"
             "extreme" -> "unpark_all"
-            else -> "dinamis"
+            else -> "dynamic"
         }
-        val companionModuleProfile = when (normalized) {
-            "battery" -> "powersave"
-            "performance" -> "performance"
-            "extreme" -> "extreme"
-            else -> "balance"
+        val targetBoostPct = when (normalized) {
+            "battery" -> 0
+            "performance" -> 50
+            "extreme" -> 80
+            else -> 20
         }
-        val isExtremeOrPerf = (normalized == "extreme" || normalized == "performance")
-        val isBalanced = (normalized == "balanced")
-        val successMsg = when (normalized) {
-            "battery" -> "Mode Efisiensi diterapkan: hemat daya maksimal."
-            "performance" -> "Mode Performa diterapkan: responsivitas tinggi & gaming stabil."
-            "extreme" -> "Mode Ekstrem diterapkan: frekuensi puncak terkunci tanpa batas."
+        val companionModuleProfile = if (rawLower == "auto") {
+            "auto"
+        } else {
+            when (normalized) {
+                "battery" -> "powersave"
+                "performance" -> "performance"
+                "extreme" -> "extreme"
+                else -> "balance"
+            }
+        }
+        val successMsg = when {
+            rawLower == "auto" -> "Mode AI Otomatis aktif: sistem menyesuaikan profil secara dinamis."
+            normalized == "battery" -> "Mode Efisiensi diterapkan: hemat daya maksimal."
+            normalized == "performance" -> "Mode Performa diterapkan: responsivitas tinggi & gaming stabil."
+            normalized == "extreme" -> "Mode Ekstrem diterapkan: frekuensi puncak terkunci tanpa batas."
             else -> "Mode Seimbang diterapkan: performa dan baterai optimal."
         }
 
         // Calculate targets for each cluster
-        val clusterTargets = clusters.associate { c ->
-            val target = when (normalized) {
-                "battery" -> {
-                    val min = c.availFreqs.firstOrNull() ?: c.curMin
-                    val maxTarget = if (c.availFreqs.size > 2) {
-                        c.availFreqs[(c.availFreqs.size * 0.65).toInt().coerceIn(0, c.availFreqs.lastIndex)]
-                    } else c.curMax
-                    val gov = if (c.availGovs.contains("schedutil")) "schedutil" else (if (c.availGovs.contains("powersave")) "powersave" else c.curGov)
-                    CpuProfileClusterTarget(min, maxTarget, gov, isLocked = false)
-                }
-                "performance" -> {
-                    val minTarget = if (c.availFreqs.size > 2) {
-                        c.availFreqs[(c.availFreqs.size * 0.45).toInt().coerceIn(0, c.availFreqs.lastIndex)]
-                    } else c.curMin
-                    val max = c.availFreqs.lastOrNull() ?: c.curMax
-                    val gov = if (c.availGovs.contains("schedutil")) "schedutil" else (if (c.availGovs.contains("performance")) "performance" else c.curGov)
-                    CpuProfileClusterTarget(minTarget, max, gov, isLocked = false)
-                }
-                "extreme" -> {
-                    val max = c.availFreqs.lastOrNull() ?: c.curMax
-                    val gov = if (c.availGovs.contains("performance")) "performance" else (if (c.availGovs.contains("schedutil")) "schedutil" else c.curGov)
-                    CpuProfileClusterTarget(max, max, gov, isLocked = true)
-                }
-                else -> { // balanced
-                    val min = c.availFreqs.firstOrNull() ?: c.curMin
-                    val max = c.availFreqs.lastOrNull() ?: c.curMax
-                    val gov = if (c.availGovs.contains("schedutil")) "schedutil" else c.curGov
-                    CpuProfileClusterTarget(min, max, gov, isLocked = false)
-                }
-            }
-            c.id to target
-        }
+        val clusterTargets = computeClusterTargetsForProfile(clusters, normalized)
 
         // Register active intents immediately so any concurrent read telemetry maintains target values
         val now = System.currentTimeMillis()
+        if (normalized != "extreme") {
+            activeClusterIntents.clear()
+        }
         clusterTargets.forEach { (cid, tgt) ->
             activeClusterIntents[cid] = ClusterIntent(
                 minFreq = tgt.minFreq,
@@ -1622,8 +1817,30 @@ class LynxViewModel : ViewModel() {
                 cpuCores = updatedCores,
                 schedulerInfo = current.schedulerInfo.copy(
                     activePreset = schedPreset,
+                    uclampMin = targetBoostPct,
+                    topAppSchedtuneBoost = targetBoostPct,
                     schedUpmigrate = schedHystUp,
-                    schedDownmigrate = schedHystDown
+                    schedDownmigrate = schedHystDown,
+                    mtkCciPerfMode = (normalized == "performance" || normalized == "extreme"),
+                    mtkDvfsrcBoostEnabled = (normalized == "performance" || normalized == "extreme"),
+                    busBandwidthProfile = when (normalized) {
+                        "battery" -> "eco"
+                        "performance", "extreme" -> "max"
+                        else -> "auto"
+                    },
+                    mtkCpuPowerMode = when (normalized) {
+                        "battery" -> 1
+                        "performance", "extreme" -> 3
+                        else -> 0
+                    },
+                    universalTouchBoostEnabled = (normalized == "performance" || normalized == "extreme"),
+                    antiThrottlingGuardEnabled = (normalized == "performance" || normalized == "extreme"),
+                    ppmDlptBypassEnabled = (normalized == "performance" || normalized == "extreme"),
+                    ppmPwrThrottlingEnabled = (normalized == "battery" || normalized == "balanced"),
+                    ppmThermalThrottlingEnabled = (normalized != "extreme"),
+                    ppmSysBoostEnabled = (normalized == "performance" || normalized == "extreme"),
+                    qcomDevfreqBusBoostEnabled = (normalized == "performance" || normalized == "extreme"),
+                    workqueuePowerEfficient = (normalized == "battery" || normalized == "balanced")
                 ),
                 cpuSets = current.cpuSets.copy(activePreset = cpuSetPreset),
                 cpuIdle = current.cpuIdle.copy(
@@ -1634,51 +1851,46 @@ class LynxViewModel : ViewModel() {
             )
         }
 
-        // 3. Batched Sequential Background Root Execution (No coroutine stampede, no sysfs race condition)
+        // 3. Batched Atomic Single-Pass Background Root Execution (<100ms, zero lag, zero revert)
         cpuProfileJob = viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Step 3a: Sequential cluster frequencies, governors, and locks
-                clusterTargets.forEach { (cid, tgt) ->
-                    ensureActive()
-                    LynxRepository.setClusterFreq(cid, tgt.minFreq, tgt.maxFreq)
-                    LynxRepository.setClusterGov(cid, tgt.gov)
-                    LynxRepository.setClusterLock(cid, tgt.isLocked, tgt.minFreq, tgt.maxFreq)
+                var effectiveClusterTargets = clusterTargets
+                if (effectiveClusterTargets.isEmpty()) {
+                    val fallbackClusters = LynxRepository.readClusters()
+                    effectiveClusterTargets = computeClusterTargetsForProfile(fallbackClusters, normalized)
+                }
+                val totalCores = _uiState.value.cpuSets.totalCoresCount.coerceAtLeast(8)
+                val params = CpuBatchProfileParams(
+                    companionProfile = companionModuleProfile,
+                    clusterTargets = effectiveClusterTargets,
+                    schedPreset = schedPreset,
+                    schedHystUp = schedHystUp,
+                    schedHystDown = schedHystDown,
+                    cpuSetPreset = cpuSetPreset,
+                    idlePreset = idlePreset,
+                    parkingMode = parkingMode,
+                    totalCores = totalCores
+                )
+
+                ensureActive()
+                val ok = LynxRepository.applyCpuBatchProfile(params, context)
+                if (ok) {
+                    if (companionModuleProfile == "auto") {
+                        context?.let { LynxRepository.startAppAutomation(it) }
+                    } else {
+                        context?.let { LynxAppAutomationService.updateBaselineProfile(it, companionModuleProfile) }
+                    }
                 }
 
-                // Step 3b: Sequential Scheduler Architecture, Preset, and Hysteresis
-                ensureActive()
-                LynxRepository.applySchedulerPreset(schedPreset, context)
-                LynxRepository.setSchedulerArchitectureMode("eas", context)
-                LynxRepository.setSchedulerHysteresis(schedHystUp, schedHystDown, context)
-
-                // Step 3c: Sequential Task Shield CPU Sets, CPU Idle, and Core Parking
-                ensureActive()
-                val totalCores = _uiState.value.cpuSets.totalCoresCount.coerceAtLeast(8)
-                LynxRepository.applyCpuSetPreset(cpuSetPreset, totalCores, context)
-                LynxRepository.applyCpuIdlePreset(idlePreset, context)
-                LynxRepository.setCoreParkingMode(parkingMode, totalCores, context)
-
-                // Step 3d: Hardware Platform Policies (MTK PPM & Qualcomm Touchboost)
-                ensureActive()
-                try {
-                    LynxRepository.setPpmPolicy(0, isExtremeOrPerf, context)
-                    LynxRepository.setPpmPolicy(4, isExtremeOrPerf, context)
-                    LynxRepository.setQcomTouchboost(isExtremeOrPerf || isBalanced, context)
-                } catch (_: Exception) {}
-
-                // Step 3e: Sync companion module profile
-                ensureActive()
-                try {
-                    LynxRepository.setProfile(companionModuleProfile)
-                } catch (_: Exception) {}
-
-                // Step 3f: Single consolidated read pass after settling
-                delay(200L)
+                // Single consolidated read pass after settling
+                delay(250L)
                 ensureActive()
                 val freshClusters = LynxRepository.readClusters()
                 val freshSched = LynxRepository.readSchedulerInfo(context)
                 val freshIdle = LynxRepository.readCpuIdleInfo(context)
                 val freshSets = LynxRepository.readCpuSetsInfo(context)
+                val freshGpu = mergeGpuInfoWithIntent(LynxRepository.readGpuInfo())
+                val freshRr = mergeRefreshRateWithIntent(LynxRepository.readDisplayRefreshRate())
 
                 withContext(Dispatchers.Main) {
                     _uiState.update { current ->
@@ -1695,6 +1907,8 @@ class LynxViewModel : ViewModel() {
                             schedulerInfo = freshSched,
                             cpuIdle = freshIdle,
                             cpuSets = freshSets,
+                            gpuInfo = freshGpu,
+                            displayRefreshRate = freshRr,
                             isCpuModified = false,
                             successMessage = successMsg
                         )
@@ -2215,6 +2429,11 @@ class LynxViewModel : ViewModel() {
 
     fun switchTab(tabIndex: Int) {
         _uiState.update { it.copy(currentTab = tabIndex) }
+        if (tabIndex == 1 && _uiState.value.selectedCpuTab == 2 && isForeground) {
+            startCpuMonitorStream()
+        } else {
+            stopCpuMonitorStream()
+        }
         if (tabIndex == 2 || tabIndex == 3) {
             refreshBackups()
         }
@@ -2566,7 +2785,22 @@ class LynxViewModel : ViewModel() {
 
     fun applySchedulerPreset(preset: String, context: Context? = null, fromMasterProfile: Boolean = false) {
         if (!fromMasterProfile) recordStateMutation()
-        _uiState.update { it.copy(schedulerInfo = it.schedulerInfo.copy(activePreset = preset), isCpuModified = if (fromMasterProfile) it.isCpuModified else true) }
+        val boostPct = when (preset.lowercase()) {
+            "battery" -> 0
+            "gaming" -> 50
+            "extreme" -> 80
+            else -> 20
+        }
+        _uiState.update {
+            it.copy(
+                schedulerInfo = it.schedulerInfo.copy(
+                    activePreset = preset,
+                    uclampMin = boostPct,
+                    topAppSchedtuneBoost = boostPct
+                ),
+                isCpuModified = if (fromMasterProfile) it.isCpuModified else true
+            )
+        }
         viewModelScope.launch {
             val ok = LynxRepository.applySchedulerPreset(preset, context)
             if (ok) {
@@ -2740,6 +2974,28 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    fun setWorkqueuePowerEfficient(enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update { current ->
+            current.copy(
+                schedulerInfo = current.schedulerInfo.copy(workqueuePowerEfficient = enabled),
+                isCpuModified = true
+            )
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setWorkqueuePowerEfficient(enabled, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update {
+                    it.copy(
+                        schedulerInfo = fresh,
+                        successMessage = "Power-Efficient Workqueue ${if (enabled) "diaktifkan (Hemat Daya)" else "dinonaktifkan (Latensi Rendah)"}"
+                    )
+                }
+            }
+        }
+    }
+
     // ── Platform Hardware Engine (MediaTek PPM & Qualcomm Boost) ──
     fun setPpmPolicy(policyIdx: Int, enabled: Boolean, context: Context? = null) {
         recordStateMutation()
@@ -2774,6 +3030,213 @@ class LynxViewModel : ViewModel() {
             if (ok) {
                 val fresh = LynxRepository.readSchedulerInfo(context)
                 _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Qualcomm Input Boost diperbarui") }
+            }
+        }
+    }
+
+    fun setMtkInterconnectBusBoost(enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update {
+            it.copy(
+                schedulerInfo = it.schedulerInfo.copy(
+                    mtkCciPerfMode = enabled,
+                    mtkDvfsrcBoostEnabled = enabled
+                ),
+                isCpuModified = true
+            )
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setMtkInterconnectBusBoost(enabled, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update {
+                    it.copy(
+                        schedulerInfo = fresh,
+                        successMessage = "Akselerasi Bus CCI & Memori DDR ${if (enabled) "diaktifkan" else "dinonaktifkan"}"
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah mode Bus CCI & Memori") }
+            }
+        }
+    }
+
+    fun setMtkCpuPowerMode(mode: Int, context: Context? = null) {
+        recordStateMutation()
+        val safeMode = when (mode) {
+            1 -> 1
+            3 -> 3
+            else -> 0
+        }
+        _uiState.update {
+            it.copy(
+                schedulerInfo = it.schedulerInfo.copy(mtkCpuPowerMode = safeMode),
+                isCpuModified = true
+            )
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setMtkCpuPowerMode(safeMode, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                val label = when (safeMode) {
+                    1 -> "Hemat [1]"
+                    3 -> "Performa [3]"
+                    else -> "Default [0]"
+                }
+                _uiState.update {
+                    it.copy(
+                        schedulerInfo = fresh,
+                        successMessage = "Mode Daya DVFS Silikon diatur ke $label"
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah Mode Daya DVFS Silikon") }
+            }
+        }
+    }
+
+    fun setMtkDlptImaxBypass(enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update {
+            it.copy(
+                schedulerInfo = it.schedulerInfo.copy(ppmDlptBypassEnabled = enabled),
+                isCpuModified = true
+            )
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setMtkDlptImaxBypass(enabled, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update {
+                    it.copy(
+                        schedulerInfo = fresh,
+                        successMessage = "Bypass Limit Arus Puncak (DLPT & Imax) ${if (enabled) "diaktifkan" else "dinonaktifkan"}"
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah Bypass DLPT & Imax") }
+            }
+        }
+    }
+
+    fun setQcomDevfreqBusBoost(enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update {
+            it.copy(
+                schedulerInfo = it.schedulerInfo.copy(qcomDevfreqBusBoostEnabled = enabled),
+                isCpuModified = true
+            )
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setQcomDevfreqBusBoost(enabled, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update {
+                    it.copy(
+                        schedulerInfo = fresh,
+                        successMessage = "Akselerasi Bus Memori & Cache L3 (Devfreq) ${if (enabled) "diaktifkan" else "dinonaktifkan"}"
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah Akselerasi Bus Devfreq") }
+            }
+        }
+    }
+
+    fun setUniversalBusBandwidthProfile(profile: String, context: Context? = null) {
+        recordStateMutation()
+        val safeProfile = when (profile.lowercase()) {
+            "eco", "powersave" -> "eco"
+            "balanced", "balance" -> "balanced"
+            "max", "performance", "extreme" -> "max"
+            else -> "auto"
+        }
+        val isBoost = (safeProfile == "max")
+        _uiState.update {
+            it.copy(
+                schedulerInfo = it.schedulerInfo.copy(
+                    busBandwidthProfile = safeProfile,
+                    mtkCciPerfMode = isBoost,
+                    mtkDvfsrcBoostEnabled = isBoost,
+                    qcomDevfreqBusBoostEnabled = isBoost
+                ),
+                isCpuModified = true
+            )
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setUniversalBusBandwidthProfile(safeProfile, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                val label = when (safeProfile) {
+                    "eco" -> "Efisien"
+                    "balanced" -> "Seimbang"
+                    "max" -> "Maksimum"
+                    else -> "Otomatis"
+                }
+                _uiState.update {
+                    it.copy(
+                        schedulerInfo = fresh,
+                        successMessage = "Frekuensi Bus Memori & Interkoneksi diatur ke $label"
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah profil Bus Memori & Interkoneksi") }
+            }
+        }
+    }
+
+    fun setUniversalTouchBoost(enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update {
+            it.copy(
+                schedulerInfo = it.schedulerInfo.copy(
+                    universalTouchBoostEnabled = enabled,
+                    qcomTouchboostEnabled = enabled
+                ),
+                isCpuModified = true
+            )
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setUniversalTouchBoost(enabled, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update {
+                    it.copy(
+                        schedulerInfo = fresh,
+                        successMessage = "Akselerasi Respons Sentuhan ${if (enabled) "diaktifkan" else "dinonaktifkan"}"
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah Akselerasi Respons Sentuhan") }
+            }
+        }
+    }
+
+    fun setUniversalAntiThrottlingGuard(enabled: Boolean, context: Context? = null) {
+        recordStateMutation()
+        _uiState.update {
+            it.copy(
+                schedulerInfo = it.schedulerInfo.copy(
+                    antiThrottlingGuardEnabled = enabled,
+                    ppmDlptBypassEnabled = enabled,
+                    ppmPwrThrottlingEnabled = !enabled,
+                    ppmSysBoostEnabled = enabled
+                ),
+                isCpuModified = true
+            )
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setUniversalAntiThrottlingGuard(enabled, context)
+            if (ok) {
+                val fresh = LynxRepository.readSchedulerInfo(context)
+                _uiState.update {
+                    it.copy(
+                        schedulerInfo = fresh,
+                        successMessage = "Pertahankan Plafon Clock Puncak ${if (enabled) "diaktifkan" else "dinonaktifkan"}"
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah Pertahankan Plafon Clock Puncak") }
             }
         }
     }
@@ -2826,8 +3289,16 @@ class LynxViewModel : ViewModel() {
 
     fun applyCpuIdlePreset(preset: String, context: Context? = null, fromMasterProfile: Boolean = false) {
         if (!fromMasterProfile) recordStateMutation()
+        val defaultParking = when (preset.lowercase()) {
+            "battery" -> "park_big"
+            "gaming" -> "unpark_all"
+            else -> "dynamic"
+        }
         _uiState.update { current ->
-            current.copy(cpuIdle = current.cpuIdle.copy(activePreset = preset), isCpuModified = if (fromMasterProfile) current.isCpuModified else true)
+            current.copy(
+                cpuIdle = current.cpuIdle.copy(activePreset = preset, coreParkingMode = defaultParking),
+                isCpuModified = if (fromMasterProfile) current.isCpuModified else true
+            )
         }
         viewModelScope.launch {
             val ok = LynxRepository.applyCpuIdlePreset(preset, context)
@@ -2843,7 +3314,7 @@ class LynxViewModel : ViewModel() {
                         cpuIdle = fresh.copy(
                             applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
                         ),
-                        successMessage = if (fromMasterProfile) current.successMessage else "Profil CPU Idle '$presetTitle' berhasil diterapkan",
+                        successMessage = if (fromMasterProfile) current.successMessage else "Profil Efisiensi '$presetTitle' berhasil diterapkan",
                         isCpuModified = if (fromMasterProfile) current.isCpuModified else true
                     )
                 }
@@ -2951,7 +3422,7 @@ class LynxViewModel : ViewModel() {
                 val rawCores = LynxRepository.readCpuCores()
                 val cores: List<CpuCoreInfo> = mergeCoresWithActiveIntents(rawCores)
                 val procs = LynxRepository.readTopCpuProcesses()
-                val statLoads = LynxRepository.readCpuStatLoads()
+                val totalLoad = LynxRepository.latestTotalCpuLoadPercent.coerceIn(0, 100)
                 val socPlatform = LynxRepository.getSocPlatformName()
                 val socTopology = LynxRepository.getSocTopology(_uiState.value.clusters, cores.size.coerceAtLeast(8))
                 val activeClusters = _uiState.value.clusters
@@ -2965,24 +3436,35 @@ class LynxViewModel : ViewModel() {
                         )
                     } else core
                 }
-                val totalLoad = statLoads.first.coerceIn(0, 100)
-                val tempC: Int = _uiState.value.thermalZones.firstOrNull { it.type.contains("cpu", true) }?.tempC?.toInt()
-                    ?: (_uiState.value.batteryDetails?.tempC?.toInt() ?: 38)
-                val loadPenalty = (totalLoad * 0.35f).toInt()
-                val tempPenalty = if (tempC > 44) ((tempC - 44) * 4).coerceAtMost(30) else 0
+                val tempC: Int = _uiState.value.resolveCpuTempC()
+                val sched = _uiState.value.schedulerInfo
+                val isGuardActive = sched.antiThrottlingGuardEnabled || sched.ppmDlptBypassEnabled || !sched.ppmThermalThrottlingEnabled
+                val currentProfile = _uiState.value.cpuComprehensiveProfile.lowercase()
+                val isClockThrottledBySystem = currentProfile != "battery" &&
+                    !_uiState.value.isCpuModified &&
+                    !isGuardActive &&
+                    activeClusters.any { c ->
+                        val hwMax = c.availFreqs.lastOrNull() ?: 0L
+                        hwMax > 0L && c.curMax in 1 until (hwMax * 92 / 100)
+                    }
+
+                val loadPenalty = (totalLoad * 0.30f).toInt()
+                val tempPenalty = if (tempC > 62) ((tempC - 62) * 3).coerceAtMost(30) else 0
                 val offlineCoresCount = syncedCores.count { !it.isOnline }
                 val offlinePenalty = (offlineCoresCount * 3).coerceAtMost(15)
                 val calculatedHealthScore = (100 - loadPenalty - tempPenalty - offlinePenalty).coerceIn(15, 100)
-                val isThrottled = tempC >= 55 || calculatedHealthScore < 40
+                val isThrottled = isClockThrottledBySystem || (!isGuardActive && tempC >= 78) || tempC >= 85
                 val healthQuality = when {
                     isThrottled -> CpuHealthQuality.THROTTLED
-                    tempC >= 44 || totalLoad >= 75 -> CpuHealthQuality.WARM
+                    tempC >= 65 || totalLoad >= 80 -> CpuHealthQuality.WARM
                     else -> CpuHealthQuality.HEALTHY
                 }
 
                 val recommendation = when {
-                    tempC >= 45 -> "Suhu prosesor mencapai ${tempC}°C. Disarankan beralih ke Mode Balanced guna menjaga suhu optimal."
-                    totalLoad >= 80 && _uiState.value.cpuComprehensiveProfile == "battery" -> "Beban kerja tinggi (${totalLoad}%) terdeteksi pada mode Battery. Disarankan beralih ke Mode Gaming."
+                    tempC >= 75 && currentProfile != "balanced" && currentProfile != "battery" ->
+                        "Suhu die prosesor mencapai ${tempC}°C. Disarankan beralih ke Mode Seimbang guna menjaga suhu optimal."
+                    totalLoad >= 85 && currentProfile == "battery" ->
+                        "Beban kerja tinggi (${totalLoad}%) terdeteksi pada mode Baterai. Disarankan beralih ke Mode Performa."
                     else -> null
                 }
 
@@ -2990,7 +3472,7 @@ class LynxViewModel : ViewModel() {
                     it.copy(
                         cpuCores = if (syncedCores.isNotEmpty()) syncedCores else it.cpuCores,
                         topCpuProcesses = if (procs.isNotEmpty()) procs else it.topCpuProcesses,
-                        totalCpuLoadPercent = statLoads.first,
+                        totalCpuLoadPercent = totalLoad,
                         socPlatformName = if (it.socPlatformName.isBlank()) socPlatform else it.socPlatformName,
                         socTopology = if (it.socTopology.isBlank()) socTopology else it.socTopology,
                         cpuHealthScore = calculatedHealthScore,
@@ -3684,14 +4166,28 @@ class LynxViewModel : ViewModel() {
             clusters.forEach { cluster ->
                 val effectiveMin = cluster.availFreqs.firstOrNull() ?: 500000L
                 val effectiveMax = cluster.availFreqs.lastOrNull() ?: 2050000L
-                val defaultGov = if (cluster.availGovs.contains("schedutil")) "schedutil" else cluster.availGovs.firstOrNull() ?: "schedutil"
-                setClusterLock(cluster.id, false, effectiveMin, effectiveMax)
-                setClusterFrequency(cluster.id, effectiveMin, effectiveMax)
-                setClusterGovernor(cluster.id, defaultGov)
+                val defaultGov = pickDefaultDynamicGovernor(cluster.availGovs, cluster.curGov)
+                setClusterLock(cluster.id, false, effectiveMin, effectiveMax, fromMasterProfile = true)
+                setClusterFrequency(cluster.id, effectiveMin, effectiveMax, fromMasterProfile = true)
+                setClusterGovernor(cluster.id, defaultGov, fromMasterProfile = true)
             }
+            LynxRepository.setUniversalBusBandwidthProfile("auto", context)
+            LynxRepository.setMtkCpuPowerMode(0, context)
+            LynxRepository.setUniversalTouchBoost(false, context)
+            LynxRepository.setUniversalAntiThrottlingGuard(false, context)
+            LynxRepository.setPpmPolicy(4, true, context)
             refreshClusters()
             refreshCpuCores()
-            _uiState.update { it.copy(activeGovernorPreset = "balanced", successMessage = "Frekuensi & Governor berhasil dikembalikan ke default OEM.") }
+            val updatedSched = LynxRepository.readSchedulerInfo(context)
+            _uiState.update {
+                it.copy(
+                    cpuComprehensiveProfile = "balanced",
+                    isCpuModified = false,
+                    activeGovernorPreset = "balanced",
+                    schedulerInfo = updatedSched,
+                    successMessage = "Frekuensi, Governor & Mesin Silikon berhasil dikembalikan ke default OEM."
+                )
+            }
         }
     }
 
@@ -3731,7 +4227,9 @@ class LynxViewModel : ViewModel() {
                 echo 0 > /proc/sys/kernel/sched_util_clamp_min 2>/dev/null || true
                 echo 1024 > /proc/sys/kernel/sched_util_clamp_max 2>/dev/null || true
                 echo 0 > /dev/stune/top-app/schedtune.boost 2>/dev/null || true
+                echo 0 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null || true
                 echo 0 > /dev/stune/foreground/schedtune.boost 2>/dev/null || true
+                echo 0 > /dev/stune/foreground/schedtune.prefer_idle 2>/dev/null || true
                 echo 0 > /dev/stune/background/schedtune.boost 2>/dev/null || true
                 echo 0 > /dev/cpuctl/top-app/cpu.uclamp.min 2>/dev/null || true
                 echo 1024 > /dev/cpuctl/top-app/cpu.uclamp.max 2>/dev/null || true
@@ -3740,6 +4238,7 @@ class LynxViewModel : ViewModel() {
                 echo 2000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null || true
                 echo 200000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null || true
                 echo 0 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null || true
+                echo Y > /sys/module/workqueue/parameters/power_efficient 2>/dev/null || true
             """.trimIndent()
             com.topjohnwu.superuser.Shell.cmd(resetCmds).exec()
             val updated = LynxRepository.readSchedulerInfo(context)
@@ -3753,6 +4252,7 @@ class LynxViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
+        stopCpuMonitorStream()
         fileObserver?.stopWatching()
     }
 }

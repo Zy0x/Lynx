@@ -21,13 +21,17 @@ write_node "0" "/sys/module/ged/parameters/deboost_reduce"
 write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
 write_node "0" "/sys/kernel/fpsgo/fbt/switch_idle"
 
-# 2. Extract and lock peak OPP Frequency
-if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
-    opp_val=$(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
-    gpu_peak_freq=$(echo "$opp_val" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
-    if [ -n "$gpu_peak_freq" ]; then
-        write_node "$gpu_peak_freq" "/sys/module/ged/parameters/gpu_cust_boost_freq"
-        write_node "$gpu_peak_freq" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
-        write_node "$gpu_peak_freq" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
-    fi
+# 2. Extract and lock peak OPP Frequency (Active in Perf/Extreme)
+write_node "0" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
+if [ "$MODE" = "perf" ] || [ "$MODE" = "extreme" ]; then
+    write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+    for opp_file in /proc/gpufreq/gpufreq_opp_dump /proc/gpufreqv2/gpu_working_opp_table /proc/gpufreqv2/gpufreq_opp_dump; do
+        [ -f "$opp_file" ] || continue
+        gpu_peak_freq=$(grep -Eo 'freq = [0-9]+' "$opp_file" 2>/dev/null | head -n 1 | cut -d'=' -f2 | tr -d ' ')
+        if [ -n "$gpu_peak_freq" ]; then
+            write_node "$gpu_peak_freq" "/sys/module/ged/parameters/gpu_cust_boost_freq"
+            write_node "$gpu_peak_freq" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
+            break
+        fi
+    done
 fi

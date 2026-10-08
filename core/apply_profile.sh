@@ -32,14 +32,22 @@ if [ -z "$TARGET_SOC" ] || [ "$TARGET_SOC" = "generic" ]; then
     fi
 fi
 
-# Zero-Fork Fast Path: only chmod if direct write failed and node is not writable
+# Zero-Fork Fast Path: only chmod if direct write failed
 write_node() {
     [ -e "$2" ] || return 0
     echo "$1" > "$2" 2>/dev/null && return 0
-    if [ ! -w "$2" ]; then
-        chmod 666 "$2" 2>/dev/null
-        echo "$1" > "$2" 2>/dev/null
-    fi
+    chmod 666 "$2" 2>/dev/null
+    echo "$1" > "$2" 2>/dev/null
+}
+
+pick_dynamic_gov() {
+    avail=$(cat "$1/scaling_available_governors" 2>/dev/null)
+    for g in walt sugov_ext schedutil energy_step interactive ondemand; do
+        case " $avail " in
+            *" $g "*) echo "$g"; return 0 ;;
+        esac
+    done
+    echo "schedutil"
 }
 
 # Target throttler daemons known to clamp FPS and frequencies
@@ -63,12 +71,20 @@ fi
 
 case "$PROFILE" in
     extreme|performance)
+        # Ensure all CPU cores are online before configuring policies
+        for c in /sys/devices/system/cpu/cpu[0-9]*; do
+            [ -d "$c" ] || continue
+            write_node "1" "$c/online"
+        done
+
         # ── 1. CPU Governor & Frequency Clamping ──────────────────────────
         # Extreme: 'performance' governor locks all cores to scaling_max_freq (100% hardlock)
-        # Performance: 'schedutil' with 0us up-rate limit and 85% floor frequency
+        # Performance: dynamic governor with 0us up-rate limit and 85% floor frequency
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "$p" ] || continue
+            chmod 644 "$p/scaling_min_freq" "$p/scaling_max_freq" 2>/dev/null
             pol_num=$(basename "$p" | tr -dc '0-9')
+            dyn_gov=$(pick_dynamic_gov "$p")
             max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
             min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
             avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
@@ -86,40 +102,40 @@ case "$PROFILE" in
             fi
 
             if [ "$PROFILE" = "extreme" ]; then
-                if [ "$TARGET_SOC" = "mtk" ]; then
-                    write_node "schedutil" "$p/scaling_governor"
-                    if [ "$pol_num" = "0" ]; then
-                        write_node "0" "$p/schedutil/up_rate_limit_us"
-                        write_node "5000" "$p/schedutil/down_rate_limit_us"
-                    else
-                        write_node "0" "$p/schedutil/up_rate_limit_us"
-                        write_node "0" "$p/schedutil/down_rate_limit_us"
-                    fi
-                    write_node "1" "$p/schedutil/pl"
-                    write_node "$max_freq" "$p/schedutil/hispeed_freq"
-                else
+                avail_govs=$(cat "$p/scaling_available_governors" 2>/dev/null)
+                if echo "$avail_govs" | grep -q "performance"; then
                     write_node "performance" "$p/scaling_governor"
+                else
+                    write_node "$dyn_gov" "$p/scaling_governor"
+                    for gdir in "$p/schedutil" "$p/walt" "$p/sugov_ext"; do
+                        [ -d "$gdir" ] || continue
+                        write_node "0" "$gdir/up_rate_limit_us"
+                        write_node "0" "$gdir/down_rate_limit_us"
+                        write_node "1" "$gdir/pl"
+                        write_node "$max_freq" "$gdir/hispeed_freq"
+                    done
                 fi
                 write_node "$max_freq" "$p/scaling_max_freq"
                 write_node "$max_freq" "$p/scaling_min_freq"
                 eval "saved_floor_${pol_num}=\"$max_freq\""
             else
-                write_node "schedutil" "$p/scaling_governor"
+                write_node "$dyn_gov" "$p/scaling_governor"
                 write_node "$max_freq" "$p/scaling_max_freq"
-                if [ "$pol_num" = "0" ]; then
-                    # Little Cluster (Efficiency): Cepat naik saat butuh, tahan 10ms cegah stutter UI
-                    write_node "0" "$p/schedutil/up_rate_limit_us"
-                    write_node "10000" "$p/schedutil/down_rate_limit_us"
-                    write_node "85" "$p/schedutil/hispeed_load"
-                else
-                    # Big/Prime Cluster (Performance): Respon instan 0µs, tahan clock 5ms
-                    write_node "0" "$p/schedutil/up_rate_limit_us"
-                    write_node "5000" "$p/schedutil/down_rate_limit_us"
-                    write_node "80" "$p/schedutil/hispeed_load"
-                fi
-                write_node "1" "$p/schedutil/iowait_boost_enable"
-                write_node "1" "$p/schedutil/pl"
-                write_node "$max_freq" "$p/schedutil/hispeed_freq"
+                for gdir in "$p/schedutil" "$p/walt" "$p/sugov_ext"; do
+                    [ -d "$gdir" ] || continue
+                    if [ "$pol_num" = "0" ]; then
+                        write_node "0" "$gdir/up_rate_limit_us"
+                        write_node "10000" "$gdir/down_rate_limit_us"
+                        write_node "85" "$gdir/hispeed_load"
+                    else
+                        write_node "0" "$gdir/up_rate_limit_us"
+                        write_node "5000" "$gdir/down_rate_limit_us"
+                        write_node "80" "$gdir/hispeed_load"
+                    fi
+                    write_node "1" "$gdir/iowait_boost_enable"
+                    write_node "1" "$gdir/pl"
+                    write_node "$max_freq" "$gdir/hispeed_freq"
+                done
                 if [ -n "$max_freq" ]; then
                     floor=$(( max_freq * 85 / 100 ))
                     snapped_floor=""
@@ -134,12 +150,6 @@ case "$PROFILE" in
                     eval "saved_floor_${pol_num}=\"$snapped_floor\""
                 fi
             fi
-        done
-
-        # Ensure all CPU cores are online
-        for c in /sys/devices/system/cpu/cpu[0-9]*; do
-            [ -d "$c" ] || continue
-            write_node "1" "$c/online"
         done
 
         # Core Control Jitter Prevention & Qualcomm Core Retention
@@ -172,9 +182,9 @@ case "$PROFILE" in
             fi
         elif [ -f "/sys/devices/system/cpu/eas/enable" ]; then
             cur_eas=$(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
-            if [[ "$cur_eas" == *"hybrid"* ]] || [ "$cur_eas" = "2" ]; then
-                write_node "2" "/sys/devices/system/cpu/eas/enable"
-            fi
+            case "$cur_eas" in
+                *hybrid*|2) write_node "2" "/sys/devices/system/cpu/eas/enable" ;;
+            esac
         fi
         write_node "1" "/proc/sys/kernel/sched_autogroup_enabled"
         write_node "0" "/proc/sys/kernel/sched_tunable_scaling"
@@ -255,8 +265,8 @@ case "$PROFILE" in
 
         # ── 3. GPU Subsystem Boost (Mali GED & Qualcomm Adreno KGSL) ─────────
         if [ "$PROFILE" = "extreme" ]; then
-            write_node "1" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
-            write_node "1" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
+            write_node "0" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+            write_node "0" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "2" "/sys/kernel/ged/hal/gpu_boost_level"
             write_node "50" "/sys/kernel/ged/hal/dvfs_margin_value"
             write_node "50" "/sys/module/ged/parameters/gx_fb_dvfs_margin"
@@ -299,10 +309,9 @@ case "$PROFILE" in
             if grep -q "is enabled" /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null; then
                 write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
             fi
-            write_node "1" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
-            write_node "5" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
+            write_node "0" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
             write_node "1" "/sys/kernel/ged/hal/gpu_boost_level"
-            write_node "50" "/sys/kernel/ged/hal/dvfs_margin_value"
+            write_node "30" "/sys/kernel/ged/hal/dvfs_margin_value"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/min_pwrlevel"
             write_node "1" "/sys/class/kgsl/kgsl-3d0/devfreq/adreno_boost"
             write_node "60" "/sys/class/kgsl/kgsl-3d0/idle_timer"
@@ -310,11 +319,23 @@ case "$PROFILE" in
                 opp_line=$(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
                 peak_f=$(echo "$opp_line" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
                 if [ -n "$peak_f" ]; then
-                    perf_floor=$(( peak_f * 85 / 100 ))
+                    perf_target=$(( peak_f * 75 / 100 ))
+                    perf_opp_line=$(awk -v t="$perf_target" '{
+                        match($0, /freq = [0-9]+/);
+                        f = substr($0, RSTART+7, RLENGTH-7) + 0;
+                        if (f >= t) last_line = $0;
+                    } END { print last_line }' /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+                    perf_floor=$(echo "$perf_opp_line" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+                    perf_idx=$(echo "$perf_opp_line" | awk -F'[][]' '{print int($2)}')
+                    [ -z "$perf_floor" ] && perf_floor="$perf_target"
+                    [ -z "$perf_idx" ] && perf_idx="12"
+                    write_node "$perf_idx" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
                     write_node "$peak_f" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
                     write_node "$perf_floor" "/sys/module/ged/parameters/gpu_cust_boost_freq"
                     write_node "$perf_floor" "/sys/module/ged/parameters/gpu_bottom_freq"
                 fi
+            else
+                write_node "12" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
             fi
             write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
             for i in 0 1 2 3 4 5 6 7 8; do
@@ -416,11 +437,11 @@ case "$PROFILE" in
             write_node "0" "/sys/kernel/fpsgo/fstb/fstb_soft_level"
         fi
 
-        # Mali power policy — fix untuk sh (tidak bisa glob di write_node)
-        for pp in /sys/devices/platform/13000000.mali/power_policy \
-                  /sys/devices/platform/13040000.mali/power_policy \
-                  /sys/devices/platform/mali.0/power_policy; do
-            write_node "always_on" "$pp"
+        # Mali power policy — Universal dynamic glob
+        for pp in /sys/devices/platform/*mali*/power_policy \
+                  /sys/devices/platform/soc/*mali*/power_policy \
+                  /sys/class/misc/mali*/device/power_policy; do
+            [ -e "$pp" ] && write_node "always_on" "$pp"
         done
         write_node "1" "/proc/mali/always_on"
         write_node "0" "/proc/mali/debug_log"
@@ -447,12 +468,12 @@ case "$PROFILE" in
         write_node "1" "/dev/cpuset/top-app/cpu.uclamp.latency_sensitive"
         write_node "1" "/dev/cpuset/foreground/boost/cpu.uclamp.latency_sensitive"
 
-        # CPUSet & SchedTune Boost
-        write_node "0-7" "/dev/cpuset/foreground/cpus"
-        write_node "0-2" "/dev/cpuset/background/cpus"
-        write_node "2-7" "/dev/cpuset/system-background/cpus"
+        # CPUSet & SchedTune Boost (Aligned with Task Shield Gaming Preset)
+        write_node "0-5" "/dev/cpuset/foreground/cpus"
+        write_node "0-1" "/dev/cpuset/background/cpus"
+        write_node "0-2" "/dev/cpuset/system-background/cpus"
         write_node "0-7" "/dev/cpuset/top-app/cpus"
-        write_node "0" "/dev/cpuset/restricted/cpus"
+        write_node "0-1" "/dev/cpuset/restricted/cpus"
         write_node "1" "/dev/stune/schedtune.sched_boost_enabled"
         write_node "5" "/dev/stune/schedtune.boost"
         write_node "0" "/dev/stune/schedtune.prefer_idle"
@@ -798,7 +819,7 @@ case "$PROFILE" in
                 write_node "0" "$ddr_node"
             done
             # Mali G77 Job Scheduling Period & DVFS Period (4x faster dispatch)
-            for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+            for m_dir in /sys/devices/platform/*mali* /sys/devices/platform/soc/*mali* /sys/class/misc/mali*/device; do
                 [ -d "$m_dir" ] || continue
                 write_node "25" "$m_dir/js_scheduling_period"
                 write_node "20" "$m_dir/dvfs_period"
@@ -810,7 +831,7 @@ case "$PROFILE" in
             for dvfsrc_node in /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_force_vcore_dvfs_opp; do
                 write_node "-1" "$dvfsrc_node"
             done
-            for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+            for m_dir in /sys/devices/platform/*mali* /sys/devices/platform/soc/*mali* /sys/class/misc/mali*/device; do
                 [ -d "$m_dir" ] || continue
                 write_node "50" "$m_dir/js_scheduling_period"
                 write_node "30" "$m_dir/dvfs_period"
@@ -826,33 +847,65 @@ case "$PROFILE" in
             [ -n "$sf" ] && write_node "$sf" "$p/scaling_min_freq"
         done
 
+        if [ "$PROFILE" = "extreme" ]; then
+            if [ "$TARGET_SOC" = "mtk" ]; then
+                c_idx=0
+                for p in /sys/devices/system/cpu/cpufreq/policy*; do
+                    [ -d "$p" ] || continue
+                    mf=$(cat "$p/cpuinfo_max_freq" 2>/dev/null || cat "$p/scaling_max_freq" 2>/dev/null)
+                    if [ -n "$mf" ]; then
+                        [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ] && write_node "$c_idx $mf" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+                        [ -f /proc/ppm/policy/hard_userlimit_min_cpu_freq ] && write_node "$c_idx $mf" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+                        [ -f /proc/ppm/policy/userlimit_max_cpu_freq ] && write_node "$c_idx $mf" "/proc/ppm/policy/userlimit_max_cpu_freq"
+                        [ -f /proc/ppm/policy/userlimit_min_cpu_freq ] && write_node "$c_idx $mf" "/proc/ppm/policy/userlimit_min_cpu_freq"
+                    fi
+                    c_idx=$((c_idx + 1))
+                done
+                [ -f /proc/ppm/policy_status ] && write_node "2 0" "/proc/ppm/policy_status"
+            fi
+            for p in /sys/devices/system/cpu/cpufreq/policy*; do
+                [ -d "$p" ] || continue
+                chmod 444 "$p/scaling_min_freq" "$p/scaling_max_freq" 2>/dev/null
+            done
+        fi
+
         setprop lynx.mode "$PROFILE"
         ;;
 
     powersave)
-        # ── 1. CPU Schedutil & Low Frequency Cap (55% Max) ───────────────────
+        # Ensure all CPU cores are online before configuring policies
+        for c in /sys/devices/system/cpu/cpu[0-9]*; do
+            [ -d "$c" ] || continue
+            write_node "1" "$c/online"
+        done
+
+        # ── 1. CPU Dynamic Governor & Low Frequency Cap (65% Little / 55% Big) ──
+        c_idx=0
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "$p" ] || continue
+            chmod 644 "$p/scaling_min_freq" "$p/scaling_max_freq" 2>/dev/null
             pol_num=$(basename "$p" | tr -dc '0-9')
-            write_node "schedutil" "$p/scaling_governor"
-            if [ "$pol_num" = "0" ]; then
-                # Little Cluster: Jeda evaluasi naik 10ms, cepat turun 1ms
-                write_node "10000" "$p/schedutil/up_rate_limit_us"
-                write_node "1000" "$p/schedutil/down_rate_limit_us"
-            else
-                # Big/Prime Cluster: Sangat enggan naik (20ms), langsung turun (500µs)
-                write_node "20000" "$p/schedutil/up_rate_limit_us"
-                write_node "500" "$p/schedutil/down_rate_limit_us"
-            fi
-            write_node "99" "$p/schedutil/hispeed_load"
-            write_node "0" "$p/schedutil/iowait_boost_enable"
-            write_node "0" "$p/schedutil/pl"
+            dyn_gov=$(pick_dynamic_gov "$p")
+            write_node "$dyn_gov" "$p/scaling_governor"
+            for gdir in "$p/schedutil" "$p/walt" "$p/sugov_ext"; do
+                [ -d "$gdir" ] || continue
+                if [ "$pol_num" = "0" ]; then
+                    write_node "10000" "$gdir/up_rate_limit_us"
+                    write_node "1000" "$gdir/down_rate_limit_us"
+                else
+                    write_node "20000" "$gdir/up_rate_limit_us"
+                    write_node "500" "$gdir/down_rate_limit_us"
+                fi
+                write_node "99" "$gdir/hispeed_load"
+                write_node "0" "$gdir/iowait_boost_enable"
+                write_node "0" "$gdir/pl"
+            done
 
             max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
             min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
             avail_f=$(cat "$p/scaling_available_frequencies" 2>/dev/null)
+            sorted_f=$(echo "$avail_f" | tr -s ' ' '\n' | sort -n)
             if [ -z "$max_freq" ] || [ -z "$min_freq" ]; then
-                sorted_f=$(echo "$avail_f" | tr -s ' ' '\n' | sort -n)
                 [ -z "$min_freq" ] && min_freq=$(echo "$sorted_f" | head -n 1)
                 [ -z "$max_freq" ] && max_freq=$(echo "$sorted_f" | tail -n 1)
             fi
@@ -865,20 +918,47 @@ case "$PROFILE" in
             fi
             [ -n "$min_freq" ] && write_node "$min_freq" "$p/scaling_min_freq"
             if [ -n "$max_freq" ]; then
-                p_cap=$(( max_freq * 55 / 100 ))
-                [ -n "$min_freq" ] && [ "$p_cap" -gt "$min_freq" ] && write_node "$p_cap" "$p/scaling_max_freq"
+                if [ "$pol_num" = "0" ]; then
+                    raw_cap=$(( max_freq * 65 / 100 ))
+                else
+                    raw_cap=$(( max_freq * 55 / 100 ))
+                fi
+                snapped_cap=""
+                for f in $sorted_f; do
+                    if [ "$f" -le "$raw_cap" ] 2>/dev/null; then
+                        snapped_cap="$f"
+                    fi
+                done
+                [ -z "$snapped_cap" ] && snapped_cap="$raw_cap"
+                [ -n "$min_freq" ] && [ "$snapped_cap" -lt "$min_freq" ] 2>/dev/null && snapped_cap="$min_freq"
+                write_node "$snapped_cap" "$p/scaling_max_freq"
+                if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then
+                    write_node "$c_idx $snapped_cap" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+                    [ -n "$min_freq" ] && write_node "$c_idx $min_freq" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+                fi
             fi
+            c_idx=$(( c_idx + 1 ))
         done
 
-        # Core Control: allow power saving core sleeping
+        # Core Control & Park Big Cores (Aligned with CpuIdleCoreParkingCard park_big)
         for np in /sys/devices/system/cpu/cpu*/core_ctl/not_preferred; do
             [ -f "$np" ] && write_node "0 0 0 0" "$np"
         done
         for ctl in /sys/devices/system/cpu/cpu*/core_ctl; do
             [ -d "$ctl" ] || continue
-            write_node "1" "$ctl/min_cpus"
+            write_node "0" "$ctl/min_cpus"
             write_node "60" "$ctl/busy_up_thres"
             write_node "20" "$ctl/busy_down_thres"
+        done
+        little_cpus=$(cat /sys/devices/system/cpu/cpufreq/policy0/related_cpus /sys/devices/system/cpu/cpufreq/policy0/affected_cpus 2>/dev/null | head -n1)
+        for c in /sys/devices/system/cpu/cpu[0-9]*; do
+            [ -d "$c" ] || continue
+            cid="${c##*cpu}"
+            [ "$cid" = "0" ] && continue
+            case " $little_cpus " in
+                *" $cid "*) [ -e "$c/online" ] && write_node "1" "$c/online" ;;
+                *) [ -e "$c/online" ] && write_node "0" "$c/online" ;;
+            esac
         done
         write_node "0" "/sys/module/cpu_boost/parameters/sched_boost_on_input"
 
@@ -894,11 +974,10 @@ case "$PROFILE" in
             fi
         elif [ -f "/sys/devices/system/cpu/eas/enable" ]; then
             cur_eas=$(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
-            if [[ "$cur_eas" == *"hybrid"* ]] || [ "$cur_eas" = "2" ]; then
-                write_node "2" "/sys/devices/system/cpu/eas/enable"
-            else
-                write_node "1" "/sys/devices/system/cpu/eas/enable"
-            fi
+            case "$cur_eas" in
+                *hybrid*|2) write_node "2" "/sys/devices/system/cpu/eas/enable" ;;
+                *) write_node "1" "/sys/devices/system/cpu/eas/enable" ;;
+            esac
         fi
         write_node "0" "/sys/devices/system/cpu/perf/enable"
 
@@ -913,7 +992,7 @@ case "$PROFILE" in
                            /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_req_ddr_opp; do
             write_node "-1" "$dvfsrc_node"
         done
-        for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+        for m_dir in /sys/devices/platform/*mali* /sys/devices/platform/soc/*mali* /sys/class/misc/mali*/device; do
             [ -d "$m_dir" ] || continue
             write_node "100" "$m_dir/js_scheduling_period"
             write_node "100" "$m_dir/dvfs_period"
@@ -941,16 +1020,27 @@ case "$PROFILE" in
         write_node "9 1" "/proc/ppm/policy_status"
         write_node "1" "/proc/ppm/cpi/cpi_enabled"
 
-        # Cap MediaTek PPM DVFS Cluster Table to 50% OPP Index
-        for c in 0 1 2; do
-            table="/proc/ppm/dump_cluster_${c}_dvfs_table"
-            [ -f "$table" ] || continue
-            total_opp=$(wc -w < "$table" 2>/dev/null)
-            ps_cap_idx=$(( total_opp * 50 / 100 ))
-            [ "$ps_cap_idx" -lt 2 ] && ps_cap_idx=3
-            last_idx=$(( total_opp - 1 ))
-            write_node "$c $ps_cap_idx" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
-            write_node "$c $last_idx" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+        c_idx=0
+        for p in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ -d "$p" ] || continue
+            cur_max=$(cat "$p/scaling_max_freq" 2>/dev/null)
+            cur_min=$(cat "$p/scaling_min_freq" 2>/dev/null)
+            if [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ]; then
+                [ -n "$cur_max" ] && write_node "$c_idx $cur_max" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+                [ -n "$cur_min" ] && write_node "$c_idx $cur_min" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+            fi
+            c_idx=$(( c_idx + 1 ))
+        done
+
+        little_cpus=$(cat /sys/devices/system/cpu/cpufreq/policy0/related_cpus /sys/devices/system/cpu/cpufreq/policy0/affected_cpus 2>/dev/null | head -n1)
+        for c in /sys/devices/system/cpu/cpu[0-9]*; do
+            [ -d "$c" ] || continue
+            cid="${c##*cpu}"
+            [ "$cid" = "0" ] && continue
+            case " $little_cpus " in
+                *" $cid "*) [ -e "$c/online" ] && write_node "1" "$c/online" ;;
+                *) [ -e "$c/online" ] && write_node "0" "$c/online" ;;
+            esac
         done
 
         # Qualcomm Devfreq Bus Powersave
@@ -964,7 +1054,35 @@ case "$PROFILE" in
         done
 
         # ── 3. GPU Coarse Demand & Power Down ────────────────────────────────
-        write_node "48" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+        write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+        if grep -q "is enabled" /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null; then
+            write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+        fi
+        if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
+            opp_top=$(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+            opp_bot=$(tail -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+            peak_f=$(echo "$opp_top" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+            min_f=$(echo "$opp_bot" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+            last_idx=$(echo "$opp_bot" | awk -F'[][]' '{print int($2)}')
+            [ -z "$last_idx" ] && last_idx="48"
+            write_node "$last_idx" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+            [ -n "$min_f" ] && write_node "$min_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
+            [ -n "$min_f" ] && write_node "$min_f" "/sys/module/ged/parameters/gpu_bottom_freq"
+            if [ -n "$peak_f" ]; then
+                ps_target=$(( peak_f * 65 / 100 ))
+                ps_opp_line=$(awk -v t="$ps_target" '{
+                    match($0, /freq = [0-9]+/);
+                    f = substr($0, RSTART+7, RLENGTH-7) + 0;
+                    if (f >= t) last_line = $0;
+                } END { print last_line }' /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+                ps_cap_f=$(echo "$ps_opp_line" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+                ps_cap_idx=$(echo "$ps_opp_line" | awk -F'[][]' '{print int($2)}')
+                [ -n "$ps_cap_idx" ] && write_node "$ps_cap_idx" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
+                [ -n "$ps_cap_f" ] && write_node "$ps_cap_f" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
+            fi
+        else
+            write_node "48" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+        fi
         write_node "0" "/sys/kernel/ged/hal/gpu_boost_level"
         write_node "0" "/sys/kernel/ged/hal/dvfs_margin_value"
         write_node "0" "/sys/module/ged/parameters/boost_gpu_enable"
@@ -973,12 +1091,14 @@ case "$PROFILE" in
         write_node "0" "/sys/module/ged/parameters/enable_cpu_boost"
         write_node "0" "/sys/module/ged/parameters/gx_game_mode"
         write_node "0" "/sys/module/ged/parameters/gx_boost_on"
+        write_node "0" "/sys/module/ged/parameters/ged_boost_enable"
+        write_node "0" "/sys/module/ged/parameters/boost_amp"
         write_node "0" "/sys/kernel/fpsgo/common/gpu_block_boost"
-        write_node "coarse_demand" "/sys/devices/platform/*mali*/power_policy"
+        for pp in /sys/devices/platform/*mali*/power_policy /sys/devices/platform/soc/*mali*/power_policy; do
+            [ -e "$pp" ] && write_node "coarse_demand" "$pp"
+        done
         write_node "0" "/proc/mali/always_on"
         write_node "1" "/proc/mali/dvfs_enable"
-        write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
-        write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
         write_node "2" "/sys/module/ged/parameters/gpu_idle"
         for i in 0 1 2 3 4 5 6 7 8; do
             write_node "$i 1 1" "/proc/gpufreq/gpufreq_limit_table"
@@ -996,9 +1116,11 @@ case "$PROFILE" in
         write_node "0" "/dev/cpuset/top-app/cpu.uclamp.latency_sensitive"
         write_node "0" "/dev/cpuset/foreground/boost/cpu.uclamp.latency_sensitive"
 
-        write_node "0-3" "/dev/cpuset/background/cpus"
-        write_node "0-3" "/dev/cpuset/system-background/cpus"
-        write_node "0-3" "/dev/cpuset/restricted/cpus"
+        write_node "0-5" "/dev/cpuset/top-app/cpus"
+        write_node "0-5" "/dev/cpuset/foreground/cpus"
+        write_node "0-1" "/dev/cpuset/background/cpus"
+        write_node "0-2" "/dev/cpuset/system-background/cpus"
+        write_node "0-1" "/dev/cpuset/restricted/cpus"
         write_node "10" "/proc/sys/vm/dirty_ratio"
         write_node "5" "/proc/sys/vm/dirty_background_ratio"
         write_node "100" "/proc/sys/vm/swappiness"
@@ -1098,29 +1220,42 @@ case "$PROFILE" in
             [ -e "$path/cpu_capacity" ] && chmod 444 "$path/cpu_capacity" 2>/dev/null
             [ -e "$path/topology/physical_package_id" ] && chmod 444 "$path/topology/physical_package_id" 2>/dev/null
         done
+        for p in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ -d "$p" ] || continue
+            chmod 644 "$p/scaling_min_freq" "$p/scaling_max_freq" 2>/dev/null
+        done
 
         setprop lynx.mode powersave
         ;;
 
     balance|auto|*)
-        # ── 1. CPU Schedutil & Uncapped Frequencies (Full Idle Downclock) ────
+        # Ensure all CPU cores are online before configuring policies
+        for c in /sys/devices/system/cpu/cpu[0-9]*; do
+            [ -d "$c" ] || continue
+            write_node "1" "$c/online"
+        done
+
+        # ── 1. CPU Dynamic Governor & Uncapped Frequencies (Full Idle Downclock) ────
         for p in /sys/devices/system/cpu/cpufreq/policy*; do
             [ -d "$p" ] || continue
-            write_node "schedutil" "$p/scaling_governor"
+            chmod 644 "$p/scaling_min_freq" "$p/scaling_max_freq" 2>/dev/null
+            dyn_gov=$(pick_dynamic_gov "$p")
+            write_node "$dyn_gov" "$p/scaling_governor"
             pol_num=$(basename "$p" | tr -dc '0-9')
-            if [ "$pol_num" = "0" ]; then
-                # Little Cluster (Efficiency): smooth transitions, prevent micro-frequency thrashing
-                write_node "1000" "$p/schedutil/up_rate_limit_us"
-                write_node "20000" "$p/schedutil/down_rate_limit_us"
-                write_node "85" "$p/schedutil/hispeed_load"
-            else
-                # Big/Prime Cluster (Performance): zero delay jump, sustained 10ms boost
-                write_node "0" "$p/schedutil/up_rate_limit_us"
-                write_node "10000" "$p/schedutil/down_rate_limit_us"
-                write_node "80" "$p/schedutil/hispeed_load"
-            fi
-            write_node "1" "$p/schedutil/iowait_boost_enable"
-            write_node "1" "$p/schedutil/pl"
+            for gdir in "$p/schedutil" "$p/walt" "$p/sugov_ext"; do
+                [ -d "$gdir" ] || continue
+                if [ "$pol_num" = "0" ]; then
+                    write_node "1000" "$gdir/up_rate_limit_us"
+                    write_node "20000" "$gdir/down_rate_limit_us"
+                    write_node "85" "$gdir/hispeed_load"
+                else
+                    write_node "0" "$gdir/up_rate_limit_us"
+                    write_node "10000" "$gdir/down_rate_limit_us"
+                    write_node "80" "$gdir/hispeed_load"
+                fi
+                write_node "1" "$gdir/iowait_boost_enable"
+                write_node "1" "$gdir/pl"
+            done
 
             max_freq=$(cat "$p/cpuinfo_max_freq" 2>/dev/null)
             min_freq=$(cat "$p/cpuinfo_min_freq" 2>/dev/null)
@@ -1141,7 +1276,9 @@ case "$PROFILE" in
             [ -n "$max_freq" ] && write_node "$max_freq" "$p/scaling_max_freq"
             if [ -n "$max_freq" ] && [ "$max_freq" -gt 0 ] 2>/dev/null; then
                 hi_f=$(( max_freq * 75 / 100 ))
-                write_node "$hi_f" "$p/schedutil/hispeed_freq"
+                for gdir in "$p/schedutil" "$p/walt" "$p/sugov_ext"; do
+                    [ -d "$gdir" ] && write_node "$hi_f" "$gdir/hispeed_freq"
+                done
             fi
         done
 
@@ -1169,11 +1306,10 @@ case "$PROFILE" in
             fi
         elif [ -f "/sys/devices/system/cpu/eas/enable" ]; then
             cur_eas=$(cat /sys/devices/system/cpu/eas/enable 2>/dev/null | tr '[:upper:]' '[:lower:]')
-            if [[ "$cur_eas" == *"hybrid"* ]] || [ "$cur_eas" = "2" ]; then
-                write_node "2" "/sys/devices/system/cpu/eas/enable"
-            else
-                write_node "1" "/sys/devices/system/cpu/eas/enable"
-            fi
+            case "$cur_eas" in
+                *hybrid*|2) write_node "2" "/sys/devices/system/cpu/eas/enable" ;;
+                *) write_node "1" "/sys/devices/system/cpu/eas/enable" ;;
+            esac
         fi
         write_node "1" "/sys/devices/system/cpu/perf/enable"
         write_node "1" "/proc/sys/kernel/sched_autogroup_enabled"
@@ -1190,7 +1326,7 @@ case "$PROFILE" in
                            /sys/devices/platform/*dvfsrc*/helio-dvfsrc/dvfsrc_req_ddr_opp; do
             write_node "-1" "$dvfsrc_node"
         done
-        for m_dir in /sys/devices/platform/13000000.mali /sys/devices/platform/13040000.mali /sys/devices/platform/mali.0; do
+        for m_dir in /sys/devices/platform/*mali* /sys/devices/platform/soc/*mali* /sys/class/misc/mali*/device; do
             [ -d "$m_dir" ] || continue
             write_node "50" "$m_dir/js_scheduling_period"
             write_node "50" "$m_dir/dvfs_period"
@@ -1229,7 +1365,12 @@ case "$PROFILE" in
                 [ -n "$c_max" ] && write_node "$c $c_max" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
                 [ -n "$c_min" ] && write_node "$c $c_min" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
             fi
+            [ -f /proc/ppm/policy/hard_userlimit_max_cpu_freq ] && write_node "$c -1" "/proc/ppm/policy/hard_userlimit_max_cpu_freq"
+            [ -f /proc/ppm/policy/hard_userlimit_min_cpu_freq ] && write_node "$c -1" "/proc/ppm/policy/hard_userlimit_min_cpu_freq"
+            [ -f /proc/ppm/policy/userlimit_max_cpu_freq ] && write_node "$c -1" "/proc/ppm/policy/userlimit_max_cpu_freq"
+            [ -f /proc/ppm/policy/userlimit_min_cpu_freq ] && write_node "$c -1" "/proc/ppm/policy/userlimit_min_cpu_freq"
         done
+        [ -f /proc/ppm/policy_status ] && write_node "2 1" "/proc/ppm/policy_status"
 
         # Qualcomm Devfreq Memory Bus Dynamic
         for dev in /sys/class/devfreq/*; do
@@ -1249,19 +1390,39 @@ case "$PROFILE" in
         done
 
         # ── 3. GPU Dynamic & Responsive ──────────────────────────────────────
-        write_node "36" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+        write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+        if grep -q "is enabled" /proc/gpufreq/gpufreq_fixed_freq_volt 2>/dev/null; then
+            write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+        fi
+        write_node "0" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
+        if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
+            opp_top=$(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+            opp_bot=$(tail -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+            peak_f=$(echo "$opp_top" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+            min_f=$(echo "$opp_bot" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+            last_idx=$(echo "$opp_bot" | awk -F'[][]' '{print int($2)}')
+            [ -z "$last_idx" ] && last_idx="48"
+            write_node "$last_idx" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+            [ -n "$peak_f" ] && write_node "$peak_f" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
+            [ -n "$min_f" ] && write_node "$min_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
+            [ -n "$min_f" ] && write_node "$min_f" "/sys/module/ged/parameters/gpu_bottom_freq"
+        else
+            write_node "48" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+        fi
         write_node "0" "/sys/kernel/ged/hal/gpu_boost_level"
         write_node "10" "/sys/kernel/ged/hal/dvfs_margin_value"
         write_node "1" "/sys/module/ged/parameters/boost_gpu_enable"
         write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
         write_node "0" "/sys/module/ged/parameters/gx_game_mode"
         write_node "0" "/sys/module/ged/parameters/gx_boost_on"
+        write_node "0" "/sys/module/ged/parameters/ged_boost_enable"
+        write_node "0" "/sys/module/ged/parameters/boost_amp"
         write_node "1" "/sys/kernel/fpsgo/common/gpu_block_boost"
-        write_node "always_on" "/sys/devices/platform/*mali*/power_policy"
+        for pp in /sys/devices/platform/*mali*/power_policy /sys/devices/platform/soc/*mali*/power_policy; do
+            [ -e "$pp" ] && write_node "always_on" "$pp"
+        done
         write_node "1" "/proc/mali/always_on"
         write_node "1" "/proc/mali/dvfs_enable"
-        write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
-        write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
         write_node "1" "/sys/kernel/fpsgo/fbt/switch_idleprefer"
         write_node "1" "/sys/kernel/fpsgo/fbt/enable_switch_down_throttle"
 
@@ -1305,9 +1466,10 @@ case "$PROFILE" in
         write_node "1" "/dev/cpuset/foreground/boost/cpu.uclamp.latency_sensitive"
 
         write_node "0-7" "/dev/cpuset/foreground/cpus"
-        write_node "0-2" "/dev/cpuset/background/cpus"
-        write_node "0-5" "/dev/cpuset/system-background/cpus"
+        write_node "0-3" "/dev/cpuset/background/cpus"
+        write_node "0-3" "/dev/cpuset/system-background/cpus"
         write_node "0-7" "/dev/cpuset/top-app/cpus"
+        write_node "0-5" "/dev/cpuset/restricted/cpus"
         write_node "1" "/dev/stune/schedtune.sched_boost_enabled"
         write_node "5" "/dev/stune/schedtune.boost"
         write_node "0" "/dev/stune/schedtune.prefer_idle"
@@ -1463,6 +1625,10 @@ case "$PROFILE" in
             [ -e "$path/cpufreq/cpuinfo_max_freq" ] && chmod 444 "$path/cpufreq/cpuinfo_max_freq" 2>/dev/null
             [ -e "$path/cpu_capacity" ] && chmod 444 "$path/cpu_capacity" 2>/dev/null
             [ -e "$path/topology/physical_package_id" ] && chmod 444 "$path/topology/physical_package_id" 2>/dev/null
+        done
+        for p in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ -d "$p" ] || continue
+            chmod 644 "$p/scaling_min_freq" "$p/scaling_max_freq" 2>/dev/null
         done
 
         if [ "$PROFILE" = "auto" ]; then

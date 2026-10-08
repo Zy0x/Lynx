@@ -306,8 +306,8 @@ Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman oper
    - **Protokol Koneksi Dinamis (Anti-Stuck & Hardware Identity Interlock)**: Alamat IP perangkat bersifat dinamis karena pengguna berpindah jaringan Wi-Fi/Hotspot (namun port Wireless ADB **SELALU 5555**).
    - **Aturan Eksekusi Agen**:
      - Sebelum menjalankan pengujian ADB pertama kali atau jika koneksi terputus, agen **WAJIB** menjalankan utilitas auto-discovery:
-       - Untuk pengujian aktif (Infinix X698): `.\tools\connect_device.cmd` atau `$target = powershell -ExecutionPolicy Bypass -File .\tools\connect_device.ps1 -Quiet`
-       - Untuk pengambilan sampel referensi Read-Only (Redmi Note 7): `.\tools\connect_device.cmd -Role reference` atau `$refTarget = powershell -ExecutionPolicy Bypass -File .\tools\connect_device.ps1 -Role reference -Quiet`
+       - Untuk pengujian aktif (Infinix X698): `.\tools\connect_device.cmd` atau `$target = & .\tools\connect_device.ps1 -Quiet`
+       - Untuk pengambilan sampel referensi Read-Only (Redmi Note 7): `.\tools\connect_device.cmd -Role reference` atau `$refTarget = & .\tools\connect_device.ps1 -Role reference -Quiet`
      - Perintah ini secara otomatis mendeteksi perangkat melalui 4 tingkat verifikasi bertingkat + **Hardware Identity Interlock**:
        1. Verifikasi koneksi `adb devices` yang sudah aktif (memvalidasi `ro.product.device` & `ro.board.platform`),
        2. mDNS Zero-Config Discovery (`adb mdns services`),

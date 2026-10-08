@@ -36,10 +36,12 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
             write_node "20000" "$schedutil/up_rate_limit_us"
             write_node "500" "$schedutil/down_rate_limit_us"
         fi
+        write_node "-6" "$schedutil/sched_load_boost"
         write_node "99" "$schedutil/hispeed_load"
         write_node "0" "$schedutil/pl"
         write_node "0" "$schedutil/iowait_boost_enable"
     fi
+    write_node "-6" "$policy/sched_load_boost"
 done
 
 # ── 2. Devfreq Memory Bus Lowest Clocks / Powersave ──────────────────
@@ -47,7 +49,10 @@ for dev in /sys/class/devfreq/*; do
     [ -d "$dev" ] || continue
     gov_node="$dev/governor"
     case "$dev" in
-        *ufshc*|*cpubw*|*gpubw*|*llccbw*|*l3-cpu*|*bus_ddr*)
+        *latfloor*)
+            write_node "compute" "$gov_node"
+            ;;
+        *ufshc*|*cpubw*|*gpubw*|*llccbw*|*l3-cpu*|*bus_ddr*|*cpu-ddr-bw*|*ddr-bw*|*cpu-ddr-lat*|*memlat-cpu*)
             write_node "powersave" "$gov_node"
             ;;
     esac
@@ -69,6 +74,13 @@ if [ -d "$KGSL" ]; then
     write_node "0" "$KGSL/force_clk_on"
     write_node "0" "$KGSL/force_rail_on"
     write_node "20" "$KGSL/idle_timer"
+
+    avail_govs=$(cat "$KGSL/devfreq/available_governors" 2>/dev/null)
+    if echo "$avail_govs" | grep -q "powersave"; then
+        write_node "powersave" "$KGSL/devfreq/governor"
+    elif echo "$avail_govs" | grep -q "msm-adreno-tz"; then
+        write_node "msm-adreno-tz" "$KGSL/devfreq/governor"
+    fi
 fi
 
 # ── 4. Workqueue & Thermal Reset ─────────────────────────────────────
@@ -79,8 +91,11 @@ if [ -f "$MODDIR/platforms/qcom/thermal.sh" ]; then
 fi
 
 write_node "0" "/dev/stune/schedtune.boost"
+write_node "0" "/dev/stune/schedtune.prefer_high_cap"
 write_node "0" "/dev/stune/foreground/schedtune.boost"
+write_node "0" "/dev/stune/foreground/schedtune.prefer_high_cap"
 write_node "0" "/dev/stune/top-app/schedtune.boost"
+write_node "0" "/dev/stune/top-app/schedtune.prefer_high_cap"
 
 # Enforce 60Hz Screen Refresh Rate for Power Conservation
 cur_min_rr=$(settings get system min_refresh_rate 2>/dev/null)

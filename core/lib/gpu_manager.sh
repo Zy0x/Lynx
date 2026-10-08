@@ -1,5 +1,6 @@
 #!/system/bin/sh
 # Lynx Kernel Manager (LKM) - Dynamic GPU & Devfreq Controller
+# Universal Qualcomm Adreno, MediaTek GED/GPUFreq v1-v2, and Devfreq/RDNA Support
 # Pure POSIX /system/bin/sh compliance (Android Toybox/ash)
 
 write_node() {
@@ -23,20 +24,26 @@ get_gpu_info_json() {
     # 1. Qualcomm Adreno Architecture
     if [ -d "/sys/class/kgsl/kgsl-3d0" ]; then
         vendor="Qualcomm Adreno"
-        cur_freq=$(cat /sys/class/kgsl/kgsl-3d0/gpuclk 2>/dev/null || echo 0)
+        cur_freq=$(cat /sys/class/kgsl/kgsl-3d0/gpuclk 2>/dev/null || cat /sys/class/kgsl/kgsl-3d0/devfreq/cur_freq 2>/dev/null || echo 0)
         [ "$cur_freq" -gt 1000000 ] 2>/dev/null && cur_freq=$(( cur_freq / 1000000 ))
+        [ "$cur_freq" -gt 10000 ] 2>/dev/null && cur_freq=$(( cur_freq / 1000 ))
 
-        max_freq=$(cat /sys/class/kgsl/kgsl-3d0/max_gpuclk 2>/dev/null || cat /sys/class/kgsl/kgsl-3d0/max_clock_mhz 2>/dev/null || echo 0)
+        max_freq=$(cat /sys/class/kgsl/kgsl-3d0/max_gpuclk 2>/dev/null || cat /sys/class/kgsl/kgsl-3d0/max_clock_mhz 2>/dev/null || cat /sys/class/kgsl/kgsl-3d0/devfreq/max_freq 2>/dev/null || echo 0)
         [ "$max_freq" -gt 1000000 ] 2>/dev/null && max_freq=$(( max_freq / 1000000 ))
+        [ "$max_freq" -gt 10000 ] 2>/dev/null && max_freq=$(( max_freq / 1000 ))
 
-        min_freq=$(cat /sys/class/kgsl/kgsl-3d0/min_clock_mhz 2>/dev/null || echo 0)
+        min_freq=$(cat /sys/class/kgsl/kgsl-3d0/min_clock_mhz 2>/dev/null || cat /sys/class/kgsl/kgsl-3d0/devfreq/min_freq 2>/dev/null || echo 0)
+        [ "$min_freq" -gt 1000000 ] 2>/dev/null && min_freq=$(( min_freq / 1000000 ))
+        [ "$min_freq" -gt 10000 ] 2>/dev/null && min_freq=$(( min_freq / 1000 ))
+
         cur_gov=$(cat /sys/class/kgsl/kgsl-3d0/devfreq/governor 2>/dev/null || echo "msm-adreno-tz")
 
         # Frequencies table
-        avail_raw=$(cat /sys/class/kgsl/kgsl-3d0/gpu_available_frequencies 2>/dev/null || cat /sys/class/kgsl/kgsl-3d0/freq_table_mhz 2>/dev/null)
+        avail_raw=$(cat /sys/class/kgsl/kgsl-3d0/gpu_available_frequencies 2>/dev/null || cat /sys/class/kgsl/kgsl-3d0/freq_table_mhz 2>/dev/null || cat /sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies 2>/dev/null)
         if [ -n "$avail_raw" ]; then
             for f in $avail_raw; do
                 [ "$f" -gt 1000000 ] 2>/dev/null && f=$(( f / 1000000 ))
+                [ "$f" -gt 10000 ] 2>/dev/null && f=$(( f / 1000 ))
                 [ -n "$freqs_json" ] && freqs_json="$freqs_json,"
                 freqs_json="${freqs_json}${f}"
             done
@@ -49,29 +56,96 @@ get_gpu_info_json() {
                 [ -n "$govs_json" ] && govs_json="$govs_json,"
                 govs_json="${govs_json}\"${g}\""
             done
+        else
+            govs_json="\"msm-adreno-tz\",\"performance\",\"powersave\",\"simple_ondemand\""
         fi
 
-    # 2. MediaTek Mali / GED Architecture
-    elif [ -f "/proc/gpufreq/gpufreq_opp_dump" ] || [ -f "/proc/gpufreq/gpufreq_opp_freq" ]; then
+    # 2. MediaTek Mali / GED Architecture (GPUFreq v1 & v2)
+    elif [ -d "/proc/gpufreq" ] || [ -d "/proc/gpufreqv2" ] || [ -d "/sys/module/ged" ] || [ -d "/sys/kernel/ged/hal" ]; then
         vendor="MediaTek Mali"
-        cur_freq=$(cat /proc/gpufreq/gpufreq_opp_freq 2>/dev/null || echo 0)
+        if [ -r "/sys/kernel/ged/hal/current_freqency" ]; then
+            cur_raw=$(cat /sys/kernel/ged/hal/current_freqency 2>/dev/null | awk '{if(NF>=2) print $2; else print $1}')
+            [ "$cur_raw" -gt 0 ] 2>/dev/null && cur_freq=$cur_raw
+        fi
+        if [ "$cur_freq" -eq 0 ] 2>/dev/null; then
+            cur_raw=$(cat /proc/gpufreq/gpufreq_opp_freq /proc/gpufreqv2/gpufreq_opp_freq 2>/dev/null | grep -Eo 'freq = [0-9]+' | head -n 1 | cut -d'=' -f2 | tr -d ' ')
+            [ -n "$cur_raw" ] && [ "$cur_raw" -gt 0 ] 2>/dev/null && cur_freq=$cur_raw
+        fi
+        if [ "$cur_freq" -eq 0 ] 2>/dev/null; then
+            cur_raw=$(cat /proc/gpufreq/gpufreq_var_dump 2>/dev/null | grep -o 'freq: [0-9]*' | head -n1 | cut -d' ' -f2)
+            [ -n "$cur_raw" ] && [ "$cur_raw" -gt 0 ] 2>/dev/null && cur_freq=$cur_raw
+        fi
         [ "$cur_freq" -gt 10000 ] 2>/dev/null && cur_freq=$(( cur_freq / 1000 ))
 
-        if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
-            # Parse frequencies from OPP dump table
-            opp_freqs=$(grep -Eo 'freq = [0-9]+' /proc/gpufreq/gpufreq_opp_dump 2>/dev/null | cut -d'=' -f2 | tr -d ' ')
-            if [ -n "$opp_freqs" ]; then
-                for f in $opp_freqs; do
-                    f_mhz=$(( f / 1000 ))
+        # Active floor and ceiling
+        bot_raw=$(cat /sys/module/ged/parameters/gpu_bottom_freq 2>/dev/null | tr -dc '0-9')
+        bst_raw=$(cat /sys/module/ged/parameters/gpu_cust_boost_freq 2>/dev/null | tr -dc '0-9')
+        up_raw=$(cat /sys/module/ged/parameters/gpu_cust_upbound_freq 2>/dev/null | tr -dc '0-9')
+        [ -n "$bot_raw" ] && [ "$bot_raw" -gt 0 ] 2>/dev/null && min_freq=$bot_raw
+        [ -n "$bst_raw" ] && [ "$bst_raw" -gt "$min_freq" ] 2>/dev/null && min_freq=$bst_raw
+        [ -n "$up_raw" ] && [ "$up_raw" -gt 0 ] 2>/dev/null && max_freq=$up_raw
+
+        # Parse frequencies from OPP dump table (v1 or v2)
+        opp_freqs=$(cat /proc/gpufreq/gpufreq_opp_dump /proc/gpufreqv2/gpu_working_opp_table /proc/gpufreqv2/gpufreq_opp_dump 2>/dev/null | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ' | sort -nu)
+        if [ -n "$opp_freqs" ]; then
+            for f in $opp_freqs; do
+                f_mhz=$(( f / 1000 ))
+                [ -n "$freqs_json" ] && freqs_json="$freqs_json,"
+                freqs_json="${freqs_json}${f_mhz}"
+            done
+            [ "$min_freq" -eq 0 ] 2>/dev/null && min_freq=$(echo "$opp_freqs" | head -n 1)
+            [ "$max_freq" -eq 0 ] 2>/dev/null && max_freq=$(echo "$opp_freqs" | tail -n 1)
+        fi
+        [ "$min_freq" -gt 10000 ] 2>/dev/null && min_freq=$(( min_freq / 1000 ))
+        [ "$max_freq" -gt 10000 ] 2>/dev/null && max_freq=$(( max_freq / 1000 ))
+
+        cur_gov=$(cat /sys/kernel/ged/hal/dvfs_loading_mode 2>/dev/null || cat /sys/module/ged/parameters/cpu_boost_policy 2>/dev/null || echo "ged")
+        govs_json="\"0\",\"1\",\"2\",\"ged\""
+
+    # 3. Generic Devfreq / ARM Mali Kbase / Samsung Xclipse AMD RDNA
+    else
+        devpath=""
+        for d in /sys/class/devfreq/*sgpu* /sys/class/devfreq/*gpu* /sys/class/devfreq/*mali*; do
+            if [ -d "$d" ]; then devpath="$d"; break; fi
+        done
+        if [ -n "$devpath" ]; then
+            case "$devpath" in
+                *sgpu*) vendor="Samsung Xclipse AMD RDNA" ;;
+                *mali*) vendor="ARM Mali Devfreq" ;;
+                *) vendor="Generic Devfreq GPU" ;;
+            esac
+            cur_freq=$(cat "$devpath/cur_freq" 2>/dev/null || echo 0)
+            [ "$cur_freq" -gt 1000000 ] 2>/dev/null && cur_freq=$(( cur_freq / 1000000 ))
+            [ "$cur_freq" -gt 10000 ] 2>/dev/null && cur_freq=$(( cur_freq / 1000 ))
+
+            min_freq=$(cat "$devpath/min_freq" 2>/dev/null || echo 0)
+            [ "$min_freq" -gt 1000000 ] 2>/dev/null && min_freq=$(( min_freq / 1000000 ))
+            [ "$min_freq" -gt 10000 ] 2>/dev/null && min_freq=$(( min_freq / 1000 ))
+
+            max_freq=$(cat "$devpath/max_freq" 2>/dev/null || echo 0)
+            [ "$max_freq" -gt 1000000 ] 2>/dev/null && max_freq=$(( max_freq / 1000000 ))
+            [ "$max_freq" -gt 10000 ] 2>/dev/null && max_freq=$(( max_freq / 1000 ))
+
+            cur_gov=$(cat "$devpath/governor" 2>/dev/null || echo "simple_ondemand")
+            avail_raw=$(cat "$devpath/available_frequencies" 2>/dev/null)
+            if [ -n "$avail_raw" ]; then
+                for f in $avail_raw; do
+                    [ "$f" -gt 1000000 ] 2>/dev/null && f=$(( f / 1000000 ))
+                    [ "$f" -gt 10000 ] 2>/dev/null && f=$(( f / 1000 ))
                     [ -n "$freqs_json" ] && freqs_json="$freqs_json,"
-                    freqs_json="${freqs_json}${f_mhz}"
+                    freqs_json="${freqs_json}${f}"
                 done
-                max_freq=$(echo "$freqs_json" | cut -d',' -f1)
-                min_freq=$(echo "$freqs_json" | tr ',' '\n' | tail -n 1)
+            fi
+            govs_raw=$(cat "$devpath/available_governors" 2>/dev/null)
+            if [ -n "$govs_raw" ]; then
+                for g in $govs_raw; do
+                    [ -n "$govs_json" ] && govs_json="$govs_json,"
+                    govs_json="${govs_json}\"${g}\""
+                done
+            else
+                govs_json="\"simple_ondemand\",\"performance\",\"powersave\""
             fi
         fi
-        cur_gov=$(cat /sys/module/ged/parameters/cpu_boost_policy 2>/dev/null || echo "ged")
-        govs_json="\"ged\",\"performance\",\"balance\""
     fi
 
     printf '{"vendor":"%s","cur_freq":%d,"min_freq":%d,"max_freq":%d,"cur_gov":"%s","avail_freqs":[%s],"avail_govs":[%s]}\n' \
@@ -79,19 +153,74 @@ get_gpu_info_json() {
 }
 
 set_gpu_freq() {
-    local target_mhz="$1"
-    [ -z "$target_mhz" ] && return 1
+    local min_mhz="$1"
+    local max_mhz="$2"
+    [ -z "$min_mhz" ] && return 1
+    [ -z "$max_mhz" ] && max_mhz="$min_mhz"
 
     # Qualcomm Adreno
     if [ -d "/sys/class/kgsl/kgsl-3d0" ]; then
-        write_node "$target_mhz" "/sys/class/kgsl/kgsl-3d0/max_clock_mhz"
-        echo "Adreno GPU clock capped at ${target_mhz} MHz."
-    # MediaTek Mali
-    elif [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
-        target_khz=$(( target_mhz * 1000 ))
-        write_node "$target_khz" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
-        write_node "$target_khz" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
-        echo "MediaTek Mali GPU clock capped at ${target_mhz} MHz."
+        write_node "$max_mhz" "/sys/class/kgsl/kgsl-3d0/max_clock_mhz"
+        write_node "$min_mhz" "/sys/class/kgsl/kgsl-3d0/min_clock_mhz"
+        write_node "$(( max_mhz * 1000000 ))" "/sys/class/kgsl/kgsl-3d0/max_gpuclk"
+        write_node "$(( min_mhz * 1000000 ))" "/sys/class/kgsl/kgsl-3d0/devfreq/min_freq"
+        write_node "$(( max_mhz * 1000000 ))" "/sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
+        echo "Adreno GPU clock set to ${min_mhz} - ${max_mhz} MHz."
+
+    # MediaTek Mali / GED
+    elif [ -d "/proc/gpufreq" ] || [ -d "/proc/gpufreqv2" ] || [ -d "/sys/module/ged" ] || [ -d "/sys/kernel/ged/hal" ]; then
+        min_khz=$(( min_mhz * 1000 ))
+        max_khz=$(( max_mhz * 1000 ))
+
+        if [ "$min_mhz" -eq "$max_mhz" ]; then
+            write_node "$max_khz" "/proc/gpufreq/gpufreq_opp_freq"
+            write_node "$max_khz" "/proc/gpufreqv2/gpufreq_opp_freq"
+        else
+            write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+            write_node "0" "/proc/gpufreqv2/gpufreq_opp_freq"
+        fi
+
+        min_idx=$(awk -F'[][]' -v f="freq = ${min_khz}," '$0 ~ f {print int($2); exit}' /proc/gpufreq/gpufreq_opp_dump /proc/gpufreqv2/gpu_working_opp_table /proc/gpufreqv2/gpufreq_opp_dump 2>/dev/null)
+        max_idx=$(awk -F'[][]' -v f="freq = ${max_khz}," '$0 ~ f {print int($2); exit}' /proc/gpufreq/gpufreq_opp_dump /proc/gpufreqv2/gpu_working_opp_table /proc/gpufreqv2/gpufreq_opp_dump 2>/dev/null)
+
+        [ -n "$min_idx" ] && write_node "$min_idx" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+        [ -n "$max_idx" ] && write_node "$max_idx" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
+        write_node "$min_khz" "/sys/module/ged/parameters/gpu_bottom_freq"
+        write_node "$min_khz" "/sys/module/ged/parameters/gpu_cust_boost_freq"
+        write_node "$max_khz" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
+        echo "MediaTek Mali GPU clock set to ${min_mhz} - ${max_mhz} MHz."
+
+    # Generic Devfreq
+    else
+        for d in /sys/class/devfreq/*sgpu* /sys/class/devfreq/*gpu* /sys/class/devfreq/*mali*; do
+            if [ -d "$d" ]; then
+                write_node "$(( min_mhz * 1000000 ))" "$d/min_freq"
+                write_node "$(( max_mhz * 1000000 ))" "$d/max_freq"
+                echo "Devfreq GPU clock set to ${min_mhz} - ${max_mhz} MHz."
+                break
+            fi
+        done
+    fi
+}
+
+set_gpu_gov() {
+    local target_gov="$1"
+    [ -z "$target_gov" ] && return 1
+
+    if [ -d "/sys/class/kgsl/kgsl-3d0/devfreq" ]; then
+        write_node "$target_gov" "/sys/class/kgsl/kgsl-3d0/devfreq/governor"
+        echo "Qualcomm Adreno GPU governor set to $target_gov."
+    elif [ -d "/sys/kernel/ged/hal" ]; then
+        write_node "$target_gov" "/sys/kernel/ged/hal/dvfs_loading_mode"
+        echo "MediaTek GED GPU loading mode set to $target_gov."
+    else
+        for d in /sys/class/devfreq/*sgpu* /sys/class/devfreq/*gpu* /sys/class/devfreq/*mali*; do
+            if [ -d "$d" ]; then
+                write_node "$target_gov" "$d/governor"
+                echo "Devfreq GPU governor set to $target_gov."
+                break
+            fi
+        done
     fi
 }
 
@@ -100,9 +229,12 @@ case "$1" in
         get_gpu_info_json
         ;;
     set_freq)
-        set_gpu_freq "$2"
+        set_gpu_freq "$2" "$3"
+        ;;
+    set_gov)
+        set_gpu_gov "$2"
         ;;
     *)
-        echo "Usage: gpu_manager [info | set_freq <mhz>]"
+        echo "Usage: gpu_manager [info | set_freq <min_mhz> [max_mhz] | set_gov <governor>]"
         ;;
 esac

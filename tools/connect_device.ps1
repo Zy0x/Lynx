@@ -1,37 +1,8 @@
 <#
 .SYNOPSIS
-    Lynx Universal - Smart ADB Wireless Device Connector & Auto-Discovery.
+    Lynx Universal - Smart ADB Wireless Device Connector & Auto-Discovery (Zero-Pipe-Hang v5).
     Discovers and connects to the target Android test device (Infinix X698) on port 5555.
-
-.DESCRIPTION
-    Multi-tiered discovery protocol:
-    1. Already connected device check in `adb devices`
-    2. mDNS Zero-Config Discovery via `adb mdns services`
-    3. Cached last-known IP probe (.last_device_ip)
-    4. Sub-second parallel subnet scanner across all 192.168.X.XXX subnets
-       (Wi-Fi, Ethernet, Hotspot, and common router subnets)
-
-.PARAMETER Target
-    Optional manual IP (e.g. 192.168.0.162), subnet pattern (e.g. 192.168.43.x, 192.168.43, 43),
-    or 'all' for wide multi-subnet scan.
-
-.PARAMETER Port
-    Target ADB TCP port (defaults to 5555).
-
-.PARAMETER Role
-    Target device role:
-    - 'test' (default): Active Read-Write Test Device (Infinix Note 11S X698 / Helio G96). Automatically blocks Redmi Note 7!
-    - 'reference': Strict Read-Only Reference Device (Xiaomi Redmi Note 7 / lavender / Snapdragon 660). Supports USB & Wireless ADB.
-    - 'any': Any available device (still prints Read-Only warning if Redmi Note 7).
-
-.PARAMETER ForceScan
-    Bypass cache and force an active network scan.
-
-.PARAMETER DeepScan
-    Scans all common 192.168.X subnets simultaneously in addition to local adapter subnets.
-
-.PARAMETER Quiet
-    Suppress banner and output only the device serial string (e.g. 192.168.0.162:5555).
+    Designed to run in-process (`& .\tools\connect_device.ps1`) or via `connect_device.cmd` with ZERO pipe inheritance hangs.
 #>
 
 [CmdletBinding()]
@@ -54,118 +25,157 @@ $CacheFile = if ($Role -eq "reference") {
     Join-Path $ScriptDir ".last_device_ip"
 }
 
-# Pool of most common 192.168.X router and Android hotspot subnets
 $Common192Subnets = @(
-    "192.168.0",    # TP-Link, D-Link, Tenda, Netgear
-    "192.168.1",    # Indihome, Telkom, ZTE, Huawei, Linksys, Asus
-    "192.168.43",   # Android Wi-Fi Hotspot / Tethering default
-    "192.168.2",    # Secondary LAN / Mesh Nodes
-    "192.168.8",    # Huawei 4G/5G CPE & Portable Routers
-    "192.168.100",  # Huawei GPON / Fiberhome default
-    "192.168.18",   # Fiberhome ONT
-    "192.168.31",   # Xiaomi / Redmi Routers
-    "192.168.137"   # Windows Mobile Hotspot default
+    "192.168.1",
+    "192.168.0",
+    "192.168.43",
+    "192.168.2",
+    "192.168.8",
+    "192.168.100",
+    "192.168.18",
+    "192.168.31",
+    "192.168.137"
 )
 
 function Write-Info([string]$msg) {
-    if (-not $Quiet) {
-        Write-Host "  [+] $msg" -ForegroundColor Cyan
-    }
+    if (-not $Quiet) { Write-Host "  [+] $msg" -ForegroundColor Cyan }
 }
-
 function Write-Warn([string]$msg) {
-    if (-not $Quiet) {
-        Write-Host "  [!] $msg" -ForegroundColor Yellow
-    }
+    if (-not $Quiet) { Write-Host "  [!] $msg" -ForegroundColor Yellow }
 }
-
 function Write-Success([string]$msg) {
-    if (-not $Quiet) {
-        Write-Host "  [OK] $msg" -ForegroundColor Green
-    }
+    if (-not $Quiet) { Write-Host "  [OK] $msg" -ForegroundColor Green }
 }
 
-# Verify adb is available
 $adbCmd = Get-Command "adb.exe" -ErrorAction SilentlyContinue
 if (-not $adbCmd) {
-    Write-Error "adb.exe was not found in PATH. Please install Android Platform Tools or configure PATH."
-    exit 1
+    Write-Error "adb.exe was not found in PATH."
+    return
 }
+$AdbPath = $adbCmd.Source
 
-# Helper: Test if TCP port is open (timeout in ms)
-function Test-PortOpen([string]$targetIp, [int]$targetPort, [int]$timeoutMs = 400) {
+# Zero-Pipe-Inheritance ADB Runner: redirects output to a temp file via cmd.exe so adb daemon NEVER holds PowerShell stdout pipes open!
+function Invoke-AdbSafe([string]$arguments, [int]$timeoutMs = 3000) {
+    $tmpOut = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "lynx_adb_" + [Guid]::NewGuid().ToString("N") + ".tmp")
     try {
-        $client = New-Object System.Net.Sockets.TcpClient
-        $ar = $client.BeginConnect($targetIp, $targetPort, $null, $null)
-        $success = $ar.AsyncWaitHandle.WaitOne($timeoutMs, $false)
-        if ($success) {
-            $client.EndConnect($ar)
-            $client.Close()
-            return $true
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "cmd.exe"
+        $psi.Arguments = "/d /s /c `"`"$AdbPath`" $arguments > `"$tmpOut`" 2>&1`""
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $false
+        $psi.RedirectStandardError = $false
+
+        $proc = [System.Diagnostics.Process]::Start($psi)
+        if ($null -ne $proc) {
+            if (-not $proc.WaitForExit($timeoutMs)) {
+                try { $proc.Kill() } catch {}
+            }
+            $proc.Close()
         }
-        $client.Close()
-        return $false
+        if (Test-Path $tmpOut) {
+            return (Get-Content -Path $tmpOut -Raw -ErrorAction SilentlyContinue)
+        }
+        return ""
     } catch {
-        return $false
+        return ""
+    } finally {
+        if (Test-Path $tmpOut) {
+            Remove-Item -Path $tmpOut -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
-# Helper: Validate and verify ADB responsiveness, device codename, and Hardware Identity Interlock
-function Test-AdbDevice([string]$serial) {
-    for ($attempt = 1; $attempt -le 3; $attempt++) {
+# Pure .NET TCP Port Check (Zero Add-Type / csc.exe overhead)
+function Test-PortOpen([string]$targetIp, [int]$targetPort, [int]$timeoutMs = 350) {
+    for ($attempt = 0; $attempt -lt 2; $attempt++) {
+        $client = $null
         try {
-            $res = & adb.exe -s $serial shell "echo lynx_ok" 2>$null
-            if ($res -like "*lynx_ok*") {
-                $model = (& adb.exe -s $serial shell "getprop ro.product.model" 2>$null)
-                $device = (& adb.exe -s $serial shell "getprop ro.product.device" 2>$null)
-                $platform = (& adb.exe -s $serial shell "getprop ro.board.platform" 2>$null)
-                if ($model) { $model = $model.Trim() } else { $model = "Unknown" }
-                if ($device) { $device = $device.Trim() } else { $device = "Unknown" }
-                if ($platform) { $platform = $platform.Trim() } else { $platform = "Unknown" }
-
-                $isRedmiNote7 = ($device -match "lavender") -or ($platform -match "sdm660") -or ($model -match "Redmi Note 7")
-                return @{
-                    Success               = $true
-                    Model                 = $model
-                    Device                = $device
-                    Platform              = $platform
-                    IsReadOnlyDailyDriver = [bool]$isRedmiNote7
+            $client = New-Object System.Net.Sockets.TcpClient
+            $ar = $client.BeginConnect($targetIp, $targetPort, $null, $null)
+            $waitMs = $timeoutMs + ($attempt * 200)
+            if ($ar.AsyncWaitHandle.WaitOne($waitMs, $false)) {
+                $client.EndConnect($ar)
+                if ($client.Connected) {
+                    $client.Close()
+                    return $true
                 }
             }
-        } catch {}
-        if ($attempt -lt 3) {
-            Start-Sleep -Milliseconds 300
+            $client.Close()
+        } catch {
+            if ($null -ne $client) { try { $client.Close() } catch {} }
+        }
+    }
+    return $false
+}
+
+function Test-AdbDevice([string]$serial, [string]$hintLine = "") {
+    if ($serial -match "^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):([0-9]+)$") {
+        $ipPart = $matches[1]
+        $portPart = [int]$matches[2]
+        if (-not (Test-PortOpen $ipPart $portPart 300)) {
+            [void](Invoke-AdbSafe "disconnect $serial" 1000)
+            return @{ Success = $false; Model = ""; Device = ""; Platform = ""; IsReadOnlyDailyDriver = $false }
+        }
+    }
+
+    if ($hintLine -match "model:([^\s]+)" -and $hintLine -match "device:([^\s]+)") {
+        $hModel = if ($hintLine -match "model:([^\s]+)") { $matches[1] } else { "Unknown" }
+        $hDevice = if ($hintLine -match "device:([^\s]+)") { $matches[1] } else { "Unknown" }
+        $isRN7 = ($hDevice -match "lavender") -or ($hModel -match "Redmi_Note_7|Redmi")
+        $hPlat = if ($isRN7) { "sdm660" } elseif ($hDevice -match "X698") { "mt6781" } else { "Unknown" }
+        return @{
+            Success               = $true
+            Model                 = $hModel
+            Device                = $hDevice
+            Platform              = $hPlat
+            IsReadOnlyDailyDriver = [bool]$isRN7
+        }
+    }
+
+    $probeCmd = "-s $serial shell `"echo LYNX_OK; getprop ro.product.model; getprop ro.product.device; getprop ro.board.platform`""
+    $out = Invoke-AdbSafe $probeCmd 2500
+    if ($out -and ($out -match "LYNX_OK")) {
+        $lines = @($out -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
+        $idx = [Array]::IndexOf($lines, "LYNX_OK")
+        $model = if ($idx -ge 0 -and ($idx + 1) -lt $lines.Count) { $lines[$idx + 1] } else { "Unknown" }
+        $device = if ($idx -ge 0 -and ($idx + 2) -lt $lines.Count) { $lines[$idx + 2] } else { "Unknown" }
+        $platform = if ($idx -ge 0 -and ($idx + 3) -lt $lines.Count) { $lines[$idx + 3] } else { "Unknown" }
+
+        $isRedmiNote7 = ($device -match "lavender") -or ($platform -match "sdm660") -or ($model -match "Redmi Note 7")
+        return @{
+            Success               = $true
+            Model                 = $model
+            Device                = $device
+            Platform              = $platform
+            IsReadOnlyDailyDriver = [bool]$isRedmiNote7
         }
     }
     return @{ Success = $false; Model = ""; Device = ""; Platform = ""; IsReadOnlyDailyDriver = $false }
 }
 
-# Helper: Hardware Identity Interlock check against requested Role
 function Test-RoleInterlock([hashtable]$devInfo, [string]$serial) {
     if (-not $devInfo.Success) { return $false }
     if ($Role -eq "test" -and $devInfo.IsReadOnlyDailyDriver) {
-        Write-Warn "SAFETY INTERLOCK: Blocked $($devInfo.Model) ($($devInfo.Device) / $($devInfo.Platform)) at $serial -- STRICT READ-ONLY DAILY DRIVER! Use '-Role reference' only for passive read-only sampling."
+        Write-Warn "SAFETY INTERLOCK: Blocked $($devInfo.Model) ($($devInfo.Device) / $($devInfo.Platform)) at $serial -- STRICT READ-ONLY DAILY DRIVER!"
         return $false
     }
     if ($Role -eq "reference" -and -not $devInfo.IsReadOnlyDailyDriver) {
-        Write-Info "Skipping active test device $($devInfo.Model) ($($devInfo.Device)) at $serial while searching for 'reference' device (Redmi Note 7)..."
+        Write-Info "Skipping active test device $($devInfo.Model) ($($devInfo.Device)) at $serial while searching for 'reference' device..."
         return $false
     }
     return $true
 }
 
-# Helper: Print Read-Only Warning Banner when connecting to Redmi Note 7
 function Write-DeviceBanner([hashtable]$devInfo, [string]$serial) {
     if ($devInfo.IsReadOnlyDailyDriver -and -not $Quiet) {
         Write-Host "  ==================================================================" -ForegroundColor Red
         Write-Host "  [!] STRICT READ-ONLY DAILY DRIVER: $($devInfo.Model) ($($devInfo.Device) / $($devInfo.Platform))" -ForegroundColor Red
         Write-Host "  [!] ZERO-TOUCH POLICY: NO SYSFS WRITE, NO APK INSTALL, NO FILE WRITE!" -ForegroundColor Yellow
-        Write-Host "  [!] Only passive stdout commands (cat, ls, find, getprop) allowed." -ForegroundColor Yellow
         Write-Host "  ==================================================================" -ForegroundColor Red
     }
 }
 
-# Helper: Save last known working IP (only for IPv4 wireless serials)
 function Save-Cache([string]$targetIp, [hashtable]$devInfo) {
     try {
         if ($targetIp -match "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$") {
@@ -174,9 +184,63 @@ function Save-Cache([string]$targetIp, [hashtable]$devInfo) {
             } else {
                 Join-Path $ScriptDir ".last_device_ip"
             }
-            Set-Content -Path $destFile -Value $targetIp -Force -ErrorAction SilentlyContinue
+            Set-Content -Path $destFile -Value $targetIp -NoNewline -Force -ErrorAction SilentlyContinue
         }
     } catch {}
+}
+
+# Pure PowerShell RunspacePool Parallel Subnet Scanner (Zero csc.exe compilation!)
+function Invoke-FastSubnetScan([string[]]$subnets, [int]$port, [int]$timeoutMs = 280) {
+    $discovered = @()
+    $pool = [RunspaceFactory]::CreateRunspacePool(1, 64)
+    $pool.Open()
+    $jobs = New-Object System.Collections.ArrayList
+
+    $scriptBlock = {
+        param([string]$ip, [int]$p, [int]$t)
+        $c = $null
+        try {
+            $c = New-Object System.Net.Sockets.TcpClient
+            $ar = $c.BeginConnect($ip, $p, $null, $null)
+            if ($ar.AsyncWaitHandle.WaitOne($t, $false)) {
+                $c.EndConnect($ar)
+                if ($c.Connected) {
+                    $c.Close()
+                    return $ip
+                }
+            }
+            $c.Close()
+        } catch {
+            if ($null -ne $c) { try { $c.Close() } catch {} }
+        }
+        return $null
+    }
+
+    foreach ($subnet in $subnets) {
+        for ($i = 1; $i -le 254; $i++) {
+            $ip = "$subnet.$i"
+            $ps = [PowerShell]::Create().AddScript($scriptBlock).AddArgument($ip).AddArgument($port).AddArgument($timeoutMs)
+            $ps.RunspacePool = $pool
+            [void]$jobs.Add([PSCustomObject]@{ Pipe = $ps; Handle = $ps.BeginInvoke() })
+        }
+    }
+
+    foreach ($j in $jobs) {
+        try {
+            $res = $j.Pipe.EndInvoke($j.Handle)
+            if ($res) {
+                foreach ($item in $res) {
+                    if ($item) { $discovered += [string]$item }
+                }
+            }
+        } catch {}
+        finally {
+            $j.Pipe.Dispose()
+        }
+    }
+    $pool.Close()
+    $pool.Dispose()
+    return $discovered
 }
 
 if (-not $Quiet) {
@@ -185,202 +249,130 @@ if (-not $Quiet) {
     Write-Host "====================================================" -ForegroundColor Cyan
 }
 
-# -------------------------------------------------------------------------
-# TIER 0: Parse User Input / Manual Specification
-# -------------------------------------------------------------------------
 $manualSubnetMode = $false
 $targetSubnets = @()
 
 if ($Target) {
     $cleanTarget = $Target.Trim()
-
-    # Shortcut keywords for device roles
     if ($cleanTarget -in @("lavender", "redmi", "sdm660", "reference")) {
         $Role = "reference"
         $CacheFile = Join-Path $ScriptDir ".last_reference_ip"
         $cleanTarget = ""
-        Write-Info "Switched target role to 'reference' (Redmi Note 7 - Strict Read-Only Daily Driver)."
-    }
-    elseif ($cleanTarget -in @("x698", "infinix", "test")) {
+    } elseif ($cleanTarget -in @("x698", "infinix", "test")) {
         $Role = "test"
         $CacheFile = Join-Path $ScriptDir ".last_device_ip"
         $cleanTarget = ""
-        Write-Info "Switched target role to 'test' (Infinix X698 - Active Test Device)."
     }
 }
 
 if ($Target -and $cleanTarget) {
-    # Format A: Full IP address (e.g. 192.168.0.162)
     if ($cleanTarget -match "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$") {
-        $serial = "$cleanTarget" + ":" + "$Port"
+        $serial = "$cleanTarget`:$Port"
         Write-Info "Connecting to explicitly specified IP: $serial..."
-        & adb.exe connect $serial | Out-Null
-        $test = Test-AdbDevice $serial
-        if (Test-RoleInterlock $test $serial) {
-            Save-Cache $cleanTarget $test
-            Write-Success "Connected to $serial ($($test.Model), Device: $($test.Device), Platform: $($test.Platform))"
-            Write-DeviceBanner $test $serial
-            if ($Quiet) { Write-Output $serial }
-            exit 0
-        } elseif (-not $test.Success) {
-            Write-Warn "Device at $serial did not respond to ADB shell."
-        } else {
-            exit 1
-        }
-    }
-    # Format B: Subnet pattern (e.g. 192.168.43.x, 192.168.43.*, 192.168.43)
-    elseif ($cleanTarget -match "^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})(\.[xX\*])?$") {
-        $targetSubnets = @($matches[1])
-        $manualSubnetMode = $true
-        Write-Info "Scanning user-specified subnet: $($targetSubnets[0]).1-254 (Port $Port)..."
-    }
-    # Format C: Subnet octet number only (e.g. 43, 0, 1, 100)
-    elseif ($cleanTarget -match "^[0-9]{1,3}$") {
-        $targetSubnets = @("192.168.$cleanTarget")
-        $manualSubnetMode = $true
-        Write-Info "Scanning 192.168.$cleanTarget.1-254 (Port $Port)..."
-    }
-    # Format D: All 192.168.X subnets ('all' or '192.168.*' or '192.168.x')
-    elseif ($cleanTarget -in @("all", "*") -or $cleanTarget -match "^192\.168(\.[xX\*])?$") {
-        $DeepScan = $true
-        $ForceScan = $true
-        Write-Info "Requested full wide-range 192.168.X scan across all common subnets..."
-    }
-}
-
-# -------------------------------------------------------------------------
-# TIER 1: Check existing devices already in `adb devices` (Wireless & USB)
-# -------------------------------------------------------------------------
-if (-not $ForceScan -and -not $manualSubnetMode) {
-    Write-Info "Checking currently connected ADB devices..."
-    $devicesOutput = & adb.exe devices 2>$null
-    $candidates = @()
-    $portSuffix = ":" + $Port
-    foreach ($line in ($devicesOutput -split "`r?`n")) {
-        if ($line -match "^\s*([^\s]+)\s+device\s*$") {
-            $devSerial = $matches[1]
-            if ($devSerial -like "emulator-*") { continue }
-            if ($devSerial.EndsWith($portSuffix) -or ($devSerial -notmatch ":")) {
-                $candidates += $devSerial
-            }
-        }
-    }
-
-    foreach ($cand in $candidates) {
-        $test = Test-AdbDevice $cand
-        if (Test-RoleInterlock $test $cand) {
-            $candIp = ($cand -split ":")[0]
-            Save-Cache $candIp $test
-            Write-Success "Device already connected: $cand ($($test.Model), Device: $($test.Device), Platform: $($test.Platform))"
-            Write-DeviceBanner $test $cand
-            if ($Quiet) { Write-Output $cand }
-            exit 0
-        }
-    }
-}
-
-# -------------------------------------------------------------------------
-# TIER 2: mDNS Zero-Config Discovery (adb mdns services)
-# -------------------------------------------------------------------------
-if (-not $manualSubnetMode) {
-    Write-Info "Probing mDNS services for Android Wireless ADB..."
-    try {
-        $mdnsOutput = & adb.exe mdns services 2>$null
-        $mdnsTargets = @()
-        $regexPattern = "([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):" + $Port
-        foreach ($line in ($mdnsOutput -split "`r?`n")) {
-            if ($line -match $regexPattern) {
-                $mdnsIp = $matches[1]
-                $instance = ($line -split "\s+")[0]
-                $mdnsTargets += [PSCustomObject]@{
-                    Ip       = $mdnsIp
-                    Serial   = "$mdnsIp" + ":" + "$Port"
-                    Instance = $instance
-                }
-            }
-        }
-
-        if ($mdnsTargets.Count -gt 0) {
-            $mdnsTargets = $mdnsTargets | Sort-Object {
-                if ($Role -eq "reference") {
-                    if ($_.Instance -match "lavender|Redmi") { 0 } else { 1 }
-                } else {
-                    if ($_.Instance -match "X698|Infinix") { 0 } else { 1 }
-                }
-            }
-
-            foreach ($t in $mdnsTargets) {
-                Write-Info "Discovered via mDNS: $($t.Serial) ($($t.Instance)). Connecting..."
-                & adb.exe connect $t.Serial | Out-Null
-                $test = Test-AdbDevice $t.Serial
-                if (Test-RoleInterlock $test $t.Serial) {
-                    Save-Cache $t.Ip $test
-                    Write-Success "Connected via mDNS: $($t.Serial) ($($test.Model), Device: $($test.Device), Platform: $($test.Platform))"
-                    Write-DeviceBanner $test $t.Serial
-                    if ($Quiet) { Write-Output $t.Serial }
-                    exit 0
-                }
-            }
-        } else {
-            Write-Info "No active mDNS services found for port $Port."
-        }
-    } catch {
-        Write-Warn "mDNS discovery check encountered an issue."
-    }
-}
-
-# -------------------------------------------------------------------------
-# TIER 3: Cached Last Known IP Check (.last_device_ip / .last_reference_ip)
-# -------------------------------------------------------------------------
-if (-not $ForceScan -and -not $manualSubnetMode -and (Test-Path $CacheFile)) {
-    $cachedIp = (Get-Content $CacheFile -Raw).Trim()
-    if ($cachedIp -match "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$") {
-        Write-Info "Probing last known working IP from cache: $cachedIp`:$Port..."
-        if (Test-PortOpen $cachedIp $Port 300) {
-            $serial = "$cachedIp" + ":" + "$Port"
-            & adb.exe connect $serial | Out-Null
+        if (Test-PortOpen $cleanTarget $Port 350) {
+            [void](Invoke-AdbSafe "connect $serial" 2500)
             $test = Test-AdbDevice $serial
             if (Test-RoleInterlock $test $serial) {
-                Write-Success "Reconnected to cached device: $serial ($($test.Model), Device: $($test.Device), Platform: $($test.Platform))"
+                Save-Cache $cleanTarget $test
+                Write-Success "Connected to $serial ($($test.Model), Device: $($test.Device), Platform: $($test.Platform))"
                 Write-DeviceBanner $test $serial
                 if ($Quiet) { Write-Output $serial }
-                exit 0
+                return
             }
-        } else {
-            Write-Warn "Cached IP $cachedIp is not reachable on port $Port."
+        }
+        Write-Warn "Device at $serial did not respond."
+        return
+    } elseif ($cleanTarget -match "^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})(\.[xX\*])?$") {
+        $targetSubnets = @($matches[1])
+        $manualSubnetMode = $true
+    } elseif ($cleanTarget -match "^[0-9]{1,3}$") {
+        $targetSubnets = @("192.168.$cleanTarget")
+        $manualSubnetMode = $true
+    } elseif ($cleanTarget -in @("all", "*") -or $cleanTarget -match "^192\.168(\.[xX\*])?$") {
+        $DeepScan = $true
+        $ForceScan = $true
+    }
+}
+
+$cachedIp = ""
+if (Test-Path $CacheFile) {
+    $rawCache = (Get-Content $CacheFile -Raw -ErrorAction SilentlyContinue)
+    if ($rawCache) { $cachedIp = $rawCache.Trim() }
+}
+
+# TIER 1: Instant Check via `adb devices -l`
+if (-not $ForceScan -and -not $manualSubnetMode) {
+    Write-Info "Checking currently connected ADB devices..."
+    $devicesOutput = Invoke-AdbSafe "devices -l" 3500
+    $candidates = @()
+    $portSuffix = ":$Port"
+    foreach ($line in ($devicesOutput -split "`r?`n")) {
+        if ($line -match "^\s*([^\s]+)\s+device\s+(.*)$") {
+            $devSerial = $matches[1]
+            $meta = $matches[2]
+            if ($devSerial -like "emulator-*") { continue }
+            if ($devSerial.EndsWith($portSuffix) -or ($devSerial -notmatch ":")) {
+                $candidates += [PSCustomObject]@{ Serial = $devSerial; Meta = $meta }
+            }
+        }
+    }
+
+    $candidates = @($candidates | Sort-Object { if ($_.Serial -eq "$cachedIp`:$Port") { 0 } else { 1 } })
+
+    foreach ($cand in $candidates) {
+        $test = Test-AdbDevice $cand.Serial $cand.Meta
+        if (Test-RoleInterlock $test $cand.Serial) {
+            $candIp = ($cand.Serial -split ":")[0]
+            Save-Cache $candIp $test
+            Write-Success "Device ready: $($cand.Serial) ($($test.Model), Device: $($test.Device), Platform: $($test.Platform))"
+            Write-DeviceBanner $test $cand.Serial
+            if ($Quiet) { Write-Output $cand.Serial }
+            return
         }
     }
 }
 
-# -------------------------------------------------------------------------
-# TIER 4: Fast Parallel Subnet Auto-Discovery (C# .NET Async Sockets)
-# -------------------------------------------------------------------------
-
-# Determine subnets to scan
-if ($targetSubnets.Count -eq 0) {
-    # Auto-detect all active IPv4 interfaces on host (Ethernet, Wi-Fi, Hotspot)
-    $adapters = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { 
-        $_.InterfaceAlias -notlike "*Loopback*" -and 
-        $_.IPAddress -notlike "169.254*" -and 
-        $_.IPAddress -notlike "127.*" -and
-        $_.IPAddress -notlike "172.1[6-9].*" -and
-        $_.IPAddress -notlike "172.2[0-9].*" -and
-        $_.IPAddress -notlike "172.3[0-1].*"
-    }
-
-    $detectedSubnets = @()
-    foreach ($adapter in $adapters) {
-        $parts = $adapter.IPAddress.Split('.')
-        if ($parts.Length -eq 4) {
-            $detectedSubnets += "$($parts[0]).$($parts[1]).$($parts[2])"
+# TIER 2: Fast Cached IP Direct Reconnect
+if (-not $ForceScan -and -not $manualSubnetMode -and ($cachedIp -match "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$")) {
+    $cachedSerial = "$cachedIp`:$Port"
+    Write-Info "Probing cached IP: $cachedSerial..."
+    if (Test-PortOpen $cachedIp $Port 350) {
+        [void](Invoke-AdbSafe "connect $cachedSerial" 2500)
+        $test = Test-AdbDevice $cachedSerial
+        if (Test-RoleInterlock $test $cachedSerial) {
+            Write-Success "Reconnected via cache: $cachedSerial ($($test.Model), Device: $($test.Device), Platform: $($test.Platform))"
+            Write-DeviceBanner $test $cachedSerial
+            if ($Quiet) { Write-Output $cachedSerial }
+            return
         }
     }
-    
-    # Priority subnets = detected from active PC adapters
-    $primarySubnets = @($detectedSubnets | Sort-Object -Unique)
+}
 
+# TIER 3: Fast RunspacePool Subnet Discovery
+if ($targetSubnets.Count -eq 0) {
+    $detectedSubnets = @()
+    try {
+        $nics = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | Where-Object {
+            $_.OperationalStatus -eq [System.Net.NetworkInformation.OperationalStatus]::Up -and
+            $_.NetworkInterfaceType -ne [System.Net.NetworkInformation.NetworkInterfaceType]::Loopback
+        }
+        foreach ($nic in $nics) {
+            foreach ($uni in $nic.GetIPProperties().UnicastAddresses) {
+                if ($uni.Address.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork) {
+                    $ipStr = $uni.Address.IPAddressToString
+                    if ($ipStr -notmatch "^(127\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)") {
+                        $parts = $ipStr.Split('.')
+                        if ($parts.Length -eq 4) {
+                            $detectedSubnets += "$($parts[0]).$($parts[1]).$($parts[2])"
+                        }
+                    }
+                }
+            }
+        }
+    } catch {}
+
+    $primarySubnets = @($detectedSubnets | Sort-Object -Unique)
     if ($DeepScan -or $primarySubnets.Count -eq 0) {
-        # Combine adapter subnets with common 192.168.X pool
         $targetSubnets = @(@($primarySubnets) + @($Common192Subnets) | Sort-Object -Unique)
     } else {
         $targetSubnets = @($primarySubnets)
@@ -388,100 +380,28 @@ if ($targetSubnets.Count -eq 0) {
 }
 
 Write-Info "Scanning subnet(s): $($targetSubnets -join ', ') (Port $Port)..."
+$discoveredIps = Invoke-FastSubnetScan $targetSubnets $Port 280
 
-# Inline C# multi-threaded socket scanner (completes 2000+ IPs in <500ms)
-$csharpType = "AdbFastSubnetScanner"
-if (-not ([System.Management.Automation.PSTypeName]$csharpType).Type) {
-    $csharpCode = @'
-    using System;
-    using System.Collections.Generic;
-    using System.Net.Sockets;
-    using System.Threading.Tasks;
-
-    public class AdbFastSubnetScanner {
-        public static List<string> Scan(string[] subnets, int port, int timeoutMs) {
-            var found = new System.Collections.Concurrent.ConcurrentBag<string>();
-            var tasks = new List<Task>();
-
-            foreach (var subnet in subnets) {
-                for (int i = 1; i <= 254; i++) {
-                    string ip = subnet + "." + i;
-                    tasks.Add(Task.Run(async () => {
-                        try {
-                            using (var client = new TcpClient()) {
-                                var connectTask = client.ConnectAsync(ip, port);
-                                if (await Task.WhenAny(connectTask, Task.Delay(timeoutMs)) == connectTask) {
-                                    if (client.Connected) {
-                                        found.Add(ip);
-                                    }
-                                }
-                            }
-                        } catch {}
-                    }));
-                }
-            }
-            Task.WaitAll(tasks.ToArray());
-            return new List<string>(found);
-        }
-    }
-'@
-    Add-Type -TypeDefinition $csharpCode -Language CSharp -ErrorAction SilentlyContinue
-}
-
-$scanTimeout = 400
-$sw = [System.Diagnostics.Stopwatch]::StartNew()
-$discoveredIps = [AdbFastSubnetScanner]::Scan($targetSubnets, $Port, $scanTimeout)
-$sw.Stop()
-
-# If not found in primary adapters and we haven't tried DeepScan yet, do a quick fallback on common subnets
 if ($discoveredIps.Count -eq 0 -and -not $DeepScan -and -not $manualSubnetMode) {
-    Write-Info "Not found on primary adapter subnet. Expanding search to common 192.168.X subnets..."
-    $fallbackSubnets = ($Common192Subnets | Where-Object { $_ -notin $targetSubnets })
+    $fallbackSubnets = @($Common192Subnets | Where-Object { $_ -notin $targetSubnets })
     if ($fallbackSubnets.Count -gt 0) {
-        $sw.Restart()
-        $discoveredIps = [AdbFastSubnetScanner]::Scan($fallbackSubnets, $Port, $scanTimeout)
-        $sw.Stop()
+        Write-Info "Expanding scan to common 192.168.X subnets..."
+        $discoveredIps = Invoke-FastSubnetScan $fallbackSubnets $Port 280
     }
 }
-
-$foundDesc = "None"
-if ($discoveredIps.Count -gt 0) { $foundDesc = $discoveredIps -join ', ' }
-Write-Info "Scan completed in $($sw.ElapsedMilliseconds) ms. Discovered IP(s): $foundDesc"
 
 foreach ($discIp in $discoveredIps) {
-    $serial = "$discIp" + ":" + "$Port"
-    Write-Info "Attempting connection to $serial..."
-    & adb.exe connect $serial | Out-Null
+    $serial = "$discIp`:$Port"
+    Write-Info "Testing discovered endpoint $serial..."
+    [void](Invoke-AdbSafe "connect $serial" 2500)
     $test = Test-AdbDevice $serial
     if (Test-RoleInterlock $test $serial) {
         Save-Cache $discIp $test
-        Write-Success "Successfully connected and verified: $serial"
-        Write-Host "       Device Model    : $($test.Model) ($($test.Device))" -ForegroundColor Green
-        Write-Host "       SoC / Platform  : $($test.Platform)" -ForegroundColor Green
+        Write-Success "Connected and verified: $serial ($($test.Model), $($test.Device), $($test.Platform))"
         Write-DeviceBanner $test $serial
         if ($Quiet) { Write-Output $serial }
-        exit 0
+        return
     }
 }
 
-# -------------------------------------------------------------------------
-# FAILURE / TROUBLESHOOTING GUIDE
-# -------------------------------------------------------------------------
-Write-Host ""
-Write-Host "====================================================" -ForegroundColor Red
 Write-Host "  [!] Gagal Menghubungkan ke Perangkat Android (Port $Port)" -ForegroundColor Red
-Write-Host "====================================================" -ForegroundColor Red
-Write-Host "Penyebab umum & solusi cepat:" -ForegroundColor Yellow
-Write-Host "1. Pastikan ponsel dan PC berada dalam jaringan Wi-Fi / Hotspot yang sama."
-Write-Host "2. Pastikan Wireless ADB aktif di ponsel:"
-Write-Host "   - Via Termux (Root):" -ForegroundColor Cyan
-Write-Host "       su"
-Write-Host "       setprop service.adb.tcp.port 5555"
-Write-Host "       stop adbd && start adbd"
-Write-Host "   - Atau via Pengaturan Android -> Opsi Pengembang -> Aktifkan Debug Nirkabel."
-Write-Host "3. Coba lakukan DeepScan mencakup seluruh rentang 192.168.X:"
-Write-Host "   .\tools\connect_device.cmd all" -ForegroundColor Cyan
-Write-Host "   .\tools\connect_device.cmd -DeepScan" -ForegroundColor Cyan
-Write-Host ""
-
-exit 1

@@ -1,3 +1,20 @@
+# Lynx [Codename: Deity] 3.0.62
+Released on: 2026-10-08
+> **Versi ini** menghadirkan **Penyelarasan & Perbaikan Parameter Extreme Charging MediaTek & Richtek RT9759 Direct Charge Pump (6A+ / 33W Unlock), Koreksi Parameter Arus MediaTek (Eliminasi Nilai Overflow 24576 mA Menjadi 6000 mA / 6A & Batas Watt 33W Sesuai Spesifikasi Fisik Hardware), Integrasi Bypass Proteksi Termal PCB Transsion (`pcb_thermal_debug`), Serta Kalibrasi Telemetri Arus Adapter & Baterai Bebas Distorsi Pada Aplikasi Native Android (`LynxCompanion`)** — memperbaiki kendala arus pengisian daya yang sebelumnya tertahan di ~2A akibat nilai arus melebihi kapasitas register driver kernel MediaTek yang memicu fallback ke batas aman OEM; membuka penuh rel daya Pump Express 4.0 dan IC Charge Pump 2:1 hingga 6000 mA; serta menyempurnakan pembacaan telemetri arus adapter dan daya watt secara presisi di antarmuka aplikasi native.
+
+## Fitur Baru & Peningkatan (3.0.62)
+
+### 1. Perbaikan Parameter Kernel Charging MediaTek & Richtek RT9759
+- **Koreksi Nilai Arus Pengisian (mA vs Overflow)**: Memperbaiki penulisan parameter `input_current`, `chg1_current`, `chg2_current`, dan `sc_ibat_limit` dari nilai `24576` menjadi `6000 mA` (6A) pada arsitektur MediaTek Helio dan Dimensity. Driver kernel MediaTek menginterpretasikan nilai di atas 6000 sebagai overflow dan memicu pembatalan perintah menuju batas default OEM (~500mA - 2000mA).
+- **Penyelarasan Daya Pump Express (`pdc_max_watt`)**: Menyesuaikan parameter batas watt maksimum ke 33W pada profil pengisian cepat MediaTek Pump Express 4.0 agar protokol negosiasi adaptor tegangan tinggi (8.5V - 9.0V) dapat aktif secara stabil.
+- **Bypass Throttling Termal PCB Transsion**: Mengintegrasikan penulisan parameter `[95,6000,100,6000,6000]` ke node `/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug` agar algoritma proteksi termal perangkat keras tidak menurunkan arus ke 1500mA saat ponsel hangat atau layar menyala.
+
+### 2. Kalibrasi Telemetri Arus & Wattmeter di LynxCompanion
+- **Fallback Pembacaan Arus Multi-Node**: Menambahkan fallback pembacaan node arus charger perangkat keras (`/sys/devices/platform/charger/input_current` dan `chg1_current`) pada `readBatteryDetails()` di repository Android native.
+- **Normalisasi Heuristik Satuan Arus (mA vs µA)**: Memperbaiki deteksi rentang nilai telemetri arus agar nilai mA (100–9000 mA) dan µA (>100000 µA) tidak lagi mengalami perkalian atau pembagian keliru, memastikan tampilan wattmeter dan arus netto baterai akurat 100%.
+
+---
+
 # Lynx [Codename: Deity] 3.0.61
 Released on: 2026-10-06
 > **Versi ini** menghadirkan **Propagasi Menyeluruh Master CPU Preset ke Seluruh Subsistem CPU Performance (Comprehensive Preset Subsystem Propagation), Penguncian Gembok Frekuensi Otomatis Pada Mode Ekstrem (Cluster Lock Automation), Penyelarasan Otomatis Core Parking (Unpark Semua vs Dinamis vs Parkir Big), Profil Terpadu CPU Idle C-States & Task Shield CPU Sets, Konfigurasi Penjadwal & Histeresis Adaptif, Serta Penambahan Indikator Status Modifikasi Reaktif Pada Header Tab Performance** — memastikan bahwa setiap kali pengguna memilih salah satu dari 4 Master CPU Preset (Battery, Balanced, Performance, Ekstrem), seluruh parameter subsistem CPU secara otomatis mengikuti profil terpilih; Mode Ekstrem mengunci frekuensi puncak kluster 100% dan mengaktifkan gembok kluster secara otomatis, membuka seluruh inti prosesor (Unpark Semua), mengaktifkan Zero Latency pada CPU Idle C-States, menerapkan isolasi gaming pada Task Shield CPU Sets, menyetel histeresis penjadwal agresif 50/30, serta menyalakan bypass kebijakan daya perangkat keras (MTK PPM & Qualcomm Touchboost); sementara mode Battery, Balanced, dan Performance membuka gembok kluster untuk memungkinkan downclocking dinamis dan menyelaraskan konfigurasi subsistem terkait; serta menambahkan pill indikator status reaktif (Standar Profil / Terkustomisasi) pada header PILIH MODE PERFORMA (3+1) di Tab 0 agar status modifikasi manual langsung terlihat tanpa harus berpindah ke Tab 1.

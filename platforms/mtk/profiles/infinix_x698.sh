@@ -12,10 +12,16 @@ write_node() {
     fi
 }
 
-# 1. Transsion Touch Screen Ultra-Response
-write_node "1" "/sys/devices/platform/tp_wake_switch/game_mode"
-write_node "1" "/sys/devices/platform/goodix_ts.0/game_mode"
-write_node "240" "/sys/devices/platform/goodix_ts.0/report_rate"
+# 1. Transsion Touch Screen Ultra-Response (Dynamic based on Profile)
+if [ "$MODE" = "perf" ] || [ "$MODE" = "extreme" ]; then
+    write_node "1" "/sys/devices/platform/tp_wake_switch/game_mode"
+    write_node "1" "/sys/devices/platform/goodix_ts.0/game_mode"
+    write_node "240" "/sys/devices/platform/goodix_ts.0/report_rate"
+else
+    write_node "0" "/sys/devices/platform/tp_wake_switch/game_mode"
+    write_node "0" "/sys/devices/platform/goodix_ts.0/game_mode"
+    write_node "120" "/sys/devices/platform/goodix_ts.0/report_rate"
+fi
 
 # 2. MT6781 Dual-Cluster Sched Load Boost
 write_node "1" "/sys/devices/system/cpu/cpu0/sched_load_boost"

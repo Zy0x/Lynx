@@ -92,7 +92,7 @@ class UclampBackend : SchedulerBackend {
 
     override fun isSupported(): Boolean {
         return try {
-            val r = Shell.cmd("[ -f '/proc/sys/kernel/sched_util_clamp_min' ] || [ -f '/dev/cpuctl/top-app/cpu.uclamp.min' ] && echo 1 || echo 0").exec()
+            val r = Shell.cmd("[ -f '/dev/cpuctl/top-app/cpu.uclamp.min' ] || [ -f '/proc/sys/kernel/sched_util_clamp_min' ] || [ -f '/proc/sys/kernel/sched_uclamp_util_min' ] && echo 1 || echo 0").exec()
             r.out.firstOrNull()?.trim() == "1"
         } catch (_: Exception) {
             false
@@ -101,14 +101,16 @@ class UclampBackend : SchedulerBackend {
 
     override fun readBoost(cgroup: String): Int {
         return try {
-            val node = when {
-                Shell.cmd("[ -f '/dev/cpuctl/$cgroup/cpu.uclamp.min' ]").exec().isSuccess -> "/dev/cpuctl/$cgroup/cpu.uclamp.min"
-                else -> "/proc/sys/kernel/sched_util_clamp_min"
-            }
-            val r = Shell.cmd("cat $node 2>/dev/null").exec()
-            val raw = r.out.firstOrNull()?.trim()?.toFloatOrNull() ?: 0f
-            // Uclamp values are often 0.0 to 100.0 or 0 to 1024
-            if (raw > 100f) ((raw / 1024f) * 100f).toInt() else raw.toInt()
+            val r = Shell.cmd(
+                "if [ -f '/dev/cpuctl/$cgroup/cpu.uclamp.min' ]; then cat '/dev/cpuctl/$cgroup/cpu.uclamp.min' 2>/dev/null; " +
+                "elif [ -f '/proc/sys/kernel/sched_uclamp_util_min' ]; then cat '/proc/sys/kernel/sched_uclamp_util_min' 2>/dev/null; " +
+                "elif [ -f '/proc/sys/kernel/sched_util_clamp_min' ]; then cat '/proc/sys/kernel/sched_util_clamp_min' 2>/dev/null; fi"
+            ).exec()
+            val str = r.out.firstOrNull()?.trim()?.lowercase() ?: "0"
+            if (str == "max") return 100
+            val raw = str.toFloatOrNull() ?: 0f
+            // Uclamp values are 0.0..100.0 (cpuctl) or 0..1024 (sysctl)
+            if (raw > 100f) ((raw / 1024f) * 100f).toInt().coerceIn(0, 100) else raw.toInt().coerceIn(0, 100)
         } catch (_: Exception) {
             0
         }
@@ -118,18 +120,42 @@ class UclampBackend : SchedulerBackend {
         val clampedPercent = boostValue.coerceIn(0, 100)
         val uclampMin = ((clampedPercent / 100f) * 1024).toInt()
         val nodeDev = "/dev/cpuctl/$cgroup/cpu.uclamp.min"
-        val nodeProc = "/proc/sys/kernel/sched_util_clamp_min"
+        val nodeProc1 = "/proc/sys/kernel/sched_uclamp_util_min"
+        val nodeProc2 = "/proc/sys/kernel/sched_util_clamp_min"
 
-        val cmd = "if [ -f '$nodeDev' ]; then chmod 644 '$nodeDev' 2>/dev/null && echo $clampedPercent > '$nodeDev' 2>/dev/null || echo $uclampMin > '$nodeDev' 2>/dev/null; " +
-                "elif [ -f '$nodeProc' ]; then chmod 644 '$nodeProc' 2>/dev/null && echo $uclampMin > '$nodeProc' 2>/dev/null; fi"
+        val cmd = buildString {
+            append("if [ -f '$nodeDev' ]; then chmod 644 '$nodeDev' 2>/dev/null; echo $clampedPercent > '$nodeDev' 2>/dev/null || echo $uclampMin > '$nodeDev' 2>/dev/null; fi; ")
+            if (cgroup == "top-app") {
+                append("if [ -f '$nodeProc1' ]; then chmod 644 '$nodeProc1' 2>/dev/null; echo $uclampMin > '$nodeProc1' 2>/dev/null; fi; ")
+                append("if [ -f '$nodeProc2' ]; then chmod 644 '$nodeProc2' 2>/dev/null; echo $uclampMin > '$nodeProc2' 2>/dev/null; fi; ")
+            }
+        }
         return Shell.cmd(cmd).exec().isSuccess
     }
 
-    override fun readPreferIdle(cgroup: String): Boolean = true
-    override fun writePreferIdle(cgroup: String, preferIdle: Boolean): Boolean = true
+    override fun readPreferIdle(cgroup: String): Boolean {
+        return try {
+            val r = Shell.cmd(
+                "if [ -f '/dev/cpuctl/$cgroup/cpu.uclamp.latency_sensitive' ]; then cat '/dev/cpuctl/$cgroup/cpu.uclamp.latency_sensitive' 2>/dev/null; else echo 1; fi"
+            ).exec()
+            (r.out.firstOrNull()?.trim() ?: "1") == "1"
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    override fun writePreferIdle(cgroup: String, preferIdle: Boolean): Boolean {
+        val flag = if (preferIdle) "1" else "0"
+        val node = "/dev/cpuctl/$cgroup/cpu.uclamp.latency_sensitive"
+        return Shell.cmd("if [ -f '$node' ]; then chmod 644 '$node' 2>/dev/null; echo $flag > '$node' 2>/dev/null; fi").exec().isSuccess
+    }
 
     override fun applyProfile(boostTopApp: Int, boostFg: Int, boostBg: Int, preferIdle: Boolean): Boolean {
-        return writeBoost("top-app", boostTopApp)
+        val s1 = writeBoost("top-app", boostTopApp)
+        val s2 = writeBoost("foreground", boostFg)
+        val s3 = writeBoost("background", boostBg)
+        val s4 = writePreferIdle("top-app", preferIdle)
+        return s1 || s2 || s3 || s4
     }
 }
 

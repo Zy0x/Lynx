@@ -95,7 +95,14 @@ fun TuningCpuCategory(
                     schedInfo = schedInfo,
                     onPpmPolicyChange = { idx, en -> viewModel.setPpmPolicy(idx, en, context) },
                     onQcomTouchboostChange = { en -> viewModel.setQcomTouchboost(en, context) },
-                    onQcomInputBoostChange = { freq, ms -> viewModel.setQcomInputBoost(freq, ms, context) }
+                    onQcomInputBoostChange = { freq, ms -> viewModel.setQcomInputBoost(freq, ms, context) },
+                    onMtkInterconnectBoostChange = { en -> viewModel.setMtkInterconnectBusBoost(en, context) },
+                    onMtkCpuPowerModeChange = { mode -> viewModel.setMtkCpuPowerMode(mode, context) },
+                    onMtkDlptBypassChange = { en -> viewModel.setMtkDlptImaxBypass(en, context) },
+                    onQcomDevfreqBusBoostChange = { en -> viewModel.setQcomDevfreqBusBoost(en, context) },
+                    onUniversalBusProfileChange = { prof -> viewModel.setUniversalBusBandwidthProfile(prof, context) },
+                    onUniversalTouchBoostChange = { en -> viewModel.setUniversalTouchBoost(en, context) },
+                    onUniversalAntiThrottlingGuardChange = { en -> viewModel.setUniversalAntiThrottlingGuard(en, context) }
                 )
             }
             1 -> {
@@ -108,7 +115,7 @@ fun TuningCpuCategory(
                     onToggleCpuSetCore = { group, coreId -> viewModel.toggleCpuSetCore(group, coreId, context) },
                     onSetCpuSetApplyOnBoot = { enabled -> viewModel.setCpuSetApplyOnBoot(enabled, context) },
                     onApplyCpuIdlePreset = { preset -> viewModel.applyCpuIdlePreset(preset, context) },
-                    onSetCoreParkingMode = { mode -> viewModel.setCoreParkingMode(mode, 8, context) },
+                    onSetCoreParkingMode = { mode -> viewModel.setCoreParkingMode(mode, uiState.cpuCores.size.coerceAtLeast(8), context) },
                     onToggleCStateDisabled = { stateIndex, disabled -> viewModel.setCpuIdleStateDisabled(stateIndex, disabled, context) },
                     onArmPllModeChange = { enabled -> viewModel.setArmPllMode(enabled) },
                     onSetIdleApplyOnBoot = { enabled -> viewModel.setCpuIdleApplyOnBoot(enabled, context) },
@@ -120,6 +127,9 @@ fun TuningCpuCategory(
                         viewModel.setSchedulerTunable("sched_upmigrate", up.toLong(), context)
                         viewModel.setSchedulerTunable("sched_downmigrate", down.toLong(), context)
                     },
+                    onArchitectureModeChange = { mode -> viewModel.setSchedulerArchitectureMode(mode, context) },
+                    onTopAppPreferIdleChange = { en -> viewModel.setSchedtunePreferIdle("top-app", en, context) },
+                    onWorkqueuePowerEfficientChange = { en -> viewModel.setWorkqueuePowerEfficient(en, context) },
                     onResetSection = { pendingResetSection = it },
                     onResetToStandardProfile = { viewModel.resetCpuToActiveProfile(context) }
                 )

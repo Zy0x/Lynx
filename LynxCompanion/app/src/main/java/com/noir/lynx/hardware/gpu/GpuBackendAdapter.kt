@@ -46,132 +46,73 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
     }
 
     override suspend fun scanFeatures(): List<GpuHardwareFeature> = withContext(Dispatchers.IO) {
-        val candidatePaths = listOf(
+        val resolvedDevfreq = Shell.cmd(
+            "for d in '$devfreqDir' /sys/devices/platform/soc/*.qcom,kgsl-3d0/devfreq/* /sys/class/devfreq/*kgsl-3d0*; do [ -d \"\$d\" ] && echo \"\$d\" && break; done"
+        ).exec().out.firstOrNull()?.trim().takeUnless { it.isNullOrBlank() } ?: devfreqDir
+
+        val resolvedGpubw = Shell.cmd(
+            "for d in /sys/class/devfreq/*gpubw* /sys/devices/platform/soc/soc:qcom,gpubw/devfreq/*; do [ -d \"\$d\" ] && echo \"\$d\" && break; done"
+        ).exec().out.firstOrNull()?.trim() ?: ""
+
+        val candidatePaths = mutableListOf(
             "$kgslDir/force_bus_on",
             "$kgslDir/idle_timer",
             "$kgslDir/force_rail_on",
+            "$kgslDir/force_no_nap",
+            "$kgslDir/bus_split",
+            "$kgslDir/throttling",
             "$kgslDir/thermal_pwrlevel",
             "$kgslDir/default_pwrlevel",
             "$kgslDir/pwrscale/trustzone/target_load",
-            "$devfreqDir/adrenoboost",
-            "$devfreqDir/governor"
+            "$resolvedDevfreq/adrenoboost",
+            "$resolvedDevfreq/adreno_boost",
+            "$resolvedDevfreq/governor"
         )
+        if (resolvedGpubw.isNotEmpty()) {
+            candidatePaths.add("$resolvedGpubw/governor")
+        }
+
         val probeMap = NodeWriter.batchProbe(candidatePaths)
         val features = mutableListOf<GpuHardwareFeature>()
 
-        // 1. Memory Bus Always-On
-        probeMap["$kgslDir/force_bus_on"]?.let { access ->
+        // 1. Adreno Devfreq Governor
+        val govPath = "$resolvedDevfreq/governor"
+        probeMap[govPath]?.let { access ->
             if (access.exists) {
-                val curVal = Shell.cmd("cat '$kgslDir/force_bus_on' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val rawGov = Shell.cmd("cat '$govPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "msm-adreno-tz"
+                val curGov = NodeWriter.extractActiveValue(rawGov)
+                val availGovs = Shell.cmd("cat '$resolvedDevfreq/available_governors' 2>/dev/null").exec().out.firstOrNull()?.trim()
+                    ?.split(Regex("\\s+"))?.filter { it.isNotBlank() }
+                    ?.takeIf { it.isNotEmpty() } ?: listOf("msm-adreno-tz", "performance", "powersave", "simple_ondemand")
                 features.add(
                     GpuHardwareFeature(
-                        id = "kgsl_force_bus_on",
-                        name = "KGSL Memory Bus Always-On",
-                        description = "Kunci jalur DDR memory bus Adreno tetap aktif mencegah micro-stutter saat game",
-                        nodePath = "$kgslDir/force_bus_on",
-                        currentValue = curVal,
+                        id = "devfreq_governor",
+                        name = "Adreno Devfreq Governor",
+                        description = "Algoritma penskalaan frekuensi perangkat keras GPU Qualcomm Adreno",
+                        nodePath = govPath,
+                        currentValue = curGov,
                         accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
                         confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
-                        uiType = FeatureUiType.SWITCH,
-                        category = "Bus Memori & Power"
-                    )
-                )
-            }
-        }
-
-        // 2. Idle Timer
-        probeMap["$kgslDir/idle_timer"]?.let { access ->
-            if (access.exists) {
-                val curVal = Shell.cmd("cat '$kgslDir/idle_timer' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "64"
-                features.add(
-                    GpuHardwareFeature(
-                        id = "adreno_idle_timer",
-                        name = "Adreno Idle Timer (Waktu Tahan Clock)",
-                        description = "Mencegah penurunan clock GPU tiba-tiba saat jeda frame antar render",
-                        nodePath = "$kgslDir/idle_timer",
-                        currentValue = curVal,
-                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
-                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
-                        uiType = FeatureUiType.STEPPER,
-                        options = listOf("20", "40", "64", "80", "100"),
-                        category = "Responsivitas Clock"
-                    )
-                )
-            }
-        }
-
-        // 3. Force Rail Active
-        probeMap["$kgslDir/force_rail_on"]?.let { access ->
-            if (access.exists) {
-                val curVal = Shell.cmd("cat '$kgslDir/force_rail_on' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
-                features.add(
-                    GpuHardwareFeature(
-                        id = "adreno_force_rail",
-                        name = "Adreno Force Rail Active",
-                        description = "Paksa jalur daya power rail GPU aktif bertenaga selama gaming",
-                        nodePath = "$kgslDir/force_rail_on",
-                        currentValue = curVal,
-                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
-                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 85, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
-                        uiType = FeatureUiType.SWITCH,
-                        category = "Bus Memori & Power"
-                    )
-                )
-            }
-        }
-
-        // 4. Bypass Thermal Pwrlevel
-        probeMap["$kgslDir/thermal_pwrlevel"]?.let { access ->
-            if (access.exists) {
-                val curVal = Shell.cmd("cat '$kgslDir/thermal_pwrlevel' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
-                features.add(
-                    GpuHardwareFeature(
-                        id = "adreno_thermal_bypass",
-                        name = "Bypass GPU Thermal Throttling",
-                        description = "Abaikan batas pwrlevel thermal throttling kernel Qualcomm",
-                        nodePath = "$kgslDir/thermal_pwrlevel",
-                        currentValue = curVal,
-                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
-                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
-                        uiType = FeatureUiType.SWITCH,
-                        category = "Proteksi Termal"
-                    )
-                )
-            }
-        }
-
-        // 5. Trustzone Target Load
-        probeMap["$kgslDir/pwrscale/trustzone/target_load"]?.let { access ->
-            if (access.exists) {
-                val curVal = Shell.cmd("cat '$kgslDir/pwrscale/trustzone/target_load' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "80"
-                features.add(
-                    GpuHardwareFeature(
-                        id = "adreno_tz_target_load",
-                        name = "Trustzone TZ Target Load",
-                        description = "Ambang batas beban sebelum GPU melompat ke frekuensi lebih tinggi",
-                        nodePath = "$kgslDir/pwrscale/trustzone/target_load",
-                        currentValue = curVal,
-                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
-                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
                         uiType = FeatureUiType.CHOICE,
-                        options = listOf("50", "60", "70", "80"),
+                        options = availGovs,
                         category = "Responsivitas Clock"
                     )
                 )
             }
         }
 
-        // 6. Adreno Boost
-        probeMap["$devfreqDir/adrenoboost"]?.let { access ->
+        // 2. Adreno Boost (supports both adrenoboost and adreno_boost kernel nodes)
+        val boostNode = if (probeMap["$resolvedDevfreq/adrenoboost"]?.exists == true) "$resolvedDevfreq/adrenoboost" else "$resolvedDevfreq/adreno_boost"
+        probeMap[boostNode]?.let { access ->
             if (access.exists) {
-                val curVal = Shell.cmd("cat '$devfreqDir/adrenoboost' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val curVal = Shell.cmd("cat '$boostNode' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
                 features.add(
                     GpuHardwareFeature(
                         id = "adrenoboost_level",
                         name = "Adreno Boost Level",
                         description = "Tingkat agresivitas devfreq boost Adreno untuk transisi beban instan",
-                        nodePath = "$devfreqDir/adrenoboost",
-                        currentValue = curVal,
+                        nodePath = boostNode,
+                        currentValue = NodeWriter.extractActiveValue(curVal),
                         accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
                         confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
                         uiType = FeatureUiType.STEPPER,
@@ -182,11 +123,184 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
             }
         }
 
+        // 3. Idle Timer
+        probeMap["$kgslDir/idle_timer"]?.let { access ->
+            if (access.exists) {
+                val curVal = Shell.cmd("cat '$kgslDir/idle_timer' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "64"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_idle_timer",
+                        name = "Adreno Idle Timer (Waktu Tahan Clock)",
+                        description = "Mencegah penurunan clock GPU tiba-tiba saat jeda frame antar render",
+                        nodePath = "$kgslDir/idle_timer",
+                        currentValue = NodeWriter.extractActiveValue(curVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.STEPPER,
+                        options = listOf("20", "40", "64", "80", "100"),
+                        category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
+        // 4. Trustzone Target Load
+        probeMap["$kgslDir/pwrscale/trustzone/target_load"]?.let { access ->
+            if (access.exists) {
+                val curVal = Shell.cmd("cat '$kgslDir/pwrscale/trustzone/target_load' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "80"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_tz_target_load",
+                        name = "Trustzone TZ Target Load",
+                        description = "Ambang batas beban sebelum GPU melompat ke frekuensi lebih tinggi",
+                        nodePath = "$kgslDir/pwrscale/trustzone/target_load",
+                        currentValue = NodeWriter.extractActiveValue(curVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.CHOICE,
+                        options = listOf("50", "60", "70", "80"),
+                        category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
+        // 5. Memory Bus Always-On
+        probeMap["$kgslDir/force_bus_on"]?.let { access ->
+            if (access.exists) {
+                val curVal = Shell.cmd("cat '$kgslDir/force_bus_on' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "kgsl_force_bus_on",
+                        name = "KGSL Memory Bus Always-On",
+                        description = "Kunci jalur DDR memory bus Adreno tetap aktif mencegah micro-stutter saat game",
+                        nodePath = "$kgslDir/force_bus_on",
+                        currentValue = NodeWriter.extractActiveValue(curVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Bus Memori & Power"
+                    )
+                )
+            }
+        }
+
+        // 6. Force Rail Active
+        probeMap["$kgslDir/force_rail_on"]?.let { access ->
+            if (access.exists) {
+                val curVal = Shell.cmd("cat '$kgslDir/force_rail_on' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_force_rail",
+                        name = "Adreno Force Rail Active",
+                        description = "Paksa jalur daya power rail GPU aktif bertenaga selama gaming",
+                        nodePath = "$kgslDir/force_rail_on",
+                        currentValue = NodeWriter.extractActiveValue(curVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 85, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Bus Memori & Power"
+                    )
+                )
+            }
+        }
+
+        // 7. Force No Nap (Anti-Slumber)
+        probeMap["$kgslDir/force_no_nap"]?.let { access ->
+            if (access.exists) {
+                val curVal = Shell.cmd("cat '$kgslDir/force_no_nap' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_force_no_nap",
+                        name = "Adreno Anti-Nap (Cegah Tidur Mikro)",
+                        description = "Mencegah GPU masuk ke status nap/slumber di sela komposisi frame",
+                        nodePath = "$kgslDir/force_no_nap",
+                        currentValue = NodeWriter.extractActiveValue(curVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Bus Memori & Power"
+                    )
+                )
+            }
+        }
+
+        // 8. Unified Bus Bandwidth (Disable Bus Split: node 0 = active, 1 = default split)
+        probeMap["$kgslDir/bus_split"]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$kgslDir/bus_split' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "1"
+                val isSplitDisabled = if (NodeWriter.extractActiveValue(rawVal) == "0") "1" else "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_bus_split_disable",
+                        name = "Unified Bus Bandwidth (Nonaktifkan Bus Split)",
+                        description = "Satukan alokasi bandwidth bus GPU-DDR penuh tanpa pemisahan kanal hemat daya",
+                        nodePath = "$kgslDir/bus_split",
+                        currentValue = isSplitDisabled,
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Bus Memori & Power"
+                    )
+                )
+            }
+        }
+
+        // 9. GPU-to-DDR Bandwidth Devfreq Governor (GPUBW)
+        if (resolvedGpubw.isNotEmpty()) {
+            val gpubwGovPath = "$resolvedGpubw/governor"
+            probeMap[gpubwGovPath]?.let { access ->
+                if (access.exists) {
+                    val rawGov = Shell.cmd("cat '$gpubwGovPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "bw_vbif"
+                    val curGov = NodeWriter.extractActiveValue(rawGov)
+                    val availGovs = Shell.cmd("cat '$resolvedGpubw/available_governors' 2>/dev/null").exec().out.firstOrNull()?.trim()
+                        ?.split(Regex("\\s+"))?.filter { it.isNotBlank() }
+                        ?.takeIf { it.isNotEmpty() } ?: listOf("bw_vbif", "performance", "powersave")
+                    features.add(
+                        GpuHardwareFeature(
+                            id = "adreno_gpubw_governor",
+                            name = "Governor Bus Memori DDR GPU (GPUBW)",
+                            description = "Mengatur kebijakan bandwidth interkoneksi antara GPU Adreno dan RAM LPDDR",
+                            nodePath = gpubwGovPath,
+                            currentValue = curGov,
+                            accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                            confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                            uiType = FeatureUiType.CHOICE,
+                            options = availGovs,
+                            category = "Bus Memori & Power"
+                        )
+                    )
+                }
+            }
+        }
+
+        // 10. Bypass Thermal Throttling (prefers throttling node, falls back to thermal_pwrlevel; 0 in kernel = bypass active)
+        val thrmNode = if (probeMap["$kgslDir/throttling"]?.exists == true) "$kgslDir/throttling" else "$kgslDir/thermal_pwrlevel"
+        probeMap[thrmNode]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$thrmNode' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "1"
+                val isBypassed = if (NodeWriter.extractActiveValue(rawVal) == "0") "1" else "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_thermal_bypass",
+                        name = "Bypass GPU Thermal Throttling",
+                        description = "Abaikan pembatasan pwrlevel & throttling termal driver KGSL Qualcomm",
+                        nodePath = thrmNode,
+                        currentValue = isBypassed,
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Proteksi Termal"
+                    )
+                )
+            }
+        }
+
         features
     }
 
     override suspend fun applyPowerPolicy(policy: String): WriteResult = withContext(Dispatchers.IO) {
-        if (policy == "responsive") {
+        if (policy == "responsive" || policy == "always_on") {
             NodeWriter.writeVerified("$kgslDir/idle_timer", "80")
             NodeWriter.writeVerified("$kgslDir/force_bus_on", "1")
         } else {
@@ -197,7 +311,9 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
 
     override suspend fun setBoost(level: Int): WriteResult = withContext(Dispatchers.IO) {
         val target = level.coerceIn(0, 3).toString()
-        NodeWriter.writeVerified("$devfreqDir/adrenoboost", target)
+        val r1 = NodeWriter.writeVerified("$devfreqDir/adrenoboost", target)
+        if (r1 is WriteResult.Applied) return@withContext r1
+        NodeWriter.writeVerified("$devfreqDir/adreno_boost", target)
     }
 
     override suspend fun setFrequencyRange(minMhz: Int?, maxMhz: Int?): WriteResult = withContext(Dispatchers.IO) {
@@ -219,7 +335,11 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
 
     override suspend fun setThermalBypass(enabled: Boolean): WriteResult = withContext(Dispatchers.IO) {
         val valStr = if (enabled) "0" else "1"
-        NodeWriter.writeVerified("$kgslDir/thermal_pwrlevel", valStr)
+        val r1 = NodeWriter.writeVerified("$kgslDir/throttling", valStr)
+        if (enabled) {
+            NodeWriter.writeVerified("$kgslDir/thermal_pwrlevel", "0")
+        }
+        if (r1 is WriteResult.Applied) r1 else NodeWriter.writeVerified("$kgslDir/thermal_pwrlevel", valStr)
     }
 
     override suspend fun getConfidence(): HardwareConfidence = withContext(Dispatchers.IO) {
@@ -228,7 +348,7 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
 }
 
 /**
- * MediaTek Dimensity & Helio Adapter (GED HAL & FPSGO Architecture)
+ * MediaTek Dimensity & Helio Adapter (GED HAL, FPSGO, GPUFreq v1/v2 & Mali/PowerVR Architecture)
  */
 class MediaTekGedAdapter : GpuBackendAdapter {
     override val backendId: String = "mediatek_ged"
@@ -240,31 +360,51 @@ class MediaTekGedAdapter : GpuBackendAdapter {
     private val fpsgoDir = "/sys/kernel/fpsgo"
 
     override suspend fun isSupported(): Boolean = withContext(Dispatchers.IO) {
-        Shell.cmd("[ -d '$gedHalDir' ] || [ -d '$gedParamDir' ] || [ -d '/proc/gpufreq' ]").exec().isSuccess
+        Shell.cmd("[ -d '$gedHalDir' ] || [ -d '$gedParamDir' ] || [ -d '/proc/gpufreq' ] || [ -d '/proc/gpufreqv2' ]").exec().isSuccess
     }
 
     override suspend fun scanFeatures(): List<GpuHardwareFeature> = withContext(Dispatchers.IO) {
-        val candidatePaths = listOf(
+        val maliDevPath = Shell.cmd(
+            "for d in /sys/devices/platform/*.mali /sys/devices/platform/soc/*.mali /sys/class/misc/mali0/device; do [ -d \"\$d\" ] && echo \"\$d\" && break; done"
+        ).exec().out.firstOrNull()?.trim() ?: ""
+
+        val candidatePaths = mutableListOf(
             "$gedHalDir/gpu_boost_level",
             "$gedParamDir/boost_amp",
             "$gedParamDir/ged_boost_enable",
+            "$gedParamDir/ged_smart_boost",
+            "$gedParamDir/gx_game_mode",
+            "$gedParamDir/ged_monitor_3D_fence_disable",
             "$fpsgoDir/common/gpu_block_boost",
             "$fpsgoDir/fbt/ultra_rescue",
             "$fpsgoDir/common/ultra_rescue",
+            "$fpsgoDir/fbt/boost_ta",
+            "$gedHalDir/dvfs_margin_value",
             "$gedParamDir/dvfs_margin_value",
             "$gedHalDir/dvfs_margin",
             "$gedHalDir/custom_upbound_gpu_freq",
             "$gedParamDir/gpu_cust_upbound_freq",
-            "$gedHalDir/dvfs_loading_mode"
+            "$gedHalDir/dvfs_loading_mode",
+            "/proc/gpufreq/gpufreq_limit_table",
+            "/proc/gpufreqv2/gpufreq_power_limited"
         )
+        if (maliDevPath.isNotEmpty()) {
+            candidatePaths.add("$maliDevPath/power_policy")
+            candidatePaths.add("$maliDevPath/dvfs_period")
+        }
+
         val probeMap = NodeWriter.batchProbe(candidatePaths)
         val features = mutableListOf<GpuHardwareFeature>()
+
+        // ── Category 1: Frame Pacing & Stutter ───────────────────────────────
 
         // 1. MediaTek FPSGO Frame Pacing
         val fpPath = "$fpsgoDir/common/gpu_block_boost"
         probeMap[fpPath]?.let { access ->
             if (access.exists) {
-                val curVal = Shell.cmd("cat '$fpPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val rawVal = Shell.cmd("cat '$fpPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val firstTok = NodeWriter.extractActiveValue(rawVal)
+                val curVal = if ((firstTok.toIntOrNull() ?: 0) > 0 || firstTok == "1") "1" else "0"
                 features.add(
                     GpuHardwareFeature(
                         id = "mtk_frame_pacing",
@@ -285,7 +425,9 @@ class MediaTekGedAdapter : GpuBackendAdapter {
         val rescuePath = if (probeMap["$fpsgoDir/fbt/ultra_rescue"]?.exists == true) "$fpsgoDir/fbt/ultra_rescue" else "$fpsgoDir/common/ultra_rescue"
         probeMap[rescuePath]?.let { access ->
             if (access.exists) {
-                val curVal = Shell.cmd("cat '$rescuePath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val rawVal = Shell.cmd("cat '$rescuePath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val firstTok = NodeWriter.extractActiveValue(rawVal)
+                val curVal = if ((firstTok.toIntOrNull() ?: 0) > 0 || firstTok == "1") "1" else "0"
                 features.add(
                     GpuHardwareFeature(
                         id = "mtk_ultra_rescue",
@@ -302,11 +444,63 @@ class MediaTekGedAdapter : GpuBackendAdapter {
             }
         }
 
-        // 3. Mali GED DVFS Margin
-        val marginPath = if (probeMap["$gedHalDir/dvfs_margin"]?.exists == true) "$gedHalDir/dvfs_margin" else "$gedParamDir/dvfs_margin_value"
+        // 3. FPSGO Top-App Render Boost (FBT Boost TA)
+        val taPath = "$fpsgoDir/fbt/boost_ta"
+        probeMap[taPath]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$taPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val firstTok = NodeWriter.extractActiveValue(rawVal)
+                val curVal = if ((firstTok.toIntOrNull() ?: 0) > 0 || firstTok == "1") "1" else "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "mtk_fbt_boost_ta",
+                        name = "FPSGO Top-App Render Boost",
+                        description = "Prioritaskan alokasi resource frame buffer FBT untuk aplikasi atau game aktif di layar",
+                        nodePath = taPath,
+                        currentValue = curVal,
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Frame Pacing & Stutter"
+                    )
+                )
+            }
+        }
+
+        // 4. GED 3D Fence Wait Bypass
+        val fencePath = "$gedParamDir/ged_monitor_3D_fence_disable"
+        probeMap[fencePath]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$fencePath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val curVal = if (rawVal == "1" || rawVal.equals("Y", ignoreCase = true)) "1" else "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "mtk_ged_3d_fence_disable",
+                        name = "Bypass 3D Fence Wait (Low-Latency)",
+                        description = "Pangkas jeda penantian sinkronisasi 3D fence untuk latensi antrean frame lebih cepat",
+                        nodePath = fencePath,
+                        currentValue = curVal,
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Frame Pacing & Stutter"
+                    )
+                )
+            }
+        }
+
+        // ── Category 2: Responsivitas Clock ──────────────────────────────────
+
+        // 5. Mali GED DVFS Margin
+        val marginPath = when {
+            probeMap["$gedHalDir/dvfs_margin_value"]?.exists == true -> "$gedHalDir/dvfs_margin_value"
+            probeMap["$gedHalDir/dvfs_margin"]?.exists == true -> "$gedHalDir/dvfs_margin"
+            else -> "$gedParamDir/dvfs_margin_value"
+        }
         probeMap[marginPath]?.let { access ->
             if (access.exists) {
-                val curVal = Shell.cmd("cat '$marginPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val rawVal = Shell.cmd("cat '$marginPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val curVal = NodeWriter.extractActiveValue(rawVal)
                 features.add(
                     GpuHardwareFeature(
                         id = "mtk_dvfs_margin",
@@ -324,13 +518,15 @@ class MediaTekGedAdapter : GpuBackendAdapter {
             }
         }
 
-        // 4. GED Boost Level
+        // 6. GED Boost Level
         val boostPath = if (probeMap["$gedHalDir/gpu_boost_level"]?.exists == true) "$gedHalDir/gpu_boost_level"
                         else if (probeMap["$gedParamDir/boost_amp"]?.exists == true) "$gedParamDir/boost_amp"
                         else "$gedParamDir/ged_boost_enable"
         probeMap[boostPath]?.let { access ->
             if (access.exists) {
-                val curVal = Shell.cmd("cat '$boostPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val rawVal = Shell.cmd("cat '$boostPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val numBoost = NodeWriter.extractActiveValue(rawVal).toIntOrNull() ?: 0
+                val curVal = numBoost.coerceIn(0, 2).toString()
                 features.add(
                     GpuHardwareFeature(
                         id = "mtk_ged_boost_level",
@@ -348,48 +544,192 @@ class MediaTekGedAdapter : GpuBackendAdapter {
             }
         }
 
+        // 7. MediaTek GED Smart Boost
+        val smartBoostPath = "$gedParamDir/ged_smart_boost"
+        probeMap[smartBoostPath]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$smartBoostPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val curVal = if (rawVal == "1" || rawVal.equals("Y", ignoreCase = true)) "1" else "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "mtk_ged_smart_boost",
+                        name = "MediaTek GED Smart Boost",
+                        description = "Aktifkan algoritma prediksi beban cerdas GED untuk akselerasi clock GPU proaktif",
+                        nodePath = smartBoostPath,
+                        currentValue = curVal,
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
+        // 8. MediaTek GED Game Mode (GX)
+        val gxGamePath = "$gedParamDir/gx_game_mode"
+        probeMap[gxGamePath]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$gxGamePath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                val curVal = if (rawVal == "1" || rawVal.equals("Y", ignoreCase = true)) "1" else "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "mtk_ged_game_mode",
+                        name = "MediaTek GED Game Mode (GX)",
+                        description = "Aktifkan jalur eksekusi prioritas tinggi GED GX khusus skenario beban grafis game",
+                        nodePath = gxGamePath,
+                        currentValue = curVal,
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
+        // ── Category 3: Manajemen Daya & Proteksi Termal ─────────────────────
+
+        // 9. ARM Mali Core Power Policy (if Mali sub-driver is present)
+        if (maliDevPath.isNotEmpty()) {
+            val polPath = "$maliDevPath/power_policy"
+            probeMap[polPath]?.let { access ->
+                if (access.exists) {
+                    val rawPol = Shell.cmd("cat '$polPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "always_on"
+                    val curPol = NodeWriter.extractActiveValue(rawPol)
+                    features.add(
+                        GpuHardwareFeature(
+                            id = "mali_power_policy",
+                            name = "Kebijakan Daya Core Mali (Power Policy)",
+                            description = "Always-on menjaga shader core selalu aktif tanpa jeda bangun/tidur antar frame",
+                            nodePath = polPath,
+                            currentValue = curPol,
+                            accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                            confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                            uiType = FeatureUiType.CHOICE,
+                            options = listOf("always_on", "coarse_demand"),
+                            category = "Manajemen Daya & Proteksi Termal"
+                        )
+                    )
+                }
+            }
+
+            // 10. ARM Mali DVFS Polling Period (ms)
+            val dvfsPeriodPath = "$maliDevPath/dvfs_period"
+            probeMap[dvfsPeriodPath]?.let { access ->
+                if (access.exists) {
+                    val rawPeriod = Shell.cmd("cat '$dvfsPeriodPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "50"
+                    val curPeriod = NodeWriter.extractActiveValue(rawPeriod)
+                    features.add(
+                        GpuHardwareFeature(
+                            id = "mali_dvfs_period",
+                            name = "Interval Polling DVFS Mali",
+                            description = "Interval evaluasi beban frekuensi driver Mali (nilai rendah = respons clock lebih cepat)",
+                            nodePath = dvfsPeriodPath,
+                            currentValue = curPeriod,
+                            accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                            confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                            uiType = FeatureUiType.STEPPER,
+                            options = listOf("10", "25", "50", "100"),
+                            category = "Manajemen Daya & Proteksi Termal"
+                        )
+                    )
+                }
+            }
+        }
+
+        // 11. MediaTek GPUFreq Limit Table Thermal & PBM Bypass (GPUFreq v1 or v2)
+        val limitTableV1 = "/proc/gpufreq/gpufreq_limit_table"
+        val limitTableV2 = "/proc/gpufreqv2/gpufreq_power_limited"
+        val limitPath = when {
+            probeMap[limitTableV1]?.exists == true -> limitTableV1
+            probeMap[limitTableV2]?.exists == true -> limitTableV2
+            else -> ""
+        }
+        if (limitPath.isNotEmpty()) {
+            probeMap[limitPath]?.let { access ->
+                if (access.exists) {
+                    val curBypass = if (limitPath == limitTableV1) {
+                        Shell.cmd("awk '\$1 == \"THERMAL\" || \$2 == \"THERMAL\" { print (\$5 == \"0\" ? \"1\" : \"0\") }' '$limitTableV1' 2>/dev/null | head -n 1")
+                            .exec().out.firstOrNull()?.trim().takeUnless { it.isNullOrBlank() } ?: "0"
+                    } else {
+                        Shell.cmd("grep -i 'ignore_thermal_protect' '$limitTableV2' 2>/dev/null | grep -q '1' && echo 1 || echo 0")
+                            .exec().out.firstOrNull()?.trim() ?: "0"
+                    }
+                    features.add(
+                        GpuHardwareFeature(
+                            id = "mtk_gpufreq_thermal_bypass",
+                            name = "Bypass Limit Termal & Daya GPU (PBM/Thermal)",
+                            description = "Nonaktifkan penurunan paksa OPP GPU oleh tabel limiter THERMAL, BATT_LOW, dan PBM",
+                            nodePath = limitPath,
+                            currentValue = curBypass,
+                            accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                            confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                            uiType = FeatureUiType.SWITCH,
+                            category = "Manajemen Daya & Proteksi Termal"
+                        )
+                    )
+                }
+            }
+        }
+
         features
     }
 
     override suspend fun applyPowerPolicy(policy: String): WriteResult = withContext(Dispatchers.IO) {
-        if (policy == "responsive") {
+        if (policy == "responsive" || policy == "always_on") {
             setBoost(1)
-            NodeWriter.writeVerified("$gedHalDir/dvfs_margin", "20")
+            NodeWriter.writeVerified("$gedHalDir/dvfs_margin_value", "20")
             NodeWriter.writeVerified("$gedHalDir/dvfs_loading_mode", "1")
         } else {
             setBoost(0)
-            NodeWriter.writeVerified("$gedHalDir/dvfs_margin", "0")
+            NodeWriter.writeVerified("$gedHalDir/dvfs_margin_value", "0")
             NodeWriter.writeVerified("$gedHalDir/dvfs_loading_mode", "0")
         }
     }
 
     override suspend fun setBoost(level: Int): WriteResult = withContext(Dispatchers.IO) {
         val target = level.coerceIn(0, 2).toString()
-        var res = NodeWriter.writeVerified("$gedHalDir/gpu_boost_level", target)
-        if (res !is WriteResult.Applied) {
-            res = NodeWriter.writeVerified("$gedParamDir/boost_amp", target)
-        }
-        if (res !is WriteResult.Applied) {
-            res = NodeWriter.writeVerified("$gedParamDir/ged_boost_enable", if (level > 0) "1" else "0")
-        }
-        res
+        val enableFlag = if (level > 0) "1" else "0"
+        val gameMode = if (level >= 2) "1" else "0"
+        Shell.cmd(
+            "chmod 644 '$gedParamDir/boost_amp' '$gedParamDir/ged_boost_enable' '$gedParamDir/ged_smart_boost' '$gedParamDir/gx_game_mode' '$gedParamDir/gx_boost_on' 2>/dev/null; " +
+            "echo $target > '$gedParamDir/boost_amp' 2>/dev/null; " +
+            "echo $enableFlag > '$gedParamDir/ged_boost_enable' 2>/dev/null; " +
+            "echo $enableFlag > '$gedParamDir/ged_smart_boost' 2>/dev/null; " +
+            "echo $gameMode > '$gedParamDir/gx_game_mode' 2>/dev/null; " +
+            "echo $gameMode > '$gedParamDir/gx_boost_on' 2>/dev/null"
+        ).exec()
+        val rHal = NodeWriter.writeVerified("$gedHalDir/gpu_boost_level", target)
+        if (rHal is WriteResult.Applied) rHal else NodeWriter.writeVerified("$gedParamDir/ged_boost_enable", enableFlag)
     }
 
     override suspend fun setFrequencyRange(minMhz: Int?, maxMhz: Int?): WriteResult = withContext(Dispatchers.IO) {
         var res: WriteResult = WriteResult.Applied
+        val isLocked = minMhz != null && maxMhz != null && minMhz > 0 && minMhz == maxMhz
+        val oppLockVal = if (isLocked) (maxMhz!! * 1000).toString() else "0"
+        Shell.cmd(
+            "if [ -e /proc/gpufreq/gpufreq_opp_freq ]; then echo $oppLockVal > /proc/gpufreq/gpufreq_opp_freq 2>/dev/null; fi; " +
+            "if [ -e /proc/gpufreqv2/gpufreq_opp_freq ]; then echo $oppLockVal > /proc/gpufreqv2/gpufreq_opp_freq 2>/dev/null; fi"
+        ).exec()
         if (minMhz != null && minMhz > 0) {
             val khz = (minMhz * 1000).toString()
-            NodeWriter.writeVerified("$gedParamDir/gpu_bottom_freq", khz)
-            NodeWriter.writeVerified("$gedHalDir/custom_boost_gpu_freq", khz)
+            Shell.cmd(
+                "minIdx=\$(awk -F'[][]' -v f=\"freq = $khz,\" '\$0 ~ f {print int(\$2); exit}' /proc/gpufreq/gpufreq_opp_dump /proc/gpufreqv2/gpu_working_opp_table /proc/gpufreqv2/gpufreq_opp_dump 2>/dev/null); " +
+                "[ -n \"\$minIdx\" ] && echo \"\$minIdx\" > '$gedHalDir/custom_boost_gpu_freq' 2>/dev/null; " +
+                "chmod 644 '$gedParamDir/gpu_bottom_freq' '$gedParamDir/gpu_cust_boost_freq' 2>/dev/null; " +
+                "echo $khz > '$gedParamDir/gpu_bottom_freq' 2>/dev/null"
+            ).exec()
+            res = NodeWriter.writeVerified("$gedParamDir/gpu_cust_boost_freq", khz)
         }
         if (maxMhz != null && maxMhz > 0) {
             val khz = (maxMhz * 1000).toString()
-            val r = NodeWriter.writeVerified("$gedParamDir/gpu_cust_upbound_freq", khz)
-            if (r is WriteResult.Applied) {
-                res = r
-            } else {
-                res = NodeWriter.writeVerified("$gedHalDir/custom_upbound_gpu_freq", khz)
-            }
+            Shell.cmd(
+                "maxIdx=\$(awk -F'[][]' -v f=\"freq = $khz,\" '\$0 ~ f {print int(\$2); exit}' /proc/gpufreq/gpufreq_opp_dump /proc/gpufreqv2/gpu_working_opp_table /proc/gpufreqv2/gpufreq_opp_dump 2>/dev/null); " +
+                "[ -n \"\$maxIdx\" ] && echo \"\$maxIdx\" > '$gedHalDir/custom_upbound_gpu_freq' 2>/dev/null; " +
+                "chmod 644 '$gedParamDir/gpu_cust_upbound_freq' 2>/dev/null"
+            ).exec()
+            res = NodeWriter.writeVerified("$gedParamDir/gpu_cust_upbound_freq", khz)
         }
         res
     }
@@ -399,9 +739,14 @@ class MediaTekGedAdapter : GpuBackendAdapter {
     }
 
     override suspend fun setThermalBypass(enabled: Boolean): WriteResult = withContext(Dispatchers.IO) {
-        val rescue = if (enabled) "1" else "0"
-        NodeWriter.writeVerified("$fpsgoDir/fbt/ultra_rescue", rescue)
-        NodeWriter.writeVerified("$fpsgoDir/common/ultra_rescue", rescue)
+        val flag = if (enabled) "1" else "0"
+        val rLimit = NodeWriter.writeVerified("/proc/gpufreq/gpufreq_limit_table", flag)
+        if (rLimit is WriteResult.Unsupported) {
+            NodeWriter.writeVerified("/proc/gpufreqv2/gpufreq_power_limited", flag)
+        }
+        NodeWriter.writeVerified("$fpsgoDir/fbt/ultra_rescue", flag)
+        NodeWriter.writeVerified("$fpsgoDir/common/ultra_rescue", flag)
+        if (rLimit is WriteResult.Applied) rLimit else WriteResult.Applied
     }
 
     override suspend fun getConfidence(): HardwareConfidence = withContext(Dispatchers.IO) {
@@ -410,7 +755,7 @@ class MediaTekGedAdapter : GpuBackendAdapter {
 }
 
 /**
- * ARM Mali Kbase Adapter (Google Tensor, Samsung Exynos Mali, Generic Mali Kbase)
+ * ARM Mali Kbase Adapter (Google Tensor, Samsung Exynos Mali, UniSOC, Generic Mali Kbase)
  */
 class MaliKbaseAdapter : GpuBackendAdapter {
     override val backendId: String = "mali_kbase"
@@ -420,8 +765,10 @@ class MaliKbaseAdapter : GpuBackendAdapter {
     private var detectedMaliDevPath: String = ""
 
     override suspend fun isSupported(): Boolean = withContext(Dispatchers.IO) {
-        val check = Shell.cmd("ls -d /sys/devices/platform/*.mali /sys/class/misc/mali* 2>/dev/null").exec().out
-        if (check.isNotEmpty()) {
+        val check = Shell.cmd(
+            "for d in /sys/devices/platform/*.mali /sys/devices/platform/soc/*.mali /sys/class/misc/mali0/device /sys/class/misc/mali*; do [ -d \"\$d\" ] && echo \"\$d\" && break; done"
+        ).exec().out
+        if (check.isNotEmpty() && check.first().isNotBlank()) {
             detectedMaliDevPath = check.first().trim()
             true
         } else false
@@ -430,8 +777,9 @@ class MaliKbaseAdapter : GpuBackendAdapter {
     override suspend fun scanFeatures(): List<GpuHardwareFeature> = withContext(Dispatchers.IO) {
         val candidatePaths = listOf(
             "$detectedMaliDevPath/power_policy",
+            "$detectedMaliDevPath/dvfs_period",
             "$detectedMaliDevPath/core_mask",
-            "$detectedMaliDevPath/dvfs_period"
+            "/sys/kernel/gpu/gpu_governor"
         )
         val probeMap = NodeWriter.batchProbe(candidatePaths)
         val features = mutableListOf<GpuHardwareFeature>()
@@ -440,11 +788,12 @@ class MaliKbaseAdapter : GpuBackendAdapter {
         val polPath = "$detectedMaliDevPath/power_policy"
         probeMap[polPath]?.let { access ->
             if (access.exists) {
-                val curVal = Shell.cmd("cat '$polPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "always_on"
+                val rawVal = Shell.cmd("cat '$polPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "always_on"
+                val curVal = NodeWriter.extractActiveValue(rawVal)
                 features.add(
                     GpuHardwareFeature(
                         id = "mali_power_policy",
-                        name = "Kebijakan Daya Mali (Power Policy)",
+                        name = "Kebijakan Daya Core Mali (Power Policy)",
                         description = "Always-on meniadakan jeda latensi tidur/bangun GPU antar frame render",
                         nodePath = polPath,
                         currentValue = curVal,
@@ -458,22 +807,72 @@ class MaliKbaseAdapter : GpuBackendAdapter {
             }
         }
 
-        // 2. Core Mask (Unmask Cores)
+        // 2. DVFS Polling Period
+        val periodPath = "$detectedMaliDevPath/dvfs_period"
+        probeMap[periodPath]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$periodPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "50"
+                val curVal = NodeWriter.extractActiveValue(rawVal)
+                features.add(
+                    GpuHardwareFeature(
+                        id = "mali_dvfs_period",
+                        name = "Interval Polling DVFS Mali",
+                        description = "Interval evaluasi beban frekuensi driver Mali dalam milidetik (ms)",
+                        nodePath = periodPath,
+                        currentValue = curVal,
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.STEPPER,
+                        options = listOf("10", "25", "50", "100"),
+                        category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
+        // 3. Core Mask (Unmask Cores)
         val maskPath = "$detectedMaliDevPath/core_mask"
         probeMap[maskPath]?.let { access ->
             if (access.exists) {
-                val curVal = Shell.cmd("cat '$maskPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0xFF"
+                val rawVal = Shell.cmd("cat '$maskPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0xFF"
+                val isUnmasked = if (rawVal.contains("0x0", ignoreCase = true) && !rawVal.contains("0x0F", ignoreCase = true)) "0" else "1"
                 features.add(
                     GpuHardwareFeature(
                         id = "mali_core_mask",
                         name = "Unmask Semua Shader Cores",
                         description = "Paksa seluruh unit komputasi shader core aktif tanpa pemadaman termal OEM",
                         nodePath = maskPath,
-                        currentValue = curVal,
+                        currentValue = isUnmasked,
                         accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
                         confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 85, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
                         uiType = FeatureUiType.SWITCH,
                         category = "Manajemen Daya & Core"
+                    )
+                )
+            }
+        }
+
+        // 4. Standardized Kernel GPU Governor (/sys/kernel/gpu/gpu_governor on Exynos/OneUI/GKI)
+        val sysGpuGovPath = "/sys/kernel/gpu/gpu_governor"
+        probeMap[sysGpuGovPath]?.let { access ->
+            if (access.exists) {
+                val rawGov = Shell.cmd("cat '$sysGpuGovPath' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "interactive"
+                val curGov = NodeWriter.extractActiveValue(rawGov)
+                val availGovs = Shell.cmd("cat '/sys/kernel/gpu/gpu_available_governor' 2>/dev/null").exec().out.firstOrNull()?.trim()
+                    ?.split(Regex("\\s+"))?.filter { it.isNotBlank() }
+                    ?.takeIf { it.isNotEmpty() } ?: listOf("interactive", "performance", "booster", "dynamic")
+                features.add(
+                    GpuHardwareFeature(
+                        id = "kernel_gpu_governor",
+                        name = "Kernel GPU Governor",
+                        description = "Algoritma penskalaan frekuensi standar /sys/kernel/gpu",
+                        nodePath = sysGpuGovPath,
+                        currentValue = curGov,
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.CHOICE,
+                        options = availGovs,
+                        category = "Responsivitas Clock"
                     )
                 )
             }

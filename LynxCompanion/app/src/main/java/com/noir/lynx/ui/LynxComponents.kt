@@ -1594,7 +1594,7 @@ fun ProfileGrid(
     val profiles = listOf(
         ProfileItem("auto", "Auto (AI)", "Adaptive Foreground", Icons.Default.Bolt, AccentCyan),
         ProfileItem("balance", "Balance", "EAS Daily Efficiency", Icons.Default.Tune, AccentBlue),
-        ProfileItem("performance", "Performance", "High Clock Sustained", Icons.Default.Speed, AccentOrange),
+        ProfileItem("performance", "Performa", "High Clock Sustained", Icons.Default.Speed, AccentOrange),
         ProfileItem("extreme", "Extreme", "Unrestricted Bypass", Icons.Default.LocalFireDepartment, AccentRed),
         ProfileItem("powersave", "Powersave", "Deep C-States Endurance", Icons.Default.BatteryChargingFull, Color(0xFF00E676)),
     )
@@ -1809,7 +1809,7 @@ fun StatusBadge(profile: String) {
     val (label, color) = when (profile) {
         "auto"        -> "Auto (AI)" to AccentCyan
         "balance"     -> "Balance" to AccentBlue
-        "performance" -> "Performance" to AccentOrange
+        "performance" -> "Performa" to AccentOrange
         "extreme"     -> "Extreme" to AccentRed
         "powersave"   -> "Powersave" to Color(0xFF00E676)
         else          -> "Standby" to TextSecondary
@@ -2405,9 +2405,9 @@ fun LiveTelemetryCard(telemetry: TelemetryData?) {
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Cluster 1: Performance Cores (6-7)
+        // Cluster 1: Performa Cores (6-7)
         Text(
-            text = "Cluster 1: Performance (2x Cortex-A76)",
+            text = "Kluster 1: Performa (2x Cortex-A76)",
             fontSize = 10.5.sp,
             fontWeight = FontWeight.Medium,
             color = TextSecondary,
@@ -5168,16 +5168,45 @@ fun AdaptiveGpuHardwareCard(
                 }
 
                 // Dynamically Render Scanned Features Grouped by Category
-                val grouped = gpu.hardwareFeatures.groupBy { it.category }
-                grouped.forEach { (category, features) ->
-                    Text(
-                        text = category.uppercase(),
-                        color = TextTertiary,
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.6.sp,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
-                    )
+                val grouped = gpu.hardwareFeatures.groupBy { it.category }.entries.toList()
+                grouped.forEachIndexed { catIdx, (category, features) ->
+                    if (catIdx > 0) {
+                        HorizontalDivider(
+                            color = BorderSubtle.copy(alpha = 0.45f),
+                            thickness = 0.7.dp,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 3.dp, height = 11.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(cardAccent)
+                            )
+                            Text(
+                                text = category.uppercase(),
+                                color = TextSecondary,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.6.sp
+                            )
+                        }
+                        Text(
+                            text = "${features.size} Kontrol",
+                            color = TextTertiary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
 
                     features.forEach { feat ->
                         val isWritable = feat.accessState == FeatureAccessState.VERIFIED_WORKING
@@ -5192,14 +5221,6 @@ fun AdaptiveGpuHardwareCard(
                                     onCheckedChange = { checked ->
                                         val newVal = if (checked) "1" else "0"
                                         onSetFeature(feat, newVal)
-                                        when (feat.id) {
-                                            "kgsl_force_bus_on" -> onSetBusAlwaysOn(checked)
-                                            "adreno_force_rail" -> onSetAdrenoForceRail(checked)
-                                            "ged_frame_pacing" -> onSetFramePacing(checked)
-                                            "fpsgo_ultra_rescue" -> onSetFpsgoUltraRescue(checked)
-                                            "mali_core_mask" -> onSetMaliCoreMask(checked)
-                                            "mali_power_policy" -> onSetMaliPowerPolicy(if (checked) "always_on" else "coarse_demand")
-                                        }
                                     }
                                 )
                             }
@@ -5216,37 +5237,63 @@ fun AdaptiveGpuHardwareCard(
                                         }
                                     }
                                     Text(feat.description, color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
+                                    val useFullWidth = feat.options.size <= 4
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                        modifier = if (useFullWidth) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         feat.options.forEach { opt ->
                                             val isSel = feat.currentValue == opt
+                                            val displayOpt = when (feat.id) {
+                                                "mali_power_policy" -> when (opt) {
+                                                    "always_on" -> "Always-On (Performa)"
+                                                    "coarse_demand" -> "Coarse Demand (Hemat)"
+                                                    else -> opt
+                                                }
+                                                "mtk_dvfs_margin" -> when (opt) {
+                                                    "0" -> "0% (Std)"
+                                                    else -> "+$opt%"
+                                                }
+                                                "mtk_ged_boost_level" -> when (opt) {
+                                                    "0" -> "0 • Mati"
+                                                    "1" -> "1 • Normal"
+                                                    "2" -> "2 • Ekstrem"
+                                                    else -> opt
+                                                }
+                                                "adrenoboost_level" -> when (opt) {
+                                                    "0" -> "0 • Mati"
+                                                    "1" -> "1 • Rendah"
+                                                    "2" -> "2 • Sedang"
+                                                    "3" -> "3 • Maks"
+                                                    else -> opt
+                                                }
+                                                "adreno_tz_target_load" -> when (opt) {
+                                                    "50" -> "50% (Max)"
+                                                    "80" -> "80% (Std)"
+                                                    else -> "$opt%"
+                                                }
+                                                "mali_dvfs_period", "devfreq_polling_interval", "adreno_idle_timer" -> "$opt ms"
+                                                else -> opt
+                                            }
                                             Surface(
                                                 onClick = {
                                                     if (isWritable) {
                                                         onSetFeature(feat, opt)
-                                                        when (feat.id) {
-                                                            "adreno_idle_timer" -> opt.toIntOrNull()?.let { onSetIdleTimer(it) }
-                                                            "adreno_tz_target_load" -> opt.toIntOrNull()?.let { onSetAdrenoTzTargetLoad(it) }
-                                                            "adreno_pwrlevel" -> opt.toIntOrNull()?.let { onSetAdrenoPwrLevel(it) }
-                                                            "ged_dvfs_margin" -> opt.toIntOrNull()?.let { onSetMaliDvfsMargin(it) }
-                                                            "devfreq_governor" -> onSetGovernor(opt)
-                                                        }
                                                     }
                                                 },
                                                 enabled = isWritable,
                                                 shape = RoundedCornerShape(8.dp),
                                                 color = if (isSel) cardAccent.copy(alpha = 0.2f) else BgElevated,
                                                 border = BorderStroke(1.dp, if (isSel) cardAccent else BorderGlass),
-                                                modifier = Modifier.defaultMinSize(minWidth = 54.dp, minHeight = 44.dp)
+                                                modifier = (if (useFullWidth) Modifier.weight(1f) else Modifier).defaultMinSize(minWidth = 54.dp, minHeight = 44.dp)
                                             ) {
-                                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
                                                     Text(
-                                                        text = opt,
+                                                        text = displayOpt,
                                                         color = if (isSel) cardAccent else (if (isWritable) TextSecondary else TextTertiary),
-                                                        fontSize = 10.5.sp,
-                                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                                                        fontSize = 10.sp,
+                                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                                     )
                                                 }
                                             }
@@ -6730,7 +6777,7 @@ enum class TuningCategory(
 ) {
     CPU(
         id = "cpu",
-        title = "CPU Performance",
+        title = "CPU Performa",
         subtitle = "Kluster, Respon Daya & Penjadwal",
         icon = Icons.Default.Memory,
         accentColor = AccentCyan
@@ -6933,15 +6980,59 @@ fun CpuSetsTaskShieldCard(
     onApplyOnBootChange: (Boolean) -> Unit,
     onResetToOem: (() -> Unit)? = null,
     isModified: Boolean = false,
+    onOpenMatrixSheet: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     LynxCard(
         title = "CPU Sets & Task Shield",
         icon = Icons.Default.Shield,
         accentColor = AccentCyan,
-        action = if (isModified && onResetToOem != null) {
-            { ResetHeaderButton(onClick = onResetToOem) }
-        } else null,
+        action = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (isModified && onResetToOem != null) {
+                    ResetHeaderButton(onClick = onResetToOem)
+                }
+                if (onOpenMatrixSheet != null) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentCyan.copy(alpha = 0.12f),
+                        border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onOpenMatrixSheet() }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = AccentCyan,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Matriks Core",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AccentCyan
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = AccentCyan.copy(alpha = 0.7f),
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
         modifier = modifier
     ) {
         if (!cpuSets.isSupported) {
@@ -6975,19 +7066,14 @@ fun CpuSetsTaskShieldCard(
 
         val totalCores = cpuSets.totalCoresCount.coerceIn(4, 16)
         val isBigCore = { coreId: Int ->
-            clusters.any { (it.role.contains("Big", ignoreCase = true) || it.role.contains("Prime", ignoreCase = true) || it.role.contains("Performance", ignoreCase = true)) && it.containsCore(coreId) }
+            clusters.any { (it.id > 0 || it.role.contains("Big", ignoreCase = true) || it.role.contains("Prime", ignoreCase = true) || it.role.contains("Performance", ignoreCase = true)) && it.containsCore(coreId) }
                 || (clusters.isEmpty() && coreId >= 6)
         }
 
         val activePresetKey = cpuSets.activePreset.lowercase()
-        val (modeBadgeText, modeBadgeColor, modeBadgeIcon) = when (activePresetKey) {
-            "gaming" -> Triple("Game Shield", AccentCyan, Icons.Default.SportsEsports)
-            "battery" -> Triple("Hemat Daya", AccentGreen, Icons.Default.BatteryChargingFull)
-            "standard" -> Triple("Standar AOSP", AccentBlue, Icons.Default.Tune)
-            else -> Triple("Kustom", AccentPurple, Icons.Default.Build)
-        }
+        val isCustomMode = activePresetKey !in listOf("gaming", "battery", "standard")
 
-        // 1. Subhead: Description + Mode Badge
+        // 1. Subhead: Description + Optional Custom Indicator
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -7000,27 +7086,21 @@ fun CpuSetsTaskShieldCard(
                 fontSize = 11.5.sp,
                 color = TextSecondary
             )
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = modeBadgeColor.copy(alpha = 0.14f),
-                border = BorderStroke(1.dp, modeBadgeColor.copy(alpha = 0.5f))
-            ) {
+            if (isCustomMode) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    Icon(
-                        imageVector = modeBadgeIcon,
-                        contentDescription = null,
-                        tint = modeBadgeColor,
-                        modifier = Modifier.size(11.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(AccentPurple, CircleShape)
                     )
-                    Spacer(Modifier.width(4.dp))
                     Text(
-                        text = modeBadgeText,
-                        color = modeBadgeColor,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
+                        text = "Kustom",
+                        color = AccentPurple,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -7052,7 +7132,7 @@ fun CpuSetsTaskShieldCard(
         ) {
             val presets = listOf(
                 LynxPresetOption("gaming", "Game Shield", Icons.Default.SportsEsports, AccentCyan),
-                LynxPresetOption("standard", "Standar", Icons.Default.Tune, AccentBlue),
+                LynxPresetOption("standard", "Bawaan AOSP", Icons.Default.Tune, AccentBlue),
                 LynxPresetOption("battery", "Hemat Daya", Icons.Default.BatteryChargingFull, AccentGreen)
             )
             presets.forEach { opt ->
@@ -7114,29 +7194,13 @@ fun CpuSetsTaskShieldCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "DIAGRAM ALOKASI INTI",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
-                        color = TextSecondary
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = BgElevated,
-                        border = BorderStroke(0.6.dp, BorderSubtle)
-                    ) {
-                        Text(
-                            text = "MONITOR",
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextTertiary,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
-                        )
-                    }
-                }
+                Text(
+                    text = "DIAGRAM ALOKASI INTI",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp,
+                    color = TextSecondary
+                )
                 Text(
                     text = "$totalCores Cores",
                     fontSize = 10.sp,
@@ -7229,7 +7293,7 @@ fun CpuSetsTaskShieldCard(
             val statusNote = when (activePresetKey) {
                 "gaming" -> "Big Core diprioritaskan 100% untuk Game & Top-App. Background diisolasi di Little Core."
                 "battery" -> "Beban aplikasi ditahan pada Little Core efisien untuk memaksimalkan daya tahan baterai."
-                "standard" -> "Penjadwalan standar AOSP: seluruh inti dialokasikan dinamis oleh kernel."
+                "standard" -> "Seluruh 8 inti dialokasikan secara dinamis oleh penjadwal kernel."
                 else -> "Konfigurasi kustom aktif. Penugasan thread berjalan sesuai matriks manual."
             }
             Text(
@@ -7240,147 +7304,6 @@ fun CpuSetsTaskShieldCard(
             )
         }
 
-        Spacer(Modifier.height(8.dp))
-
-        // 4. Collapsible Advanced Manual Matrix (For Power Users)
-        var showManualMatrix by remember { mutableStateOf(activePresetKey == "custom") }
-
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = BgElevated.copy(alpha = 0.35f),
-            border = BorderStroke(0.8.dp, if (showManualMatrix) AccentCyan.copy(alpha = 0.4f) else BorderSubtle),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .clickable { showManualMatrix = !showManualMatrix }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Tune,
-                        contentDescription = null,
-                        tint = if (showManualMatrix) AccentCyan else TextSecondary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Kustomisasi Manual per-Grup",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (showManualMatrix) AccentCyan else TextSecondary
-                    )
-                }
-                Icon(
-                    imageVector = if (showManualMatrix) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = TextTertiary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-
-        AnimatedVisibility(visible = showManualMatrix) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val groups = listOf(
-                    Triple("top-app", "Top-App (Game / Aplikasi Aktif)", AccentCyan),
-                    Triple("foreground", "Foreground (Layanan Latar Depan)", AccentBlue),
-                    Triple("background", "Background (Tugas Latar Belakang)", AccentOrange)
-                )
-                groups.forEach { (groupKey, groupLabel, groupAccent) ->
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = groupLabel,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = groupAccent,
-                            modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = BgElevated.copy(alpha = 0.5f),
-                            border = BorderStroke(0.8.dp, BorderSubtle),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 6.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                for (coreId in 0 until totalCores) {
-                                    val inGroup = cpuSets.isCoreInGroup(groupKey, coreId)
-                                    val isBig = isBigCore(coreId)
-                                    val isBgGroup = groupKey == "background"
-                                    val isIsolatedBig = isBgGroup && isBig && !inGroup
-
-                                    Surface(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .clickable { onToggleCore(groupKey, coreId) },
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = when {
-                                            inGroup -> groupAccent.copy(alpha = 0.15f)
-                                            isIsolatedBig -> AccentOrange.copy(alpha = 0.12f)
-                                            else -> BgSurfaceLowest
-                                        },
-                                        border = BorderStroke(
-                                            1.dp,
-                                            when {
-                                                inGroup -> groupAccent.copy(alpha = 0.5f)
-                                                isIsolatedBig -> AccentOrange.copy(alpha = 0.4f)
-                                                else -> BorderSubtle
-                                            }
-                                        )
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.padding(vertical = 6.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (isIsolatedBig) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Lock,
-                                                    contentDescription = "Core $coreId Terisolasi",
-                                                    tint = AccentOrange,
-                                                    modifier = Modifier.size(13.dp)
-                                                )
-                                            } else {
-                                                Text(
-                                                    text = "$coreId",
-                                                    fontSize = 11.5.sp,
-                                                    fontWeight = if (inGroup) FontWeight.Bold else FontWeight.Medium,
-                                                    color = if (inGroup) groupAccent else TextTertiary
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(6.dp))
-
-        // 5. Persistence Switch
-        LynxSwitch(
-            label = "Terapkan saat Boot",
-            subLabel = "Terapkan otomatis isolasi CPU Sets saat boot",
-            checked = cpuSets.applyOnBoot,
-            onCheckedChange = { onApplyOnBootChange(it) }
-        )
     }
 }
 
@@ -7399,15 +7322,59 @@ fun CpuIdleCoreParkingCard(
     onApplyOnBootChange: (Boolean) -> Unit,
     onResetToOem: (() -> Unit)? = null,
     isModified: Boolean = false,
+    onOpenGranularSheet: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     LynxCard(
-        title = "Core Parking & CPU Idle (C-States)",
+        title = "Core Efficiency & C-States",
         icon = Icons.Default.Bedtime,
         accentColor = AccentBlue,
-        action = if (isModified && onResetToOem != null) {
-            { ResetHeaderButton(onClick = onResetToOem) }
-        } else null,
+        action = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (isModified && onResetToOem != null) {
+                    ResetHeaderButton(onClick = onResetToOem)
+                }
+                if (onOpenGranularSheet != null) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentBlue.copy(alpha = 0.12f),
+                        border = BorderStroke(0.8.dp, AccentBlue.copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onOpenGranularSheet() }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = AccentBlue,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "C-States",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AccentBlue
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = AccentBlue.copy(alpha = 0.7f),
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
         modifier = modifier
     ) {
         if (!cpuIdle.isSupported) {
@@ -7442,14 +7409,9 @@ fun CpuIdleCoreParkingCard(
         val totalCores = cpuIdle.totalCores.coerceIn(4, 16)
 
         val activePresetKey = cpuIdle.activePreset.lowercase()
-        val (badgeText, badgeColor, badgeIcon) = when (activePresetKey) {
-            "gaming" -> Triple("Zero Latency", AccentCyan, Icons.Default.Bolt)
-            "battery" -> Triple("Deep Sleep", AccentGreen, Icons.Default.Bedtime)
-            "balanced" -> Triple("Seimbang", AccentBlue, Icons.Default.Tune)
-            else -> Triple("Kustom", AccentPurple, Icons.Default.Build)
-        }
+        val isCustomIdle = activePresetKey !in listOf("gaming", "battery", "balanced")
 
-        // 1. Subhead: Description + Badges
+        // 1. Subhead: Description + Optional Custom Indicator
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -7476,27 +7438,21 @@ fun CpuIdleCoreParkingCard(
                 }
             }
 
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = badgeColor.copy(alpha = 0.14f),
-                border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.5f))
-            ) {
+            if (isCustomIdle) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    Icon(
-                        imageVector = badgeIcon,
-                        contentDescription = null,
-                        tint = badgeColor,
-                        modifier = Modifier.size(11.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(AccentPurple, CircleShape)
                     )
-                    Spacer(Modifier.width(4.dp))
                     Text(
-                        text = badgeText,
-                        color = badgeColor,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
+                        text = "Kustom",
+                        color = AccentPurple,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -7509,7 +7465,7 @@ fun CpuIdleCoreParkingCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "PRESET RESPON TERPADU",
+                text = "PRESET EFISIENSI TERPADU",
                 color = TextSecondary,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
@@ -7574,119 +7530,6 @@ fun CpuIdleCoreParkingCard(
 
         Spacer(Modifier.height(10.dp))
 
-        // 2. Kebijakan Core Parking (CPU Hotplug Management)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "KEBIJAKAN CORE PARKING (HOTPLUG)",
-                color = TextSecondary,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.6.sp
-            )
-            Text(
-                text = "Manajemen Status Inti",
-                color = TextTertiary,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-
-        val currentParkingKey = cpuIdle.coreParkingMode.lowercase()
-        val parkingOptions = listOf(
-            Triple("dynamic", "Dinamis", Icons.Default.Tune to AccentBlue),
-            Triple("unpark_all", "Unpark Semua", Icons.Default.Bolt to AccentCyan),
-            Triple("park_big", "Parkir Big", Icons.Default.Bedtime to AccentOrange)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            parkingOptions.forEach { (modeKey, label, iconAndColor) ->
-                val (icon, color) = iconAndColor
-                val isSelected = currentParkingKey == modeKey
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .defaultMinSize(minHeight = 44.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { onSetCoreParkingMode(modeKey) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) color.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.6f),
-                    border = BorderStroke(if (isSelected) 1.4.dp else 0.8.dp, if (isSelected) color else BorderSubtle)
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize().padding(vertical = 8.dp, horizontal = 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                tint = if (isSelected) color else TextSecondary,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(Modifier.width(5.dp))
-                            Text(
-                                text = label,
-                                fontSize = 10.5.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) color else TextSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Subtitle deskripsi kontekstual untuk opsi Core Parking yang dipilih
-        val parkingExpl = when (currentParkingKey) {
-            "unpark_all" -> "Seluruh $totalCores inti dipaksa selalu siaga online (/sys/devices/system/cpu/cpu*/online) tanpa pemutusan daya untuk responsivitas instan bebas stutter."
-            "park_big" -> "Inti performa tinggi (Big Cores) dipaksa offline saat beban rendah (/sys/devices/system/cpu/cpu*/online=0) untuk memangkas konsumsi daya secara drastis."
-            else -> "Kernel mengalokasikan inti Little & Big secara adaptif sesuai beban tugas latar belakang dan interaksi antarmuka."
-        }
-        val parkingExplColor = when (currentParkingKey) {
-            "unpark_all" -> AccentCyan
-            "park_big" -> AccentOrange
-            else -> AccentBlue
-        }
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = parkingExplColor.copy(alpha = 0.08f),
-            border = BorderStroke(0.6.dp, parkingExplColor.copy(alpha = 0.25f)),
-            modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = parkingExplColor,
-                    modifier = Modifier.size(12.dp)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = parkingExpl,
-                    fontSize = 9.5.sp,
-                    lineHeight = 13.5.sp,
-                    color = parkingExplColor.copy(alpha = 0.95f)
-                )
-            }
-        }
-
-        Spacer(Modifier.height(10.dp))
-
         // 3. Status Performa & Daya (Unified Telemetry Panel - Read-Only)
         Column(
             modifier = Modifier
@@ -7714,29 +7557,13 @@ fun CpuIdleCoreParkingCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "STATUS PERFORMA & DAYA",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.6.sp,
-                        color = TextSecondary
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = BgElevated,
-                        border = BorderStroke(0.6.dp, BorderSubtle)
-                    ) {
-                        Text(
-                            text = "TELEMETRI",
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextTertiary,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
-                        )
-                    }
-                }
+                Text(
+                    text = "STATUS PERFORMA & DAYA",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.6.sp,
+                    color = TextSecondary
+                )
                 Text(
                     text = parkingModeLabel,
                     fontSize = 10.5.sp,
@@ -7919,226 +7746,6 @@ fun CpuIdleCoreParkingCard(
             )
         }
 
-        Spacer(Modifier.height(8.dp))
-
-        // 4. Collapsible Advanced Controls & Individual C-States (For Power Users)
-        var showAdvancedControls by remember { mutableStateOf(activePresetKey == "custom") }
-
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = BgElevated.copy(alpha = 0.35f),
-            border = BorderStroke(0.8.dp, if (showAdvancedControls) AccentCyan.copy(alpha = 0.4f) else BorderSubtle),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .clickable { showAdvancedControls = !showAdvancedControls }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Tune,
-                        contentDescription = null,
-                        tint = if (showAdvancedControls) AccentCyan else TextSecondary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Kustomisasi Lanjutan: C-States (/sys/cpuidle)",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (showAdvancedControls) AccentCyan else TextSecondary
-                    )
-                }
-                Icon(
-                    imageVector = if (showAdvancedControls) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = TextTertiary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-
-        AnimatedVisibility(visible = showAdvancedControls) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Info Banner: Edukasi Bebas Ambigu
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = AccentBlue.copy(alpha = 0.10f),
-                    border = BorderStroke(0.8.dp, AccentBlue.copy(alpha = 0.35f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = AccentBlue,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "Level tidur (C-States) mengatur pemutusan clock subsistem saat CPU menganggur, berlaku untuk seluruh inti prosesor.",
-                            fontSize = 10.sp,
-                            lineHeight = 14.sp,
-                            color = AccentBlue
-                        )
-                    }
-                }
-
-                // Tingkat Kedalaman Tidur Daya (/sys/cpuidle)
-                if (cpuIdle.states.isNotEmpty()) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = "Tingkat Kedalaman Tidur Daya (/sys/cpuidle)",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(start = 2.dp, bottom = 4.dp)
-                        )
-                        cpuIdle.states.forEach { state ->
-                            val isLockedWfi = state.index == 0
-                            val isOff = state.isDisabled
-                            val levelColor = when (state.index) {
-                                0 -> AccentCyan
-                                1 -> AccentBlue
-                                2 -> AccentOrange
-                                else -> AccentRed
-                            }
-                            val humanTitle = when (state.index) {
-                                0 -> "Siaga Ringan (${state.name.ifBlank { "WFI" }})"
-                                1 -> "Tidur Inti Tunggal (${state.name.ifBlank { "cpuoff" }})"
-                                2 -> "Tidur Klaster (${state.name.ifBlank { "clusteroff" }})"
-                                else -> "Tidur Nyenyak Sistem (${state.name.ifBlank { "deep" }})"
-                            }
-                            val humanDesc = when (state.index) {
-                                0 -> "Menunggu instruksi tugas berikutnya"
-                                1 -> "Mematikan clock inti yang kosong"
-                                2 -> "Mematikan daya seluruh klaster Little/Big"
-                                else -> "Mematikan subsistem daya MCUSYS"
-                            }
-
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = BgElevated.copy(alpha = 0.6f),
-                                border = BorderStroke(0.8.dp, if (isOff) AccentRed.copy(alpha = 0.4f) else BorderSubtle),
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
-                                    ) {
-                                        Surface(
-                                            shape = RoundedCornerShape(5.dp),
-                                            color = if (isOff) AccentRed.copy(alpha = 0.15f) else levelColor.copy(alpha = 0.15f),
-                                            border = BorderStroke(0.8.dp, if (isOff) AccentRed.copy(alpha = 0.4f) else levelColor.copy(alpha = 0.4f))
-                                        ) {
-                                            Text(
-                                                text = "Level ${state.index}",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (isOff) AccentRed else levelColor,
-                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                            )
-                                        }
-                                        Spacer(Modifier.width(8.dp))
-                                        Column {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(
-                                                    text = humanTitle,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = if (isOff) TextTertiary else TextPrimary
-                                                )
-                                                Spacer(Modifier.width(6.dp))
-                                                Text(
-                                                    text = "${state.latencyUs}µs",
-                                                    fontSize = 9.sp,
-                                                    color = if (state.latencyUs > 500) AccentOrange else AccentGreen,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                            }
-                                            Text(
-                                                text = humanDesc,
-                                                fontSize = 9.sp,
-                                                color = TextTertiary,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-
-                                    if (isLockedWfi) {
-                                        Surface(
-                                            shape = RoundedCornerShape(5.dp),
-                                            color = AccentGreen.copy(alpha = 0.12f),
-                                            border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.3f))
-                                        ) {
-                                            Text(
-                                                text = "Wajib Aktif",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = AccentGreen,
-                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                            )
-                                        }
-                                    } else {
-                                        Switch(
-                                            checked = !state.isDisabled,
-                                            onCheckedChange = { checked ->
-                                                onToggleCStateDisabled(state.index, !checked)
-                                            },
-                                            colors = SwitchDefaults.colors(
-                                                checkedThumbColor = Color.White,
-                                                checkedTrackColor = AccentBlue,
-                                                uncheckedThumbColor = TextTertiary,
-                                                uncheckedTrackColor = BgCard
-                                            ),
-                                            modifier = Modifier.scale(0.75f)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // C. Hardware Sleep Toggles
-                if (cpuIdle.isArmPllSupported) {
-                    LynxSwitch(
-                        label = "ARMPLL Power Down Mode",
-                        subLabel = "Matikan clock PLL saat core tidur untuk memangkas daya statis (/proc/cpuidle)",
-                        checked = cpuIdle.armPllMode,
-                        onCheckedChange = { onArmPllModeChange(it) }
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(6.dp))
-
-        // 5. Persistence Switch
-        LynxSwitch(
-            label = "Terapkan saat Boot",
-            subLabel = "Terapkan otomatis setelan CPU Idle & Core Parking saat boot",
-            checked = cpuIdle.applyOnBoot,
-            onCheckedChange = { onApplyOnBootChange(it) }
-        )
     }
 }
 
@@ -8152,21 +7759,24 @@ fun PlatformHardwareEngineCard(
     onPpmPolicyChange: (Int, Boolean) -> Unit,
     onQcomTouchboostChange: (Boolean) -> Unit,
     onQcomInputBoostChange: (Long, Int) -> Unit,
+    onMtkInterconnectBoostChange: (Boolean) -> Unit = {},
+    onMtkCpuPowerModeChange: (Int) -> Unit = {},
+    onMtkDlptBypassChange: (Boolean) -> Unit = {},
+    onQcomDevfreqBusBoostChange: (Boolean) -> Unit = {},
+    onUniversalBusProfileChange: (String) -> Unit = {},
+    onUniversalTouchBoostChange: (Boolean) -> Unit = {},
+    onUniversalAntiThrottlingGuardChange: (Boolean) -> Unit = {},
     onShowSwitchInfo: ((SwitchTweakInfo) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val isMtk = schedInfo.isPpmSupported
-    val isQcom = schedInfo.isQcomBoostSupported
+    val isQcom = schedInfo.isQcomBoostSupported || schedInfo.isQcomDevfreqBusSupported
+    val isMtk = (schedInfo.isPpmSupported || schedInfo.isMtkCciSupported) && !isQcom
 
-    val engineTitle = when {
-        isMtk -> "Platform Hardware Engine"
-        isQcom -> "Qualcomm Hardware Boost"
-        else -> "Platform Hardware Engine"
-    }
+    val engineTitle = "Platform Hardware Engine"
     val engineSubtitle = when {
-        isMtk -> "MediaTek PPM Driver"
-        isQcom -> "Snapdragon QTI HAL"
-        else -> "Universal Linux"
+        isMtk -> "MediaTek DVFS, CCI Interconnect, DVFSRC DRAM & PPM"
+        isQcom -> "Snapdragon QTI HAL, Devfreq LLCC-DDR & Input Boost"
+        else -> "Universal Silicon Interconnect & Power Guard"
     }
 
     LynxCard(
@@ -8176,70 +7786,354 @@ fun PlatformHardwareEngineCard(
         accentColor = AccentCyan,
         modifier = modifier
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (isMtk) {
-                // MediaTek PPM Policies
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // 1. Selector 1: Mode Daya Silikon (Hardware DVFS Curve)
+            if (isMtk || isQcom) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Mode Daya Silikon (Hardware DVFS)",
+                                    color = TextPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = if (isMtk) {
+                                        "Kurva voltase & agresivitas tabel frekuensi hardware (/proc/cpufreq & perf)"
+                                    } else {
+                                        "Agresivitas eskalasi frekuensi silikon & sched_load_boost per-kluster"
+                                    },
+                                    color = TextSecondary,
+                                    fontSize = 9.5.sp
+                                )
+                            }
+                        }
+
+                        val powerModes = listOf(
+                            Triple(0, "Standar", AccentCyan),
+                            Triple(1, "Hemat", AccentGreen),
+                            Triple(3, "Performa", AccentOrange)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(BgElevated, RoundedCornerShape(8.dp))
+                                .padding(3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            powerModes.forEach { (modeVal, modeLabel, activeColor) ->
+                                val isSelected = schedInfo.mtkCpuPowerMode == modeVal
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(38.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isSelected) activeColor.copy(alpha = 0.16f) else Color.Transparent)
+                                        .border(
+                                            width = if (isSelected) 1.dp else 0.dp,
+                                            color = if (isSelected) activeColor.copy(alpha = 0.55f) else Color.Transparent,
+                                            shape = RoundedCornerShape(6.dp)
+                                        )
+                                        .clickable { onMtkCpuPowerModeChange(modeVal) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "$modeLabel [$modeVal]",
+                                        color = if (isSelected) activeColor else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Selector 2: Frekuensi Bus Memori & Interkoneksi (CCI + DVFSRC DRAM / Qcom Devfreq)
+            if (isMtk || isQcom) {
+                val activeBusProfile = schedInfo.busBandwidthProfile.lowercase().let { p ->
+                    when (p) {
+                        "eco", "powersave" -> "eco"
+                        "balanced", "balance" -> "balanced"
+                        "max", "performance", "extreme" -> "max"
+                        else -> if (schedInfo.mtkCciPerfMode || schedInfo.qcomDevfreqBusBoostEnabled) "max" else "auto"
+                    }
+                }
+
+                val freqUnit = if (isMtk) "MHz" else "MB/s"
+
+                val liveBusTelemetryText = remember(
+                    schedInfo.mtkCciFreqMhz,
+                    schedInfo.ddrCurrentFreqMhz,
+                    schedInfo.ddrAvailFreqsMhz,
+                    schedInfo.mtkCciPerfMode,
+                    schedInfo.qcomDevfreqBusBoostEnabled,
+                    activeBusProfile,
+                    isMtk
+                ) {
+                    if (isMtk) {
+                        val cciPart = when {
+                            schedInfo.mtkCciFreqMhz > 0 -> "CCI ${schedInfo.mtkCciFreqMhz} MHz"
+                            schedInfo.mtkCciPerfMode -> "CCI Perf"
+                            else -> "CCI Auto"
+                        }
+                        val ddrPart = when {
+                            schedInfo.ddrCurrentFreqMhz > 0 -> "DDR ${schedInfo.ddrCurrentFreqMhz} MHz"
+                            schedInfo.ddrAvailFreqsMhz.isNotEmpty() -> {
+                                val targetMhz = when (activeBusProfile) {
+                                    "max" -> schedInfo.ddrAvailFreqsMhz.first()
+                                    "balanced" -> schedInfo.ddrAvailFreqsMhz[schedInfo.ddrAvailFreqsMhz.size / 2]
+                                    "eco" -> schedInfo.ddrAvailFreqsMhz.last()
+                                    else -> 0
+                                }
+                                if (targetMhz > 0) "DDR $targetMhz MHz" else "DDR Auto"
+                            }
+                            else -> ""
+                        }
+                        if (ddrPart.isNotEmpty()) "$cciPart • $ddrPart" else cciPart
+                    } else {
+                        when {
+                            schedInfo.ddrCurrentFreqMhz > 0 -> "DDR-BW ${schedInfo.ddrCurrentFreqMhz} MB/s"
+                            schedInfo.ddrAvailFreqsMhz.isNotEmpty() -> {
+                                val targetBw = when (activeBusProfile) {
+                                    "max" -> schedInfo.ddrAvailFreqsMhz.first()
+                                    "balanced" -> schedInfo.ddrAvailFreqsMhz[schedInfo.ddrAvailFreqsMhz.size / 2]
+                                    "eco" -> schedInfo.ddrAvailFreqsMhz.last()
+                                    else -> 0
+                                }
+                                if (targetBw > 0) "DDR-BW $targetBw MB/s" else "LLCC-DDR Dinamis"
+                            }
+                            schedInfo.qcomDevfreqBusBoostEnabled -> "LLCC-DDR Puncak"
+                            else -> "LLCC-DDR Dinamis"
+                        }
+                    }
+                }
+
+                val maxDdrMhz = schedInfo.ddrAvailFreqsMhz.firstOrNull() ?: 0
+                val midDdrMhz = if (schedInfo.ddrAvailFreqsMhz.size >= 3) {
+                    schedInfo.ddrAvailFreqsMhz[schedInfo.ddrAvailFreqsMhz.size / 2]
+                } else 0
+                val ecoDdrMhz = if (schedInfo.ddrAvailFreqsMhz.size >= 2) {
+                    schedInfo.ddrAvailFreqsMhz.last()
+                } else 0
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                                Text(
+                                    text = "Frekuensi Bus Memori & Interkoneksi",
+                                    color = TextPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = if (isMtk) {
+                                        "Pita memori DRAM (DVFSRC & CM_MGR) serta interkoneksi L3 Cache CCI"
+                                    } else {
+                                        "Bandwidth CPU-LLCC-DDR (bw_hwmon), L3 Latency & UFS Controller"
+                                    },
+                                    color = TextSecondary,
+                                    fontSize = 9.5.sp
+                                )
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (activeBusProfile == "max") AccentOrange.copy(alpha = 0.14f) else AccentCyan.copy(alpha = 0.12f),
+                                border = BorderStroke(
+                                    0.8.dp,
+                                    if (activeBusProfile == "max") AccentOrange.copy(alpha = 0.45f) else AccentCyan.copy(alpha = 0.38f)
+                                )
+                            ) {
+                                Text(
+                                    text = liveBusTelemetryText,
+                                    color = if (activeBusProfile == "max") AccentOrange else AccentCyan,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.5.dp)
+                                )
+                            }
+                        }
+
+                        data class BusSegmentOption(
+                            val key: String,
+                            val label: String,
+                            val subHint: String,
+                            val color: Color
+                        )
+
+                        val busOptions = listOf(
+                            BusSegmentOption("auto", "Otomatis", "Dinamis", AccentCyan),
+                            BusSegmentOption("eco", "Efisien", if (ecoDdrMhz > 0) "$ecoDdrMhz $freqUnit" else "Hemat", AccentGreen),
+                            BusSegmentOption("balanced", "Seimbang", if (midDdrMhz > 0) "$midDdrMhz $freqUnit" else "Stabil", AccentBlue),
+                            BusSegmentOption("max", "Maksimum", if (maxDdrMhz > 0) "$maxDdrMhz $freqUnit" else "Puncak", AccentOrange)
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(BgElevated, RoundedCornerShape(8.dp))
+                                .padding(3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            busOptions.forEach { opt ->
+                                val isSelected = activeBusProfile == opt.key
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isSelected) opt.color.copy(alpha = 0.16f) else Color.Transparent)
+                                        .border(
+                                            width = if (isSelected) 1.dp else 0.dp,
+                                            color = if (isSelected) opt.color.copy(alpha = 0.55f) else Color.Transparent,
+                                            shape = RoundedCornerShape(6.dp)
+                                        )
+                                        .clickable {
+                                            onUniversalBusProfileChange(opt.key)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = opt.label,
+                                            color = if (isSelected) opt.color else TextPrimary,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = opt.subHint,
+                                            color = if (isSelected) opt.color.copy(alpha = 0.88f) else TextTertiary,
+                                            fontSize = 8.5.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Switch 1: Akselerasi Respons Sentuhan (Kernel Touch Boost)
+            val touchBoostChecked = schedInfo.universalTouchBoostEnabled || schedInfo.qcomTouchboostEnabled
+            LynxSwitch(
+                label = "Akselerasi Respons Sentuhan (Touch Boost)",
+                subLabel = if (isMtk) {
+                    "Lonjakan instan frekuensi CPU & sensitivitas panel saat jari menyentuh layar"
+                } else {
+                    "Lonjakan frekuensi CPU seketika saat jari menyentuh panel layar (Input Boost)"
+                },
+                checked = touchBoostChecked,
+                onCheckedChange = { enabled ->
+                    onUniversalTouchBoostChange(enabled)
+                },
+                onInfoClick = onShowSwitchInfo?.let { show ->
+                    {
+                        show(
+                            SwitchTweakInfo(
+                                id = "universal_touch_boost",
+                                title = "Akselerasi Respons Sentuhan (Touch Boost)",
+                                category = "Kernel Touch & Input Engine",
+                                description = "Mengaktifkan akselerasi sentuhan langsung di tingkat driver kernel. Pada MediaTek mengonfigurasi PerfMgr Touch Boost (/proc/perfmgr/tchbst/user/usrtch: eas_boost=100, touch_opp=0, deboost_when_render=0) serta mengaktifkan Game Mode pada IC digitizer layar (goodix_ts/tp_wake_switch). Pada Snapdragon mengaktifkan MSM Performance Touchboost, CPU Input Boost, serta devfreq bus wake.",
+                                isChecked = touchBoostChecked,
+                                onCheckedChange = onUniversalTouchBoostChange,
+                                onStatusText = "Touch Boost & Digitizer Game Mode Aktif",
+                                onEffect = "Transisi gulir 120Hz, ketikan cepat, dan pergerakan bidikan (aim) merespons seketika tanpa jeda frekuensi.",
+                                offStatusText = "Standar Adaptif OEM",
+                                offEffect = "Frekuensi CPU hanya naik ketika beban aplikasi meningkat, lebih hemat daya saat membaca konten statis.",
+                                gamingRecommendation = "Sangat Disarankan [ON] untuk respons bidikan instan",
+                                balancedRecommendation = "[OFF] atau [ON] sesuai preferensi kelancaran UI",
+                                batteryRecommendation = "[OFF] untuk efisiensi daya saat navigasi ringan"
+                            )
+                        )
+                    }
+                }
+            )
+
+            // 4. Switch 2: Pertahankan Plafon Clock Puncak (Anti-Throttling Guard)
+            if (isMtk || isQcom) {
+                val guardChecked = schedInfo.antiThrottlingGuardEnabled || schedInfo.ppmDlptBypassEnabled
                 LynxSwitch(
-                    label = "Bypass Power Throttling OEM",
-                    subLabel = "Pertahankan clock CPU normal meski baterai di bawah 20%",
-                    checked = !schedInfo.ppmPwrThrottlingEnabled,
-                    onCheckedChange = { enableBypass ->
-                        onPpmPolicyChange(3, !enableBypass)
+                    label = "Pertahankan Plafon Clock Puncak (Anti-Throttling)",
+                    subLabel = if (isMtk) {
+                        "Cegah pemangkasan clock mendadak akibat arus puncak (DLPT, CFP, Imax & Low-Batt)"
+                    } else {
+                        "Kunci plafon msm_performance (cpu_max_freq) & tahan core_ctl kluster Big"
+                    },
+                    checked = guardChecked,
+                    onCheckedChange = { enabled ->
+                        onUniversalAntiThrottlingGuardChange(enabled)
                     },
                     onInfoClick = onShowSwitchInfo?.let { show ->
                         {
                             show(
                                 SwitchTweakInfo(
-                                    id = "ppm_power_throttling",
-                                    title = "Bypass Power Throttling OEM (PPM)",
-                                    category = "MediaTek PPM Driver",
-                                    description = "Driver Power Policy Manager (PPM) MediaTek secara default memangkas frekuensi CPU secara drastis saat daya baterai berada di bawah 20% demi menghemat sisa daya. Mengaktifkan bypass ini mencegah pemangkasan paksa tersebut agar aplikasi dan game tetap berjalan mulus.",
-                                    isChecked = !schedInfo.ppmPwrThrottlingEnabled,
-                                    onCheckedChange = { enableBypass -> onPpmPolicyChange(3, !enableBypass) },
-                                    onStatusText = "Bypass Aktif (Performa Terjaga)",
-                                    onEffect = "Frekuensi CPU tetap berjalan pada clock normal tanpa throttled saat baterai lemah.",
-                                    offStatusText = "Bawaan Pabrik (Throttling Aktif)",
-                                    offEffect = "Clock CPU dipangkas saat baterai <20% demi mencegah perangkat mati mendadak.",
-                                    gamingRecommendation = "Sangat Disarankan [ON]",
-                                    balancedRecommendation = "Disarankan [ON]",
-                                    batteryRecommendation = "[OFF] jika ingin menghemat sisa baterai kritis"
+                                    id = "universal_anti_throttling_guard",
+                                    title = "Pertahankan Plafon Clock Puncak (Anti-Throttling)",
+                                    category = "Silicon Ceiling & Power Guard",
+                                    description = if (isMtk) {
+                                        "Menggabungkan perlindungan plafon frekuensi silikon secara menyeluruh: menonaktifkan Dynamic Low Power Throttling (PPM_POLICY_DLPT [2]), Power Throttling baterai lemah (PPM_POLICY_PWR_THRO [3]), Force Limit [5], CPU Ceiling Frequency Protection (/proc/perfmgr/boost_ctrl/cpu_ctrl/cfp_enable), Syslimiter, dan pembatas arus puncak Imax, sekaligus mengaktifkan SYS_BOOST [9]."
+                                    } else {
+                                        "Mengunci batas plafon atas di /sys/module/msm_performance/parameters/cpu_max_freq ke frekuensi perangkat keras tertinggi pada seluruh core (0-7), sekaligus menahan seluruh core kluster Big tetap aktif melalui core_ctl (min_cpus = max_cpus, offline_delay_ms = 500, busy_up_thres = 0)."
+                                    },
+                                    isChecked = guardChecked,
+                                    onCheckedChange = onUniversalAntiThrottlingGuardChange,
+                                    onStatusText = "Plafon Clock Terkunci Stabil (Bypass Aktif)",
+                                    onEffect = "Kluster Big dan Little mampu mempertahankan frekuensi puncak tanpa dipotong tiba-tiba saat GPU & CPU menarik arus tinggi bersamaan.",
+                                    offStatusText = "Pembatas Arus & Daya OEM Aktif",
+                                    offEffect = "Driver manajemen daya dapat menurunkan plafon frekuensi CPU atau mematikan core Big saat beban berfluktuasi.",
+                                    gamingRecommendation = "Sangat Disarankan [ON] untuk mencegah frame drop mendadak",
+                                    balancedRecommendation = "[OFF] untuk manajemen arus standar pabrik",
+                                    batteryRecommendation = "[OFF] untuk menjaga konsumsi puncak baterai"
                                 )
                             )
                         }
                     }
                 )
 
+                // 5. Switch 3: Sinkronisasi Thermal Policy Hardware
                 LynxSwitch(
-                    label = "Hardware System Boost (SYS_BOOST)",
-                    subLabel = "Akselerasi langsung driver PPM untuk tugas komputasi berat",
-                    checked = schedInfo.ppmSysBoostEnabled,
-                    onCheckedChange = { onPpmPolicyChange(9, it) },
-                    onInfoClick = onShowSwitchInfo?.let { show ->
-                        {
-                            show(
-                                SwitchTweakInfo(
-                                    id = "ppm_sys_boost",
-                                    title = "Hardware System Boost (SYS_BOOST)",
-                                    category = "MediaTek PPM Driver",
-                                    description = "Mengaktifkan instruksi akselerasi langsung pada driver PPM kernel MediaTek. Driver akan memprioritaskan penyediaan daya dan menaikkan respons cluster CPU saat mendeteksi lonjakan komputasi mendadak.",
-                                    isChecked = schedInfo.ppmSysBoostEnabled,
-                                    onCheckedChange = { onPpmPolicyChange(9, it) },
-                                    onStatusText = "System Boost Aktif",
-                                    onEffect = "Driver PPM merespons kenaikan beban komputasi secara instan tanpa jeda frekuensi.",
-                                    offStatusText = "System Boost Nonaktif",
-                                    offEffect = "Driver PPM mengikuti kurva daya standar pabrikan.",
-                                    gamingRecommendation = "Sangat Disarankan [ON]",
-                                    balancedRecommendation = "Disarankan [ON]",
-                                    batteryRecommendation = "[OFF] untuk kurva daya konservatif"
-                                )
-                            )
-                        }
-                    }
-                )
-
-                LynxSwitch(
-                    label = "Sinkronisasi Thermal Policy PPM",
-                    subLabel = "Izinkan driver PPM memangkas clock CPU saat suhu melonjak",
+                    label = "Sinkronisasi Thermal Policy Hardware",
+                    subLabel = if (isMtk) {
+                        "Izinkan PPM, EARA Thermal & FPSGO memangkas clock saat suhu tinggi"
+                    } else {
+                        "Izinkan MSM Thermal & Core Control memangkas clock saat suhu tinggi"
+                    },
                     checked = schedInfo.ppmThermalThrottlingEnabled,
                     onCheckedChange = { onPpmPolicyChange(4, it) },
                     onInfoClick = onShowSwitchInfo?.let { show ->
@@ -8247,83 +8141,27 @@ fun PlatformHardwareEngineCard(
                             show(
                                 SwitchTweakInfo(
                                     id = "ppm_thermal_throttling",
-                                    title = "Sinkronisasi Thermal Policy PPM",
-                                    category = "MediaTek PPM Driver",
-                                    description = "Mengaitkan sensor suhu perangkat secara langsung dengan tabel frekuensi PPM MediaTek. Saat suhu naik, driver PPM akan memangkas frekuensi CPU secara bertahap.",
+                                    title = "Sinkronisasi Thermal Policy Hardware",
+                                    category = "Hardware Thermal Governor",
+                                    description = if (isMtk) {
+                                        "Mengontrol integrasi sensor suhu terhadap tabel frekuensi di tiga titik kernel sekaligus: PPM_POLICY_THERMAL [4], EARA Thermal AI (/sys/kernel/eara_thermal/enable), serta batas suhu CPU pada FPSGO (/sys/kernel/fpsgo/fbt/thrm_limit_cpu)."
+                                    } else {
+                                        "Mengontrol modul pembatas suhu kernel Qualcomm secara langsung (/sys/module/msm_thermal/parameters/enabled [Y/N], /sys/module/msm_thermal/core_control/enabled [1/0], dan /sys/module/msm_thermal/vdd_restriction/enabled)."
+                                    },
                                     isChecked = schedInfo.ppmThermalThrottlingEnabled,
                                     onCheckedChange = { onPpmPolicyChange(4, it) },
-                                    onStatusText = "Sinkronisasi Termal Aktif",
-                                    onEffect = "PPM ikut menurunkan frekuensi saat suhu tinggi demi menjaga suhu perangkat dingin.",
-                                    offStatusText = "Sinkronisasi Termal Nonaktif",
-                                    offEffect = "Driver PPM mengabaikan instruksi penurunan daya, mempertahankan frekuensi stabil.",
-                                    gamingRecommendation = "[OFF] demi pertahankan FPS game stabil",
-                                    balancedRecommendation = "Disarankan [ON] untuk suhu perangkat nyaman",
+                                    onStatusText = "Proteksi Termal Hardware Aktif",
+                                    onEffect = "Kernel menurunkan frekuensi CPU secara bertahap saat suhu melewati ambang aman demi menjaga perangkat tetap dingin.",
+                                    offStatusText = "Bypass Termal Hardware Aktif",
+                                    offEffect = "Governor termal kernel tidak memangkas clock CPU berdasarkan suhu (disarankan gunakan pendingin eksternal).",
+                                    gamingRecommendation = "[OFF] dengan cooler eksternal, atau [ON] tanpa cooler",
+                                    balancedRecommendation = "Sangat Disarankan [ON] untuk keamanan suhu harian",
                                     batteryRecommendation = "[ON] efisiensi termal maksimal"
                                 )
                             )
                         }
                     }
                 )
-            }
-
-            if (isQcom) {
-                // Qualcomm Touchboost
-                LynxSwitch(
-                    label = "Qualcomm Touchboost Driver",
-                    subLabel = "Lonjakan clock CPU seketika saat jari menyentuh panel layar",
-                    checked = schedInfo.qcomTouchboostEnabled,
-                    onCheckedChange = onQcomTouchboostChange,
-                    onInfoClick = onShowSwitchInfo?.let { show ->
-                        {
-                            show(
-                                SwitchTweakInfo(
-                                    id = "qcom_touchboost",
-                                    title = "Qualcomm Touchboost Driver",
-                                    category = "Snapdragon QTI HAL",
-                                    description = "Driver Qualcomm MSM Performance menaikkan frekuensi CPU seketika saat event sentuhan layar terdeteksi untuk menjamin interaksi geser, ketik, dan gulir 120Hz bebas frame drop.",
-                                    isChecked = schedInfo.qcomTouchboostEnabled,
-                                    onCheckedChange = onQcomTouchboostChange,
-                                    onStatusText = "Touchboost Aktif",
-                                    onEffect = "Clock CPU melonjak sesaat saat jari menyentuh layar, memangkas stuttering animasi UI dan aim.",
-                                    offStatusText = "Touchboost Nonaktif",
-                                    offEffect = "Frekuensi CPU hanya naik jika beban aplikasi meningkat, menghemat sedikit daya baterai.",
-                                    gamingRecommendation = "Sangat Disarankan [ON]",
-                                    balancedRecommendation = "Disarankan [ON]",
-                                    batteryRecommendation = "[OFF] jika ingin hemat daya saat navigasi ringan"
-                                )
-                            )
-                        }
-                    }
-                )
-
-                if (schedInfo.qcomInputBoostFreq > 0 || schedInfo.qcomInputBoostMs > 0) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = BgElevated,
-                        border = BorderStroke(0.8.dp, BorderSubtle),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Input Boost Dynamics",
-                                    color = TextPrimary,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = "Frekuensi: ${schedInfo.qcomInputBoostFreq} MHz • Durasi: ${schedInfo.qcomInputBoostMs} ms",
-                                    color = TextSecondary,
-                                    fontSize = 9.5.sp
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
     }

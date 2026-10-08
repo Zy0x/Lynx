@@ -7,9 +7,10 @@ read_val() {
     [ -r "$1" ] && cat "$1" 2>/dev/null || echo "$2"
 }
 
-# 1. CPU Frequencies (Universal dynamic topology)
+# 1. CPU Frequencies (Universal dynamic topology - strict numeric order for 10-core+ SoCs)
 cpu_freqs=""
-for path in /sys/devices/system/cpu/cpu[0-9]*; do
+for idx in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    path="/sys/devices/system/cpu/cpu$idx"
     [ -d "$path" ] || continue
     online=1
     [ -f "$path/online" ] && online=$(cat "$path/online" 2>/dev/null || echo 1)

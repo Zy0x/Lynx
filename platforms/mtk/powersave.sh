@@ -82,13 +82,42 @@ for c in 0 1 2; do
 done
 
 # ── 2. GPU & GED Subsystem: Sleep Allowed (Coarse Demand) ─────────────
-for mali in /sys/devices/platform/*mali*; do
+for mali in /sys/devices/platform/*mali* /sys/devices/platform/soc/*mali* /sys/class/misc/mali*/device; do
     [ -d "$mali" ] || continue
     write_node "coarse_demand" "$mali/power_policy"
 done
 write_node "0" "/proc/mali/always_on"
 write_node "1" "/proc/mali/dvfs_enable"
-write_node "48" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+write_node "0" "/proc/gpufreq/gpufreq_opp_freq"
+write_node "0 0" "/proc/gpufreq/gpufreq_fixed_freq_volt"
+if [ -f "/proc/gpufreq/gpufreq_opp_dump" ]; then
+    opp_top=$(head -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+    opp_bot=$(tail -n 1 /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+    peak_f=$(echo "$opp_top" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+    min_f=$(echo "$opp_bot" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+    last_idx=$(echo "$opp_bot" | awk -F'[][]' '{print int($2)}')
+    [ -z "$last_idx" ] && last_idx="48"
+    write_node "$last_idx" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+    [ -n "$min_f" ] && write_node "$min_f" "/sys/module/ged/parameters/gpu_cust_boost_freq"
+    [ -n "$min_f" ] && write_node "$min_f" "/sys/module/ged/parameters/gpu_bottom_freq"
+    if [ -n "$peak_f" ]; then
+        ps_target=$(( peak_f * 65 / 100 ))
+        ps_opp_line=$(awk -v t="$ps_target" '{
+            match($0, /freq = [0-9]+/);
+            f = substr($0, RSTART+7, RLENGTH-7) + 0;
+            if (f >= t) last_line = $0;
+        } END { print last_line }' /proc/gpufreq/gpufreq_opp_dump 2>/dev/null)
+        ps_cap_f=$(echo "$ps_opp_line" | grep -Eo 'freq = [0-9]+' | cut -d'=' -f2 | tr -d ' ')
+        ps_cap_idx=$(echo "$ps_opp_line" | awk -F'[][]' '{print int($2)}')
+        [ -n "$ps_cap_idx" ] && write_node "$ps_cap_idx" "/sys/kernel/ged/hal/custom_upbound_gpu_freq"
+        [ -n "$ps_cap_f" ] && write_node "$ps_cap_f" "/sys/module/ged/parameters/gpu_cust_upbound_freq"
+    fi
+else
+    write_node "48" "/sys/kernel/ged/hal/custom_boost_gpu_freq"
+fi
+for i in 0 1 2 3 4 5 6 7 8; do
+    write_node "$i 1 1" "/proc/gpufreq/gpufreq_limit_table"
+done
 write_node "0" "/sys/kernel/ged/hal/gpu_boost_level"
 write_node "0" "/sys/kernel/ged/hal/dvfs_margin_value"
 

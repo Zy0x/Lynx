@@ -16,12 +16,13 @@ for dev in /sys/class/devfreq/*; do
     [ -d "$dev" ] || continue
     gov_node="$dev/governor"
     case "$dev" in
+        *latfloor*)    write_node "compute" "$gov_node" ;;
         *ufshc*)       write_node "simple_ondemand" "$gov_node" ;;
-        *cpubw*)       write_node "bw_hwmon" "$gov_node" ;;
+        *cpubw*|*cpu-ddr-bw*|*ddr-bw*) write_node "bw_hwmon" "$gov_node" ;;
         *gpubw*)       write_node "bw_vbif" "$gov_node" ;;
         *kgsl-busmon*) write_node "gpubw_mon" "$gov_node" ;;
         *llccbw*)      write_node "bw_hwmon" "$gov_node" ;;
-        *l3-cpu*)      write_node "mem_latency" "$gov_node" ;;
+        *l3-cpu*|*cpu-ddr-lat*|*memlat-cpu*) write_node "mem_latency" "$gov_node" ;;
         *bus_ddr*)     write_node "msm-vidc-ddr" "$gov_node" ;;
     esac
     freq_table="$dev/available_frequencies"
@@ -50,7 +51,20 @@ if [ -d "$KGSL" ]; then
         [ -f "$b" ] && write_node "0" "$b"
     done
     write_node "80" "$KGSL/pwrscale/trustzone/target_load"
+
+    # Restore Adreno Devfreq Governor & Pwrscale Policy
+    avail_govs=$(cat "$KGSL/devfreq/available_governors" 2>/dev/null)
+    if echo "$avail_govs" | grep -q "msm-adreno-tz"; then
+        write_node "msm-adreno-tz" "$KGSL/devfreq/governor"
+    elif echo "$avail_govs" | grep -q "simple_ondemand"; then
+        write_node "simple_ondemand" "$KGSL/devfreq/governor"
+    fi
+    write_node "trustzone" "$KGSL/pwrscale/policy"
 fi
+
+# Reset SurfaceFlinger Frame Latency Overrides
+setprop debug.sf.disable_backpressure 0
+setprop debug.sf.enable_gl_backpressure 1
 
 # ── 3. Restore CPU Frequency Bounds & Schedutil Defaults ─────────────
 for policy in /sys/devices/system/cpu/cpufreq/policy*; do
@@ -74,6 +88,7 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
             write_node "10000" "$schedutil/down_rate_limit_us"
             write_node "80" "$schedutil/hispeed_load"
         fi
+        write_node "0" "$schedutil/sched_load_boost"
         write_node "1" "$schedutil/pl"
         write_node "1" "$schedutil/iowait_boost_enable"
         if [ -n "$max_freq" ] && [ "$max_freq" -gt 0 ] 2>/dev/null; then
@@ -81,6 +96,7 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
             write_node "$hi_f" "$schedutil/hispeed_freq"
         fi
     fi
+    write_node "0" "$policy/sched_load_boost"
 done
 
 # Core Ctl & CPU Preferred
@@ -118,10 +134,13 @@ write_node "1" "/dev/cpuset/foreground/boost/cpu.uclamp.latency_sensitive"
 write_node "1" "/dev/stune/schedtune.sched_boost_enabled"
 write_node "5" "/dev/stune/schedtune.boost"
 write_node "0" "/dev/stune/schedtune.prefer_idle"
+write_node "0" "/dev/stune/schedtune.prefer_high_cap"
 write_node "10" "/dev/stune/foreground/schedtune.boost"
 write_node "1" "/dev/stune/foreground/schedtune.prefer_idle"
+write_node "0" "/dev/stune/foreground/schedtune.prefer_high_cap"
 write_node "15" "/dev/stune/top-app/schedtune.boost"
 write_node "1" "/dev/stune/top-app/schedtune.prefer_idle"
+write_node "0" "/dev/stune/top-app/schedtune.prefer_high_cap"
 write_node "1" "/proc/sys/kernel/sched_big_task_rotation"
 write_node "1" "/proc/sys/kernel/sched_sync_hint_enable"
 

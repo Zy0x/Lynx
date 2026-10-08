@@ -14,17 +14,19 @@ write_node() {
 
 KGSL="/sys/class/kgsl/kgsl-3d0"
 if [ -d "$KGSL" ]; then
-    # GMU & Power Level Locking for Adreno 7xx
-    write_node "0" "$KGSL/min_pwrlevel"
-    write_node "0" "$KGSL/default_pwrlevel"
-    write_node "0" "$KGSL/gmu_pwrlevel"
+    # GMU & Power Level Locking for Adreno 7xx (Active in Perf/Extreme)
+    if [ "$MODE" = "perf" ] || [ "$MODE" = "extreme" ]; then
+        write_node "0" "$KGSL/min_pwrlevel"
+        write_node "0" "$KGSL/default_pwrlevel"
+        write_node "0" "$KGSL/gmu_pwrlevel"
+        write_node "0" "$KGSL/throttling"
+        write_node "0" "$KGSL/thermal_pwrlevel"
+    fi
     write_node "1" "$KGSL/force_bus_on"
     write_node "1" "$KGSL/force_clk_on"
     write_node "1" "$KGSL/force_rail_on"
     write_node "150" "$KGSL/idle_timer"
     write_node "0" "$KGSL/bus_split"
-    write_node "0" "$KGSL/throttling"
-    write_node "0" "$KGSL/thermal_pwrlevel"
     
     # AdrenoBoost Tuning
     [ -f "$KGSL/devfreq/adrenoboost" ] && write_node "2" "$KGSL/devfreq/adrenoboost"

@@ -1560,7 +1560,10 @@ fun MainDashboard(
                                                     color = TextPrimary,
                                                     fontSize = 17.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    letterSpacing = (-0.3).sp,
+                                                    letterSpacing = 0.sp,
+                                                    style = androidx.compose.ui.text.TextStyle(
+                                                        fontFeatureSettings = "liga 0, dlig 0"
+                                                    ),
                                                     maxLines = 1,
                                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                                 )
