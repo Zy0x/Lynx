@@ -52,13 +52,15 @@ data class ChargingConfig(
     val bypassEnabled: Boolean = false,
     val extremeChargingEnabled: Boolean = false,
     val tempCutoffC: Int = 45,
-    val limitCurrentMa: Int = 4500,
+    val limitCurrentMa: Int = 6000,
     val autoCutEnabled: Boolean = true,
     val maxBatteryPercent: Int = 80,
     val highCurrentTargetPercent: Int = 90,
     val emergencyTempGuardEnabled: Boolean = true,
     val thermalLockoutBypassEnabled: Boolean = true,
     val smartTaperingEnabled: Boolean = true,
+    val isUnconstrainedMaxHw: Boolean = false,
+    val customLimitCurrentMa: Int = 6000,
 )
 
 data class UclampConfig(
@@ -242,6 +244,13 @@ data class BatteryDetails(
     val adapterWatt: Float = 0f,
     val chargingEfficiencyPercent: Int = 0,
     val realPhysicalTempC: Float = 0f,
+    val spoofedTempC: Float = 0f,
+    val cableResistanceMohm: Int = 0,
+    val portType: String = "Unknown",
+    val isLaptopPort: Boolean = false,
+    val currentHistorySamples: List<Float> = emptyList(),
+    val rawAdcDetails: Map<String, String> = emptyMap(),
+    val thermalZoneMatrix: List<Pair<String, Float>> = emptyList(),
     val isEmergencyGuardActive: Boolean = false,
     val isOvernightBypassLatched: Boolean = false,
     val isSmartTaperingActive: Boolean = false,
@@ -681,6 +690,8 @@ data class LynxUiState(
     val isCpusetSupported: Boolean = true,
     val schedulerBackendType: String = "EAS",
     val clusterIdleInfo: List<com.noir.lynx.kernel.ClusterIdleInfo> = emptyList(),
+    val isBatteryDetailSheetOpen: Boolean = false,
+    val isCustomCurrentDialogOpen: Boolean = false,
 ) {
     fun resolveCpuTempC(): Int {
         val validZones = thermalZones.filter { it.tempC in 20f..115f }

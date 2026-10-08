@@ -8,6 +8,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -1490,6 +1494,7 @@ fun TuningMemoryCategory(
 //  CATEGORY 5: BATTERY & CHARGING SUBSCREEN
 // ============================================================
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TuningChargingCategory(
     uiState: LynxUiState,
@@ -1507,69 +1512,91 @@ fun TuningChargingCategory(
         }
     }
 
+    // Custom Current Limit Dialog
+    if (uiState.isCustomCurrentDialogOpen) {
+        CustomCurrentLimitDialog(
+            currentLimitMa = state.charging.limitCurrentMa,
+            onConfirm = { viewModel.setCustomCurrentLimit(it) },
+            onDismiss = { viewModel.closeCustomCurrentDialog() }
+        )
+    }
+
+    // Deep Telemetry Modal Bottom Sheet
+    if (uiState.isBatteryDetailSheetOpen && battDetails != null) {
+        BatteryDetailBottomSheet(
+            battDetails = battDetails,
+            onDismiss = { viewModel.closeBatteryDetailSheet() }
+        )
+    }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // ============================================================
-        //  BENTO CARD 1: CHARGING TELEMETRY & HARDWARE INSPECTOR
+        //  BENTO CARD 1: MASTER SUPER FAST CHARGING & POWER MONITOR
         // ============================================================
         LynxCard(
-            title = "Hardware Inspector & Telemetri",
-            icon = Icons.Default.BatteryChargingFull,
+            title = "Super Fast Charging & Monitor Daya",
+            icon = Icons.Default.Bolt,
             accentColor = AccentCyan
         ) {
-            // Live Charging Status Badge
+            // Master Switch: Super Fast Charging
+            LynxSwitch(
+                label = "Super Fast Charging",
+                subLabel = "1-Click Universal Fast Charge Unlock. Membuka batas arus ke hardware maksimum (Pump Express 4.0, Qualcomm SMB, Xiaomi HyperCharge, SuperVOOC, Samsung SFC), otomatis bypass limitasi layar menyala & thermal throttling kernel.",
+                checked = state.charging.extremeChargingEnabled,
+                onCheckedChange = { viewModel.setMasterFastCharging(it) }
+            )
+
+            // Active Mode Status Pill
+            val isExtreme = state.charging.extremeChargingEnabled
             val isOvernightLatched = battDetails?.isOvernightBypassLatched == true || (battDetails?.level ?: 0) >= 100
+            val isBypassActive = state.charging.bypassEnabled && ((battDetails?.level ?: 0) >= state.charging.maxBatteryPercent || isOvernightLatched)
             val isSmartTapering = battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled
 
-            val isBypassLatched = state.charging.bypassEnabled && ((battDetails?.level ?: 0) >= state.charging.maxBatteryPercent || isOvernightLatched)
-
-            val currentModeLabel = when {
-                isOvernightLatched -> "100% Full: Hardware Bypass Aktif (Net 0mA - Aman Tidur)"
-                isBypassLatched -> "Bypass Charging Aktif (Baterai Latch)"
+            val modePillLabel = when {
+                isOvernightLatched -> "100% Full Latch: Hardware Bypass Aktif (Net 0mA)"
+                isBypassActive -> "Hardware Bypass Aktif (Baterai Latch ~0mA)"
                 isSmartTapering -> "Smart Tapering Aktif (Mendinginkan Baterai 90%+)"
-                state.charging.extremeChargingEnabled -> "Extreme Fast Charge (Lockout Bypass)"
-                state.charging.limitCurrentMa >= 3000 -> "High-Current Fast Charge (${state.charging.limitCurrentMa} mA)"
-                else -> "Pengisian Dibatasi (${state.charging.limitCurrentMa} mA)"
+                isExtreme -> if (state.charging.isUnconstrainedMaxHw) "⚡ SUPER FAST CHARGE AKTIF (Max HW Unconstrained)" else "⚡ SUPER FAST CHARGE AKTIF (${state.charging.limitCurrentMa} mA)"
+                else -> "Pengisian Standar Regulated (${state.charging.limitCurrentMa} mA)"
             }
-            val currentModeColor = when {
-                isOvernightLatched -> AccentCyan
-                isBypassLatched -> AccentCyan
+            val modePillColor = when {
+                isOvernightLatched || isBypassActive -> AccentCyan
                 isSmartTapering -> AccentGreen
-                state.charging.extremeChargingEnabled -> AccentRed
-                state.charging.limitCurrentMa >= 3000 -> AccentCyan
+                isExtreme -> AccentCyan
                 else -> AccentOrange
             }
 
             Surface(
                 shape = RoundedCornerShape(10.dp),
-                color = currentModeColor.copy(alpha = 0.12f),
-                border = BorderStroke(1.dp, currentModeColor.copy(alpha = 0.35f)),
+                color = modePillColor.copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, modePillColor.copy(alpha = 0.4f)),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = if (isOvernightLatched || isBypassLatched) Icons.Default.BatteryChargingFull else if (isSmartTapering) Icons.Default.Shield else Icons.Default.Bolt,
+                        imageVector = if (isExtreme) Icons.Default.Bolt else Icons.Default.BatteryChargingFull,
                         contentDescription = null,
-                        tint = currentModeColor,
+                        tint = modePillColor,
                         modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        text = currentModeLabel,
+                        text = modePillLabel,
                         style = MaterialTheme.typography.labelMedium,
-                        color = currentModeColor,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold,
+                        color = modePillColor
                     )
                 }
             }
 
-            // Overnight 100% Bypass Latch In-App Banner
-            if (isOvernightLatched) {
+            // Laptop / PC Port Safeguard Alert
+            if (battDetails?.isLaptopPort == true) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = AccentCyan.copy(alpha = 0.12f),
@@ -1577,113 +1604,60 @@ fun TuningChargingCategory(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.Top
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Lock,
+                            imageVector = Icons.Default.Laptop,
                             contentDescription = null,
                             tint = AccentCyan,
-                            modifier = Modifier.size(20.dp).padding(top = 1.dp)
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "Overnight Guard Aktif (100% Full Latch)",
+                                text = "Port Host PC/Laptop Terdeteksi (${battDetails.portType})",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = AccentCyan
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Baterai telah terisi penuh 100%. Sistem otomatis mengunci sirkuit ke True Hardware Bypass (Net 0mA). Daya operasional HP disuplai langsung oleh adaptor charger via Vsys sehingga baterai tidak akan drop dan sangat aman ditinggal tidur semalaman di kasur.",
+                                text = "Arus otomatis dibatasi ke 1.5A demi melindungi sekering/polyfuse port USB laptop Anda.",
                                 style = MaterialTheme.typography.bodySmall,
-                                fontSize = 11.sp,
-                                color = TextPrimary.copy(alpha = 0.9f),
-                                lineHeight = 15.sp
-                            )
-                        }
-                    }
-                }
-            } else if (isSmartTapering) {
-                // Smart Tapering In-App Banner (90%+)
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentGreen.copy(alpha = 0.12f),
-                    border = BorderStroke(1.2.dp, AccentGreen.copy(alpha = 0.7f)),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = null,
-                            tint = AccentGreen,
-                            modifier = Modifier.size(20.dp).padding(top = 1.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "Smart Tapering Aktif (Pendinginan 90%+)",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = AccentGreen
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Baterai mencapai 90%+. Arus masuk diturunkan bertahap dan sensor termal dikembalikan normal untuk mendinginkan suhu baterai & bodi HP secara optimal sebelum mencapai 100%. Beban sistem tetap terjamin aman tanpa defisit daya.",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontSize = 11.sp,
-                                color = TextPrimary.copy(alpha = 0.9f),
-                                lineHeight = 15.sp
+                                fontSize = 10.5.sp,
+                                color = TextPrimary.copy(alpha = 0.85f)
                             )
                         }
                     }
                 }
             }
 
-            // Emergency Thermal Guard Alert Banner (if tripped)
-            if (battDetails?.isEmergencyGuardActive == true) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentRed.copy(alpha = 0.15f),
-                    border = BorderStroke(1.2.dp, AccentRed.copy(alpha = 0.8f)),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            // Cable Resistance Badge (if available)
+            if (battDetails != null && battDetails.cableResistanceMohm > 0) {
+                val rColor = if (battDetails.cableResistanceMohm < 150) AccentGreen else if (battDetails.cableResistanceMohm < 250) AccentOrange else AccentRed
+                val rStatus = if (battDetails.cableResistanceMohm < 150) "Kualitas Bagus" else if (battDetails.cableResistanceMohm < 250) "Standar" else "Resistansi Tinggi (Drop Voltase)"
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            tint = AccentRed,
-                            modifier = Modifier.size(20.dp).padding(top = 1.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "Emergency Thermal Guard Aktif!",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = AccentRed
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Suhu sensor fisik nyata terdeteksi ≥ 46.0°C. Sistem otomatis mencabut temperature spoofing dan menahan arus di batas aman 2.0A demi melindungi kesehatan baterai dan komponen IC.",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontSize = 11.sp,
-                                color = TextPrimary.copy(alpha = 0.9f),
-                                lineHeight = 15.sp
-                            )
-                        }
-                    }
+                    Text(
+                        text = "Resistansi Kabel Fisik:",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                    Text(
+                        text = "${battDetails.cableResistanceMohm} mΩ ($rStatus)",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = rColor
+                    )
                 }
             }
 
-            // Hardware IC & Fast Charge Protocol Badges
+            // Active IC & Fast Charge Protocol Badges
             val icLabel = battDetails?.activeICName?.ifBlank { "Direct Pump 2:1 / PMIC" } ?: "Direct Pump 2:1 / PMIC"
             val protoLabel = battDetails?.fastChargeProtocol?.ifBlank { "Standard DCP / Battery" } ?: "Standard DCP / Battery"
 
@@ -1691,7 +1665,6 @@ fun TuningChargingCategory(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Active IC Badge
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = BgElevated,
@@ -1718,7 +1691,6 @@ fun TuningChargingCategory(
                     }
                 }
 
-                // Protocol Badge
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = BgElevated,
@@ -1746,7 +1718,7 @@ fun TuningChargingCategory(
                 }
             }
 
-            // Dual Wattmeter & Metrics Matrix
+            // Dual Wattmeter
             if (battDetails != null) {
                 val inputWatt = if (battDetails.adapterWatt > 0.05f) battDetails.adapterWatt else battDetails.chargerWatt
                 val netBattWatt = (battDetails.voltageMv.toFloat() * battDetails.currentMa.coerceAtLeast(0).toFloat()) / 1_000_000f
@@ -1757,10 +1729,9 @@ fun TuningChargingCategory(
                     shape = RoundedCornerShape(12.dp),
                     color = BgElevated.copy(alpha = 0.5f),
                     border = BorderStroke(1.dp, BorderSubtle),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // Row 1: Dual Wattmeter (Adapter Input vs Battery Net)
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             // Column A: Adapter Input
                             Surface(
@@ -1770,7 +1741,7 @@ fun TuningChargingCategory(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Column(modifier = Modifier.padding(10.dp)) {
-                                    Text("Daya Masuk (Adapter)", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = TextSecondary)
+                                    Text("Daya Masuk Adaptor", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = TextSecondary)
                                     Spacer(Modifier.height(2.dp))
                                     Text(
                                         text = if (inputWatt > 0.05f) String.format(java.util.Locale.US, "%.1f W", inputWatt) else "--",
@@ -1817,7 +1788,7 @@ fun TuningChargingCategory(
                             }
                         }
 
-                        // Row 2: Conversion Efficiency Progress Bar
+                        // Efficiency Bar
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1840,458 +1811,127 @@ fun TuningChargingCategory(
                                 trackColor = BgElevated
                             )
                         }
-
-                        // Row 3: Thermal Duality (Suhu Sensor Fisik Nyata vs Sensor Baterai/Spoof)
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgCard,
-                            border = BorderStroke(0.8.dp, BorderGlass),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                    Text("Thermal Duality Sensor", style = MaterialTheme.typography.labelSmall, fontSize = 10.5.sp, color = TextSecondary)
-                                    val isSpoofed = state.charging.thermalLockoutBypassEnabled && (battDetails.tempC in 27.5f..28.5f)
-                                    val spoofLabel = if (isSpoofed) "Spoofed 28°C (Bypass Aktif)" else "${String.format(java.util.Locale.US, "%.1f°C", battDetails.tempC)}"
-                                    Text(
-                                        text = "Sensor Baterai: $spoofLabel",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 10.sp,
-                                        color = if (isSpoofed) AccentCyan else TextSecondary,
-                                        maxLines = 1
-                                    )
-                                }
-                                val physColor = if (battDetails.realPhysicalTempC >= 46f) AccentRed else if (battDetails.realPhysicalTempC >= 42f) AccentOrange else AccentGreen
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text("Fisik Nyata", style = MaterialTheme.typography.labelSmall, fontSize = 9.5.sp, color = TextSecondary)
-                                    Text(
-                                        text = String.format(java.util.Locale.US, "%.1f°C", battDetails.realPhysicalTempC),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = physColor,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }
-        }
 
-        // ============================================================
-        //  BENTO CARD 1.5: ESTIMASI WAKTU PENGECAASAN & STATUS PENGISIAN
-        // ============================================================
-        if (battDetails != null) {
-            val isCharging = battDetails.currentMa > 50 || battDetails.status.equals("Charging", ignoreCase = true)
-            val currentLevel = battDetails.level.coerceIn(0, 100)
-            val targetPercent = if (state.charging.bypassEnabled) state.charging.maxBatteryPercent else 100
-            val isTargetReached = currentLevel >= targetPercent
-            val isOvernightLatched = battDetails.isOvernightBypassLatched || currentLevel >= 100
-            val isBypassLocked = isOvernightLatched || (state.charging.bypassEnabled && isTargetReached)
+            // Real-time 60s Bezier Sparkline Waveform
+            ChargingSparklineWaveform(
+                samples = battDetails?.currentHistorySamples ?: emptyList(),
+                currentMa = battDetails?.currentMa ?: 0,
+                accentColor = AccentCyan,
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
 
-            val netCurMa = battDetails.currentMa.coerceAtLeast(0)
-            val designCapMah = 5000f
-            val remainingPercent = (targetPercent - currentLevel).coerceAtLeast(0)
-            val remainingMah = (designCapMah * remainingPercent / 100f)
+            // Quick-Pills for Current Limit
+            Text(
+                text = "PILIHAN CEPAT BATAS ARUS",
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextSecondary
+            )
+            Spacer(Modifier.height(4.dp))
 
-            // Dynamic Charging ETA Algorithm (Direct Pump & Tapering curve)
-            val etaMinutes = when {
-                isBypassLocked || remainingPercent == 0 -> 0
-                !isCharging -> -1
-                netCurMa < 100 -> -2
-                currentLevel < 80 -> {
-                    val ccRemMah = (designCapMah * (80 - currentLevel).coerceAtLeast(0) / 100f)
-                    val cvRemMah = remainingMah - ccRemMah
-                    val ccMins = (ccRemMah / netCurMa.toFloat()) * 60f
-                    val cvMins = if (targetPercent > 80) (cvRemMah / (netCurMa * 0.55f).coerceAtLeast(800f)) * 60f else 0f
-                    (ccMins + cvMins).toInt().coerceAtLeast(1)
-                }
-                else -> {
-                    val cvAvgCur = (netCurMa * 0.7f).coerceAtLeast(600f)
-                    ((remainingMah / cvAvgCur) * 60f).toInt().coerceAtLeast(1)
-                }
-            }
+            val quickPresets = listOf(
+                Triple("2.0A", 2000, false),
+                Triple("4.5A", 4500, false),
+                Triple("6.0A", 6000, false),
+                Triple("10.0A", 10000, false),
+                Triple("15.0A", 15000, false),
+                Triple("Max HW", 15000, true),
+            )
 
-            val etaMainText = when {
-                isBypassLocked -> "Baterai Penuh (0 Menit)"
-                etaMinutes == 0 -> "Baterai Penuh"
-                etaMinutes in 1..59 -> "± $etaMinutes Menit"
-                etaMinutes >= 60 -> "± ${etaMinutes / 60} Jam ${etaMinutes % 60} Menit"
-                etaMinutes == -2 -> "Menghitung Laju..."
-                else -> {
-                    val dischargeMa = Math.abs(battDetails.currentMa).coerceAtLeast(150)
-                    val dischargeMins = ((designCapMah * currentLevel / 100f) / dischargeMa.toFloat() * 60f).toInt()
-                    if (dischargeMins >= 60) "± ${dischargeMins / 60} Jam ${dischargeMins % 60} Menit" else "± $dischargeMins Menit"
-                }
-            }
-
-            val etaSubText = when {
-                isBypassLocked -> "Hardware Bypass Aktif — Mengalirkan daya adapter langsung tanpa mengisi baterai."
-                isCharging && targetPercent < 100 -> "Menuju Target Bypass $targetPercent% (Sisa $remainingPercent% • ${remainingMah.toInt()} mAh)"
-                isCharging -> "Menuju 100% Penuh (Sisa $remainingPercent% • ${remainingMah.toInt()} mAh)"
-                else -> "Estimasi sisa daya baterai berdasarkan beban saat ini (-${Math.abs(battDetails.currentMa)} mA)"
-            }
-
-            val ratePercentPerHour = if (isCharging && netCurMa > 100) ((netCurMa.toFloat() / designCapMah) * 100f).coerceIn(0f, 250f) else 0f
-            val cardAccent = if (isBypassLocked) AccentCyan else if (isCharging) AccentGreen else AccentOrange
-
-            LynxCard(
-                title = "Estimasi Waktu Pengecasan",
-                icon = Icons.Default.Schedule,
-                accentColor = cardAccent
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // Main Highlight Display Box
+                items(quickPresets) { (label, ma, isMaxHw) ->
+                    val isSelected = if (isMaxHw) state.charging.isUnconstrainedMaxHw else (!state.charging.isUnconstrainedMaxHw && state.charging.limitCurrentMa == ma)
+                    val pillColor = if (isSelected) AccentCyan else BgElevated
+                    val textColor = if (isSelected) AccentCyan else TextPrimary
+
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = cardAccent.copy(alpha = 0.08f),
-                        border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.35f)),
-                        modifier = Modifier.fillMaxWidth()
+                        color = pillColor.copy(alpha = if (isSelected) 0.18f else 0.5f),
+                        border = BorderStroke(1.dp, if (isSelected) AccentCyan else BorderSubtle),
+                        modifier = Modifier
+                            .defaultMinSize(minWidth = 60.dp, minHeight = 44.dp)
+                            .clickable { viewModel.setQuickCurrentPreset(ma, isMaxHw) }
                     ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (isCharging) "WAKTU TERSISA" else "DAYA TAHAN BATERAI",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontSize = 10.sp,
-                                    color = TextSecondary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = etaMainText,
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = cardAccent
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = etaSubText,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontSize = 10.5.sp,
-                                    color = TextPrimary.copy(alpha = 0.85f),
-                                    lineHeight = 14.sp
-                                )
-                            }
-                        }
-                    }
-
-                    // Progress toward target
-                    if (isCharging) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Progres Menuju Target ($targetPercent%)",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontSize = 10.sp,
-                                    color = TextSecondary
-                                )
-                                Text(
-                                    text = "$currentLevel% / $targetPercent%",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = cardAccent
-                                )
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            val progressRatio = (currentLevel.toFloat() / targetPercent.toFloat()).coerceIn(0f, 1f)
-                            LinearProgressIndicator(
-                                progress = { progressRatio },
-                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                                color = cardAccent,
-                                trackColor = BgElevated
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = textColor
                             )
                         }
+                    }
+                }
 
-                        // 3-Metric Speed Strip
+                // Custom Pill
+                item {
+                    val isCustom = !state.charging.isUnconstrainedMaxHw && state.charging.limitCurrentMa !in listOf(2000, 4500, 6000, 10000, 15000)
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isCustom) AccentPurple.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, if (isCustom) AccentPurple else BorderSubtle),
+                        modifier = Modifier
+                            .defaultMinSize(minWidth = 70.dp, minHeight = 44.dp)
+                            .clickable { viewModel.openCustomCurrentDialog() }
+                    ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
                         ) {
-                            // Strip 1: Laju Kecepatan
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = BgElevated.copy(alpha = 0.5f),
-                                border = BorderStroke(0.6.dp, BorderSubtle),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Column(modifier = Modifier.padding(8.dp)) {
-                                    Text("Laju Pengisian", style = MaterialTheme.typography.labelSmall, fontSize = 9.5.sp, color = TextSecondary)
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(
-                                        text = if (ratePercentPerHour > 1f) "+${String.format(java.util.Locale.US, "%.1f", ratePercentPerHour / 60f)}%/mnt" else "--",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AccentGreen
-                                    )
-                                    Text(
-                                        text = "+${ratePercentPerHour.toInt()}% / jam",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 9.sp,
-                                        color = TextSecondary
-                                    )
-                                }
-                            }
-
-                            // Strip 2: Arus Masuk Riil
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = BgElevated.copy(alpha = 0.5f),
-                                border = BorderStroke(0.6.dp, BorderSubtle),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Column(modifier = Modifier.padding(8.dp)) {
-                                    Text("Arus Masuk", style = MaterialTheme.typography.labelSmall, fontSize = 9.5.sp, color = TextSecondary)
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(
-                                        text = "+$netCurMa mA",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = cardAccent
-                                    )
-                                    Text(
-                                        text = if (battDetails.adapterWatt > 0.1f) "${String.format(java.util.Locale.US, "%.1fW", battDetails.adapterWatt)} Input" else "Standar",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 9.sp,
-                                        color = TextSecondary
-                                    )
-                                }
-                            }
-
-                            // Strip 3: Fase Kernel
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = BgElevated.copy(alpha = 0.5f),
-                                border = BorderStroke(0.6.dp, BorderSubtle),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Column(modifier = Modifier.padding(8.dp)) {
-                                    Text("Fase Kernel", style = MaterialTheme.typography.labelSmall, fontSize = 9.5.sp, color = TextSecondary)
-                                    Spacer(Modifier.height(2.dp))
-                                    val phaseText = when {
-                                        isBypassLocked -> "Bypass Latch"
-                                        currentLevel >= 85 -> "CV Tapering"
-                                        battDetails.activeICName.contains("Pump") -> "Direct Pump"
-                                        else -> "Arus Konstan"
-                                    }
-                                    Text(
-                                        text = phaseText,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (phaseText == "Direct Pump") AccentRed else cardAccent
-                                    )
-                                    Text(
-                                        text = if (phaseText == "Direct Pump") "Super Charge" else "Stabilizer",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontSize = 9.sp,
-                                        color = TextSecondary
-                                    )
-                                }
-                            }
+                            Icon(Icons.Default.Edit, contentDescription = null, tint = if (isCustom) AccentPurple else TextSecondary, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = if (isCustom) "${state.charging.limitCurrentMa} mA" else "Kustom...",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isCustom) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isCustom) AccentPurple else TextPrimary
+                            )
                         }
                     }
-
-                    // Direct Action Button: Paksa Kecepatan Tertinggi
-                    Button(
-                        onClick = { viewModel.forceMaxSuperCharge() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AccentRed.copy(alpha = 0.18f),
-                            contentColor = AccentRed
-                        ),
-                        border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.45f)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth().height(44.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Bolt,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = AccentRed
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "Paksa Kecepatan Tertinggi (Force Max 33W)",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentRed
-                        )
-                    }
                 }
             }
         }
 
         // ============================================================
-        //  BENTO CARD 2: HIGH-CURRENT & ACCELERATION CONTROLS
+        //  BENTO CARD 2: PROTEKSI CERDAS & BYPASS MOTHERBOARD
         // ============================================================
         LynxCard(
-            title = "Kontrol Arus Tinggi & Akselerasi",
-            icon = Icons.Default.Speed,
-            accentColor = AccentCyan
-        ) {
-            LynxSwitch(
-                label = "Extreme Fast Charging (Continuous Screen-On Boost)",
-                subLabel = "Membuka batas arus hingga 6000mA (6A) di sel baterai / 33W di adaptor, mengaktifkan Pump Express 4.0 & RT9759 Charge Pump 2:1, membypass batasan layar menyala (BN_TestMode & derating bypass), mengangkat limit termal PCB Transsion ke 85°C serta menonaktifkan pembatasan thermal kernel agar pengisian tetap konsisten dan sangat cepat baik layar hidup maupun mati.",
-                checked = state.charging.extremeChargingEnabled,
-                onCheckedChange = { viewModel.setExtremeCharging(it) },
-            )
-
-            LynxSwitch(
-                label = "Thermal Lockout Bypass (DV2_TBAT)",
-                subLabel = "Mem-bypass limitasi thermal lockout (Battery_Temperature = 28°C spoofing & abcct disable) agar charger tidak drop ke 500mA saat baterai hangat ketika gaming.",
-                checked = state.charging.thermalLockoutBypassEnabled,
-                onCheckedChange = { viewModel.setThermalLockoutBypass(it) },
-            )
-
-            var highTargetValue by remember {
-                mutableFloatStateOf(state.charging.highCurrentTargetPercent.toFloat())
-            }
-            var currentLimitValue by remember {
-                mutableFloatStateOf(state.charging.limitCurrentMa.toFloat())
-            }
-            var isInteractingChgCur by remember { mutableStateOf(false) }
-            var lastChgCurInteraction by remember { mutableLongStateOf(0L) }
-
-            LaunchedEffect(state.charging.highCurrentTargetPercent, state.charging.limitCurrentMa) {
-                if (!isInteractingChgCur && (System.currentTimeMillis() - lastChgCurInteraction > 2000L)) {
-                    highTargetValue = state.charging.highCurrentTargetPercent.toFloat()
-                    currentLimitValue = state.charging.limitCurrentMa.toFloat()
-                }
-            }
-
-            LynxSlider(
-                label = "Target Kapasitas Arus Tinggi (sc_tuisoc)",
-                value = highTargetValue,
-                onValueChange = {
-                    isInteractingChgCur = true
-                    lastChgCurInteraction = System.currentTimeMillis()
-                    highTargetValue = it
-                },
-                onValueChangeFinished = {
-                    isInteractingChgCur = false
-                    lastChgCurInteraction = System.currentTimeMillis()
-                    viewModel.setHighCurrentTarget(highTargetValue.toInt())
-                },
-                valueRange = 80f..100f,
-                steps = 19,
-                displayValue = "${highTargetValue.toInt()}% Kapasitas",
-                accentColor = AccentCyan
-            )
-            Text(
-                text = "Menahan pengisian pompa arus tinggi (Direct Charge Pump 2:1) hingga baterai mencapai ${highTargetValue.toInt()}% sebelum beralih ke arus rendah trickle. Default pabrikan biasanya membatasi di 70-80%.",
-                style = MaterialTheme.typography.bodySmall,
-                fontSize = 11.sp,
-                color = TextSecondary,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-            )
-
-            Spacer(Modifier.height(6.dp))
-
-            LynxSlider(
-                label = "Batas Arus Pengisian Game",
-                value = currentLimitValue,
-                onValueChange = {
-                    isInteractingChgCur = true
-                    lastChgCurInteraction = System.currentTimeMillis()
-                    currentLimitValue = it
-                },
-                onValueChangeFinished = {
-                    isInteractingChgCur = false
-                    lastChgCurInteraction = System.currentTimeMillis()
-                    viewModel.setChargeCurrentLimit(currentLimitValue.toInt())
-                },
-                valueRange = 1000f..6000f,
-                steps = 9,
-                displayValue = if (currentLimitValue >= 3500f) "${currentLimitValue.toInt()} mA (Fast Charge)" else "${currentLimitValue.toInt()} mA",
-                accentColor = AccentPurple
-            )
-        }
-
-        // ============================================================
-        //  BENTO CARD 3: SAFETY & BATTERY LONGEVITY
-        // ============================================================
-        LynxCard(
-            title = "Proteksi & Kesehatan Baterai",
-            icon = Icons.Default.Security,
+            title = "Proteksi Cerdas & Hardware Bypass",
+            icon = Icons.Default.Shield,
             accentColor = AccentGreen
         ) {
+            // Motherboard Bypass Switch
             LynxSwitch(
-                label = "Smart Tapering & Overnight Guard",
-                subLabel = "Menurunkan arus bertahap di atas 90% (90-95% 1500mA, 95-99% 750mA) demi mendinginkan baterai, serta mengunci True Hardware Bypass di 100% (Net 0mA) agar baterai tidak drop dan mustahil overcharge saat ditinggal tidur di kasur.",
-                checked = state.charging.smartTaperingEnabled,
-                onCheckedChange = { viewModel.setSmartTapering(it) },
-            )
-
-            LynxSwitch(
-                label = "Emergency Thermal Guard (46.0°C)",
-                subLabel = "Failsafe cerdas anti-overheat. Jika sensor termal fisik nyata (mtktsAP/thermal_zone) mencapai ≥ 46°C, temperatur spoofing dicabut otomatis dan arus diturunkan seketika ke level aman.",
-                checked = state.charging.emergencyTempGuardEnabled,
-                onCheckedChange = { viewModel.setEmergencyTempGuard(it) },
-            )
-
-            LynxSwitch(
-                label = "Bypass Charging (Direct Motherboard)",
-                subLabel = "Mengalirkan daya charger LANGSUNG ke motherboard (Vsys) & MENGHENTIKAN pengisian ke baterai (Net Arus ~0mA). Khusus gaming agar baterai tidak panas. JANGAN aktifkan jika Anda berniat mengisi baterai!",
+                label = "Bypass Motherboard (Direct Power)",
+                subLabel = "Mengalirkan daya adaptor langsung ke motherboard (Vsys) & MENGHENTIKAN pengisian baterai (Net Arus ~0mA). Khusus gaming berat agar baterai tetap dingin. JANGAN aktifkan jika berniat mengisi baterai!",
                 checked = state.charging.bypassEnabled,
-                onCheckedChange = { viewModel.setBypassCharging(it) },
+                onCheckedChange = { viewModel.setBypassCharging(it) }
             )
 
-            var tempCutoffValue by remember {
-                mutableFloatStateOf(state.charging.tempCutoffC.toFloat())
-            }
             var maxBatteryValue by remember {
                 mutableFloatStateOf(state.charging.maxBatteryPercent.toFloat())
             }
             var isInteractingSafety by remember { mutableStateOf(false) }
             var lastSafetyInteraction by remember { mutableLongStateOf(0L) }
 
-            LaunchedEffect(state.charging.tempCutoffC, state.charging.maxBatteryPercent) {
+            LaunchedEffect(state.charging.maxBatteryPercent) {
                 if (!isInteractingSafety && (System.currentTimeMillis() - lastSafetyInteraction > 2000L)) {
-                    tempCutoffValue = state.charging.tempCutoffC.toFloat()
                     maxBatteryValue = state.charging.maxBatteryPercent.toFloat()
                 }
             }
 
             LynxSlider(
-                label = "Batas Suhu Thermal AutoCut (Kasur / Pelindung Suhu)",
-                value = tempCutoffValue,
-                onValueChange = {
-                    isInteractingSafety = true
-                    lastSafetyInteraction = System.currentTimeMillis()
-                    tempCutoffValue = it
-                },
-                onValueChangeFinished = {
-                    isInteractingSafety = false
-                    lastSafetyInteraction = System.currentTimeMillis()
-                    viewModel.setTempCutoff(tempCutoffValue.toInt())
-                },
-                valueRange = 40f..50f,
-                steps = 9,
-                displayValue = "${tempCutoffValue.toInt()}°C",
-                accentColor = AccentOrange
-            )
-            Text(
-                text = "Ambang batas suhu pemotong arus jika panas terperangkap (misal saat HP ditaruh di kasur/bantal). Arus otomatis dipangkas ke 1200mA saat menyentuh suhu ini hingga bodi kembali dingin.",
-                style = MaterialTheme.typography.bodySmall,
-                fontSize = 11.sp,
-                color = TextSecondary,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-            )
-
-            LynxSlider(
-                label = "Batas Pengisian Baterai (Stop-At-%)",
+                label = "Ambang Batas Auto-Bypass (Stop-At-%)",
                 value = maxBatteryValue,
                 onValueChange = {
                     isInteractingSafety = true
@@ -2305,9 +1945,447 @@ fun TuningChargingCategory(
                 },
                 valueRange = 70f..100f,
                 steps = 5,
-                displayValue = if (maxBatteryValue >= 99.5f) "100% (Penuh & Auto-Bypass)" else "${maxBatteryValue.toInt()}%",
+                displayValue = if (maxBatteryValue >= 99.5f) "100% (Penuh & Overnight Guard)" else "${maxBatteryValue.toInt()}%",
                 accentColor = AccentGreen
             )
+
+            // Hysteresis Explanation Banner
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = BgElevated.copy(alpha = 0.5f),
+                border = BorderStroke(0.6.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            ) {
+                Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(15.dp).padding(top = 1.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Hysteresis Buffer 95%: Baterai diisi cepat hingga ${maxBatteryValue.toInt()}%, lalu otomatis mengunci ke bypass. Jika baterai turun ke ${(maxBatteryValue * 0.95f).toInt()}%, pengisian akan aktif kembali. Pada 100%, sistem mengunci bypass semalaman agar aman ditinggal tidur di kasur.",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 11.sp,
+                        color = TextSecondary,
+                        lineHeight = 15.sp
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            // Smart Tapering (90%+)
+            LynxSwitch(
+                label = "Smart Tapering (Pendinginan Baterai 90%+)",
+                subLabel = "Menurunkan arus secara bertahap di atas 90% (90-95% 1500mA, 95-99% 750mA) demi mendinginkan sel baterai sebelum mencapai 100%.",
+                checked = state.charging.smartTaperingEnabled,
+                onCheckedChange = { viewModel.setSmartTapering(it) }
+            )
+
+            // Silent Emergency Guard Status Banner
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = BgCard,
+                border = BorderStroke(0.8.dp, BorderGlass),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Security, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Silent Emergency Guard: Siaga di ambang ≥ 49.0°C sensor fisik nyata. Otomatis menurunkan arus darurat jika ponsel kepanasan parah.",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 11.sp,
+                        color = TextPrimary.copy(alpha = 0.85f)
+                    )
+                }
+            }
+        }
+
+        // ============================================================
+        //  BENTO CARD 3: STATUS FISIK, KESEHATAN & TELEMETRI MENDALAM
+        // ============================================================
+        LynxCard(
+            title = "Kesehatan Fisik & Sensor Baterai",
+            icon = Icons.Default.Favorite,
+            accentColor = AccentOrange
+        ) {
+            // Dual-Temperature Display
+            if (battDetails != null) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.8.dp, BorderGlass),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Left: Sensor Baterai / Spoofed
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Sensor Baterai / Spoofed", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = TextSecondary)
+                            Spacer(Modifier.height(2.dp))
+                            val isSpoofed = state.charging.thermalLockoutBypassEnabled && (battDetails.spoofedTempC in 27f..29f || battDetails.tempC in 27.5f..28.5f)
+                            Text(
+                                text = if (isSpoofed) "28.0°C (Bypass Aktif)" else String.format(java.util.Locale.US, "%.1f°C", battDetails.tempC),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSpoofed) AccentCyan else TextPrimary
+                            )
+                        }
+
+                        // Right: Sensor Fisik Nyata (BMS / AP)
+                        val physColor = if (battDetails.realPhysicalTempC >= 46f) AccentRed else if (battDetails.realPhysicalTempC >= 42f) AccentOrange else AccentGreen
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Sensor Fisik Nyata (BMS)", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = TextSecondary)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = String.format(java.util.Locale.US, "%.1f°C", battDetails.realPhysicalTempC),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = physColor
+                            )
+                        }
+                    }
+                }
+
+                // Battery Metrics Grid
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgElevated.copy(alpha = 0.5f),
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Level Kapasitas", style = MaterialTheme.typography.bodySmall, fontSize = 11.5.sp, color = TextSecondary)
+                            Text("${battDetails.level}%", style = MaterialTheme.typography.bodySmall, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = AccentGreen)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Status Kesehatan", style = MaterialTheme.typography.bodySmall, fontSize = 11.5.sp, color = TextSecondary)
+                            Text(battDetails.health, style = MaterialTheme.typography.bodySmall, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Siklus Pengisian", style = MaterialTheme.typography.bodySmall, fontSize = 11.5.sp, color = TextSecondary)
+                            Text(if (battDetails.cycleCount >= 0) "${battDetails.cycleCount} siklus" else "N/A (Kernel Generic)", style = MaterialTheme.typography.bodySmall, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Tegangan Baterai", style = MaterialTheme.typography.bodySmall, fontSize = 11.5.sp, color = TextSecondary)
+                            Text(String.format(java.util.Locale.US, "%.2f V", battDetails.voltageMv / 1000f), style = MaterialTheme.typography.bodySmall, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Kapasitas Terisi", style = MaterialTheme.typography.bodySmall, fontSize = 11.5.sp, color = TextSecondary)
+                            Text("${battDetails.chargeCounterMah} mAh", style = MaterialTheme.typography.bodySmall, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        }
+                    }
+                }
+
+                // Button: Lihat Detail Lengkap (Raw ADC & Thermal Matrix)
+                OutlinedButton(
+                    onClick = { viewModel.openBatteryDetailSheet() },
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentCyan),
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Icon(Icons.Default.Analytics, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Lihat Detail Lengkap (Raw ADC & Sensor Matrix)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+//  HELPER: CHARGING REAL-TIME 60S BEZIER SPARKLINE WAVEFORM
+// ============================================================
+
+@Composable
+fun ChargingSparklineWaveform(
+    samples: List<Float>,
+    currentMa: Int,
+    accentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = BgCard,
+        border = BorderStroke(0.8.dp, BorderGlass),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(accentColor, CircleShape)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Arus Real-time (60s Buffer)",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        color = TextSecondary
+                    )
+                }
+                Text(
+                    text = if (currentMa > 0) "+$currentMa mA" else "$currentMa mA",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (currentMa > 0) AccentGreen else TextPrimary
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+            ) {
+                if (samples.size < 2) {
+                    drawLine(
+                        color = accentColor.copy(alpha = 0.25f),
+                        start = androidx.compose.ui.geometry.Offset(0f, size.height / 2f),
+                        end = androidx.compose.ui.geometry.Offset(size.width, size.height / 2f),
+                        strokeWidth = 2f
+                    )
+                    return@Canvas
+                }
+
+                val minVal = (samples.minOrNull() ?: 0f) - 100f
+                val maxVal = (samples.maxOrNull() ?: 1000f) + 100f
+                val range = (maxVal - minVal).coerceAtLeast(200f)
+
+                val points = samples.mapIndexed { index, value ->
+                    val x = (index.toFloat() / (samples.size - 1).toFloat()) * size.width
+                    val y = size.height - (((value - minVal) / range) * size.height)
+                    androidx.compose.ui.geometry.Offset(x, y.coerceIn(4f, size.height - 4f))
+                }
+
+                val strokePath = Path().apply {
+                    moveTo(points.first().x, points.first().y)
+                    for (i in 1 until points.size) {
+                        val prev = points[i - 1]
+                        val cur = points[i]
+                        val cx = (prev.x + cur.x) / 2f
+                        cubicTo(cx, prev.y, cx, cur.y, cur.x, cur.y)
+                    }
+                }
+
+                val fillPath = Path().apply {
+                    addPath(strokePath)
+                    lineTo(points.last().x, size.height)
+                    lineTo(points.first().x, size.height)
+                    close()
+                }
+
+                drawPath(
+                    path = fillPath,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(accentColor.copy(alpha = 0.25f), Color.Transparent),
+                        startY = 0f,
+                        endY = size.height
+                    )
+                )
+
+                drawPath(
+                    path = strokePath,
+                    color = accentColor,
+                    style = Stroke(width = 2.5.dp.toPx())
+                )
+
+                val lastPoint = points.last()
+                drawCircle(
+                    color = accentColor,
+                    radius = 3.5.dp.toPx(),
+                    center = lastPoint
+                )
+                drawCircle(
+                    color = Color.White,
+                    radius = 1.8.dp.toPx(),
+                    center = lastPoint
+                )
+            }
+        }
+    }
+}
+
+// ============================================================
+//  HELPER: CUSTOM CURRENT LIMIT DIALOG
+// ============================================================
+
+@Composable
+fun CustomCurrentLimitDialog(
+    currentLimitMa: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var textVal by remember { mutableStateOf(currentLimitMa.toString()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Input Arus Kustom (mA)", fontWeight = FontWeight.Bold, color = TextPrimary) },
+        text = {
+            Column {
+                Text(
+                    text = "Tentukan batas arus pengisian daya manual tanpa batasan slider. Berlaku universal untuk seluruh protokol.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = textVal,
+                    onValueChange = { if (it.all { ch -> ch.isDigit() } && it.length <= 6) textVal = it },
+                    label = { Text("Batas Arus (mA)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedLabelColor = AccentCyan,
+                        unfocusedLabelColor = TextSecondary,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "Contoh: 8000 (8A), 12000 (12A), 18000 (18A)",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    color = TextSecondary
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val ma = textVal.toIntOrNull() ?: currentLimitMa
+                    onConfirm(ma)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = Color.Black)
+            ) {
+                Text("Terapkan", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Batal", color = TextSecondary)
+            }
+        },
+        containerColor = BgCard,
+        titleContentColor = TextPrimary,
+        textContentColor = TextSecondary
+    )
+}
+
+// ============================================================
+//  HELPER: BATTERY DETAIL MODAL BOTTOM SHEET
+// ============================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BatteryDetailBottomSheet(
+    battDetails: BatteryDetails,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color(0xFA0D1017),
+        scrimColor = Color.Black.copy(alpha = 0.65f),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = {
+            Surface(
+                color = Color(0x33FFFFFF),
+                shape = CircleShape,
+                modifier = Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 38.dp, height = 4.dp)
+            ) {}
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Analytics, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Hardware Telemetri & Raw ADC", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Tutup", tint = TextSecondary)
+                }
+            }
+
+            // Section 1: Raw ADC Registers
+            Text("REGISTER CHARGER & ADC PHYSICAL", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentCyan)
+            if (battDetails.rawAdcDetails.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        battDetails.rawAdcDetails.forEach { (k, v) ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(k, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
+                                Text(v, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary, fontFamily = FontFamily.Monospace)
+                            }
+                        }
+                    }
+                }
+            } else {
+                Text("Tidak ada register ADC terdeteksi.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            }
+
+            // Section 2: Thermal Zone Matrix
+            Text("MATRIKS SENSOR THERMAL ZONE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentOrange)
+            if (battDetails.thermalZoneMatrix.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        battDetails.thermalZoneMatrix.forEach { (name, temp) ->
+                            val tColor = if (temp >= 46f) AccentRed else if (temp >= 42f) AccentOrange else AccentGreen
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(name, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
+                                Text(String.format(java.util.Locale.US, "%.1f°C", temp), style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = tColor)
+                            }
+                        }
+                    }
+                }
+            } else {
+                Text("Tidak ada data thermal zone.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            }
         }
     }
 }

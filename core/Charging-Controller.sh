@@ -245,12 +245,25 @@ apply_bypass_charging() {
 apply_extreme_charging() {
     local target_soc="$1"
     local allow_lockout_bypass="$2"
-    [ -z "$target_soc" ] && target_soc=90
+    local target_ma="$3"
+    [ -z "$target_soc" ] && target_soc=100
     [ -z "$allow_lockout_bypass" ] && allow_lockout_bypass="true"
+    [ -z "$target_ma" ] && target_ma=6000
+
+    # Host laptop safeguard
+    local ptyp
+    ptyp=$(cat "$USB_DIR/type" 2>/dev/null || cat "$USB_DIR/real_type" 2>/dev/null || cat "$MTK_DIR/Charger_Type" 2>/dev/null || echo "")
+    if [ -d "/sys/class/power_supply/pc_port" ] || echo "$ptyp" | grep -qiE "sdp|cdp|pc"; then
+        target_ma=1500
+    fi
+
+    local target_ua=$(( target_ma * 1000 ))
+    local mtk_ma="$target_ma"
+    [ "$mtk_ma" -gt 6000 ] && mtk_ma=6000
 
     touch /dev/lynx_extreme_charging 2>/dev/null
 
-    # 1. Universal Linux & Android Rails (Uncap to 6A / 6000mA max headroom)
+    # 1. Universal Linux & Android Rails
     for node in "$BATT_DIR/constant_charge_current_max" \
                 "$BATT_DIR/constant_charge_current" \
                 "$BATT_DIR/current_max" \
@@ -259,7 +272,7 @@ apply_extreme_charging() {
                 "$MAIN_DIR/current_max" \
                 "$USB_DIR/current_max" \
                 "$USB_DIR/hw_current_max"; do
-        write_node_lock "6000000" "$node"
+        write_node_lock "$target_ua" "$node"
     done
     for node in "$BATT_DIR/charge_control_limit_max" \
                 "$BATT_DIR/charge_control_limit" \
@@ -288,13 +301,12 @@ apply_extreme_charging() {
         write_node_lock "0" "$node"
     done
     # MTK input/charge currents are in mA (not µA) on Helio/Dimensity.
-    # Max for Helio G96 is 6000 mA. Values >6000 overflow and get ignored by driver,
-    # causing fallback to 500 mA OEM cap. pdc_max_watt=33 (Helio G96 max PE spec).
-    write_node_lock "6000" "$MTK_DIR/input_current"
-    write_node_lock "6000" "$MTK_DIR/chg1_current"
-    write_node_lock "6000" "$MTK_DIR/chg2_current"
+    # Max for Helio G96 is 6000 mA. Values >6000 overflow and get ignored by driver.
+    write_node_lock "$mtk_ma" "$MTK_DIR/input_current"
+    write_node_lock "$mtk_ma" "$MTK_DIR/chg1_current"
+    write_node_lock "$mtk_ma" "$MTK_DIR/chg2_current"
     write_node_lock "33" "$MTK_DIR/pdc_max_watt"
-    write_node_lock "6000" "$MTK_DIR/sc_ibat_limit"
+    write_node_lock "$mtk_ma" "$MTK_DIR/sc_ibat_limit"
     write_node "$target_soc" "$MTK_DIR/sc_tuisoc"
 
     # MediaTek Kernel PID Thermal Derater (ABCCT) & Userspace Algorithm Pause
@@ -305,7 +317,7 @@ apply_extreme_charging() {
     fi
     if [ -e /proc/driver/thermal/clabcct ]; then
         chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-        echo "0 70000 1000 200000 5 6000 0" > /proc/driver/thermal/clabcct 2>/dev/null
+        echo "0 70000 1000 200000 5 $mtk_ma 0" > /proc/driver/thermal/clabcct 2>/dev/null
         chmod 444 /proc/driver/thermal/clabcct 2>/dev/null
     fi
     for p in $(pgrep -f thermalloadalgod 2>/dev/null); do kill -STOP "$p" 2>/dev/null; done
@@ -313,18 +325,21 @@ apply_extreme_charging() {
     # 3. Qualcomm Snapdragon Architecture
     write_node_lock "1" "$QC_DIR/direct_charging"
     write_node_lock "0" "$QC_DIR/restricted_charging"
-    write_node_lock "6000000" "$QC_DIR/restrict_cur"
+    write_node_lock "$target_ua" "$QC_DIR/restrict_cur"
+    write_node_lock "1" "/sys/class/power_supply/smb1390/parallel_charging_enabled"
     write_node_lock "0" "$QC_DIR/system_temp_level"
     write_node_lock "0" "$BATT_DIR/system_temp_level"
     write_node_lock "0" "$BATT_DIR/temp_state"
+    for qpid in $(pgrep -f thermal-engine 2>/dev/null); do kill -STOP "$qpid" 2>/dev/null; done
 
     # 4. Xiaomi / HyperOS / MIUI Screen-On & Thermal Throttling Bypass
-    write_node_lock "6000000" "$BATT_DIR/thermal_input_current_limit"
-    write_node_lock "6000000" "$BATT_DIR/input_current_settled"
+    write_node_lock "$target_ua" "$BATT_DIR/thermal_input_current_limit"
+    write_node_lock "$target_ua" "$BATT_DIR/input_current_settled"
     write_node_lock "1" "$BATT_DIR/boost_current"
     write_node_lock "0" "$BATT_DIR/step_charging_enabled"
     write_node_lock "2" "$BATT_DIR/quick_charge_type"
     killall -STOP com.xiaomi.joyose 2>/dev/null
+    for mpid in $(pgrep -f mi_thermald 2>/dev/null); do kill -STOP "$mpid" 2>/dev/null; done
 
     # 5. Samsung One UI (Exynos / Qualcomm) Screen-On Throttling Bypass
     write_node_lock "100" "$BATT_DIR/siop_level"
@@ -359,7 +374,7 @@ apply_extreme_charging() {
                 /sys/devices/platform/tran_battery/pcb_thermal_debug; do
         if [ -e "$node" ]; then
             chmod 666 "$node" 2>/dev/null
-            echo "[90,6000,100,6000,6000]" > "$node" 2>/dev/null
+            echo "[95,$mtk_ma,100,$mtk_ma,$mtk_ma]" > "$node" 2>/dev/null
             chmod 444 "$node" 2>/dev/null
         fi
     done
@@ -746,7 +761,7 @@ case "$1" in
         exit 0
         ;;
     extreme)
-        apply_extreme_charging "$2" "$3"
+        apply_extreme_charging "$2" "$3" "$4"
         exit 0
         ;;
     regulated)

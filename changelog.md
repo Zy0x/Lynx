@@ -1,3 +1,37 @@
+# Lynx [Codename: Deity] 3.0.63
+Released on: 2026-10-09
+> **Versi ini** menghadirkan **Perombakan & Redesain Total Subsistem Baterai & Charging Menjadi Arsitektur 3 Bento Cards Terpadu (Universal 3-Bento Cards Architecture), 1-Click Master Switch "Super Fast Charging" dengan Universal Hardware Unlock (MediaTek Pump Express 4.0 / RT9759 Charge Pump, Qualcomm SMB / Parallel Charging, Xiaomi HyperCharge, SuperVOOC, Samsung SFC, & Google Tensor), Dual Wattmeter Real-time (Adapter Input vs Battery Net Power) & Efisiensi Konversi IC Pump (%), 60s Bezier Sparkline Waveform Arus Baterai Real-time, Quick Current Pills (2.0A s/d 15.0A, Max HW) & Dialog Arus Kustom Bebas Batasan Tanpa Slider, Proteksi Cerdas Hardware Direct Bypass Motherboard (Net 0mA) dengan Slider Auto-Bypass Berbuffer Histeresis 95%, Smart Tapering 90%+, Silent Emergency Guard (≥49°C BMS), Dual-Sensor Suhu Baterai (BMS Fisik vs Spoofed 28°C), Safeguard Proteksi Host PC/Laptop (1.5A Limit), Serta Modal Bottom Sheet Telemetri Tingkat Lanjut (Raw ADC Registers & Matriks Sensor Thermal Zone Lengkap)** — menyatukan seluruh kontrol pengisian daya yang sebelumnya terfragmentasi menjadi satu antarmuka yang bersih, intuitif, cepat, dan berdaya guna tinggi tanpa redundansi; memastikan pengisian daya super cepat dapat langsung aktif hanya dengan satu sentuhan dan tetap tangguh terhadap reboot zygote, siklus layar mati-hidup, maupun event hotplug charger; serta menjaga integritas motherboard laptop saat tersambung melalui deteksi port otomatis.
+
+## Fitur Baru & Peningkatan (3.0.63)
+
+### 1. 1-Click Master Switch "Super Fast Charging" & Universal Hardware Unlock
+- **Universal Multi-Platform Kernel Unlocking**: Mengaktifkan rel arus maksimum pada berbagai arsitektur chipset dan IC charging secara simultan (MediaTek Pump Express 4.0 via Richtek RT9759 direct charge pump `chg1_current`/`sc_ibat_limit`, Qualcomm SMB via `parallel_charging_enabled=1`, Xiaomi HyperCharge, SuperVOOC, Samsung SFC, dan Google Tensor).
+- **Bypass Throttling Termal Kernel & Layar Menyala**: Menonaktifkan batasan arus saat layar menyala (`screen_on_current_limit`), menangguhkan daemon termal vendor (`thermal-engine`, `mi_thermald`), dan menerapkan bypass termal PCB Transsion (`pcb_thermal_debug`) agar arus tidak turun ke 1.5A saat ponsel hangat atau digunakan gaming.
+- **Safeguard Otomatis Port Laptop/PC Host**: Mendeteksi port koneksi host (`SDP`, `CDP`, `pc_port`) secara otomatis dan mengunci batas arus maksimal pada 1.5A guna mencegah arus berlebih (overcurrent) yang dapat merusak motherboard laptop pengguna.
+
+### 2. Dual Wattmeter, Efisiensi IC Pump & 60s Bezier Sparkline Waveform
+- **Dual Real-time Wattmeter**: Menampilkan perbandingan daya masukan adaptor (`V × I`) dan daya netto yang masuk ke sel baterai secara berdampingan dengan pembaharuan real-time bebas kedipan.
+- **Indikator Efisiensi Konversi IC Pump (%)**: Menghitung rasio efisiensi konversi daya antara adapter dan baterai secara dinamis (`Net Watt / Adapter Watt × 100%`).
+- **Waveform Arus Real-time 60-Detik (`ChargingSparklineWaveform`)**: Menampilkan grafik riwayat fluktuasi arus pengisian daya menggunakan interpolasi kurva kubik Bezier halus dengan aksen gradien cyan-emerald.
+- **Deteksi Resistansi Kabel Fisik**: Menampilkan resistansi kabel charger dalam satuan milliohm (`mΩ`) langsung dari register hardware fuel gauge (`FG_meter_resistance`) disertai evaluasi kualitas fisik kabel (Sangat Bagus, Bagus, Standar, Kurang Bagus).
+
+### 3. Pilihan Cepat Batas Arus & Dialog Arus Kustom Bebas Batasan
+- **Quick-Pills Batas Arus**: Pilihan preset cepat 1-ketuk: `2.0A`, `4.5A`, `6.0A`, `10.0A`, `15.0A`, dan `Max HW Unconstrained`.
+- **Dialog Arus Kustom Bebas Batasan (`CustomCurrentLimitDialog`)**: Menggantikan slider kaku dengan dialog input numerik bebas batasan (hingga 25.000 mA / 25A) dengan kontras teks tinggi dan validasi input instan.
+
+### 4. Proteksi Cerdas & Hardware Direct Bypass Motherboard
+- **Bypass Motherboard (Direct Power)**: Mengalirkan daya adaptor langsung ke motherboard (`Vsys`) dan menghentikan pengisian baterai (net arus ~0mA) saat gaming intensif agar sel baterai tetap dingin.
+- **Ambang Batas Auto-Bypass & Histeresis Buffer 95%**: Slider batas pengisian (70% - 100%). Pada 70%, sistem otomatis mengunci bypass. Jika baterai turun ke 66%, pengisian aktif kembali. Pada 100%, sistem mengunci bypass semalaman agar aman ditinggal tidur.
+- **Smart Tapering (Pendinginan Baterai 90%+)**: Menurunkan arus secara bertahap di atas 90% (90-95%: 1500mA, 95-99%: 750mA) demi mendinginkan sel sebelum mencapai kapasitas penuh.
+- **Silent Emergency Guard**: Pemantauan pasif sensor suhu fisik nyata BMS (`mtktsbattery`). Jika suhu menyentuh atau melampaui 49.0°C, arus darurat langsung diturunkan ke 1.5A untuk mencegah degradasi sel baterai.
+
+### 5. Dual-Sensor Suhu Baterai & Modal Bottom Sheet Telemetri ADC
+- **Dual-Temperature Display**: Menampilkan perbandingan langsung antara suhu baterai spoofed (28.0°C bypass) dan suhu fisik nyata dari sensor BMS hardware (`mtktsbattery`).
+- **Telemetri Fisik Lengkap**: Informasi real-time kapasitas baterai, status kesehatan, siklus pengisian fisik nyata (cycle count), dan tegangan sel.
+- **Modal Bottom Sheet ("Hardware Telemetri & Raw ADC")**: Menampilkan tabel seluruh register ADC charger fisik (`Pump_Express_VCharger`, `sc_ibat_limit`, `pdc_max_watt`, `BN_TestMode`, dll.) serta matriks lengkap seluruh sensor `thermal_zone` perangkat secara langsung dari kernel sysfs.
+
+---
+
 # Lynx [Codename: Deity] 3.0.62
 Released on: 2026-10-08
 > **Versi ini** menghadirkan **Penyelarasan & Perbaikan Parameter Extreme Charging MediaTek & Richtek RT9759 Direct Charge Pump (6A+ / 33W Unlock), Koreksi Parameter Arus MediaTek (Eliminasi Nilai Overflow 24576 mA Menjadi 6000 mA / 6A & Batas Watt 33W Sesuai Spesifikasi Fisik Hardware), Integrasi Bypass Proteksi Termal PCB Transsion (`pcb_thermal_debug`), Serta Kalibrasi Telemetri Arus Adapter & Baterai Bebas Distorsi Pada Aplikasi Native Android (`LynxCompanion`)** — memperbaiki kendala arus pengisian daya yang sebelumnya tertahan di ~2A akibat nilai arus melebihi kapasitas register driver kernel MediaTek yang memicu fallback ke batas aman OEM; membuka penuh rel daya Pump Express 4.0 dan IC Charge Pump 2:1 hingga 6000 mA; serta menyempurnakan pembacaan telemetri arus adapter dan daya watt secara presisi di antarmuka aplikasi native.

@@ -3202,11 +3202,23 @@ object LynxRepository {
      * Build unified multi-vendor unthrottled hardware payload across Qualcomm, MediaTek,
      * Xiaomi (HyperOS/MIUI), Samsung (One UI), OnePlus/OPPO/Realme (ColorOS), Google Pixel, ASUS, and Motorola.
      */
-    private fun buildUniversalExtremeChargingScript(highTargetPercent: Int, lockoutBypass: Boolean): String {
+    private fun buildUniversalExtremeChargingScript(
+        targetMa: Int = 6000,
+        highTargetPercent: Int = 100,
+        lockoutBypass: Boolean = true,
+        isUnconstrainedMaxHw: Boolean = false,
+        isLaptopPort: Boolean = false
+    ): String {
+        val safeMa = if (isLaptopPort) 1500 else if (isUnconstrainedMaxHw) 15000 else targetMa
+        val effectiveLinuxUa = safeMa * 1000
+        val effectiveMtkMa = if (isLaptopPort) 1500 else if (isUnconstrainedMaxHw) 6000 else targetMa.coerceIn(500, 6000)
+        val effectiveQcomUa = safeMa * 1000
+        val effectiveXiaomiUa = safeMa * 1000
+
         return """
             touch /dev/lynx_extreme_charging 2>/dev/null
 
-            # --- 1. Universal Linux Kernel Power Supply Class Rails (6A Headroom) ---
+            # --- 1. Universal Linux Kernel Power Supply Class Rails ---
             for node in /sys/class/power_supply/battery/constant_charge_current_max \
                         /sys/class/power_supply/battery/constant_charge_current \
                         /sys/class/power_supply/battery/current_max \
@@ -3217,7 +3229,7 @@ object LynxRepository {
                         /sys/class/power_supply/usb/hw_current_max; do
                 if [ -e "${'$'}node" ]; then
                     chmod 666 "${'$'}node" 2>/dev/null
-                    echo 6000000 > "${'$'}node" 2>/dev/null
+                    echo $effectiveLinuxUa > "${'$'}node" 2>/dev/null
                     chmod 444 "${'$'}node" 2>/dev/null
                 fi
             done
@@ -3267,7 +3279,7 @@ object LynxRepository {
                         /sys/devices/platform/charger/chg2_current; do
                 if [ -e "${'$'}node" ]; then
                     chmod 666 "${'$'}node" 2>/dev/null
-                    echo 6000 > "${'$'}node" 2>/dev/null
+                    echo $effectiveMtkMa > "${'$'}node" 2>/dev/null
                     chmod 444 "${'$'}node" 2>/dev/null
                 fi
             done
@@ -3278,7 +3290,7 @@ object LynxRepository {
             fi
             if [ -e /sys/devices/platform/charger/sc_ibat_limit ]; then
                 chmod 666 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                echo $effectiveMtkMa > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                 chmod 444 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
             fi
             if [ -e /sys/devices/platform/charger/Pump_Express ]; then
@@ -3296,7 +3308,7 @@ object LynxRepository {
             fi
             if [ -e /proc/driver/thermal/clabcct ]; then
                 chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-                echo "0 70000 1000 200000 5 6000 0" > /proc/driver/thermal/clabcct 2>/dev/null
+                echo "0 70000 1000 200000 5 $effectiveMtkMa 0" > /proc/driver/thermal/clabcct 2>/dev/null
                 chmod 444 /proc/driver/thermal/clabcct 2>/dev/null
             fi
             for tpid in ${'$'}(pgrep -f "thermalloadalgod" 2>/dev/null); do kill -STOP "${'$'}tpid" 2>/dev/null; done
@@ -3314,8 +3326,13 @@ object LynxRepository {
             fi
             if [ -e /sys/class/qcom-battery/restrict_cur ]; then
                 chmod 666 /sys/class/qcom-battery/restrict_cur 2>/dev/null
-                echo 6000000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+                echo $effectiveQcomUa > /sys/class/qcom-battery/restrict_cur 2>/dev/null
                 chmod 444 /sys/class/qcom-battery/restrict_cur 2>/dev/null
+            fi
+            if [ -e /sys/class/power_supply/smb1390/parallel_charging_enabled ]; then
+                chmod 666 /sys/class/power_supply/smb1390/parallel_charging_enabled 2>/dev/null
+                echo 1 > /sys/class/power_supply/smb1390/parallel_charging_enabled 2>/dev/null
+                chmod 444 /sys/class/power_supply/smb1390/parallel_charging_enabled 2>/dev/null
             fi
             for node in /sys/class/power_supply/battery/system_temp_level \
                         /sys/class/power_supply/battery/temp_state; do
@@ -3325,13 +3342,14 @@ object LynxRepository {
                     chmod 444 "${'$'}node" 2>/dev/null
                 fi
             done
+            for qpid in ${'$'}(pgrep -f "thermal-engine" 2>/dev/null); do kill -STOP "${'$'}qpid" 2>/dev/null; done
 
             # --- 4. Xiaomi / Redmi / POCO (HyperOS / MIUI) ---
             for node in /sys/class/power_supply/battery/thermal_input_current_limit \
                         /sys/class/power_supply/battery/input_current_settled; do
                 if [ -e "${'$'}node" ]; then
                     chmod 666 "${'$'}node" 2>/dev/null
-                    echo 6000000 > "${'$'}node" 2>/dev/null
+                    echo $effectiveXiaomiUa > "${'$'}node" 2>/dev/null
                     chmod 444 "${'$'}node" 2>/dev/null
                 fi
             done
@@ -3351,6 +3369,7 @@ object LynxRepository {
                 chmod 444 /sys/class/power_supply/battery/quick_charge_type 2>/dev/null
             fi
             for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -STOP "${'$'}jpid" 2>/dev/null; done
+            for mpid in ${'$'}(pgrep -f "mi_thermald" 2>/dev/null); do kill -STOP "${'$'}mpid" 2>/dev/null; done
 
             # --- 5. Samsung Galaxy (One UI - S/A/Z series) ---
             if [ -e "/sys/class/power_supply/battery/siop_level" ]; then
@@ -3401,7 +3420,7 @@ object LynxRepository {
                         /sys/devices/platform/tran_battery/pcb_thermal_debug; do
                 if [ -e "${'$'}node" ]; then
                     chmod 666 "${'$'}node" 2>/dev/null
-                    echo "[90,6000,100,6000,6000]" > "${'$'}node" 2>/dev/null
+                    echo "[95,$effectiveMtkMa,100,$effectiveMtkMa,$effectiveMtkMa]" > "${'$'}node" 2>/dev/null
                     chmod 444 "${'$'}node" 2>/dev/null
                 fi
             done
@@ -3498,7 +3517,9 @@ object LynxRepository {
         highTargetPercent: Int = 90,
         lockoutBypass: Boolean = true,
         tempGuard: Boolean = true,
-        maxBatteryPercent: Int = 80
+        maxBatteryPercent: Int = 80,
+        isUnconstrainedMaxHw: Boolean = false,
+        isLaptopPort: Boolean = false
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val script = if (bypass) {
@@ -3576,7 +3597,13 @@ object LynxRepository {
                 echo ok
                 """.trimIndent()
             } else if (extremeCharging) {
-                buildUniversalExtremeChargingScript(highTargetPercent, lockoutBypass)
+                buildUniversalExtremeChargingScript(
+                    targetMa = limitMa,
+                    highTargetPercent = highTargetPercent,
+                    lockoutBypass = lockoutBypass,
+                    isUnconstrainedMaxHw = isUnconstrainedMaxHw,
+                    isLaptopPort = isLaptopPort
+                )
             } else {
                 // Standard Fast Charge or Manual Regulated Limit
                 val isUnrestricted = limitMa >= 3000
@@ -3738,16 +3765,38 @@ object LynxRepository {
      * Force Maximum Super Charge Speed across all SoCs & OEM architectures.
      * Overrides all thermal throttles, zeroes out cooling devices, and locks battery spoofing.
      */
+    suspend fun applyMasterFastCharging(
+        enabled: Boolean,
+        targetMa: Int = 6000,
+        isUnconstrainedMaxHw: Boolean = false,
+        lockoutBypass: Boolean = true,
+        highTargetPercent: Int = 100,
+        isLaptopPort: Boolean = false
+    ): Boolean = withContext(Dispatchers.IO) {
+        val ok = applyChargingMode(
+            bypass = false,
+            extremeCharging = enabled,
+            limitMa = targetMa,
+            highTargetPercent = highTargetPercent,
+            lockoutBypass = lockoutBypass,
+            isUnconstrainedMaxHw = isUnconstrainedMaxHw,
+            isLaptopPort = isLaptopPort
+        )
+        writeStateKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
+        writeStateKey("charging.thermal_lockout_bypass_enabled", (enabled && lockoutBypass).toString(), "bool")
+        writeStateKey("charging.limit_current_ma", targetMa.toString(), "val")
+        writeStateKey("charging.is_unconstrained_max_hw", isUnconstrainedMaxHw.toString(), "bool")
+        ok
+    }
+
     suspend fun forceMaxSuperCharge(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val script = buildUniversalExtremeChargingScript(highTargetPercent = 100, lockoutBypass = true)
-            Shell.cmd(script).exec()
-            writeStateKey("charging.extreme_charging_enabled", "true", "bool")
-            writeStateKey("charging.thermal_lockout_bypass_enabled", "true", "bool")
-            writeStateKey("charging.limit_current_ma", "6000", "val")
-            writeStateKey("charging.high_current_target_percent", "100", "val")
-            true
-        } catch (e: Exception) { false }
+        applyMasterFastCharging(
+            enabled = true,
+            targetMa = 6000,
+            isUnconstrainedMaxHw = true,
+            lockoutBypass = true,
+            highTargetPercent = 100
+        )
     }
 
     /**
@@ -3827,7 +3876,8 @@ object LynxRepository {
                 highTargetPercent = chg.highCurrentTargetPercent,
                 lockoutBypass = chg.thermalLockoutBypassEnabled,
                 tempGuard = chg.emergencyTempGuardEnabled,
-                maxBatteryPercent = chg.maxBatteryPercent
+                maxBatteryPercent = chg.maxBatteryPercent,
+                isUnconstrainedMaxHw = chg.isUnconstrainedMaxHw
             )
         } catch (e: Exception) {
             Log.e(TAG, "applySavedChargingConfig error: ${e.message}")
@@ -6134,11 +6184,39 @@ object LynxRepository {
                     fi
                 fi
 
-                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst|${'$'}pmic_sig|${'$'}sec_sig|${'$'}vooc_sig|${'$'}qc_sig|${'$'}mi_sig|${'$'}pd_sig"
+                ptyp=${'$'}(cat /sys/class/power_supply/usb/type 2>/dev/null || cat /sys/class/power_supply/usb/real_type 2>/dev/null || cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || echo "")
+                [ -z "${'$'}ptyp" ] && [ -d /sys/class/power_supply/pc_port ] && ptyp="SDP"
+                rcbl=${'$'}(cat /sys/devices/platform/battery/FG_meter_resistance 2>/dev/null || cat /sys/class/power_supply/battery/resistance 2>/dev/null || cat /sys/class/power_supply/bms/resistance 2>/dev/null || echo 0)
+                spftmp=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null || echo 0)
+
+                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst|${'$'}pmic_sig|${'$'}sec_sig|${'$'}vooc_sig|${'$'}qc_sig|${'$'}mi_sig|${'$'}pd_sig|${'$'}ptyp|${'$'}rcbl|${'$'}spftmp"
+
+                echo "---ADC---"
+                echo "Pump_Express_VCharger=${'$'}adpv"
+                echo "Pump_Express_ICharger=${'$'}raw_ibus"
+                echo "ADC_Charger_Voltage=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || echo 0)"
+                echo "BatteryAverageCurrent=${'$'}(cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null || echo 0)"
+                echo "sc_ibat_limit=${'$'}(cat /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null || echo 0)"
+                echo "pdc_max_watt=${'$'}(cat /sys/devices/platform/charger/pdc_max_watt 2>/dev/null || echo 0)"
+                echo "input_current=${'$'}(cat /sys/devices/platform/charger/input_current 2>/dev/null || echo 0)"
+                echo "chg1_current=${'$'}(cat /sys/devices/platform/charger/chg1_current 2>/dev/null || echo 0)"
+                echo "BN_TestMode=${'$'}(cat /sys/devices/platform/charger/BN_TestMode 2>/dev/null || echo 0)"
+                echo "pe40=${'$'}(cat /sys/devices/platform/charger/pe40 2>/dev/null || echo 0)"
+                echo "Battery_Temperature=${'$'}spftmp"
+                echo "pcb_thermal_debug=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null || cat /sys/devices/platform/tran_battery/pcb_thermal_debug 2>/dev/null || echo 0)"
+
+                echo "---TZ---"
+                for tz in /sys/class/thermal/thermal_zone*; do
+                    [ -d "${'$'}tz" ] || continue
+                    t=${'$'}(cat "${'$'}tz/type" 2>/dev/null)
+                    v=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
+                    [ -n "${'$'}t" ] && [ -n "${'$'}v" ] && echo "${'$'}{tz##*/}:${'$'}{t}:${'$'}{v}"
+                done
             """.trimIndent()
             val r = Shell.cmd(script).exec()
-            val line = r.out.firstOrNull { it.contains("|") }?.trim() ?: return@withContext null
-            val parts = line.split("|")
+            val lines = r.out
+            val firstLine = lines.firstOrNull { it.contains("|") }?.trim() ?: return@withContext null
+            val parts = firstLine.split("|")
             if (parts.size >= 8) {
                 val cap = parts[0].toIntOrNull() ?: 0
                 val stat = parts[1].ifBlank { "Unknown" }
@@ -6170,6 +6248,50 @@ object LynxRepository {
                 val qcSig = parts.getOrNull(18)?.trim() ?: ""
                 val miSig = parts.getOrNull(19)?.trim() ?: ""
                 val pdSig = parts.getOrNull(20)?.trim() ?: ""
+
+                val rawPtyp = parts.getOrNull(21)?.trim() ?: ""
+                val rawRcbl = parts.getOrNull(22)?.toIntOrNull() ?: 0
+                val rawSpf = parts.getOrNull(23)?.toFloatOrNull() ?: 0f
+                val spoofedTemp = if (rawSpf > 100f) rawSpf / 10f else rawSpf
+
+                val isLaptop = rawPtyp.contains("SDP", ignoreCase = true) || rawPtyp.contains("CDP", ignoreCase = true) || rawPtyp.contains("PC", ignoreCase = true)
+                val portTypeDisplay = when {
+                    isLaptop -> "USB PC/Laptop (SDP/CDP)"
+                    rawPtyp.isNotBlank() && rawPtyp != "0" -> rawPtyp
+                    else -> "Adaptor Charger"
+                }
+
+                // Parse Raw ADC block
+                val adcMap = mutableMapOf<String, String>()
+                var inAdc = false
+                var inTz = false
+                val tzList = mutableListOf<Pair<String, Float>>()
+
+                for (l in lines) {
+                    val trimmed = l.trim()
+                    if (trimmed == "---ADC---") {
+                        inAdc = true
+                        inTz = false
+                        continue
+                    } else if (trimmed == "---TZ---") {
+                        inAdc = false
+                        inTz = true
+                        continue
+                    }
+
+                    if (inAdc && trimmed.contains("=")) {
+                        val kv = trimmed.split("=", limit = 2)
+                        if (kv.size == 2) adcMap[kv[0]] = kv[1]
+                    } else if (inTz && trimmed.contains(":")) {
+                        val tzParts = trimmed.split(":")
+                        if (tzParts.size >= 3) {
+                            val zName = "${tzParts[0]} (${tzParts[1]})"
+                            val rawTzTemp = tzParts[2].toFloatOrNull() ?: 0f
+                            val normTemp = if (rawTzTemp > 1000f) rawTzTemp / 1000f else if (rawTzTemp > 100f) rawTzTemp / 10f else rawTzTemp
+                            tzList.add(Pair(zName, normTemp))
+                        }
+                    }
+                }
 
                 val isCharging = curMa > 50 || stat.equals("Charging", ignoreCase = true)
                 val isOvernightLatched = cap >= 100 || stat.equals("Full", ignoreCase = true) || chgState.contains("bypass_100")
@@ -6243,6 +6365,12 @@ object LynxRepository {
                     adapterWatt = adapterWatt,
                     chargingEfficiencyPercent = efficiency,
                     realPhysicalTempC = realTempC,
+                    spoofedTempC = spoofedTemp,
+                    cableResistanceMohm = rawRcbl,
+                    portType = portTypeDisplay,
+                    isLaptopPort = isLaptop,
+                    rawAdcDetails = adcMap,
+                    thermalZoneMatrix = tzList,
                     isEmergencyGuardActive = isGuardActive,
                     isOvernightBypassLatched = isOvernightLatched,
                     isSmartTaperingActive = isTapering

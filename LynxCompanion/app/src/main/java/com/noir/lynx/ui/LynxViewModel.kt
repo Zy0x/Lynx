@@ -846,6 +846,7 @@ class LynxViewModel : ViewModel() {
         setKey("charging.bypass_enabled", enabled.toString(), "bool")
         viewModelScope.launch {
             val chg = _uiState.value.state.charging
+            val isLaptop = _uiState.value.batteryDetails?.isLaptopPort == true
             LynxRepository.applyChargingMode(
                 bypass = enabled,
                 extremeCharging = chg.extremeChargingEnabled,
@@ -853,7 +854,9 @@ class LynxViewModel : ViewModel() {
                 highTargetPercent = chg.highCurrentTargetPercent,
                 lockoutBypass = chg.thermalLockoutBypassEnabled,
                 tempGuard = chg.emergencyTempGuardEnabled,
-                maxBatteryPercent = chg.maxBatteryPercent
+                maxBatteryPercent = chg.maxBatteryPercent,
+                isUnconstrainedMaxHw = chg.isUnconstrainedMaxHw,
+                isLaptopPort = isLaptop
             )
         }
     }
@@ -870,6 +873,7 @@ class LynxViewModel : ViewModel() {
         setKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
         viewModelScope.launch {
             val chg = _uiState.value.state.charging
+            val isLaptop = _uiState.value.batteryDetails?.isLaptopPort == true
             LynxRepository.applyChargingMode(
                 bypass = chg.bypassEnabled,
                 extremeCharging = enabled,
@@ -877,9 +881,114 @@ class LynxViewModel : ViewModel() {
                 highTargetPercent = chg.highCurrentTargetPercent,
                 lockoutBypass = chg.thermalLockoutBypassEnabled,
                 tempGuard = chg.emergencyTempGuardEnabled,
-                maxBatteryPercent = chg.maxBatteryPercent
+                maxBatteryPercent = chg.maxBatteryPercent,
+                isUnconstrainedMaxHw = chg.isUnconstrainedMaxHw,
+                isLaptopPort = isLaptop
             )
         }
+    }
+
+    fun setMasterFastCharging(enabled: Boolean) {
+        recordStateMutation()
+        val curMa = _uiState.value.state.charging.limitCurrentMa
+        val targetMa = if (enabled && curMa < 3000) 6000 else curMa
+        val isMaxHw = _uiState.value.state.charging.isUnconstrainedMaxHw
+        val isLaptop = _uiState.value.batteryDetails?.isLaptopPort == true
+
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(
+                        extremeChargingEnabled = enabled,
+                        thermalLockoutBypassEnabled = enabled,
+                        limitCurrentMa = targetMa
+                    )
+                )
+            )
+        }
+        setKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
+        setKey("charging.thermal_lockout_bypass_enabled", enabled.toString(), "bool")
+        setKey("charging.limit_current_ma", targetMa.toString(), "val")
+
+        viewModelScope.launch {
+            val ok = LynxRepository.applyMasterFastCharging(
+                enabled = enabled,
+                targetMa = targetMa,
+                isUnconstrainedMaxHw = isMaxHw,
+                lockoutBypass = enabled,
+                isLaptopPort = isLaptop
+            )
+            refreshBatteryDetails()
+            _uiState.update {
+                it.copy(
+                    successMessage = if (enabled) {
+                        if (ok) "Super Fast Charging Aktif! (Unthrottled ${if (isMaxHw) "Max HW" else "${targetMa}mA"})" else "Gagal mengaktifkan Super Fast Charging"
+                    } else {
+                        "Super Fast Charging Dinonaktifkan (Mode Standar)"
+                    }
+                )
+            }
+        }
+    }
+
+    fun setQuickCurrentPreset(ma: Int, isMaxHw: Boolean = false) {
+        recordStateMutation()
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(
+                        limitCurrentMa = ma,
+                        isUnconstrainedMaxHw = isMaxHw
+                    )
+                )
+            )
+        }
+        setKey("charging.limit_current_ma", ma.toString(), "val")
+        setKey("charging.is_unconstrained_max_hw", isMaxHw.toString(), "bool")
+
+        viewModelScope.launch {
+            val chg = _uiState.value.state.charging
+            val isLaptop = _uiState.value.batteryDetails?.isLaptopPort == true
+            LynxRepository.applyChargingMode(
+                bypass = chg.bypassEnabled,
+                extremeCharging = chg.extremeChargingEnabled,
+                limitMa = ma,
+                highTargetPercent = chg.highCurrentTargetPercent,
+                lockoutBypass = chg.thermalLockoutBypassEnabled,
+                tempGuard = chg.emergencyTempGuardEnabled,
+                maxBatteryPercent = chg.maxBatteryPercent,
+                isUnconstrainedMaxHw = isMaxHw,
+                isLaptopPort = isLaptop
+            )
+            refreshBatteryDetails()
+            _uiState.update {
+                it.copy(
+                    successMessage = if (isMaxHw) "Batas Arus: Unconstrained Max HW" else "Batas Arus: ${ma} mA"
+                )
+            }
+        }
+    }
+
+    fun setCustomCurrentLimit(customMa: Int) {
+        val clamped = customMa.coerceIn(500, 25000)
+        setQuickCurrentPreset(clamped, isMaxHw = false)
+        closeCustomCurrentDialog()
+    }
+
+    fun openCustomCurrentDialog() {
+        _uiState.update { it.copy(isCustomCurrentDialogOpen = true) }
+    }
+
+    fun closeCustomCurrentDialog() {
+        _uiState.update { it.copy(isCustomCurrentDialogOpen = false) }
+    }
+
+    fun openBatteryDetailSheet() {
+        _uiState.update { it.copy(isBatteryDetailSheetOpen = true) }
+    }
+
+    fun closeBatteryDetailSheet() {
+        _uiState.update { it.copy(isBatteryDetailSheetOpen = false) }
     }
 
     fun forceMaxSuperCharge() {
@@ -891,7 +1000,8 @@ class LynxViewModel : ViewModel() {
                         extremeChargingEnabled = true,
                         thermalLockoutBypassEnabled = true,
                         limitCurrentMa = 6000,
-                        highCurrentTargetPercent = 100
+                        highCurrentTargetPercent = 100,
+                        isUnconstrainedMaxHw = true
                     )
                 )
             )
@@ -901,7 +1011,7 @@ class LynxViewModel : ViewModel() {
             LynxRepository.reapplyExtremeChargingLock()
             val details = LynxRepository.readBatteryDetails()
             if (details != null) {
-                _uiState.update { it.copy(batteryDetails = details, successMessage = if (ok) "Kecepatan Super Charge Maksimal Dipaksa (33W Unthrottled)" else "Gagal memaksa kecepatan super charge") }
+                _uiState.update { it.copy(batteryDetails = details, successMessage = if (ok) "Kecepatan Super Charge Maksimal Dipaksa (Unthrottled Max HW)" else "Gagal memaksa kecepatan super charge") }
             }
         }
     }
@@ -3532,11 +3642,22 @@ class LynxViewModel : ViewModel() {
         }
     }
 
+    private val currentHistoryQueue = ArrayDeque<Float>(60)
+
     fun refreshBatteryDetails() {
         viewModelScope.launch {
             val details = LynxRepository.readBatteryDetails()
             if (details != null) {
-                _uiState.update { it.copy(batteryDetails = details) }
+                val curSample = details.currentMa.toFloat()
+                synchronized(currentHistoryQueue) {
+                    if (currentHistoryQueue.size >= 60) {
+                        currentHistoryQueue.removeFirst()
+                    }
+                    currentHistoryQueue.addLast(curSample)
+                }
+                val samplesCopy = synchronized(currentHistoryQueue) { currentHistoryQueue.toList() }
+                val updatedDetails = details.copy(currentHistorySamples = samplesCopy)
+                _uiState.update { it.copy(batteryDetails = updatedDetails) }
             }
         }
     }
