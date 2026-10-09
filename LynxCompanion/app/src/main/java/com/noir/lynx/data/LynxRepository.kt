@@ -6111,63 +6111,83 @@ object LynxRepository {
                 mi_sig=${'$'}(cat /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null || cat /sys/class/power_supply/battery/boost_current 2>/dev/null || echo "")
                 pd_sig=${'$'}(cat /sys/class/power_supply/usb/pd_active 2>/dev/null || cat /sys/class/power_supply/usb/pd_allowed 2>/dev/null || echo "")
 
-                # Suppress thermal throttling daemon if extreme charging or spoofing 28C is active
-                is_ext=${'$'}([ -f /dev/lynx_extreme_charging ] && echo 1 || echo 0)
-                cur_bt=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null)
-                if [ "${'$'}is_ext" = "1" ] || [ "${'$'}cur_bt" = "28" ]; then
-                    for c in /sys/class/thermal/cooling_device*; do
-                        type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
-                        case "${'$'}type" in
-                            *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
-                                chmod 666 "${'$'}c/cur_state" 2>/dev/null
-                                echo 0 > "${'$'}c/cur_state" 2>/dev/null
-                                chmod 444 "${'$'}c/cur_state" 2>/dev/null
-                                ;;
-                        esac
-                    done
-                    if [ "${'$'}is_ext" = "1" ]; then
-                        for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
-                            if [ -e "${'$'}node" ]; then
-                                chmod 666 "${'$'}node" 2>/dev/null
-                                echo "[90,6000,100,6000,6000]" > "${'$'}node" 2>/dev/null
-                                chmod 444 "${'$'}node" 2>/dev/null
-                            fi
+                # Anti-overcharge AutoCut & 100% True Hardware Bypass Latch
+                if [ "${'$'}{cap:-0}" -ge 100 ] || [ "${'$'}stat" = "Full" ]; then
+                    rm -f /dev/lynx_extreme_charging 2>/dev/null
+                    # Auto engage True Hardware Bypass: Power direct to Motherboard / Vsys, 0mA to battery
+                    echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
+                    echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
+                    echo 1 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
+                    echo 0 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                    echo 0 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                    echo 0 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                    echo 0 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
+                    echo 0 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+                    echo 0 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                    echo 1 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
+                    echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
+                    echo 100 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
+                    chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                    echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                else
+                    # Suppress thermal throttling daemon if extreme charging or spoofing 28C is active (Only when battery < 100%)
+                    is_ext=${'$'}([ -f /dev/lynx_extreme_charging ] && echo 1 || echo 0)
+                    cur_bt=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null)
+                    if [ "${'$'}is_ext" = "1" ] || [ "${'$'}cur_bt" = "28" ]; then
+                        for c in /sys/class/thermal/cooling_device*; do
+                            type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
+                            case "${'$'}type" in
+                                *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
+                                    chmod 666 "${'$'}c/cur_state" 2>/dev/null
+                                    echo 0 > "${'$'}c/cur_state" 2>/dev/null
+                                    chmod 444 "${'$'}c/cur_state" 2>/dev/null
+                                    ;;
+                            esac
                         done
-                        if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
-                            chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                            echo 0 > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                            chmod 444 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                        fi
-                        if [ -e /proc/driver/thermal/clabcct ]; then
-                            chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-                            echo "0 70000 1000 200000 5 6000 0" > /proc/driver/thermal/clabcct 2>/dev/null
-                            chmod 444 /proc/driver/thermal/clabcct 2>/dev/null
-                        fi
-                        if [ -e /sys/devices/platform/charger/BatteryNotify ]; then
-                            chmod 666 /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                            echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                            chmod 444 /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                        fi
-                        if [ -e /sys/devices/platform/charger/BN_TestMode ]; then
-                            chmod 666 /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                            echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                            chmod 444 /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                        fi
-                        if [ -e /sys/devices/platform/charger/enable_sc ]; then
-                            chmod 666 /sys/devices/platform/charger/enable_sc 2>/dev/null
-                            echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                            chmod 444 /sys/devices/platform/charger/enable_sc 2>/dev/null
-                        fi
-                        if [ -e /sys/devices/platform/charger/sc_ibat_limit ]; then
-                            chmod 666 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                            echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                            chmod 444 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                        fi
-                        for tpid in ${'$'}(pgrep -f "thermalloadalgod" 2>/dev/null); do kill -STOP "${'$'}tpid" 2>/dev/null; done
-                        if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
-                            chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                            echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                            chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                        if [ "${'$'}is_ext" = "1" ]; then
+                            for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
+                                if [ -e "${'$'}node" ]; then
+                                    chmod 666 "${'$'}node" 2>/dev/null
+                                    echo "[90,6000,100,6000,6000]" > "${'$'}node" 2>/dev/null
+                                    chmod 444 "${'$'}node" 2>/dev/null
+                                fi
+                            done
+                            if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
+                                chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+                                echo 0 > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+                                chmod 444 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+                            fi
+                            if [ -e /proc/driver/thermal/clabcct ]; then
+                                chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
+                                echo "0 70000 1000 200000 5 6000 0" > /proc/driver/thermal/clabcct 2>/dev/null
+                                chmod 444 /proc/driver/thermal/clabcct 2>/dev/null
+                            fi
+                            if [ -e /sys/devices/platform/charger/BatteryNotify ]; then
+                                chmod 666 /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+                                echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+                                chmod 444 /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+                            fi
+                            if [ -e /sys/devices/platform/charger/BN_TestMode ]; then
+                                chmod 666 /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+                                echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+                                chmod 444 /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+                            fi
+                            if [ -e /sys/devices/platform/charger/enable_sc ]; then
+                                chmod 666 /sys/devices/platform/charger/enable_sc 2>/dev/null
+                                echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                                chmod 444 /sys/devices/platform/charger/enable_sc 2>/dev/null
+                            fi
+                            if [ -e /sys/devices/platform/charger/sc_ibat_limit ]; then
+                                chmod 666 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                                echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                                chmod 444 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                            fi
+                            for tpid in ${'$'}(pgrep -f "thermalloadalgod" 2>/dev/null); do kill -STOP "${'$'}tpid" 2>/dev/null; done
+                            if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
+                                chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                                echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                                chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+                            fi
                         fi
                     fi
                 fi

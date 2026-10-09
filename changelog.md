@@ -1,3 +1,19 @@
+# Lynx [Codename: Deity] 3.0.67
+Released on: 2026-10-09
+> **Versi ini** menghadirkan **Otomasi Cerdas Anti-Overcharge & Dynamic True Hardware Bypass Latch pada Kapasitas Baterai 100% Penuh (Auto-Cut Arus Sel ke 0 mA, Penguncian Jalur Tegangan Vsys Langsung ke Motherboard dari Adaptor, Serta Proteksi Pelepasan Extreme Charging Watchdog saat Baterai Penuh)** — menjamin ponsel tetap dingin, baterai terlindungi dari degradasi overcharge semalaman (*overnight sleep insulation guard*), dan perangkat tetap beroperasi dengan daya penuh langsung dari adaptor tanpa siklus mikro (*zero-cycle preservation*).
+
+## Fitur Baru & Peningkatan (3.0.67)
+
+### 1. Dynamic True Hardware Bypass & Anti-Overcharge Latch di 100%
+- **Pemberhentian Arus Sel Baterai Mutlak**: Saat kapasitas baterai menyentuh 100% (`capacity >= 100`) atau kernel melaporkan status `Full`, sistem otomatis mengunci saklar `bypass_charger = 1`, memotong batas arus pengisian sel baterai ke 0 mA (`sc_ibat_limit = 0`, `chg1_current = 0`, `chg2_current = 0`, `charging_enabled = 0`, `constant_charge_current = 0`).
+- **Motherboard Vsys Direct Powering**: Memastikan jalur pasokan daya ponsel tetap disuplai 100% langsung oleh adaptor (`input_suspend = 0`, `input_current = 6000`), sehingga perangkat aktif tanpa menyedot daya baterai sedikit pun.
+
+### 2. Auto-Disengage Extreme Charging Watchdog
+- **Pembersihan Flag Extreme pada 100%**: Secara otomatis menghapus `/dev/lynx_extreme_charging` dan membatalkan pemaksaan arus tinggi saat baterai sudah penuh, mencegah loop telemetri menimpa status bypass hardware.
+- **Restorasi Telemetri Suhu Murni**: Mengembalikan node `Battery_Temperature` ke nilai default (`65535`) saat mencapai 100% agar sensor pembacaan suhu fisik sel baterai kembali beroperasi murni.
+
+---
+
 # Lynx [Codename: Deity] 3.0.66
 Released on: 2026-10-09
 > **Versi ini** menghadirkan **Eradikasi Total Kuncian Degradasi Protokol MediaTek Pump Express 4.0 / Transsion Super Charge (Pemberantasan Tulis Statis `Pump_Express = 2` pada Seluruh Daemon & Polling Loop 2.5s), Atomic Single-Script Differential Pulse & Measurement pada Cable Quality Benchmark, Serta Verifikasi Pengisian Ekstrem 2% ➔ 90% dalam ~50 Menit dengan Otomasi Smart Tapering Aktif** — memastikan throughput pengisian daya perangkat berdaya tinggi (33W/45W/68W) berjalan pada kecepatan fisik maksimal tanpa hambatan derating dan antarmuka benchmarking bekerja mulus tanpa race-condition.
