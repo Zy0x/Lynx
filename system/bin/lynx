@@ -155,6 +155,58 @@ menu_busybox() {
     sleep 1.5
 }
 
+menu_gpu() {
+    show_header
+    local gpu_json=$(sh "$LXCORE" gpu info 2>/dev/null)
+    local vendor=$(echo "$gpu_json" | grep -o '"vendor":"[^"]*"' | cut -d':' -f2 | tr -d '"')
+    local cur_clk=$(echo "$gpu_json" | grep -o '"cur_mhz":[0-9]*' | cut -d':' -f2)
+    [ -z "$cur_clk" ] && cur_clk=$(echo "$gpu_json" | grep -o '"cur_freq":[0-9]*' | cut -d':' -f2)
+    local cur_gov=$(echo "$gpu_json" | grep -o '"cur_gov":"[^"]*"' | cut -d':' -f2 | tr -d '"')
+    local load=$(echo "$gpu_json" | grep -o '"load":[0-9]*' | cut -d':' -f2)
+    local boost=$(echo "$gpu_json" | grep -o '"boost":[0-9]*' | cut -d':' -f2)
+
+    echo -e "  ${C_GREEN}GPU TUNER & DVFS CONTROLLER:${C_RESET}"
+    echo -e "  • Vendor/Model    : ${C_YELLOW}${vendor:-Generic}${C_RESET}"
+    echo -e "  • Clock Aktif     : ${C_YELLOW}${cur_clk:-0} MHz${C_RESET}"
+    echo -e "  • Beban Komputasi : ${C_YELLOW}${load:-0}%${C_RESET}"
+    echo -e "  • Governor/DVFS   : ${C_YELLOW}${cur_gov:-default}${C_RESET}"
+    echo -e "  • Boost Level     : ${C_YELLOW}${boost:-0}${C_RESET}"
+    echo ""
+    echo -e "  [1] Set Boost Level 0 (Hemat Daya / Default)"
+    echo -e "  [2] Set Boost Level 1 (Normal Boost)"
+    echo -e "  [3] Set Boost Level 2 (Hardcore Boost)"
+    echo -e "  [4] Kunci Frekuensi Maksimum (Lock Max OPP)"
+    echo -e "  [5] Pulihkan Frekuensi Dinamis (Unlock DVFS)"
+    echo -e "  [0] Kembali"
+    echo ""
+    printf "  Pilih opsi [0-5]: "
+    read -r opt
+    case "$opt" in
+        1) sh "$LXCORE" gpu boost 0 ;;
+        2) sh "$LXCORE" gpu boost 1 ;;
+        3) sh "$LXCORE" gpu boost 2 ;;
+        4)
+            local max_clk=$(echo "$gpu_json" | grep -o '"max_mhz":[0-9]*' | cut -d':' -f2)
+            [ -z "$max_clk" ] && max_clk=$(echo "$gpu_json" | grep -o '"max_freq":[0-9]*' | cut -d':' -f2)
+            if [ -n "$max_clk" ] && [ "$max_clk" -gt 0 ]; then
+                sh "$LXCORE" gpu set_freq "$max_clk" "$max_clk"
+            fi
+            ;;
+        5)
+            local min_clk=$(echo "$gpu_json" | grep -o '"min_mhz":[0-9]*' | cut -d':' -f2)
+            [ -z "$min_clk" ] && min_clk=$(echo "$gpu_json" | grep -o '"min_freq":[0-9]*' | cut -d':' -f2)
+            local max_clk=$(echo "$gpu_json" | grep -o '"max_mhz":[0-9]*' | cut -d':' -f2)
+            [ -z "$max_clk" ] && max_clk=$(echo "$gpu_json" | grep -o '"max_freq":[0-9]*' | cut -d':' -f2)
+            [ -z "$min_clk" ] && min_clk=0
+            [ -z "$max_clk" ] && max_clk=0
+            sh "$LXCORE" gpu set_freq "$min_clk" "$max_clk"
+            ;;
+        *) return ;;
+    esac
+    echo -e "${C_GREEN}[OK] Pengaturan GPU berhasil diperbarui!${C_RESET}"
+    sleep 1.2
+}
+
 while true; do
     show_header
     echo -e "  [1] Ganti Profil Performa"
@@ -165,9 +217,10 @@ while true; do
     echo -e "  [6] Ekspor Laporan Diagnostik (.ZIP)"
     echo -e "  [7] Status Lengkap Sistem"
     echo -e "  [8] Pengaturan Varian BusyBox"
+    echo -e "  [9] GPU Tuner & DVFS Controller"
     echo -e "  [0] Keluar"
     echo ""
-    printf "  Pilih menu [0-8]: "
+    printf "  Pilih menu [0-9]: "
     read -r choice
     case "$choice" in
         1) menu_profile ;;
@@ -195,6 +248,7 @@ while true; do
             echo "Tekan [Enter] untuk kembali..."; read -r _
             ;;
         8) menu_busybox ;;
+        9) menu_gpu ;;
         0|q|exit)
             clear_screen
             exit 0

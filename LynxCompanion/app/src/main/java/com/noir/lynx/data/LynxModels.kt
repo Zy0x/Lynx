@@ -258,6 +258,59 @@ data class BatteryDetails(
     val isCharging: Boolean get() = status.equals("Charging", ignoreCase = true) || currentMa > 100
 }
 
+data class BatteryInfoStats(
+    // 1. Status & Active Session
+    val batteryStatusText: String = "Discharging",
+    val powerSourceText: String = "Baterai",
+    val isCharging: Boolean = false,
+    val isBypassMode: Boolean = false,
+
+    // 2. Hardware Specs & Degradation
+    val technology: String = "Li-ion",
+    val designCapacityMah: Int = 5000,
+    val fullChargeCapacityMah: Int = 4800,
+    val stateOfHealthPercent: Int = 96,
+    val wearLevelPercent: Int = 4,
+    val nominalVoltageMv: Int = 3850,
+    val voltageNowMv: Int = 4146,
+    val batteryResistanceMohm: Int = 100,
+    val cycleCount: Int = 868,
+    val fuelGaugeChip: String = "MT6358 / Universal Gauge",
+    val chargingPolicyText: String = "Standard",
+
+    // 3. Charging Session Analytics (Active or Last)
+    val isSessionCharging: Boolean = false,
+    val chargingDurationText: String = "0m",
+    val chargeStartLevel: Int = 0,
+    val currentChargeLevel: Int = 0,
+    val chargeDeltaLevel: Int = 0,
+    val totalEnergyInMah: Int = 0,
+    val totalEnergyInMwh: Double = 0.0,
+    val peakChargingWatt: Float = 0f,
+    val avgChargingWatt: Float = 0f,
+    val peakChargingMa: Int = 0,
+    val timeToFullEstimatedText: String = "Menghitung...",
+    val lastChargingSessionSummary: String = "Belum ada sesi pengisian tercatat",
+
+    // 4. Discharge & Runtime Analytics
+    val timeSinceUnpluggedText: String = "0j 0m",
+    val screenOnTimeText: String = "0j 0m",
+    val screenOffTimeText: String = "0j 0m",
+    val activeDrainRatePerHour: String = "0.0% / jam",
+    val idleDrainRatePerHour: String = "0.0% / jam",
+    val estimatedScreenRemainingText: String = "-",
+    val estimatedStandbyRemainingText: String = "-",
+    val deepSleepPercentage: Int = 90,
+    val awakeWakelockPercentage: Int = 10,
+
+    // 5. Thermal & Power Diagnostics
+    val bmsTempC: Float = 28.0f,
+    val chargerIcTempC: Float = 32.0f,
+    val usbPortTempC: Float = 29.0f,
+    val vbusVoltageV: Float = 5.0f,
+    val negotiatedProtocolText: String = "Standar"
+)
+
 data class BootBackupInfo(
     val name: String = "",
     val path: String = "",
@@ -692,6 +745,8 @@ data class LynxUiState(
     val clusterIdleInfo: List<com.noir.lynx.kernel.ClusterIdleInfo> = emptyList(),
     val isBatteryDetailSheetOpen: Boolean = false,
     val isCustomCurrentDialogOpen: Boolean = false,
+    val batterySubTab: Int = 0,
+    val batteryInfoStats: BatteryInfoStats = BatteryInfoStats(),
 ) {
     fun resolveCpuTempC(): Int {
         val validZones = thermalZones.filter { it.tempC in 20f..115f }

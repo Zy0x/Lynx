@@ -808,8 +808,12 @@ async function pollGpuInfo() {
             const data = JSON.parse(res.stdout);
             const clkEl = document.getElementById('web-gpu-clock');
             const loadEl = document.getElementById('web-gpu-load');
-            if (clkEl && data.cur_mhz !== undefined) clkEl.textContent = `${data.cur_mhz} MHz`;
-            if (loadEl && data.load !== undefined) loadEl.textContent = `${data.load}%`;
+            const vendorEl = document.getElementById('web-gpu-vendor');
+            const curMhz = data.cur_mhz !== undefined ? data.cur_mhz : (data.cur_freq !== undefined ? data.cur_freq : '--');
+            const loadVal = data.load !== undefined ? data.load : (data.busy !== undefined ? data.busy : 0);
+            if (clkEl) clkEl.textContent = `${curMhz} MHz`;
+            if (loadEl) loadEl.textContent = `${loadVal}%`;
+            if (vendorEl && data.vendor) vendorEl.textContent = data.vendor;
 
             const boostLvl = data.boost !== undefined ? parseInt(data.boost, 10) : 0;
             [0, 1, 2].forEach(b => {
@@ -822,8 +826,33 @@ async function pollGpuInfo() {
                     }
                 }
             });
+
+            // Populate GPU governor selector
+            const govSel = document.getElementById('web-gpu-gov-select');
+            if (govSel && data.avail_govs && data.avail_govs.length > 0) {
+                if (govSel.options.length <= 1 || govSel.dataset.loaded !== 'true') {
+                    govSel.innerHTML = '';
+                    data.avail_govs.forEach(g => {
+                        const opt = document.createElement('option');
+                        opt.value = g;
+                        opt.textContent = g;
+                        if (g === data.cur_gov) opt.selected = true;
+                        govSel.appendChild(opt);
+                    });
+                    govSel.dataset.loaded = 'true';
+                } else if (document.activeElement !== govSel && data.cur_gov) {
+                    govSel.value = data.cur_gov;
+                }
+            }
         }
     } catch (e) {}
+}
+
+async function setWebGpuGov(gov) {
+    if (!gov) return;
+    logToConsole(`Menyetel governor GPU ke ${gov}...`);
+    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_gpu_gov ${gov}`);
+    logToConsole(res.stdout || `Governor GPU ${gov} diterapkan`, 'success');
 }
 
 async function setWebGpuBoost(lvl) {

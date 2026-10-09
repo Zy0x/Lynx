@@ -68,11 +68,27 @@ is_target_app() {
         fi
     fi
 
-    # A2. Check static game list
-    if [ -f "$APPLIST_FILE" ] && grep -Fxq "$pkg" "$APPLIST_FILE" 2>/dev/null; then
-        TARGET_APP_MODE="performance"
-        LAST_IS_TARGET=0
-        return 0
+    # A2. Check static game list (exact package and keyword substring)
+    if [ -f "$APPLIST_FILE" ]; then
+        if grep -Fxq "$pkg" "$APPLIST_FILE" 2>/dev/null; then
+            TARGET_APP_MODE="performance"
+            LAST_IS_TARGET=0
+            return 0
+        fi
+        while IFS= read -r pat || [ -n "$pat" ]; do
+            case "$pat" in
+                \#*|"") continue ;;
+                *)
+                    case "$pkg" in
+                        *"$pat"*)
+                            TARGET_APP_MODE="performance"
+                            LAST_IS_TARGET=0
+                            return 0
+                            ;;
+                    esac
+                    ;;
+            esac
+        done < "$APPLIST_FILE"
     fi
 
     # B. Check custom apps list in config.json

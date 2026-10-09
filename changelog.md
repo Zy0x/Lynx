@@ -1,3 +1,37 @@
+# Lynx [Codename: Deity] 3.0.64
+Released on: 2026-10-09
+> **Versi ini** menghadirkan **Tab Informasi & Statistik Baterai Lengkap (Dual-Tab Subscreen Navigation: "Kontrol & Tuning" dan "Informasi & Statistik"), 4 Bento Cards Informasi Mendalam (Status Daya & Sesi Pengisian, Penggunaan & Ketahanan Daya / SOT, Spesifikasi Hardware & Degradasi Sel Baterai, serta Diagnostik Jalur Listrik & Suhu Multi-Titik), Pelacakan Sesi Pengisian Real-time (Durasi Menit:Detik, Akumulasi Energi Masuk +mAh dan +Wh, Daya Puncak & Rata-rata, Arus Puncak, Delta Level % Start ➔ Now, Ringkasan Sesi Terakhir Pasca-Cabut), Telemetri Waktu Penggunaan (Waktu Sejak Charger Dicabut, SOT Nyata vs Estimasi, Screen-Off Siaga, Rasio Deep Sleep Kernel %, Laju Pengurasan %/jam Aktif & Idle), Metrik Degradasi Hardware (Kapasitas Desain Pabrik vs Full Charge Capacity FCC, State of Health SoH % & Wear Level % dengan Visual Progress Bar, Siklus Pengisian Fisik, Resistansi Internal Sel ESR mΩ, dan Identifikasi Chip Fuel Gauge), Serta Matriks Suhu 4 Titik Kritis (BMS Inti, IC Charger, Port USB, Board AP)** — menyajikan visibilitas dan transparansi data kesehatan serta efisiensi daya perangkat secara menyeluruh, akurat, dan intuitif dengan standar desain Mobile-First Cyberpunk yang konsisten.
+
+## Fitur Baru & Peningkatan (3.0.64)
+
+### 1. Dual-Tab Navigation: "Kontrol & Tuning" & "Informasi & Statistik"
+- **Pemisahan Fungsional yang Ergonomis**: Memisahkan antarmuka kontrol eksekutif (Tab 0: Kontrol & Tuning) dengan pemantauan analitik mendalam (Tab 1: Informasi & Statistik), menjaga kerapian layar tanpa memotong fitur tuning yang sudah ada.
+- **Transisi Antar-Tab Instan**: Navigasi responsif berbasis target sentuh minimal 48dp dengan indikator tab aktif beraksen cyan dan blue.
+
+### 2. Bento Card 1: Status Daya & Sesi Pengisian Real-Time
+- **Pelacak Sesi Pengisian Berkesinambungan**: Menghitung durasi aktif pengecasan (format menit & detik), delta peningkatan kapasitas (`Start% ➔ Now% (+Delta%)`), serta estimasi waktu hingga baterai penuh (ETA).
+- **Kalkulasi Akumulasi Energi Masuk (+mAh & +Wh)**: Mengintegrasikan aliran arus dan tegangan secara live setiap detik untuk menghitung total energi riil yang tersimpan ke dalam sel baterai.
+- **Catatan Puncak & Rata-rata Daya**: Merekam daya tertinggi (Peak Watt), daya rata-rata (Average Watt), dan arus puncak (Peak mA) selama siklus pengecasan berlangsung.
+- **Riwayat Sesi Terakhir**: Mengunci dan menyimpan ringkasan statistik sesi pengisian terakhir saat kabel charger dicabut sebagai referensi evaluasi pengguna.
+
+### 3. Bento Card 2: Penggunaan & Ketahanan Daya (Discharge / SOT)
+- **Waktu Sejak Dicabut (Time on Battery)**: Membaca statistik durasi sejak charger dilepas dari sumber daya secara presisi.
+- **Screen-On Time (SOT) Nyata & Screen-Off Siaga**: Menampilkan durasi layar menyala aktual, durasi layar mati siaga, serta estimasi sisa ketahanan layar aktif dan waktu siaga.
+- **Rasio Deep Sleep Kernel (%)**: Menghitung persentase waktu CPU tertidur lelap (*C-States*) berdasarkan rasio idle kernel `/proc/uptime`, mendeteksi tingkat efisiensi konsumsi daya saat layar mati.
+- **Laju Pengurasan Daya (% / jam)**: Menampilkan perkiraan laju pemakaian daya aktif (~10.8%/jam) vs konsumsi daya idle (~0.8%/jam).
+
+### 4. Bento Card 3: Spesifikasi Hardware & Degradasi Sel Baterai
+- **State of Health (SoH %) & Wear Level (%)**: Menghitung degradasi kimia sel baterai secara akurat berdasarkan perbandingan Full Charge Capacity (FCC) dan Kapasitas Desain Pabrik (`FCC / Design × 100%`) dilengkapi visual progress bar indikator kesehatan.
+- **Metrik Fisik Lengkap**: Siklus pengisian hardware nyata (`cycle_count`), kimia sel (`Li-ion`), resistansi internal sel (ESR dalam `mΩ`), resistansi kabel fisik (`mΩ`), serta rentang tegangan operasi sel baterai.
+- **Identifikasi Chip Hardware**: Mendeteksi otomatis chip pengontrol fuel gauge (`MediaTek MT6358`, `Qualcomm SMB1390`, `Qualcomm PMIC BMS`, atau `Richtek RT9759`).
+
+### 5. Bento Card 4: Diagnostik Jalur Listrik & Suhu Multi-Titik
+- **Protokol Negosiasi & Tegangan VBUS**: Membaca jenis protokol aktif dan tegangan rel adapter masukan VBUS (`5.0V`, `9.0V`, dll.).
+- **Matriks Suhu 4 Titik Kritis**: Memantau suhu pada 4 sensor esensial secara serentak: Sensor BMS Inti, Sensor IC Charger, Sensor Port USB/Type-C, dan Sensor Board AP/CPU dengan penyaringan nilai valid (`in 15°C..105°C`).
+- **Akses Cepat Telemetri Lanjutan**: Tautan 1-ketuk langsung membuka bottom sheet registrasi Raw ADC dan seluruh sensor thermal zone kernel.
+
+---
+
 # Lynx [Codename: Deity] 3.0.63
 Released on: 2026-10-09
 > **Versi ini** menghadirkan **Perombakan & Redesain Total Subsistem Baterai & Charging Menjadi Arsitektur 3 Bento Cards Terpadu (Universal 3-Bento Cards Architecture), 1-Click Master Switch "Super Fast Charging" dengan Universal Hardware Unlock (MediaTek Pump Express 4.0 / RT9759 Charge Pump, Qualcomm SMB / Parallel Charging, Xiaomi HyperCharge, SuperVOOC, Samsung SFC, & Google Tensor), Dual Wattmeter Real-time (Adapter Input vs Battery Net Power) & Efisiensi Konversi IC Pump (%), 60s Bezier Sparkline Waveform Arus Baterai Real-time, Quick Current Pills (2.0A s/d 15.0A, Max HW) & Dialog Arus Kustom Bebas Batasan Tanpa Slider, Proteksi Cerdas Hardware Direct Bypass Motherboard (Net 0mA) dengan Slider Auto-Bypass Berbuffer Histeresis 95%, Smart Tapering 90%+, Silent Emergency Guard (≥49°C BMS), Dual-Sensor Suhu Baterai (BMS Fisik vs Spoofed 28°C), Safeguard Proteksi Host PC/Laptop (1.5A Limit), Serta Modal Bottom Sheet Telemetri Tingkat Lanjut (Raw ADC Registers & Matriks Sensor Thermal Zone Lengkap)** — menyatukan seluruh kontrol pengisian daya yang sebelumnya terfragmentasi menjadi satu antarmuka yang bersih, intuitif, cepat, dan berdaya guna tinggi tanpa redundansi; memastikan pengisian daya super cepat dapat langsung aktif hanya dengan satu sentuhan dan tetap tangguh terhadap reboot zygote, siklus layar mati-hidup, maupun event hotplug charger; serta menjaga integritas motherboard laptop saat tersambung melalui deteksi port otomatis.

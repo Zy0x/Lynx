@@ -141,6 +141,12 @@ case "$ACTION" in
         fi
         ;;
 
+    set_gpu_boost)
+        if [ -f "$MODULE_DIR/core/lib/gpu_manager.sh" ]; then
+            sh "$MODULE_DIR/core/lib/gpu_manager.sh" set_boost "$PARAM"
+        fi
+        ;;
+
     # ── Kernel Flasher & Partition Tools ───────────────────────────
     backup_boot)
         if [ -f "$MODULE_DIR/core/lib/flasher.sh" ]; then
@@ -347,58 +353,6 @@ case "$ACTION" in
         else
             echo "Error: device /sys/block/$dev/queue/scheduler not found"
         fi
-        ;;
-
-    # ── Universal GPU & Thermal Telemetry Handlers ─────────────────
-    gpu_info)
-        if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
-            plat="adreno"
-            D="/sys/class/kgsl/kgsl-3d0/devfreq"
-            cur=$(cat "$D/cur_freq" 2>/dev/null)
-            max=$(cat "$D/max_freq" 2>/dev/null)
-            boost=$(cat "$D/adrenoboost" 2>/dev/null)
-            busy=$(cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null | tr -d ' %')
-            [ -z "$busy" ] && busy=$(cat /sys/class/kgsl/kgsl-3d0/gpubusy 2>/dev/null | awk '{if ($2>0) printf "%d", ($1*100)/$2; else print 0}')
-        elif [ -d /proc/gpufreq ] || [ -d /sys/module/ged ] || [ -c /dev/mali0 ] || [ -d /sys/devices/platform/13000000.mali ]; then
-            plat="mali_ged"
-            cur=$(cat /proc/gpufreq/gpufreq_opp_freq 2>/dev/null | cut -d '=' -f 2 | cut -d ',' -f 1 | tr -d ' ' | grep '^[0-9]' | head -n1)
-            [ -z "$cur" ] && cur=$(cat /proc/gpufreq/gpufreq_var_dump 2>/dev/null | grep 'freq:' | head -n1 | tr -d ' ' | cut -d ':' -f 2 | cut -d ',' -f 1)
-            max=$(cat /proc/gpufreq/gpufreq_opp_dump 2>/dev/null | cut -d '=' -f 2 | cut -d ',' -f 1 | tr -d ' ' | grep '^[0-9]' | sort -nu | tail -n1)
-            boost=$(cat /sys/module/ged/parameters/boost_amp 2>/dev/null | tr -d ' \n')
-            [ -z "$boost" ] && boost=$(cat /sys/module/ged/parameters/ged_boost_enable 2>/dev/null | tr -d ' \n')
-            busy=$(cat /proc/gpufreq/gpufreq_var_dump 2>/dev/null | grep 'gpu_loading' | cut -d '=' -f 2 | tr -d ' \n')
-        else
-            plat="generic"
-            cur=0; max=0; boost=0; busy=0
-        fi
-        [ "$cur" -gt 1000000 ] 2>/dev/null && cur=$(( cur / 1000000 ))
-        [ "$cur" -gt 1000 ] 2>/dev/null && cur=$(( cur / 1000 ))
-        [ "$max" -gt 1000000 ] 2>/dev/null && max=$(( max / 1000000 ))
-        [ "$max" -gt 1000 ] 2>/dev/null && max=$(( max / 1000 ))
-        echo "{\"platform\":\"$plat\",\"cur_mhz\":${cur:-0},\"max_mhz\":${max:-0},\"load\":${busy:-0},\"boost\":${boost:-0}}"
-        ;;
-
-    set_gpu_boost)
-        if [ -f /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost ]; then
-            chmod 644 /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost 2>/dev/null
-            echo "$PARAM" > /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost 2>/dev/null
-        elif [ -d /sys/module/ged/parameters ]; then
-            if [ "$PARAM" = "0" ]; then
-                echo 0 > /sys/module/ged/parameters/ged_boost_enable 2>/dev/null
-                echo 0 > /sys/module/ged/parameters/gx_game_mode 2>/dev/null
-                echo 0 > /sys/module/ged/parameters/boost_amp 2>/dev/null
-            elif [ "$PARAM" = "1" ]; then
-                echo 1 > /sys/module/ged/parameters/ged_boost_enable 2>/dev/null
-                echo 1 > /sys/module/ged/parameters/gx_game_mode 2>/dev/null
-                echo 1 > /sys/module/ged/parameters/boost_amp 2>/dev/null
-            elif [ "$PARAM" = "2" ]; then
-                echo 1 > /sys/module/ged/parameters/ged_boost_enable 2>/dev/null
-                echo 1 > /sys/module/ged/parameters/gx_game_mode 2>/dev/null
-                echo 2 > /sys/module/ged/parameters/boost_amp 2>/dev/null
-                echo 1 > /sys/module/ged/parameters/gx_boost_on 2>/dev/null
-            fi
-        fi
-        echo "GPU boost set to $PARAM"
         ;;
 
     thermal_zones)

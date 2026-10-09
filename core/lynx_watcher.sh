@@ -114,12 +114,30 @@ while true; do
         target_hz=$(echo "$rule_line" | cut -d'|' -f3)
         auto_hud=$(echo "$rule_line" | cut -d'|' -f4)
         app_label=$(echo "$rule_line" | cut -d'|' -f5)
-    elif [ -n "$top_app" ] && [ -f "$PERF_LIST" ] && grep -Fxq "$top_app" "$PERF_LIST" 2>/dev/null; then
-        target_profile="performance"
-        target_hz="120"
-        auto_hud=0
-        app_label="$top_app"
-    elif [ -n "$top_app" ]; then
+    elif [ -n "$top_app" ] && [ -f "$PERF_LIST" ]; then
+        matched=0
+        if grep -Fxq "$top_app" "$PERF_LIST" 2>/dev/null; then
+            matched=1
+        else
+            while IFS= read -r pat || [ -n "$pat" ]; do
+                case "$pat" in
+                    \#*|"") continue ;;
+                    *)
+                        case "$top_app" in
+                            *"$pat"*) matched=1; break ;;
+                        esac
+                        ;;
+                esac
+            done < "$PERF_LIST"
+        fi
+        if [ "$matched" = "1" ]; then
+            target_profile="performance"
+            target_hz="120"
+            auto_hud=0
+            app_label="$top_app"
+        fi
+    fi
+    if [ -z "$target_profile" ] && [ -n "$top_app" ]; then
         # 5. Category Intelligence via RAM cache or dumpsys package
         cached_mode=""
         [ -f "/dev/lynx_pkg_cache/$top_app" ] && cached_mode=$(cat "/dev/lynx_pkg_cache/$top_app" 2>/dev/null)

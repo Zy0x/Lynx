@@ -239,9 +239,33 @@ case "$1" in
         load_lib "ram"
         if [ "$2" = "help" ]; then help_ram; else main_ram; fi
         ;;
-    -gpu)
-        load_lib "gpu"
-        if [ "$2" = "help" ]; then help_gpu; else main_gpu; fi
+    -gpu|gpu)
+        case "$2" in
+            info)
+                load_lib "gpu_manager"
+                get_gpu_info_json
+                ;;
+            set_freq)
+                load_lib "gpu_manager"
+                set_gpu_freq "$3" "$4"
+                ;;
+            set_gov)
+                load_lib "gpu_manager"
+                set_gpu_gov "$3"
+                ;;
+            boost|set_boost)
+                load_lib "gpu_manager"
+                set_gpu_boost "$3"
+                ;;
+            help)
+                load_lib "gpu"
+                help_gpu
+                ;;
+            *)
+                load_lib "gpu"
+                main_gpu
+                ;;
+        esac
         ;;
     -cpu)
         load_lib "cpu"
@@ -353,6 +377,7 @@ case "$1" in
             info) get_gpu_info_json ;;
             set_freq) set_gpu_freq "$3" "$4" ;;
             set_gov) set_gpu_gov "$3" ;;
+            boost|set_boost) set_gpu_boost "$3" ;;
             *) get_gpu_info_json ;;
         esac
         ;;

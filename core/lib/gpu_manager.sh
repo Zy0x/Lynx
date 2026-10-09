@@ -14,16 +14,20 @@ write_node() {
 
 get_gpu_info_json() {
     local vendor="unknown"
+    local platform="generic"
     local cur_freq=0
     local min_freq=0
     local max_freq=0
     local cur_gov="unknown"
+    local load=0
+    local boost=0
     local freqs_json=""
     local govs_json=""
 
     # 1. Qualcomm Adreno Architecture
     if [ -d "/sys/class/kgsl/kgsl-3d0" ]; then
         vendor="Qualcomm Adreno"
+        platform="adreno"
         cur_freq=$(cat /sys/class/kgsl/kgsl-3d0/gpuclk 2>/dev/null || cat /sys/class/kgsl/kgsl-3d0/devfreq/cur_freq 2>/dev/null || echo 0)
         [ "$cur_freq" -gt 1000000 ] 2>/dev/null && cur_freq=$(( cur_freq / 1000000 ))
         [ "$cur_freq" -gt 10000 ] 2>/dev/null && cur_freq=$(( cur_freq / 1000 ))
@@ -37,6 +41,10 @@ get_gpu_info_json() {
         [ "$min_freq" -gt 10000 ] 2>/dev/null && min_freq=$(( min_freq / 1000 ))
 
         cur_gov=$(cat /sys/class/kgsl/kgsl-3d0/devfreq/governor 2>/dev/null || echo "msm-adreno-tz")
+
+        load=$(cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null | tr -dc '0-9')
+        [ -z "$load" ] && load=$(cat /sys/class/kgsl/kgsl-3d0/gpubusy 2>/dev/null | awk '{if ($2>0) printf "%d", ($1*100)/$2; else print 0}')
+        boost=$(cat /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost 2>/dev/null | tr -dc '0-9')
 
         # Frequencies table
         avail_raw=$(cat /sys/class/kgsl/kgsl-3d0/gpu_available_frequencies 2>/dev/null || cat /sys/class/kgsl/kgsl-3d0/freq_table_mhz 2>/dev/null || cat /sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies 2>/dev/null)
@@ -63,6 +71,7 @@ get_gpu_info_json() {
     # 2. MediaTek Mali / GED Architecture (GPUFreq v1 & v2)
     elif [ -d "/proc/gpufreq" ] || [ -d "/proc/gpufreqv2" ] || [ -d "/sys/module/ged" ] || [ -d "/sys/kernel/ged/hal" ]; then
         vendor="MediaTek Mali"
+        platform="mali_ged"
         if [ -r "/sys/kernel/ged/hal/current_freqency" ]; then
             cur_raw=$(cat /sys/kernel/ged/hal/current_freqency 2>/dev/null | awk '{if(NF>=2) print $2; else print $1}')
             [ "$cur_raw" -gt 0 ] 2>/dev/null && cur_freq=$cur_raw
@@ -102,6 +111,12 @@ get_gpu_info_json() {
         cur_gov=$(cat /sys/kernel/ged/hal/dvfs_loading_mode 2>/dev/null || cat /sys/module/ged/parameters/cpu_boost_policy 2>/dev/null || echo "ged")
         govs_json="\"0\",\"1\",\"2\",\"ged\""
 
+        load=$(cat /sys/kernel/ged/hal/gpu_utilization 2>/dev/null | awk '{print int($1)}')
+        [ -z "$load" ] && load=$(cat /sys/module/ged/parameters/gpu_loading 2>/dev/null | tr -dc '0-9')
+        [ -z "$load" ] && load=$(cat /proc/gpufreq/gpufreq_var_dump 2>/dev/null | grep -i 'gpu_loading' | cut -d '=' -f 2 | tr -dc '0-9')
+        boost=$(cat /sys/module/ged/parameters/boost_amp 2>/dev/null | tr -dc '0-9')
+        [ -z "$boost" ] || [ "$boost" -eq 0 ] 2>/dev/null && boost=$(cat /sys/module/ged/parameters/ged_boost_enable 2>/dev/null | tr -dc '0-9')
+
     # 3. Generic Devfreq / ARM Mali Kbase / Samsung Xclipse AMD RDNA
     else
         devpath=""
@@ -110,9 +125,18 @@ get_gpu_info_json() {
         done
         if [ -n "$devpath" ]; then
             case "$devpath" in
-                *sgpu*) vendor="Samsung Xclipse AMD RDNA" ;;
-                *mali*) vendor="ARM Mali Devfreq" ;;
-                *) vendor="Generic Devfreq GPU" ;;
+                *sgpu*)
+                    vendor="Samsung Xclipse AMD RDNA"
+                    platform="rdna"
+                    ;;
+                *mali*)
+                    vendor="ARM Mali Devfreq"
+                    platform="mali"
+                    ;;
+                *)
+                    vendor="Generic Devfreq GPU"
+                    platform="generic"
+                    ;;
             esac
             cur_freq=$(cat "$devpath/cur_freq" 2>/dev/null || echo 0)
             [ "$cur_freq" -gt 1000000 ] 2>/dev/null && cur_freq=$(( cur_freq / 1000000 ))
@@ -127,6 +151,9 @@ get_gpu_info_json() {
             [ "$max_freq" -gt 10000 ] 2>/dev/null && max_freq=$(( max_freq / 1000 ))
 
             cur_gov=$(cat "$devpath/governor" 2>/dev/null || echo "simple_ondemand")
+            load=$(cat "$devpath/load" 2>/dev/null | tr -dc '0-9')
+            boost=0
+
             avail_raw=$(cat "$devpath/available_frequencies" 2>/dev/null)
             if [ -n "$avail_raw" ]; then
                 for f in $avail_raw; do
@@ -148,8 +175,11 @@ get_gpu_info_json() {
         fi
     fi
 
-    printf '{"vendor":"%s","cur_freq":%d,"min_freq":%d,"max_freq":%d,"cur_gov":"%s","avail_freqs":[%s],"avail_govs":[%s]}\n' \
-        "$vendor" "$cur_freq" "$min_freq" "$max_freq" "$cur_gov" "$freqs_json" "$govs_json"
+    [ -z "$load" ] && load=0
+    [ -z "$boost" ] && boost=0
+
+    printf '{"vendor":"%s","platform":"%s","cur_freq":%d,"cur_mhz":%d,"min_freq":%d,"min_mhz":%d,"max_freq":%d,"max_mhz":%d,"cur_gov":"%s","load":%d,"busy":%d,"boost":%d,"avail_freqs":[%s],"avail_govs":[%s]}\n' \
+        "$vendor" "$platform" "$cur_freq" "$cur_freq" "$min_freq" "$min_freq" "$max_freq" "$max_freq" "$cur_gov" "$load" "$load" "$boost" "$freqs_json" "$govs_json"
 }
 
 set_gpu_freq() {
@@ -224,6 +254,43 @@ set_gpu_gov() {
     fi
 }
 
+set_gpu_boost() {
+    local lvl="$1"
+    [ -z "$lvl" ] && return 1
+
+    # Qualcomm Adreno
+    if [ -f "/sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost" ]; then
+        write_node "$lvl" "/sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost"
+        echo "Adreno GPU adrenoboost set to $lvl."
+
+    # MediaTek Mali GED
+    elif [ -d "/sys/module/ged/parameters" ]; then
+        case "$lvl" in
+            0)
+                write_node 0 "/sys/module/ged/parameters/ged_boost_enable"
+                write_node 0 "/sys/module/ged/parameters/gx_game_mode"
+                write_node 0 "/sys/module/ged/parameters/boost_amp"
+                write_node 0 "/sys/module/ged/parameters/gx_boost_on"
+                ;;
+            1)
+                write_node 1 "/sys/module/ged/parameters/ged_boost_enable"
+                write_node 1 "/sys/module/ged/parameters/gx_game_mode"
+                write_node 1 "/sys/module/ged/parameters/boost_amp"
+                write_node 0 "/sys/module/ged/parameters/gx_boost_on"
+                ;;
+            2)
+                write_node 1 "/sys/module/ged/parameters/ged_boost_enable"
+                write_node 1 "/sys/module/ged/parameters/gx_game_mode"
+                write_node 2 "/sys/module/ged/parameters/boost_amp"
+                write_node 1 "/sys/module/ged/parameters/gx_boost_on"
+                ;;
+        esac
+        echo "MediaTek GED boost set to $lvl."
+    else
+        echo "GPU boost level $lvl requested (generic devfreq)."
+    fi
+}
+
 case "$1" in
     info|get_info)
         get_gpu_info_json
@@ -234,7 +301,13 @@ case "$1" in
     set_gov)
         set_gpu_gov "$2"
         ;;
+    set_boost|boost)
+        set_gpu_boost "$2"
+        ;;
+    help|--help|-h)
+        echo "Usage: gpu_manager {info|set_freq <min_mhz> [max_mhz]|set_gov <governor>|set_boost <lvl>}"
+        ;;
     *)
-        echo "Usage: gpu_manager [info | set_freq <min_mhz> [max_mhz] | set_gov <governor>]"
+        # Silently do nothing when sourced by other scripts
         ;;
 esac

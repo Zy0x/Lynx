@@ -113,7 +113,10 @@
 
             <!-- Universal GPU Advanced Control & Live Telemetry -->
             <div class="card">
-                <div class="card-title">Kontrol GPU & Live Telemetri</div>
+                <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Kontrol GPU & Live Telemetri</span>
+                    <span id="web-gpu-vendor" style="font-size: 11px; font-weight: normal; color: var(--accent-cyan); background: rgba(0, 255, 170, 0.1); padding: 2px 8px; border-radius: 4px;">Memuat...</span>
+                </div>
                 <div class="stat-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 10px;">
                     <div class="stat-box">
                         <div class="stat-value" id="web-gpu-clock">-- MHz</div>
@@ -123,6 +126,12 @@
                         <div class="stat-value" id="web-gpu-load">0%</div>
                         <div class="stat-label">Beban Komputasi GPU</div>
                     </div>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 11.5px; color: var(--text-secondary);">Governor / DVFS Loading Mode:</label>
+                    <select id="web-gpu-gov-select" onchange="setWebGpuGov(this.value)" style="width: 100%; margin-top: 4px; padding: 6px 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-primary); border-radius: 6px; font-size: 12px;">
+                        <option value="">Memuat governor...</option>
+                    </select>
                 </div>
                 <div>
                     <label style="font-size: 11.5px; color: var(--text-secondary);">Tingkat MTK GED / Adreno Boost:</label>

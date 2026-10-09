@@ -264,7 +264,10 @@ case "$1" in
     set_gov)
         set_cluster_gov "$2" "$3"
         ;;
-    *)
+    help|--help|-h)
         echo "Usage: cluster_manager [topology | set_freq <policy> <min> <max> | lock_freq <policy> <min> <max> | unlock_freq <policy> | set_gov <policy> <gov>]"
+        ;;
+    *)
+        # Silently do nothing when sourced by other scripts
         ;;
 esac

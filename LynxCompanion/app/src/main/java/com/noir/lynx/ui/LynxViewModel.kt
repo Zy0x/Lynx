@@ -991,6 +991,10 @@ class LynxViewModel : ViewModel() {
         _uiState.update { it.copy(isBatteryDetailSheetOpen = false) }
     }
 
+    fun setBatterySubTab(tab: Int) {
+        _uiState.update { it.copy(batterySubTab = tab) }
+    }
+
     fun forceMaxSuperCharge() {
         recordStateMutation()
         _uiState.update { current ->
@@ -3643,6 +3647,14 @@ class LynxViewModel : ViewModel() {
     }
 
     private val currentHistoryQueue = ArrayDeque<Float>(60)
+    private var chargeSessionStartTimeMs: Long = 0L
+    private var chargeSessionStartLevel: Int = -1
+    private var chargeSessionPeakMa: Int = 0
+    private var chargeSessionPeakWatt: Float = 0f
+    private var chargeSessionEnergyAccMah: Double = 0.0
+    private var chargeSessionLastTimestampMs: Long = 0L
+    private var lastChargingSessionSummaryCached: String = "Belum ada sesi pengisian tercatat"
+    private var wasPreviouslyCharging: Boolean = false
 
     fun refreshBatteryDetails() {
         viewModelScope.launch {
@@ -3657,7 +3669,62 @@ class LynxViewModel : ViewModel() {
                 }
                 val samplesCopy = synchronized(currentHistoryQueue) { currentHistoryQueue.toList() }
                 val updatedDetails = details.copy(currentHistorySamples = samplesCopy)
-                _uiState.update { it.copy(batteryDetails = updatedDetails) }
+
+                // Track charging session metrics
+                val isChargingNow = details.isCharging
+                val now = System.currentTimeMillis()
+                if (isChargingNow) {
+                    if (!wasPreviouslyCharging) {
+                        chargeSessionStartTimeMs = now
+                        chargeSessionStartLevel = details.level
+                        chargeSessionPeakMa = details.currentMa
+                        chargeSessionPeakWatt = details.chargerWatt
+                        chargeSessionEnergyAccMah = 0.0
+                        chargeSessionLastTimestampMs = now
+                        wasPreviouslyCharging = true
+                    } else {
+                        chargeSessionPeakMa = maxOf(chargeSessionPeakMa, details.currentMa)
+                        chargeSessionPeakWatt = maxOf(chargeSessionPeakWatt, details.chargerWatt)
+                        val dtHours = (now - chargeSessionLastTimestampMs).toDouble() / 3_600_000.0
+                        if (dtHours in 0.0..0.1 && details.currentMa > 0) {
+                            chargeSessionEnergyAccMah += details.currentMa.toDouble() * dtHours
+                        }
+                        chargeSessionLastTimestampMs = now
+                    }
+                } else {
+                    if (wasPreviouslyCharging) {
+                        val elapsedMin = ((now - chargeSessionStartTimeMs) / 60000L).coerceAtLeast(1)
+                        val delta = details.level - (if (chargeSessionStartLevel >= 0) chargeSessionStartLevel else details.level)
+                        lastChargingSessionSummaryCached = "+${delta}% (${if (chargeSessionStartLevel >= 0) chargeSessionStartLevel else details.level}% ➔ ${details.level}%) dalam ${elapsedMin}m, Peak: ${chargeSessionPeakWatt}W"
+                        wasPreviouslyCharging = false
+                    }
+                }
+
+                val elapsedChargeMs = if (isChargingNow && chargeSessionStartTimeMs > 0) now - chargeSessionStartTimeMs else 0L
+                val elapsedMinutes = (elapsedChargeMs / 60000L).toInt()
+                val elapsedSeconds = ((elapsedChargeMs % 60000L) / 1000L).toInt()
+                val durationStr = if (isChargingNow) "${elapsedMinutes}m ${elapsedSeconds}s" else "Dicabut"
+
+                val startLvl = if (isChargingNow && chargeSessionStartLevel >= 0) chargeSessionStartLevel else details.level
+                val deltaLvl = (details.level - startLvl).coerceAtLeast(0)
+                val totalWh = (chargeSessionEnergyAccMah * (details.voltageMv.toDouble() / 1000.0)) / 1000.0
+
+                val rawStats = LynxRepository.readBatteryInfoStats(updatedDetails)
+                val updatedInfoStats = rawStats.copy(
+                    isSessionCharging = isChargingNow,
+                    chargingDurationText = durationStr,
+                    chargeStartLevel = startLvl,
+                    currentChargeLevel = details.level,
+                    chargeDeltaLevel = deltaLvl,
+                    totalEnergyInMah = chargeSessionEnergyAccMah.toInt(),
+                    totalEnergyInMwh = totalWh,
+                    peakChargingWatt = chargeSessionPeakWatt,
+                    avgChargingWatt = if (details.chargerWatt > 0f) (chargeSessionPeakWatt + details.chargerWatt) / 2f else 0f,
+                    peakChargingMa = chargeSessionPeakMa,
+                    lastChargingSessionSummary = lastChargingSessionSummaryCached
+                )
+
+                _uiState.update { it.copy(batteryDetails = updatedDetails, batteryInfoStats = updatedInfoStats) }
             }
         }
     }
