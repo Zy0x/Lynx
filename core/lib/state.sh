@@ -34,6 +34,7 @@ DEFAULT_TEMPLATE='{
   },
   "charging": {
     "bypass_enabled": false,
+    "night_sleep_guard_enabled": false,
     "temp_cutoff_c": 45,
     "limit_current_ma": 1500,
     "max_battery_percent": 80,
@@ -171,21 +172,34 @@ set_state_val() {
                 if ($0 ~ ("\"" sec "\"[ \t]*:[ \t]*\\{")) {
                     in_sec = 1
                     print $0
+                    sec_lines_count = 0
+                    found = 0
                     next
                 }
                 if (in_sec) {
                     if ($0 ~ /^[ \t]*\}/) {
                         in_sec = 0
+                        if (!found) {
+                            print "    \"" fld "\": " newval ","
+                        }
+                        for (i = 1; i <= sec_lines_count; i++) {
+                            print sec_lines[i]
+                        }
                         print $0
                         next
                     }
                     if ($0 ~ ("\"" fld "\"[ \t]*:")) {
+                        found = 1
                         match($0, /^[ \t]*\"[^\"]+\"[ \t]*:[ \t]*/)
                         prefix = substr($0, RSTART, RLENGTH)
                         comma = ($0 ~ /,[ \t]*$/) ? "," : ""
-                        print prefix newval comma
+                        sec_lines_count++
+                        sec_lines[sec_lines_count] = prefix newval comma
                         next
                     }
+                    sec_lines_count++
+                    sec_lines[sec_lines_count] = $0
+                    next
                 }
                 print $0
             }
@@ -193,12 +207,17 @@ set_state_val() {
             ;;
         *)
             awk -v target="$key" -v newval="$val" '
+            BEGIN { found = 0 }
             {
                 if ($0 ~ ("\"" target "\"[ \t]*:")) {
+                    found = 1
                     match($0, /^[ \t]*\"[^\"]+\"[ \t]*:[ \t]*/)
                     prefix = substr($0, RSTART, RLENGTH)
                     comma = ($0 ~ /,[ \t]*$/) ? "," : ""
                     print prefix newval comma
+                } else if ($0 ~ /^[ \t]*\}[ \t]*$/ && !found) {
+                    print "  \"" target "\": " newval
+                    print $0
                 } else {
                     print $0
                 }
