@@ -100,9 +100,29 @@ data class OemNeutralizerConfig(
 )
 
 data class ThermalConfig(
+    val mode: String = "stable", // "default", "stable", "performance", "hardware_safety_dominant"
     val fullBypass: Boolean = false,
-    val customTempLimitC: Int = 50,
+    val customTempLimitC: Int = 52,
     val tripPointOverrideC: Int = 150,
+    val hardwareSafetyDominant: Boolean = false,
+)
+
+enum class ThermalEngineMode {
+    DEFAULT_OEM,
+    THERMAL_STABLE,
+    PERFORMANCE,
+    HARDWARE_SAFETY_DOMINANT
+}
+
+data class ThermalStatusDetails(
+    val activeMode: ThermalEngineMode = ThermalEngineMode.THERMAL_STABLE,
+    val softwareThrottlingActive: Boolean = false,
+    val hardwareSafetyActive: Boolean = true,
+    val batteryGuardActive: Boolean = true,
+    val lastAppliedTimestamp: String = "Belum Diterapkan",
+    val writableZonesCount: Int = 0,
+    val totalZonesCount: Int = 0,
+    val transactionId: String = ""
 )
 
 // ============================================================
@@ -563,6 +583,11 @@ data class ThermalZoneInfo(
     val id: Int = 0,
     val type: String = "unknown",
     val tempC: Float = 0f,
+    val isWritable: Boolean = false,
+    val tripPointsCount: Int = 0,
+    val writableTripPointsCount: Int = 0,
+    val mode: String = "enabled",
+    val policy: String = "step_wise",
 )
 
 data class AppInfo(
@@ -723,6 +748,9 @@ data class LynxUiState(
     val customRulesOutput: String? = null,
     val customRulesRunning: Boolean = false,
     val thermalZones: List<ThermalZoneInfo> = emptyList(),
+    val thermalCapabilities: com.noir.lynx.hardware.ThermalCapabilities? = null,
+    val thermalStatusDetails: ThermalStatusDetails = ThermalStatusDetails(),
+    val rootEnvironment: com.noir.lynx.hardware.RootEnvironmentInfo? = null,
     val installedAppList: List<AppInfo> = emptyList(),
     val selinuxMode: String = "Enforcing",
     val isPrintkSilent: Boolean = true,

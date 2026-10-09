@@ -49,7 +49,6 @@ import com.noir.lynx.lab.FrameSessionReport
 import java.text.SimpleDateFormat
 import java.util.*
 
-private val AccentGreenDim = Color(0x1F10B981)
 
 // ============================================================
 //  1. GPU & DISPLAY TOP NAVIGATION (3 TABS: TUNING, LAB, INFO)

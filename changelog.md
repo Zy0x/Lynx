@@ -1,3 +1,33 @@
+# Lynx [Codename: Deity] 3.0.68
+Released on: 2026-10-09
+> **Versi ini** menghadirkan **Perombakan Menyeluruh Antarmuka Pengisian Daya (Charging UI Overhaul): Penyederhanaan Tata Letak yang Bersih, Intuitif, dan Bebas Redundansi, Eradikasi Istilah Teknis Membingungkan, Presisi 4-Pill Pemilihan Arus Mobile-First (Standar 2.0A, Cepat 4.5A, Maksimal 6.0A, Kustom), Serta Pemisahan Tegas Domain Kontrol Pengisian (Tab 0) dan Diagnostik Kesehatan & Riwayat Baterai (Tab 1)** — memberikan pengalaman pengguna yang estetis, mudah dipahami pengguna awam tanpa mengorbankan kedalaman fitur dan perlindungan hardware.
+
+## Fitur Baru & Peningkatan (3.0.68)
+
+### 1. Desain Bersih & Human-Friendly pada Kontrol Pengisian (Tab 0)
+- **Eliminasi Jargon Teknis**: Mengganti teks panjang dan bertele-tele (seperti register, IC pump, hysteresis buffer) dengan penjelasan bahasa Indonesia yang ramah, ringkas, dan komunikatif.
+- **Pill Status Aktif Bersih**: Indikator status mode yang langsung dapat dipahami: `🛡️ Baterai Penuh • Daya Beralih ke Sistem`, `🛡️ Daya Langsung Aktif • Baterai Dilewati`, `❄️ Pendinginan Aktif (Baterai >90%)`, `⚡ Pengisian Cepat Aktif`, dan `⚖️ Pengisian Standar`.
+- **4 Pilihan Batas Arus Mobile-First**: Menghapus opsi gimmick yang tidak realistis (10A/15A), digantikan dengan 4 tombol bersih bertarget sentuh $\ge 48\times 48\text{ px}$: `Standar (2.0A)`, `Cepat (4.5A)`, `Maksimal (6.0A)`, dan `Kustom...`.
+- **Navigasi Cepat Terpadu**: Menyematkan tombol akses cepat ke `Informasi Baterai` dan `Detail Sensor` di bagian bawah Tab 0.
+
+### 2. Penghapusan Redundansi & Single Source of Truth
+- **Pemusatan Informasi Resistansi Kabel**: Menghapus duplikasi tampilan resistansi kabel di Tab 0 dan Kartu Spesifikasi Baterai. Kini resistansi kabel murni berada di kartu `Benchmark Kualitas Kabel & Adaptor`.
+- **Pemusatan Kesehatan & Siklus Baterai**: Menghapus kartu kesehatan fisik dari Tab 0 dan memusatkannya secara eksklusif di Tab 1 (`Kesehatan Baterai & Kapasitas`).
+- **Relokasi Konfigurasi Sel Ganda (2S)**: Memindahkan pengaturan pemilih 1x Sel Tunggal vs 2x Sel Ganda dari Tab 0 ke kartu diagnostik Tab 1, menjaga Tab 0 tetap fokus pada fungsi utama tanpa membebani pengguna biasa.
+
+### 3. Penataan Elegan Tab Informasi Baterai (Tab 1)
+- **Urutan Kartu Terstruktur**:
+  1. *Timeline Drain Baterai* (Kurva Bezier interaktif dengan scrubber & proyeksi ke 0%).
+  2. *Penggunaan Daya & Waktu Layar* (SOT, Waktu Siaga, Rasio Deep Sleep, dan laju pengurasan).
+  3. *Sesi Pengisian Terakhir* (Durasi, energi masuk mAh/Wh, daya puncak & rata-rata).
+  4. *Kesehatan Baterai & Kapasitas* (Badge penilaian iOS/Pixel style, SoH %, siklus pengisian, kapasitas pabrik vs FCC, serta tombol 1-Click Kalibrasi).
+  5. *Top 5 Konsumsi Daya Aplikasi*.
+  6. *Benchmark Kualitas Kabel & Adaptor*.
+  7. *Diagnostik Suhu & Konfigurasi Sel*.
+- **Akses Modal ADC & Sensor Mendalam**: Mempertahankan `BatteryDetailBottomSheet` untuk inspeksi register ADC dan matriks sensor termal lengkap bagi pengguna tingkat lanjut.
+
+---
+
 # Lynx [Codename: Deity] 3.0.67
 Released on: 2026-10-09
 > **Versi ini** menghadirkan **Otomasi Cerdas Anti-Overcharge & Dynamic True Hardware Bypass Latch pada Kapasitas Baterai 100% Penuh (Auto-Cut Arus Sel ke 0 mA, Penguncian Jalur Tegangan Vsys Langsung ke Motherboard dari Adaptor, Serta Proteksi Pelepasan Extreme Charging Watchdog saat Baterai Penuh)** — menjamin ponsel tetap dingin, baterai terlindungi dari degradasi overcharge semalaman (*overnight sleep insulation guard*), dan perangkat tetap beroperasi dengan daya penuh langsung dari adaptor tanpa siklus mikro (*zero-cycle preservation*).

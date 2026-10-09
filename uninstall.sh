@@ -46,15 +46,23 @@ fi
 cmd thermalservice reset 2>/dev/null
 cmd wifi force-low-latency-mode disabled 2>/dev/null
 
+# 6b. Restore Thermal OEM Baseline if present
+MODDIR=${0%/*}
+[ -d "$MODDIR" ] || MODDIR="/data/adb/modules/Lynx"
+if [ -f "$MODDIR/platforms/mtk/thermal.sh" ]; then
+    sh "$MODDIR/platforms/mtk/thermal.sh" enable 2>/dev/null
+fi
+if [ -f "$MODDIR/platforms/qcom/thermal.sh" ]; then
+    sh "$MODDIR/platforms/qcom/thermal.sh" enable 2>/dev/null
+fi
+rm -f "$MODDIR/thermal_boot_mode.json" "$MODDIR/thermal_baseline.json" 2>/dev/null
+
 settings put global window_animation_scale 1.0 2>/dev/null
 settings put global transition_animation_scale 1.0 2>/dev/null
 settings put global animator_duration_scale 1.0 2>/dev/null
 
 # 7. Restore Core Kernel & VM Tunables to Baseline Snapshot / Stock Defaults
-MODDIR=${0%/*}
-[ -d "$MODDIR" ] || MODDIR="/data/adb/modules/Lynx"
-
-if [ -d "$MODDIR/stock_state" ]; then
+if [ -d "$MODDIR" ] && [ -d "$MODDIR/stock_state" ]; then
     for f in "$MODDIR/stock_state/"*; do
         [ -f "$f" ] || continue
         bname=$(basename "$f")

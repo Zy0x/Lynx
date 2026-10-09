@@ -1,7 +1,9 @@
 #!/system/bin/sh
-# Lynx Universal - MediaTek Thermal Policy Controller
-# Integrates Chimera disable_thermal & enable_thermal engines
-# Pure POSIX /system/bin/sh compliance
+# ==============================================================================
+# Lynx Universal - MediaTek Thermal Engine Controller v3.0
+# Hardware Safety Dominant & Thermal Stabil Architecture
+# Pure POSIX /system/bin/sh compliance (Android Toybox/ash)
+# ==============================================================================
 
 write_node() {
     local val="$1"
@@ -12,117 +14,156 @@ write_node() {
     fi
 }
 
+is_battery_zone() {
+    local tz="$1"
+    local type=""
+    [ -f "$tz/type" ] && type=$(cat "$tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    case "$type" in
+        *batt*|*chg*|*charger*|*bms*|*battery*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 ACTION="$1"
 
-if [ "$ACTION" = "disable" ] || [ "$ACTION" = "0" ]; then
-    # 1. MediaTek CPU & Charging Thermal Protection
-    write_node "0" "/proc/cpufreq/cpufreq_imax_thermal_protect"
-    write_node "0" "/sys/devices/platform/charger/sw_jeita"
-    write_node "1" "/sys/devices/platform/charger/enable_sc"
-    write_node "6000" "/sys/devices/platform/charger/sc_ibat_limit"
-    write_node "95" "/sys/devices/platform/charger/sc_tuisoc"
-    write_node "1" "/sys/devices/platform/charger/pe40"
-    write_node "68" "/sys/devices/platform/charger/pdc_max_watt"
+case "$ACTION" in
+    # ── 1. HARDWARE SAFETY DOMINANT MODE ──────────────────────────────────
+    disable|hardware_safety_dominant|0)
+        # Software Throttling Stripped; Silicon, Battery & PMIC strictly preserved.
+        # CRITICAL SAFETY: Keep battery JEITA protection active!
+        write_node "1" "/sys/devices/platform/charger/sw_jeita"
+        write_node "0" "/proc/cpufreq/cpufreq_imax_thermal_protect"
 
-    # Transsion ODM PCB Thermal Clamp Override (Raises 45C limit to 65C, sets deal current to 3500mA)
-    if [ -e "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" ]; then
-        chmod 666 "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
-        echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug" 2>/dev/null
-    fi
-    if [ -e "/sys/devices/platform/tran_battery/pcb_thermal_debug" ]; then
-        chmod 666 "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
-        echo "[65,3500,70,3000,2500]" > "/sys/devices/platform/tran_battery/pcb_thermal_debug" 2>/dev/null
-    fi
+        # Safe charging limits (no over-current hazard)
+        write_node "1" "/sys/devices/platform/charger/enable_sc"
 
-    # 2. Disable PPM Thermal Policies
-    write_node "3 0" "/proc/ppm/policy_status"
-    write_node "4 0" "/proc/ppm/policy_status"
-    write_node "5 0" "/proc/ppm/policy_status"
-    write_node "0" "/proc/ppm/cpi/cpi_enabled"
+        # 2. Disable Aggressive PPM Throttling Policies
+        write_node "3 0" "/proc/ppm/policy_status"
+        write_node "4 0" "/proc/ppm/policy_status"
+        write_node "5 0" "/proc/ppm/policy_status"
+        write_node "0" "/proc/ppm/cpi/cpi_enabled"
 
-    # 3. Android Framework Thermal Override
-    cmd thermalservice override-status 0 2>/dev/null
+        # 3. Android Framework Thermal Override
+        cmd thermalservice override-status 0 2>/dev/null
 
-    # 4. Disable Thermal Zones & Elevate Trip Points
-    for tz in /sys/class/thermal/thermal_zone*; do
-        [ -d "$tz" ] || continue
-        write_node "disabled" "$tz/mode"
-        write_node "1" "$tz/passive"
-        write_node "user_space" "$tz/policy"
-        write_node "150000" "$tz/trip_point_0_temp"
-        write_node "1" "$tz/sustainable_power"
-    done
-
-    # 5. Reset Cooling Devices to 0 (Unrestricted state)
-    for cooling in /sys/class/thermal/cooling_device*; do
-        [ -d "$cooling" ] || continue
-        write_node "0" "$cooling/cur_state"
-    done
-
-    # 6. MediaTek GPU Thermal & PBM Bypass
-    if [ -f "/proc/gpufreq/gpufreq_limit_table" ]; then
-        for id in 3 4 5 6 7; do
-            write_node "$id 0 0" "/proc/gpufreq/gpufreq_limit_table"
+        # 4. Elevate Writable SoC/CPU Trip Points to 75°C (Preserving Hardware Shutdown & Battery)
+        for tz in /sys/class/thermal/thermal_zone*; do
+            [ -d "$tz" ] || continue
+            # NEVER elevate battery/charger thermal zones
+            if is_battery_zone "$tz"; then
+                continue
+            fi
+            # Check if trip_point_0_temp is writable
+            if [ -w "$tz/trip_point_0_temp" ]; then
+                write_node "75000" "$tz/trip_point_0_temp"
+            fi
+            if [ -w "$tz/mode" ]; then
+                write_node "disabled" "$tz/mode"
+            fi
         done
-    fi
-    if [ -f "/proc/gpufreqv2/gpufreq_power_limited" ]; then
-        echo "ignore_thermal_protect 1" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
-        echo "ignore_pbm_limited 1" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
-    fi
-    write_node "0" "/sys/module/fbt_cpu/parameters/thrm_limit_cpu"
-    write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
-    write_node "0" "/sys/kernel/eara_thermal/enable"
 
-    # 7. Stop Vendor Thermal Daemons
-    stop android.thermal-hal debug_pid.sec-thermal-1-0 mi_thermald thermal thermal-engine \
-         thermal_mnt_hal_service thermal-hal thermald thermalloadalgod thermalservice \
-         sec-thermal-1-0 vendor.thermal-hal-1-0 vendor.semc.hardware.thermal-1-0 \
-         vendor-thermal-1-0 vendor.thermal-engine vendor.thermal-manager \
-         vendor.thermal-hal-1-0 vendor.thermal-hal-2-0 vendor.thermal-symlinks 2>/dev/null
+        # 5. MediaTek GPU Thermal & PBM Bypass
+        if [ -f "/proc/gpufreq/gpufreq_limit_table" ]; then
+            for id in 3 4 5 6 7; do
+                write_node "$id 0 0" "/proc/gpufreq/gpufreq_limit_table"
+            done
+        fi
+        if [ -f "/proc/gpufreqv2/gpufreq_power_limited" ]; then
+            echo "ignore_thermal_protect 1" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
+            echo "ignore_pbm_limited 1" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
+        fi
+        write_node "0" "/sys/module/fbt_cpu/parameters/thrm_limit_cpu"
+        write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+        write_node "0" "/sys/kernel/eara_thermal/enable"
 
-elif [ "$ACTION" = "enable" ] || [ "$ACTION" = "1" ]; then
-    # 1. Restore MediaTek CPU & Charging Thermal Protection
-    write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
-    write_node "1" "/sys/devices/platform/charger/sw_jeita"
+        # 6. Stop User-Space Vendor Thermal Daemons (Xiaomi Joyose, mi_thermald, Transsion, etc.)
+        stop mi_thermald thermal thermal-engine \
+             thermal_mnt_hal_service thermal-hal thermald thermalloadalgod \
+             vendor.thermal-engine vendor.thermal-manager 2>/dev/null
+        ;;
 
-    # 2. Restore PPM Thermal Policies
-    write_node "3 1" "/proc/ppm/policy_status"
-    write_node "4 1" "/proc/ppm/policy_status"
-    write_node "5 1" "/proc/ppm/policy_status"
-    write_node "1" "/proc/ppm/cpi/cpi_enabled"
+    # ── 2. THERMAL STABIL (SUSTAINED PERFORMANCE CURVE) ────────────────────
+    stable)
+        # Dynamic Load Synchronization & Calibrated 52-55°C Curve
+        write_node "1" "/sys/devices/platform/charger/sw_jeita"
+        write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
 
-    # 3. Restore MediaTek GPU Thermal Limits
-    if [ -f "/proc/gpufreq/gpufreq_limit_table" ]; then
-        for id in 3 4 5 6 7; do
-            write_node "$id 1 1" "/proc/gpufreq/gpufreq_limit_table"
+        # Reset PPM policies to balanced operation
+        write_node "3 1" "/proc/ppm/policy_status"
+        write_node "4 1" "/proc/ppm/policy_status"
+        write_node "5 0" "/proc/ppm/policy_status"
+
+        # Schedutil Rate Limits: Prevent sawtooth frequency oscillations
+        for pol in /sys/devices/system/cpu/cpufreq/policy*; do
+            [ -d "$pol" ] || continue
+            write_node "500" "$pol/schedutil/up_rate_limit_us"
+            write_node "10000" "$pol/schedutil/down_rate_limit_us"
         done
-    fi
-    if [ -f "/proc/gpufreqv2/gpufreq_power_limited" ]; then
-        echo "ignore_thermal_protect 0" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
-        echo "ignore_pbm_limited 0" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
-    fi
-    write_node "1" "/sys/module/fbt_cpu/parameters/thrm_limit_cpu"
-    write_node "1" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
-    write_node "1" "/sys/kernel/eara_thermal/enable"
 
-    # 4. Reset Android Framework Thermal Status
-    cmd thermalservice reset 2>/dev/null
+        # Calibrated 52-55°C trip points on writable SoC zones
+        for tz in /sys/class/thermal/thermal_zone*; do
+            [ -d "$tz" ] || continue
+            if is_battery_zone "$tz"; then
+                continue
+            fi
+            if [ -w "$tz/trip_point_0_temp" ]; then
+                write_node "55000" "$tz/trip_point_0_temp"
+            fi
+            if [ -w "$tz/mode" ]; then
+                write_node "enabled" "$tz/mode"
+            fi
+        done
 
-    # 5. Enable Thermal Zones & Reset Trip Points
-    for tz in /sys/class/thermal/thermal_zone*; do
-        [ -d "$tz" ] || continue
-        write_node "enabled" "$tz/mode"
-        write_node "0" "$tz/passive"
-        write_node "80000" "$tz/trip_point_0_temp"
-    done
+        # EARA & FPSGO smooth throttling margins
+        write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+        write_node "0" "/sys/module/fbt_cpu/parameters/thrm_limit_cpu"
+        cmd thermalservice override-status 0 2>/dev/null
+        ;;
 
-    # 6. Reset Cooling Devices
-    for cooling in /sys/class/thermal/cooling_device*; do
-        [ -d "$cooling" ] || continue
-        write_node "0" "$cooling/cur_state"
-    done
+    # ── 3. DEFAULT OEM / BASELINE RESTORE ─────────────────────────────────
+    enable|default_oem|1|*)
+        write_node "1" "/proc/cpufreq/cpufreq_imax_thermal_protect"
+        write_node "1" "/sys/devices/platform/charger/sw_jeita"
 
-    # 7. Restart Vendor Thermal Services
-    start android.thermal-hal mi_thermald thermal thermal-engine thermald \
-          vendor.thermal-hal-1-0 vendor.thermal-engine vendor.thermal-manager 2>/dev/null
-fi
+        # Restore PPM Policies
+        write_node "3 1" "/proc/ppm/policy_status"
+        write_node "4 1" "/proc/ppm/policy_status"
+        write_node "5 1" "/proc/ppm/policy_status"
+        write_node "1" "/proc/ppm/cpi/cpi_enabled"
+
+        # Restore GPU Thermal Limits
+        if [ -f "/proc/gpufreq/gpufreq_limit_table" ]; then
+            for id in 3 4 5 6 7; do
+                write_node "$id 1 1" "/proc/gpufreq/gpufreq_limit_table"
+            done
+        fi
+        if [ -f "/proc/gpufreqv2/gpufreq_power_limited" ]; then
+            echo "ignore_thermal_protect 0" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
+            echo "ignore_pbm_limited 0" > /proc/gpufreqv2/gpufreq_power_limited 2>/dev/null
+        fi
+        write_node "1" "/sys/module/fbt_cpu/parameters/thrm_limit_cpu"
+        write_node "1" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"
+        write_node "1" "/sys/kernel/eara_thermal/enable"
+
+        cmd thermalservice reset 2>/dev/null
+
+        # Enable thermal zones
+        for tz in /sys/class/thermal/thermal_zone*; do
+            [ -d "$tz" ] || continue
+            if is_battery_zone "$tz"; then
+                continue
+            fi
+            write_node "enabled" "$tz/mode"
+        done
+
+        # Reset cooling devices
+        for cooling in /sys/class/thermal/cooling_device*; do
+            [ -d "$cooling" ] || continue
+            write_node "0" "$cooling/cur_state"
+        done
+
+        # Restart vendor thermal services
+        start mi_thermald thermal thermal-engine thermald \
+              vendor.thermal-engine vendor.thermal-manager 2>/dev/null
+        ;;
+esac

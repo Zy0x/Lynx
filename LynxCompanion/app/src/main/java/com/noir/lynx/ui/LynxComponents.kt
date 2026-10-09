@@ -66,6 +66,7 @@ val AccentRed        = Color(0xFFFF3B5C) // Neon Crimson
 val AccentRedDim     = Color(0x1FFF3B5C)
 val AccentPurple     = Color(0xFFA855F7) // Royal Amethyst
 val AccentGreen      = Color(0xFF10B981) // Emerald Mint
+val AccentGreenDim   = Color(0x1F10B981)
 
 val TextPrimary      = Color(0xFFF8FAFC) // Ultra Clean Soft White
 val TextSecondary    = Color(0xFF94A3B8) // Cool Slate Grey

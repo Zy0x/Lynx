@@ -367,6 +367,28 @@ case "$ACTION" in
         done | head -n 8
         ;;
 
+    set_thermal_mode)
+        soc=$(cat "$MODULE_DIR/target_soc" 2>/dev/null | tr -d '[:space:]')
+        [ -z "$soc" ] && soc="mtk"
+        if [ -f "$MODULE_DIR/platforms/$soc/thermal.sh" ]; then
+            sh "$MODULE_DIR/platforms/$soc/thermal.sh" "$PARAM"
+            echo "Thermal mode '$PARAM' applied for $soc"
+        else
+            echo "Error: thermal script for $soc not found"
+        fi
+        ;;
+
+    restore_thermal_baseline)
+        soc=$(cat "$MODULE_DIR/target_soc" 2>/dev/null | tr -d '[:space:]')
+        [ -z "$soc" ] && soc="mtk"
+        if [ -f "$MODULE_DIR/platforms/$soc/thermal.sh" ]; then
+            sh "$MODULE_DIR/platforms/$soc/thermal.sh" "enable"
+            echo "Thermal OEM baseline restored for $soc"
+        else
+            echo "Error: thermal script for $soc not found"
+        fi
+        ;;
+
     top_wakelocks)
         for w in /sys/class/wakeup/wakeup*; do
             [ -d "$w" ] || continue

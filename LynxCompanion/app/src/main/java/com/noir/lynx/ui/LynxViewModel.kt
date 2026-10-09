@@ -1217,12 +1217,75 @@ class LynxViewModel : ViewModel() {
         setKey("uclamp.game_min_ratio", ratio.toString(), "val")
     }
 
+    fun setThermalMode(mode: String) {
+        recordStateMutation()
+        val isDominant = mode == "hardware_safety_dominant" || mode == "unrestricted"
+        val isDefault = mode == "default" || mode == "default_oem"
+        val engineMode = when {
+            isDominant -> ThermalEngineMode.HARDWARE_SAFETY_DOMINANT
+            isDefault -> ThermalEngineMode.DEFAULT_OEM
+            mode == "performance" -> ThermalEngineMode.PERFORMANCE
+            else -> ThermalEngineMode.THERMAL_STABLE
+        }
+
+        val sdf = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+        val timeStr = sdf.format(java.util.Date())
+
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    thermal = current.state.thermal.copy(
+                        mode = mode,
+                        fullBypass = isDominant,
+                        hardwareSafetyDominant = isDominant
+                    )
+                ),
+                thermalStatusDetails = current.thermalStatusDetails.copy(
+                    activeMode = engineMode,
+                    softwareThrottlingActive = isDefault,
+                    hardwareSafetyActive = true,
+                    batteryGuardActive = true,
+                    lastAppliedTimestamp = timeStr
+                )
+            )
+        }
+
+        setKey("thermal.mode", mode, "str")
+        setKey("thermal.full_bypass", isDominant.toString(), "bool")
+
+        viewModelScope.launch {
+            val limit = _uiState.value.state.thermal.customTempLimitC
+            val ok = LynxRepository.applyThermalMode(mode, limit)
+            if (ok) {
+                com.noir.lynx.safety.LynxPersistenceManager.saveBootConfiguration(
+                    mode = mode,
+                    tempLimitC = limit,
+                    cpuFloorRatio = _uiState.value.state.overclock.cpuFloorRatio
+                )
+                try {
+                    com.noir.lynx.service.LynxThermalGuardService.start(com.noir.lynx.LynxApp.instance)
+                } catch (_: Exception) {}
+
+                val label = when (engineMode) {
+                    ThermalEngineMode.HARDWARE_SAFETY_DOMINANT -> "Mode Hardware Safety Dominant diaktifkan"
+                    ThermalEngineMode.THERMAL_STABLE -> "Mode Thermal Stabil diaktifkan (Sustained FPS)"
+                    ThermalEngineMode.PERFORMANCE -> "Mode Performa Termal diaktifkan"
+                    ThermalEngineMode.DEFAULT_OEM -> "Baseline Pabrik OEM dipulihkan"
+                }
+                _uiState.update { it.copy(successMessage = label) }
+            }
+        }
+    }
+
     fun setCustomTempLimit(temp: Int) {
         recordStateMutation()
         _uiState.update { current ->
             current.copy(state = current.state.copy(thermal = current.state.thermal.copy(customTempLimitC = temp)))
         }
         setKey("thermal.custom_temp_limit_c", temp.toString(), "val")
+        viewModelScope.launch {
+            LynxRepository.applyCustomTempLimitLive(temp)
+        }
     }
 
     fun setWifiPingStabilizer(enabled: Boolean) {
@@ -2752,7 +2815,36 @@ class LynxViewModel : ViewModel() {
     fun refreshThermalZones() {
         viewModelScope.launch {
             val zones = LynxRepository.readThermalZones()
-            _uiState.update { it.copy(thermalZones = zones) }
+            _uiState.update { current ->
+                val writableCount = zones.count { it.isWritable }
+                current.copy(
+                    thermalZones = zones,
+                    thermalStatusDetails = current.thermalStatusDetails.copy(
+                        writableZonesCount = writableCount,
+                        totalZonesCount = zones.size
+                    )
+                )
+            }
+        }
+    }
+
+    fun refreshThermalCapabilities() {
+        viewModelScope.launch {
+            com.noir.lynx.safety.LynxPersistenceManager.checkKernelChangeAndInvalidate()
+            val rootInfo = com.noir.lynx.hardware.RootCapabilityChecker.check()
+            val caps = com.noir.lynx.hardware.ThermalCapabilityDetector.detect()
+            val zones = LynxRepository.readThermalZones()
+            _uiState.update { current ->
+                current.copy(
+                    rootEnvironment = rootInfo,
+                    thermalCapabilities = caps,
+                    thermalZones = zones,
+                    thermalStatusDetails = current.thermalStatusDetails.copy(
+                        writableZonesCount = caps.writableZonesCount,
+                        totalZonesCount = caps.totalZones
+                    )
+                )
+            }
         }
     }
 

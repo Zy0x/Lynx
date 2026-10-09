@@ -183,6 +183,18 @@ esac
 
 [ -f "$LIB/updater.sh" ] && nohup sh "$LIB/updater.sh" >/dev/null 2>&1 &
 
+# ── 9b. Lynx Thermal Framework Boot Mode Application ───────────────
+THERMAL_BOOT_CFG="$MODPATH/thermal_boot_mode.json"
+if [ -f "$THERMAL_BOOT_CFG" ]; then
+    thermal_mode=$(awk -F'"' '/"mode"[ \t]*:/ {print $4}' "$THERMAL_BOOT_CFG" 2>/dev/null)
+    if [ -n "$thermal_mode" ] && [ "$thermal_mode" != "default_oem" ]; then
+        if [ -f "$MODPATH/platforms/$TARGET_SOC/thermal.sh" ]; then
+            log_msg "[*] Applying boot thermal mode: $thermal_mode ($TARGET_SOC)"
+            sh "$MODPATH/platforms/$TARGET_SOC/thermal.sh" "$thermal_mode" >/dev/null 2>&1
+        fi
+    fi
+fi
+
 # ── 10. Execute Custom User Rules & Deep Tunables ───────────────────
 if [ -f "$CORE/custom_tunables.sh" ]; then
     log_msg "[*] Applying custom deep kernel tunables ($CORE/custom_tunables.sh)..."
