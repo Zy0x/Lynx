@@ -364,7 +364,7 @@ fun MainDashboard(
     BackHandler(enabled = uiState.currentTab == 1 && selectedCategory != null) {
         selectedCategory = null
     }
-    LaunchedEffect(selectedCategory, uiState.selectedCpuTab, uiState.selectedGpuTab) {
+    LaunchedEffect(selectedCategory, uiState.selectedCpuTab, uiState.selectedGpuTab, uiState.batterySubTab) {
         subscreenScrollState.scrollTo(0)
         scrollState.scrollTo(0)
         isNavbarVisible = true
@@ -1598,6 +1598,14 @@ fun MainDashboard(
                                     GpuDisplayTabRow(
                                         selectedTab = uiState.selectedGpuTab,
                                         onSelectTab = { viewModel.selectGpuTab(it) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                                    )
+                                } else if (currentCategory == "charging") {
+                                    BatterySubscreenTabRow(
+                                        selectedTab = uiState.batterySubTab,
+                                        onSelectTab = { viewModel.setBatterySubTab(it) },
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 6.dp)

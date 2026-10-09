@@ -1,3 +1,21 @@
+# Lynx [Codename: Deity] 3.0.69
+Released on: 2026-10-09
+> **Versi ini** menghadirkan **Penyempurnaan Arsitektur Tab Pengisian Daya (Sticky Charging Tab Header & Zero-Redundancy Layout): Integrasi Penuh Bilah Tab 'Pengisian Daya' & 'Informasi Baterai' ke dalam Sticky Category Header (Konsisten Seperti Tab CPU/GPU Sehingga Tidak Hilang Saat Di-Scroll), Eradikasi Tombol Aksi Bawah yang Redundan, Harmonisasi Ketinggian Tab 52.dp, Serta Reset Scroll Otomatis Saat Beralih Tab**.
+
+## Fitur Baru & Peningkatan (3.0.69)
+
+### 1. Sticky Tab Header Pengisian Daya (Konsisten dengan Halaman CPU)
+- **Bilah Tab Tetap Melekat di Atas**: Mengintegrasikan `BatterySubscreenTabRow` langsung ke dalam Header Kategori Menetap (*Sticky Header*) di `MainActivity.kt`. Bilah tab kini tidak pernah hilang atau tergeser ke atas saat pengguna menggulir halaman, persis seperti perilaku pada halaman CPU dan GPU.
+- **Harmonisasi Dimensi & Desain 52.dp**: Menyelaraskan ketinggian bilah navigasi tab baterai menjadi 52.dp dengan radius 14.dp, menciptakan konsistensi visual 100% di seluruh sub-halaman Lynx.
+- **Scroll-to-Top Otomatis Saat Alih Tab**: Menyematkan `uiState.batterySubTab` ke dalam listener `LaunchedEffect` reset posisi scroll, memastikan tampilan otomatis kembali ke posisi atas saat berpindah antara *Pengisian Daya* dan *Informasi Baterai*.
+
+### 2. Eliminasi Tombol Bawah Redundan & Pembersihan Tata Letak
+- **Pembersihan Tombol Bawah Tab 0**: Menghapus kartu aksi di bagian paling bawah Tab 0 (`Informasi Baterai` & `Detail Sensor`) yang sebelumnya redundan dan mengganggu estetika alur navigasi.
+- **Navigasi Terpusat Melalui Tab Header**: Akses ke seluruh informasi dan diagnostik kini murni melalui Tab Header Sticky di atas.
+- **Optimasi Ruang & Clearance**: Menghapus spacer ekstra berlebih di akhir konten, mengandalkan sistem penyangga navigasi terpusat aplikasi untuk kenyamanan visual yang rapi.
+
+---
+
 # Lynx [Codename: Deity] 3.0.68
 Released on: 2026-10-09
 > **Versi ini** menghadirkan **Perombakan Menyeluruh Antarmuka Pengisian Daya (Charging UI Overhaul): Penyederhanaan Tata Letak yang Bersih, Intuitif, dan Bebas Redundansi, Eradikasi Istilah Teknis Membingungkan, Presisi 4-Pill Pemilihan Arus Mobile-First (Standar 2.0A, Cepat 4.5A, Maksimal 6.0A, Kustom), Serta Pemisahan Tegas Domain Kontrol Pengisian (Tab 0) dan Diagnostik Kesehatan & Riwayat Baterai (Tab 1)** — memberikan pengalaman pengguna yang estetis, mudah dipahami pengguna awam tanpa mengorbankan kedalaman fitur dan perlindungan hardware.

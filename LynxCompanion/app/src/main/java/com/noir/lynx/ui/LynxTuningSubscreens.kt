@@ -1713,14 +1713,8 @@ fun TuningChargingCategory(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Dual-Tab Navigation Bar
-        BatterySubscreenTabRow(
-            selectedTab = selectedTab,
-            onSelectTab = { viewModel.setBatterySubTab(it) }
-        )
-
         if (selectedTab == 0) {
             // ============================================================
             //  CARD 1: PENGISIAN DAYA SUPER CEPAT & MONITOR ARUS
@@ -2114,45 +2108,6 @@ fun TuningChargingCategory(
                     onCheckedChange = { viewModel.setNightSleepGuard(it) }
                 )
             }
-
-            // Quick Navigation Action Pill to Tab 1 & Sensor Sheet
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = BgCard,
-                border = BorderStroke(0.8.dp, BorderGlass),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedButton(
-                        onClick = { viewModel.setBatterySubTab(1) },
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentCyan),
-                        modifier = Modifier.weight(1f).height(48.dp)
-                    ) {
-                        Icon(Icons.Default.BatteryChargingFull, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Informasi Baterai", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    OutlinedButton(
-                        onClick = { viewModel.openBatteryDetailSheet() },
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, BorderSubtle),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-                        modifier = Modifier.weight(1f).height(48.dp)
-                    ) {
-                        Icon(Icons.Default.Analytics, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Detail Sensor", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-            Spacer(Modifier.height(80.dp))
         } else {
             // ============================================================
             //  TAB 2: INFORMASI & STATISTIK KOMPREHENSIF
@@ -2183,7 +2138,7 @@ fun BatterySubscreenTabRow(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(48.dp),
+            .height(52.dp),
         shape = RoundedCornerShape(14.dp),
         color = BgCard,
         border = BorderStroke(0.8.dp, BorderSubtle)
@@ -2978,7 +2933,6 @@ fun BatteryInformationContent(
                 Text("Buka Telemetri Raw ADC & Matriks Sensor", fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
-        Spacer(Modifier.height(80.dp))
     }
 }
 
