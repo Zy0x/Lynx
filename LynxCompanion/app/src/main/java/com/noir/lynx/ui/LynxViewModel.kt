@@ -436,7 +436,19 @@ class LynxViewModel : ViewModel() {
                         LynxRepository.latestTotalCpuLoadPercent
                     }
                     val procs = if (isMonitorTabActive) emptyList() else if (counter == 1 || counter % 3 == 0) LynxRepository.readTopCpuProcesses() else emptyList()
-                    val batt = LynxRepository.readBatteryDetails()
+                    val rawBatt = LynxRepository.readBatteryDetails()
+                    val batt = if (rawBatt != null) {
+                        val curSample = rawBatt.currentMa.toFloat()
+                        synchronized(currentHistoryQueue) {
+                            if (currentHistoryQueue.size >= 40) {
+                                currentHistoryQueue.removeFirst()
+                            }
+                            currentHistoryQueue.addLast(curSample)
+                        }
+                        val samplesCopy = synchronized(currentHistoryQueue) { currentHistoryQueue.toList() }
+                        rawBatt.copy(currentHistorySamples = samplesCopy)
+                    } else null
+
                     if (_uiState.value.state.charging.extremeChargingEnabled && (batt?.isCharging == true || (batt?.currentMa ?: 0) > 200)) {
                         if (counter % 3 == 0) {
                             LynxRepository.reapplyExtremeChargingLock()

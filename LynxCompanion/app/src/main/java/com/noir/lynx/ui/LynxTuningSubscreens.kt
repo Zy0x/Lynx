@@ -1733,21 +1733,25 @@ fun TuningChargingCategory(
                 )
 
                 // Active Mode Status Pill
-                val isExtreme = state.charging.extremeChargingEnabled
-                val isOvernightLatched = battDetails?.isOvernightBypassLatched == true || (battDetails?.level ?: 0) >= 100
-                val isBypassActive = state.charging.bypassEnabled && ((battDetails?.level ?: 0) >= state.charging.maxBatteryPercent || isOvernightLatched)
-                val isNightGentle = (battDetails?.isNightGentleActive == true || (state.charging.nightSleepGuardEnabled && (battDetails?.isCharging == true) && java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY).let { it >= 23 || it < 6 })) && !isOvernightLatched && !isBypassActive
-                val isSmartTapering = battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled
+                val isPlugged = battDetails?.isPlugged == true
+                val isCharging = battDetails?.isCharging == true
+                val isExtreme = state.charging.extremeChargingEnabled && isPlugged
+                val isOvernightLatched = isPlugged && (battDetails?.isOvernightBypassLatched == true || (battDetails?.level ?: 0) >= 100)
+                val isBypassActive = isPlugged && state.charging.bypassEnabled && ((battDetails?.level ?: 0) >= state.charging.maxBatteryPercent || isOvernightLatched)
+                val isNightGentle = isPlugged && (battDetails?.isNightGentleActive == true || (state.charging.nightSleepGuardEnabled && isCharging && java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY).let { it >= 23 || it < 6 })) && !isOvernightLatched && !isBypassActive
+                val isSmartTapering = isPlugged && isCharging && battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled
 
                 val modePillLabel = when {
-                    isOvernightLatched -> "🛡️ Baterai Penuh • Daya Beralih ke Sistem"
-                    isBypassActive -> "🛡️ Daya Langsung Aktif • Baterai Dilewati"
-                    isNightGentle -> "🌙 Pengisian Sejuk Malam Hari (1.5A • Mode Dingin)"
-                    isSmartTapering -> "❄️ Pendinginan Aktif • Arus Diturunkan (Baterai >90%)"
-                    isExtreme -> if (state.charging.isUnconstrainedMaxHw) "⚡ Pengisian Cepat Aktif (Kecepatan Maksimal)" else "⚡ Pengisian Cepat Aktif (${state.charging.limitCurrentMa} mA)"
-                    else -> "⚖️ Pengisian Standar (${state.charging.limitCurrentMa} mA)"
+                    !isPlugged -> "Terputus • Menggunakan Daya Baterai"
+                    isOvernightLatched -> "Baterai Penuh • Daya Beralih ke Sistem"
+                    isBypassActive -> "Daya Langsung Aktif • Baterai Dilewati"
+                    isNightGentle -> "Pengisian Sejuk Malam Hari (1.5A • Mode Dingin)"
+                    isSmartTapering -> "Pendinginan Aktif • Arus Diturunkan (>90%)"
+                    isExtreme -> if (state.charging.isUnconstrainedMaxHw) "Pengisian Cepat Aktif (Kecepatan Maksimal)" else "Pengisian Cepat Aktif (${state.charging.limitCurrentMa} mA)"
+                    else -> "Pengisian Standar (${state.charging.limitCurrentMa} mA)"
                 }
                 val modePillColor = when {
+                    !isPlugged -> TextSecondary
                     isOvernightLatched || isBypassActive -> AccentCyan
                     isNightGentle -> AccentPurple
                     isSmartTapering -> AccentGreen
@@ -1766,7 +1770,13 @@ fun TuningChargingCategory(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = if (isExtreme) Icons.Default.Bolt else Icons.Default.BatteryChargingFull,
+                            imageVector = when {
+                                !isPlugged -> Icons.Default.BatteryStd
+                                isOvernightLatched || isBypassActive -> Icons.Default.Shield
+                                isNightGentle -> Icons.Default.Bedtime
+                                isExtreme -> Icons.Default.Bolt
+                                else -> Icons.Default.BatteryChargingFull
+                            },
                             contentDescription = null,
                             tint = modePillColor,
                             modifier = Modifier.size(16.dp)
@@ -1776,13 +1786,15 @@ fun TuningChargingCategory(
                             text = modePillLabel,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = modePillColor
+                            color = modePillColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
 
                 // Laptop / PC Port Safeguard Alert
-                if (battDetails?.isLaptopPort == true) {
+                if (battDetails?.isLaptopPort == true && isPlugged) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = AccentCyan.copy(alpha = 0.12f),
@@ -1841,18 +1853,22 @@ fun TuningChargingCategory(
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Column(modifier = Modifier.padding(10.dp)) {
-                                        Text("Daya Adaptor", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = TextSecondary)
+                                        Text(if (isPlugged) "Daya Adaptor" else "Status Sambungan", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = TextSecondary)
                                         Spacer(Modifier.height(2.dp))
                                         Text(
-                                            text = if (inputWatt > 0.05f) String.format(java.util.Locale.US, "%.1f W", inputWatt) else "--",
+                                            text = if (isPlugged && inputWatt > 0.05f) String.format(java.util.Locale.US, "%.1f W", inputWatt) else (if (isPlugged) "--" else "Terputus"),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = AccentPurple
+                                            color = if (isPlugged) AccentPurple else TextSecondary
                                         )
-                                        val voltVal = if (battDetails.adapterVoltageMv > 1000) battDetails.adapterVoltageMv / 1000f else (if (battDetails.chargerVoltageMv > 1000) battDetails.chargerVoltageMv / 1000f else battDetails.voltageMv / 1000f)
-                                        val curVal = if (battDetails.adapterCurrentMa > 0) battDetails.adapterCurrentMa else battDetails.currentMa.coerceAtLeast(0)
                                         Text(
-                                            text = String.format(java.util.Locale.US, "%.1f V • %d mA", voltVal, curVal),
+                                            text = if (isPlugged) {
+                                                val voltVal = if (battDetails.adapterVoltageMv > 1000) battDetails.adapterVoltageMv / 1000f else (if (battDetails.chargerVoltageMv > 1000) battDetails.chargerVoltageMv / 1000f else battDetails.voltageMv / 1000f)
+                                                val curVal = if (battDetails.adapterCurrentMa > 0) battDetails.adapterCurrentMa else battDetails.currentMa.coerceAtLeast(0)
+                                                String.format(java.util.Locale.US, "%.1f V • %d mA", voltVal, curVal)
+                                            } else {
+                                                "Kabel tidak terhubung"
+                                            },
                                             style = MaterialTheme.typography.labelSmall,
                                             fontSize = 10.sp,
                                             color = TextSecondary
@@ -1868,11 +1884,14 @@ fun TuningChargingCategory(
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Column(modifier = Modifier.padding(10.dp)) {
-                                        Text("Arus ke Baterai", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = TextSecondary)
+                                        Text(if (isPlugged) "Arus ke Baterai" else "Konsumsi Baterai", style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = TextSecondary)
                                         Spacer(Modifier.height(2.dp))
-                                        val curColor = if (battDetails.currentMa > 100) AccentGreen else if (state.charging.bypassEnabled) AccentCyan else TextPrimary
+                                        val curColor = if (!isPlugged) AccentCyan else if (battDetails.currentMa > 100) AccentGreen else if (state.charging.bypassEnabled || isOvernightLatched) AccentCyan else TextPrimary
+                                        val battWatt = if (!isPlugged) {
+                                            (battDetails.voltageMv.toFloat() * kotlin.math.abs(battDetails.currentMa).toFloat()) / 1_000_000f
+                                        } else netWattDisplay
                                         Text(
-                                            text = if (netWattDisplay > 0.05f) String.format(java.util.Locale.US, "%.1f W", netWattDisplay) else "--",
+                                            text = if (battWatt > 0.05f) String.format(java.util.Locale.US, "%.1f W", battWatt) else "--",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = curColor
@@ -1895,19 +1914,19 @@ fun TuningChargingCategory(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Efisiensi Pengisian", style = MaterialTheme.typography.labelSmall, fontSize = 11.sp, color = TextSecondary)
+                                    Text(if (isPlugged) "Efisiensi Pengisian" else "Status Suplai Daya", style = MaterialTheme.typography.labelSmall, fontSize = 11.sp, color = TextSecondary)
                                     Text(
-                                        text = if (efficiency > 0) "$efficiency%" else if (state.charging.bypassEnabled) "100% (Daya Langsung)" else "--",
+                                        text = if (!isPlugged) "Daya Baterai (Discharging)" else if (efficiency > 0) "$efficiency%" else if (state.charging.bypassEnabled || isOvernightLatched) "100% (Daya Langsung)" else "--",
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = AccentGreen
+                                        color = if (isPlugged) AccentGreen else AccentCyan
                                     )
                                 }
                                 Spacer(Modifier.height(4.dp))
                                 LinearProgressIndicator(
-                                    progress = { if (efficiency > 0) (efficiency / 100f).coerceIn(0f, 1f) else if (state.charging.bypassEnabled) 1f else 0.5f },
+                                    progress = { if (!isPlugged) 0f else if (efficiency > 0) (efficiency / 100f).coerceIn(0f, 1f) else if (state.charging.bypassEnabled || isOvernightLatched) 1f else 0.5f },
                                     modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                                    color = AccentGreen,
+                                    color = if (isPlugged) AccentGreen else AccentCyan,
                                     trackColor = BgElevated
                                 )
                             }
@@ -1915,11 +1934,11 @@ fun TuningChargingCategory(
                     }
                 }
 
-                // Real-time 60s Bezier Sparkline Waveform
+                // Real-time Bezier Sparkline Waveform (Live 1s stream)
                 ChargingSparklineWaveform(
                     samples = battDetails?.currentHistorySamples ?: emptyList(),
                     currentMa = battDetails?.currentMa ?: 0,
-                    accentColor = AccentCyan,
+                    accentColor = if (battDetails?.isCharging == true) AccentGreen else AccentCyan,
                     modifier = Modifier.padding(bottom = 10.dp)
                 )
 
@@ -3558,7 +3577,7 @@ fun ChargingSparklineWaveform(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "Arus Real-time (60s Buffer)",
+                        text = "Arus Baterai Real-time",
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 10.sp,
                         color = TextSecondary
@@ -3568,7 +3587,7 @@ fun ChargingSparklineWaveform(
                     text = if (currentMa > 0) "+$currentMa mA" else "$currentMa mA",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (currentMa > 0) AccentGreen else TextPrimary
+                    color = if (currentMa > 0) AccentGreen else AccentCyan
                 )
             }
             Spacer(Modifier.height(6.dp))

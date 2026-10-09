@@ -834,11 +834,14 @@ while true; do
         is_plugged=true
     fi
 
-    if [ "$is_plugged" != "true" ]; then
-        # Device is on battery power; sleep and avoid unnecessary sysfs writes
+    if [ "$is_plugged" != "true" ] || [ "$batt_status" = "Discharging" ]; then
+        # Device is on battery power; clear charging flags and record discharging state
         in_bypass_latch=false
-        rm -f /dev/lynx_charging_guard
-        sleep 12
+        rm -f /dev/lynx_charging_guard /dev/lynx_extreme_charging 2>/dev/null
+        cap_now=$(read_node "$BATT_DIR/capacity")
+        [ -z "$cap_now" ] && cap_now=50
+        echo "state=discharging cap=$cap_now" > /dev/lynx_charging_state
+        sleep 4
         continue
     fi
 

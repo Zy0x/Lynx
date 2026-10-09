@@ -273,12 +273,13 @@ data class BatteryDetails(
     val currentHistorySamples: List<Float> = emptyList(),
     val rawAdcDetails: Map<String, String> = emptyMap(),
     val thermalZoneMatrix: List<Pair<String, Float>> = emptyList(),
+    val isPlugged: Boolean = false,
     val isEmergencyGuardActive: Boolean = false,
     val isOvernightBypassLatched: Boolean = false,
     val isSmartTaperingActive: Boolean = false,
     val isNightGentleActive: Boolean = false,
 ) {
-    val isCharging: Boolean get() = status.equals("Charging", ignoreCase = true) || currentMa > 100
+    val isCharging: Boolean get() = isPlugged && (status.equals("Charging", ignoreCase = true) || currentMa > 50)
 }
 
 data class BatteryDrainPoint(

@@ -1,3 +1,25 @@
+# Lynx [Codename: Deity] 3.0.71
+Released on: 2026-10-10
+> **Versi ini** menghadirkan **Perbaikan Kritis Status Daya Saat Kabel Dicabut (Unplugged State Fix) & Visualisasi Arus Baterai Real-time ala Scene: Deteksi Presisi Status Terputus dari Pengisi Daya (Mencegah Salah Lapor 'Baterai Penuh' Saat Kabel Dilepas), Pembersihan Flag State Kernel Otomatis, Pemantauan Konsumsi Baterai Riil (Discharge Wattage & Current), Serta Pembaruan Kontinu Grafik Waveform Arus per Detik Tanpa Buffer Statis**.
+
+## Fitur Baru & Peningkatan (3.0.71)
+
+### 1. Eliminasi Bug Status 'Baterai Penuh' Saat Kabel Dicabut
+- **Deteksi Presisi Status Colok/Cabut (`isPlugged`)**: Memperbaiki logika deteksi daya di mana sebelumnya status `Baterai Penuh • Daya Beralih ke Sistem` terus tertahan meskipun kabel charger telah dicabut.
+- **Pill Status Khusus Terputus**: Saat kabel tidak tersambung, antarmuka kini menampilkan indikator bersih bertema netral: `🔌 Terputus dari Pengisi Daya • Menggunakan Baterai`.
+- **Pembersihan State Kernel (`Charging-Controller.sh`)**: Daemon pengisian daya kini seketika membersihkan file state (`/dev/lynx_charging_state`, `/dev/lynx_charging_guard`, `/dev/lynx_extreme_charging`) saat kabel dilepas atau status baterai beralih ke *Discharging*.
+
+### 2. Metrik Daya Konsumsi Baterai Riil Saat Unplugged
+- **Eradikasi Nilai Sisa Adaptor (Stale Sysfs)**: Mengeliminasi pembacaan residu sysfs adaptor (`4.1 V • 6000 mA`) saat kabel dicabut.
+- **Kartu Konsumsi Baterai**: Saat tidak terhubung ke listrik, kolom adaptor menampilkan status `Terputus (Kabel tidak terhubung)`, dan kolom baterai beralih menampilkan laju pengurasan baterai riil (*Discharge Wattage* & *Discharge Current*).
+- **Status Suplai Efisiensi**: Menampilkan status bersih `Daya Baterai (Discharging)` tanpa progress bar palsu saat kabel dilepas.
+
+### 3. Arus Baterai Real-time ala Scene (1-Second Continuous Stream)
+- **Visualisasi Dinamis per Detik**: Menggantikan label statis `(60s Buffer)` dengan pembacaan dinamis **Arus Baterai Real-time** yang mengalirkan data arus langsung ke grafik waveform pada setiap detak loop 1 detik seperti aplikasi Scene.
+- **Pewarnaan Arus Kontekstual**: Nilai arus pada header grafik otomatis menyesuaikan warna (Hijau untuk pengisian masuk, Oranye/Kuning untuk pengurasan daya saat digunakan).
+
+---
+
 # Lynx [Codename: Deity] 3.0.70
 Released on: 2026-10-10
 > **Versi ini** menghadirkan **Evolusi Cerdas Pengisian Baterai: Transformasi Mode Tidur Menjadi 'Pengisian Sejuk Malam Hari' (Gentle 1.5A Slow Charging 23:00-06:00 dengan Suhu Super Dingin <30°C), Slider 'Batas Pengisian Cerdas' (70%-100%) dengan Integrasi Jendela Hysteresis 3% Anti-Microcycling/Anti-Chattering (Mencegah Loop Colok-Cabut Berulang & Mencegah Baterai Drop), Serta Indikator Status Mode Dinamis Ungu di Tab Kontrol**.

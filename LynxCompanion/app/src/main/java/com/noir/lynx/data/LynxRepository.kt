@@ -6220,34 +6220,52 @@ object LynxRepository {
                 cyc=${'$'}(cat /sys/class/power_supply/battery/cycle_count 2>/dev/null || echo -1)
                 cnt=${'$'}(cat /sys/class/power_supply/battery/charge_counter 2>/dev/null || echo 0)
 
-                adpv=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null)
-                [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null)
-                [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/usb/voltage_now 2>/dev/null)
-                [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/battery/charger_voltage 2>/dev/null)
-                [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/main/voltage_now 2>/dev/null)
-                [ -z "${'$'}adpv" ] && adpv=0
+                uon=${'$'}(cat /sys/class/power_supply/usb/online 2>/dev/null || cat /sys/class/power_supply/ac/online 2>/dev/null || echo 0)
+                is_plugged=0
+                if [ "${'$'}uon" = "1" ] || [ "${'$'}stat" = "Charging" ] || [ "${'$'}stat" = "Full" ] || [ "${'$'}stat" = "Not charging" ]; then
+                    is_plugged=1
+                fi
+                if [ "${'$'}stat" = "Discharging" ] && [ "${'$'}uon" != "1" ]; then
+                    is_plugged=0
+                fi
 
-                chgtyp=${'$'}(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || cat /sys/class/power_supply/usb/type 2>/dev/null || echo "")
-
-                raw_ibus=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_ICharger 2>/dev/null)
-                [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1)
-                [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/current_now 2>/dev/null)
-                [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/input_current_now 2>/dev/null)
-                [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/main/current_now 2>/dev/null)
-                # MTK platform charger nodes return mA directly (Helio G96 / Dimensity)
-                [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/devices/platform/charger/input_current 2>/dev/null)
-                [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/devices/platform/charger/chg1_current 2>/dev/null)
-                [ -z "${'$'}raw_ibus" ] && raw_ibus=0
-
-                # Scaling heuristic: µA values are always > 100000, mA values are ≤ 9000.
-                # Only apply ×10 if value looks like 100mA-unit (< 100 and > 0).
-                # Values 100–9000 are already in mA. Values > 100000 are µA → ÷1000.
-                if [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -gt 100000 ] 2>/dev/null; then
-                    ibus=${'$'}(( raw_ibus / 1000 ))
-                elif [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -lt 100 ] && [ "${'$'}raw_ibus" -gt 10 ] 2>/dev/null; then
-                    ibus=${'$'}(( raw_ibus * 10 ))
+                if [ "${'$'}is_plugged" = "0" ]; then
+                    adpv=0
+                    raw_ibus=0
+                    ibus=0
+                    chgtyp=""
+                    cst="state=discharging cap=${'$'}cap"
+                    rm -f /dev/lynx_extreme_charging 2>/dev/null
                 else
-                    ibus="${'$'}raw_ibus"
+                    adpv=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null)
+                    [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null)
+                    [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/usb/voltage_now 2>/dev/null)
+                    [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/battery/charger_voltage 2>/dev/null)
+                    [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/main/voltage_now 2>/dev/null)
+                    [ -z "${'$'}adpv" ] && adpv=0
+
+                    chgtyp=${'$'}(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || cat /sys/class/power_supply/usb/type 2>/dev/null || echo "")
+
+                    raw_ibus=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_ICharger 2>/dev/null)
+                    [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1)
+                    [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/current_now 2>/dev/null)
+                    [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/input_current_now 2>/dev/null)
+                    [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/main/current_now 2>/dev/null)
+                    # MTK platform charger nodes return mA directly (Helio G96 / Dimensity)
+                    [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/devices/platform/charger/input_current 2>/dev/null)
+                    [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/devices/platform/charger/chg1_current 2>/dev/null)
+                    [ -z "${'$'}raw_ibus" ] && raw_ibus=0
+
+                    # Scaling heuristic: µA values are always > 100000, mA values are ≤ 9000.
+                    # Only apply ×10 if value looks like 100mA-unit (< 100 and > 0).
+                    # Values 100–9000 are already in mA. Values > 100000 are µA → ÷1000.
+                    if [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -gt 100000 ] 2>/dev/null; then
+                        ibus=${'$'}(( raw_ibus / 1000 ))
+                    elif [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -lt 100 ] && [ "${'$'}raw_ibus" -gt 10 ] 2>/dev/null; then
+                        ibus=${'$'}(( raw_ibus * 10 ))
+                    else
+                        ibus="${'$'}raw_ibus"
+                    fi
                 fi
 
                 rfc=${'$'}([ "${'$'}chgtyp" = "9" ] && echo 1 || (cat /sys/bus/i2c/drivers/rt9759/*/rfc_dcp_ta 2>/dev/null | head -n 1 || echo 0))
@@ -6294,8 +6312,8 @@ object LynxRepository {
                 mi_sig=${'$'}(cat /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null || cat /sys/class/power_supply/battery/boost_current 2>/dev/null || echo "")
                 pd_sig=${'$'}(cat /sys/class/power_supply/usb/pd_active 2>/dev/null || cat /sys/class/power_supply/usb/pd_allowed 2>/dev/null || echo "")
 
-                # Anti-overcharge AutoCut & 100% True Hardware Bypass Latch
-                if [ "${'$'}{cap:-0}" -ge 100 ] || [ "${'$'}stat" = "Full" ]; then
+                # Anti-overcharge AutoCut & 100% True Hardware Bypass Latch (ONLY when plugged in)
+                if [ "${'$'}is_plugged" = "1" ] && { [ "${'$'}{cap:-0}" -ge 100 ] || [ "${'$'}stat" = "Full" ]; }; then
                     rm -f /dev/lynx_extreme_charging 2>/dev/null
                     # Auto engage True Hardware Bypass: Power direct to Motherboard / Vsys, 0mA to battery
                     echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
@@ -6312,8 +6330,8 @@ object LynxRepository {
                     echo 100 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                     chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
                     echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                else
-                    # Suppress thermal throttling daemon if extreme charging or spoofing 28C is active (Only when battery < 100%)
+                elif [ "${'$'}is_plugged" = "1" ]; then
+                    # Suppress thermal throttling daemon if extreme charging or spoofing 28C is active (Only when battery < 100% and charging)
                     is_ext=${'$'}([ -f /dev/lynx_extreme_charging ] && echo 1 || echo 0)
                     cur_bt=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null)
                     if [ "${'$'}is_ext" = "1" ] || [ "${'$'}cur_bt" = "28" ]; then
@@ -6380,7 +6398,7 @@ object LynxRepository {
                 rcbl=${'$'}(cat /sys/devices/platform/battery/FG_meter_resistance 2>/dev/null || cat /sys/class/power_supply/battery/resistance 2>/dev/null || cat /sys/class/power_supply/bms/resistance 2>/dev/null || echo 0)
                 spftmp=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null || echo 0)
 
-                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst|${'$'}pmic_sig|${'$'}sec_sig|${'$'}vooc_sig|${'$'}qc_sig|${'$'}mi_sig|${'$'}pd_sig|${'$'}ptyp|${'$'}rcbl|${'$'}spftmp"
+                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst|${'$'}pmic_sig|${'$'}sec_sig|${'$'}vooc_sig|${'$'}qc_sig|${'$'}mi_sig|${'$'}pd_sig|${'$'}ptyp|${'$'}rcbl|${'$'}spftmp|${'$'}is_plugged"
 
                 echo "---ADC---"
                 echo "Pump_Express_VCharger=${'$'}adpv"
@@ -6485,22 +6503,23 @@ object LynxRepository {
                     }
                 }
 
-                val isCharging = curMa > 50 || stat.equals("Charging", ignoreCase = true)
-                val isOvernightLatched = cap >= 100 || stat.equals("Full", ignoreCase = true) || chgState.contains("bypass_100")
-                val isTapering = chgState.contains("tapering") || (cap in 90..99 && isCharging)
+                val isPlugged = parts.getOrNull(24)?.trim() == "1"
+                val isCharging = isPlugged && (curMa > 50 || stat.equals("Charging", ignoreCase = true))
+                val isOvernightLatched = isPlugged && (cap >= 100 || stat.equals("Full", ignoreCase = true) || chgState.contains("bypass_100"))
+                val isTapering = isPlugged && (chgState.contains("tapering") || (cap in 90..99 && isCharging))
 
                 val cal = java.util.Calendar.getInstance()
                 val hr = cal.get(java.util.Calendar.HOUR_OF_DAY)
                 val isNightHour = (hr >= 23 || hr < 6)
                 val isNightPref = appContext?.getSharedPreferences("lynx_charging_prefs", Context.MODE_PRIVATE)?.getBoolean("night_sleep_guard", false) == true
-                val isNightGentle = chgState.contains("night_gentle") || (isNightPref && isNightHour && isCharging && !isOvernightLatched)
+                val isNightGentle = isPlugged && (chgState.contains("night_gentle") || (isNightPref && isNightHour && isCharging && !isOvernightLatched))
 
-                val watt = if (curMa > 0 && voltMv > 0) {
+                val watt = if (isCharging && curMa > 0 && voltMv > 0) {
                     (curMa.toFloat() * voltMv.toFloat()) / 1_000_000f
                 } else 0f
 
                 val activeIC = when {
-                    !isCharging -> "Standby / Baterai"
+                    !isPlugged -> "Standby / Baterai"
                     rfcAuth || chgTyp == "9" || pmicSig == "rt9759" || (adpMv > 7000 && curMa >= 1500 && pmicSig.isBlank()) -> "Direct Charge Pump (RT9759 2:1)"
                     pmicSig == "smb1390" || (qcSig.contains("QC", ignoreCase = true) && adpMv > 7000) -> "Qualcomm SMB1390 Dual-Pump"
                     pmicSig == "smb1355" -> "Qualcomm SMB1355 Companion PMIC"
@@ -6514,7 +6533,7 @@ object LynxRepository {
                 }
 
                 val protocol = when {
-                    !isCharging -> "Battery Power"
+                    !isPlugged -> "Battery Power"
                     rfcAuth || chgTyp == "9" -> "Transsion Super Charge (33W/45W/68W RFC)"
                     voocSig == "1" || voocSig == "2" -> "SuperVOOC / Warp Fast Charge"
                     miSig == "1" && adpMv > 8000 -> "Xiaomi HyperCharge / Turbo (67W-120W)"
@@ -6526,20 +6545,20 @@ object LynxRepository {
                     else -> "Standard Charging"
                 }
 
-                val adapterWatt = if (adpMv > 1000 && ibusMa > 50) {
+                val adapterWatt = if (isPlugged && adpMv > 1000 && ibusMa > 50) {
                     (adpMv.toFloat() * ibusMa.toFloat()) / 1_000_000f
-                } else if (watt > 0.1f) {
+                } else if (isCharging && watt > 0.1f) {
                     val effFactor = if (rfcAuth || pmicSig == "rt9759" || pmicSig == "smb1390" || pmicSig == "mi_pump" || voocSig == "1") 0.96f else 0.88f
                     watt / effFactor
                 } else 0f
 
-                val effectiveIbusMa = if (ibusMa > 50) {
+                val effectiveIbusMa = if (isPlugged && ibusMa > 50) {
                     ibusMa
-                } else if (adpMv > 1000 && adapterWatt > 0.1f) {
+                } else if (isPlugged && adpMv > 1000 && adapterWatt > 0.1f) {
                     ((adapterWatt * 1_000_000f) / adpMv.toFloat()).toInt()
                 } else 0
 
-                val efficiency = if (adapterWatt > 0.5f && watt > 0.5f) {
+                val efficiency = if (isPlugged && adapterWatt > 0.5f && watt > 0.5f) {
                     ((watt / adapterWatt) * 100f).toInt().coerceIn(60, 99)
                 } else if (isCharging) {
                     if (rfcAuth) 96 else 88
@@ -6569,6 +6588,7 @@ object LynxRepository {
                     isLaptopPort = isLaptop,
                     rawAdcDetails = adcMap,
                     thermalZoneMatrix = tzList,
+                    isPlugged = isPlugged,
                     isEmergencyGuardActive = isGuardActive,
                     isOvernightBypassLatched = isOvernightLatched,
                     isSmartTaperingActive = isTapering,
