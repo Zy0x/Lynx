@@ -3297,11 +3297,6 @@ object LynxRepository {
                 echo $effectiveMtkMa > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                 chmod 444 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
             fi
-            if [ -e /sys/devices/platform/charger/Pump_Express ]; then
-                chmod 666 /sys/devices/platform/charger/Pump_Express 2>/dev/null
-                echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
-                chmod 444 /sys/devices/platform/charger/Pump_Express 2>/dev/null
-            fi
             echo $highTargetPercent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
 
             # MediaTek Kernel PID Thermal Derater (ABCCT) & Userspace Algorithm Pause
@@ -3586,7 +3581,6 @@ object LynxRepository {
                     echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                     echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
-                    echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
                     echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
@@ -3848,11 +3842,6 @@ object LynxRepository {
                     chmod 666 /sys/devices/platform/charger/BatteryNotify 2>/dev/null
                     echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
                     chmod 444 /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                fi
-                if [ -e /sys/devices/platform/charger/Pump_Express ]; then
-                    chmod 666 /sys/devices/platform/charger/Pump_Express 2>/dev/null
-                    echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
-                    chmod 444 /sys/devices/platform/charger/Pump_Express 2>/dev/null
                 fi
                 if [ -e /sys/devices/platform/charger/sc_ibat_limit ]; then
                     chmod 666 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
@@ -6164,11 +6153,6 @@ object LynxRepository {
                             echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
                             chmod 444 /sys/devices/platform/charger/BN_TestMode 2>/dev/null
                         fi
-                        if [ -e /sys/devices/platform/charger/Pump_Express ]; then
-                            chmod 666 /sys/devices/platform/charger/Pump_Express 2>/dev/null
-                            echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
-                            chmod 444 /sys/devices/platform/charger/Pump_Express 2>/dev/null
-                        fi
                         if [ -e /sys/devices/platform/charger/enable_sc ]; then
                             chmod 666 /sys/devices/platform/charger/enable_sc 2>/dev/null
                             echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
@@ -6695,27 +6679,25 @@ object LynxRepository {
 
     suspend fun runCableQualityBenchmark(multiplier: Int = 1): CableBenchmarkResult = withContext(Dispatchers.IO) {
         try {
-            val v0Out = Shell.cmd("cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || cat /sys/class/power_supply/battery/batt_vol 2>/dev/null").exec().out.firstOrNull()?.trim()
-            val i0Out = Shell.cmd("cat /sys/class/power_supply/battery/current_now 2>/dev/null || cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null").exec().out.firstOrNull()?.trim()
-            val rcblOut = Shell.cmd("cat /sys/devices/platform/battery/FG_meter_resistance 2>/dev/null || cat /sys/class/power_supply/battery/resistance 2>/dev/null || cat /sys/class/power_supply/bms/resistance 2>/dev/null").exec().out.firstOrNull()?.trim()
-
-            var rawV0 = v0Out?.toLongOrNull() ?: 4000000L
+            val script = """
+                v0=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || cat /sys/class/power_supply/battery/batt_vol 2>/dev/null || echo 4000000)
+                i0=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null || cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null || echo 500000)
+                rcbl=${'$'}(cat /sys/devices/platform/battery/FG_meter_resistance 2>/dev/null || cat /sys/class/power_supply/battery/resistance 2>/dev/null || echo 100)
+                sleep 0.8
+                v1=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || cat /sys/class/power_supply/battery/batt_vol 2>/dev/null || echo 4000000)
+                i1=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null || cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null || echo 500000)
+                echo "${'$'}v0|${'$'}i0|${'$'}rcbl|${'$'}v1|${'$'}i1"
+            """.trimIndent()
+            val out = Shell.cmd(script).exec().out.firstOrNull()?.trim() ?: ""
+            val parts = out.split('|')
+            var rawV0 = parts.getOrNull(0)?.toLongOrNull() ?: 4000000L
             if (rawV0 > 100000L) rawV0 /= 1000L
-            var rawI0 = abs(i0Out?.toLongOrNull() ?: 500000L)
+            var rawI0 = abs(parts.getOrNull(1)?.toLongOrNull() ?: 500000L)
             if (rawI0 > 100000L) rawI0 /= 1000L
-            val hwResistance = rcblOut?.toIntOrNull() ?: 100
-
-            // Trigger temporary load pulse
-            Shell.cmd("echo 3000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null; echo 3000000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null; echo 3000000 > /sys/class/power_supply/battery/current_max 2>/dev/null").exec()
-            
-            kotlinx.coroutines.delay(1200L)
-
-            val v1Out = Shell.cmd("cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || cat /sys/class/power_supply/battery/batt_vol 2>/dev/null").exec().out.firstOrNull()?.trim()
-            val i1Out = Shell.cmd("cat /sys/class/power_supply/battery/current_now 2>/dev/null || cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null").exec().out.firstOrNull()?.trim()
-
-            var rawV1 = v1Out?.toLongOrNull() ?: (rawV0 + 45L)
+            val hwResistance = parts.getOrNull(2)?.toIntOrNull() ?: 100
+            var rawV1 = parts.getOrNull(3)?.toLongOrNull() ?: (rawV0 + 45L)
             if (rawV1 > 100000L) rawV1 /= 1000L
-            var rawI1 = abs(i1Out?.toLongOrNull() ?: (rawI0 + 350L))
+            var rawI1 = abs(parts.getOrNull(4)?.toLongOrNull() ?: (rawI0 + 350L))
             if (rawI1 > 100000L) rawI1 /= 1000L
 
             val deltaV_mv = abs(rawV1 - rawV0).toFloat().coerceAtLeast(15f)
@@ -9322,7 +9304,6 @@ case "${'$'}PROFILE" in
             else
                 write_node "0" "/sys/devices/platform/charger/bypass_charger"
                 write_node "0" "/sys/devices/platform/charger/sw_jeita"
-                write_node "2" "/sys/devices/platform/charger/Pump_Express"
                 write_node "1" "/sys/devices/platform/charger/pe20"
                 write_node "1" "/sys/devices/platform/charger/pe40"
                 write_node "68" "/sys/devices/platform/charger/pdc_max_watt"

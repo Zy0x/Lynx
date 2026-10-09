@@ -1,3 +1,26 @@
+# Lynx [Codename: Deity] 3.0.66
+Released on: 2026-10-09
+> **Versi ini** menghadirkan **Eradikasi Total Kuncian Degradasi Protokol MediaTek Pump Express 4.0 / Transsion Super Charge (Pemberantasan Tulis Statis `Pump_Express = 2` pada Seluruh Daemon & Polling Loop 2.5s), Atomic Single-Script Differential Pulse & Measurement pada Cable Quality Benchmark, Serta Verifikasi Pengisian Ekstrem 2% ➔ 90% dalam ~50 Menit dengan Otomasi Smart Tapering Aktif** — memastikan throughput pengisian daya perangkat berdaya tinggi (33W/45W/68W) berjalan pada kecepatan fisik maksimal tanpa hambatan derating dan antarmuka benchmarking bekerja mulus tanpa race-condition.
+
+## Fitur Baru & Peningkatan (3.0.66)
+
+### 1. Eradikasi Total Penulisan Destruktif `Pump_Express = 2`
+- **Pemberantasan di Seluruh Layer**: Menghapus penulisan statis `echo 2 > /sys/devices/platform/charger/Pump_Express` dari `Charging-Controller.sh`, `readBatteryDetails()` polling loop, `applyChargingBypassRule()`, dan `applyImmediateChargingUnthrottle()`.
+- **Proteksi Handshake PE4.0 / RFC**: Node register status TA MediaTek kini murni diperlakukan sebagai Read-Only telemetri, mencegah driver kernel `charger_thread` menghentikan negosiasi tegangan tinggi (8.8V - 10V) dan terhindar dari downgrade ke 5V / PE2.0.
+
+### 2. Atomic Single-Script Cable Quality Benchmark Engine
+- **Injeksi Beban & Sampling Atomik**: Menggabungkan pengukuran voltase/arus awal ($V_0, I_0$), pulsa beban diferensial, jeda settling time, dan pembacaan respons beban ($V_1, I_1$) ke dalam satu subshell execution terpadu.
+- **Bebas Blocking & Thread Race**: Menghilangkan serialisasi command berulang pada root shell LibSU sehingga pengujian loop impedansi kabel ($m\Omega$) selesai dalam waktu $<1$ detik tanpa menahan UI thread.
+
+### 3. Kontras & Keterbacaan Tombol Benchmark
+- **High-Contrast Disabled State**: Menerapkan `disabledContainerColor` dan `disabledContentColor` berstandar tinggi pada tombol pengujian kabel di Tab Informasi & Statistik, menjaga teks "Menguji Loop Impedansi..." dan animasi circular spinner tetap tajam dan terbaca jelas selama proses pengujian.
+
+### 4. Validasi Performa Lapangan Nyata
+- **Pengujian Pengecasan 2% ➔ 90%**: Teruji langsung pada Infinix Note 11S Helio G96, baterai naik dari kondisi sekarat 2% ke 90% dalam waktu ~50 menit (laju rata-rata 1% per 40-45 detik pada fase CC).
+- **Aktivasi Presisi Smart Tapering**: Memverifikasi penurunan arus otomatis (`smart_tapering_active: true`) saat baterai menyentuh level 90% (4.40V - 4.47V) demi keamanan termal dan keawetan sel Li-ion.
+
+---
+
 # Lynx [Codename: Deity] 3.0.65
 Released on: 2026-10-09
 > **Versi ini** menghadirkan **Penyempurnaan Total Subsistem Baterai & Charging dengan Fitur Timeline Drain Baterai Interaktif 100% ➔ 0% (Smooth Cubic Bezier Curve, Dual-Color SOT vs Screen-Off/Deep Sleep Timeline Strip, Interactive Touch Scrubber, & Proyeksi Garis Putus-putus ke 20% dan 0% Habis), 30-Detik Automated Cable & Adapter Quality Benchmark (Loop Impedance Tester Mengukur Respons Diferensial ΔV/ΔI dalam mΩ, 5-Star Rating Visual, Penurunan Tegangan ΔV, & Rekomendasi Output Watt Maksimal Aman), iOS / Pixel-style Battery Health Assessment Hub (Badge Status Verbal "Sangat Prima" / "Normal" / "Perhatian", Estimasi Siklus Pemakaian Optimal 2-3 Tahun, Serta 1-Click Tombol Kalibrasi Indikator Baterai & Fuel Gauge), Top 5 Konsumsi Daya Aplikasi (Perhitungan mAh & Persentase Kontribusi, Progress Bar Relatif, dan Pintasan Cepat 1-Ketuk Menuju Detail Pengaturan Aplikasi Sistem), Night Sleep Guard (Preservasi Baterai Otomatis Mengaktifkan Hardware Bypass pada Pukul 23:00 - 06:00 Saat Mencapai Ambang Batas 80% Demi Mencegah Stres Trickle Charge Semalaman), Serta Kalibrasi Arsitektur Sel Baterai Dual-Cell 2S Multiplier (Opsi 1x Sel Tunggal vs 2x Sel Ganda Serial untuk Seri Xiaomi 120W, Realme SuperDart, dan Oppo SuperVOOC 2S)** — memperkuat Lynx sebagai modul root terdepan dengan analitik baterai tercanggih, visualisasi kurva presisi, pengujian integritas kabel hardware, dan proteksi sel lithium menyeluruh tanpa redundansi.

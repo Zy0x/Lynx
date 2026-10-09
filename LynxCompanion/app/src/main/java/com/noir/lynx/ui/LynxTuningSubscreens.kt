@@ -3520,7 +3520,9 @@ fun CableBenchmarkCard(
             shape = RoundedCornerShape(10.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = AccentCyan,
-                contentColor = Color.Black
+                contentColor = Color.Black,
+                disabledContainerColor = AccentCyan.copy(alpha = 0.6f),
+                disabledContentColor = Color.Black
             ),
             modifier = Modifier.fillMaxWidth().height(48.dp)
         ) {

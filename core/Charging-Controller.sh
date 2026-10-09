@@ -292,7 +292,6 @@ apply_extreme_charging() {
                 "$MTK_DIR/enable_sc"; do
         write_node_lock "1" "$node"
     done
-    write_node_lock "2" "$MTK_DIR/Pump_Express"
     for node in "$MTK_DIR/BatteryNotify" \
                 "$MTK_DIR/sw_jeita" \
                 "$MTK_DIR/tran_charger_full" \
