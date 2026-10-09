@@ -305,7 +305,7 @@ apply_extreme_charging() {
     write_node_lock "$mtk_ma" "$MTK_DIR/input_current"
     write_node_lock "$mtk_ma" "$MTK_DIR/chg1_current"
     write_node_lock "$mtk_ma" "$MTK_DIR/chg2_current"
-    write_node_lock "33" "$MTK_DIR/pdc_max_watt"
+    write_node_lock "68" "$MTK_DIR/pdc_max_watt"
     write_node_lock "$mtk_ma" "$MTK_DIR/sc_ibat_limit"
     write_node "$target_soc" "$MTK_DIR/sc_tuisoc"
 

@@ -3289,7 +3289,7 @@ object LynxRepository {
             done
             if [ -e /sys/devices/platform/charger/pdc_max_watt ]; then
                 chmod 666 /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-                echo 33 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+                echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
                 chmod 444 /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
             fi
             if [ -e /sys/devices/platform/charger/sc_ibat_limit ]; then
@@ -3589,7 +3589,7 @@ object LynxRepository {
                     echo 2 > /sys/devices/platform/charger/Pump_Express 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
-                    echo 33 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+                    echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
                     echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
                     echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
                     echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
@@ -3726,7 +3726,7 @@ object LynxRepository {
                 # Enable Pump Express & fast charging hardware
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
-                echo 33 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+                echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
                 echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
 
                 if [ "$isUnrestricted" = "true" ]; then
