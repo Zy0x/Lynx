@@ -995,6 +995,79 @@ class LynxViewModel : ViewModel() {
         _uiState.update { it.copy(batterySubTab = tab) }
     }
 
+    fun setNightSleepGuard(enabled: Boolean) {
+        recordStateMutation()
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(nightSleepGuardEnabled = enabled)
+                )
+            )
+        }
+        setKey("charging.night_sleep_guard_enabled", enabled.toString(), "bool")
+        viewModelScope.launch {
+            LynxRepository.setNightSleepGuard(enabled)
+            _uiState.update {
+                it.copy(
+                    successMessage = if (enabled) "Night Sleep Guard Aktif (Auto-Bypass 80% pada 23:00 - 06:00)" else "Night Sleep Guard Dinonaktifkan"
+                )
+            }
+        }
+    }
+
+    fun setDualCellMultiplier(multiplier: Int) {
+        recordStateMutation()
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    charging = current.state.charging.copy(dualCellMultiplier = multiplier)
+                )
+            )
+        }
+        setKey("charging.dual_cell_multiplier", multiplier.toString(), "val")
+        viewModelScope.launch {
+            LynxRepository.setDualCellMultiplier(multiplier)
+            refreshBatteryDetails()
+            _uiState.update {
+                it.copy(
+                    successMessage = "Kalibrasi Sel Baterai: ${multiplier}x (${if (multiplier == 2) "Dual-Cell 2S Series" else "Single Cell Standar"})"
+                )
+            }
+        }
+    }
+
+    fun runCableQualityBenchmark() {
+        if (_uiState.value.isCableBenchmarkRunning) return
+        _uiState.update { it.copy(isCableBenchmarkRunning = true) }
+        viewModelScope.launch {
+            val mult = _uiState.value.state.charging.dualCellMultiplier
+            val res = LynxRepository.runCableQualityBenchmark(multiplier = mult)
+            _uiState.update { current ->
+                current.copy(
+                    isCableBenchmarkRunning = false,
+                    batteryInfoStats = current.batteryInfoStats.copy(cableBenchmark = res),
+                    successMessage = "Pengujian Selesai: ${res.starRating}★ (${res.resistanceMohm} mΩ) - ${res.qualityVerdict}"
+                )
+            }
+        }
+    }
+
+    fun calibrateBatteryStats() {
+        if (_uiState.value.isCalibratingBattery) return
+        _uiState.update { it.copy(isCalibratingBattery = true) }
+        viewModelScope.launch {
+            val ok = LynxRepository.calibrateBatteryStats()
+            delay(1200)
+            _uiState.update { current ->
+                current.copy(
+                    isCalibratingBattery = false,
+                    successMessage = if (ok) "Indikator Baterai & Fuel Gauge Berhasil Dikalibrasi!" else "Gagal mereset statistik baterai"
+                )
+            }
+            refreshBatteryDetails()
+        }
+    }
+
     fun forceMaxSuperCharge() {
         recordStateMutation()
         _uiState.update { current ->
@@ -3707,7 +3780,23 @@ class LynxViewModel : ViewModel() {
 
                 val startLvl = if (isChargingNow && chargeSessionStartLevel >= 0) chargeSessionStartLevel else details.level
                 val deltaLvl = (details.level - startLvl).coerceAtLeast(0)
-                val totalWh = (chargeSessionEnergyAccMah * (details.voltageMv.toDouble() / 1000.0)) / 1000.0
+
+                val cellMult = _uiState.value.state.charging.dualCellMultiplier
+                val effectiveVoltageMv = details.voltageMv * cellMult
+                val effectiveWatt = details.chargerWatt * cellMult
+                val totalWh = (chargeSessionEnergyAccMah * (effectiveVoltageMv.toDouble() / 1000.0)) / 1000.0
+
+                // Night Sleep Guard Automation (23:00 - 06:00 Auto-Bypass at target level)
+                val isNightGuard = _uiState.value.state.charging.nightSleepGuardEnabled
+                if (isNightGuard && isChargingNow && details.level >= _uiState.value.state.charging.maxBatteryPercent) {
+                    val cal = java.util.Calendar.getInstance()
+                    val hr = cal.get(java.util.Calendar.HOUR_OF_DAY)
+                    if (hr >= 23 || hr < 6) {
+                        if (!_uiState.value.state.charging.bypassEnabled) {
+                            setBypassCharging(true)
+                        }
+                    }
+                }
 
                 val rawStats = LynxRepository.readBatteryInfoStats(updatedDetails)
                 val updatedInfoStats = rawStats.copy(
@@ -3718,9 +3807,10 @@ class LynxViewModel : ViewModel() {
                     chargeDeltaLevel = deltaLvl,
                     totalEnergyInMah = chargeSessionEnergyAccMah.toInt(),
                     totalEnergyInMwh = totalWh,
-                    peakChargingWatt = chargeSessionPeakWatt,
-                    avgChargingWatt = if (details.chargerWatt > 0f) (chargeSessionPeakWatt + details.chargerWatt) / 2f else 0f,
+                    peakChargingWatt = chargeSessionPeakWatt * cellMult,
+                    avgChargingWatt = if (details.chargerWatt > 0f) ((chargeSessionPeakWatt + details.chargerWatt) / 2f) * cellMult else 0f,
                     peakChargingMa = chargeSessionPeakMa,
+                    voltageNowMv = effectiveVoltageMv,
                     lastChargingSessionSummary = lastChargingSessionSummaryCached
                 )
 

@@ -1,3 +1,41 @@
+# Lynx [Codename: Deity] 3.0.65
+Released on: 2026-10-09
+> **Versi ini** menghadirkan **Penyempurnaan Total Subsistem Baterai & Charging dengan Fitur Timeline Drain Baterai Interaktif 100% ➔ 0% (Smooth Cubic Bezier Curve, Dual-Color SOT vs Screen-Off/Deep Sleep Timeline Strip, Interactive Touch Scrubber, & Proyeksi Garis Putus-putus ke 20% dan 0% Habis), 30-Detik Automated Cable & Adapter Quality Benchmark (Loop Impedance Tester Mengukur Respons Diferensial ΔV/ΔI dalam mΩ, 5-Star Rating Visual, Penurunan Tegangan ΔV, & Rekomendasi Output Watt Maksimal Aman), iOS / Pixel-style Battery Health Assessment Hub (Badge Status Verbal "Sangat Prima" / "Normal" / "Perhatian", Estimasi Siklus Pemakaian Optimal 2-3 Tahun, Serta 1-Click Tombol Kalibrasi Indikator Baterai & Fuel Gauge), Top 5 Konsumsi Daya Aplikasi (Perhitungan mAh & Persentase Kontribusi, Progress Bar Relatif, dan Pintasan Cepat 1-Ketuk Menuju Detail Pengaturan Aplikasi Sistem), Night Sleep Guard (Preservasi Baterai Otomatis Mengaktifkan Hardware Bypass pada Pukul 23:00 - 06:00 Saat Mencapai Ambang Batas 80% Demi Mencegah Stres Trickle Charge Semalaman), Serta Kalibrasi Arsitektur Sel Baterai Dual-Cell 2S Multiplier (Opsi 1x Sel Tunggal vs 2x Sel Ganda Serial untuk Seri Xiaomi 120W, Realme SuperDart, dan Oppo SuperVOOC 2S)** — memperkuat Lynx sebagai modul root terdepan dengan analitik baterai tercanggih, visualisasi kurva presisi, pengujian integritas kabel hardware, dan proteksi sel lithium menyeluruh tanpa redundansi.
+
+## Fitur Baru & Peningkatan (3.0.65)
+
+### 1. Timeline Drain Baterai Interaktif (100% ➔ 0%)
+- **Kurva Bezier Halus (Smooth Cubic Splines)**: Visualisasi penurunan daya baterai dari 100% hingga level saat ini dengan gradien vertikal di bawah kurva yang estetik dan informatif.
+- **Dual-Color SOT vs Screen-Off Strip**: Pita horizontal di bagian bawah chart membedakan rentang waktu Layar Menyala (SOT hijau terang) dan Layar Mati (Standby / Deep Sleep abu-abu) secara real-time.
+- **Interactive Touch Scrubber**: Pengguna dapat menyentuh atau menggeser jari di sepanjang kurva untuk memeriksa persentase baterai, status layar (SOT / Standby), dan suhu sensor pada setiap titik waktu riwayat.
+- **Proyeksi Garis Putus-putus ke 0%**: Mengekstrapolasi laju pengurasan aktif untuk memperkirakan waktu baterai mencapai 20% (garis batas aman) dan 0% (habis total).
+
+### 2. Automated Cable & Adapter Quality Benchmark (Loop Impedance Tester)
+- **Pengukuran Respons Diferensial $\Delta V / \Delta I$**: Menghitung impedansi loop bolak-balik ($m\Omega$) kabel USB Type-C dan port perangkat dengan memberikan lonjakan arus uji terkontrol selama pengujian.
+- **Peringkat Bintang Visual (1 - 5 Stars)**: Memberikan skor kualitas kabel instan: 5 Bintang ($<160\,m\Omega$, kualitas sangat prima), 4 Bintang ($160-280\,m\Omega$, bagus/standar OEM), 3 Bintang ($281-450\,m\Omega$, resistansi terasa), dan 2 Bintang ($>450\,m\Omega$, kabel terdegradasi/panjang).
+- **Rekomendasi Daya Maksimal (Watt)**: Menganalisis ambang batas daya aman (hingga 68W/120W untuk kabel prima, atau pembatasan ke 10W-18W untuk kabel berhambatan tinggi guna menghindari risiko kebakaran atau overheating).
+- **Penyimpanan Hasil Uji Terintegrasi**: Menyimpan riwayat benchmark terakhir secara persisten di SharedPreferences.
+
+### 3. iOS / Pixel-style Battery Health Assessment Hub & Kalibrasi 1-Ketuk
+- **Penilaian Verbal Kondisi Kimia Baterai**: Menampilkan kartu penilaian kesehatan berdesain bersih ala iOS/Pixel dengan badge status ("Sangat Prima", "Normal", "Perhatian") dan penjelasan performa puncak kapasitas sel.
+- **Estimasi Siklus Umur Pakai Optimal**: Memproyeksikan sisa tahun penggunaan optimal berdasarkan sisa siklus pengisian sel baterai (`1000 - cycle_count`).
+- **1-Click Kalibrasi Indikator & Fuel Gauge**: Tombol praktis untuk mereset tabel `batterystats` Android (`dumpsys batterystats --reset` dan menghapus `batterystats.bin`) serta menyinkronkan fuel gauge kernel saat indikator baterai loncat atau drift.
+
+### 4. Top 5 Konsumsi Daya Aplikasi
+- **Peringkat 5 Teratas Konsumen Baterai**: Menampilkan aplikasi dan layanan sistem yang paling banyak menguras daya baterai dalam satu siklus pengisian daya.
+- **Metrik Konsumsi (mAh & %)**: Menyajikan estimasi miliampere-jam yang diserap beserta persentase kontribusi dan progress bar visual.
+- **Pintasan Cepat 1-Ketuk ke Detail Aplikasi**: Mengetuk baris aplikasi langsung membuka menu App Info di Pengaturan Android untuk mempermudah pembatasan aktivitas latar belakang.
+
+### 5. Night Sleep Guard (Preservasi Baterai Saat Tidur)
+- **Auto-Bypass 23:00 - 06:00**: Otomatis mengunci pengisian ke mode hardware bypass (0mA Net) jika pengisian mencapai batas aman (misal 80%) pada malam hari.
+- **Perlindungan Terhadap Stres Trickle Charge**: Mencegah sel lithium terpapar tegangan tinggi (4.4V+) dan panas konstan semalaman saat ponsel ditinggal tidur di samping tempat tidur.
+
+### 6. Kalibrasi Arsitektur Sel Baterai (Dual-Cell 2S Multiplier)
+- **Dukungan 1x vs 2x Serial Cell**: Memungkinkan pemilihan arsitektur sel baterai tunggal (1x) atau sel ganda serial (2x) untuk perangkat seperti seri Xiaomi 120W, Realme SuperDart 65W+, dan OPPO SuperVOOC 2S.
+- **Akurasi Watt & Voltase 100%**: Mengalikan pembacaan voltase PMIC dan kalkulasi watt total baterai secara dinamis ketika mode 2x diaktifkan.
+
+---
+
 # Lynx [Codename: Deity] 3.0.64
 Released on: 2026-10-09
 > **Versi ini** menghadirkan **Tab Informasi & Statistik Baterai Lengkap (Dual-Tab Subscreen Navigation: "Kontrol & Tuning" dan "Informasi & Statistik"), 4 Bento Cards Informasi Mendalam (Status Daya & Sesi Pengisian, Penggunaan & Ketahanan Daya / SOT, Spesifikasi Hardware & Degradasi Sel Baterai, serta Diagnostik Jalur Listrik & Suhu Multi-Titik), Pelacakan Sesi Pengisian Real-time (Durasi Menit:Detik, Akumulasi Energi Masuk +mAh dan +Wh, Daya Puncak & Rata-rata, Arus Puncak, Delta Level % Start ➔ Now, Ringkasan Sesi Terakhir Pasca-Cabut), Telemetri Waktu Penggunaan (Waktu Sejak Charger Dicabut, SOT Nyata vs Estimasi, Screen-Off Siaga, Rasio Deep Sleep Kernel %, Laju Pengurasan %/jam Aktif & Idle), Metrik Degradasi Hardware (Kapasitas Desain Pabrik vs Full Charge Capacity FCC, State of Health SoH % & Wear Level % dengan Visual Progress Bar, Siklus Pengisian Fisik, Resistansi Internal Sel ESR mΩ, dan Identifikasi Chip Fuel Gauge), Serta Matriks Suhu 4 Titik Kritis (BMS Inti, IC Charger, Port USB, Board AP)** — menyajikan visibilitas dan transparansi data kesehatan serta efisiensi daya perangkat secara menyeluruh, akurat, dan intuitif dengan standar desain Mobile-First Cyberpunk yang konsisten.

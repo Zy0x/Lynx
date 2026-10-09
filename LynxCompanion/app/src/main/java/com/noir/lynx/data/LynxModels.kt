@@ -61,6 +61,8 @@ data class ChargingConfig(
     val smartTaperingEnabled: Boolean = true,
     val isUnconstrainedMaxHw: Boolean = false,
     val customLimitCurrentMa: Int = 6000,
+    val nightSleepGuardEnabled: Boolean = false,
+    val dualCellMultiplier: Int = 1,
 )
 
 data class UclampConfig(
@@ -258,6 +260,34 @@ data class BatteryDetails(
     val isCharging: Boolean get() = status.equals("Charging", ignoreCase = true) || currentMa > 100
 }
 
+data class BatteryDrainPoint(
+    val timestampMs: Long,
+    val level: Int,
+    val isScreenOn: Boolean = true,
+    val isCharging: Boolean = false,
+    val tempC: Float = 28.0f
+)
+
+data class CableBenchmarkResult(
+    val isTested: Boolean = false,
+    val isRunning: Boolean = false,
+    val resistanceMohm: Int = 100,
+    val voltageDropV: Float = 0.05f,
+    val starRating: Int = 5,
+    val qualityVerdict: String = "Kualitas Kabel Sangat Bagus",
+    val maxRecommendedWatt: Int = 33,
+    val testTimestampMs: Long = 0L
+)
+
+data class AppDrainItem(
+    val packageName: String,
+    val appName: String,
+    val drainMah: Int,
+    val drainPercent: Float,
+    val foregroundTimeText: String,
+    val backgroundTimeText: String
+)
+
 data class BatteryInfoStats(
     // 1. Status & Active Session
     val batteryStatusText: String = "Discharging",
@@ -277,6 +307,9 @@ data class BatteryInfoStats(
     val cycleCount: Int = 868,
     val fuelGaugeChip: String = "MT6358 / Universal Gauge",
     val chargingPolicyText: String = "Standard",
+    val healthVerdictBadge: String = "Sangat Prima",
+    val healthVerdictDesc: String = "Kapasitas sel baterai dalam performa puncak.",
+    val remainingCycleEstimateText: String = "Sisa ~2-3 tahun pemakaian optimal",
 
     // 3. Charging Session Analytics (Active or Last)
     val isSessionCharging: Boolean = false,
@@ -308,7 +341,12 @@ data class BatteryInfoStats(
     val chargerIcTempC: Float = 32.0f,
     val usbPortTempC: Float = 29.0f,
     val vbusVoltageV: Float = 5.0f,
-    val negotiatedProtocolText: String = "Standar"
+    val negotiatedProtocolText: String = "Standar",
+
+    // 6. Timeline, Benchmark & Top Drain Analytics
+    val drainHistoryPoints: List<BatteryDrainPoint> = emptyList(),
+    val cableBenchmark: CableBenchmarkResult = CableBenchmarkResult(),
+    val topDrainApps: List<AppDrainItem> = emptyList()
 )
 
 data class BootBackupInfo(
@@ -747,6 +785,8 @@ data class LynxUiState(
     val isCustomCurrentDialogOpen: Boolean = false,
     val batterySubTab: Int = 0,
     val batteryInfoStats: BatteryInfoStats = BatteryInfoStats(),
+    val isCableBenchmarkRunning: Boolean = false,
+    val isCalibratingBattery: Boolean = false,
 ) {
     fun resolveCpuTempC(): Int {
         val validZones = thermalZones.filter { it.tempC in 20f..115f }
