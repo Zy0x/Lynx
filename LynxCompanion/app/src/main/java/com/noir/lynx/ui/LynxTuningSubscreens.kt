@@ -1736,17 +1736,20 @@ fun TuningChargingCategory(
                 val isExtreme = state.charging.extremeChargingEnabled
                 val isOvernightLatched = battDetails?.isOvernightBypassLatched == true || (battDetails?.level ?: 0) >= 100
                 val isBypassActive = state.charging.bypassEnabled && ((battDetails?.level ?: 0) >= state.charging.maxBatteryPercent || isOvernightLatched)
+                val isNightGentle = (battDetails?.isNightGentleActive == true || (state.charging.nightSleepGuardEnabled && (battDetails?.isCharging == true) && java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY).let { it >= 23 || it < 6 })) && !isOvernightLatched && !isBypassActive
                 val isSmartTapering = battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled
 
                 val modePillLabel = when {
                     isOvernightLatched -> "🛡️ Baterai Penuh • Daya Beralih ke Sistem"
                     isBypassActive -> "🛡️ Daya Langsung Aktif • Baterai Dilewati"
+                    isNightGentle -> "🌙 Pengisian Sejuk Malam Hari (1.5A • Mode Dingin)"
                     isSmartTapering -> "❄️ Pendinginan Aktif • Arus Diturunkan (Baterai >90%)"
                     isExtreme -> if (state.charging.isUnconstrainedMaxHw) "⚡ Pengisian Cepat Aktif (Kecepatan Maksimal)" else "⚡ Pengisian Cepat Aktif (${state.charging.limitCurrentMa} mA)"
                     else -> "⚖️ Pengisian Standar (${state.charging.limitCurrentMa} mA)"
                 }
                 val modePillColor = when {
                     isOvernightLatched || isBypassActive -> AccentCyan
+                    isNightGentle -> AccentPurple
                     isSmartTapering -> AccentGreen
                     isExtreme -> AccentCyan
                     else -> AccentOrange
@@ -2044,7 +2047,7 @@ fun TuningChargingCategory(
                 }
 
                 LynxSlider(
-                    label = "Batas Pengisian Otomatis",
+                    label = "Batas Pengisian Cerdas",
                     value = maxBatteryValue,
                     onValueChange = {
                         isInteractingSafety = true
@@ -2058,12 +2061,12 @@ fun TuningChargingCategory(
                     },
                     valueRange = 70f..100f,
                     steps = 5,
-                    displayValue = if (maxBatteryValue >= 99.5f) "100% (Penuh)" else "${maxBatteryValue.toInt()}% (Otomatis Stop)",
+                    displayValue = if (maxBatteryValue >= 99.5f) "100% (Penuh & AutoCut)" else "${maxBatteryValue.toInt()}% (Bypass Langsung)",
                     accentColor = AccentGreen
                 )
 
                 Text(
-                    text = "Pengisian otomatis berhenti atau beralih ke daya langsung saat mencapai persentase ini untuk menjaga ketahanan sel baterai.",
+                    text = "Menghentikan pengisian sel baterai pada persentase pilihan Anda dan mengalirkan listrik langsung ke mesin ponsel. Dilengkapi buffer 3% untuk mencegah siklus colok-cabut berulang.",
                     style = MaterialTheme.typography.bodySmall,
                     fontSize = 11.sp,
                     color = TextSecondary,
@@ -2071,10 +2074,18 @@ fun TuningChargingCategory(
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
 
+                // Overnight Gentle Charging Switch (Slow 1.5A)
+                LynxSwitch(
+                    label = "Pengisian Sejuk Malam Hari (23:00 - 06:00)",
+                    subLabel = "Otomatis beralih ke arus santai & lambat (1.5A) saat Anda tidur di malam hari agar suhu baterai tetap dingin (<30°C) dan terhindar dari stres akibat arus tinggi.",
+                    checked = state.charging.nightSleepGuardEnabled,
+                    onCheckedChange = { viewModel.setNightSleepGuard(it) }
+                )
+
                 // Smart Tapering (90%+)
                 LynxSwitch(
                     label = "Pendinginan Otomatis (>90%)",
-                    subLabel = "Otomatis menurunkan arus pengisian saat baterai di atas 90% agar suhu sel baterai tetap dingin menjelang penuh.",
+                    subLabel = "Otomatis menurunkan arus pengisian saat baterai di atas 90% agar suhu sel baterai tetap dingin menjelang target.",
                     checked = state.charging.smartTaperingEnabled,
                     onCheckedChange = { viewModel.setSmartTapering(it) }
                 )
@@ -2084,7 +2095,7 @@ fun TuningChargingCategory(
                     shape = RoundedCornerShape(8.dp),
                     color = BgCard,
                     border = BorderStroke(0.8.dp, BorderGlass),
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(10.dp),
@@ -2100,13 +2111,6 @@ fun TuningChargingCategory(
                         )
                     }
                 }
-
-                LynxSwitch(
-                    label = "Perlindungan Saat Tidur (23:00 - 06:00)",
-                    subLabel = "Otomatis menghentikan pengisian saat baterai penuh di malam hari untuk mencegah stres pada sel baterai saat ditinggal tidur semalaman.",
-                    checked = state.charging.nightSleepGuardEnabled,
-                    onCheckedChange = { viewModel.setNightSleepGuard(it) }
-                )
             }
         } else {
             // ============================================================

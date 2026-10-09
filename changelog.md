@@ -1,3 +1,21 @@
+# Lynx [Codename: Deity] 3.0.70
+Released on: 2026-10-10
+> **Versi ini** menghadirkan **Evolusi Cerdas Pengisian Baterai: Transformasi Mode Tidur Menjadi 'Pengisian Sejuk Malam Hari' (Gentle 1.5A Slow Charging 23:00-06:00 dengan Suhu Super Dingin <30°C), Slider 'Batas Pengisian Cerdas' (70%-100%) dengan Integrasi Jendela Hysteresis 3% Anti-Microcycling/Anti-Chattering (Mencegah Loop Colok-Cabut Berulang & Mencegah Baterai Drop), Serta Indikator Status Mode Dinamis Ungu di Tab Kontrol**.
+
+## Fitur Baru & Peningkatan (3.0.70)
+
+### 1. Pengisian Sejuk Malam Hari (Overnight Gentle Charge 23:00 - 06:00)
+- **Arus Lambat & Santai 1.5A**: Menggantikan saklar malam hari yang sebelumnya redundan dengan mode pengisian lambat adaptif. Saat ponsel dicas saat tidur di malam hari (23:00 - 06:00), arus otomatis dibatasi ke tingkat santai 1500mA (~6W - 7.5W), menjaga sel baterai tetap dingin di bawah 30°C tanpa stres termal akibat arus tinggi.
+- **Pill Status Khusus Mode Malam**: Menampilkan indikator status mode real-time bertema ungu `🌙 Pengisian Sejuk Malam Hari (1.5A • Mode Dingin)` saat mode tidur aktif.
+- **Integrasi Cerdas dengan Bypass**: Begitu baterai menyentuh persentase target pengguna (misal 80% atau 100%), sistem langsung beralih ke *True Hardware Bypass* tanpa menguras daya baterai.
+
+### 2. Batas Pengisian Cerdas dengan Proteksi Hysteresis Buffer 3%
+- **Eliminasi Masalah Micro-Cycling / Chattering**: Sistem pengisian cerdas di kernel (`Charging-Controller.sh`) menerapkan ambang buffer `(max_pct - 3)`. Pengisian yang telah mencapai target tidak akan putus-sambung jika persentase hanya turun 1% (79%), melainkan baru aktif kembali jika turun ke batas aman (77%).
+- **True Motherboard Vsys Powering**: Menjaga jalur pasokan daya adaptor tetap aktif (`input_suspend = 0`) saat bypass aktif, mencegah ponsel menguras baterai sendiri saat masih terhubung ke kabel charger.
+- **Penyempurnaan Label & Deskripsi**: Mengganti nama menjadi *Batas Pengisian Cerdas* dengan teks penjelas yang edukatif dan menenangkan pengguna.
+
+---
+
 # Lynx [Codename: Deity] 3.0.69
 Released on: 2026-10-09
 > **Versi ini** menghadirkan **Penyempurnaan Arsitektur Tab Pengisian Daya (Sticky Charging Tab Header & Zero-Redundancy Layout): Integrasi Penuh Bilah Tab 'Pengisian Daya' & 'Informasi Baterai' ke dalam Sticky Category Header (Konsisten Seperti Tab CPU/GPU Sehingga Tidak Hilang Saat Di-Scroll), Eradikasi Tombol Aksi Bawah yang Redundan, Harmonisasi Ketinggian Tab 52.dp, Serta Reset Scroll Otomatis Saat Beralih Tab**.

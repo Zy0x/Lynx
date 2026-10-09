@@ -6489,6 +6489,12 @@ object LynxRepository {
                 val isOvernightLatched = cap >= 100 || stat.equals("Full", ignoreCase = true) || chgState.contains("bypass_100")
                 val isTapering = chgState.contains("tapering") || (cap in 90..99 && isCharging)
 
+                val cal = java.util.Calendar.getInstance()
+                val hr = cal.get(java.util.Calendar.HOUR_OF_DAY)
+                val isNightHour = (hr >= 23 || hr < 6)
+                val isNightPref = appContext?.getSharedPreferences("lynx_charging_prefs", Context.MODE_PRIVATE)?.getBoolean("night_sleep_guard", false) == true
+                val isNightGentle = chgState.contains("night_gentle") || (isNightPref && isNightHour && isCharging && !isOvernightLatched)
+
                 val watt = if (curMa > 0 && voltMv > 0) {
                     (curMa.toFloat() * voltMv.toFloat()) / 1_000_000f
                 } else 0f
@@ -6565,7 +6571,8 @@ object LynxRepository {
                     thermalZoneMatrix = tzList,
                     isEmergencyGuardActive = isGuardActive,
                     isOvernightBypassLatched = isOvernightLatched,
-                    isSmartTaperingActive = isTapering
+                    isSmartTaperingActive = isTapering,
+                    isNightGentleActive = isNightGentle
                 )
             } else null
         } catch (e: Exception) { null }
@@ -6996,6 +7003,13 @@ object LynxRepository {
             ?.edit()
             ?.putBoolean("night_sleep_guard", enabled)
             ?.apply()
+        try {
+            if (enabled) {
+                Shell.cmd("touch /dev/lynx_night_sleep_guard").exec()
+            } else {
+                Shell.cmd("rm -f /dev/lynx_night_sleep_guard").exec()
+            }
+        } catch (_: Exception) {}
         true
     }
 

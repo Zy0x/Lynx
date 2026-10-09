@@ -276,6 +276,7 @@ data class BatteryDetails(
     val isEmergencyGuardActive: Boolean = false,
     val isOvernightBypassLatched: Boolean = false,
     val isSmartTaperingActive: Boolean = false,
+    val isNightGentleActive: Boolean = false,
 ) {
     val isCharging: Boolean get() = status.equals("Charging", ignoreCase = true) || currentMa > 100
 }

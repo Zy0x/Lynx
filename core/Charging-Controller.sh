@@ -894,6 +894,7 @@ while true; do
     temp_guard_on="true"
     lockout_byp_on="true"
     smart_taper_on="true"
+    night_sleep_guard_on="false"
 
     if [ -f "$CONFIG_FILE" ]; then
         c_temp=$(awk -F': ' '/"temp_cutoff_c"/ {gsub(/[^0-9]/,"",$2); print $2}' "$CONFIG_FILE" 2>/dev/null)
@@ -905,6 +906,7 @@ while true; do
         c_guard=$(awk -F': ' '/"emergency_temp_guard_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "false" && echo "false" || echo "true")
         c_lock=$(awk -F': ' '/"thermal_lockout_bypass_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "false" && echo "false" || echo "true")
         c_taper=$(awk -F': ' '/"smart_tapering_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "false" && echo "false" || echo "true")
+        c_night=$(awk -F': ' '/"night_sleep_guard_enabled"/ {print $2}' "$CONFIG_FILE" 2>/dev/null | grep -q "true" && echo "true" || echo "false")
 
         [ -n "$c_temp" ] && cutoff_c="$c_temp"
         [ -n "$c_limit" ] && limit_ma="$c_limit"
@@ -915,7 +917,9 @@ while true; do
         [ -n "$c_guard" ] && temp_guard_on="$c_guard"
         [ -n "$c_lock" ] && lockout_byp_on="$c_lock"
         [ -n "$c_taper" ] && smart_taper_on="$c_taper"
+        [ -n "$c_night" ] && night_sleep_guard_on="$c_night"
     fi
+    [ -f "/dev/lynx_night_sleep_guard" ] && night_sleep_guard_on="true"
     [ -f "/dev/lynx_extreme_charging" ] && extreme_charging_on="true"
 
     # 1. Emergency Thermal Guard: Only trigger on genuine physical battery cell danger (>= 49.0°C)
@@ -981,6 +985,16 @@ while true; do
     # 5. Charging In Progress (0% to 99%)
     in_bypass_latch=false
 
+    # Check Night Sleep Guard (23:00 - 06:00 Gentle Overnight Charge: 1500mA Cool Mode)
+    cur_hour=$(date +%H 2>/dev/null)
+    [ -z "$cur_hour" ] && cur_hour=12
+    cur_hour=$(( 10#$cur_hour ))
+
+    is_night_gentle=false
+    if [ "$night_sleep_guard_on" = "true" ] && { [ "$cur_hour" -ge 23 ] || [ "$cur_hour" -lt 6 ]; }; then
+        is_night_gentle=true
+    fi
+
     # Smart Tapering check (90% to 99%)
     if [ "$smart_taper_on" = "true" ] && [ "$capacity" -ge 90 ]; then
         # Smart Tapering Active: Revoke spoofing to restore genuine battery cooling
@@ -995,6 +1009,12 @@ while true; do
             echo "state=tapering_90 cap=$capacity" > /dev/lynx_charging_state
             apply_regulated_charging 1500
         fi
+    elif [ "$is_night_gentle" = "true" ]; then
+        # Overnight Gentle Charging: Revoke thermal spoofing, clamp current to gentle 1500mA
+        rm -f /dev/lynx_extreme_charging 2>/dev/null
+        write_node "65535" "/sys/devices/platform/battery/Battery_Temperature"
+        echo "state=night_gentle cap=$capacity hour=$cur_hour" > /dev/lynx_charging_state
+        apply_regulated_charging 1500
     elif [ "$extreme_charging_on" = "true" ] || [ "$cur_prof" = "extreme" ] || [ "$limit_ma" -ge 3000 ]; then
         echo "state=extreme cap=$capacity" > /dev/lynx_charging_state
         apply_extreme_charging "$high_target_pct" "$lockout_byp_on"
