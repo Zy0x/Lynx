@@ -27,5 +27,6 @@ class LynxApp : Application() {
                 .setFlags(Shell.FLAG_REDIRECT_STDERR)
                 .setTimeout(10)
         )
+        com.noir.lynx.data.LynxRepository.appContext = this
     }
 }

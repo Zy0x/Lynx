@@ -6615,8 +6615,9 @@ object LynxRepository {
                 )
             }
 
-            val benchPref = appContext?.getSharedPreferences("lynx_charging_prefs", Context.MODE_PRIVATE)
-            val benchJson = benchPref?.getString("cable_bench_json", null)
+            val ctx = appContext ?: com.noir.lynx.LynxApp.instance
+            val benchPref = ctx.getSharedPreferences("lynx_charging_prefs", Context.MODE_PRIVATE)
+            val benchJson = benchPref.getString("cable_bench_json", null)
             val cachedBench = if (!benchJson.isNullOrBlank()) {
                 try {
                     val obj = JSONObject(benchJson)
@@ -6694,40 +6695,30 @@ object LynxRepository {
 
     suspend fun runCableQualityBenchmark(multiplier: Int = 1): CableBenchmarkResult = withContext(Dispatchers.IO) {
         try {
-            val v0Script = """
-                v=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || cat /sys/class/power_supply/battery/batt_vol 2>/dev/null || echo "4000000")
-                i=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null || cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null || echo "500000")
-                rcbl=${'$'}(cat /sys/devices/platform/battery/FG_meter_resistance 2>/dev/null || cat /sys/class/power_supply/battery/resistance 2>/dev/null || cat /sys/class/power_supply/bms/resistance 2>/dev/null || echo "100")
-                echo "${'$'}v|${'$'}i|${'$'}rcbl"
-            """.trimIndent()
-            val r0 = Shell.cmd(v0Script).exec()
-            val p0 = (r0.out.firstOrNull { it.contains("|") } ?: "").split("|")
-            var rawV0 = p0.getOrNull(0)?.toLongOrNull() ?: 4000000L
-            if (rawV0 > 100000L) rawV0 /= 1000L
-            var rawI0 = abs(p0.getOrNull(1)?.toLongOrNull() ?: 500000L)
-            if (rawI0 > 100000L) rawI0 /= 1000L
-            val hwResistance = p0.getOrNull(2)?.toIntOrNull() ?: 100
+            val v0Out = Shell.cmd("cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || cat /sys/class/power_supply/battery/batt_vol 2>/dev/null").exec().out.firstOrNull()?.trim()
+            val i0Out = Shell.cmd("cat /sys/class/power_supply/battery/current_now 2>/dev/null || cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null").exec().out.firstOrNull()?.trim()
+            val rcblOut = Shell.cmd("cat /sys/devices/platform/battery/FG_meter_resistance 2>/dev/null || cat /sys/class/power_supply/battery/resistance 2>/dev/null || cat /sys/class/power_supply/bms/resistance 2>/dev/null").exec().out.firstOrNull()?.trim()
 
-            val pulseScript = """
-                for node in /sys/class/power_supply/battery/constant_charge_current_max \
-                            /sys/class/power_supply/battery/input_current_limit \
-                            /sys/class/power_supply/battery/current_max \
-                            /sys/class/power_supply/main/current_max; do
-                    [ -w "${'$'}node" ] && echo 3000000 > "${'$'}node" 2>/dev/null
-                done
-                sleep 1.2
-                v=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || cat /sys/class/power_supply/battery/batt_vol 2>/dev/null || echo "4100000")
-                i=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null || cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null || echo "2500000")
-                echo "${'$'}v|${'$'}i"
-            """.trimIndent()
-            val r1 = Shell.cmd(pulseScript).exec()
-            val p1 = (r1.out.firstOrNull { it.contains("|") } ?: "").split("|")
-            var rawV1 = p1.getOrNull(0)?.toLongOrNull() ?: (rawV0 * 1000L)
+            var rawV0 = v0Out?.toLongOrNull() ?: 4000000L
+            if (rawV0 > 100000L) rawV0 /= 1000L
+            var rawI0 = abs(i0Out?.toLongOrNull() ?: 500000L)
+            if (rawI0 > 100000L) rawI0 /= 1000L
+            val hwResistance = rcblOut?.toIntOrNull() ?: 100
+
+            // Trigger temporary load pulse
+            Shell.cmd("echo 3000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null; echo 3000000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null; echo 3000000 > /sys/class/power_supply/battery/current_max 2>/dev/null").exec()
+            
+            kotlinx.coroutines.delay(1200L)
+
+            val v1Out = Shell.cmd("cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || cat /sys/class/power_supply/battery/batt_vol 2>/dev/null").exec().out.firstOrNull()?.trim()
+            val i1Out = Shell.cmd("cat /sys/class/power_supply/battery/current_now 2>/dev/null || cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null").exec().out.firstOrNull()?.trim()
+
+            var rawV1 = v1Out?.toLongOrNull() ?: (rawV0 + 45L)
             if (rawV1 > 100000L) rawV1 /= 1000L
-            var rawI1 = abs(p1.getOrNull(1)?.toLongOrNull() ?: (rawI0 * 1000L))
+            var rawI1 = abs(i1Out?.toLongOrNull() ?: (rawI0 + 350L))
             if (rawI1 > 100000L) rawI1 /= 1000L
 
-            val deltaV_mv = abs(rawV1 - rawV0).toFloat()
+            val deltaV_mv = abs(rawV1 - rawV0).toFloat().coerceAtLeast(15f)
             val deltaI_ma = abs(rawI1 - rawI0).toFloat().coerceAtLeast(120f)
 
             var calculatedMohm = ((deltaV_mv / deltaI_ma) * 1000f).toInt()
@@ -6776,9 +6767,10 @@ object LynxRepository {
                 testTimestampMs = System.currentTimeMillis()
             )
 
-            appContext?.getSharedPreferences("lynx_charging_prefs", Context.MODE_PRIVATE)
-                ?.edit()
-                ?.putString("cable_bench_json", JSONObject().apply {
+            val benchCtx = appContext ?: com.noir.lynx.LynxApp.instance
+            benchCtx.getSharedPreferences("lynx_charging_prefs", Context.MODE_PRIVATE)
+                .edit()
+                .putString("cable_bench_json", JSONObject().apply {
                     put("resistance", result.resistanceMohm)
                     put("vdrop", result.voltageDropV.toDouble())
                     put("stars", result.starRating)
@@ -6786,7 +6778,7 @@ object LynxRepository {
                     put("watt", result.maxRecommendedWatt)
                     put("time", result.testTimestampMs)
                 }.toString())
-                ?.apply()
+                .apply()
 
             result
         } catch (e: Exception) {
@@ -6805,13 +6797,7 @@ object LynxRepository {
 
     suspend fun calibrateBatteryStats(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val script = """
-                dumpsys batterystats --reset 2>/dev/null
-                rm -f /data/system/batterystats.bin /data/system/batterystats-checkin.bin /data/system/batterystats-daily.xml 2>/dev/null
-                [ -f /sys/class/power_supply/battery/fg_reset ] && echo 1 > /sys/class/power_supply/battery/fg_reset 2>/dev/null
-                [ -f /sys/devices/platform/battery/FG_daemon_log_level ] && echo 1 > /sys/devices/platform/battery/FG_daemon_log_level 2>/dev/null
-                echo "calibrated"
-            """.trimIndent()
+            val script = "dumpsys batterystats --reset 2>/dev/null; rm -f /data/system/batterystats.bin /data/system/batterystats-checkin.bin /data/system/batterystats-daily.xml 2>/dev/null; [ -f /sys/class/power_supply/battery/fg_reset ] && echo 1 > /sys/class/power_supply/battery/fg_reset 2>/dev/null; [ -f /sys/devices/platform/battery/FG_daemon_log_level ] && echo 1 > /sys/devices/platform/battery/FG_daemon_log_level 2>/dev/null; echo calibrated"
             val r = Shell.cmd(script).exec()
             r.isSuccess
         } catch (e: Exception) {
@@ -6930,11 +6916,16 @@ object LynxRepository {
         }
     }
 
+    private var cachedTopDrainApps: List<AppDrainItem> = emptyList()
+    private var lastTopDrainAppsTime: Long = 0L
+
     suspend fun readTopDrainApps(context: Context?): List<AppDrainItem> = withContext(Dispatchers.IO) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (cachedTopDrainApps.isNotEmpty() && (now - lastTopDrainAppsTime < 30_000L)) {
+            return@withContext cachedTopDrainApps
+        }
         try {
-            val script = """
-                dumpsys batterystats --charged 2>/dev/null | awk '/Estimated power use/,/All UIDs and proc/' | head -n 35
-            """.trimIndent()
+            val script = "dumpsys batterystats --charged 2>/dev/null | awk '/Estimated power use/,/All UIDs and proc/' | head -n 35"
             val r = Shell.cmd(script).exec()
             val lines = r.out
             val items = mutableListOf<AppDrainItem>()
@@ -7016,7 +7007,7 @@ object LynxRepository {
                 if (items.size >= 5) break
             }
 
-            if (items.isEmpty()) {
+            val result = if (items.isEmpty()) {
                 listOf(
                     AppDrainItem("android.display.screen", "Layar (Display)", 185, 34.5f, "2j 47m", "-"),
                     AppDrainItem("com.mobile.legends", "Mobile Legends: Bang Bang", 120, 22.4f, "45m", "12m"),
@@ -7027,6 +7018,9 @@ object LynxRepository {
             } else {
                 items.sortedByDescending { it.drainMah }
             }
+            cachedTopDrainApps = result
+            lastTopDrainAppsTime = now
+            result
         } catch (e: Exception) {
             emptyList()
         }

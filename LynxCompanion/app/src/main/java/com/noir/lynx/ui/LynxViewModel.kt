@@ -1040,14 +1040,19 @@ class LynxViewModel : ViewModel() {
         if (_uiState.value.isCableBenchmarkRunning) return
         _uiState.update { it.copy(isCableBenchmarkRunning = true) }
         viewModelScope.launch {
-            val mult = _uiState.value.state.charging.dualCellMultiplier
-            val res = LynxRepository.runCableQualityBenchmark(multiplier = mult)
-            _uiState.update { current ->
-                current.copy(
-                    isCableBenchmarkRunning = false,
-                    batteryInfoStats = current.batteryInfoStats.copy(cableBenchmark = res),
-                    successMessage = "Pengujian Selesai: ${res.starRating}★ (${res.resistanceMohm} mΩ) - ${res.qualityVerdict}"
-                )
+            try {
+                val mult = _uiState.value.state.charging.dualCellMultiplier
+                val res = LynxRepository.runCableQualityBenchmark(multiplier = mult)
+                _uiState.update { current ->
+                    current.copy(
+                        batteryInfoStats = current.batteryInfoStats.copy(cableBenchmark = res),
+                        successMessage = "Pengujian Selesai: ${res.starRating}★ (${res.resistanceMohm} mΩ) - ${res.qualityVerdict}"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "Gagal menjalankan pengujian kabel: ${e.message}") }
+            } finally {
+                _uiState.update { it.copy(isCableBenchmarkRunning = false) }
             }
         }
     }
@@ -3811,7 +3816,8 @@ class LynxViewModel : ViewModel() {
                     avgChargingWatt = if (details.chargerWatt > 0f) ((chargeSessionPeakWatt + details.chargerWatt) / 2f) * cellMult else 0f,
                     peakChargingMa = chargeSessionPeakMa,
                     voltageNowMv = effectiveVoltageMv,
-                    lastChargingSessionSummary = lastChargingSessionSummaryCached
+                    lastChargingSessionSummary = lastChargingSessionSummaryCached,
+                    cableBenchmark = if (_uiState.value.isCableBenchmarkRunning) _uiState.value.batteryInfoStats.cableBenchmark else rawStats.cableBenchmark
                 )
 
                 _uiState.update { it.copy(batteryDetails = updatedDetails, batteryInfoStats = updatedInfoStats) }
