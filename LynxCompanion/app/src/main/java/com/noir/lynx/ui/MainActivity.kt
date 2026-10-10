@@ -45,6 +45,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.AnimationState
+import androidx.compose.animation.core.animateDecay
+import androidx.compose.animation.rememberSplineBasedDecay
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -346,6 +351,39 @@ fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
 }
 
 // ============================================================
+//  Fluid Natural Fling Behavior (Low Friction Glide Spec)
+// ============================================================
+
+@Composable
+fun rememberFluidFlingBehavior(): FlingBehavior {
+    val splineSpec = rememberSplineBasedDecay<Float>()
+    return remember(splineSpec) {
+        object : FlingBehavior {
+            override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
+                if (kotlin.math.abs(initialVelocity) < 1f) return 0f
+                val boostedVelocity = initialVelocity * 1.20f
+                var lastValue = 0f
+                var velocityLeft = boostedVelocity
+                AnimationState(
+                    initialValue = 0f,
+                    initialVelocity = boostedVelocity
+                ).animateDecay(splineSpec) {
+                    val delta = value - lastValue
+                    val consumed = scrollBy(delta)
+                    lastValue = value
+                    velocityLeft = velocity
+                    // Only cancel if we hit a hard container boundary (delta attempted > 1.5px but 0 consumed)
+                    if (kotlin.math.abs(delta) > 1.5f && kotlin.math.abs(consumed) < 0.1f) {
+                        cancelAnimation()
+                    }
+                }
+                return velocityLeft
+            }
+        }
+    }
+}
+
+// ============================================================
 //  Main Dashboard — 4-Tab Luxury Material 3 Navigation
 // ============================================================
 
@@ -357,6 +395,7 @@ fun MainDashboard(
 ) {
     val state = uiState.state
     val context = LocalContext.current
+    val fluidFling = rememberFluidFlingBehavior()
     val dashboardLazyState = rememberLazyListState()
     val toolsLazyState = rememberLazyListState()
     val tuningHubLazyState = rememberLazyListState()
@@ -789,6 +828,7 @@ fun MainDashboard(
             0 -> {
                 LazyColumn(
                     state = dashboardLazyState,
+                    flingBehavior = fluidFling,
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding(),
@@ -931,8 +971,16 @@ fun MainDashboard(
                         }
                     }
 
-                    item(key = "telemetry") {
-                        LiveTelemetryCard(telemetry = uiState.telemetry)
+                    item(key = "telemetry_gauges") {
+                        TelemetryGaugesCard(telemetry = uiState.telemetry)
+                    }
+
+                    item(key = "telemetry_memory") {
+                        TelemetryMemoryCard(telemetry = uiState.telemetry)
+                    }
+
+                    item(key = "telemetry_topology") {
+                        TelemetryCpuTopologyCard(telemetry = uiState.telemetry)
                     }
 
                     item(key = "profiles") {
@@ -1248,9 +1296,9 @@ fun MainDashboard(
                     }
 
                     // ── Live Battery Wattage & Thermal Power Card ───────────
-                    if (uiState.telemetry != null) {
-                        item(key = "wattage") {
-                            val tel = uiState.telemetry ?: return@item
+                    item(key = "wattage") {
+                        val tel = uiState.telemetry
+                        if (tel != null) {
                             LynxCard(
                                 title = "Estimasi Daya & Konsumsi Watt",
                                 icon = Icons.Default.Bolt,
@@ -1318,14 +1366,14 @@ fun MainDashboard(
                     }
 
                     // ── Live Hardware Thermal Zones Matrix ─────────────────
-                    if (uiState.thermalZones.isNotEmpty()) {
-                        item(key = "thermal_zones") {
+                    item(key = "thermal_zones") {
+                        val zones = uiState.thermalZones.filter { it.tempC in 15f..110f }
+                        if (zones.isNotEmpty()) {
                             LynxCard(
                                 title = "Matriks Sensor Termal Hardware",
                                 icon = Icons.Default.Thermostat,
                                 accentColor = AccentRed
                             ) {
-                                val zones = uiState.thermalZones.filter { it.tempC in 15f..110f }
                                 val displayZones = zones.take(6)
                                 displayZones.chunked(2).forEach { row ->
                                     Row(
@@ -1374,7 +1422,7 @@ fun MainDashboard(
                     }
 
                     item(key = "dashboard_bottom_spacer") {
-                        Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
+                        Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding())
                     }
                 }
             }
@@ -1400,6 +1448,7 @@ fun MainDashboard(
                             // ── HUB VIEW (FULL-WIDTH SUBSYSTEM CARDS) ──
                             LazyColumn(
                                 state = tuningHubLazyState,
+                                flingBehavior = fluidFling,
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .statusBarsPadding()
@@ -1637,7 +1686,10 @@ fun MainDashboard(
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxWidth()
-                                        .verticalScroll(subscreenScrollState)
+                                        .verticalScroll(
+                                            state = subscreenScrollState,
+                                            flingBehavior = fluidFling
+                                        )
                                 ) {
                                     Spacer(Modifier.height(8.dp))
                                     when (currentCategory) {
@@ -1658,7 +1710,7 @@ fun MainDashboard(
                                         )
                                         else -> TuningCpuCategory(uiState = uiState, viewModel = viewModel)
                                     }
-                                    Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
+                                    Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding())
                                 }
                             }
                         }
@@ -1690,6 +1742,7 @@ fun MainDashboard(
 
                     LazyColumn(
                         state = toolsLazyState,
+                        flingBehavior = fluidFling,
                         modifier = Modifier
                             .fillMaxSize()
                             .statusBarsPadding()

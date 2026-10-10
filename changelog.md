@@ -1,3 +1,21 @@
+# Lynx Universal [Silky Low-Friction Spline Fling & Scroll Lock Stabilization] 7.0.0-RC8
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC8** menghadirkan penyempurnaan menyeluruh pada mesin sentuh dan kinetic fling antarmuka Android (Lynx Kernel Manager v3.0.73): **Overhaul Mesin Fling Berbasis Spline Decay** dan **Eliminasi Subpixel Fling Cancellation**, menyelesaikan kendala scrolling macet (*hard-brake stutter*), efek seperti menahan saat scroll cepat, serta *fallback/recoil jump* ke atas. Seluruh subhalaman Pusat Tuning kini diselaraskan dengan low-friction physics, dikombinasikan dengan stabilisasi kunci item dinamis pada kartu telemetri dan termal.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC8)
+
+### 1. Overhaul Mesin Kinetik Fling (Spline-Based Natural Glide)
+- **Fluid Spline Decay**: Menggantikan peredaman kaku bawaan Compose dengan `rememberSplineBasedDecay<Float>()` berbobot dorongan inersia `1.20x velocity boost`, menghasilkan luncuran scroll panjang yang halus dan natural di layar 120Hz.
+- **Eliminasi Subpixel Cancellation Bug**: Menghapus ambang pembatalan `abs(delta - consumed) > 0.5f` yang sebelumnya memotong animasi fling secara prematur akibat *subpixel snapping* antar-frame, beralih ke deteksi batas fisik kontainer mutlak (`abs(delta) > 1.5f && abs(consumed) < 0.1f`).
+- **Unifikasi Subscreen Fling Behavior**: Menghubungkan parameter `flingBehavior = fluidFling` ke seluruh kontainer `verticalScroll` di subhalaman Pusat Tuning (CPU, GPU & Display, Termal, Baterai, Memori, Jaringan, dan Sistem), menjamin konsistensi luncuran di seluruh kedalaman aplikasi.
+
+### 2. Stabilisasi Layout & Eliminasi Recoil Jump
+- **Stabilisasi Kunci Item Unconditional**: Mengunci item dinamis `wattage` dan `thermal_zones` secara permanen dengan filter suhu aman (15°C–110°C) di dalam `LazyColumn`, mencegah *layout shift* yang sebelumnya memicu pemantulan balik (*recoil jump*) saat telemetri di-update tiap detik.
+- **Pembersihan Material 3 Tonal Elevation**: Menghapus kalkulasi `surfaceTint` shader pada komponen `SubsystemCategoryCard` untuk mengeliminasi beban rendering berulang di UI thread.
+- **Peningkatan Bottom Clearance**: Menambah tinggi spacer bawah menjadi 130.dp untuk memberikan ruang bernapas optimal di balik *floating capsule dock*.
+
+---
+
 # Lynx Universal [Full UI Lazy Virtualization & Scroll Stabilization] 7.0.0-RC7
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC7** menghadirkan pembaruan besar pada arsitektur antarmuka aplikasi Android (Lynx Kernel Manager v3.0.72): **Migrasi Penuh ke `LazyColumn` Virtualization** di seluruh tab (Dashboard, Tuning Hub, dan Tools), mengeliminasi total masalah *scroll fallback/recoil jump* dan jank UI. Bottom dynamic capsule dock kini diisolasi menjadi *True Floating Overlay* permanen tanpa interupsi *touch event*, dilengkapi kompilasi release teroptimasi R8 yang memangkas latensi UI thread dari 85ms ke 32ms.
