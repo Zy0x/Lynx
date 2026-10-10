@@ -72,6 +72,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 
 /**
@@ -370,21 +371,46 @@ fun MainDashboard(
         isNavbarVisible = true
     }
 
-    val activeScrollValue = if (isSubscreenActive) subscreenScrollState.value else scrollState.value
-    LaunchedEffect(activeScrollValue) {
-        if (activeScrollValue <= 10 && !isNavbarVisible) {
-            isNavbarVisible = true
-        }
+    LaunchedEffect(isSubscreenActive) {
+        snapshotFlow { (if (isSubscreenActive) subscreenScrollState.value else scrollState.value) <= 30 }
+            .distinctUntilChanged()
+            .collect { isAtTop ->
+                if (isAtTop && !isNavbarVisible) {
+                    isNavbarVisible = true
+                }
+            }
     }
 
     val nestedScrollConnection = remember {
+        var accumulatedScroll = 0f
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 val delta = available.y
-                if (delta < -12f) {
-                    if (isNavbarVisible) isNavbarVisible = false
-                } else if (delta > 12f) {
+                val currentScroll = if (isSubscreenActive) subscreenScrollState.value else scrollState.value
+
+                // If user is near the very top, always ensure navbar is visible and reset accumulator
+                if (currentScroll <= 30) {
+                    accumulatedScroll = 0f
                     if (!isNavbarVisible) isNavbarVisible = true
+                    return Offset.Zero
+                }
+
+                if (delta > 0f) {
+                    // Scrolling up (content moving down) -> reveal navbar with deadband
+                    if (accumulatedScroll < 0f) accumulatedScroll = 0f
+                    accumulatedScroll += delta
+                    if (accumulatedScroll > 120f && !isNavbarVisible) {
+                        isNavbarVisible = true
+                        accumulatedScroll = 0f
+                    }
+                } else if (delta < 0f) {
+                    // Scrolling down (content moving up) -> hide navbar only after intentional downward drag
+                    if (accumulatedScroll > 0f) accumulatedScroll = 0f
+                    accumulatedScroll += delta
+                    if (accumulatedScroll < -180f && isNavbarVisible && currentScroll > 100) {
+                        isNavbarVisible = false
+                        accumulatedScroll = 0f
+                    }
                 }
                 return Offset.Zero
             }
@@ -872,17 +898,27 @@ fun MainDashboard(
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Row(verticalAlignment = Alignment.CenterVertically) {
+                                            val isNative = uiState.nativeStatus?.isNativeActive == true
                                             Surface(
                                                 shape = CircleShape,
-                                                color = if (uiState.isModuleInstalled) currentAccent else AccentOrange,
+                                                color = if (isNative) AccentGreen else if (uiState.isModuleInstalled) currentAccent else AccentOrange,
                                                 modifier = Modifier.size(6.dp)
                                             ) {}
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(
-                                                text = if (uiState.isModuleInstalled) "Magisk Deity Active" else "Standalone Root Mode",
+                                                text = if (isNative) {
+                                                    val daemonTag = if (uiState.nativeStatus?.daemonRunning == true) "● Daemon" else "Direct"
+                                                    val mod = uiState.nativeStatus?.modifier ?: "None"
+                                                    val modTag = if (mod != "None") " · $mod" else ""
+                                                    "lynxd Native [$daemonTag$modTag]"
+                                                } else if (uiState.isModuleInstalled) {
+                                                    "Lynx Deity Active"
+                                                } else {
+                                                    "Standalone Root Mode"
+                                                },
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Normal,
-                                                color = if (uiState.isModuleInstalled) TextSecondary else AccentOrange,
+                                                color = if (isNative) AccentGreen else if (uiState.isModuleInstalled) TextSecondary else AccentOrange,
                                             )
                                         }
                                     }

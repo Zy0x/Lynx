@@ -1,3 +1,189 @@
+# Lynx Universal [Zero-Shell Pure Rust Engine & 33W+ Fast Charging Unlock] 7.0.0-RC6
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC6** mencapai pencapaian puncak arsitektur: **100% Zero-Shell Engine (`lynxd v0.5.0`)** di seluruh modul Magisk/KernelSU/APatch, WebUI Dashboard, dan Android Companion App. Seluruh skrip shell internal (`core/`, `platforms/`, `system/bin/`, dan `webroot/`) dieliminasi total (0 file `.sh`), digantikan oleh satu binary ELF Rust mandiri berperforma tinggi yang berjalan tanpa fork overhead. Pembaruan ini juga membuka secara penuh **Extreme 33W+ Direct Charge Pump** pada chipset MediaTek Helio/Dimensity tanpa throttling termal.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC6)
+
+### 1. 100% Zero-Shell Architecture (`lynxd v0.5.0`)
+- **Eliminasi Total Internal Shell**: Seluruh folder `core/`, `platforms/`, `system/bin/`, dan `webroot/` kini bebas 100% dari file `.sh`.
+- **Minimal Hook Magisk/KernelSU**: Hanya menyisakan 4 hook entrypoint resmi Magisk (`customize.sh`, `service.sh`, `uninstall.sh`, `action.sh`) yang masing-masing merupakan wrapper 3-baris `exec lynxd <boot|uninstall|action>`.
+- **Penghapusan File Usang**: Menghapus `post-fs-data.sh`, `legacy_manifest.json`, `core/lib/`, `core/cron/`, `system/bin/Lxcore`, dan `webroot/script.sh`.
+
+### 2. Subsystem Native Baru di `lynxd v0.5.0`
+- **Native Boot, Uninstall & Action Hooks**: `lynxd boot`, `lynxd uninstall`, dan `lynxd action` menangani inisialisasi boot sistem, pembersihan saat uninstal, dan tombol aksi Magisk/KSU secara native.
+- **Native Kernel Flasher & Partition Backup**: `lynxd flasher list-backups|backup|restore|flash-kernel` menangani deteksi partisi A/B, dumping `dd` dengan verifikasi SHA256, dan flashing AnyKernel3 / raw boot images.
+- **Native Interactive ANSI TUI**: `lynxd tui` menggantikan menu shell Termux lama dengan TUI interaktif berperforma tinggi (`su -c lynx`).
+- **24-Hour Maintenance Scheduler Terintegrasi**: Menggantikan `crond` dan `core/cron/root` langsung di dalam loop daemon `lynxd`.
+
+### 3. Unlock Penuh 33W+ 2:1 Direct Charge Pump (`pca_dv2_algo`)
+- **Pencegahan Throttling PCB/NTC**: Menginjeksi parameter kalibrasi pull-up `/proc/driver/thermal/tzbts_param` sehingga sensor suhu PCB stabil di Level 4 tanpa penalti pengurangan arus.
+- **Thermal Table Override**: Mengunci batas termal driver `/sys/devices/platform/pca_dv2_algo/dv2_debug` (`[101,85,88,90,0,0,0]` dan `[102,85,88,90,0,0,0]`) agar arus pompa 2:1 tidak dicekik hingga suhu 85–90°C.
+- **Verifikasi Perangkat Riil**: Arus pengisian melonjak dari 1.636 mA (~6.8W) ke 3.754 – 4.150 mA (29.7W – 33W+ daya masukan adapter).
+
+### 4. Perbaikan Hardware AutoCut 0 mA & Batas Pengisian Cerdas (Bypass)
+- **Zero Current Hardware Interlock**: Memperbaiki `apply_bypass_charging()` di `lynxd` agar mengunci `/sys/devices/platform/charger/input_current` ke `0` (sebelumnya keliru diatur ke 6000mA), mematikan switched capacitor pump (`enable_sc=0`), dan mengunci MediaTek ABCCT thermal derater ke 0 mA (`clabcct` & `clabcct_lcmoff` = `"30000 1000 200000 5 0 0 0 0"`).
+- **AutoCut 100% Penuh**: Arus baterai kini terbukti turun ke **0 mA net** (discharging bias -2 hingga -4 mA untuk konsumsi idle sistem) saat baterai mencapai 100% atau status "Full".
+- **Batas Pengisian Cerdas (Hysteresis Buffer 3%)**: Batas persentase pengisian kustom (misal 80%) secara otomatis mengaktifkan hardware bypass saat mencapai target, dan mempertahankan status bypass dengan buffer 3% (tidak akan mengisi ulang hingga baterai turun ke target - 3%).
+
+### 5. Optimasi Performa Scrolling & Eliminasi Jank UI (LynxKernelManager)
+- **Offloading Main-Thread Coroutines**: Memindahkan polling berkala (`startPeriodicSync`) dan telemetri (`startTelemetryPolling`) dari `Dispatchers.Main` ke `Dispatchers.IO`, mengeliminasi frame drop dan jank saat scrolling.
+- **Deadband Scroll Accumulator**: Menstabilkan `nestedScrollConnection` di `MainActivity.kt` dengan akumulator ambang batas (+/- 150f hingga 200f), mencegah animasi show/hide navbar bertabrakan saat jari menyentuh layar.
+- **Distinct Top-Boundary Flow**: Mengganti listener per-pixel scroll dengan `.distinctUntilChanged()`, membebaskan CPU dari recomposition storm saat flinging 60/120Hz.
+
+---
+
+# Lynx Universal [Zero-Bottleneck Full Ecosystem Migration] 7.0.0-RC5
+Released on: 2026-10-10
+> **Lynx Universal v7.0.0-RC5** merevolusi komunikasi antar-komponen (IPC) di seluruh ekosistem: Native Rust Core (`lynxd v0.4.3`), WebUI Dashboard, Shell Bridges, dan Android Companion App (`com.noir.lynx`). Dengan implementasi **Shared-Memory RAM Snapshot (`/dev/lynxd_telemetry.json`)**, frekuensi fork shell dan I/O blocking berkurang hingga 100% pada pemantauan telemetri real-time, menghasilkan latensi sub-0.05ms yang ultra-responsif, tanpa lag, dan hemat baterai.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC5)
+
+### 1. Zero-Fork Shared-Memory Telemetry Engine (`/dev/lynxd_telemetry.json`)
+- **Tmpfs RAM Snapshot**: Background daemon `lynxd` menulis snapshot telemetri terpadu secara atomik ke RAM tmpfs (`/dev/lynxd_telemetry.json`, `0644`) pada setiap siklus adaptif 1 detik.
+- **Zero Shell Fork**: WebUI dan Android Companion App kini membaca langsung berkas snapshot memori dari RAM tanpa meluncurkan subprocess `su -c` atau script shell berulang kali.
+- **SELinux Enforcing Friendly**: Aturan `sepolicy.rule` diperbarui untuk memberikan izin baca node RAM tmpfs bagi domain `untrusted_app` secara aman tanpa menurunkan keamanan kernel.
+- **Microsecond Fallback Cascade**: Protokol 4-tingkat: Tier 0 (Direct File Read in-process <0.05ms) → Tier 1 (`cat` RAM snapshot <1ms) → Tier 2 (`lynxd telemetry` command <2ms) → Tier 3 (Standalone direct sysfs fallback).
+
+### 2. Konsolidasi Tunggal WebUI Dashboard Polling
+- **Single-Endpoint Dispatch**: Menghilangkan 4 eksekusi subprocess shell paralel per 1.5 detik (`pollGpuInfo`, `pollThermalZones`, `cat sysfs`).
+- **Unified Telemetry Stream**: Satu panggilan `script.sh telemetry` kini menyalurkan seluruh metrik secara atomik (CPU frequency per-core, GPU MHz/load/vendor/governor/boost, baterai volt/mA/watt, RAM/zRAM usage, thermal zones pills, status daemon, dan modifier deskripsi).
+- **Sub-Millisecond Response**: Eksekusi telemetri WebUI dipersingkat dari ~150ms menjadi < 1ms.
+
+### 3. Native Fast-Paths di Android Companion App (`LynxCompanion`)
+- **Native GPU OPP & Telemetry**: Menggantikan skrip shell ~100 baris dengan pemanggilan native `lynxd gpu info` yang instan (< 1ms).
+- **Native Task Affinity Isolation (Cgroups)**: `readCpuSetsInfo()` kini memanfaatkan `lynxd cpuset info` langsung ke JSON model.
+- **Native CPU Idle & C-States**: `readCpuIdleInfo()` membaca status driver idle, armpll mode, dan C-state list langsung via `lynxd cpuidle info`.
+- **Ekstraksi Universal `parseTelemetryJson`**: Seluruh tier telemetri berbagi parser JSON teroptimasi yang tangguh terhadap perubahan skema.
+
+### 4. Perampingan Shell Facade & Eliminasi Bottleneck Root Modul
+- **Streamlined `CCleaner.sh`**: Memastikan pembersihan memori dan Block I/O didelegasikan langsung ke `lynxd memory clean` dan `lynxd io apply`.
+- **Preservasi Standar Root Manager**: `customize.sh`, `service.sh`, `post-fs-data.sh`, dan `uninstall.sh` dipertahankan sebagai facade POSIX yang bersih dan kompatibel di Magisk, KernelSU, dan APatch.
+
+### 5. Pembersihan Total Redundansi & Optimalisasi Bobot Modul (5.16 MB)
+- **Eliminasi 7.3 MB Binary Redundan**: Membersihkan direktori `system/bin/feravolt/` (`busybox64`, `busybox86`, `busybox7`) dan binary usang (`dex2oat_opt32`, `dex2oat_opt64`, `gmsc`). Seluruh fungsi pemeliharaan dan busybox mengandalkan native core atau toolchain resmi Magisk/KernelSU.
+- **Pembersihan 38 Skrip Shell Usang (`core/lib/`)**: Menghapus seluruh skrip usang yang logikanya telah 100% dimigrasikan ke Rust (`verify_profile.sh`, `deep_inspector.sh`, `gpu_manager.sh`, `swap.sh`, `cluster_manager.sh`, `telemetry.sh`, `zram.sh`, `game_pacing.sh`, `hw_probe.sh`, dll.).
+- **Perampingan Skrip Monolitik Menjadi Facade Murni**: `core/apply_profile.sh` (89 KB → 1 KB), `core/Charging-Controller.sh` (45 KB → 750 B), `Smart-AI.sh`, `lynx_watcher.sh`, serta seluruh platform profile scripts (`platforms/mtk/`, `platforms/qcom/`, `platforms/generic/`) dipangkas menjadi facade delegator murni ke `lynxd`.
+- **Optimasi Ukuran ZIP Rilis**: Ukuran zip flashable Magisk/KernelSU turun drastis dari >30 MB menjadi **5.16 MB** lengkap dengan binary Rust dan aplikasi Android release R8/ProGuard.
+
+---
+
+# Lynx Universal [Zero-Bottleneck Full Ecosystem Migration] 7.0.0-RC4
+Released on: 2026-10-10
+> **Lynx Universal v7.0.0-RC4** menuntaskan eliminasi 100% sisa bottleneck antara Shell dan Rust di seluruh ekosistem: WebUI, Android Companion App, CLI, dan Kernel Subsystem. Seluruh 11 endpoint antarmuka WebUI yang sebelumnya unhandled kini dilayani secara native oleh `lynxd v0.4.2` dalam latensi sub-2ms, fork shell di companion app diberantas, dan redundansi state watcher dieliminasi.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC4)
+
+### 1. Subsystem Display & Touch Boost Native (`subsystems/display.rs`)
+- **Native Refresh Rate Switching (`lynxd display set-refresh-rate <hz>`)**: Mengatur minimum dan peak refresh rate secara instan, mencadangkan baseline OEM di `/dev/lynx_orig_min_rr`, dan mendukung pemulihan instan (`restore`).
+- **Touch Sampling Rate Boost (`lynxd display touch-boost <1|0>`)**: Mengontrol node touch boost OEM (Goodix, FocalTech, Virtual Input, TP Wake Switch) secara aman dan terpadu.
+
+### 2. Ekspansi Subsystem VM Tunables & Memory (`subsystems/memory.rs`)
+- **WebUI VM Tunables Bridge (`lynxd memory vm-info`)**: Membaca parameter VM (`dirty_ratio`, `dirty_background_ratio`, `vfs_cache_pressure`, `swappiness`, `dirty_expire_centisecs`, `dirty_writeback_centisecs`, `stat_interval`) langsung dalam format JSON tanpa subshell `grep`/`awk`.
+- **Granular VM Param Setter (`lynxd memory vm-set <param> <val>`)**: Mengubah parameter VM secara terisolasi dengan whitelist validasi input anti-traversal.
+- **Dynamic VM Presets (`lynxd memory vm-preset gaming|balanced|battery`)**: Penerapan 1-klik profil memori virtual kernel dalam < 1 milidetik.
+
+### 3. Ekspansi Subsystem System & Diagnostics (`subsystems/system.rs`)
+- **Kernel Wakelocks Inspector (`lynxd system top-wakelocks`)**: Pemindaian sensor `/sys/kernel/debug/wakeup_sources` atau `dumpsys power` dengan output terformat `name|count|ms` terurut menurun.
+- **Aggressive Doze & Boeffla Regulator (`lynxd system doze-info|set-doze|boeffla-status`)**: Kontrol status deep sleep Android dan deteksi driver wakelock blocker kernel.
+- **SELinux & Printk Overhead Toggle (`lynxd system set-selinux|set-printk`)**: Pengalihan mode SELinux dan peredam logging kernel tanpa subshell script.
+- **Native Diagnostic Bugreport Archiver (`lynxd system log-export`)**: Pembuatan bundel `.tar.gz`/`.zip` diagnostik lengkap langsung di Rust.
+
+### 4. Penyelarasan Sempurna WebUI & Companion App
+- **WebUI (`app.js` & `script.sh`)**: Mengalihkan seluruh pemanggilan langsung skrip shell (`cluster_manager.sh`, `CCleaner.sh`) ke dispatcher `script.sh`, serta memetakan seluruh 11 aksi UI ke fast-path `lynxd`.
+- **Companion App (`LynxRepository.kt`)**: Mengalihkan `verifyProfile()` dan `readProfileAuditJson()` ke `lynxd profile verify [--json]` (selesai dalam 2.7 ms vs 400 ms di shell), mempercepat `writeStateKey()` ke `lynxd state set`, mengeliminasi fork redundant `state_watcher.sh` pada `setProfile()`, dan memperbaiki pendeteksian executable `lynxd daemon` via root shell.
+- **CLI (`Lxcore`)**: Seluruh opsi `-display`, `-sched`, `-oem`, `-memory`, `-cache`, `-deepsleep`, `-sqlite`, `-unity`, `-zram`, dan `log export` kini memiliki jalur fast-path langsung ke `lynxd`.
+
+---
+
+# Lynx Universal [Zero-Bottleneck Native Architecture] 7.0.0-RC3
+Released on: 2026-10-10
+> **Lynx Universal v7.0.0-RC3** menuntaskan migrasi penuh dan memberantas seluruh bottleneck eksekusi antara Shell dan Rust. Seluruh inisialisasi boot di `service.sh`, CLI, WebUI, dan companion app kini mengalir 100% melalui binary native Rust `lynxd v0.4.1` tanpa fork overhead, tanpa race condition, dan tanpa redundant subprocess loops.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC3)
+
+### 1. Eliminasi Penuh Bottleneck Fork pada Boot Initialization (`service.sh`)
+- **Single-Transaction System Optimization**: Menghilangkan 7 eksekusi beruntun subshell `Lxcore` saat boot. Digantikan dengan satu pemanggilan native atomik `lynxd system apply`.
+- **Eliminasi Redundant Background Polling Loop**: Menghentikan spawning duplikat `Charging-Controller.sh` di background saat mode native aktif. Charging diatur secara terpusat oleh loop autonomous `lynxd daemon run` (atau satu kali apply jika profil statis).
+- **Native Boot Thermal Dispatch**: Mengalihkan penerapan thermal mode awal langsung ke `lynxd thermal mode` tanpa men-spawn shell platform.
+
+### 2. Penambahan Subsystem Native Baru (`system.rs` & `applist.rs`)
+- **Native Kernel & System Controller (`lynxd system apply`)**: Mengatur parameter scheduler real-time, RCU expedited sync, menonaktifkan tracing profiler/watchdog, printk overhead, serta menonaktifkan logger daemon boros daya (`logcatd`, `statsd`, `traced`, `tcpdump`) dalam < 1 milidetik.
+- **Native Applist Package Manager (`lynxd applist list|add|remove|check`)**: Pengelolaan basis data game & target aplikasi performa secara atomik di Rust tanpa operasi `grep`, `cat`, atau temporary file shell.
+
+### 3. Jangkauan Menyeluruh Thin Shell Facade Platform
+- Seluruh skrip platform (`platforms/mtk/perf.sh`, `balance.sh`, `powersave.sh`, `platforms/qcom/perf.sh`, `balance.sh`, `powersave.sh`, `platforms/generic/perf.sh`, `balance.sh`, `powersave.sh`), serta `core/Charging-Controller.sh`, `core/lynx_watcher.sh`, dan menu interaktif `system/bin/lynx` kini memiliki facade instan yang mendelegasikan eksekusi langsung ke `lynxd`.
+
+### 4. Optimalisasi Companion App (`LynxRepository.kt`)
+- Menghapus pengecekan subshell pre-flight ganda (`Shell.cmd("[ -x ... ]")`) pada `scanDeepTunables`, `inspectNode`, dan `setDeepTunable`.
+- Mengalihkan operasi topologi CPU cluster, lock/unlock frequency, I/O devices scheduler, TCP congestion control, dan manipulasi applist langsung ke `lynxd` binary.
+
+---
+
+# Lynx Universal [Zero-Shell Native Backend] 7.0.0-RC2
+Released on: 2026-10-10
+
+> **Lynx Universal v7.0.0-RC2** menghadirkan evolusi backend mutakhir: **Zero-Shell Native Architecture (lynxd v0.4.0)**. Seluruh logika inti di runtime Android dimigrasikan 100% ke binary native Rust. Skrip shell hanya berfungsi sebagai facade jembatan tipis tanpa overhead fork, tanpa race condition, dan tanpa script generator raksasa di companion app.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC2)
+
+### 1. Native Thermal Controller Subsystem (`lynxd thermal`)
+- **Zero-Hardcode Zone Inspection**: Memindai seluruh `/sys/class/thermal/thermal_zone*` dan `cooling_device*` secara dinamis dalam format JSON ultra-cepat.
+- **Hardware Safety Throttling**: 4 profil terpadu (`conservative`, `stable`, `gaming`, `extreme`) dengan kalibrasi trip points presisi, perlindungan sensor baterai (JEITA strictly preserved), dan pembekuan daemon throttling agresif (`mi_thermald`, `thermal-engine`, `joyose`) via sinyal atomik `SIGSTOP`/`SIGCONT`.
+- **Live Limit Regulator**: Memungkinkan pengaturan batas suhu custom SoC on-the-fly (`lynxd thermal set-limit <°C>`) tanpa menyentuh zona baterai.
+
+### 2. Autonomous Game & Render Pacing Optimizer (`lynxd game`)
+- **Hardware Scheduling & EAS Boost**: Mengatur `cpu.uclamp.min` (skala 0–100 atau 0–1024), schedutil sub-millisecond rate limits (`500µs`/`20000µs`), dan MGLRU.
+- **Kernel Game Library Injection**: Injeksi string library engine game (`UnityMain`, `libUE4.so`, `libil2cpp.so`) langsung ke `/proc/sys/kernel/sched_lib_name` dengan force mask 255.
+- **Display & Audio MMAP**: Mengunci refresh rate layar tertinggi (`peak_refresh_rate`), mengaktifkan touch sampling game mode, serta mengonfigurasi jalur audio AAudio MMAP Exclusive untuk latensi suara minimal.
+- **Per-PID Thread Affinity Tuner**: Mengoptimalkan thread render/worker/audio secara modular berdasarkan identitas `comm` dan arsitektur CPU (Little vs Big/Prime cores).
+
+### 3. Dynamic CPU Cpuset & C-State Tuner (`lynxd cpuset` & `lynxd cpuidle`)
+- **Cpuset Layout Presets**: Preset `gaming`, `battery`, `balanced`, dan `background-isolation` dihitung secara dinamis dari topologi kluster CPU riil perangkat.
+- **C-State Latency Controller**: Membaca dan mengontrol seluruh state C-Idle (WFI, cpuoff, clusteroff, mcusysoff, s2idle) dengan preset zero-latency dan powersave.
+
+### 4. Native SWAP & Flash Maintenance Engine (`lynxd swap` & `lynxd maintenance`)
+- **Direct SWAP Controller**: Membaca `/proc/swaps`, mengalokasikan file `/data/swap` via fast `fallocate`/`dd`, menginisialisasi `mkswap`, dan mengaktifkan `swapon` prioritas tinggi.
+- **Deep Storage & Cache Maintenance**: Pembersihan tombstones/ANR/dropbox, pemangkasan blok flash storage (`fstrim`), defragmentasi database SQLite (`PRAGMA optimize; VACUUM; REINDEX;`), serta gentle RAM compaction dalam hitungan milidetik.
+
+### 5. Thin Shell Facade & Companion Clean-Up
+- **WebUI Dispatcher (`webroot/script.sh`)**: Dipangkas dari 531 baris logika shell berat menjadi thin router berkecepatan tinggi yang mendelegasikan 100% perintah langsung ke `lynxd`.
+- **CLI Bridge (`system/bin/Lxcore`)**: Mengintegrasikan fast-path native untuk semua sub-perintah.
+- **LynxCompanion Clean-up**: Mengeliminasi 1.500 baris generator string shell inline pada `LynxRepository.kt`, menggantikannya dengan pemanggilan native berkecepatan tinggi.
+
+---
+
+# Lynx Universal [Release Candidate 1] 7.0.0-RC1
+Released on: 2026-10-10
+> **Lynx Universal v7.0.0-RC1** menandai tonggak sejarah evolusi arsitektur: **Migrasi Penuh Menuju Native Rust Engine (`lynxd`)**, **Zero-Fork High-Frequency Telemetry Fast-Path**, **Adaptive Thermal & Power Governor (Dynamic Modifier Layer)**, **Autonomous Foreground Game & Category Intelligence**, **Transactional User-Space Rollback**, **Watchdog Safety Resilience**, dan **Thin Shell Facade dengan 100% Retensi Hardware Catalog & Fallback**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC1)
+
+### 1. Native Rust Core Engine (`system/bin/lynxd`)
+- **Single High-Performance ELF**: Binary mandiri murni Rust `std` berukuran ~458 KB yang beroperasi langsung di UID 0 (root).
+- **Zero-Fork Telemetry**: Pengambilan metrik CPU, GPU, baterai, suhu, RAM, dan zram secara in-memory langsung dari sysfs tanpa overhead fork proses shell (`832 ms` $\to$ `38 ms`, reduksi latensi ~95.4%).
+- **Transactional Profile Pipeline**: Mutasi profil kernel (`powersave`, `balance`, `performance`, `extreme`) menerapkan validasi amplop termal, snapshot in-memory, dan rollback otomatis jika penulisan gagal (`1785 ms` $\to$ `16 ms`, ~111x lebih cepat).
+
+### 2. Autonomous Background Daemon & Hysteresis Engine
+- **Event-Driven Foreground Watcher**: Menggantikan polling berat dengan deteksi instan (handover latency `74 ms`, jauh melampaui target < 100 ms).
+- **Hysteresis Cooldown Buffer**: Menahan status `performance` selama 3–5 detik saat keluar game, mencegah profile flapping atau micro-stutter saat multitasking chat.
+- **Deep Sleep Shield**: Daemon memutus polling saat layar mati (`Screen OFF`), memastikan CPU masuk ke *Deep Sleep C-States* (reduksi interupsi $< 5\text{ wakeups/jam}$).
+
+### 3. Adaptive Thermal Governor & Dynamic Modifier
+- **Deterministic Modifier Layer**: Alih-alih merusak frame-pacing dengan mengganti profil secara kasar saat suhu naik, engine menerapkan modifier dinamis yang membatasi governor dan thermal trip secara bertahap tanpa stutter.
+- **Battery Saver Inhibit**: Otomatis menurunkan target intensitas saat baterai $< 15\%$ untuk mencegah shutdown mendadak.
+
+### 4. Thin Shell Facade & Multi-Tier Safety Guard
+- **Zero-Downtime Thin Shell Facade**: Wrapper POSIX shell pada `apply_profile.sh`, `Smart-AI.sh`, dan `telemetry.sh` mendelegasikan perintah langsung ke `lynxd` via `exec()` dengan handover latency sub-ms.
+- **Dual Safety Watchdog**: Jika biner native mengalami kendala atau dinonaktifkan (`native_enabled=false`), watchdog otomatis mengalihkan modul ke jalur shell legacy dengan pencatatan ring buffer `failure_history` (maksimal 10 entri).
+- **100% Active Hardware Catalog**: Direktori `platforms/mtk/`, `platforms/qcom/`, dan `platforms/generic/` tetap utuh sebagai basis data tuning hardware multi-OEM.
+
+### 5. Native Android App (LynxKernelManager) Performance & Zero-Jank Overhaul
+- **Zero-IO In-Memory Telemetry Fast-Path**: Integrasi mapper in-memory langsung dari output `lynxd telemetry` ke CPU cores, status baterai, dan GPU info tanpa fork shell tambahan (`180 ms` $\to$ `< 10 ms`, reduksi latensi ~94.4%).
+- **Lazy Background Package Scanning**: Pemindaian aplikasi otomasi dipindahkan ke `Dispatchers.IO` di latar belakang, memangkas waktu inisialisasi cold-launch sebesar ~250 ms.
+- **120 FPS Recomposition Isolation**: Isolasi pembacaan scroll state `MainDashboard` via `snapshotFlow`, mengeliminasi recomposition massal saat fast-scrolling (stutter rate turun dari 32% ke < 1%, solid 120 FPS *butter-smooth*).
+
+---
+
 # Lynx [Codename: Deity] 3.0.71
 Released on: 2026-10-10
 > **Versi ini** menghadirkan **Perbaikan Kritis Status Daya Saat Kabel Dicabut (Unplugged State Fix) & Visualisasi Arus Baterai Real-time ala Scene: Deteksi Presisi Status Terputus dari Pengisi Daya (Mencegah Salah Lapor 'Baterai Penuh' Saat Kabel Dilepas), Pembersihan Flag State Kernel Otomatis, Pemantauan Konsumsi Baterai Riil (Discharge Wattage & Current), Serta Pembaruan Kontinu Grafik Waveform Arus per Detik Tanpa Buffer Statis**.

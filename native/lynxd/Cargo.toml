@@ -1,0 +1,17 @@
+[package]
+name = "lynxd"
+version = "0.5.0"
+
+edition = "2021"
+authors = ["ɴᴏɪʀ"]
+description = "Lynx Universal Native Root Engine"
+
+[dependencies]
+# Zero external crates for Phase 1 (Pure Rust std)
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

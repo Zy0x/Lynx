@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LYNX KERNEL MANAGER — Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Top App Bar / Header -->
+        <div class="header">
+            <div>
+                <h1>LYNX <span>KERNEL MANAGER</span></h1>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+                    SoC: <span id="soc-info" style="color: var(--accent-cyan);">Detecting...</span>
+                </div>
+            </div>
+            <div id="status-badge" class="badge dormant">STANDBY</div>
+        </div>
+
+        <!-- Standalone Browser Alert (Magisk / Termux) -->
+        <div id="standalone-banner" class="banner banner-warning" style="display:none;">
+            <b>Akses WebUI Standalone Terdeteksi</b><br>
+            Aplikasi Lynx Kernel Manager dapat diakses langsung via WebUI atau Aplikasi Native Companion.
+        </div>
+
+        <!-- First-Boot Dormant Onboarding Banner -->
+        <div id="dormant-banner" class="banner banner-dormant" style="display:none;">
+            <b>Konfigurasi Awal Diperlukan (Safe First-Boot)</b><br>
+            Modul sedang dalam mode Standby. Silakan pilih profil performa di bawah untuk mengaktifkan tuning kernel!
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- TAB 1: DASHBOARD (LIVE TELEMETRY & PROFILES)            -->
+        <!-- ======================================================== -->
+        <div class="tab-pane active" id="tab-dashboard">
+            <!-- Live Telemetry Card -->
+            <div class="card">
+                <div class="card-title">Live Hardware Telemetry</div>
+                <div class="telemetry-grid">
+                    <div class="metric-box">
+                        <div class="metric-title">GPU Clock</div>
+                        <div class="metric-value"><span id="tel-gpu-freq">0</span> <small style="font-size:12px;">MHz</small></div>
+                        <div class="metric-sub">Load: <span id="tel-gpu-busy">0</span>%</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-title">Battery Temp & Health</div>
+                        <div class="metric-value"><span id="tel-temp">0.0</span> <small style="font-size:12px;">°C</small></div>
+                        <div class="metric-sub"><span id="tel-batt-lvl">0</span>% • <span id="tel-batt-cur">0</span> mA</div>
+                    </div>
+                </div>
+                
+                <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase;">
+                    CPU Cores Real-Time Clocks
+                </div>
+                <div class="cores-container" id="cores-grid">
+                    <!-- Populated dynamically: Core 0-7 -->
+                </div>
+
+                <div style="margin-top: 12px; display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
+                    <span>RAM Terpakai: <b id="tel-ram-used" style="color:var(--text-primary);">0</b> / <span id="tel-ram-total">0</span> MB</span>
+                </div>
+            </div>
+
+            <!-- Performance Profile Switcher -->
+            <div class="card">
+                <div class="card-title">Profil Performa</div>
+                <div class="profile-grid">
+                    <button class="btn-profile" data-profile="auto" onclick="setProfile('auto')">
+                        Auto (AI)
+                        <span>Adaptive foreground gaming</span>
+                    </button>
+                    <button class="btn-profile" data-profile="balance" onclick="setProfile('balance')">
+                        Balance
+                        <span>EAS daily efficiency</span>
+                    </button>
+                    <button class="btn-profile" data-profile="performance" onclick="setProfile('performance')">
+                        Performance
+                        <span>High clock sustained</span>
+                    </button>
+                    <button class="btn-profile" data-profile="extreme" onclick="setProfile('extreme')">
+                        Extreme
+                        <span>Unrestricted (Cooler req.)</span>
+                    </button>
+                    <button class="btn-profile" data-profile="powersave" onclick="setProfile('powersave')" style="grid-column: span 2;">
+                        Powersave
+                        <span>Maximum battery endurance</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hardware Thermal Zones Matrix (Live) -->
+            <div class="card" id="card-thermal-zones">
+                <div class="card-title">Matriks Sensor Termal Hardware (Real-Time)</div>
+                <div id="thermal-zones-grid" class="stat-grid" style="grid-template-columns: repeat(2, 1fr); gap: 8px;">
+                    <div style="font-size: 11px; color: var(--text-muted); grid-column: span 2;">Memuat sensor termal hardware...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- TAB 2: SOC TUNER (CLUSTERS, GOVERNORS, GPU, THERMAL)     -->
+        <!-- ======================================================== -->
+        <div class="tab-pane" id="tab-tuner">
+            <!-- CPU Clusters & Governor Tuner -->
+            <div class="card">
+                <div class="card-title">CPU Clusters & Governor Tuner</div>
+                <div id="clusters-container">
+                    <div style="color: var(--text-muted); font-size: 12px;">Memuat topologi cluster CPU...</div>
+                </div>
+            </div>
+
+            <!-- Universal GPU Advanced Control & Live Telemetry -->
+            <div class="card">
+                <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Kontrol GPU & Live Telemetri</span>
+                    <span id="web-gpu-vendor" style="font-size: 11px; font-weight: normal; color: var(--accent-cyan); background: rgba(0, 255, 170, 0.1); padding: 2px 8px; border-radius: 4px;">Memuat...</span>
+                </div>
+                <div class="stat-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 10px;">
+                    <div class="stat-box">
+                        <div class="stat-value" id="web-gpu-clock">-- MHz</div>
+                        <div class="stat-label">Clock GPU Aktif</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="web-gpu-load">0%</div>
+                        <div class="stat-label">Beban Komputasi GPU</div>
+                    </div>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 11.5px; color: var(--text-secondary);">Governor / DVFS Loading Mode:</label>
+                    <select id="web-gpu-gov-select" onchange="setWebGpuGov(this.value)" style="width: 100%; margin-top: 4px; padding: 6px 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-primary); border-radius: 6px; font-size: 12px;">
+                        <option value="">Memuat governor...</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 11.5px; color: var(--text-secondary);">Tingkat MTK GED / Adreno Boost:</label>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px;">
+                        <button class="btn-profile" id="web-btn-gpu-0" onclick="setWebGpuBoost(0)" style="padding: 8px;">
+                            Mati (0)<span>Hemat Daya</span>
+                        </button>
+                        <button class="btn-profile" id="web-btn-gpu-1" onclick="setWebGpuBoost(1)" style="padding: 8px;">
+                            Level 1<span>Normal Boost</span>
+                        </button>
+                        <button class="btn-profile" id="web-btn-gpu-2" onclick="setWebGpuBoost(2)" style="padding: 8px;">
+                            Level 2<span>Hardcore</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Intelligent Governor Schedutil Presets -->
+            <div class="card">
+                <div class="card-title">Tuning Governor Inteligen (Schedutil)</div>
+                <div style="font-size: 11.5px; color: var(--text-secondary); margin-bottom: 8px;">
+                    Optimasi waktu respon frekuensi CPU. Preset gaming mempercepat kenaikan clock ke frekuensi puncak (0µs ramp-up).
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                    <button class="btn-profile" id="web-btn-gov-resp" onclick="setWebGovPreset('responsive')" style="padding: 8px;">
+                        Responsif<span>0µs ramp-up</span>
+                    </button>
+                    <button class="btn-profile" id="web-btn-gov-bal" onclick="setWebGovPreset('balanced')" style="padding: 8px;">
+                        Seimbang<span>1000µs default</span>
+                    </button>
+                    <button class="btn-profile" id="web-btn-gov-power" onclick="setWebGovPreset('powersave')" style="padding: 8px;">
+                        Hemat<span>4000µs hemat</span>
+                    </button>
+                </div>
+            </div>
+
+
+            <!-- Overclock & Thermal Limits -->
+            <div class="card">
+                <div class="card-title">Overclock & Thermal Safety</div>
+
+                <div class="switch-row">
+                    <span class="switch-label">Mode Kernel Overclock (OC)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="oc-toggle" onchange="updateStateKey('overclock.enabled', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="control-group" style="margin-top: 10px;">
+                    <div class="control-label">
+                        <span>Floor Frekuensi CPU Gaming (Anti-Droop)</span>
+                        <strong id="oc-floor-val">85%</strong>
+                    </div>
+                    <input type="range" id="oc-floor-slider" min="60" max="100" step="5" value="85"
+                           oninput="document.getElementById('oc-floor-val').textContent = this.value + '%'"
+                           onchange="updateStateKey('overclock.cpu_floor_ratio', parseInt(this.value))">
+                </div>
+
+                <div class="switch-row" style="margin-top: 12px;">
+                    <span class="switch-label">Full Thermal Bypass (Unrestricted)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="thermal-bypass-toggle" onchange="updateStateKey('thermal.full_bypass', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="control-group" style="margin-top: 10px;">
+                    <div class="control-label">
+                        <span>Batas Suhu Thermal Custom</span>
+                        <strong id="custom-temp-val">50°C</strong>
+                    </div>
+                    <input type="range" id="custom-temp-slider" min="45" max="60" step="1" value="50"
+                           oninput="document.getElementById('custom-temp-val').textContent = this.value + '°C'"
+                           onchange="updateStateKey('thermal.custom_temp_limit_c', parseInt(this.value))">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>UCLAMP Task Clamping Min (Gaming)</span>
+                        <strong id="uclamp-val">70%</strong>
+                    </div>
+                    <input type="range" id="uclamp-slider" min="30" max="100" step="5" value="70"
+                           oninput="document.getElementById('uclamp-val').textContent = this.value + '%'"
+                           onchange="updateStateKey('uclamp.game_min_ratio', parseInt(this.value))">
+                </div>
+            </div>
+
+            <!-- Display Refresh Rate Card -->
+            <div class="card">
+                <div class="card-title">Display Refresh Rate</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                    Kunci refresh rate layar untuk animasi ultra-halus dan respon sentuh gaming.
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="refresh-rate-container">
+                    <button class="btn btn-primary" onclick="setRefreshRate(60)" id="rr-60" style="flex:1;">60 Hz (Hemat)</button>
+                    <button class="btn btn-primary" onclick="setRefreshRate(90)" id="rr-90" style="flex:1;">90 Hz (Halus)</button>
+                    <button class="btn btn-primary" onclick="setRefreshRate(120)" id="rr-120" style="flex:1;">120 Hz (Gaming)</button>
+                </div>
+            </div>
+
+            <!-- Game Mode & Per-App Profiles Card -->
+            <div class="card">
+                <div class="card-title">Game Mode & Per-App Profiles</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                    AI otomatis beralih ke profil Performa saat game/aplikasi aktif.
+                </div>
+                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                    <input type="text" id="applist-input" class="input-text" placeholder="com.dts.freefireth" style="flex:1;">
+                    <button class="btn btn-accent" onclick="addAppToWhitelist()" style="width: auto; padding: 0 16px;">
+                        + Tambah
+                    </button>
+                </div>
+                <div id="applist-chips" style="display: flex; gap: 6px; flex-wrap: wrap; max-height: 140px; overflow-y: auto;">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Deep Kernel & System Tunables (Auto-Discovery Engine) -->
+            <div class="card" id="card-deep-tunables">
+                <div class="card-title">Deep Kernel & System Tunables</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                    Pindai seluruh node kernel, OEM, GPU, CPU, dan ROM secara dinamis. Mendeteksi petunjuk konfigurasi <code>#</code> secara otomatis.
+                </div>
+                <button class="btn btn-accent" onclick="runDeepScan()" style="margin-bottom: 12px;" id="btn-deep-scan">
+                    Pindai Seluruh Sistem & Hardware (Deep Scan)
+                </button>
+                
+                <!-- Category Filter Chips -->
+                <div id="deep-filters" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 12px;">
+                    <button class="filter-chip active" onclick="filterDeepTunables('all')">Semua</button>
+                    <button class="filter-chip" onclick="filterDeepTunables('CPU & Scheduler')">CPU</button>
+                    <button class="filter-chip" onclick="filterDeepTunables('GPU & Graphics')">GPU</button>
+                    <button class="filter-chip" onclick="filterDeepTunables('Memory & VM')">Memory/VM</button>
+                    <button class="filter-chip" onclick="filterDeepTunables('Storage & I/O')">Storage</button>
+                    <button class="filter-chip" onclick="filterDeepTunables('Power & Thermal')">Power</button>
+                    <button class="filter-chip" onclick="filterDeepTunables('Display & Touch')">Display</button>
+                </div>
+
+                <!-- Discovered Tunables List -->
+                <div id="deep-tunables-container" style="display: flex; flex-direction: column; gap: 10px; max-height: 480px; overflow-y: auto;">
+                    <div style="font-size: 11.5px; color: var(--text-muted); text-align: center; padding: 16px 0;">
+                        Ketuk tombol "Pindai Seluruh Sistem" di atas untuk menemukan parameter kernel & OEM yang tersedia.
+                    </div>
+                </div>
+
+                <!-- Manual Node Inspector & Custom Controller -->
+                <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--card-border);">
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
+                        Inspeksi Node Sysfs / Proc Kustom
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="manual-node-input" class="input-text" placeholder="/proc/ppm/policy_status" style="margin-bottom: 0; flex: 1;">
+                        <button class="btn btn-primary" onclick="inspectManualNode()" style="width: auto; padding: 0 14px; font-size: 12px;">
+                            Inspeksi
+                        </button>
+                    </div>
+                    <div id="manual-node-result" style="margin-top: 8px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- TAB 3: LYNX DEITY ENGINE (MEMORY, CHARGE, TWEAKS)       -->
+        <!-- ======================================================== -->
+        <div class="tab-pane" id="tab-engine">
+            <!-- Memory & ZRAM -->
+            <div class="card">
+                <div class="card-title">Memory & Swappiness</div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Ukuran Alokasi ZRAM</span>
+                        <strong id="zram-val">2048 MB</strong>
+                    </div>
+                    <input type="range" id="zram-slider" min="1024" max="6144" step="512" value="2048"
+                           oninput="document.getElementById('zram-val').textContent = this.value + ' MB'"
+                           onchange="updateStateKey('memory.zram_size_mb', parseInt(this.value))">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Virtual Memory Swappiness</span>
+                        <strong id="swap-val">80</strong>
+                    </div>
+                    <input type="range" id="swap-slider" min="0" max="200" step="10" value="80"
+                           oninput="document.getElementById('swap-val').textContent = this.value"
+                           onchange="updateStateKey('memory.swappiness', parseInt(this.value))">
+                </div>
+            </div>
+
+            <!-- Charging Controller & Bypass -->
+            <div class="card">
+                <div class="card-title">Charging Controller & Bypass</div>
+                
+                <div class="switch-row">
+                    <span class="switch-label">Bypass Charging (Direct Motherboard)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="bypass-toggle" onchange="updateStateKey('charging.bypass_enabled', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="control-group" style="margin-top: 10px;">
+                    <div class="control-label">
+                        <span>Batas Suhu Thermal AutoCut</span>
+                        <strong id="temp-cutoff-val">45°C</strong>
+                    </div>
+                    <input type="range" id="temp-cutoff-slider" min="40" max="50" step="1" value="45"
+                           oninput="document.getElementById('temp-cutoff-val').textContent = this.value + '°C'"
+                           onchange="updateStateKey('charging.temp_cutoff_c', parseInt(this.value))">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Batas Arus Pengisian Game</span>
+                        <strong id="current-limit-val">1500 mA</strong>
+                    </div>
+                    <input type="range" id="current-limit-slider" min="500" max="3500" step="250" value="1500"
+                           oninput="document.getElementById('current-limit-val').textContent = this.value + ' mA'"
+                           onchange="updateStateKey('charging.limit_current_ma', parseInt(this.value))">
+                </div>
+            </div>
+
+            <!-- Subsystem Tweaks -->
+            <div class="card">
+                <div class="card-title">Subsystem & OEM Neutralizer</div>
+                
+                <div class="switch-row">
+                    <span class="switch-label">Wi-Fi Ping Stabilizer & FQ-CoDel</span>
+                    <label class="switch">
+                        <input type="checkbox" id="wifi-ping-toggle" onchange="updateStateKey('network.wifi_ping_stabilizer', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="switch-row">
+                    <span class="switch-label">TouchBoost & Lock Refresh Rate (120Hz)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="touchboost-toggle" onchange="updateStateKey('display_touch.touchboost', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="switch-row">
+                    <span class="switch-label">Low-Latency Audio MMAP (Footstep Boost)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="audio-mmap-toggle" onchange="updateStateKey('audio.low_latency_mmap', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="switch-row">
+                    <span class="switch-label">Netralkan Joyose / GOS Throttling</span>
+                    <label class="switch">
+                        <input type="checkbox" id="joyose-toggle" onchange="updateStateKey('oem_neutralizer.joyose_neutralize', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Virtual Memory & Cache Tuners -->
+            <div class="card">
+                <div class="card-title">VM Cache & Memory Tuner</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                    Konfigurasi manajemen swap, flush dirty page ke storage, dan agresivitas reclaim cache kernel.
+                </div>
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <button class="btn btn-primary" onclick="applyWebVmPreset('gaming')" id="btn-vm-gaming" style="flex:1;">Gaming</button>
+                    <button class="btn btn-primary" onclick="applyWebVmPreset('balanced')" id="btn-vm-balanced" style="flex:1;">Balanced</button>
+                    <button class="btn btn-primary" onclick="applyWebVmPreset('battery')" id="btn-vm-battery" style="flex:1;">Battery</button>
+                </div>
+                <button class="btn btn-primary" onclick="dropCaches()" style="margin-bottom: 14px; border-color: var(--accent-green); color: var(--accent-green);">
+                    Bebaskan Cache RAM (Drop Caches)
+                </button>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>VM Dirty Ratio (Batas Dirty RAM Flush)</span>
+                        <strong id="dirty-ratio-val">20%</strong>
+                    </div>
+                    <input type="range" id="dirty-ratio-slider" min="5" max="50" step="1" value="20"
+                           oninput="document.getElementById('dirty-ratio-val').textContent = this.value + '%'"
+                           onchange="setWebVmTunable('dirty_ratio', parseInt(this.value))">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>VM Dirty Background Ratio (Flush Latar Belakang)</span>
+                        <strong id="dirty-bg-ratio-val">5%</strong>
+                    </div>
+                    <input type="range" id="dirty-bg-ratio-slider" min="1" max="25" step="1" value="5"
+                           oninput="document.getElementById('dirty-bg-ratio-val').textContent = this.value + '%'"
+                           onchange="setWebVmTunable('dirty_background_ratio', parseInt(this.value))">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>VFS Cache Pressure (Reclaim Inode/Dentry)</span>
+                        <strong id="vfs-pressure-val">100</strong>
+                    </div>
+                    <input type="range" id="vfs-pressure-slider" min="10" max="200" step="5" value="100"
+                           oninput="document.getElementById('vfs-pressure-val').textContent = this.value"
+                           onchange="setWebVmTunable('vfs_cache_pressure', parseInt(this.value))">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Swappiness (Agresivitas Paging ZRAM)</span>
+                        <strong id="swappiness-val">100</strong>
+                    </div>
+                    <input type="range" id="swappiness-slider" min="0" max="100" step="5" value="100"
+                           oninput="document.getElementById('swappiness-val').textContent = this.value"
+                           onchange="setWebVmTunable('swappiness', parseInt(this.value))">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Dirty Expire Time (Masa Hidup Dirty Page)</span>
+                        <strong id="dirty-expire-val">30s</strong>
+                    </div>
+                    <input type="range" id="dirty-expire-slider" min="500" max="6000" step="500" value="3000"
+                           oninput="document.getElementById('dirty-expire-val').textContent = (parseInt(this.value)/100) + 's'"
+                           onchange="setWebVmTunable('dirty_expire_centisecs', parseInt(this.value))">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Dirty Writeback Interval (Frekuensi Flusher)</span>
+                        <strong id="dirty-wb-val">5s</strong>
+                    </div>
+                    <input type="range" id="dirty-wb-slider" min="100" max="3000" step="100" value="500"
+                           oninput="document.getElementById('dirty-wb-val').textContent = (parseInt(this.value)/100) + 's'"
+                           onchange="setWebVmTunable('dirty_writeback_centisecs', parseInt(this.value))">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>VM Stat Interval (Periode Update Statistik)</span>
+                        <strong id="stat-interval-val">1s</strong>
+                    </div>
+                    <input type="range" id="stat-interval-slider" min="1" max="30" step="1" value="1"
+                           oninput="document.getElementById('stat-interval-val').textContent = this.value + 's'"
+                           onchange="setWebVmTunable('stat_interval', parseInt(this.value))">
+                </div>
+            </div>
+
+            <!-- TCP Congestion Control -->
+            <div class="card">
+                <div class="card-title">TCP Congestion Control</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                    Algoritma TCP aktif mempengaruhi throughput, latensi, dan stabilitas koneksi game online.
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="tcp-container">
+                    <div style="font-size: 11px; color: var(--text-muted);">Memuat algoritma TCP dari kernel...</div>
+                </div>
+            </div>
+
+            <!-- Storage I/O Scheduler Manager -->
+            <div class="card" id="card-io-sched">
+                <div class="card-title">Storage I/O Scheduler Manager</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                    Pilih antrian I/O storage per block device (UFS/eMMC/NVMe) untuk efisiensi loading dan throughput baca/tulis.
+                </div>
+                <div id="io-devices-container" style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="font-size: 11px; color: var(--text-muted);">Memuat device storage I/O...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- TAB 4: TOOLS & FLASHER                                   -->
+        <!-- ======================================================== -->
+        <div class="tab-pane" id="tab-tools">
+            <!-- AnyKernel3 Flasher Card -->
+            <div class="card">
+                <div class="card-title">AnyKernel3 Flasher</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                    Flash kernel kustom (ZIP) langsung dari sistem. Kernel lama akan otomatis dicadangkan ke <code>/sdcard/Lynx/backups/</code> sebelum penulisan.
+                </div>
+                <input type="text" id="flasher-zip-path" class="input-text" placeholder="/sdcard/Download/kernel.zip">
+                <button class="btn btn-accent" onclick="flashAnyKernel()">
+                    Flash Kernel Sekarang
+                </button>
+            </div>
+
+            <!-- Boot Partition Backup & Restore -->
+            <div class="card">
+                <div class="card-title">Cadangan Partisi Boot</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                    Cadangkan dan pulihkan partisi <code>boot</code> dan <code>init_boot</code> perangkat Anda kapan saja.
+                </div>
+                <button class="btn btn-primary" onclick="backupBootPartition()">
+                    Buat Backup Boot Baru
+                </button>
+                <div style="margin-top: 14px; font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">
+                    Riwayat Backup Tersimpan:
+                </div>
+                <div id="backup-list" style="margin-top: 8px;">
+                    <div style="font-size: 12px; color: var(--text-muted);">Memuat riwayat backup...</div>
+                </div>
+            </div>
+
+            <!-- SELinux & Kernel Logging Card -->
+            <div class="card">
+                <div class="card-title">Status SELinux & Kernel Printk</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 13px; color: var(--text-primary); font-weight: 600;">
+                        Mode SELinux: <b id="selinux-mode-label" style="color: var(--accent-green);">Enforcing</b>
+                    </span>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn btn-primary" style="padding: 4px 10px; font-size: 11px; width:auto;" onclick="setSelinux('1')">Enforcing</button>
+                        <button class="btn btn-primary" style="padding: 4px 10px; font-size: 11px; width:auto;" onclick="setSelinux('0')">Permissive</button>
+                    </div>
+                </div>
+                <div class="switch-row">
+                    <span class="switch-label">Kernel Printk Silent Mode (Zero Overhead)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="printk-toggle" onchange="setPrintkSilent(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Wake Guard — Wakelock Telemetry & Deep Sleep -->
+            <div class="card" id="card-wakeguard">
+                <div class="card-title">Wake Guard — Wakelock & Deep Sleep</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                    Pantau driver kernel dan proses yang menahan CPU agar tidak masuk deep sleep.
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 8px 12px; background: var(--bg-elevated); border: 1px solid var(--border-glass); border-radius: 8px;">
+                    <span style="font-size: 12px; color: var(--text-primary); font-weight: 600;">Driver Boeffla Wakelock Blocker</span>
+                    <span id="boeffla-status-badge" style="font-size: 10px; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: var(--text-muted); font-weight: 700;">MEMERIKSA...</span>
+                </div>
+                <div class="switch-row" style="margin-bottom: 12px;">
+                    <div>
+                        <div class="switch-label">Aggressive Doze (Paksa Deep Sleep)</div>
+                        <div style="font-size: 10.5px; color: var(--text-secondary);">Paksa mode idle saat layar mati untuk memotong konsumsi baterai standby</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="doze-toggle" onchange="toggleWebAggressiveDoze(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <button class="btn btn-primary" onclick="pollWebWakelocks()" style="margin-bottom: 10px; font-size: 12px; padding: 6px 12px; border-color: var(--accent-cyan); color: var(--accent-cyan);">
+                    Pindai Wakelock Aktif
+                </button>
+                <div id="wakelock-list" style="display: flex; flex-direction: column; gap: 6px;">
+                    <div style="font-size: 11px; color: var(--text-muted);">Menunggu pemindaian wakelock...</div>
+                </div>
+            </div>
+
+            <!-- Maintenance & Diagnostics -->
+            <div class="card">
+                <div class="card-title">Pemeliharaan & Diagnostik</div>
+                <button class="btn btn-primary" onclick="runMaintenance()">
+                    Optimasi SQLite & FSTRIM (Storage Maintenance)
+                </button>
+                <button class="btn btn-primary" onclick="runCCleaner()" style="margin-top: 8px;">
+                    Jalankan CCleaner (Memory Compaction)
+                </button>
+                <button class="btn btn-accent" onclick="exportBugReport()" style="margin-top: 8px;">
+                    Ekspor Laporan Diagnostik 1-Klik (.ZIP)
+                </button>
+                <button class="btn btn-primary" onclick="openNativeApp()" style="margin-top: 8px; border-color: var(--accent-blue); color: var(--accent-blue);">
+                    Buka Aplikasi Lynx Companion Native
+                </button>
+            </div>
+
+            <!-- Activity Log Console -->
+            <div class="card">
+                <div class="card-title">Konsol Log Aktivitas</div>
+                <div id="console" class="console">Memuat aktivitas modul...</div>
+            </div>
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- BOTTOM NAVIGATION (4-TAB M3 EXPRESSIVE)                 -->
+        <!-- ======================================================== -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" onclick="switchTab('dashboard')" id="nav-dashboard">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+                </span>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('tuner')" id="nav-tuner">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+                </span>
+                <span>SoC Tuner</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('engine')" id="nav-engine">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+                </span>
+                <span>Lynx Engine</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('tools')" id="nav-tools">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
+                </span>
+                <span>Tools</span>
+            </button>
+        </nav>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

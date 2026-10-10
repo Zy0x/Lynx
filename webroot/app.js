@@ -206,10 +206,12 @@ function renderUI(state) {
 }
 
 // 4. Save and Mutate State Atomically
+const LYNXD = "/data/adb/modules/Lynx/system/bin/lynxd";
+
 async function updateStateKey(key, value, isString = false) {
     isUpdating = true;
     logToConsole(`Updating ${key} -> ${value}...`);
-    const cmd = `/data/adb/modules/Lynx/system/bin/Lxcore state set "${key}" "${value}" ${isString ? 'str' : 'val'}`;
+    const cmd = `${LYNXD} state set "${key}" "${value}" ${isString ? 'str' : 'val'}`;
     const res = await execCmd(cmd);
     if (res.errno === 0) {
         logToConsole(`Set ${key} = ${value} success`, 'success');
@@ -226,14 +228,22 @@ async function setProfile(profile) {
         const confirmExtreme = confirm("PERINGATAN MODE EXTREME:\nMode ini membuka batas termal dan mengunci frekuensi CPU/GPU 100%. Disarankan menggunakan cooler pendingin eksternal untuk menjaga suhu silikon SoC. Lanjutkan?");
         if (!confirmExtreme) return;
     }
+    if (profile === 'auto') {
+        await execCmd(`${LYNXD} daemon status >/dev/null 2>&1 || nohup ${LYNXD} daemon run >/dev/null 2>&1 &`);
+    } else if (profile === 'dormant') {
+        await execCmd(`${LYNXD} daemon stop >/dev/null 2>&1; ${LYNXD} profile revert`);
+    } else {
+        const mapped = profile === 'high' ? 'performance' : profile === 'aggressive' ? 'extreme' : profile;
+        await execCmd(`${LYNXD} profile apply "${mapped}"`);
+    }
     await updateStateKey('active_profile', profile, true);
     await updateStateKey('setup_pending', 'false');
+    pollNativeStatus();
 }
 
 async function exportBugReport() {
     logToConsole("Membuat arsip diagnostik lengkap...", "warn");
-    // Use script.sh dispatcher — works in both KernelSU and HTTP fallback mode
-    const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh export_log");
+    const res = await execCmd(`${LYNXD} system log-export`);
     if (res.stdout && !res.stdout.startsWith("Error")) {
         const path = res.stdout.trim();
         logToConsole(`Laporan berhasil dibuat: ${path}`, 'success');
@@ -245,15 +255,14 @@ async function exportBugReport() {
 
 async function runMaintenance() {
     logToConsole("Menjalankan SQLite VACUUM & Storage TRIM...", "warn");
-    // Use script.sh dispatcher — works in both KernelSU and HTTP fallback mode
-    const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh maintenance");
+    const res = await execCmd(`${LYNXD} maintenance run`);
     const output = res.stdout || res.stderr || "Pemeliharaan & optimasi storage selesai.";
     logToConsole(output, res.errno === 0 ? "success" : "error");
 }
 
 async function runCCleaner() {
     logToConsole("Running CCleaner & Memory Compaction...", "warn");
-    const res = await execCmd("sh /data/adb/modules/Lynx/core/CCleaner.sh");
+    const res = await execCmd(`${LYNXD} memory clean`);
     logToConsole(res.stdout || "Memory compaction complete.", "success");
 }
 
@@ -264,24 +273,58 @@ let clusterTopology = [];
 let telemetryPollTick = 0;
 
 async function pollTelemetry() {
-    pollGpuInfo();
-    pollThermalZones();
     telemetryPollTick++;
-    if (telemetryPollTick % 3 === 0) {
+    if (telemetryPollTick % 4 === 0) {
         loadClusterTopology(false);
     }
     try {
-        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh telemetry");
+        const res = await execCmd(`cat /dev/lynxd_telemetry.json 2>/dev/null || ${LYNXD} telemetry`);
         if (res.errno === 0 && res.stdout) {
             const data = JSON.parse(res.stdout);
             
-            // GPU
+            // 1. GPU Telemetry
             const gpuFreqEl = document.getElementById('tel-gpu-freq');
             if (gpuFreqEl && data.gpu_freq !== undefined) gpuFreqEl.textContent = data.gpu_freq;
+            const clkEl = document.getElementById('web-gpu-clock');
+            if (clkEl && data.gpu_freq !== undefined) clkEl.textContent = `${data.gpu_freq} MHz`;
+
             const gpuBusyEl = document.getElementById('tel-gpu-busy');
             if (gpuBusyEl && data.gpu_busy !== undefined) gpuBusyEl.textContent = data.gpu_busy;
+            const loadEl = document.getElementById('web-gpu-load');
+            if (loadEl && data.gpu_busy !== undefined) loadEl.textContent = `${data.gpu_busy}%`;
+
+            const vendorEl = document.getElementById('web-gpu-vendor');
+            if (vendorEl && data.gpu_vendor) vendorEl.textContent = data.gpu_vendor;
+
+            if (data.gpu_boost !== undefined) {
+                const boostLvl = parseInt(data.gpu_boost, 10);
+                [0, 1, 2].forEach(b => {
+                    const btn = document.getElementById(`web-btn-gpu-${b}`);
+                    if (btn) {
+                        if (b === boostLvl) btn.classList.add('active');
+                        else btn.classList.remove('active');
+                    }
+                });
+            }
+
+            const govSel = document.getElementById('web-gpu-gov-select');
+            if (govSel && data.gpu_avail_govs && data.gpu_avail_govs.length > 0) {
+                if (govSel.options.length <= 1 || govSel.dataset.loaded !== 'true') {
+                    govSel.innerHTML = '';
+                    data.gpu_avail_govs.forEach(g => {
+                        const opt = document.createElement('option');
+                        opt.value = g;
+                        opt.textContent = g;
+                        if (g === data.gpu_cur_gov) opt.selected = true;
+                        govSel.appendChild(opt);
+                    });
+                    govSel.dataset.loaded = 'true';
+                } else if (document.activeElement !== govSel && data.gpu_cur_gov) {
+                    govSel.value = data.gpu_cur_gov;
+                }
+            }
             
-            // Battery & Temp
+            // 2. Battery & Temp
             const tempEl = document.getElementById('tel-temp');
             if (tempEl && data.temp !== undefined) tempEl.textContent = data.temp;
             const battLvlEl = document.getElementById('tel-batt-lvl');
@@ -292,13 +335,13 @@ async function pollTelemetry() {
                 battCurEl.textContent = prefix + data.batt_current_ma;
             }
 
-            // RAM
+            // 3. RAM & zRAM
             const ramUsedEl = document.getElementById('tel-ram-used');
             if (ramUsedEl && data.ram_used_mb !== undefined) ramUsedEl.textContent = data.ram_used_mb;
             const ramTotEl = document.getElementById('tel-ram-total');
             if (ramTotEl && data.ram_total_mb !== undefined) ramTotEl.textContent = data.ram_total_mb;
 
-            // CPU Cores
+            // 4. CPU Cores Grid
             const coresGrid = document.getElementById('cores-grid');
             if (coresGrid && Array.isArray(data.cpu)) {
                 if (coresGrid.children.length !== data.cpu.length) {
@@ -334,9 +377,67 @@ async function pollTelemetry() {
                     }
                 });
             }
+
+            // 5. Thermal Zones Grid (Unified)
+            if (Array.isArray(data.thermal_zones)) {
+                renderThermalZones(data.thermal_zones);
+            }
+
+            // 6. Engine / Daemon Status Badge & Runtime Modifier
+            if (data.daemon) {
+                const engineBadge = document.getElementById('engine-status-badge');
+                if (engineBadge) {
+                    if (data.daemon.running) {
+                        engineBadge.innerHTML = `<span style="color:var(--accent-cyan);">● lynxd (${data.daemon.pid || ''})</span>`;
+                    } else {
+                        engineBadge.innerHTML = `<span style="color:var(--text-secondary);">○ lynxd</span>`;
+                    }
+                }
+            }
+            if (data.runtime) {
+                const modTag = document.getElementById('runtime-modifier-tag');
+                if (modTag) {
+                    if (data.runtime.modifier && data.runtime.modifier !== "None") {
+                        modTag.textContent = `${data.runtime.modifier}`;
+                        modTag.title = data.runtime.modifier_desc || '';
+                        modTag.style.display = 'block';
+                    } else {
+                        modTag.style.display = 'none';
+                    }
+                }
+            }
         }
     } catch (e) {
         // Silently handle parse errors during polling
+    }
+}
+
+async function pollNativeStatus() {
+    try {
+        const res = await execCmd(`cat /dev/lynxd_status.json 2>/dev/null || ${LYNXD} status --json`);
+        if (res.errno === 0 && res.stdout) {
+            const status = JSON.parse(res.stdout);
+            const engineBadge = document.getElementById('engine-status-badge');
+            if (engineBadge) {
+                if (status.daemon && status.daemon.running) {
+                    engineBadge.innerHTML = `<span style="color:var(--accent-cyan);">● lynxd (${status.daemon.pid})</span>`;
+                } else {
+                    engineBadge.innerHTML = `<span style="color:var(--text-secondary);">○ lynxd</span>`;
+                }
+            }
+            const modTag = document.getElementById('runtime-modifier-tag');
+            if (modTag && status.runtime) {
+                if (status.runtime.modifier && status.runtime.modifier !== "None") {
+                    modTag.textContent = `${status.runtime.modifier}`;
+                    modTag.title = status.runtime.modifier_desc || '';
+                    modTag.style.display = 'block';
+                } else {
+                    modTag.style.display = 'none';
+                }
+            }
+        }
+    } catch (e) {
+        // Silently handle parse errors
     }
 }
 
@@ -344,7 +445,7 @@ async function loadClusterTopology(forceRebuild = false) {
     const container = document.getElementById('clusters-container');
     if (!container) return;
     try {
-        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh cluster_topology");
+        const res = await execCmd(`${LYNXD} cluster topology`);
         if (res.errno === 0 && res.stdout) {
             const data = JSON.parse(res.stdout);
             if (data.clusters && data.clusters.length > 0) {
@@ -467,8 +568,8 @@ async function toggleClusterLock(policyId, shouldLock) {
     const min = cluster ? cluster.cur_min : 0;
     const max = cluster ? cluster.cur_max : 0;
     const cmd = shouldLock 
-        ? `sh /data/adb/modules/Lynx/core/lib/cluster_manager.sh lock_freq ${policyId} ${min} ${max}`
-        : `sh /data/adb/modules/Lynx/core/lib/cluster_manager.sh unlock_freq ${policyId}`;
+        ? `${LYNXD} cluster lock ${policyId} ${min} ${max}`
+        : `${LYNXD} cluster unlock ${policyId}`;
     const res = await execCmd(cmd);
     if (res.errno === 0) {
         logToConsole(`Cluster ${policyId} ${shouldLock ? 'locked' : 'unlocked'}.`, 'success');
@@ -484,7 +585,7 @@ async function setClusterFreq(policyId, minFreq, maxFreq) {
     const targetMax = maxFreq !== null ? maxFreq : (cluster ? cluster.cur_max : 0);
 
     logToConsole(`Setting Policy ${policyId} Freq: Min=${Math.round(targetMin/1000)}MHz Max=${Math.round(targetMax/1000)}MHz...`);
-    const cmd = `sh /data/adb/modules/Lynx/webroot/script.sh set_cluster_freq ${policyId} ${targetMin} ${targetMax}`;
+    const cmd = `${LYNXD} cluster set_freq ${policyId} ${targetMin} ${targetMax}`;
     const res = await execCmd(cmd);
     if (res.errno === 0) {
         logToConsole(`Policy ${policyId} frequency applied.`, 'success');
@@ -500,7 +601,7 @@ async function setClusterFreq(policyId, minFreq, maxFreq) {
 
 async function setClusterGov(policyId, gov) {
     logToConsole(`Setting Policy ${policyId} Governor: ${gov}...`);
-    const cmd = `sh /data/adb/modules/Lynx/webroot/script.sh set_cluster_gov ${policyId} ${gov}`;
+    const cmd = `${LYNXD} cluster set_gov ${policyId} ${gov}`;
     const res = await execCmd(cmd);
     if (res.errno === 0) {
         logToConsole(`Policy ${policyId} governor set to ${gov}.`, 'success');
@@ -543,7 +644,7 @@ async function flashAnyKernel() {
     if (!confirmFlash) return;
 
     logToConsole(`Memulai flashing AnyKernel3: ${zipPath}...`, 'warn');
-    const cmd = `sh /data/adb/modules/Lynx/webroot/script.sh flash_kernel "${zipPath}"`;
+    const cmd = `${LYNXD} flasher flash "${zipPath}"`;
     const res = await execCmd(cmd);
     const output = res.stdout || res.stderr || "";
     logToConsole(output, res.errno === 0 ? 'success' : 'error');
@@ -558,7 +659,7 @@ async function flashAnyKernel() {
 
 async function backupBootPartition() {
     logToConsole("Mencadangkan partisi boot/init_boot...", "warn");
-    const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh backup_boot");
+    const res = await execCmd(`${LYNXD} flasher backup`);
     logToConsole(res.stdout || res.stderr || "Proses backup selesai.", res.errno === 0 ? 'success' : 'error');
     loadBackups();
 }
@@ -568,7 +669,7 @@ async function loadBackups() {
     if (!container) return;
 
     try {
-        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh list_backups");
+        const res = await execCmd(`${LYNXD} flasher list_backups`);
         if (res.errno === 0 && res.stdout) {
             const data = JSON.parse(res.stdout);
             if (data.backups && data.backups.length > 0) {
@@ -600,7 +701,7 @@ async function restoreBoot(path) {
     if (!confirmRestore) return;
 
     logToConsole(`Memulihkan partisi dari ${path}...`, 'warn');
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh restore_boot "${path}"`);
+    const res = await execCmd(`${LYNXD} flasher restore "${path}"`);
     logToConsole(res.stdout || res.stderr || "Restore selesai.", res.errno === 0 ? 'success' : 'error');
 }
 
@@ -618,7 +719,7 @@ async function openNativeApp() {
 
 async function setRefreshRate(hz) {
     logToConsole(`Mengubah refresh rate ke ${hz} Hz...`);
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_refresh_rate ${hz}`);
+    const res = await execCmd(`${LYNXD} display set-refresh-rate ${hz}`);
     logToConsole(res.stdout || "Refresh rate disetel", 'success');
     document.querySelectorAll('#refresh-rate-container button').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById(`rr-${hz}`);
@@ -627,13 +728,13 @@ async function setRefreshRate(hz) {
 
 async function dropCaches() {
     logToConsole("Membebaskan Cache RAM (Drop Caches)...", "warn");
-    const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh drop_caches");
+    const res = await execCmd(`${LYNXD} memory clean`);
     logToConsole(res.stdout || "Cache RAM dibebaskan.", 'success');
 }
 
 async function loadWebVmTunables() {
     try {
-        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh get_vm_tunables");
+        const res = await execCmd(`${LYNXD} memory vm-info`);
         if (res.errno === 0 && res.stdout) {
             const data = JSON.parse(res.stdout);
             const setSlider = (id, labelId, val, suffix = '') => {
@@ -656,13 +757,13 @@ async function loadWebVmTunables() {
 }
 
 async function setWebVmTunable(param, val) {
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_vm_tunable ${param} ${val}`);
+    const res = await execCmd(`${LYNXD} memory vm-set ${param} ${val}`);
     logToConsole(res.stdout || `VM ${param} disetel ke ${val}`, 'info');
 }
 
 async function applyWebVmPreset(preset) {
     logToConsole(`Menerapkan preset VM '${preset}'...`);
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh apply_vm_preset ${preset}`);
+    const res = await execCmd(`${LYNXD} memory vm-preset ${preset}`);
     logToConsole(res.stdout || `Preset VM '${preset}' diterapkan`, 'success');
     await loadWebVmTunables();
     document.querySelectorAll('#btn-vm-gaming, #btn-vm-balanced, #btn-vm-battery').forEach(b => b.classList.remove('active'));
@@ -674,7 +775,7 @@ async function loadTcpCongestion() {
     const container = document.getElementById('tcp-container');
     if (!container) return;
     try {
-        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh get_tcp");
+        const res = await execCmd(`${LYNXD} network info`);
         if (res.errno === 0 && res.stdout) {
             const data = JSON.parse(res.stdout);
             const cur = (data.current || "").trim();
@@ -697,7 +798,7 @@ async function loadTcpCongestion() {
 
 async function setTcpCongestion(alg) {
     logToConsole(`Menyetel TCP Congestion Control ke ${alg}...`);
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_tcp ${alg}`);
+    const res = await execCmd(`${LYNXD} network set_algo ${alg}`);
     logToConsole(res.stdout || `TCP disetel ke ${alg}`, 'success');
     await updateStateKey('network.tcp_congestion', alg, true);
     document.querySelectorAll('#tcp-container button').forEach(b => b.classList.remove('active'));
@@ -707,7 +808,7 @@ async function setTcpCongestion(alg) {
 
 async function loadWebBoefflaAndDoze() {
     try {
-        const bRes = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh get_boeffla_status");
+        const bRes = await execCmd(`${LYNXD} system boeffla-status`);
         const badge = document.getElementById('boeffla-status-badge');
         if (badge && bRes.errno === 0 && bRes.stdout) {
             const bData = JSON.parse(bRes.stdout);
@@ -722,7 +823,7 @@ async function loadWebBoefflaAndDoze() {
             }
         }
 
-        const dRes = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh get_doze");
+        const dRes = await execCmd(`${LYNXD} system doze-info`);
         const toggle = document.getElementById('doze-toggle');
         if (toggle && dRes.errno === 0 && dRes.stdout) {
             const dData = JSON.parse(dRes.stdout);
@@ -736,12 +837,12 @@ async function loadWebBoefflaAndDoze() {
 async function toggleWebAggressiveDoze(enabled) {
     const p = enabled ? '1' : '0';
     logToConsole(`Menyetel Aggressive Doze ke ${enabled ? 'Aktif' : 'Nonaktif'}...`);
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_doze ${p}`);
+    const res = await execCmd(`${LYNXD} system set-doze ${p}`);
     logToConsole(res.stdout || `Aggressive Doze diperbarui`, 'success');
 }
 
 async function setSelinux(val) {
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_selinux ${val}`);
+    const res = await execCmd(`${LYNXD} system set-selinux ${val}`);
     logToConsole(res.stdout || `SELinux mode updated`, 'info');
     const label = document.getElementById('selinux-mode-label');
     if (label) {
@@ -752,13 +853,13 @@ async function setSelinux(val) {
 
 async function setPrintkSilent(silent) {
     const param = silent ? 'silent' : 'verbose';
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_printk ${param}`);
+    const res = await execCmd(`${LYNXD} system set-printk ${param}`);
     logToConsole(res.stdout || `Printk set to ${param}`, 'info');
 }
 
 async function loadApplist() {
     try {
-        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh applist_read");
+        const res = await execCmd(`${LYNXD} applist list`);
         const container = document.getElementById('applist-chips');
         if (!container) return;
         container.innerHTML = '';
@@ -785,14 +886,14 @@ async function addAppToWhitelist() {
     const input = document.getElementById('applist-input');
     if (!input || !input.value.trim()) return;
     const pkg = input.value.trim();
-    await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh applist_add "${pkg}"`);
+    await execCmd(`${LYNXD} applist add "${pkg}"`);
     input.value = '';
     logToConsole(`Menambahkan ${pkg} ke whitelist game`, 'success');
     loadApplist();
 }
 
 async function removeAppFromWhitelist(pkg) {
-    await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh applist_remove "${pkg}"`);
+    await execCmd(`${LYNXD} applist remove "${pkg}"`);
     logToConsole(`Menghapus ${pkg} dari whitelist game`, 'info');
     loadApplist();
 }
@@ -803,7 +904,7 @@ async function removeAppFromWhitelist(pkg) {
 
 async function pollGpuInfo() {
     try {
-        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh gpu_info");
+        const res = await execCmd(`${LYNXD} gpu info`);
         if (res.errno === 0 && res.stdout) {
             const data = JSON.parse(res.stdout);
             const clkEl = document.getElementById('web-gpu-clock');
@@ -851,13 +952,13 @@ async function pollGpuInfo() {
 async function setWebGpuGov(gov) {
     if (!gov) return;
     logToConsole(`Menyetel governor GPU ke ${gov}...`);
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_gpu_gov ${gov}`);
+    const res = await execCmd(`${LYNXD} gpu set_gov ${gov}`);
     logToConsole(res.stdout || `Governor GPU ${gov} diterapkan`, 'success');
 }
 
 async function setWebGpuBoost(lvl) {
     logToConsole(`Menyetel tingkat GPU Boost ke Level ${lvl}...`);
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_gpu_boost ${lvl}`);
+    const res = await execCmd(`${LYNXD} gpu set_boost ${lvl}`);
     logToConsole(res.stdout || `GPU Boost level ${lvl} diterapkan`, 'success');
     [0, 1, 2].forEach(b => {
         const btn = document.getElementById(`web-btn-gpu-${b}`);
@@ -870,7 +971,7 @@ async function setWebGpuBoost(lvl) {
 
 async function setWebGovPreset(preset) {
     logToConsole(`Menerapkan preset governor schedutil: ${preset}...`);
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_gov_preset ${preset}`);
+    const res = await execCmd(`${LYNXD} cluster set-schedutil-preset ${preset}`);
     logToConsole(res.stdout || `Governor preset ${preset} diterapkan`, 'success');
     ['resp', 'bal', 'power'].forEach(p => {
         const btn = document.getElementById(`web-btn-gov-${p}`);
@@ -881,34 +982,65 @@ async function setWebGovPreset(preset) {
     if (activeBtn) activeBtn.classList.add('active');
 }
 
+function renderThermalZones(zones) {
+    const container = document.getElementById('thermal-zones-grid');
+    if (!container || !Array.isArray(zones) || zones.length === 0) return;
+    container.innerHTML = '';
+    zones.forEach(z => {
+        const type = z.type || 'unknown';
+        const temp = Math.round(z.temp_c !== undefined ? z.temp_c : (z.temp > 1000 ? z.temp / 1000 : z.temp));
+        let color = 'var(--accent-green)';
+        if (temp >= 65) color = 'var(--accent-red)';
+        else if (temp >= 55) color = 'var(--accent-yellow)';
+        else if (temp >= 45) color = 'var(--accent-cyan)';
+
+        const item = document.createElement('div');
+        item.className = 'thermal-pill';
+        item.innerHTML = `
+            <span class="thermal-type">${type.length > 14 ? type.substring(0, 12) + '..' : type}</span>
+            <span class="thermal-val" style="color: ${color};">${temp}°C</span>
+        `;
+        container.appendChild(item);
+    });
+}
+
 async function pollThermalZones() {
     try {
-        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh thermal_zones");
-        const container = document.getElementById('thermal-zones-grid');
-        if (!container || res.errno !== 0 || !res.stdout) return;
-        
-        const lines = res.stdout.trim().split('\n').filter(Boolean);
-        if (lines.length > 0) {
-            container.innerHTML = '';
-            lines.forEach(line => {
-                const parts = line.split('|');
-                if (parts.length >= 2) {
-                    const type = parts[0].trim();
-                    const temp = parseInt(parts[1].trim(), 10);
-                    let color = 'var(--accent-green)';
-                    if (temp >= 65) color = 'var(--accent-red)';
-                    else if (temp >= 55) color = 'var(--accent-yellow)';
-                    else if (temp >= 45) color = 'var(--accent-cyan)';
-
-                    const item = document.createElement('div');
-                    item.className = 'thermal-pill';
-                    item.innerHTML = `
-                        <span class="thermal-type">${type.length > 14 ? type.substring(0, 12) + '..' : type}</span>
-                        <span class="thermal-val" style="color: ${color};">${temp}°C</span>
-                    `;
-                    container.appendChild(item);
+        const res = await execCmd(`${LYNXD} thermal status`);
+        if (res.errno === 0 && res.stdout) {
+            const raw = res.stdout.trim();
+            if (raw.startsWith('{')) {
+                const data = JSON.parse(raw);
+                if (Array.isArray(data.thermal_zones)) {
+                    renderThermalZones(data.thermal_zones);
+                    return;
                 }
-            });
+            }
+            const container = document.getElementById('thermal-zones-grid');
+            if (!container) return;
+            const lines = raw.split('\n').filter(Boolean);
+            if (lines.length > 0) {
+                container.innerHTML = '';
+                lines.forEach(line => {
+                    const parts = line.split('|');
+                    if (parts.length >= 2) {
+                        const type = parts[0].trim();
+                        const temp = parseInt(parts[1].trim(), 10);
+                        let color = 'var(--accent-green)';
+                        if (temp >= 65) color = 'var(--accent-red)';
+                        else if (temp >= 55) color = 'var(--accent-yellow)';
+                        else if (temp >= 45) color = 'var(--accent-cyan)';
+
+                        const item = document.createElement('div');
+                        item.className = 'thermal-pill';
+                        item.innerHTML = `
+                            <span class="thermal-type">${type.length > 14 ? type.substring(0, 12) + '..' : type}</span>
+                            <span class="thermal-val" style="color: ${color};">${temp}°C</span>
+                        `;
+                        container.appendChild(item);
+                    }
+                });
+            }
         }
     } catch (e) {}
 }
@@ -918,7 +1050,7 @@ async function pollWebWakelocks() {
     if (!list) return;
     list.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">Memindai sensor wakelock kernel...</div>';
     try {
-        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh top_wakelocks");
+        const res = await execCmd(`${LYNXD} system top-wakelocks`);
         if (res.errno === 0 && res.stdout) {
             const lines = res.stdout.trim().split('\n').filter(Boolean);
             if (lines.length > 0) {
@@ -954,7 +1086,7 @@ async function loadIoDevices() {
     const container = document.getElementById('io-devices-container');
     if (!container) return;
     try {
-        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh io_devices");
+        const res = await execCmd(`${LYNXD} io info`);
         if (res.errno === 0 && res.stdout) {
             const data = JSON.parse(res.stdout);
             if (data.devices && data.devices.length > 0) {
@@ -990,7 +1122,7 @@ async function loadIoDevices() {
 
 async function setWebIoSched(dev, sched) {
     logToConsole(`Menyetel scheduler ${dev} ke ${sched}...`);
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh set_io_sched "${dev}|${sched}"`);
+    const res = await execCmd(`${LYNXD} io set_scheduler "${dev}" "${sched}"`);
     logToConsole(res.stdout || `Scheduler ${sched} diterapkan pada ${dev}`, 'success');
     loadIoDevices();
 }
@@ -1014,7 +1146,7 @@ async function runDeepScan() {
     container.innerHTML = '<div style="font-size:12px; color:var(--accent-cyan); text-align:center; padding:20px 0;">Sedang memindai subsistem kernel, vendor OEM, dan sysfs/procfs...</div>';
 
     try {
-        const res = await execCmd("sh /data/adb/modules/Lynx/webroot/script.sh deep_scan");
+        const res = await execCmd(`${LYNXD} inspect scan`);
         if (res.errno === 0 && res.stdout) {
             try {
                 discoveredTunables = JSON.parse(res.stdout);
@@ -1142,7 +1274,7 @@ function renderDeepTunables() {
 
 async function applyDeepTunable(path, value) {
     logToConsole(`Menyetel ${path} -> ${value}...`);
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh deep_set "${path}" "${value}"`);
+    const res = await execCmd(`${LYNXD} tunable set "${path}" "${value}"`);
     if (res.errno === 0) {
         logToConsole(`Berhasil menyetel ${path} = ${value}`, 'success');
     } else {
@@ -1158,7 +1290,7 @@ async function inspectManualNode() {
     const path = input.value.trim();
     resultBox.innerHTML = '<div style="font-size:11px; color:var(--text-muted);">Memeriksa node sysfs...</div>';
 
-    const res = await execCmd(`sh /data/adb/modules/Lynx/webroot/script.sh deep_inspect "${path}"`);
+    const res = await execCmd(`${LYNXD} inspect node "${path}"`);
     if (res.errno === 0 && res.stdout && res.stdout.startsWith('{')) {
         try {
             const data = JSON.parse(res.stdout);
@@ -1194,6 +1326,7 @@ window.addEventListener('DOMContentLoaded', () => {
     syncState();
     loadClusterTopology();
     pollTelemetry();
+    pollNativeStatus();
     loadApplist();
     pollGpuInfo();
     pollThermalZones();

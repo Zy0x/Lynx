@@ -686,6 +686,29 @@ data class DmesgLogState(
 )
 
 // ============================================================
+//  NATIVE ENGINE STATUS (lynxd status --json)
+// ============================================================
+
+data class NativeEngineStatus(
+    val isNativeActive: Boolean = false,
+    val daemonRunning: Boolean = false,
+    val daemonPid: Int = 0,
+    val activeProfile: String = "dormant",
+    val statusText: String = "applied",
+    val isDirty: Boolean = false,
+    val timestamp: Long = 0L,
+    val modifier: String = "None",
+    val modifierDesc: String = "Full Base Profile",
+    val foregroundApp: String = "",
+    val tempC: Float = 0f,
+    val batteryPct: Int = 0,
+    val cpuHealth: Boolean = true,
+    val gpuHealth: Boolean = true,
+    val batteryHealth: Boolean = true,
+    val memoryHealth: Boolean = true,
+)
+
+// ============================================================
 //  UI STATE WRAPPER
 // ============================================================
 
@@ -695,6 +718,7 @@ data class LynxUiState(
     val isModuleInstalled: Boolean = false,
     val currentTab: Int = 0,
     val state: LynxState = LynxState(),
+    val nativeStatus: NativeEngineStatus? = null,
     val telemetry: TelemetryData? = null,
     val clusters: List<CpuClusterInfo> = emptyList(),
     val backups: List<BootBackupInfo> = emptyList(),

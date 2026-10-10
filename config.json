@@ -6,6 +6,14 @@
   "setup_pending": true,
   "target_soc": "generic",
   "is_spoofed": false,
+  "engine": {
+    "native_enabled": true,
+    "legacy_fallback": true,
+    "failure_threshold": 3,
+    "consecutive_failures": 0,
+    "last_failure_reason": "",
+    "failure_history": []
+  },
   "hardware": {
     "soc_type": "generic",
     "soc_name": "Generic Linux",

@@ -1,8 +1,9 @@
 id=Lynx
-name=Lynx - Deity
-version=3.0.71
-versionCode=20261071
+name=Lynx Universal
+version=7.0.0-RC6
+versionCode=705
+
 author=ɴᴏɪʀ
-releaseType=beta
-description=[ Get Started ] God Speed and Smart Thinks
+releaseType=rc
+description=[ Native Adaptive Kernel Optimization Engine ] Deity Hybrid Architecture
 updateJson=https://raw.githubusercontent.com/Zy0x/Lynx/main/update.json

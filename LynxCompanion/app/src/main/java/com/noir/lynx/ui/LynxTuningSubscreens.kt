@@ -1685,10 +1685,15 @@ fun TuningChargingCategory(
     val battDetails = uiState.batteryDetails
 
     LaunchedEffect(Unit) {
-        viewModel.refreshBatteryDetails()
-        while (isActive) {
-            delay(1000L)
-            viewModel.refreshBatteryDetails()
+        viewModel.isBatteryScreenActive = true
+        try {
+            viewModel.refreshBatteryDetails(forceDeepStats = true)
+            while (isActive) {
+                delay(1000L)
+                viewModel.refreshBatteryDetails(forceDeepStats = false)
+            }
+        } finally {
+            viewModel.isBatteryScreenActive = false
         }
     }
 
@@ -1964,7 +1969,7 @@ fun TuningChargingCategory(
                 ) {
                     quickPresets.forEach { (ampLabel, descLabel, pair) ->
                         val (ma, isMaxHw) = pair
-                        val isSelected = if (isMaxHw) state.charging.isUnconstrainedMaxHw else (!state.charging.isUnconstrainedMaxHw && state.charging.limitCurrentMa == ma)
+                        val isSelected = if (isMaxHw) (state.charging.isUnconstrainedMaxHw || state.charging.limitCurrentMa == 6000) else (!state.charging.isUnconstrainedMaxHw && state.charging.limitCurrentMa == ma)
                         val pillColor = if (isSelected) AccentCyan else BgElevated
                         val textColor = if (isSelected) AccentCyan else TextPrimary
 

@@ -105,6 +105,53 @@ object CpuIdleDetector {
      * Detects cluster idle info across all clusters (Cluster 0: Little, Cluster 1: Big/Prime).
      */
     fun detectClusterIdle(totalCores: Int = 8): List<ClusterIdleInfo> {
+        // Tier 1: Direct Native Rust lynxd cpuidle info (single IPC call)
+        try {
+            val nativeRes = Shell.cmd("[ -x '/data/adb/modules/Lynx/system/bin/lynxd' ] && /data/adb/modules/Lynx/system/bin/lynxd cpuidle info 2>/dev/null").exec()
+            if (nativeRes.isSuccess && nativeRes.out.isNotEmpty()) {
+                val raw = nativeRes.out.joinToString("\n").trim()
+                if (raw.startsWith("{")) {
+                    val root = org.json.JSONObject(raw)
+                    val driver = root.optString("driver", "unknown")
+                    val arr = root.optJSONArray("clusters")
+                    if (arr != null && arr.length() > 0) {
+                        val list = mutableListOf<ClusterIdleInfo>()
+                        for (i in 0 until arr.length()) {
+                            val c = arr.getJSONObject(i)
+                            val sArr = c.optJSONArray("states")
+                            val states = mutableListOf<IdleState>()
+                            if (sArr != null) {
+                                for (j in 0 until sArr.length()) {
+                                    val s = sArr.getJSONObject(j)
+                                    states.add(
+                                        IdleState(
+                                            id = s.optInt("id", j),
+                                            name = s.optString("name", "state$j"),
+                                            description = s.optString("description", "state$j"),
+                                            latencyUs = s.optInt("latency_us", j * 200),
+                                            residencyUs = s.optInt("residency_us", j * 500),
+                                            isDisabled = s.optBoolean("is_disabled", false)
+                                        )
+                                    )
+                                }
+                            }
+                            if (states.isNotEmpty()) {
+                                list.add(
+                                    ClusterIdleInfo(
+                                        clusterId = c.optInt("cluster_id", i),
+                                        driverName = driver,
+                                        cpuRange = c.optString("cpu_range", "Cluster $i"),
+                                        states = states
+                                    )
+                                )
+                            }
+                        }
+                        if (list.isNotEmpty()) return list
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
         if (!isSupported()) return emptyList()
 
         val driver = detectDriverName()
@@ -187,6 +234,9 @@ object CpuIdleDetector {
      */
     fun setIdleStateDisabled(stateId: Int, disable: Boolean, totalCores: Int = 8): Boolean {
         val flag = if (disable) "1" else "0"
+        val nativeRes = Shell.cmd("[ -x '/data/adb/modules/Lynx/system/bin/lynxd' ] && /data/adb/modules/Lynx/system/bin/lynxd cpuidle set-state $stateId $flag 2>/dev/null").exec()
+        if (nativeRes.isSuccess) return true
+
         val sb = StringBuilder()
         for (i in 0 until totalCores) {
             val node = "/sys/devices/system/cpu/cpu$i/cpuidle/state$stateId/disable"
@@ -199,9 +249,18 @@ object CpuIdleDetector {
      * Apply a semantic idle mode.
      */
     fun applySemanticMode(mode: IdleSemanticMode, totalCores: Int = 8): Boolean {
+        if (mode == IdleSemanticMode.CUSTOM) return true
+        val modeArg = when (mode) {
+            IdleSemanticMode.OEM_DEFAULT, IdleSemanticMode.BALANCED -> "balanced"
+            IdleSemanticMode.LATENCY_PRIORITY -> "latency"
+            IdleSemanticMode.DEEP_SLEEP_PRIORITY -> "deep_sleep"
+            IdleSemanticMode.CUSTOM -> return true
+        }
+        val nativeRes = Shell.cmd("[ -x '/data/adb/modules/Lynx/system/bin/lynxd' ] && /data/adb/modules/Lynx/system/bin/lynxd cpuidle apply $modeArg 2>/dev/null").exec()
+        if (nativeRes.isSuccess) return true
+
         return when (mode) {
             IdleSemanticMode.OEM_DEFAULT, IdleSemanticMode.BALANCED -> {
-                // Enable all idle states (disable = 0)
                 val sb = StringBuilder()
                 for (c in 0 until totalCores) {
                     sb.append("for s in /sys/devices/system/cpu/cpu$c/cpuidle/state*/disable; do [ -f \"\$s\" ] && chmod 644 \"\$s\" 2>/dev/null && echo 0 > \"\$s\" 2>/dev/null; done; ")
@@ -210,7 +269,6 @@ object CpuIdleDetector {
                 Shell.cmd(sb.toString()).exec().isSuccess
             }
             IdleSemanticMode.LATENCY_PRIORITY -> {
-                // Keep state 0/1 active, disable deep sleep states >= 2 for zero wakeup lag
                 val sb = StringBuilder()
                 for (c in 0 until totalCores) {
                     sb.append("for s in /sys/devices/system/cpu/cpu$c/cpuidle/state[2-9]/disable; do [ -f \"\$s\" ] && chmod 644 \"\$s\" 2>/dev/null && echo 1 > \"\$s\" 2>/dev/null; done; ")
@@ -220,7 +278,6 @@ object CpuIdleDetector {
                 Shell.cmd(sb.toString()).exec().isSuccess
             }
             IdleSemanticMode.DEEP_SLEEP_PRIORITY -> {
-                // Enable all states, ensure cstate aware scheduling is active
                 val sb = StringBuilder()
                 for (c in 0 until totalCores) {
                     sb.append("for s in /sys/devices/system/cpu/cpu$c/cpuidle/state*/disable; do [ -f \"\$s\" ] && chmod 644 \"\$s\" 2>/dev/null && echo 0 > \"\$s\" 2>/dev/null; done; ")

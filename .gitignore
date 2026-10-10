@@ -11,3 +11,5 @@ __pycache__/
 archive/packages/Chimera.zip
 archive/packages/Lynx.zip
 tools/.last_device_ip
+native/lynxd/target/
+native/lynxd/state/

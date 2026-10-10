@@ -31,6 +31,7 @@ private const val LOCAL_CONFIG_PATH = "/data/user/0/com.noir.lynx/files/config.j
 private const val LOCAL_CONFIG_PATH_DEBUG = "/data/user/0/com.noir.lynx.debug/files/config.json"
 private const val TARGET_SOC_PATH = "$MODULE_DIR/target_soc"
 private const val LXCORE_PATH = "$MODULE_DIR/system/bin/Lxcore"
+private const val LYNXD_PATH = "$MODULE_DIR/system/bin/lynxd"
 
 /**
  * LynxRepository: Single source of truth for reading/writing module state.
@@ -216,7 +217,9 @@ object LynxRepository {
         bypassEnabled = j?.optBoolean("bypass_enabled", false) ?: false,
         extremeChargingEnabled = j?.optBoolean("extreme_charging_enabled", false) ?: false,
         tempCutoffC = j?.optInt("temp_cutoff_c", 45) ?: 45,
-        limitCurrentMa = j?.optInt("limit_current_ma", 4500) ?: 4500,
+        limitCurrentMa = j?.optInt("limit_current_ma", 6000) ?: 6000,
+        isUnconstrainedMaxHw = j?.optBoolean("is_unconstrained_max_hw", false) ?: false,
+        customLimitCurrentMa = j?.optInt("custom_limit_current_ma", 6000) ?: 6000,
         autoCutEnabled = j?.optBoolean("auto_cut_enabled", true) ?: true,
         maxBatteryPercent = j?.optInt("max_battery_percent", 80) ?: 80,
         highCurrentTargetPercent = j?.optInt("high_current_target_percent", 90) ?: 90,
@@ -285,7 +288,7 @@ object LynxRepository {
                 if (isModuleInstalled()) {
                     val safeKey = key.replace(Regex("[^a-zA-Z0-9._\\-]"), "")
                     val safeVal = value.replace("\"", "\\\"")
-                    val cmd = "sh '$LXCORE_PATH' state set '$safeKey' '$safeVal' $type"
+                    val cmd = "'$LYNXD_PATH' state set '$safeKey' '$safeVal' $type"
                     val result = Shell.cmd(cmd).exec()
                     if (!result.isSuccess) {
                         Log.w(TAG, "writeStateKey failed for $key: ${result.out}")
@@ -367,18 +370,31 @@ object LynxRepository {
         }
 
         try {
-            val exists = Shell.cmd("[ -f /data/adb/lynx/apply_profile.sh ]").exec()
-            if (!exists.isSuccess) {
-                deployWatcherScripts()
-            }
-            val res = Shell.cmd(
-                "[ -f /data/adb/modules/Lynx/core/apply_profile.sh ] && sh /data/adb/modules/Lynx/core/apply_profile.sh $profile $caller || sh /data/adb/lynx/apply_profile.sh $profile $caller"
-            ).exec()
-
+            var applied = false
+            // Tier 1: Direct lynxd Native Execution Fast-Path
             if (isModuleInstalled()) {
-                Shell.cmd("sh '$MODULE_DIR/core/lib/state_watcher.sh' 2>/dev/null").exec()
+                val lynxdCheck = Shell.cmd("[ -x '$MODULE_DIR/system/bin/lynxd' ] && echo 1 || echo 0").exec()
+                if (lynxdCheck.out.firstOrNull()?.trim() == "1") {
+                    val cmd = when (profile) {
+                        "auto" -> "killall lynxd 2>/dev/null; '$MODULE_DIR/system/bin/lynxd' daemon run >> /data/adb/lynx/lynxd.log 2>&1 &"
+                        "dormant" -> "killall lynxd 2>/dev/null; '$MODULE_DIR/system/bin/lynxd' profile revert"
+                        else -> "killall lynxd 2>/dev/null; '$MODULE_DIR/system/bin/lynxd' profile apply '$profile'"
+                    }
+                    val res = Shell.cmd(cmd).exec()
+                    applied = res.isSuccess
+                }
             }
-            res.isSuccess
+
+            // Tier 2: Direct fallback to lynxd at standard path
+            if (!applied) {
+                val fallbackCmd = when (profile) {
+                    "auto" -> "killall lynxd 2>/dev/null; /data/adb/modules/Lynx/system/bin/lynxd daemon run >> /data/adb/lynx/lynxd.log 2>&1 &"
+                    "dormant" -> "/data/adb/modules/Lynx/system/bin/lynxd profile revert"
+                    else -> "/data/adb/modules/Lynx/system/bin/lynxd profile apply '$profile'"
+                }
+                applied = Shell.cmd(fallbackCmd).exec().isSuccess
+            }
+            applied
         } catch (e: Exception) {
             Log.e(TAG, "setProfile error: ${e.message}")
             false
@@ -393,7 +409,7 @@ object LynxRepository {
     suspend fun verifyProfile(profile: String? = null): String = withContext(Dispatchers.IO) {
         try {
             val profArg = profile ?: ""
-            val cmd = "[ -f /data/adb/modules/Lynx/core/lib/verify_profile.sh ] && sh /data/adb/modules/Lynx/core/lib/verify_profile.sh $profArg || sh /data/adb/lynx/verify_profile.sh $profArg"
+            val cmd = "'$LYNXD_PATH' profile verify $profArg"
             val res = Shell.cmd(cmd).exec()
             res.out.joinToString("\n").ifBlank { "Audit selesai." }
         } catch (e: Exception) {
@@ -404,9 +420,11 @@ object LynxRepository {
     /**
      * Read the structured profile audit JSON result.
      */
-    suspend fun readProfileAuditJson(): String? = withContext(Dispatchers.IO) {
+    suspend fun readProfileAuditJson(profile: String? = null): String? = withContext(Dispatchers.IO) {
         try {
-            val res = Shell.cmd("cat /data/adb/lynx/profile_audit.json 2>/dev/null").exec()
+            val profArg = profile ?: ""
+            val cmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' profile verify --json $profArg 2>/dev/null; else cat /data/adb/lynx/profile_audit.json 2>/dev/null; fi"
+            val res = Shell.cmd(cmd).exec()
             if (res.isSuccess && res.out.isNotEmpty()) {
                 res.out.joinToString("\n")
             } else {
@@ -422,10 +440,8 @@ object LynxRepository {
      */
     suspend fun runMaintenance(): String = withContext(Dispatchers.IO) {
         try {
-            val result = Shell.cmd(
-                "sh '$MODULE_DIR/core/lib/maintenance.sh' manual 2>&1"
-            ).exec()
-            result.out.joinToString("\n").ifBlank { "Pemeliharaan selesai." }
+            val res = Shell.cmd("'$LYNXD_PATH' maintenance run --force").exec()
+            res.out.joinToString("\n").ifBlank { "Pemeliharaan selesai via lynxd." }
         } catch (e: Exception) {
             "Error: ${e.message}"
         }
@@ -436,10 +452,8 @@ object LynxRepository {
      */
     suspend fun exportBugReport(): String = withContext(Dispatchers.IO) {
         try {
-            val result = Shell.cmd(
-                "sh '$LXCORE_PATH' log export 2>&1"
-            ).exec()
-            result.out.joinToString("\n").ifBlank { "Ekspor selesai." }
+            val res = Shell.cmd("'$LYNXD_PATH' system log-export 2>&1").exec()
+            res.out.joinToString("\n").ifBlank { "Ekspor selesai." }
         } catch (e: Exception) {
             "Error: ${e.message}"
         }
@@ -450,22 +464,20 @@ object LynxRepository {
      */
     suspend fun runCCleaner(): String = withContext(Dispatchers.IO) {
         try {
-            val result = Shell.cmd(
-                "sh '$MODULE_DIR/core/CCleaner.sh' 2>&1"
-            ).exec()
-            result.out.joinToString("\n").ifBlank { "Cache dibersihkan." }
+            val res = Shell.cmd("'$LYNXD_PATH' memory clean && '$LYNXD_PATH' io apply 2>&1").exec()
+            res.out.joinToString("\n").ifBlank { "Cache dibersihkan via lynxd." }
         } catch (e: Exception) {
             "Error: ${e.message}"
         }
     }
 
     /**
-     * Read current module SoC and mode via script.sh get_status.
+     * Read current module SoC and mode via lynxd status.
      */
     suspend fun getQuickStatus(): Map<String, String> = withContext(Dispatchers.IO) {
         try {
             val result = Shell.cmd(
-                "sh '$MODULE_DIR/webroot/script.sh' get_status 2>/dev/null"
+                "'$LYNXD_PATH' status 2>/dev/null"
             ).exec()
             buildMap {
                 result.out.forEach { line ->
@@ -483,71 +495,106 @@ object LynxRepository {
     // ----------------------------------------------------------------
 
     /**
-     * Fetch sub-10ms hardware telemetry snapshot.
-     * Works both with Lynx module (via telemetry.sh) and standalone root (via direct sysfs query).
+     * Parses standard / unified Lynx telemetry JSON snapshot into TelemetryData.
+     */
+    fun parseTelemetryJson(raw: String): TelemetryData? {
+        try {
+            val json = JSONObject(raw)
+            val rTotal = json.optInt("ram_total_mb", 0)
+            if (rTotal <= 0) return null
+
+            val cpuArr = json.optJSONArray("cpu")
+            val cpuList = mutableListOf<Long>()
+            if (cpuArr != null) {
+                for (i in 0 until cpuArr.length()) {
+                    cpuList.add(cpuArr.optLong(i, 0L))
+                }
+            }
+            val bVoltMv = json.optInt("batt_volt_mv", 4000)
+            val bCurMa = json.optInt("batt_current_ma", 0)
+            val absMa = Math.abs(bCurMa)
+            val bWatt = if (bVoltMv > 0 && absMa > 0) {
+                ((bVoltMv.toDouble() * absMa.toDouble()) / 1_000_000.0).toFloat()
+            } else 0f
+            var zTotal = json.optInt("zram_total_mb", 0)
+            var zUsed = json.optInt("zram_used_mb", 0)
+            val sTotal = json.optInt("swap_total_mb", 0)
+            val sUsed = json.optInt("swap_used_mb", 0)
+            if (zTotal == 0 && sTotal > 0) {
+                zTotal = sTotal
+                zUsed = sUsed
+            }
+            val bStat = json.optString("batt_status", "")
+            val isCharging = bStat.equals("Charging", ignoreCase = true) || (bStat != "Discharging" && bCurMa > 0)
+            return TelemetryData(
+                cpu = cpuList,
+                gpuFreq = json.optInt("gpu_freq", 0),
+                gpuBusy = json.optInt("gpu_busy", 0),
+                temp = json.optString("temp", "35.0"),
+                battLevel = json.optInt("batt_level", 50),
+                battCurrentMa = bCurMa,
+                battVoltMv = bVoltMv,
+                battWatt = bWatt,
+                isCharging = isCharging,
+                ramUsedMb = json.optInt("ram_used_mb", 0),
+                ramTotalMb = rTotal,
+                zramUsedMb = zUsed,
+                zramTotalMb = zTotal,
+                swapUsedMb = sUsed,
+                swapTotalMb = sTotal,
+            )
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
+    /**
+     * Fetch sub-millisecond hardware telemetry snapshot.
+     * Works both with Lynx module (via zero-fork RAM snapshot / lynxd) and standalone root.
      */
     suspend fun readTelemetry(): TelemetryData? = withContext(Dispatchers.IO) {
         try {
-            // Tier 1: Try Module Script Fast-Path (if module is installed)
+            // Tier 0: Direct RAM Tmpfs File Read (<0.05ms, ZERO subprocesses, ZERO root IPC)
+            try {
+                val ramFile = java.io.File("/dev/lynxd_telemetry.json")
+                if (ramFile.exists() && ramFile.canRead()) {
+                    val age = System.currentTimeMillis() - ramFile.lastModified()
+                    if (age in 0..4000) {
+                        val text = ramFile.readText().trim()
+                        if (text.startsWith("{")) {
+                            val parsed = parseTelemetryJson(text)
+                            if (parsed != null) return@withContext parsed
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Fall through to shell-based tiers if direct file I/O or SELinux denies
+            }
+
+            // Tier 1: Reading RAM snapshot via root shell cat (<1ms, single cat binary)
             if (isModuleInstalled()) {
-                val cmd = "sh '$MODULE_DIR/core/lib/telemetry.sh' 2>/dev/null"
+                val catRes = Shell.cmd("cat /dev/lynxd_telemetry.json 2>/dev/null").exec()
+                if (catRes.isSuccess && catRes.out.isNotEmpty()) {
+                    val raw = catRes.out.joinToString("\n").trim()
+                    if (raw.startsWith("{")) {
+                        val parsed = parseTelemetryJson(raw)
+                        if (parsed != null) return@withContext parsed
+                    }
+                }
+
+                // Tier 2: lynxd Native Telemetry Direct Fast-Path (if daemon not snapshotting or stale)
+                val cmd = "'$LYNXD_PATH' telemetry 2>/dev/null"
                 val res = Shell.cmd(cmd).exec()
                 if (res.isSuccess && res.out.isNotEmpty()) {
                     val raw = res.out.joinToString("\n").trim()
                     if (raw.startsWith("{")) {
-                        try {
-                            val json = JSONObject(raw)
-                            val rTotal = json.optInt("ram_total_mb", 0)
-                            if (rTotal > 0) {
-                                val cpuArr = json.optJSONArray("cpu")
-                                val cpuList = mutableListOf<Long>()
-                                if (cpuArr != null) {
-                                    for (i in 0 until cpuArr.length()) {
-                                        cpuList.add(cpuArr.optLong(i, 0L))
-                                    }
-                                }
-                                val bVoltMv = json.optInt("batt_volt_mv", 4000)
-                                val bCurMa = json.optInt("batt_current_ma", 0)
-                                val absMa = Math.abs(bCurMa)
-                                val bWatt = if (bVoltMv > 0 && absMa > 0) {
-                                    ((bVoltMv.toDouble() * absMa.toDouble()) / 1_000_000.0).toFloat()
-                                } else 0f
-                                var zTotal = json.optInt("zram_total_mb", 0)
-                                var zUsed = json.optInt("zram_used_mb", 0)
-                                val sTotal = json.optInt("swap_total_mb", 0)
-                                val sUsed = json.optInt("swap_used_mb", 0)
-                                if (zTotal == 0 && sTotal > 0) {
-                                    zTotal = sTotal
-                                    zUsed = sUsed
-                                }
-                                val bStat = json.optString("batt_status", "")
-                                val isCharging = bStat.equals("Charging", ignoreCase = true) || (bStat != "Discharging" && bCurMa > 0)
-                                return@withContext TelemetryData(
-                                    cpu = cpuList,
-                                    gpuFreq = json.optInt("gpu_freq", 0),
-                                    gpuBusy = json.optInt("gpu_busy", 0),
-                                    temp = json.optString("temp", "35.0"),
-                                    battLevel = json.optInt("batt_level", 50),
-                                    battCurrentMa = bCurMa,
-                                    battVoltMv = bVoltMv,
-                                    battWatt = bWatt,
-                                    isCharging = isCharging,
-                                    ramUsedMb = json.optInt("ram_used_mb", 0),
-                                    ramTotalMb = rTotal,
-                                    zramUsedMb = zUsed,
-                                    zramTotalMb = zTotal,
-                                    swapUsedMb = sUsed,
-                                    swapTotalMb = sTotal,
-                                )
-                            }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "telemetry.sh JSON parse failed, falling back to direct sysfs: ${e.message}")
-                        }
+                        val parsed = parseTelemetryJson(raw)
+                        if (parsed != null) return@withContext parsed
                     }
                 }
             }
 
-            // Tier 2: Direct High-Efficiency Sysfs Telemetry (Universal Cascading Fallback)
+            // Tier 3: Direct High-Efficiency Sysfs Telemetry (Universal Cascading Fallback)
             val inlineScript = """
                 cpu_str=""
                 for idx in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
@@ -760,6 +807,145 @@ object LynxRepository {
         }
     }
 
+    /**
+     * Map TelemetryData directly to CpuCoreInfo list in-memory without shell/sysfs IO overhead.
+     */
+    fun mapTelemetryToCpuCores(
+        tel: TelemetryData,
+        currentClusters: List<CpuClusterInfo>,
+        existingCores: List<CpuCoreInfo> = emptyList()
+    ): List<CpuCoreInfo> {
+        if (tel.cpu.isEmpty()) return existingCores
+        val existingMap = existingCores.associateBy { it.coreId }
+        return tel.cpu.mapIndexed { index, freqKhz ->
+            val parentCluster = currentClusters.find { it.containsCore(index) }
+            val prev = existingMap[index]
+            CpuCoreInfo(
+                coreId = index,
+                isOnline = freqKhz > 0L,
+                isSwitchable = prev?.isSwitchable ?: true,
+                curFreqKhz = freqKhz,
+                loadPercent = prev?.loadPercent ?: 0,
+                minFreqKhz = parentCluster?.curMin ?: (prev?.minFreqKhz ?: 0L),
+                maxFreqKhz = parentCluster?.curMax ?: (prev?.maxFreqKhz ?: 0L),
+                isLocked = parentCluster?.isLocked ?: (prev?.isLocked ?: false)
+            )
+        }
+    }
+
+    /**
+     * Map TelemetryData directly to BatteryDetails in-memory without shell/sysfs IO overhead.
+     */
+    fun mapTelemetryToBatteryDetails(
+        tel: TelemetryData,
+        existingBatt: BatteryDetails? = null,
+        historySamples: List<Float> = emptyList()
+    ): BatteryDetails {
+        val tempFloat = tel.temp.toFloatOrNull() ?: (existingBatt?.tempC ?: 28.0f)
+        val statusStr = if (tel.isCharging) "Charging" else (existingBatt?.status ?: "Discharging")
+        val isPlugged = tel.isCharging || existingBatt?.isPlugged == true
+        val effPct = (existingBatt?.chargingEfficiencyPercent ?: 96).coerceIn(60, 99)
+        val adpVoltMv = existingBatt?.adapterVoltageMv ?: 0
+        val liveAdapterWatt = if (isPlugged && tel.battWatt > 0.1f) {
+            tel.battWatt / (effPct / 100f)
+        } else {
+            existingBatt?.adapterWatt ?: 0f
+        }
+        val liveAdapterCurrentMa = if (isPlugged && adpVoltMv > 1000 && liveAdapterWatt > 0.1f) {
+            ((liveAdapterWatt * 1_000_000f) / adpVoltMv.toFloat()).toInt()
+        } else {
+            existingBatt?.adapterCurrentMa ?: 0
+        }
+        return BatteryDetails(
+            level = tel.battLevel,
+            status = statusStr,
+            health = existingBatt?.health ?: "Good",
+            tempC = tempFloat,
+            voltageMv = tel.battVoltMv,
+            currentMa = tel.battCurrentMa,
+            cycleCount = existingBatt?.cycleCount ?: -1,
+            chargeCounterMah = existingBatt?.chargeCounterMah ?: 0,
+            chargerVoltageMv = existingBatt?.chargerVoltageMv ?: tel.battVoltMv,
+            chargerWatt = tel.battWatt,
+            fastChargeProtocol = existingBatt?.fastChargeProtocol ?: "",
+            activeICName = existingBatt?.activeICName ?: "",
+            adapterVoltageMv = adpVoltMv,
+            adapterCurrentMa = liveAdapterCurrentMa,
+            adapterWatt = liveAdapterWatt,
+            chargingEfficiencyPercent = if (isPlugged) effPct else 0,
+            realPhysicalTempC = existingBatt?.realPhysicalTempC ?: tempFloat,
+            spoofedTempC = existingBatt?.spoofedTempC ?: 0f,
+            cableResistanceMohm = existingBatt?.cableResistanceMohm ?: 0,
+            portType = existingBatt?.portType ?: "Unknown",
+            isLaptopPort = existingBatt?.isLaptopPort ?: false,
+            currentHistorySamples = if (historySamples.isNotEmpty()) historySamples else (existingBatt?.currentHistorySamples ?: emptyList()),
+            rawAdcDetails = existingBatt?.rawAdcDetails ?: emptyMap(),
+            thermalZoneMatrix = existingBatt?.thermalZoneMatrix ?: emptyList(),
+            isPlugged = isPlugged,
+            isEmergencyGuardActive = existingBatt?.isEmergencyGuardActive ?: false,
+            isOvernightBypassLatched = existingBatt?.isOvernightBypassLatched ?: false,
+            isSmartTaperingActive = existingBatt?.isSmartTaperingActive ?: false,
+            isNightGentleActive = existingBatt?.isNightGentleActive ?: false,
+        )
+    }
+
+    /**
+     * Map TelemetryData directly to GpuInfo in-memory without shell/sysfs IO overhead.
+     */
+    fun mapTelemetryToGpuInfo(
+        tel: TelemetryData,
+        existingGpu: GpuInfo
+    ): GpuInfo {
+        return existingGpu.copy(
+            curFreqMhz = if (tel.gpuFreq > 0) tel.gpuFreq else existingGpu.curFreqMhz,
+            gpuLoadPercent = if (tel.gpuBusy >= 0) tel.gpuBusy else existingGpu.gpuLoadPercent
+        )
+    }
+
+    /**
+     * Read full Native Engine status snapshot from lynxd binary.
+     * Emits JSON: {"daemon":{...},"profile":{...},"runtime":{...},"health":{...}}
+     */
+    suspend fun readNativeStatus(): NativeEngineStatus? = withContext(Dispatchers.IO) {
+        if (!isModuleInstalled()) return@withContext null
+        try {
+            val cmd = "[ -x '$MODULE_DIR/system/bin/lynxd' ] && '$MODULE_DIR/system/bin/lynxd' status --json 2>/dev/null"
+            val res = Shell.cmd(cmd).exec()
+            if (res.isSuccess && res.out.isNotEmpty()) {
+                val raw = res.out.joinToString("\n").trim()
+                if (raw.startsWith("{")) {
+                    val root = JSONObject(raw)
+                    val daemon = root.optJSONObject("daemon")
+                    val profile = root.optJSONObject("profile")
+                    val runtime = root.optJSONObject("runtime")
+                    val health = root.optJSONObject("health")
+
+                    return@withContext NativeEngineStatus(
+                        isNativeActive = true,
+                        daemonRunning = daemon?.optBoolean("running", false) ?: false,
+                        daemonPid = daemon?.optInt("pid", 0) ?: 0,
+                        activeProfile = profile?.optString("active", "dormant") ?: "dormant",
+                        statusText = profile?.optString("status", "applied") ?: "applied",
+                        isDirty = profile?.optBoolean("dirty", false) ?: false,
+                        timestamp = profile?.optLong("timestamp", 0L) ?: 0L,
+                        modifier = runtime?.optString("modifier", "None") ?: "None",
+                        modifierDesc = runtime?.optString("modifier_desc", "Full Base Profile") ?: "Full Base Profile",
+                        foregroundApp = runtime?.optString("foreground_app", "") ?: "",
+                        tempC = runtime?.optDouble("temp_c", 0.0)?.toFloat() ?: 0f,
+                        batteryPct = runtime?.optInt("battery_pct", 0) ?: 0,
+                        cpuHealth = health?.optBoolean("cpu", true) ?: true,
+                        gpuHealth = health?.optBoolean("gpu", true) ?: true,
+                        batteryHealth = health?.optBoolean("battery", true) ?: true,
+                        memoryHealth = health?.optBoolean("memory", true) ?: true,
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "readNativeStatus error: ${e.message}")
+        }
+        null
+    }
+
     // Authoritative registry of user-locked cluster policies: policyId -> Pair(minFreq, maxFreq)
     val lockedClusterBounds = java.util.concurrent.ConcurrentHashMap<Int, Pair<Long, Long>>()
     val explicitlyUnlockedClusters = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
@@ -807,8 +993,9 @@ object LynxRepository {
         try {
             val moduleClusters = if (isModuleInstalled()) {
                 try {
-                    val cmd = "sh '$MODULE_DIR/core/lib/cluster_manager.sh' topology 2>/dev/null"
+                    val cmd = "'$LYNXD_PATH' cluster topology 2>/dev/null"
                     val result = Shell.cmd(cmd).exec()
+
                     if (result.isSuccess && result.out.isNotEmpty()) {
                         val raw = result.out.joinToString("").trim()
                         if (raw.startsWith("{")) {
@@ -848,7 +1035,7 @@ object LynxRepository {
                         } else null
                     } else null
                 } catch (e: Exception) {
-                    Log.w(TAG, "cluster_manager.sh topology failed, falling back to sysfs: ${e.message}")
+                    Log.w(TAG, "lynxd cluster topology failed, falling back to sysfs: ${e.message}")
                     null
                 }
             } else null
@@ -997,8 +1184,9 @@ object LynxRepository {
             }
 
             val cmd = if (isModuleInstalled()) {
-                "sh '$MODULE_DIR/core/lib/cluster_manager.sh' set_freq $policyId '$safeMin' '$safeMax'"
+                "'$LYNXD_PATH' cluster set-freq $policyId '$safeMin' '$safeMax'"
             } else {
+
                 buildString {
                     append("chmod 644 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
                     append("echo $hwMax > $pDir/scaling_max_freq 2>/dev/null; ")
@@ -1059,7 +1247,7 @@ object LynxRepository {
                 lockedClusterBounds[policyId] = Pair(safeMin, safeMax)
 
                 val cmd = if (isModuleInstalled()) {
-                    "sh '$MODULE_DIR/core/lib/cluster_manager.sh' lock_freq $policyId '$safeMin' '$safeMax'"
+                    "'$LYNXD_PATH' cluster lock $policyId '$safeMin' '$safeMax'"
                 } else {
                     buildString {
                         append("chmod 644 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
@@ -1093,8 +1281,9 @@ object LynxRepository {
                 explicitlyUnlockedClusters.add(policyId)
                 lockedClusterBounds.remove(policyId)
                 val cmd = if (isModuleInstalled()) {
-                    "sh '$MODULE_DIR/core/lib/cluster_manager.sh' unlock_freq $policyId"
+                    "'$LYNXD_PATH' cluster unlock $policyId"
                 } else {
+
                     buildString {
                         append("chmod 644 $pDir/scaling_min_freq $pDir/scaling_max_freq 2>/dev/null; ")
                         append("echo $hwMax > $pDir/scaling_max_freq 2>/dev/null; ")
@@ -1137,8 +1326,9 @@ object LynxRepository {
             }
 
             val cmd = if (isModuleInstalled()) {
-                "sh '$MODULE_DIR/core/lib/cluster_manager.sh' set_gov $policyId '$gov'"
+                "'$LYNXD_PATH' cluster set-gov $policyId '$gov'"
             } else {
+
                 "chmod 644 /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_governor 2>/dev/null; echo '$gov' > /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_governor 2>/dev/null"
             }
             Shell.cmd(cmd).exec().isSuccess
@@ -1173,8 +1363,8 @@ object LynxRepository {
             }
 
             val script = buildString {
-                // 1. Run profile applicator script first so subsystem baselines are applied
-                appendLine("if [ -f '$MODULE_DIR/core/apply_profile.sh' ]; then sh '$MODULE_DIR/core/apply_profile.sh' '${params.companionProfile}' 2>/dev/null; elif [ -f '/data/adb/modules/Lynx/core/apply_profile.sh' ]; then sh '/data/adb/modules/Lynx/core/apply_profile.sh' '${params.companionProfile}' 2>/dev/null; elif [ -f '/data/adb/lynx/apply_profile.sh' ]; then sh '/data/adb/lynx/apply_profile.sh' '${params.companionProfile}' 2>/dev/null; fi")
+                // 1. Run profile applicator via lynxd native first so subsystem baselines are applied
+                appendLine("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' profile apply '${params.companionProfile}' 2>/dev/null; fi")
 
                 // Dynamic Cluster Topology Resolution (Supports 4+4 Snapdragon, 6+2 MediaTek, 1+3+4, 2+5+1, 1+3+2+2, 10-Core)
                 // Guarantees at least 4 base cores remain active when parking Big/Prime cores
@@ -1613,7 +1803,6 @@ object LynxRepository {
                     appendLine("echo '${params.companionProfile}' > /data/adb/lynx/baseline_profile 2>/dev/null")
                 }
                 appendLine("echo '$batchBusProfile' > /data/adb/lynx/bus_profile 2>/dev/null")
-                appendLine("[ -f '$MODULE_DIR/core/state_watcher.sh' ] && sh '$MODULE_DIR/core/state_watcher.sh' >/dev/null 2>&1 &")
                 appendLine("echo 'done'")
             }
 
@@ -1818,6 +2007,75 @@ object LynxRepository {
 
     suspend fun readGpuInfo(): GpuInfo = withContext(Dispatchers.IO) {
         try {
+            // Tier 0: lynxd Native Fast-Path (<1ms, single native binary call)
+            if (isModuleInstalled()) {
+                val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
+                val gpuRes = Shell.cmd("[ -x '$lynxdPath' ] && '$lynxdPath' gpu info 2>/dev/null").exec()
+                if (gpuRes.isSuccess && gpuRes.out.isNotEmpty()) {
+                    val raw = gpuRes.out.joinToString("\n").trim()
+                    if (raw.startsWith("{")) {
+                        try {
+                            val j = JSONObject(raw)
+                            val plat = j.optString("platform", "generic")
+                            val vendor = j.optString("vendor", "")
+                            val curMhz = j.optInt("cur_mhz", j.optInt("cur_freq", 0))
+                            val minMhz = j.optInt("min_mhz", j.optInt("min_freq", 0))
+                            val maxMhz = j.optInt("max_mhz", j.optInt("max_freq", 0))
+                            val curGov = j.optString("cur_gov", "")
+                            val loadPct = j.optInt("load", j.optInt("busy", 0))
+                            val boost = j.optInt("boost", 0)
+
+                            val freqs = mutableListOf<Int>()
+                            val fArr = j.optJSONArray("avail_freqs")
+                            if (fArr != null) {
+                                for (idx in 0 until fArr.length()) {
+                                    freqs.add(fArr.optInt(idx, 0))
+                                }
+                            }
+
+                            val govs = mutableListOf<String>()
+                            val gArr = j.optJSONArray("avail_govs")
+                            if (gArr != null) {
+                                for (idx in 0 until gArr.length()) {
+                                    val g = gArr.optString(idx, "")
+                                    if (g.isNotBlank()) govs.add(g)
+                                }
+                            }
+
+                            val subArch = when (plat) {
+                                "adreno" -> "Qualcomm Adreno (KGSL QTI)"
+                                "mali_ged" -> if (vendor.contains("Helio", ignoreCase = true)) "MediaTek Helio (OPP Table)" else "MediaTek Dimensity (GED HAL)"
+                                "mali_kbase" -> "ARM Mali Kbase Driver"
+                                else -> if (vendor.isNotBlank()) "$vendor GPU" else "Universal Devfreq GPU"
+                            }
+
+                            val adrenoBoost = if (plat == "adreno") boost else 0
+                            val gedBoost = if (plat == "mali_ged") boost else 0
+                            val isLocked = minMhz > 0 && minMhz == maxMhz
+
+                            return@withContext GpuInfo(
+                                minFreqMhz = minMhz,
+                                maxFreqMhz = maxMhz,
+                                curFreqMhz = curMhz,
+                                availFreqsMhz = freqs.distinct().sorted(),
+                                adrenoBoostLevel = adrenoBoost,
+                                gedBoostLevel = gedBoost,
+                                platform = plat,
+                                gpuLoadPercent = loadPct,
+                                currentGovernor = curGov,
+                                availableGovernors = govs,
+                                subArchitecture = subArch,
+                                isLocked = isLocked,
+                                powerPolicy = "always_on"
+                            )
+                        } catch (e: Exception) {
+                            Log.w(TAG, "lynxd gpu info parse failed, fallback to script: ${e.message}")
+                        }
+                    }
+                }
+            }
+
+            // Tier 1: Fallback Standalone / Legacy Shell Script
             val script = """
                 if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
                     echo "plat:adreno"
@@ -2697,6 +2955,31 @@ object LynxRepository {
 
     suspend fun readIoDevices(): List<IoDeviceInfo> = withContext(Dispatchers.IO) {
         try {
+            if (isModuleInstalled()) {
+                val lynxRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' io info 2>/dev/null; fi").exec()
+                if (lynxRes.isSuccess && lynxRes.out.isNotEmpty()) {
+                    val raw = lynxRes.out.joinToString("").trim()
+                    if (raw.startsWith("{")) {
+                        val root = JSONObject(raw)
+                        val arr = root.optJSONArray("devices")
+                        if (arr != null && arr.length() > 0) {
+                            val list = mutableListOf<IoDeviceInfo>()
+                            for (i in 0 until arr.length()) {
+                                val d = arr.getJSONObject(i)
+                                val name = d.optString("name")
+                                val cur = d.optString("current_scheduler", "none")
+                                val availJson = d.optJSONArray("available_schedulers")
+                                val avail = mutableListOf<String>()
+                                if (availJson != null) {
+                                    for (j in 0 until availJson.length()) avail.add(availJson.optString(j))
+                                }
+                                list.add(IoDeviceInfo(device = name, currentScheduler = cur, availableSchedulers = avail, readAheadKb = 128))
+                            }
+                            return@withContext list
+                        }
+                    }
+                }
+            }
             val r = Shell.cmd("""
                 for dev in mmcblk0 sda sdb nvme0n1 vda; do
                   q=/sys/block/${'$'}dev/queue
@@ -2725,10 +3008,16 @@ object LynxRepository {
         try {
             val d = device.replace(Regex("[^a-zA-Z0-9]"), "")
             val s = scheduler.replace(Regex("[^a-zA-Z0-9\\-]"), "")
+            if (isModuleInstalled()) {
+                val cmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' io set-scheduler '$d' '$s' && echo ok; fi"
+                val res = Shell.cmd(cmd).exec()
+                if (res.out.any { it.contains("ok") || it.contains("Scheduler") }) return@withContext true
+            }
             val cmd = "if [ -f '/sys/block/$d/queue/scheduler' ]; then echo '$s' > '/sys/block/$d/queue/scheduler' 2>/dev/null && grep -q '\\[$s\\]' '/sys/block/$d/queue/scheduler' && echo ok; fi"
             Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
     }
+
 
     suspend fun setReadAheadKb(device: String, kb: Int): Boolean = withContext(Dispatchers.IO) {
         try {
@@ -2744,6 +3033,21 @@ object LynxRepository {
 
     suspend fun readAvailableTcpAlgorithms(): List<String> = withContext(Dispatchers.IO) {
         try {
+            if (isModuleInstalled()) {
+                val lynxRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' network info 2>/dev/null; fi").exec()
+                if (lynxRes.isSuccess && lynxRes.out.isNotEmpty()) {
+                    val raw = lynxRes.out.joinToString("").trim()
+                    if (raw.startsWith("{")) {
+                        val root = JSONObject(raw)
+                        val arr = root.optJSONArray("available_algos")
+                        if (arr != null && arr.length() > 0) {
+                            val list = mutableListOf<String>()
+                            for (i in 0 until arr.length()) list.add(arr.optString(i))
+                            return@withContext list
+                        }
+                    }
+                }
+            }
             Shell.cmd("cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null")
                 .exec().out.firstOrNull()?.trim()?.split(Regex("\\s+"))?.filter { it.isNotBlank() } ?: emptyList()
         } catch (e: Exception) { emptyList() }
@@ -2751,6 +3055,17 @@ object LynxRepository {
 
     suspend fun readCurrentTcpCongestion(): String = withContext(Dispatchers.IO) {
         try {
+            if (isModuleInstalled()) {
+                val lynxRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' network info 2>/dev/null; fi").exec()
+                if (lynxRes.isSuccess && lynxRes.out.isNotEmpty()) {
+                    val raw = lynxRes.out.joinToString("").trim()
+                    if (raw.startsWith("{")) {
+                        val root = JSONObject(raw)
+                        val cur = root.optString("current_algo", "")
+                        if (cur.isNotBlank()) return@withContext cur
+                    }
+                }
+            }
             Shell.cmd("cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null")
                 .exec().out.firstOrNull()?.trim() ?: ""
         } catch (_: Exception) { "" }
@@ -2759,10 +3074,16 @@ object LynxRepository {
     suspend fun setTcpCongestion(algorithm: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val safe = algorithm.replace(Regex("[^a-zA-Z0-9_]"), "")
+            if (isModuleInstalled()) {
+                val cmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' network set-algo '$safe' && echo ok; fi"
+                val res = Shell.cmd(cmd).exec()
+                if (res.out.any { it.contains("ok") || it.contains("set to") }) return@withContext true
+            }
             val cmd = "echo '$safe' > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null && [ \"$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null)\" = \"$safe\" ] && echo ok"
             Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
     }
+
 
     // ----------------------------------------------------------------
     //  Dynamic Governor Tunables Discovery (Zero-Hardcoding)
@@ -2985,18 +3306,9 @@ object LynxRepository {
     //  AnyKernel3 Flasher & Boot Partition Backup/Restore
     // ----------------------------------------------------------------
 
-    private fun getFlasherScript(): String {
-        return if (Shell.cmd("[ -f '$MODULE_DIR/core/lib/flasher.sh' ]").exec().isSuccess) {
-            "$MODULE_DIR/core/lib/flasher.sh"
-        } else {
-            "/data/local/tmp/flasher.sh"
-        }
-    }
-
     suspend fun backupBoot(): String = withContext(Dispatchers.IO) {
         try {
-            val script = getFlasherScript()
-            val result = Shell.cmd("sh '$script' backup 2>&1").exec()
+            val result = Shell.cmd("'$LYNXD_PATH' flasher backup 2>&1").exec()
             result.out.joinToString("\n").ifBlank { "Proses backup selesai." }
         } catch (e: Exception) {
             "Error: ${e.message}"
@@ -3005,8 +3317,7 @@ object LynxRepository {
 
     suspend fun listBackups(): List<BootBackupInfo> = withContext(Dispatchers.IO) {
         try {
-            val script = getFlasherScript()
-            val result = Shell.cmd("sh '$script' list_backups 2>/dev/null").exec()
+            val result = Shell.cmd("'$LYNXD_PATH' flasher list_backups 2>/dev/null").exec()
             if (!result.isSuccess || result.out.isEmpty()) return@withContext emptyList()
             val raw = result.out.joinToString("").trim()
             val json = JSONObject(raw)
@@ -3031,8 +3342,7 @@ object LynxRepository {
 
     suspend fun restoreBoot(backupPath: String): String = withContext(Dispatchers.IO) {
         try {
-            val script = getFlasherScript()
-            val result = Shell.cmd("sh '$script' restore '$backupPath' 2>&1").exec()
+            val result = Shell.cmd("'$LYNXD_PATH' flasher restore '$backupPath' 2>&1").exec()
             result.out.joinToString("\n").ifBlank { "Restore selesai." }
         } catch (e: Exception) {
             "Error: ${e.message}"
@@ -3041,8 +3351,7 @@ object LynxRepository {
 
     suspend fun flashKernel(zipPath: String): String = withContext(Dispatchers.IO) {
         try {
-            val script = getFlasherScript()
-            val result = Shell.cmd("sh '$script' flash '$zipPath' 2>&1").exec()
+            val result = Shell.cmd("'$LYNXD_PATH' flasher flash '$zipPath' 2>&1").exec()
             result.out.joinToString("\n").ifBlank { "Flashing selesai." }
         } catch (e: Exception) {
             "Error: ${e.message}"
@@ -3093,6 +3402,12 @@ object LynxRepository {
 
     suspend fun readApplistPerf(): List<String> = withContext(Dispatchers.IO) {
         try {
+            if (isModuleInstalled()) {
+                val lynxRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' applist list 2>/dev/null; fi").exec()
+                if (lynxRes.isSuccess && lynxRes.out.isNotEmpty()) {
+                    return@withContext lynxRes.out.map { it.trim() }.filter { it.isNotBlank() && !it.startsWith("#") }.distinct()
+                }
+            }
             val path = getApplistPerfPath()
             val r = Shell.cmd("mkdir -p /data/adb/lynx 2>/dev/null; [ -f '$path' ] && cat '$path' 2>/dev/null").exec()
             r.out.map { it.trim() }
@@ -3107,6 +3422,11 @@ object LynxRepository {
         try {
             val safe = pkg.trim().replace(Regex("[^a-zA-Z0-9._]"), "")
             if (safe.isBlank()) return@withContext false
+            if (isModuleInstalled()) {
+                val cmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' applist add '$safe' && echo ok; fi"
+                val res = Shell.cmd(cmd).exec()
+                if (res.out.any { it.contains("ok") || it.contains("Successfully") || it.contains("already") }) return@withContext true
+            }
             val path = getApplistPerfPath()
             val script = """
                 mkdir -p /data/adb/lynx 2>/dev/null
@@ -3121,6 +3441,11 @@ object LynxRepository {
         try {
             val safe = pkg.trim().replace(Regex("[^a-zA-Z0-9._]"), "")
             if (safe.isBlank()) return@withContext false
+            if (isModuleInstalled()) {
+                val cmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' applist remove '$safe' && echo ok; fi"
+                val res = Shell.cmd(cmd).exec()
+                if (res.out.any { it.contains("ok") || it.contains("Successfully") || it.contains("not found") }) return@withContext true
+            }
             val path = getApplistPerfPath()
             val script = """
                 if [ -f '$path' ]; then
@@ -3131,6 +3456,7 @@ object LynxRepository {
             Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
     }
+
 
     suspend fun readInstalledApps(): List<String> = withContext(Dispatchers.IO) {
         try {
@@ -3147,6 +3473,22 @@ object LynxRepository {
 
     suspend fun readTopWakelocks(): List<WakelockItem> = withContext(Dispatchers.IO) {
         try {
+            if (isModuleInstalled()) {
+                val nativeRes = Shell.cmd("'$LYNXD_PATH' system top-wakelocks 2>/dev/null").exec()
+                if (nativeRes.isSuccess && nativeRes.out.isNotEmpty()) {
+                    val nativeItems = nativeRes.out.mapNotNull { line ->
+                        val p = line.split("|")
+                        if (p.size >= 3) {
+                            WakelockItem(
+                                name = p[0].trim(),
+                                activeCount = p[1].trim().toLongOrNull() ?: 0L,
+                                preventSuspendMs = p[2].trim().toLongOrNull() ?: 0L
+                            )
+                        } else null
+                    }
+                    if (nativeItems.isNotEmpty()) return@withContext nativeItems
+                }
+            }
             val script = """
                 for w in /sys/class/wakeup/wakeup*; do
                     [ -d "${'$'}w" ] || continue
@@ -3257,18 +3599,18 @@ object LynxRepository {
             done
 
             # --- 2. MediaTek (Dimensity & Helio) Architecture & Hardware Bypass ---
-            for node in /sys/devices/platform/charger/BN_TestMode \
-                        /sys/devices/platform/charger/pe40 \
+            for node in /sys/devices/platform/charger/pe40 \
                         /sys/devices/platform/charger/pe20 \
-                        /sys/devices/platform/charger/enable_sc; do
+                        /sys/devices/platform/charger/enable_sc \
+                        /sys/devices/platform/charger/BatteryNotify \
+                        /sys/devices/platform/charger/sw_jeita; do
                 if [ -e "${'$'}node" ]; then
                     chmod 666 "${'$'}node" 2>/dev/null
                     echo 1 > "${'$'}node" 2>/dev/null
                     chmod 444 "${'$'}node" 2>/dev/null
                 fi
             done
-            for node in /sys/devices/platform/charger/BatteryNotify \
-                        /sys/devices/platform/charger/sw_jeita \
+            for node in /sys/devices/platform/charger/BN_TestMode \
                         /sys/devices/platform/charger/tran_charger_full \
                         /sys/devices/platform/charger/bypass_charger \
                         /sys/devices/platform/charger/tran_game_mode; do
@@ -3299,16 +3641,28 @@ object LynxRepository {
             fi
             echo $highTargetPercent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
 
-            # MediaTek Kernel PID Thermal Derater (ABCCT) & Userspace Algorithm Pause
+            # MediaTek Kernel PID Thermal Derater (ABCCT & ABCCT_LCMOFF):
+            # Format: <target_temp> <kp> <ki> <kd> <max_bat_chr_curr_limit> <min_bat_chr_curr_limit> <pep30_max> <pep30_min>
+            # Keeps min_bat_chr_curr_limit at 4500mA so Screen-On LCM active never clamps below 4.5A.
             if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
                 chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                echo 0 > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+                echo "70000 1000 200000 5 $effectiveMtkMa 4500 $effectiveMtkMa 4500" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
                 chmod 444 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
             fi
             if [ -e /proc/driver/thermal/clabcct ]; then
                 chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-                echo "0 70000 1000 200000 5 $effectiveMtkMa 0" > /proc/driver/thermal/clabcct 2>/dev/null
+                echo "70000 1000 200000 5 $effectiveMtkMa 4500 $effectiveMtkMa 4500" > /proc/driver/thermal/clabcct 2>/dev/null
                 chmod 444 /proc/driver/thermal/clabcct 2>/dev/null
+            fi
+            # MediaTek 33W+ 2:1 Direct Charge Pump (pca_dv2_algo / PCA9468 / SC8551):
+            if [ -e /sys/devices/platform/pca_dv2_algo/dv2_debug ]; then
+                chmod 666 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                echo "[101,85,88,90,0,0,0]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                echo "[102,85,88,90,0,0,0]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+            fi
+            if [ -e /proc/driver/thermal/tzbts_param ]; then
+                chmod 666 /proc/driver/thermal/tzbts_param 2>/dev/null
+                echo "PUP_R 200000 PUP_VOLT 1800 OVER_CRITICAL_L 4397119 NTC_TABLE 7 0" > /proc/driver/thermal/tzbts_param 2>/dev/null
             fi
             for tpid in ${'$'}(pgrep -f "thermalloadalgod" 2>/dev/null); do kill -STOP "${'$'}tpid" 2>/dev/null; done
 
@@ -3465,9 +3819,11 @@ object LynxRepository {
                 chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
             """ else """
                 chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                echo 33 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
             """}
 
+            # Keep thermal_zone*/mode enabled so pca_dv2_algo 2:1 Direct Charge Pump
+            # never encounters -127000 sensor errors, while raising trip points to 95C
             for tz in /sys/class/thermal/thermal_zone*; do
                 [ -d "${'$'}tz" ] || continue
                 tz_type=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
@@ -3475,8 +3831,7 @@ object LynxRepository {
                     *battery*|*bms*|*chg*|*charger*|*mtktsap*|*tsbuck*|*skin*|*pcb*|*sub_batt*|*quiet*|*xo_therm*|*pmic*)
                         if [ -e "${'$'}tz/mode" ]; then
                             chmod 666 "${'$'}tz/mode" 2>/dev/null
-                            echo disabled > "${'$'}tz/mode" 2>/dev/null
-                            chmod 444 "${'$'}tz/mode" 2>/dev/null
+                            echo enabled > "${'$'}tz/mode" 2>/dev/null
                         fi
                         for tp in "${'$'}tz"/trip_point_*_temp; do
                             if [ -e "${'$'}tp" ]; then
@@ -3512,7 +3867,7 @@ object LynxRepository {
     suspend fun applyChargingMode(
         bypass: Boolean,
         extremeCharging: Boolean,
-        limitMa: Int = 4500,
+        limitMa: Int = 6000,
         highTargetPercent: Int = 90,
         lockoutBypass: Boolean = true,
         tempGuard: Boolean = true,
@@ -3521,6 +3876,17 @@ object LynxRepository {
         isLaptopPort: Boolean = false
     ): Boolean = withContext(Dispatchers.IO) {
         try {
+            val effectiveMa = if (isLaptopPort) 1500 else if (isUnconstrainedMaxHw) 6000 else limitMa.coerceIn(500, 6000)
+            val nativeCmd = when {
+                bypass -> "if [ -x '$LYNXD_PATH' ]; then cur_cap=\$(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 50); if [ \"\$cur_cap\" -ge $maxBatteryPercent ] || [ \"\$cur_cap\" -ge 100 ]; then '$LYNXD_PATH' charging bypass; else '$LYNXD_PATH' charging extreme $highTargetPercent $lockoutBypass 6000; fi && echo ok; fi"
+                extremeCharging || effectiveMa >= 3000 -> "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging extreme $highTargetPercent $lockoutBypass $effectiveMa && echo ok; fi"
+                else -> "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging regulated $effectiveMa && echo ok; fi"
+            }
+            val fastRes = Shell.cmd(nativeCmd).exec()
+            if (fastRes.isSuccess && fastRes.out.any { it.trim() == "ok" }) {
+                return@withContext true
+            }
+
             val script = if (bypass) {
                 // True Hardware Bypass: Only engages when battery is at or above target percentage (e.g. 80% or 100%)
                 // If battery is still below target, continue fast charging toward target!
@@ -3580,7 +3946,9 @@ object LynxRepository {
                     # Below target: unlock fast charging to reach target percent quickly
                     echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
+                    echo 1 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
+                    echo 1 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+                    echo 0 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
                     echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
@@ -3590,7 +3958,7 @@ object LynxRepository {
                     echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                     echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                     echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
-                    ${if (lockoutBypass) "echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null" else "echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null"}
+                    ${if (lockoutBypass) "echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null" else "echo 33 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null"}
                 fi
                 echo ok
                 """.trimIndent()
@@ -3686,15 +4054,15 @@ object LynxRepository {
                 for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -CONT "${'$'}jpid" 2>/dev/null; done
                 for tpid in ${'$'}(pgrep -f "thermalloadalgod" 2>/dev/null); do kill -CONT "${'$'}tpid" 2>/dev/null; done
 
-                # Revert MediaTek ABCCT PID
+                # Revert MediaTek ABCCT PID with proper 8-integer format
                 if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
                     chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                    echo 1 > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+                    echo "42000 1000 200000 5 $targetMa 3000 $targetMa 3000" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
                     chmod 644 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
                 fi
                 if [ -e /proc/driver/thermal/clabcct ]; then
                     chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-                    echo "1 42000 1000 200000 5 2000 0" > /proc/driver/thermal/clabcct 2>/dev/null
+                    echo "42000 1000 200000 5 $targetMa 3000 $targetMa 3000" > /proc/driver/thermal/clabcct 2>/dev/null
                     chmod 644 /proc/driver/thermal/clabcct 2>/dev/null
                 fi
 
@@ -3711,7 +4079,7 @@ object LynxRepository {
                 echo 0 > /sys/class/power_supply/battery/store_mode 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
                 chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                echo 33 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
 
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
@@ -3720,6 +4088,9 @@ object LynxRepository {
                 # Enable Pump Express & fast charging hardware
                 echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
                 echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+                echo 0 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+                echo 1 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
                 echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
                 echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
 
@@ -3728,7 +4099,6 @@ object LynxRepository {
                     echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                     echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
                     echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
                     echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
                     echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
                     echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
@@ -3740,7 +4110,6 @@ object LynxRepository {
                     echo $targetMa > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                     echo $targetMa > /sys/devices/platform/charger/chg1_current 2>/dev/null
                     echo $targetMa > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                    echo 1 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
                     echo $targetUa > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
                     echo $targetUa > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
                     echo $targetUa > /sys/class/power_supply/main/current_max 2>/dev/null
@@ -3771,6 +4140,22 @@ object LynxRepository {
         highTargetPercent: Int = 100,
         isLaptopPort: Boolean = false
     ): Boolean = withContext(Dispatchers.IO) {
+        val lockVal = enabled && lockoutBypass
+        if (isModuleInstalled()) {
+            val batchCmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' state set charging.extreme_charging_enabled=$enabled charging.thermal_lockout_bypass_enabled=$lockVal charging.limit_current_ma=$targetMa charging.is_unconstrained_max_hw=$isUnconstrainedMaxHw; fi"
+            val r = Shell.cmd(batchCmd).exec()
+            if (!r.isSuccess) {
+                writeStateKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
+                writeStateKey("charging.thermal_lockout_bypass_enabled", lockVal.toString(), "bool")
+                writeStateKey("charging.limit_current_ma", targetMa.toString(), "val")
+                writeStateKey("charging.is_unconstrained_max_hw", isUnconstrainedMaxHw.toString(), "bool")
+            }
+        } else {
+            writeStateKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
+            writeStateKey("charging.thermal_lockout_bypass_enabled", lockVal.toString(), "bool")
+            writeStateKey("charging.limit_current_ma", targetMa.toString(), "val")
+            writeStateKey("charging.is_unconstrained_max_hw", isUnconstrainedMaxHw.toString(), "bool")
+        }
         val ok = applyChargingMode(
             bypass = false,
             extremeCharging = enabled,
@@ -3780,10 +4165,6 @@ object LynxRepository {
             isUnconstrainedMaxHw = isUnconstrainedMaxHw,
             isLaptopPort = isLaptopPort
         )
-        writeStateKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
-        writeStateKey("charging.thermal_lockout_bypass_enabled", (enabled && lockoutBypass).toString(), "bool")
-        writeStateKey("charging.limit_current_ma", targetMa.toString(), "val")
-        writeStateKey("charging.is_unconstrained_max_hw", isUnconstrainedMaxHw.toString(), "bool")
         ok
     }
 
@@ -3803,15 +4184,19 @@ object LynxRepository {
      */
     suspend fun reapplyExtremeChargingLock(): Boolean = withContext(Dispatchers.IO) {
         try {
+            val fastRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging lock && echo ok; fi").exec()
+            if (fastRes.isSuccess && fastRes.out.any { it.trim() == "ok" }) {
+                return@withContext true
+            }
             val script = """
                 if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
                     chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                    echo 0 > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+                    echo "70000 1000 200000 5 6000 4500 6000 4500" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
                     chmod 444 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
                 fi
                 if [ -e /proc/driver/thermal/clabcct ]; then
                     chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-                    echo "0 70000 1000 200000 5 6000 0" > /proc/driver/thermal/clabcct 2>/dev/null
+                    echo "70000 1000 200000 5 6000 4500 6000 4500" > /proc/driver/thermal/clabcct 2>/dev/null
                     chmod 444 /proc/driver/thermal/clabcct 2>/dev/null
                 fi
                 for c in /sys/class/thermal/cooling_device*; do
@@ -3827,26 +4212,30 @@ object LynxRepository {
                 for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
                     if [ -e "${'$'}node" ]; then
                         chmod 666 "${'$'}node" 2>/dev/null
-                        echo "[90,6000,100,6000,6000]" > "${'$'}node" 2>/dev/null
+                        echo "[95,6000,100,6000,6000]" > "${'$'}node" 2>/dev/null
                         chmod 444 "${'$'}node" 2>/dev/null
                     fi
                 done
-                for node in /sys/devices/platform/charger/BN_TestMode /sys/devices/platform/charger/enable_sc; do
+                for node in /sys/devices/platform/charger/enable_sc /sys/devices/platform/charger/BatteryNotify /sys/devices/platform/charger/sw_jeita; do
                     if [ -e "${'$'}node" ]; then
                         chmod 666 "${'$'}node" 2>/dev/null
                         echo 1 > "${'$'}node" 2>/dev/null
                         chmod 444 "${'$'}node" 2>/dev/null
                     fi
                 done
-                if [ -e /sys/devices/platform/charger/BatteryNotify ]; then
-                    chmod 666 /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                    chmod 444 /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+                if [ -e /sys/devices/platform/charger/BN_TestMode ]; then
+                    chmod 666 /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+                    echo 0 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+                    chmod 444 /sys/devices/platform/charger/BN_TestMode 2>/dev/null
                 fi
                 if [ -e /sys/devices/platform/charger/sc_ibat_limit ]; then
                     chmod 666 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                     echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                     chmod 444 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                fi
+                if [ -e /sys/class/thermal/thermal_zone1/mode ]; then
+                    chmod 666 /sys/class/thermal/thermal_zone1/mode 2>/dev/null
+                    echo enabled > /sys/class/thermal/thermal_zone1/mode 2>/dev/null
                 fi
                 for tpid in ${'$'}(pgrep -f "thermalloadalgod" 2>/dev/null); do kill -STOP "${'$'}tpid" 2>/dev/null; done
                 echo ok
@@ -3914,8 +4303,8 @@ object LynxRepository {
     suspend fun setThermalLockoutBypass(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
             writeStateKey("charging.thermal_lockout_bypass_enabled", enabled.toString(), "bool")
-            val tempVal = if (enabled) "28" else "65535"
-            Shell.cmd("echo $tempVal > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null").exec()
+            val tempVal = if (enabled) "28" else "33"
+            Shell.cmd("chmod 666 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null; echo $tempVal > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null").exec()
             true
         } catch (e: Exception) { false }
     }
@@ -3923,7 +4312,7 @@ object LynxRepository {
     suspend fun setSmartTapering(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
             writeStateKey("charging.smart_tapering_enabled", enabled.toString(), "bool")
-            Shell.cmd("sh /data/adb/modules/Lynx/core/Charging-Controller.sh apply 2>/dev/null").exec()
+            Shell.cmd("'$LYNXD_PATH' charging apply 2>/dev/null").exec()
             true
         } catch (e: Exception) { false }
     }
@@ -5167,6 +5556,18 @@ object LynxRepository {
 
     suspend fun applyThermalMode(mode: String, customTempLimit: Int = 52): Boolean = withContext(Dispatchers.IO) {
         try {
+            val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
+            if (java.io.File(lynxdPath).canExecute()) {
+                val rustMode = when (mode.lowercase()) {
+                    "default", "default_oem" -> "conservative"
+                    "hardware_safety_dominant", "unrestricted", "dominant" -> "gaming"
+                    "stable", "thermal_stable" -> "stable"
+                    "extreme", "bypass" -> "extreme"
+                    else -> mode.lowercase()
+                }
+                val res = Shell.cmd("$lynxdPath thermal mode $rustMode").exec()
+                if (res.isSuccess) return@withContext true
+            }
             com.noir.lynx.safety.OEMRestoreManager.captureBaselineIfMissing()
 
             when (mode.lowercase()) {
@@ -5319,6 +5720,11 @@ object LynxRepository {
 
     suspend fun applyCustomTempLimitLive(tempC: Int): Boolean = withContext(Dispatchers.IO) {
         try {
+            val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
+            if (java.io.File(lynxdPath).canExecute()) {
+                val res = Shell.cmd("$lynxdPath thermal set-limit $tempC").exec()
+                if (res.isSuccess) return@withContext true
+            }
             val milliC = (tempC * 1000).toString()
             val writes = mutableListOf<Pair<String, String>>()
             val caps = com.noir.lynx.hardware.ThermalCapabilityDetector.detect()
@@ -6200,8 +6606,9 @@ object LynxRepository {
     //  Deep Battery Telemetry & Health (Cycle Count, mA, mV, °C)
     // ----------------------------------------------------------------
 
-    suspend fun readBatteryDetails(): BatteryDetails? = withContext(Dispatchers.IO) {
+    suspend fun readBatteryDetails(includeDeepAdcAndTz: Boolean = false): BatteryDetails? = withContext(Dispatchers.IO) {
         try {
+            val deepFlag = if (includeDeepAdcAndTz) "1" else "0"
             val script = """
                 cap=${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null || cat /sys/class/power_supply/bms/capacity 2>/dev/null || echo 0)
                 stat=${'$'}(cat /sys/class/power_supply/battery/status 2>/dev/null || cat /sys/class/power_supply/bms/status 2>/dev/null || echo "Unknown")
@@ -6246,19 +6653,15 @@ object LynxRepository {
 
                     chgtyp=${'$'}(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || cat /sys/class/power_supply/usb/type 2>/dev/null || echo "")
 
+                    # Read only true live ADC current sensors (never static limit nodes like charger/input_current)
                     raw_ibus=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_ICharger 2>/dev/null)
                     [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1)
                     [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/current_now 2>/dev/null)
                     [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/input_current_now 2>/dev/null)
                     [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/main/current_now 2>/dev/null)
-                    # MTK platform charger nodes return mA directly (Helio G96 / Dimensity)
-                    [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/devices/platform/charger/input_current 2>/dev/null)
-                    [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/devices/platform/charger/chg1_current 2>/dev/null)
                     [ -z "${'$'}raw_ibus" ] && raw_ibus=0
 
                     # Scaling heuristic: µA values are always > 100000, mA values are ≤ 9000.
-                    # Only apply ×10 if value looks like 100mA-unit (< 100 and > 0).
-                    # Values 100–9000 are already in mA. Values > 100000 are µA → ÷1000.
                     if [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -gt 100000 ] 2>/dev/null; then
                         ibus=${'$'}(( raw_ibus / 1000 ))
                     elif [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -lt 100 ] && [ "${'$'}raw_ibus" -gt 10 ] 2>/dev/null; then
@@ -6269,16 +6672,7 @@ object LynxRepository {
                 fi
 
                 rfc=${'$'}([ "${'$'}chgtyp" = "9" ] && echo 1 || (cat /sys/bus/i2c/drivers/rt9759/*/rfc_dcp_ta 2>/dev/null | head -n 1 || echo 0))
-                rtmp=0
-                for tz in /sys/class/thermal/thermal_zone*; do
-                    tz_type=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
-                    case "${'$'}tz_type" in
-                        *battery*|*mtktsbattery*|*bms*)
-                            rtmp=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
-                            [ -n "${'$'}rtmp" ] && [ "${'$'}rtmp" -gt 0 ] 2>/dev/null && break
-                            ;;
-                    esac
-                done
+                rtmp=${'$'}(cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null)
                 [ -z "${'$'}rtmp" ] || [ "${'$'}rtmp" -le 0 ] 2>/dev/null && rtmp=${'$'}temp
                 grd=${'$'}([ -f /dev/lynx_charging_guard ] && echo 1 || echo 0)
                 cst=${'$'}(cat /dev/lynx_charging_state 2>/dev/null || echo "")
@@ -6312,87 +6706,6 @@ object LynxRepository {
                 mi_sig=${'$'}(cat /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null || cat /sys/class/power_supply/battery/boost_current 2>/dev/null || echo "")
                 pd_sig=${'$'}(cat /sys/class/power_supply/usb/pd_active 2>/dev/null || cat /sys/class/power_supply/usb/pd_allowed 2>/dev/null || echo "")
 
-                # Anti-overcharge AutoCut & 100% True Hardware Bypass Latch (ONLY when plugged in)
-                if [ "${'$'}is_plugged" = "1" ] && { [ "${'$'}{cap:-0}" -ge 100 ] || [ "${'$'}stat" = "Full" ]; }; then
-                    rm -f /dev/lynx_extreme_charging 2>/dev/null
-                    # Auto engage True Hardware Bypass: Power direct to Motherboard / Vsys, 0mA to battery
-                    echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
-                    echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
-                    echo 1 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                    echo 0 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
-                    echo 0 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-                    echo 0 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
-                    echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
-                    echo 100 > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
-                    chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                    echo 65535 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                elif [ "${'$'}is_plugged" = "1" ]; then
-                    # Suppress thermal throttling daemon if extreme charging or spoofing 28C is active (Only when battery < 100% and charging)
-                    is_ext=${'$'}([ -f /dev/lynx_extreme_charging ] && echo 1 || echo 0)
-                    cur_bt=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null)
-                    if [ "${'$'}is_ext" = "1" ] || [ "${'$'}cur_bt" = "28" ]; then
-                        for c in /sys/class/thermal/cooling_device*; do
-                            type=${'$'}(cat "${'$'}c/type" 2>/dev/null)
-                            case "${'$'}type" in
-                                *bcct*|*chg*|*current*|*abcct*|*battery*|*cdev*)
-                                    chmod 666 "${'$'}c/cur_state" 2>/dev/null
-                                    echo 0 > "${'$'}c/cur_state" 2>/dev/null
-                                    chmod 444 "${'$'}c/cur_state" 2>/dev/null
-                                    ;;
-                            esac
-                        done
-                        if [ "${'$'}is_ext" = "1" ]; then
-                            for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
-                                if [ -e "${'$'}node" ]; then
-                                    chmod 666 "${'$'}node" 2>/dev/null
-                                    echo "[90,6000,100,6000,6000]" > "${'$'}node" 2>/dev/null
-                                    chmod 444 "${'$'}node" 2>/dev/null
-                                fi
-                            done
-                            if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
-                                chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                                echo 0 > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                                chmod 444 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                            fi
-                            if [ -e /proc/driver/thermal/clabcct ]; then
-                                chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-                                echo "0 70000 1000 200000 5 6000 0" > /proc/driver/thermal/clabcct 2>/dev/null
-                                chmod 444 /proc/driver/thermal/clabcct 2>/dev/null
-                            fi
-                            if [ -e /sys/devices/platform/charger/BatteryNotify ]; then
-                                chmod 666 /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                                echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                                chmod 444 /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                            fi
-                            if [ -e /sys/devices/platform/charger/BN_TestMode ]; then
-                                chmod 666 /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                                echo 1 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                                chmod 444 /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                            fi
-                            if [ -e /sys/devices/platform/charger/enable_sc ]; then
-                                chmod 666 /sys/devices/platform/charger/enable_sc 2>/dev/null
-                                echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                                chmod 444 /sys/devices/platform/charger/enable_sc 2>/dev/null
-                            fi
-                            if [ -e /sys/devices/platform/charger/sc_ibat_limit ]; then
-                                chmod 666 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                                echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                                chmod 444 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                            fi
-                            for tpid in ${'$'}(pgrep -f "thermalloadalgod" 2>/dev/null); do kill -STOP "${'$'}tpid" 2>/dev/null; done
-                            if [ -e "/sys/class/thermal/thermal_zone1/mode" ]; then
-                                chmod 666 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                                echo disabled > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                                chmod 444 "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-                            fi
-                        fi
-                    fi
-                fi
-
                 ptyp=${'$'}(cat /sys/class/power_supply/usb/type 2>/dev/null || cat /sys/class/power_supply/usb/real_type 2>/dev/null || cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || echo "")
                 [ -z "${'$'}ptyp" ] && [ -d /sys/class/power_supply/pc_port ] && ptyp="SDP"
                 rcbl=${'$'}(cat /sys/devices/platform/battery/FG_meter_resistance 2>/dev/null || cat /sys/class/power_supply/battery/resistance 2>/dev/null || cat /sys/class/power_supply/bms/resistance 2>/dev/null || echo 0)
@@ -6400,27 +6713,29 @@ object LynxRepository {
 
                 echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst|${'$'}pmic_sig|${'$'}sec_sig|${'$'}vooc_sig|${'$'}qc_sig|${'$'}mi_sig|${'$'}pd_sig|${'$'}ptyp|${'$'}rcbl|${'$'}spftmp|${'$'}is_plugged"
 
-                echo "---ADC---"
-                echo "Pump_Express_VCharger=${'$'}adpv"
-                echo "Pump_Express_ICharger=${'$'}raw_ibus"
-                echo "ADC_Charger_Voltage=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || echo 0)"
-                echo "BatteryAverageCurrent=${'$'}(cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null || echo 0)"
-                echo "sc_ibat_limit=${'$'}(cat /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null || echo 0)"
-                echo "pdc_max_watt=${'$'}(cat /sys/devices/platform/charger/pdc_max_watt 2>/dev/null || echo 0)"
-                echo "input_current=${'$'}(cat /sys/devices/platform/charger/input_current 2>/dev/null || echo 0)"
-                echo "chg1_current=${'$'}(cat /sys/devices/platform/charger/chg1_current 2>/dev/null || echo 0)"
-                echo "BN_TestMode=${'$'}(cat /sys/devices/platform/charger/BN_TestMode 2>/dev/null || echo 0)"
-                echo "pe40=${'$'}(cat /sys/devices/platform/charger/pe40 2>/dev/null || echo 0)"
-                echo "Battery_Temperature=${'$'}spftmp"
-                echo "pcb_thermal_debug=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null || cat /sys/devices/platform/tran_battery/pcb_thermal_debug 2>/dev/null || echo 0)"
+                if [ "$deepFlag" = "1" ]; then
+                    echo "---ADC---"
+                    echo "Pump_Express_VCharger=${'$'}adpv"
+                    echo "Pump_Express_ICharger=${'$'}raw_ibus"
+                    echo "ADC_Charger_Voltage=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || echo 0)"
+                    echo "BatteryAverageCurrent=${'$'}(cat /sys/class/power_supply/battery/BatteryAverageCurrent 2>/dev/null || echo 0)"
+                    echo "sc_ibat_limit=${'$'}(cat /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null || echo 0)"
+                    echo "pdc_max_watt=${'$'}(cat /sys/devices/platform/charger/pdc_max_watt 2>/dev/null || echo 0)"
+                    echo "input_current=${'$'}(cat /sys/devices/platform/charger/input_current 2>/dev/null || echo 0)"
+                    echo "chg1_current=${'$'}(cat /sys/devices/platform/charger/chg1_current 2>/dev/null || echo 0)"
+                    echo "BN_TestMode=${'$'}(cat /sys/devices/platform/charger/BN_TestMode 2>/dev/null || echo 0)"
+                    echo "pe40=${'$'}(cat /sys/devices/platform/charger/pe40 2>/dev/null || echo 0)"
+                    echo "Battery_Temperature=${'$'}spftmp"
+                    echo "pcb_thermal_debug=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null || cat /sys/devices/platform/tran_battery/pcb_thermal_debug 2>/dev/null || echo 0)"
 
-                echo "---TZ---"
-                for tz in /sys/class/thermal/thermal_zone*; do
-                    [ -d "${'$'}tz" ] || continue
-                    t=${'$'}(cat "${'$'}tz/type" 2>/dev/null)
-                    v=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
-                    [ -n "${'$'}t" ] && [ -n "${'$'}v" ] && echo "${'$'}{tz##*/}:${'$'}{t}:${'$'}{v}"
-                done
+                    echo "---TZ---"
+                    for tz in /sys/class/thermal/thermal_zone*; do
+                        [ -d "${'$'}tz" ] || continue
+                        t=${'$'}(cat "${'$'}tz/type" 2>/dev/null)
+                        v=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
+                        [ -n "${'$'}t" ] && [ -n "${'$'}v" ] && echo "${'$'}{tz##*/}:${'$'}{t}:${'$'}{v}"
+                    done
+                fi
             """.trimIndent()
             val r = Shell.cmd(script).exec()
             val lines = r.out
@@ -7249,10 +7564,19 @@ object LynxRepository {
     //  Deep Sysfs Inspector & Smart Comment Interpreter
     // ----------------------------------------------------------------
 
+    private suspend fun getDeepTunablesCachePath(): String {
+        val baseDir = File(getActiveConfigPath()).parent ?: MODULE_DIR
+        return "$baseDir/deep_tunables_cache.json"
+    }
+
     suspend fun loadCachedDeepTunables(): List<DeepTunable> = withContext(Dispatchers.IO) {
         try {
-            val path = getActiveConfigPath()
-            val jsonResult = Shell.cmd("cat '$path' 2>/dev/null").exec()
+            val cachePath = getDeepTunablesCachePath()
+            var jsonResult = Shell.cmd("cat '$cachePath' 2>/dev/null").exec()
+            if (!jsonResult.isSuccess || jsonResult.out.isEmpty()) {
+                val legacyPath = getActiveConfigPath()
+                jsonResult = Shell.cmd("cat '$legacyPath' 2>/dev/null").exec()
+            }
             if (!jsonResult.isSuccess || jsonResult.out.isEmpty()) return@withContext emptyList()
             val raw = jsonResult.out.joinToString("\n")
             val root = JSONObject(raw)
@@ -7272,11 +7596,8 @@ object LynxRepository {
     suspend fun saveDeepTunablesToConfig(tunables: List<DeepTunable>) = withContext(Dispatchers.IO) {
         try {
             if (tunables.isEmpty()) return@withContext
-            val path = getActiveConfigPath()
-            val jsonResult = Shell.cmd("cat '$path' 2>/dev/null").exec()
-            val root = if (jsonResult.isSuccess && jsonResult.out.isNotEmpty()) {
-                try { JSONObject(jsonResult.out.joinToString("\n")) } catch (_: Exception) { JSONObject() }
-            } else JSONObject()
+            val cachePath = getDeepTunablesCachePath()
+            val root = JSONObject()
 
             val arr = org.json.JSONArray()
             for (t in tunables) {
@@ -7309,8 +7630,7 @@ object LynxRepository {
             }
             root.put("deep_tunables", arr)
             val jsonStr = root.toString(2)
-            writeTextToFileSafely(path, jsonStr, "660")
-            // Note: Scanned tunables are cached to config.json only; NEVER auto-exported to boot startup scripts!
+            writeTextToFileSafely(cachePath, jsonStr, "644")
         } catch (e: Exception) {
             Log.e(TAG, "saveDeepTunablesToConfig error: ${e.message}")
         }
@@ -7348,70 +7668,11 @@ object LynxRepository {
         return true
     }
 
-    private suspend fun exportCustomTunablesBootScript(tunables: List<DeepTunable>) {
-        try {
-            // Standalone Root Mode: NEVER pollute /data/adb/service.d/
-            if (!isModuleInstalled()) {
-                Shell.cmd("rm -f /data/adb/service.d/lynx* 2>/dev/null").exec()
-                return
-            }
-
-            val scriptPath = "$MODULE_DIR/core/custom_tunables.sh"
-            val parentDir = File(scriptPath).parent ?: return
-            Shell.cmd("mkdir -p '$parentDir' 2>/dev/null").exec()
-
-            val sb = StringBuilder()
-            sb.append("#!/system/bin/sh\n")
-            sb.append("# Lynx Universal - Custom Deep Tunables Boot Script\n")
-            sb.append("# Applied safely on system startup by service.sh\n\n")
-            sb.append("# 1. Safety Guard: Wait for system boot completed\n")
-            sb.append("boot_count=0\n")
-            sb.append("while [ \"\$(getprop sys.boot_completed | tr -d '\\r')\" != \"1\" ]; do\n")
-            sb.append("    sleep 2\n")
-            sb.append("    boot_count=\$((boot_count + 1))\n")
-            sb.append("    [ \$boot_count -ge 30 ] && break\n")
-            sb.append("done\n\n")
-            sb.append("# 2. Safety Guard: Abort if Safe Mode or Disable trigger exists\n")
-            sb.append("[ -f /sdcard/Debug/SAFE_MODE ] && exit 0\n")
-            sb.append("[ -f /data/adb/modules/.disable_magisk ] && exit 0\n")
-            sb.append("[ -f /data/adb/apatch/.disable ] && exit 0\n")
-            sb.append("[ -f \"$MODULE_DIR/disable\" ] && exit 0\n\n")
-            sb.append("write_safe() {\n")
-            sb.append("    local val=\"\$1\"\n")
-            sb.append("    local node=\"\$2\"\n")
-            sb.append("    [ -e \"\$node\" ] || return 0\n")
-            sb.append("    [ -z \"\$val\" ] && return 0\n")
-            sb.append("    case \"\$val\" in\n")
-            sb.append("        *\\<unsupported\\>*|*From\\ :\\ To*|*unavailable*) return 0 ;;\n")
-            sb.append("    esac\n")
-            sb.append("    chmod 644 \"\$node\" 2>/dev/null\n")
-            sb.append("    echo \"\$val\" > \"\$node\" 2>/dev/null\n")
-            sb.append("}\n\n")
-
-            for (t in tunables) {
-                if (!t.writable || t.value.isBlank()) continue
-                if (!isTunableSafe(t.path, t.value)) continue
-
-                if (t.path.startsWith("/proc/ppm/policy_status:")) {
-                    val idx = t.path.substringAfter(":")
-                    sb.append("echo \"$idx ${t.value}\" > /proc/ppm/policy_status 2>/dev/null\n")
-                } else {
-                    sb.append("write_safe \"${t.value}\" \"${t.path}\"\n")
-                }
-            }
-
-            writeTextToFileSafely(scriptPath, sb.toString(), "755")
-        } catch (e: Exception) {
-            Log.w(TAG, "exportCustomTunablesBootScript error: ${e.message}")
-        }
-    }
-
     suspend fun scanDeepTunables(): List<DeepTunable> = withContext(Dispatchers.IO) {
         try {
-            val cmd = if (isModuleInstalled() && Shell.cmd("[ -f '$MODULE_DIR/core/lib/deep_inspector.sh' ]").exec().isSuccess) {
-                "sh '$MODULE_DIR/core/lib/deep_inspector.sh' scan 2>/dev/null"
-            } else {
-                buildStandaloneDeepScanScript()
+            val cmd = when {
+                isModuleInstalled() -> "'$LYNXD_PATH' inspect scan 2>/dev/null"
+                else -> buildStandaloneDeepScanScript()
             }
             val result = Shell.cmd(cmd).exec()
             val list = mutableListOf<DeepTunable>()
@@ -7441,10 +7702,9 @@ object LynxRepository {
     suspend fun inspectNode(path: String): DeepTunable? = withContext(Dispatchers.IO) {
         try {
             val safePath = path.trim().replace("\"", "")
-            val cmd = if (isModuleInstalled() && Shell.cmd("[ -f '$MODULE_DIR/core/lib/deep_inspector.sh' ]").exec().isSuccess) {
-                "sh '$MODULE_DIR/core/lib/deep_inspector.sh' inspect \"$safePath\" 2>/dev/null"
-            } else {
-                buildStandaloneInspectScript(safePath)
+            val cmd = when {
+                isModuleInstalled() -> "'$LYNXD_PATH' inspect node \"$safePath\" 2>/dev/null"
+                else -> buildStandaloneInspectScript(safePath)
             }
             val result = Shell.cmd(cmd).exec()
             if (!result.isSuccess || result.out.isEmpty()) return@withContext null
@@ -7467,6 +7727,14 @@ object LynxRepository {
                 return@withContext false
             }
 
+            // Native Rust Declarative Tunable Store Fast-Path (lynxd v0.5.0+)
+            if (isModuleInstalled()) {
+                val res = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' tunable set \"$safePath\" \"$safeVal\" && echo ok; fi").exec()
+                if (res.isSuccess && res.out.any { it.contains("ok") || it.contains("Successfully") }) {
+                    return@withContext true
+                }
+            }
+
             val cmd = if (path.startsWith("/proc/ppm/policy_status:")) {
                 val idx = path.substringAfter(":")
                 "echo '$idx $safeVal' > /proc/ppm/policy_status && echo ok"
@@ -7474,27 +7742,7 @@ object LynxRepository {
                 "chmod 644 '$safePath' 2>/dev/null; echo '$safeVal' > '$safePath' 2>/dev/null && echo ok"
             }
             val result = Shell.cmd(cmd).exec()
-            val success = result.isSuccess && result.out.firstOrNull()?.trim() == "ok"
-            if (success) {
-                // If module is installed, persist safely to custom_tunables.sh
-                if (isModuleInstalled()) {
-                    val scriptPath = "$MODULE_DIR/core/custom_tunables.sh"
-                    if (!Shell.cmd("[ -f '$scriptPath' ]").exec().isSuccess) {
-                        exportCustomTunablesBootScript(emptyList())
-                    }
-                    if (path.startsWith("/proc/ppm/policy_status:")) {
-                        val idx = path.substringAfter(":")
-                        Shell.cmd("sed -i '/echo \"$idx .* > \\/proc\\/ppm\\/policy_status/d' '$scriptPath' 2>/dev/null; echo 'echo \"$idx $safeVal\" > /proc/ppm/policy_status 2>/dev/null' >> '$scriptPath' 2>/dev/null").exec()
-                    } else {
-                        val safeEscapePath = path.replace("/", "\\/")
-                        Shell.cmd("sed -i '/write_safe .* \"$safeEscapePath\"/d' '$scriptPath' 2>/dev/null; echo 'write_safe \"$safeVal\" \"$path\"' >> '$scriptPath' 2>/dev/null").exec()
-                    }
-                } else {
-                    // Standalone Mode: Proactively clean rogue service.d scripts
-                    Shell.cmd("rm -f /data/adb/service.d/lynx* 2>/dev/null").exec()
-                }
-            }
-            success
+            result.isSuccess && result.out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) {
             Log.e(TAG, "setDeepTunable failed: ${e.message}")
             false
@@ -8851,6 +9099,11 @@ object LynxRepository {
 
     suspend fun deployWatcherScripts(): Boolean = withContext(Dispatchers.IO) {
         try {
+            if (isModuleInstalled()) {
+                // Native lynxd daemon handles automation and foreground app profiling with zero shell overhead
+                Shell.cmd("rm -f /data/adb/lynx/apply_profile.sh /data/adb/lynx/lynx_watcher.sh 2>/dev/null").exec()
+                return@withContext true
+            }
             val applyScript = """
 #!/system/bin/sh
 PROFILE="${'$'}{1:-balance}"
@@ -10382,11 +10635,6 @@ done
             writeTextToFileSafely("/data/adb/lynx/apply_profile.sh", applyScript, "755")
             writeTextToFileSafely("/data/adb/lynx/lynx_watcher.sh", watcherScript, "755")
 
-            Shell.cmd(
-                "if [ -f /data/adb/modules/Lynx/core/apply_profile.sh ]; then cp -f /data/adb/modules/Lynx/core/apply_profile.sh /data/adb/lynx/apply_profile.sh; fi",
-                "if [ -f /data/adb/modules/Lynx/core/lynx_watcher.sh ]; then cp -f /data/adb/modules/Lynx/core/lynx_watcher.sh /data/adb/lynx/lynx_watcher.sh; fi",
-                "if [ -f /data/adb/modules/Lynx/core/lib/verify_profile.sh ]; then cp -f /data/adb/modules/Lynx/core/lib/verify_profile.sh /data/adb/lynx/verify_profile.sh; chmod 755 /data/adb/lynx/verify_profile.sh 2>/dev/null; fi"
-            ).exec()
             true
         } catch (e: Exception) {
             Log.e(TAG, "deployWatcherScripts error: ${e.message}")
@@ -10405,12 +10653,15 @@ done
                 "chmod 666 /data/adb/lynx/automation_enabled 2>/dev/null"
             ).exec()
 
-            if (!isWatcherDaemonAlive()) {
-                Shell.cmd(
-                    "pkill -f lynx_watcher.sh 2>/dev/null",
-                    "nohup /system/bin/sh /data/adb/lynx/lynx_watcher.sh >/dev/null 2>&1 &"
-                ).exec()
-            }
+            val lynxdPath = "/data/adb/modules/Lynx/system/bin/lynxd"
+            Shell.cmd(
+                "if [ -x '$lynxdPath' ]; then " +
+                "  pkill -f lynx_watcher.sh 2>/dev/null; " +
+                "  $lynxdPath daemon status >/dev/null 2>&1 || nohup $lynxdPath daemon run >/dev/null 2>&1 & " +
+                "elif ! pgrep -f lynx_watcher.sh >/dev/null 2>&1; then " +
+                "  nohup /system/bin/sh /data/adb/lynx/lynx_watcher.sh >/dev/null 2>&1 & " +
+                "fi"
+            ).exec()
 
             val intent = Intent(context, LynxAppAutomationService::class.java).apply {
                 action = LynxAppAutomationService.ACTION_START
@@ -10429,8 +10680,11 @@ done
 
     suspend fun stopAppAutomation(context: Context): Boolean = withContext(Dispatchers.IO) {
         try {
+            val lynxdPath = "/data/adb/modules/Lynx/system/bin/lynxd"
             Shell.cmd(
                 "echo 0 > /data/adb/lynx/automation_enabled",
+                "if [ -x '$lynxdPath' ]; then '$lynxdPath' daemon stop 2>/dev/null; fi",
+                "killall lynxd 2>/dev/null",
                 "pkill -f lynx_watcher.sh 2>/dev/null",
                 "rm -f /data/adb/lynx/watcher.pid 2>/dev/null"
             ).exec()
@@ -10461,7 +10715,7 @@ done
     }
 
     suspend fun isWatcherDaemonAlive(): Boolean = withContext(Dispatchers.IO) {
-        val check = Shell.cmd("pgrep -f lynx_watcher.sh").exec()
+        val check = Shell.cmd("pgrep -f 'lynxd daemon' || pgrep -f lynx_watcher.sh").exec()
         check.isSuccess && check.out.any { it.trim().isNotEmpty() }
     }
 
@@ -13350,6 +13604,73 @@ done
 
     suspend fun readCpuSetsInfo(context: Context? = null): CpuSetsInfo = withContext(Dispatchers.IO) {
         try {
+            // Tier 0: lynxd Native Fast-Path (<1ms, single native binary call)
+            if (isModuleInstalled()) {
+                val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
+                val res = Shell.cmd("[ -x '$lynxdPath' ] && '$lynxdPath' cpuset info 2>/dev/null").exec()
+                if (res.isSuccess && res.out.isNotEmpty()) {
+                    val raw = res.out.joinToString("\n").trim()
+                    if (raw.startsWith("{")) {
+                        try {
+                            val json = JSONObject(raw)
+                            val arr = json.optJSONArray("cpusets")
+                            if (arr != null && arr.length() > 0) {
+                                var topApp = "0-7"
+                                var foreground = "0-7"
+                                var background = "0-2"
+                                var systemBackground = "0-2"
+                                var restricted = "0-3"
+                                for (i in 0 until arr.length()) {
+                                    val obj = arr.optJSONObject(i) ?: continue
+                                    val grp = obj.optString("group", "")
+                                    val cpus = obj.optString("cpus", "")
+                                    if (cpus.isNotBlank() && cpus != "unsupported") {
+                                        when (grp) {
+                                            "top-app" -> topApp = cpus
+                                            "foreground" -> foreground = cpus
+                                            "background" -> background = cpus
+                                            "system-background" -> systemBackground = cpus
+                                            "restricted" -> restricted = cpus
+                                        }
+                                    }
+                                }
+                                val dummy = CpuSetsInfo()
+                                val bgSet = dummy.parseCores(background)
+                                val fgSet = dummy.parseCores(foreground)
+                                val taSet = dummy.parseCores(topApp)
+                                val detectedPreset = when {
+                                    bgSet.size <= 2 && fgSet.size <= 4 && taSet.size >= 7 -> "gaming"
+                                    bgSet.size <= 2 && fgSet.size >= 6 -> "balanced"
+                                    bgSet.size >= 4 && fgSet.size >= 7 -> "multitasking"
+                                    taSet.size <= 4 -> "powersave"
+                                    else -> "balanced"
+                                }
+                                if (context != null) appContext = context.applicationContext
+                                val ctx = context ?: appContext
+                                val prefs = ctx?.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
+                                val activePreset = prefs?.getString("active_preset", detectedPreset) ?: detectedPreset
+                                val applyOnBoot = prefs?.getBoolean("apply_on_boot", false) ?: false
+                                val totalCount = Runtime.getRuntime().availableProcessors().coerceAtLeast(8)
+                                return@withContext CpuSetsInfo(
+                                    isSupported = true,
+                                    topAppCpus = topApp,
+                                    foregroundCpus = foreground,
+                                    backgroundCpus = background,
+                                    systemBackgroundCpus = systemBackground,
+                                    restrictedCpus = restricted,
+                                    totalCoresCount = totalCount,
+                                    activePreset = activePreset,
+                                    applyOnBoot = applyOnBoot
+                                )
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "lynxd cpuset info parse failed: ${e.message}")
+                        }
+                    }
+                }
+            }
+
+            // Tier 1: Fallback Standalone / Legacy Shell Script
             val script = """
                 cpuset_root=""
                 if [ -d /dev/cpuset ]; then
@@ -13438,6 +13759,17 @@ done
 
     suspend fun applyCpuSetPreset(preset: String, totalCores: Int = 8, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
         try {
+            val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
+            if (java.io.File(lynxdPath).canExecute()) {
+                val res = Shell.cmd("$lynxdPath cpuset apply ${preset.lowercase()}").exec()
+                if (res.isSuccess) {
+                    context?.let { ctx ->
+                        val prefs = ctx.getSharedPreferences("lynx_cpusets", Context.MODE_PRIVATE)
+                        prefs.edit().putString("active_preset", preset.lowercase()).apply()
+                    }
+                    return@withContext true
+                }
+            }
             val maxCore = (totalCores - 1).coerceAtLeast(1)
             val fallbackLittleMax = if (totalCores >= 8) (totalCores - 3).coerceAtLeast(3) else (totalCores / 2).coerceAtLeast(1)
             val bgMax = if (totalCores >= 8) 2 else 1
@@ -13747,6 +14079,80 @@ done
 
     suspend fun readCpuIdleInfo(context: Context? = null): CpuIdleInfo = withContext(Dispatchers.IO) {
         try {
+            // Tier 0: lynxd Native Fast-Path (<1ms, single native binary call)
+            if (isModuleInstalled()) {
+                val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
+                val res = Shell.cmd("[ -x '$lynxdPath' ] && '$lynxdPath' cpuidle info 2>/dev/null").exec()
+                if (res.isSuccess && res.out.isNotEmpty()) {
+                    val raw = res.out.joinToString("\n").trim()
+                    if (raw.startsWith("{")) {
+                        try {
+                            val json = JSONObject(raw)
+                            val statesArr = json.optJSONArray("states")
+                            val statesList = mutableListOf<CpuIdleStateItem>()
+                            if (statesArr != null) {
+                                for (i in 0 until statesArr.length()) {
+                                    val obj = statesArr.optJSONObject(i) ?: continue
+                                    val idx = obj.optInt("index", i)
+                                    val name = obj.optString("name", "state$idx")
+                                    val desc = obj.optString("desc", "")
+                                    val disabled = obj.optBoolean("disabled", false)
+                                    val latUs = obj.optLong("latency_us", 0L)
+                                    statesList.add(
+                                        CpuIdleStateItem(
+                                            index = idx,
+                                            name = name,
+                                            desc = desc,
+                                            latencyUs = latUs,
+                                            residencyUs = 0L,
+                                            usageCount = 0L,
+                                            timeUs = 0L,
+                                            isDisabled = disabled
+                                        )
+                                    )
+                                }
+                            }
+                            val armpllStr = json.optString("armpll_mode", "-1")
+                            val armpll = armpllStr.toIntOrNull() ?: -1
+                            val cstateAware = json.optString("sched_cstate_aware", "1") != "0"
+                            val totalCores = Runtime.getRuntime().availableProcessors().coerceAtLeast(8)
+                            val ctx = context ?: appContext
+                            val prefs = ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
+                            val savedPreset = prefs?.getString("active_preset", null)
+                            val savedCoreParkingMode = prefs?.getString("core_parking_mode", "dynamic") ?: "dynamic"
+                            val isDeepDisabled = statesList.filter { it.index >= 2 }.all { it.isDisabled } && statesList.isNotEmpty()
+                            val activePreset = savedPreset ?: when {
+                                isDeepDisabled -> "gaming"
+                                else -> "balanced"
+                            }
+                            val applyOnBoot = prefs?.getBoolean("apply_on_boot", false) ?: false
+
+                            return@withContext CpuIdleInfo(
+                                isSupported = statesList.isNotEmpty(),
+                                driver = "generic_idle",
+                                governor = "menu",
+                                states = statesList.sortedBy { it.index },
+                                mcdiEnabled = true,
+                                armPllMode = armpll == 1,
+                                buckMode = false,
+                                schedCstateAware = cstateAware,
+                                isCstateAwareSupported = true,
+                                isArmPllSupported = armpll != -1,
+                                coreParkingMode = savedCoreParkingMode,
+                                totalCores = totalCores,
+                                onlineCoresCount = totalCores,
+                                isDeepSleepDisabled = isDeepDisabled,
+                                activePreset = activePreset,
+                                applyOnBoot = applyOnBoot
+                            )
+                        } catch (e: Exception) {
+                            Log.w(TAG, "lynxd cpuidle info parse failed: ${e.message}")
+                        }
+                    }
+                }
+            }
+
+            // Tier 1: Fallback Standalone / Legacy Shell Script
             val script = """
                 driver=${'$'}(cat /sys/devices/system/cpu/cpuidle/current_driver 2>/dev/null || echo "generic_idle")
                 gov=${'$'}(cat /sys/devices/system/cpu/cpuidle/current_governor_ro 2>/dev/null || cat /sys/devices/system/cpu/cpuidle/current_governor 2>/dev/null || echo "menu")
@@ -13902,6 +14308,19 @@ done
     }
 
     suspend fun applyCpuIdlePreset(preset: String, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
+        if (java.io.File(lynxdPath).canExecute()) {
+            val res = Shell.cmd("$lynxdPath cpuidle apply ${preset.lowercase()}").exec()
+            if (res.isSuccess) {
+                if (context != null) appContext = context.applicationContext
+                val ctx = context ?: appContext
+                ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
+                    ?.edit()
+                    ?.putString("active_preset", preset.lowercase())
+                    ?.apply()
+                return@withContext true
+            }
+        }
         val script = when (preset.lowercase()) {
             "gaming" -> """
                 # Zero Latency: Disable deeper states (2..9) across all clusters

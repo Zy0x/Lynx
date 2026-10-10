@@ -1,0 +1,13 @@
+# ==============================================================================
+# Lynx Universal - MediaTek Dimensity & Helio System Properties
+# Strictly MediaTek-exclusive properties; avoids dangerous global Vulkan overrides
+# ==============================================================================
+
+# ── 1. MediaTek Display & Compositor Optimization ─────────────────────────────
+vendor.display.enable_optimize_refresh=1
+ro.surface_flinger.force_hwc_copy_for_virtual_displays=true
+windowsmgr.max_events_per_sec=120
+
+# ── 2. MediaTek GED & Graphics Driver Performance Flags ───────────────────────
+persist.vendor.ged.boost_enable=1
+persist.vendor.ged.smart_boost=1

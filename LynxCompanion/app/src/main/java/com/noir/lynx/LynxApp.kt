@@ -20,12 +20,12 @@ class LynxApp : Application() {
         super.onCreate()
         instance = this
 
-        // Initialize TopJohnWu LibSU with stderr redirect and 10s timeout.
+        // Initialize TopJohnWu LibSU with stderr redirect and 20s timeout.
         // This must run before any Shell.cmd() calls.
         Shell.setDefaultBuilder(
             Shell.Builder.create()
                 .setFlags(Shell.FLAG_REDIRECT_STDERR)
-                .setTimeout(10)
+                .setTimeout(20)
         )
         com.noir.lynx.data.LynxRepository.appContext = this
     }

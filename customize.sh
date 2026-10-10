@@ -11,7 +11,7 @@ command -v set_perm_recursive >/dev/null 2>&1 || set_perm_recursive() { chmod -R
 
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ui_print "  [*] L Y N X   [Codename: Deity]"
-ui_print "  Version: 3.0.49  |  Author: ɴᴏɪʀ"
+ui_print "  Version: 7.0.0-RC5  |  Author: ɴᴏɪʀ"
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ── 1. Root Implementation Verification ────────────────────────────
@@ -213,7 +213,7 @@ if [ -d "$feravolt_dir" ]; then
             for stock_bin in /system/bin/*; do
                 name="${stock_bin##*/}"
                 case "$name" in
-                    busybox|Lxcore|lynx) continue ;;
+                    busybox|lynx|lynxd) continue ;;
                 esac
                 if [ -e "$MODPATH/system/bin/$name" ] || [ -L "$MODPATH/system/bin/$name" ]; then
                     rm -f "$MODPATH/system/bin/$name" 2>/dev/null
@@ -257,11 +257,6 @@ fi
 ui_print "  [*] Initializing State Engine (Dormant Safe Mode)..."
 mkdir -p "$MODPATH/logs" 2>/dev/null
 
-if [ ! -f "$MODPATH/config.json" ] && [ -f "$MODPATH/core/lib/state.sh" ]; then
-    . "$MODPATH/core/lib/state.sh"
-    init_state
-fi
-
 if [ -f "$MODPATH/config.json" ]; then
     sed -i "s/\"target_soc\": \".*\"/\"target_soc\": \"$TARGET_SOC\"/" "$MODPATH/config.json" 2>/dev/null
     sed -i "s/\"soc_type\": \".*\"/\"soc_type\": \"$TARGET_SOC\"/" "$MODPATH/config.json" 2>/dev/null
@@ -286,10 +281,10 @@ ui_print "  [*] Setting permissions..."
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 set_perm_recursive "$MODPATH/system/bin" 0 0 0755 0755
 [ -d "$MODPATH/system/vendor/bin" ] && set_perm_recursive "$MODPATH/system/vendor/bin" 0 0 0755 0755
-set_perm_recursive "$MODPATH/core" 0 0 0755 0755
-[ -d "$MODPATH/platforms" ] && set_perm_recursive "$MODPATH/platforms" 0 0 0755 0755
+set_perm_recursive "$MODPATH/core" 0 0 0755 0644
+[ -d "$MODPATH/platforms" ] && set_perm_recursive "$MODPATH/platforms" 0 0 0755 0644
 set_perm_recursive "$MODPATH/webroot" 0 0 0755 0644
-[ -f "$MODPATH/webroot/script.sh" ] && chmod 755 "$MODPATH/webroot/script.sh"
+chmod 755 "$MODPATH/service.sh" "$MODPATH/uninstall.sh" "$MODPATH/action.sh" 2>/dev/null
 
 # Enforce clean system_file SELinux context
 chcon -R u:object_r:system_file:s0 "$MODPATH/system" 2>/dev/null
@@ -300,6 +295,6 @@ chcon -R u:object_r:system_file:s0 "$MODPATH/platforms" 2>/dev/null
 rm -rf "$MODPATH/archive" "$MODPATH/docs" "$MODPATH/references" "$MODPATH/tests" 2>/dev/null
 
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-ui_print "  [OK] Lynx Universal v3.0 Installed Successfully!"
+ui_print "  [OK] Lynx Universal v7.0.0-RC5 Installed Successfully!"
 ui_print "  [*] Buka 'Lynx Companion' atau WebUI untuk mengatur profil."
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

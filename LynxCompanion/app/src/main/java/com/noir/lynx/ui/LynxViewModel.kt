@@ -55,87 +55,115 @@ class LynxViewModel : ViewModel() {
             val moduleInstalled = if (rootAvailable) LynxRepository.isModuleInstalled() else false
 
             if (rootAvailable) {
-                val state = LynxRepository.readState()
-                val clusters = LynxRepository.readClusters()
-                val telemetry = LynxRepository.readTelemetry()
-                val backups = LynxRepository.listBackups()
-                val gpuInfo = LynxRepository.readGpuInfo()
-                val ksmStats = LynxRepository.readKsmStats()
-                val ioDevices = LynxRepository.readIoDevices()
-                val tcpAlgs = LynxRepository.readAvailableTcpAlgorithms()
-                val currentTcp = LynxRepository.readCurrentTcpCongestion()
-                val vmAdvanced = LynxRepository.readVirtualMemoryAdvancedConfig()
-                val wlBlocker = LynxRepository.readWakelockBlockerInfo()
-                val applistPerf = LynxRepository.readApplistPerf()
-                val installedApps = LynxRepository.readInstalledApps()
-                val wakelocks = LynxRepository.readWakelocks()
-                val refreshRate = LynxRepository.readDisplayRefreshRate()
-                val supportedRates = LynxRepository.readSupportedRefreshRates()
-                val socOverride = LynxRepository.readSocOverride()
-                val capReport = LynxRepository.scanKernelCapabilities()
-                val zramComp = LynxRepository.readZramCompAlgorithms()
-                val thermalZones = LynxRepository.readThermalZones()
-                val customRules = LynxRepository.readCustomRules()
-                val installedAppList = LynxRepository.readInstalledAppInfos()
-                val selinux = LynxRepository.readSelinuxMode()
-                val printkSilent = LynxRepository.readPrintkSilent()
-                val dirtyRatio = LynxRepository.readDirtyRatio()
-                val vfsPressure = LynxRepository.readVfsCachePressure()
-                val cpuCores = LynxRepository.readCpuCores()
-                val topCpuProcesses = LynxRepository.readTopCpuProcesses()
-                val statLoads = LynxRepository.readCpuStatLoads()
-                val socPlatformName = LynxRepository.getSocPlatformName()
-                val socTopology = LynxRepository.getSocTopology(clusters, cpuCores.size.coerceAtLeast(8))
-                val siliconDetails = LynxRepository.readCpuSiliconTopologyDetails(clusters)
-                val batteryDetails = LynxRepository.readBatteryDetails()
-                val topWakelocks = LynxRepository.readTopWakelocks()
-                val cachedTunables = LynxRepository.loadCachedDeepTunables()
-                val appRules = LynxRepository.readAppProfileRules()
-                val isHudRunning = com.noir.lynx.service.LynxFloatingHudService.isRunning
-                val isAutoRunning = LynxRepository.isAppAutomationRunning()
-                val voltageInfo = LynxRepository.readVoltageInfo()
-                val batteryHealthStats = LynxRepository.readBatteryHealth()
-                val displayCalibration = LynxRepository.readDisplayCalibration()
-                val soundControl = LynxRepository.readSoundControl()
-                val memoryEntropy = LynxRepository.readMemoryEntropy()
-                val customScripts = LynxRepository.readCustomScripts()
-                val schedInfo = LynxRepository.readSchedulerInfo()
-                val cpuSets = LynxRepository.readCpuSetsInfo()
-                val cpuIdle = LynxRepository.readCpuIdleInfo()
+                try {
+                    // Stage 1: Ultra-fast core state hydration (<400ms via native lynxd)
+                    val state = LynxRepository.readState()
+                    val clusters = LynxRepository.readClusters()
+                    val telemetry = LynxRepository.readTelemetry()
+                    val nativeStatus = LynxRepository.readNativeStatus()
+                    val gpuInfo = LynxRepository.readGpuInfo()
+                    val cpuCores = LynxRepository.readCpuCores()
+                    val statLoads = LynxRepository.readCpuStatLoads()
+                    val socPlatformName = LynxRepository.getSocPlatformName()
+                    val socTopology = LynxRepository.getSocTopology(clusters, cpuCores.size.coerceAtLeast(8))
+                    val batteryDetails = LynxRepository.readBatteryDetails()
+                    val cachedTunables = LynxRepository.loadCachedDeepTunables()
 
-                val appContext = LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance
-                CpuPolicyManager.initialize(appContext)
-                val recoveryInfo = RecoveryManager.getRecoveryInfo(appContext)
-                val protectedTasks = ProtectedTaskManager.getDefaultProtectedTasks()
-                val cpusetBackend = CpuSetBackendFactory.detect()
-                val schedBackend = SchedulerBackendFactory.detect()
-                val clusterIdle = CpuIdleDetector.detectClusterIdle(cpuCores.size.coerceAtLeast(8))
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isRootAvailable = true,
+                            isModuleInstalled = moduleInstalled,
+                            state = state,
+                            nativeStatus = nativeStatus,
+                            cpuComprehensiveProfile = mapModuleProfileToCpuProfile(state.activeProfile),
+                            clusters = clusters,
+                            telemetry = telemetry,
+                            gpuInfo = gpuInfo,
+                            cpuCores = cpuCores,
+                            totalCpuLoadPercent = statLoads.first,
+                            cpuLoadHistory = listOf(statLoads.first),
+                            socPlatformName = socPlatformName,
+                            socTopology = socTopology,
+                            batteryDetails = batteryDetails,
+                            deepTunables = cachedTunables,
+                            lastSyncedAt = System.currentTimeMillis(),
+                        )
+                    }
 
-                val graphicsCaps = LynxRepository.readGraphicsCapabilities()
-                val displayPipe = LynxRepository.readDisplayPipeline()
-                val colorConflict = LynxRepository.checkColorConflict()
-                val isColorCalEnabled = LynxRepository.isColorCalibrationEnabled()
-                val savedColorProf = LynxRepository.readSavedColorProfile()
-                val perAppGfxRules = LynxRepository.readPerAppGraphicsRules(appContext)
-                val savedSessions = LynxRepository.listLabSessions(appContext)
+                    // Stage 2: Deep subsystem hydration (non-blocking UI)
+                    val backups = LynxRepository.listBackups()
+                    val ksmStats = LynxRepository.readKsmStats()
+                    val ioDevices = LynxRepository.readIoDevices()
+                    val tcpAlgs = LynxRepository.readAvailableTcpAlgorithms()
+                    val currentTcp = LynxRepository.readCurrentTcpCongestion()
+                    val vmAdvanced = LynxRepository.readVirtualMemoryAdvancedConfig()
+                    val wlBlocker = LynxRepository.readWakelockBlockerInfo()
+                    val applistPerf = LynxRepository.readApplistPerf()
+                    val installedApps = emptyList<String>()
+                    val wakelocks = LynxRepository.readWakelocks()
+                    val refreshRate = LynxRepository.readDisplayRefreshRate()
+                    val supportedRates = LynxRepository.readSupportedRefreshRates()
+                    val socOverride = LynxRepository.readSocOverride()
+                    val capReport = LynxRepository.scanKernelCapabilities()
+                    val zramComp = LynxRepository.readZramCompAlgorithms()
+                    val thermalZones = LynxRepository.readThermalZones()
+                    val customRules = LynxRepository.readCustomRules()
+                    val installedAppList = emptyList<AppInfo>()
+                    val selinux = LynxRepository.readSelinuxMode()
+                    val printkSilent = LynxRepository.readPrintkSilent()
+                    val dirtyRatio = LynxRepository.readDirtyRatio()
+                    val vfsPressure = LynxRepository.readVfsCachePressure()
+                    val topCpuProcesses = LynxRepository.readTopCpuProcesses()
+                    val siliconDetails = LynxRepository.readCpuSiliconTopologyDetails(clusters)
+                    val topWakelocks = LynxRepository.readTopWakelocks()
+                    val appRules = LynxRepository.readAppProfileRules()
+                    val isHudRunning = com.noir.lynx.service.LynxFloatingHudService.isRunning
+                    val isAutoRunning = LynxRepository.isAppAutomationRunning()
+                    val voltageInfo = LynxRepository.readVoltageInfo()
+                    val batteryHealthStats = LynxRepository.readBatteryHealth()
+                    val displayCalibration = LynxRepository.readDisplayCalibration()
+                    val soundControl = LynxRepository.readSoundControl()
+                    val memoryEntropy = LynxRepository.readMemoryEntropy()
+                    val customScripts = LynxRepository.readCustomScripts()
+                    val schedInfo = LynxRepository.readSchedulerInfo()
+                    val cpuSets = LynxRepository.readCpuSetsInfo()
+                    val cpuIdle = LynxRepository.readCpuIdleInfo()
 
-                val resolvedState = if (currentTcp.isNotBlank()) {
-                    state.copy(network = state.network.copy(tcpCongestion = currentTcp))
-                } else state
+                    val appContext = LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance
+                    CpuPolicyManager.initialize(appContext)
+                    val recoveryInfo = RecoveryManager.getRecoveryInfo(appContext)
+                    val protectedTasks = ProtectedTaskManager.getDefaultProtectedTasks()
+                    val cpusetBackend = CpuSetBackendFactory.detect()
+                    val schedBackend = SchedulerBackendFactory.detect()
+                    val clusterIdle = CpuIdleDetector.detectClusterIdle(cpuCores.size.coerceAtLeast(8))
 
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        isRootAvailable = true,
-                        isModuleInstalled = moduleInstalled,
-                        state = resolvedState,
-                        cpuComprehensiveProfile = mapModuleProfileToCpuProfile(resolvedState.activeProfile),
-                        clusters = clusters,
-                        telemetry = telemetry,
-                        backups = backups,
-                        gpuInfo = gpuInfo,
-                        graphicsCapabilities = graphicsCaps,
-                        displayPipeline = displayPipe,
+                    val graphicsCaps = LynxRepository.readGraphicsCapabilities()
+                    val displayPipe = LynxRepository.readDisplayPipeline()
+                    val colorConflict = LynxRepository.checkColorConflict()
+                    val isColorCalEnabled = LynxRepository.isColorCalibrationEnabled()
+                    val savedColorProf = LynxRepository.readSavedColorProfile()
+                    val perAppGfxRules = LynxRepository.readPerAppGraphicsRules(appContext)
+                    val savedSessions = LynxRepository.listLabSessions(appContext)
+
+                    val resolvedState = if (currentTcp.isNotBlank()) {
+                        state.copy(network = state.network.copy(tcpCongestion = currentTcp))
+                    } else state
+
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isRootAvailable = true,
+                            isModuleInstalled = moduleInstalled,
+                            state = resolvedState,
+                            nativeStatus = nativeStatus,
+                            cpuComprehensiveProfile = mapModuleProfileToCpuProfile(resolvedState.activeProfile),
+                            clusters = clusters,
+                            telemetry = telemetry,
+                            backups = backups,
+                            gpuInfo = gpuInfo,
+                            graphicsCapabilities = graphicsCaps,
+                            displayPipeline = displayPipe,
                         colorConflictWarning = colorConflict,
                         isColorCalibrationEnabled = isColorCalEnabled,
                         colorMatrixProfile = savedColorProf,
@@ -218,7 +246,22 @@ class LynxViewModel : ViewModel() {
                 startPeriodicSync()
                 startTelemetryPolling()
 
-            } else {
+                // Asynchronously pre-cache installed apps in background without blocking startup
+                viewModelScope.launch(Dispatchers.IO) {
+                    refreshInstalledApps()
+                }
+            } catch (e: Throwable) {
+                Log.e("LynxViewModel", "Detailed initialization error: ${e.message}", e)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isRootAvailable = true,
+                        isModuleInstalled = moduleInstalled,
+                        errorMessage = "Perhatian: Inisialisasi parsial (${e.message ?: "subsystem error"})"
+                    )
+                }
+            }
+        } else {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -402,7 +445,7 @@ class LynxViewModel : ViewModel() {
     }
 
     private fun startPeriodicSync() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             while (true) {
                 delay(if (isForeground) 3000L else 20000L)
                 if (isForeground) {
@@ -416,7 +459,7 @@ class LynxViewModel : ViewModel() {
     }
 
     private fun startTelemetryPolling() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             var counter = 0
             while (true) {
                 val startMs = System.currentTimeMillis()
@@ -427,37 +470,70 @@ class LynxViewModel : ViewModel() {
                 try {
                     val tel = LynxRepository.readTelemetry()
                     counter++
-                    val rawCores = LynxRepository.readCpuCores()
-                    val cores = if (rawCores.isNotEmpty()) mergeCoresWithActiveIntents(rawCores) else emptyList()
                     val isMonitorTabActive = _uiState.value.selectedCpuTab == 2 && _uiState.value.currentTab == 1
+
+                    // Zero-IO Fast-Path: Map directly from native lynxd telemetry payload without subshells
+                    val cores: List<CpuCoreInfo>
+                    val batt: BatteryDetails?
+                    val gpu: GpuInfo?
+
+                    if (tel != null && tel.cpu.isNotEmpty()) {
+                        cores = mergeCoresWithActiveIntents(
+                            LynxRepository.mapTelemetryToCpuCores(tel, _uiState.value.clusters, _uiState.value.cpuCores)
+                        )
+                        if (!isBatteryScreenActive) {
+                            val curSample = tel.battCurrentMa.toFloat()
+                            synchronized(currentHistoryQueue) {
+                                if (currentHistoryQueue.size >= 60) {
+                                    currentHistoryQueue.removeFirst()
+                                }
+                                currentHistoryQueue.addLast(curSample)
+                            }
+                            val samplesCopy = synchronized(currentHistoryQueue) { currentHistoryQueue.toList() }
+                            batt = LynxRepository.mapTelemetryToBatteryDetails(tel, _uiState.value.batteryDetails, samplesCopy)
+                        } else {
+                            batt = null
+                        }
+                        gpu = mergeGpuInfoWithIntent(
+                            LynxRepository.mapTelemetryToGpuInfo(tel, _uiState.value.gpuInfo)
+                        )
+                    } else {
+                        // Slow-Path Universal Fallback (Used ONLY if native lynxd telemetry is unavailable)
+                        val rawCores = LynxRepository.readCpuCores()
+                        cores = if (rawCores.isNotEmpty()) mergeCoresWithActiveIntents(rawCores) else emptyList()
+                        batt = if (!isBatteryScreenActive) {
+                            val rawBatt = LynxRepository.readBatteryDetails()
+                            if (rawBatt != null) {
+                                val curSample = rawBatt.currentMa.toFloat()
+                                synchronized(currentHistoryQueue) {
+                                    if (currentHistoryQueue.size >= 60) {
+                                        currentHistoryQueue.removeFirst()
+                                    }
+                                    currentHistoryQueue.addLast(curSample)
+                                }
+                                val samplesCopy = synchronized(currentHistoryQueue) { currentHistoryQueue.toList() }
+                                rawBatt.copy(currentHistorySamples = samplesCopy)
+                            } else null
+                        } else null
+                        val rawGpu = LynxRepository.readGpuInfo()
+                        gpu = mergeGpuInfoWithIntent(rawGpu)
+                    }
+
                     val totalLoad = if (isMonitorTabActive && LynxRepository.latestStreamSnapshot != null) {
                         LynxRepository.latestStreamSnapshot!!.totalCpuLoadPercent
                     } else {
                         LynxRepository.latestTotalCpuLoadPercent
                     }
-                    val procs = if (isMonitorTabActive) emptyList() else if (counter == 1 || counter % 3 == 0) LynxRepository.readTopCpuProcesses() else emptyList()
-                    val rawBatt = LynxRepository.readBatteryDetails()
-                    val batt = if (rawBatt != null) {
-                        val curSample = rawBatt.currentMa.toFloat()
-                        synchronized(currentHistoryQueue) {
-                            if (currentHistoryQueue.size >= 40) {
-                                currentHistoryQueue.removeFirst()
-                            }
-                            currentHistoryQueue.addLast(curSample)
-                        }
-                        val samplesCopy = synchronized(currentHistoryQueue) { currentHistoryQueue.toList() }
-                        rawBatt.copy(currentHistorySamples = samplesCopy)
-                    } else null
+                    val procs = if (isMonitorTabActive) emptyList() else if (counter == 1 || counter % 6 == 0) LynxRepository.readTopCpuProcesses() else emptyList()
 
-                    if (_uiState.value.state.charging.extremeChargingEnabled && (batt?.isCharging == true || (batt?.currentMa ?: 0) > 200)) {
-                        if (counter % 3 == 0) {
+                    if (_uiState.value.state.charging.extremeChargingEnabled && (batt?.isCharging == true || _uiState.value.batteryDetails?.isCharging == true || (batt?.currentMa ?: _uiState.value.batteryDetails?.currentMa ?: 0) > 200)) {
+                        if (counter % 3 == 0 && _uiState.value.nativeStatus?.daemonRunning != true) {
                             LynxRepository.reapplyExtremeChargingLock()
                         }
                     }
-                    val rawGpu = LynxRepository.readGpuInfo()
-                    val gpu = mergeGpuInfoWithIntent(rawGpu)
-                    val therm = if (counter % 3 == 0) LynxRepository.readThermalZones() else null
-                    val freshClusters = if (counter == 1 || counter % 3 == 0) LynxRepository.readClusters() else null
+                    val therm = if (counter % 6 == 0) LynxRepository.readThermalZones() else null
+                    val freshClusters = if (counter == 1 || counter % 6 == 0) LynxRepository.readClusters() else null
+                    val freshNatStatus = if (counter == 1 || counter % 4 == 0) LynxRepository.readNativeStatus() else null
 
                     if (tel != null || cores.isNotEmpty() || batt != null || gpu != null || therm != null || procs.isNotEmpty() || (freshClusters != null && freshClusters.isNotEmpty())) {
                         _uiState.update { current ->
@@ -483,6 +559,7 @@ class LynxViewModel : ViewModel() {
                             }
                             current.copy(
                                 telemetry = tel ?: current.telemetry,
+                                nativeStatus = freshNatStatus ?: current.nativeStatus,
                                 cpuCores = syncedCores,
                                 topCpuProcesses = if (isMonitorTabActive) current.topCpuProcesses else if (procs.isNotEmpty()) procs else current.topCpuProcesses,
                                 totalCpuLoadPercent = if (isMonitorTabActive) current.totalCpuLoadPercent else totalLoad,
@@ -508,7 +585,7 @@ class LynxViewModel : ViewModel() {
     fun refreshState() {
         viewModelScope.launch {
             try {
-                if (System.currentTimeMillis() - lastStateMutationTime < 4000L) {
+                if (System.currentTimeMillis() - lastStateMutationTime < 6000L) {
                     return@launch
                 }
                 val freshState = LynxRepository.readState()
@@ -904,7 +981,7 @@ class LynxViewModel : ViewModel() {
         recordStateMutation()
         val curMa = _uiState.value.state.charging.limitCurrentMa
         val targetMa = if (enabled && curMa < 3000) 6000 else curMa
-        val isMaxHw = _uiState.value.state.charging.isUnconstrainedMaxHw
+        val isMaxHw = _uiState.value.state.charging.isUnconstrainedMaxHw || (enabled && targetMa >= 6000)
         val isLaptop = _uiState.value.batteryDetails?.isLaptopPort == true
 
         _uiState.update { current ->
@@ -913,16 +990,15 @@ class LynxViewModel : ViewModel() {
                     charging = current.state.charging.copy(
                         extremeChargingEnabled = enabled,
                         thermalLockoutBypassEnabled = enabled,
-                        limitCurrentMa = targetMa
+                        limitCurrentMa = targetMa,
+                        isUnconstrainedMaxHw = isMaxHw
                     )
                 )
             )
         }
-        setKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
-        setKey("charging.thermal_lockout_bypass_enabled", enabled.toString(), "bool")
-        setKey("charging.limit_current_ma", targetMa.toString(), "val")
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            recordStateMutation()
             val ok = LynxRepository.applyMasterFastCharging(
                 enabled = enabled,
                 targetMa = targetMa,
@@ -930,6 +1006,7 @@ class LynxViewModel : ViewModel() {
                 lockoutBypass = enabled,
                 isLaptopPort = isLaptop
             )
+            recordStateMutation()
             refreshBatteryDetails()
             _uiState.update {
                 it.copy(
@@ -955,10 +1032,12 @@ class LynxViewModel : ViewModel() {
                 )
             )
         }
-        setKey("charging.limit_current_ma", ma.toString(), "val")
-        setKey("charging.is_unconstrained_max_hw", isMaxHw.toString(), "bool")
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            recordStateMutation()
+            LynxRepository.writeStateKey("charging.limit_current_ma", ma.toString(), "val")
+            LynxRepository.writeStateKey("charging.is_unconstrained_max_hw", isMaxHw.toString(), "bool")
+            recordStateMutation()
             val chg = _uiState.value.state.charging
             val isLaptop = _uiState.value.batteryDetails?.isLaptopPort == true
             LynxRepository.applyChargingMode(
@@ -972,10 +1051,11 @@ class LynxViewModel : ViewModel() {
                 isUnconstrainedMaxHw = isMaxHw,
                 isLaptopPort = isLaptop
             )
+            recordStateMutation()
             refreshBatteryDetails()
             _uiState.update {
                 it.copy(
-                    successMessage = if (isMaxHw) "Batas Arus: Unconstrained Max HW" else "Batas Arus: ${ma} mA"
+                    successMessage = if (isMaxHw) "Batas Arus: 6.0A Maksimal (Unconstrained Max HW)" else "Batas Arus: ${ma} mA"
                 )
             }
         }
@@ -997,6 +1077,7 @@ class LynxViewModel : ViewModel() {
 
     fun openBatteryDetailSheet() {
         _uiState.update { it.copy(isBatteryDetailSheetOpen = true) }
+        refreshBatteryDetails(forceDeepStats = true)
     }
 
     fun closeBatteryDetailSheet() {
@@ -1005,6 +1086,9 @@ class LynxViewModel : ViewModel() {
 
     fun setBatterySubTab(tab: Int) {
         _uiState.update { it.copy(batterySubTab = tab) }
+        if (tab == 1) {
+            refreshBatteryDetails(forceDeepStats = true)
+        }
     }
 
     fun setNightSleepGuard(enabled: Boolean) {
@@ -3837,94 +3921,145 @@ class LynxViewModel : ViewModel() {
     private var chargeSessionLastTimestampMs: Long = 0L
     private var lastChargingSessionSummaryCached: String = "Belum ada sesi pengisian tercatat"
     private var wasPreviouslyCharging: Boolean = false
+    @Volatile var isBatteryScreenActive: Boolean = false
+    @Volatile private var isRefreshingBattery: Boolean = false
+    @Volatile private var isRefreshingDeepBatteryStats: Boolean = false
+    private var lastDeepBatteryStatsTimeMs: Long = 0L
 
-    fun refreshBatteryDetails() {
-        viewModelScope.launch {
-            val details = LynxRepository.readBatteryDetails()
-            if (details != null) {
-                val curSample = details.currentMa.toFloat()
-                synchronized(currentHistoryQueue) {
-                    if (currentHistoryQueue.size >= 60) {
-                        currentHistoryQueue.removeFirst()
+    fun refreshBatteryDetails(forceDeepStats: Boolean = false) {
+        if (isRefreshingBattery && !forceDeepStats) return
+        viewModelScope.launch(Dispatchers.IO) {
+            isRefreshingBattery = true
+            try {
+                val includeDeep = forceDeepStats || _uiState.value.isBatteryDetailSheetOpen
+                val details = LynxRepository.readBatteryDetails(includeDeepAdcAndTz = includeDeep)
+                if (details != null) {
+                    val curSample = details.currentMa.toFloat()
+                    synchronized(currentHistoryQueue) {
+                        if (currentHistoryQueue.size >= 60) {
+                            currentHistoryQueue.removeFirst()
+                        }
+                        currentHistoryQueue.addLast(curSample)
                     }
-                    currentHistoryQueue.addLast(curSample)
-                }
-                val samplesCopy = synchronized(currentHistoryQueue) { currentHistoryQueue.toList() }
-                val updatedDetails = details.copy(currentHistorySamples = samplesCopy)
+                    val samplesCopy = synchronized(currentHistoryQueue) { currentHistoryQueue.toList() }
+                    val prevBatt = _uiState.value.batteryDetails
+                    val updatedDetails = details.copy(
+                        currentHistorySamples = samplesCopy,
+                        rawAdcDetails = if (details.rawAdcDetails.isNotEmpty()) details.rawAdcDetails else (prevBatt?.rawAdcDetails ?: emptyMap()),
+                        thermalZoneMatrix = if (details.thermalZoneMatrix.isNotEmpty()) details.thermalZoneMatrix else (prevBatt?.thermalZoneMatrix ?: emptyList())
+                    )
 
-                // Track charging session metrics
-                val isChargingNow = details.isCharging
-                val now = System.currentTimeMillis()
-                if (isChargingNow) {
-                    if (!wasPreviouslyCharging) {
-                        chargeSessionStartTimeMs = now
-                        chargeSessionStartLevel = details.level
-                        chargeSessionPeakMa = details.currentMa
-                        chargeSessionPeakWatt = details.chargerWatt
-                        chargeSessionEnergyAccMah = 0.0
-                        chargeSessionLastTimestampMs = now
-                        wasPreviouslyCharging = true
+                    // Track charging session metrics
+                    val isChargingNow = details.isCharging
+                    val now = System.currentTimeMillis()
+                    if (isChargingNow) {
+                        if (!wasPreviouslyCharging) {
+                            chargeSessionStartTimeMs = now
+                            chargeSessionStartLevel = details.level
+                            chargeSessionPeakMa = details.currentMa
+                            chargeSessionPeakWatt = details.chargerWatt
+                            chargeSessionEnergyAccMah = 0.0
+                            chargeSessionLastTimestampMs = now
+                            wasPreviouslyCharging = true
+                        } else {
+                            chargeSessionPeakMa = maxOf(chargeSessionPeakMa, details.currentMa)
+                            chargeSessionPeakWatt = maxOf(chargeSessionPeakWatt, details.chargerWatt)
+                            val dtHours = (now - chargeSessionLastTimestampMs).toDouble() / 3_600_000.0
+                            if (dtHours in 0.0..0.1 && details.currentMa > 0) {
+                                chargeSessionEnergyAccMah += details.currentMa.toDouble() * dtHours
+                            }
+                            chargeSessionLastTimestampMs = now
+                        }
                     } else {
-                        chargeSessionPeakMa = maxOf(chargeSessionPeakMa, details.currentMa)
-                        chargeSessionPeakWatt = maxOf(chargeSessionPeakWatt, details.chargerWatt)
-                        val dtHours = (now - chargeSessionLastTimestampMs).toDouble() / 3_600_000.0
-                        if (dtHours in 0.0..0.1 && details.currentMa > 0) {
-                            chargeSessionEnergyAccMah += details.currentMa.toDouble() * dtHours
-                        }
-                        chargeSessionLastTimestampMs = now
-                    }
-                } else {
-                    if (wasPreviouslyCharging) {
-                        val elapsedMin = ((now - chargeSessionStartTimeMs) / 60000L).coerceAtLeast(1)
-                        val delta = details.level - (if (chargeSessionStartLevel >= 0) chargeSessionStartLevel else details.level)
-                        lastChargingSessionSummaryCached = "+${delta}% (${if (chargeSessionStartLevel >= 0) chargeSessionStartLevel else details.level}% ➔ ${details.level}%) dalam ${elapsedMin}m, Peak: ${chargeSessionPeakWatt}W"
-                        wasPreviouslyCharging = false
-                    }
-                }
-
-                val elapsedChargeMs = if (isChargingNow && chargeSessionStartTimeMs > 0) now - chargeSessionStartTimeMs else 0L
-                val elapsedMinutes = (elapsedChargeMs / 60000L).toInt()
-                val elapsedSeconds = ((elapsedChargeMs % 60000L) / 1000L).toInt()
-                val durationStr = if (isChargingNow) "${elapsedMinutes}m ${elapsedSeconds}s" else "Dicabut"
-
-                val startLvl = if (isChargingNow && chargeSessionStartLevel >= 0) chargeSessionStartLevel else details.level
-                val deltaLvl = (details.level - startLvl).coerceAtLeast(0)
-
-                val cellMult = _uiState.value.state.charging.dualCellMultiplier
-                val effectiveVoltageMv = details.voltageMv * cellMult
-                val effectiveWatt = details.chargerWatt * cellMult
-                val totalWh = (chargeSessionEnergyAccMah * (effectiveVoltageMv.toDouble() / 1000.0)) / 1000.0
-
-                // Night Sleep Guard Automation (23:00 - 06:00 Auto-Bypass at target level)
-                val isNightGuard = _uiState.value.state.charging.nightSleepGuardEnabled
-                if (isNightGuard && isChargingNow && details.level >= _uiState.value.state.charging.maxBatteryPercent) {
-                    val cal = java.util.Calendar.getInstance()
-                    val hr = cal.get(java.util.Calendar.HOUR_OF_DAY)
-                    if (hr >= 23 || hr < 6) {
-                        if (!_uiState.value.state.charging.bypassEnabled) {
-                            setBypassCharging(true)
+                        if (wasPreviouslyCharging) {
+                            val elapsedMin = ((now - chargeSessionStartTimeMs) / 60000L).coerceAtLeast(1)
+                            val delta = details.level - (if (chargeSessionStartLevel >= 0) chargeSessionStartLevel else details.level)
+                            lastChargingSessionSummaryCached = "+${delta}% (${if (chargeSessionStartLevel >= 0) chargeSessionStartLevel else details.level}% ➔ ${details.level}%) dalam ${elapsedMin}m, Peak: ${chargeSessionPeakWatt}W"
+                            wasPreviouslyCharging = false
                         }
                     }
+
+                    val elapsedChargeMs = if (isChargingNow && chargeSessionStartTimeMs > 0) now - chargeSessionStartTimeMs else 0L
+                    val elapsedMinutes = (elapsedChargeMs / 60000L).toInt()
+                    val elapsedSeconds = ((elapsedChargeMs % 60000L) / 1000L).toInt()
+                    val durationStr = if (isChargingNow) "${elapsedMinutes}m ${elapsedSeconds}s" else "Dicabut"
+
+                    val startLvl = if (isChargingNow && chargeSessionStartLevel >= 0) chargeSessionStartLevel else details.level
+                    val deltaLvl = (details.level - startLvl).coerceAtLeast(0)
+
+                    val cellMult = _uiState.value.state.charging.dualCellMultiplier
+                    val effectiveVoltageMv = details.voltageMv * cellMult
+                    val totalWh = (chargeSessionEnergyAccMah * (effectiveVoltageMv.toDouble() / 1000.0)) / 1000.0
+
+                    // Night Sleep Guard Automation (23:00 - 06:00 Auto-Bypass at target level)
+                    val isNightGuard = _uiState.value.state.charging.nightSleepGuardEnabled
+                    if (isNightGuard && isChargingNow && details.level >= _uiState.value.state.charging.maxBatteryPercent) {
+                        val cal = java.util.Calendar.getInstance()
+                        val hr = cal.get(java.util.Calendar.HOUR_OF_DAY)
+                        if (hr >= 23 || hr < 6) {
+                            if (!_uiState.value.state.charging.bypassEnabled) {
+                                setBypassCharging(true)
+                            }
+                        }
+                    }
+
+                    // 1. Immediate Fast UI Update (<20ms) for 1Hz Live Current, Wattmeter, Sparkline & Session Timer
+                    _uiState.update { current ->
+                        val liveInfoStats = current.batteryInfoStats.copy(
+                            isSessionCharging = isChargingNow,
+                            chargingDurationText = durationStr,
+                            chargeStartLevel = startLvl,
+                            currentChargeLevel = details.level,
+                            chargeDeltaLevel = deltaLvl,
+                            totalEnergyInMah = chargeSessionEnergyAccMah.toInt(),
+                            totalEnergyInMwh = totalWh,
+                            peakChargingWatt = chargeSessionPeakWatt * cellMult,
+                            avgChargingWatt = if (details.chargerWatt > 0f) ((chargeSessionPeakWatt + details.chargerWatt) / 2f) * cellMult else 0f,
+                            peakChargingMa = chargeSessionPeakMa,
+                            voltageNowMv = effectiveVoltageMv,
+                            lastChargingSessionSummary = lastChargingSessionSummaryCached
+                        )
+                        current.copy(batteryDetails = updatedDetails, batteryInfoStats = liveInfoStats)
+                    }
+
+                    // 2. Decoupled Deep Battery Stats (dumpsys batterystats --charged) only every 10s when needed
+                    val needDeepStats = forceDeepStats ||
+                        lastDeepBatteryStatsTimeMs == 0L ||
+                        (_uiState.value.batterySubTab == 1 && (now - lastDeepBatteryStatsTimeMs >= 10_000L))
+                    if (needDeepStats && !isRefreshingDeepBatteryStats) {
+                        isRefreshingDeepBatteryStats = true
+                        viewModelScope.launch(Dispatchers.IO) {
+                            try {
+                                lastDeepBatteryStatsTimeMs = System.currentTimeMillis()
+                                val rawStats = LynxRepository.readBatteryInfoStats(updatedDetails)
+                                _uiState.update { current ->
+                                    val curInfo = current.batteryInfoStats
+                                    current.copy(
+                                        batteryInfoStats = rawStats.copy(
+                                            isSessionCharging = curInfo.isSessionCharging,
+                                            chargingDurationText = curInfo.chargingDurationText,
+                                            chargeStartLevel = curInfo.chargeStartLevel,
+                                            currentChargeLevel = curInfo.currentChargeLevel,
+                                            chargeDeltaLevel = curInfo.chargeDeltaLevel,
+                                            totalEnergyInMah = curInfo.totalEnergyInMah,
+                                            totalEnergyInMwh = curInfo.totalEnergyInMwh,
+                                            peakChargingWatt = curInfo.peakChargingWatt,
+                                            avgChargingWatt = curInfo.avgChargingWatt,
+                                            peakChargingMa = curInfo.peakChargingMa,
+                                            voltageNowMv = curInfo.voltageNowMv,
+                                            lastChargingSessionSummary = curInfo.lastChargingSessionSummary,
+                                            cableBenchmark = if (current.isCableBenchmarkRunning) curInfo.cableBenchmark else rawStats.cableBenchmark
+                                        )
+                                    )
+                                }
+                            } finally {
+                                isRefreshingDeepBatteryStats = false
+                            }
+                        }
+                    }
                 }
-
-                val rawStats = LynxRepository.readBatteryInfoStats(updatedDetails)
-                val updatedInfoStats = rawStats.copy(
-                    isSessionCharging = isChargingNow,
-                    chargingDurationText = durationStr,
-                    chargeStartLevel = startLvl,
-                    currentChargeLevel = details.level,
-                    chargeDeltaLevel = deltaLvl,
-                    totalEnergyInMah = chargeSessionEnergyAccMah.toInt(),
-                    totalEnergyInMwh = totalWh,
-                    peakChargingWatt = chargeSessionPeakWatt * cellMult,
-                    avgChargingWatt = if (details.chargerWatt > 0f) ((chargeSessionPeakWatt + details.chargerWatt) / 2f) * cellMult else 0f,
-                    peakChargingMa = chargeSessionPeakMa,
-                    voltageNowMv = effectiveVoltageMv,
-                    lastChargingSessionSummary = lastChargingSessionSummaryCached,
-                    cableBenchmark = if (_uiState.value.isCableBenchmarkRunning) _uiState.value.batteryInfoStats.cableBenchmark else rawStats.cableBenchmark
-                )
-
-                _uiState.update { it.copy(batteryDetails = updatedDetails, batteryInfoStats = updatedInfoStats) }
+            } finally {
+                isRefreshingBattery = false
             }
         }
     }

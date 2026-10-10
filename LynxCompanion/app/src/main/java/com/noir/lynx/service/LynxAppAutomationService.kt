@@ -463,8 +463,14 @@ class LynxAppAutomationService : Service() {
         Log.i(TAG, "onTaskRemoved: Lynx UI closed by user. Ensuring Root Watcher Daemon is running!")
         serviceScope.launch {
             try {
+                val lynxdPath = "/data/adb/modules/Lynx/system/bin/lynxd"
                 Shell.cmd(
-                    "if ! pgrep -f lynx_watcher.sh >/dev/null; then nohup /system/bin/sh /data/adb/lynx/lynx_watcher.sh >/dev/null 2>&1 & fi"
+                    "if [ -x '$lynxdPath' ]; then " +
+                    "  pkill -f lynx_watcher.sh 2>/dev/null; " +
+                    "  '$lynxdPath' daemon status >/dev/null 2>&1 || nohup '$lynxdPath' daemon run >/dev/null 2>&1 & " +
+                    "elif ! pgrep -f lynx_watcher.sh >/dev/null; then " +
+                    "  nohup /system/bin/sh /data/adb/lynx/lynx_watcher.sh >/dev/null 2>&1 & " +
+                    "fi"
                 ).exec()
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to spawn watcher onTaskRemoved: ${e.message}")
