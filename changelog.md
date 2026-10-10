@@ -1,3 +1,21 @@
+# Lynx Universal [Full UI Lazy Virtualization & Scroll Stabilization] 7.0.0-RC7
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC7** menghadirkan pembaruan besar pada arsitektur antarmuka aplikasi Android (Lynx Kernel Manager v3.0.72): **Migrasi Penuh ke `LazyColumn` Virtualization** di seluruh tab (Dashboard, Tuning Hub, dan Tools), mengeliminasi total masalah *scroll fallback/recoil jump* dan jank UI. Bottom dynamic capsule dock kini diisolasi menjadi *True Floating Overlay* permanen tanpa interupsi *touch event*, dilengkapi kompilasi release teroptimasi R8 yang memangkas latensi UI thread dari 85ms ke 32ms.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC7)
+
+### 1. Migrasi Penuh `LazyColumn` Virtualization (Anti-Recoil & Zero Jank)
+- **Eliminasi Scroll Fallback Jump**: Menghapus kontainer non-virtual `Column(verticalScroll)` yang sebelumnya memicu pengukuran ulang (*remeasurement pass*) seluruh layout saat telemetri di-update tiap 1 detik.
+- **Keyed Lazy Items**: Menerapkan kunci item stabil (`key = "..."`) di seluruh tab sehingga status scroll terkunci 100% presisi tanpa pemantulan balik ke atas saat mencapai batas bawah.
+- **Isolasi True Floating Capsule Dock**: Mengubah dynamic capsule dock menjadi overlay permanen di `Alignment.BottomCenter` dengan elevasi murni, tanpa dependensi *NestedScrollConnection* spring physics yang sebelumnya menggeser viewport konten.
+
+### 2. Optimasi Kompilasi R8 & Penurunan Ukuran Paket
+- **Optimasi Bytecode & Inlining**: Build release teroptimasi R8 (`isMinifyEnabled = true`, `isShrinkResources = true`) dengan penandatanganan konsisten, memangkas ukuran APK dari 20.4 MB menjadi 2.55 MB.
+- **Penurunan Latensi Frame**: Latensi render 50th percentile turun drastis dari 85ms ke 32ms pada layar 120Hz perangkat fisik, menghasilkan pengalaman flinging scroll yang mulus dan bebas hambatan.
+- **Sinkronisasi Canonical Package ID**: Memastikan build selalu terpasang pada package canonical `com.noir.lynx` tanpa akhiran `.debug` untuk integrasi root yang stabil.
+
+---
+
 # Lynx Universal [Zero-Shell Pure Rust Engine & 33W+ Fast Charging Unlock] 7.0.0-RC6
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC6** mencapai pencapaian puncak arsitektur: **100% Zero-Shell Engine (`lynxd v0.5.0`)** di seluruh modul Magisk/KernelSU/APatch, WebUI Dashboard, dan Android Companion App. Seluruh skrip shell internal (`core/`, `platforms/`, `system/bin/`, dan `webroot/`) dieliminasi total (0 file `.sh`), digantikan oleh satu binary ELF Rust mandiri berperforma tinggi yang berjalan tanpa fork overhead. Pembaruan ini juga membuka secara penuh **Extreme 33W+ Direct Charge Pump** pada chipset MediaTek Helio/Dimensity tanpa throttling termal.

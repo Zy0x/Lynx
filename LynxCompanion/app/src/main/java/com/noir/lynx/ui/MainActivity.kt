@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,10 +70,6 @@ import com.noir.lynx.data.AppProfileRule
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import kotlinx.coroutines.flow.distinctUntilChanged
 
 
 /**
@@ -165,8 +162,7 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgDeepOled)
-            .windowInsetsPadding(WindowInsets.systemBars),
+            .background(BgDeepOled),
     ) {
         when {
             uiState.isLoading -> LoadingScreen()
@@ -183,6 +179,7 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
             Snackbar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .padding(bottom = 90.dp, start = 16.dp, end = 16.dp),
                 action = {
                     TextButton(onClick = { viewModel.dismissSuccess() }) {
@@ -202,6 +199,7 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
             Snackbar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .padding(bottom = 90.dp, start = 16.dp, end = 16.dp),
                 action = {
                     TextButton(onClick = { viewModel.dismissError() }) {
@@ -224,7 +222,12 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
 
 @Composable
 fun LoadingScreen() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding(),
+        contentAlignment = Alignment.Center
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator(
                 color = AccentCyan,
@@ -248,7 +251,12 @@ fun LoadingScreen() {
 
 @Composable
 fun ErrorScreen(uiState: LynxUiState) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding(),
+        contentAlignment = Alignment.Center
+    ) {
         Surface(
             shape = RoundedCornerShape(22.dp),
             color = BgCard,
@@ -349,72 +357,22 @@ fun MainDashboard(
 ) {
     val state = uiState.state
     val context = LocalContext.current
-    val scrollState = rememberScrollState()
+    val dashboardLazyState = rememberLazyListState()
+    val toolsLazyState = rememberLazyListState()
+    val tuningHubLazyState = rememberLazyListState()
     val subscreenScrollState = rememberScrollState()
     var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
-    val isSubscreenActive = uiState.currentTab == 1 && selectedCategory != null
-    var isNavbarVisible by rememberSaveable { mutableStateOf(true) }
-
-    LaunchedEffect(uiState.currentTab) {
-        scrollState.scrollTo(0)
-        isNavbarVisible = true
-    }
     LaunchedEffect(Unit) {
         viewModel.syncHudPrefs(context)
     }
     BackHandler(enabled = uiState.currentTab == 1 && selectedCategory != null) {
         selectedCategory = null
     }
-    LaunchedEffect(selectedCategory, uiState.selectedCpuTab, uiState.selectedGpuTab, uiState.batterySubTab) {
+    LaunchedEffect(selectedCategory) {
         subscreenScrollState.scrollTo(0)
-        scrollState.scrollTo(0)
-        isNavbarVisible = true
     }
-
-    LaunchedEffect(isSubscreenActive) {
-        snapshotFlow { (if (isSubscreenActive) subscreenScrollState.value else scrollState.value) <= 30 }
-            .distinctUntilChanged()
-            .collect { isAtTop ->
-                if (isAtTop && !isNavbarVisible) {
-                    isNavbarVisible = true
-                }
-            }
-    }
-
-    val nestedScrollConnection = remember {
-        var accumulatedScroll = 0f
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val delta = available.y
-                val currentScroll = if (isSubscreenActive) subscreenScrollState.value else scrollState.value
-
-                // If user is near the very top, always ensure navbar is visible and reset accumulator
-                if (currentScroll <= 30) {
-                    accumulatedScroll = 0f
-                    if (!isNavbarVisible) isNavbarVisible = true
-                    return Offset.Zero
-                }
-
-                if (delta > 0f) {
-                    // Scrolling up (content moving down) -> reveal navbar with deadband
-                    if (accumulatedScroll < 0f) accumulatedScroll = 0f
-                    accumulatedScroll += delta
-                    if (accumulatedScroll > 120f && !isNavbarVisible) {
-                        isNavbarVisible = true
-                        accumulatedScroll = 0f
-                    }
-                } else if (delta < 0f) {
-                    // Scrolling down (content moving up) -> hide navbar only after intentional downward drag
-                    if (accumulatedScroll > 0f) accumulatedScroll = 0f
-                    accumulatedScroll += delta
-                    if (accumulatedScroll < -180f && isNavbarVisible && currentScroll > 100) {
-                        isNavbarVisible = false
-                        accumulatedScroll = 0f
-                    }
-                }
-                return Offset.Zero
-            }
-        }
+    LaunchedEffect(uiState.selectedCpuTab, uiState.selectedGpuTab, uiState.batterySubTab) {
+        subscreenScrollState.scrollTo(0)
     }
     var showAddAppDialog by remember { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<AppProfileRule?>(null) }
@@ -824,159 +782,148 @@ fun MainDashboard(
         modifier = Modifier
             .fillMaxSize()
             .background(BgDeepOled)
-            .nestedScroll(nestedScrollConnection)
     ) {
-        // ── 1. Full Edge-to-Edge Scrollable Content (Glides behind Navbar) ────
-        val contentModifier = if (isSubscreenActive) {
-            Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-        } else {
-            Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .verticalScroll(scrollState)
-        }
-
-        Column(
-            modifier = contentModifier,
-        ) {
-            LaunchedEffect(uiState.currentTab) {
-                scrollState.scrollTo(0)
-            }
-
-            when (uiState.currentTab) {
-                // ── TAB 0: DASHBOARD ────────────────────────────────────────
-                0 -> {
-                    // ── Clean Minimalist Top Header (Dashboard Only) ────────────
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                        shape = RoundedCornerShape(22.dp),
-                        color = BgCard,
-                        border = BorderStroke(0.8.dp, BorderSubtle)
-                    ) {
-                        Column(
+        // ── 1. Full Edge-to-Edge Virtualized Content (Glides behind Navbar) ────
+        when (uiState.currentTab) {
+            // ── TAB 0: DASHBOARD ────────────────────────────────────────
+            0 -> {
+                LazyColumn(
+                    state = dashboardLazyState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding(),
+                ) {
+                    item(key = "header") {
+                        // ── Clean Minimalist Top Header (Dashboard Only) ────────────
+                        Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            shape = RoundedCornerShape(22.dp),
+                            color = BgCard,
+                            border = BorderStroke(0.8.dp, BorderSubtle)
                         ) {
-                            // Top Row: Brand & Status Badge
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
                             ) {
+                                // Top Row: Brand & Status Badge
                                 Row(
+                                    modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f, fill = false)
+                                    horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
-                                    Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = BgElevated,
-                                        border = BorderStroke(0.8.dp, BorderSubtle),
-                                        modifier = Modifier.size(42.dp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f, fill = false)
                                     ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = Icons.Default.Bolt,
-                                                contentDescription = null,
-                                                tint = currentAccent,
-                                                modifier = Modifier.size(22.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = "Lynx Kernel",
-                                            fontSize = 17.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextPrimary,
-                                            letterSpacing = 0.sp,
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            val isNative = uiState.nativeStatus?.isNativeActive == true
-                                            Surface(
-                                                shape = CircleShape,
-                                                color = if (isNative) AccentGreen else if (uiState.isModuleInstalled) currentAccent else AccentOrange,
-                                                modifier = Modifier.size(6.dp)
-                                            ) {}
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = if (isNative) {
-                                                    val daemonTag = if (uiState.nativeStatus?.daemonRunning == true) "● Daemon" else "Direct"
-                                                    val mod = uiState.nativeStatus?.modifier ?: "None"
-                                                    val modTag = if (mod != "None") " · $mod" else ""
-                                                    "lynxd Native [$daemonTag$modTag]"
-                                                } else if (uiState.isModuleInstalled) {
-                                                    "Lynx Deity Active"
-                                                } else {
-                                                    "Standalone Root Mode"
-                                                },
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Normal,
-                                                color = if (isNative) AccentGreen else if (uiState.isModuleInstalled) TextSecondary else AccentOrange,
-                                            )
-                                        }
-                                    }
-                                }
-                                StatusBadge(profile = state.activeProfile)
-                            }
-
-                            // Bottom Row: Dynamic Accent Theme Picker
-                            HorizontalDivider(
-                                color = BorderGlass.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(top = 10.dp, bottom = 8.dp)
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Palette,
-                                        null,
-                                        tint = currentAccent,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        "TEMA AKSEN",
-                                        color = TextSecondary,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        letterSpacing = 0.5.sp
-                                    )
-                                }
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    listOf(
-                                        "cyan" to AccentCyan,
-                                        "blue" to AccentBlue,
-                                        "purple" to AccentPurple,
-                                        "orange" to AccentOrange,
-                                        "red" to AccentRed,
-                                        "green" to AccentGreen
-                                    ).forEach { (name, color) ->
-                                        val isSelected = uiState.selectedAccent == name
-                                        Box(
-                                            modifier = Modifier
-                                                .size(28.dp)
-                                                .clickable { viewModel.setAccentColor(name) },
-                                            contentAlignment = Alignment.Center
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = BgElevated,
+                                            border = BorderStroke(0.8.dp, BorderSubtle),
+                                            modifier = Modifier.size(42.dp)
                                         ) {
-                                            Surface(
-                                                shape = CircleShape,
-                                                color = color,
-                                                border = if (isSelected) BorderStroke(2.dp, Color.White) else null,
-                                                modifier = Modifier.size(if (isSelected) 16.dp else 11.dp)
-                                            ) {}
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Bolt,
+                                                    contentDescription = null,
+                                                    tint = currentAccent,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = "Lynx Kernel",
+                                                fontSize = 17.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextPrimary,
+                                                letterSpacing = 0.sp,
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                val isNative = uiState.nativeStatus?.isNativeActive == true
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = if (isNative) AccentGreen else if (uiState.isModuleInstalled) currentAccent else AccentOrange,
+                                                    modifier = Modifier.size(6.dp)
+                                                ) {}
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = if (isNative) {
+                                                        val daemonTag = if (uiState.nativeStatus?.daemonRunning == true) "● Daemon" else "Direct"
+                                                        val mod = uiState.nativeStatus?.modifier ?: "None"
+                                                        val modTag = if (mod != "None") " · $mod" else ""
+                                                        "lynxd Native [$daemonTag$modTag]"
+                                                    } else if (uiState.isModuleInstalled) {
+                                                        "Lynx Deity Active"
+                                                    } else {
+                                                        "Standalone Root Mode"
+                                                    },
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Normal,
+                                                    color = if (isNative) AccentGreen else if (uiState.isModuleInstalled) TextSecondary else AccentOrange,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    StatusBadge(profile = state.activeProfile)
+                                }
+
+                                // Bottom Row: Dynamic Accent Theme Picker
+                                HorizontalDivider(
+                                    color = BorderGlass.copy(alpha = 0.6f),
+                                    modifier = Modifier.padding(top = 10.dp, bottom = 8.dp)
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.Palette,
+                                            null,
+                                            tint = currentAccent,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            "TEMA AKSEN",
+                                            color = TextSecondary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                    }
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        listOf(
+                                            "cyan" to AccentCyan,
+                                            "blue" to AccentBlue,
+                                            "purple" to AccentPurple,
+                                            "orange" to AccentOrange,
+                                            "red" to AccentRed,
+                                            "green" to AccentGreen
+                                        ).forEach { (name, color) ->
+                                            val isSelected = uiState.selectedAccent == name
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(28.dp)
+                                                    .clickable { viewModel.setAccentColor(name) },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = color,
+                                                    border = if (isSelected) BorderStroke(2.dp, Color.White) else null,
+                                                    modifier = Modifier.size(if (isSelected) 16.dp else 11.dp)
+                                                ) {}
+                                            }
                                         }
                                     }
                                 }
@@ -984,268 +931,274 @@ fun MainDashboard(
                         }
                     }
 
-                    LiveTelemetryCard(telemetry = uiState.telemetry)
+                    item(key = "telemetry") {
+                        LiveTelemetryCard(telemetry = uiState.telemetry)
+                    }
 
-                    LynxCard(
-                        title = "Profil Performa Kernel",
-                        icon = Icons.Default.Speed,
-                        accentColor = AccentOrange
-                    ) {
-                        ProfileGrid(
-                            currentProfile = state.activeProfile,
-                            onProfileSelected = { viewModel.setProfile(it, context) },
-                            onExtremeConfirmRequired = onExtremeConfirmRequired,
-                        )
+                    item(key = "profiles") {
+                        LynxCard(
+                            title = "Profil Performa Kernel",
+                            icon = Icons.Default.Speed,
+                            accentColor = AccentOrange
+                        ) {
+                            ProfileGrid(
+                                currentProfile = state.activeProfile,
+                                onProfileSelected = { viewModel.setProfile(it, context) },
+                                onExtremeConfirmRequired = onExtremeConfirmRequired,
+                            )
+                        }
                     }
 
                     // ── Live Floating Game HUD & OSD Card ─────────────────
-                    LynxCard(
-                        title = "Floating Game HUD & OSD",
-                        icon = Icons.Default.Visibility,
-                        accentColor = AccentCyan
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                    item(key = "game_hud") {
+                        LynxCard(
+                            title = "Floating Game HUD & OSD",
+                            icon = Icons.Default.Visibility,
+                            accentColor = AccentCyan
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    "Overlay Game HUD Real-Time",
-                                    color = TextPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                                Text(
-                                    "Tampilkan FPS hardware, clock CPU/GPU, watt baterai & quick profile switcher di atas semua game.",
-                                    color = TextSecondary,
-                                    fontSize = 11.sp,
-                                    lineHeight = 15.sp
-                                )
-                            }
-                            Switch(
-                                checked = uiState.isGameHudActive,
-                                onCheckedChange = { viewModel.toggleGameHud(context, it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = BgDeepOled,
-                                    checkedTrackColor = AccentCyan,
-                                    uncheckedThumbColor = TextSecondary,
-                                    uncheckedTrackColor = BgElevated,
-                                    uncheckedBorderColor = BorderGlass
-                                )
-                            )
-                        }
-
-                        if (uiState.isGameHudActive) {
-                            Spacer(Modifier.height(8.dp))
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = AccentCyan.copy(alpha = 0.08f),
-                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.25f)),
-                                modifier = Modifier.fillMaxWidth()
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Info, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(8.dp))
+                                Column(Modifier.weight(1f)) {
                                     Text(
-                                        "HUD aktif! Sentuh header HUD di layar atau pilih gaya tampilan di bawah untuk mengubah layout secara instan.",
+                                        "Overlay Game HUD Real-Time",
                                         color = TextPrimary,
-                                        fontSize = 10.5.sp,
-                                        lineHeight = 14.sp
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
                                     )
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            "MODE INTERAKSI OSD",
-                            color = AccentCyan,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(Modifier.height(6.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            // Option 1: Edge Drawer
-                            val isDrawerSel = (uiState.hudMode == 0)
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isDrawerSel) AccentCyan.copy(alpha = 0.18f) else BgElevated,
-                                border = BorderStroke(1.dp, if (isDrawerSel) AccentCyan else BorderGlass),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { viewModel.setHudMode(context, 0) }
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(8.dp)
-                                                .clip(CircleShape)
-                                                .background(if (isDrawerSel) AccentCyan else Color(0x33FFFFFF))
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            "Edge Drawer",
-                                            color = if (isDrawerSel) AccentCyan else TextPrimary,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    Spacer(Modifier.height(4.dp))
                                     Text(
-                                        "Bilah tipis tepi layar ala Infinix Game Space / ROG. Usap untuk buka Game Bar tanpa menghalangi visual game.",
+                                        "Tampilkan FPS hardware, clock CPU/GPU, watt baterai & quick profile switcher di atas semua game.",
                                         color = TextSecondary,
-                                        fontSize = 9.sp,
-                                        lineHeight = 12.sp
+                                        fontSize = 11.sp,
+                                        lineHeight = 15.sp
                                     )
                                 }
-                            }
-
-                            // Option 2: Floating Window
-                            val isFloatSel = (uiState.hudMode == 1)
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isFloatSel) AccentCyan.copy(alpha = 0.18f) else BgElevated,
-                                border = BorderStroke(1.dp, if (isFloatSel) AccentCyan else BorderGlass),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { viewModel.setHudMode(context, 1) }
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(8.dp)
-                                                .clip(CircleShape)
-                                                .background(if (isFloatSel) AccentCyan else Color(0x33FFFFFF))
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            "Floating Window",
-                                            color = if (isFloatSel) AccentCyan else TextPrimary,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        "Jendela melayang bebas yang selalu tampil di layar. Bebas dipindah ke posisi mana pun.",
-                                        color = TextSecondary,
-                                        fontSize = 9.sp,
-                                        lineHeight = 12.sp
+                                Switch(
+                                    checked = uiState.isGameHudActive,
+                                    onCheckedChange = { viewModel.toggleGameHud(context, it) },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = BgDeepOled,
+                                        checkedTrackColor = AccentCyan,
+                                        uncheckedThumbColor = TextSecondary,
+                                        uncheckedTrackColor = BgElevated,
+                                        uncheckedBorderColor = BorderGlass
                                     )
-                                }
+                                )
                             }
-                        }
 
-                        // Mini FPS Pin option (if Edge Drawer mode)
-                        if (uiState.hudMode == 0) {
-                            Spacer(Modifier.height(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (uiState.hudPinMiniFps) AccentCyan.copy(alpha = 0.14f) else BgElevated,
-                                border = BorderStroke(1.dp, if (uiState.hudPinMiniFps) AccentCyan else BorderGlass),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { viewModel.setHudPinMiniFps(context, !uiState.hudPinMiniFps) }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                            if (uiState.isGameHudActive) {
+                                Spacer(Modifier.height(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = AccentCyan.copy(alpha = 0.08f),
+                                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.25f)),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.PushPin, null, tint = if (uiState.hudPinMiniFps) AccentCyan else TextSecondary, modifier = Modifier.size(13.dp))
-                                        Spacer(Modifier.width(6.dp))
-                                        Column {
+                                    Row(
+                                        Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Info, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "HUD aktif! Sentuh header HUD di layar atau pilih gaya tampilan di bawah untuk mengubah layout secara instan.",
+                                            color = TextPrimary,
+                                            fontSize = 10.5.sp,
+                                            lineHeight = 14.sp
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                "MODE INTERAKSI OSD",
+                                color = AccentCyan,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(Modifier.height(6.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                // Option 1: Edge Drawer
+                                val isDrawerSel = (uiState.hudMode == 0)
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isDrawerSel) AccentCyan.copy(alpha = 0.18f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isDrawerSel) AccentCyan else BorderGlass),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { viewModel.setHudMode(context, 0) }
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isDrawerSel) AccentCyan else Color(0x33FFFFFF))
+                                            )
+                                            Spacer(Modifier.width(6.dp))
                                             Text(
-                                                "Pin Mini FPS di Samping Bilah",
-                                                color = if (uiState.hudPinMiniFps) AccentCyan else TextPrimary,
-                                                fontSize = 10.5.sp,
+                                                "Edge Drawer",
+                                                color = if (isDrawerSel) AccentCyan else TextPrimary,
+                                                fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
+                                        }
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            "Bilah tipis tepi layar ala Infinix Game Space / ROG. Usap untuk buka Game Bar tanpa menghalangi visual game.",
+                                            color = TextSecondary,
+                                            fontSize = 9.sp,
+                                            lineHeight = 12.sp
+                                        )
+                                    }
+                                }
+
+                                // Option 2: Floating Window
+                                val isFloatSel = (uiState.hudMode == 1)
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isFloatSel) AccentCyan.copy(alpha = 0.18f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (isFloatSel) AccentCyan else BorderGlass),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { viewModel.setHudMode(context, 1) }
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isFloatSel) AccentCyan else Color(0x33FFFFFF))
+                                            )
+                                            Spacer(Modifier.width(6.dp))
                                             Text(
-                                                "Tampilkan tag angka FPS kecil saat bilah samping tertutup",
-                                                color = TextSecondary,
-                                                fontSize = 9.sp
+                                                "Floating Window",
+                                                color = if (isFloatSel) AccentCyan else TextPrimary,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            "Jendela melayang bebas yang selalu tampil di layar. Bebas dipindah ke posisi mana pun.",
+                                            color = TextSecondary,
+                                            fontSize = 9.sp,
+                                            lineHeight = 12.sp
+                                        )
                                     }
-                                    Switch(
-                                        checked = uiState.hudPinMiniFps,
-                                        onCheckedChange = { viewModel.setHudPinMiniFps(context, it) },
-                                        colors = SwitchDefaults.colors(
-                                            checkedThumbColor = AccentCyan,
-                                            checkedTrackColor = AccentCyan.copy(alpha = 0.35f)
-                                        ),
-                                        modifier = Modifier.scale(0.75f)
-                                    )
                                 }
                             }
-                        }
 
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            "PILIHAN GAYA TAMPILAN OSD",
-                            color = AccentCyan,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(Modifier.height(6.dp))
-
-                        val hudStyleOptions = listOf(
-                            1 to "1. Vertical Pillar (RTSS)",
-                            2 to "2. Top Nano-Ribbon",
-                            3 to "3. Dual-Block Esport",
-                            4 to "4. Quad-Tiles Modular",
-                            5 to "5. Steam Deck Banner",
-                            6 to "6. Ghost Text (Frameless)"
-                        )
-
-                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            hudStyleOptions.chunked(2).forEach { rowStyles ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            // Mini FPS Pin option (if Edge Drawer mode)
+                            if (uiState.hudMode == 0) {
+                                Spacer(Modifier.height(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (uiState.hudPinMiniFps) AccentCyan.copy(alpha = 0.14f) else BgElevated,
+                                    border = BorderStroke(1.dp, if (uiState.hudPinMiniFps) AccentCyan else BorderGlass),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.setHudPinMiniFps(context, !uiState.hudPinMiniFps) }
                                 ) {
-                                    rowStyles.forEach { (sId, sLabel) ->
-                                        val isSel = (uiState.hudStyle == sId)
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = if (isSel) AccentCyan.copy(alpha = 0.18f) else BgElevated,
-                                            border = BorderStroke(1.dp, if (isSel) AccentCyan else BorderGlass),
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clickable { viewModel.setHudStyle(context, sId) }
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(6.dp)
-                                                        .clip(CircleShape)
-                                                        .background(if (isSel) AccentCyan else Color(0x33FFFFFF))
-                                                )
-                                                Spacer(Modifier.width(6.dp))
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.PushPin, null, tint = if (uiState.hudPinMiniFps) AccentCyan else TextSecondary, modifier = Modifier.size(13.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Column {
                                                 Text(
-                                                    text = sLabel,
-                                                    color = if (isSel) AccentCyan else TextPrimary,
-                                                    fontSize = 10.sp,
-                                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                                    maxLines = 1
+                                                    "Pin Mini FPS di Samping Bilah",
+                                                    color = if (uiState.hudPinMiniFps) AccentCyan else TextPrimary,
+                                                    fontSize = 10.5.sp,
+                                                    fontWeight = FontWeight.Bold
                                                 )
+                                                Text(
+                                                    "Tampilkan tag angka FPS kecil saat bilah samping tertutup",
+                                                    color = TextSecondary,
+                                                    fontSize = 9.sp
+                                                )
+                                            }
+                                        }
+                                        Switch(
+                                            checked = uiState.hudPinMiniFps,
+                                            onCheckedChange = { viewModel.setHudPinMiniFps(context, it) },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = AccentCyan,
+                                                checkedTrackColor = AccentCyan.copy(alpha = 0.35f)
+                                            ),
+                                            modifier = Modifier.scale(0.75f)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                "PILIHAN GAYA TAMPILAN OSD",
+                                color = AccentCyan,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Spacer(Modifier.height(6.dp))
+
+                            val hudStyleOptions = listOf(
+                                1 to "1. Vertical Pillar (RTSS)",
+                                2 to "2. Top Nano-Ribbon",
+                                3 to "3. Dual-Block Esport",
+                                4 to "4. Quad-Tiles Modular",
+                                5 to "5. Steam Deck Banner",
+                                6 to "6. Ghost Text (Frameless)"
+                            )
+
+                            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                hudStyleOptions.chunked(2).forEach { rowStyles ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        rowStyles.forEach { (sId, sLabel) ->
+                                            val isSel = (uiState.hudStyle == sId)
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = if (isSel) AccentCyan.copy(alpha = 0.18f) else BgElevated,
+                                                border = BorderStroke(1.dp, if (isSel) AccentCyan else BorderGlass),
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clickable { viewModel.setHudStyle(context, sId) }
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(6.dp)
+                                                            .clip(CircleShape)
+                                                            .background(if (isSel) AccentCyan else Color(0x33FFFFFF))
+                                                    )
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Text(
+                                                        text = sLabel,
+                                                        color = if (isSel) AccentCyan else TextPrimary,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                                        maxLines = 1
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -1255,96 +1208,101 @@ fun MainDashboard(
                     }
 
                     // ── Live Hardware Benchmark & Frame Profiler Studio Card ─
-                    LynxCard(
-                        title = "Live Hardware Benchmark & Frame Pacing",
-                        icon = Icons.Default.Assessment,
-                        accentColor = AccentPurple
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                    item(key = "benchmark") {
+                        LynxCard(
+                            title = "Live Hardware Benchmark & Frame Pacing",
+                            icon = Icons.Default.Assessment,
+                            accentColor = AccentPurple
                         ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    "Studio Benchmark & Frametime Jitter",
-                                    color = TextPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                                Text(
-                                    "Uji kestabilan frame pacing, 1% Low FPS, & hardware presentation timestamp via SurfaceFlinger.",
-                                    color = TextSecondary,
-                                    fontSize = 11.sp,
-                                    lineHeight = 15.sp
-                                )
-                            }
-                            Button(
-                                onClick = { viewModel.openBenchmarkDialog() },
-                                colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Uji", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        "Studio Benchmark & Frametime Jitter",
+                                        color = TextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                    Text(
+                                        "Uji kestabilan frame pacing, 1% Low FPS, & hardware presentation timestamp via SurfaceFlinger.",
+                                        color = TextSecondary,
+                                        fontSize = 11.sp,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                                Button(
+                                    onClick = { viewModel.openBenchmarkDialog() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Uji", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
                             }
                         }
                     }
 
                     // ── Live Battery Wattage & Thermal Power Card ───────────
-                    uiState.telemetry?.let { tel ->
-                        LynxCard(
-                            title = "Estimasi Daya & Konsumsi Watt",
-                            icon = Icons.Default.Bolt,
-                            accentColor = AccentBlue
-                        ) {
-                            val v = tel.battVoltMv.toDouble()
-                            val c = Math.abs(tel.battCurrentMa.toDouble())
-                            val watts = if (v > 0 && c > 0) (v * c) / 1_000_000.0 else 0.0
-                            val isCharging = tel.battCurrentMa > 0
-                            Row(
-                                Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                    if (uiState.telemetry != null) {
+                        item(key = "wattage") {
+                            val tel = uiState.telemetry ?: return@item
+                            LynxCard(
+                                title = "Estimasi Daya & Konsumsi Watt",
+                                icon = Icons.Default.Bolt,
+                                accentColor = AccentBlue
                             ) {
-                                Column {
-                                    Text(
-                                        if (watts > 0) String.format("%.2f Watt", watts) else "Daya Terukur: --",
-                                        color = if (isCharging) AccentCyan else AccentOrange,
-                                        fontSize = 18.sp, fontWeight = FontWeight.ExtraBold
-                                    )
-                                    Text(
-                                        if (isCharging) "Sedang Mengisi Daya (Input Power)" else "Konsumsi Baterai Aktif (Discharging)",
-                                        color = TextSecondary, fontSize = 11.sp
-                                    )
-                                }
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = BgElevated,
-                                    border = BorderStroke(0.8.dp, BorderSubtle)
+                                val v = tel.battVoltMv.toDouble()
+                                val c = Math.abs(tel.battCurrentMa.toDouble())
+                                val watts = if (v > 0 && c > 0) (v * c) / 1_000_000.0 else 0.0
+                                val isCharging = tel.battCurrentMa > 0
+                                Row(
+                                    Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Thermostat, null, tint = AccentRed, modifier = Modifier.size(14.dp))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("${tel.temp}°C", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                    Column {
+                                        Text(
+                                            if (watts > 0) String.format("%.2f Watt", watts) else "Daya Terukur: --",
+                                            color = if (isCharging) AccentCyan else AccentOrange,
+                                            fontSize = 18.sp, fontWeight = FontWeight.ExtraBold
+                                        )
+                                        Text(
+                                            if (isCharging) "Sedang Mengisi Daya (Input Power)" else "Konsumsi Baterai Aktif (Discharging)",
+                                            color = TextSecondary, fontSize = 11.sp
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = BgElevated,
+                                        border = BorderStroke(0.8.dp, BorderSubtle)
+                                    ) {
+                                        Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Thermostat, null, tint = AccentRed, modifier = Modifier.size(14.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("${tel.temp}°C", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                        }
                                     }
                                 }
-                            }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Tegangan: ${tel.battVoltMv} mV", color = TextSecondary, fontSize = 11.sp)
-                                Text("Arus: ${tel.battCurrentMa} mA", color = TextSecondary, fontSize = 11.sp)
-                                Text("Baterai: ${tel.battLevel}%", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                            uiState.batteryDetails?.let { batt ->
-                                HorizontalDivider(color = BorderSubtle, modifier = Modifier.padding(vertical = 8.dp))
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Status: ${batt.health}", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                    if (batt.cycleCount >= 0) {
-                                        Text("Siklus: ${batt.cycleCount}x", color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                    }
-                                    if (batt.chargeCounterMah > 0) {
-                                        Text("Kapasitas: ${batt.chargeCounterMah} mAh", color = TextSecondary, fontSize = 11.sp)
+                                    Text("Tegangan: ${tel.battVoltMv} mV", color = TextSecondary, fontSize = 11.sp)
+                                    Text("Arus: ${tel.battCurrentMa} mA", color = TextSecondary, fontSize = 11.sp)
+                                    Text("Baterai: ${tel.battLevel}%", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                                uiState.batteryDetails?.let { batt ->
+                                    HorizontalDivider(color = BorderSubtle, modifier = Modifier.padding(vertical = 8.dp))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Status: ${batt.health}", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                        if (batt.cycleCount >= 0) {
+                                            Text("Siklus: ${batt.cycleCount}x", color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                        if (batt.chargeCounterMah > 0) {
+                                            Text("Kapasitas: ${batt.chargeCounterMah} mAh", color = TextSecondary, fontSize = 11.sp)
+                                        }
                                     }
                                 }
                             }
@@ -1352,72 +1310,81 @@ fun MainDashboard(
                     }
 
                     // ── FKM Parity: Battery Health & Deep Sleep Card ───────────
-                    BatteryHealthStatsCard(
-                        batteryHealth = uiState.batteryHealthStats,
-                        onRefresh = { viewModel.refreshBatteryHealth() }
-                    )
+                    item(key = "battery_health") {
+                        BatteryHealthStatsCard(
+                            batteryHealth = uiState.batteryHealthStats,
+                            onRefresh = { viewModel.refreshBatteryHealth() }
+                        )
+                    }
 
                     // ── Live Hardware Thermal Zones Matrix ─────────────────
                     if (uiState.thermalZones.isNotEmpty()) {
-                        LynxCard(
-                            title = "Matriks Sensor Termal Hardware",
-                            icon = Icons.Default.Thermostat,
-                            accentColor = AccentRed
-                        ) {
-                            val zones = uiState.thermalZones.filter { it.tempC in 15f..110f }
-                            val displayZones = zones.take(6)
-                            displayZones.chunked(2).forEach { row ->
-                                Row(
-                                    Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    row.forEach { zone ->
-                                        val tempColor = when {
-                                            zone.tempC >= 60f -> AccentRed
-                                            zone.tempC >= 45f -> AccentOrange
-                                            else -> AccentGreen
-                                        }
-                                        Surface(
-                                            shape = RoundedCornerShape(10.dp),
-                                            color = BgElevated,
-                                            border = BorderStroke(1.dp, tempColor.copy(alpha = 0.35f)),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Row(
-                                                Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
+                        item(key = "thermal_zones") {
+                            LynxCard(
+                                title = "Matriks Sensor Termal Hardware",
+                                icon = Icons.Default.Thermostat,
+                                accentColor = AccentRed
+                            ) {
+                                val zones = uiState.thermalZones.filter { it.tempC in 15f..110f }
+                                val displayZones = zones.take(6)
+                                displayZones.chunked(2).forEach { row ->
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        row.forEach { zone ->
+                                            val tempColor = when {
+                                                zone.tempC >= 60f -> AccentRed
+                                                zone.tempC >= 45f -> AccentOrange
+                                                else -> AccentGreen
+                                            }
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = BgElevated,
+                                                border = BorderStroke(1.dp, tempColor.copy(alpha = 0.35f)),
+                                                modifier = Modifier.weight(1f)
                                             ) {
-                                                Column(Modifier.weight(1f)) {
-                                                    val cleanType = zone.type
-                                                        .replace("mtkts", "")
-                                                        .replace("tsens_tz_sensor", "sensor")
-                                                        .uppercase()
-                                                    Text(cleanType, color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                                    Text(zone.type, color = TextSecondary.copy(alpha = 0.6f), fontSize = 8.5.sp, maxLines = 1)
+                                                Row(
+                                                    Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Column(Modifier.weight(1f)) {
+                                                        val cleanType = zone.type
+                                                            .replace("mtkts", "")
+                                                            .replace("tsens_tz_sensor", "sensor")
+                                                            .uppercase()
+                                                        Text(cleanType, color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                                        Text(zone.type, color = TextSecondary.copy(alpha = 0.6f), fontSize = 8.5.sp, maxLines = 1)
+                                                    }
+                                                    Text(
+                                                        String.format("%.1f°C", zone.tempC),
+                                                        color = tempColor,
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.ExtraBold
+                                                    )
                                                 }
-                                                Text(
-                                                    String.format("%.1f°C", zone.tempC),
-                                                    color = tempColor,
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.ExtraBold
-                                                )
                                             }
                                         }
+                                        if (row.size == 1) Spacer(Modifier.weight(1f))
                                     }
-                                    if (row.size == 1) Spacer(Modifier.weight(1f))
                                 }
                             }
                         }
                     }
+
+                    item(key = "dashboard_bottom_spacer") {
+                        Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
+                    }
                 }
+            }
 
 
                 // ── TAB 1: TUNING ENGINE (UNIFIED HUB & SUBSCREENS) ────
                 1 -> {
                     AnimatedContent(
                         targetState = selectedCategory,
-                        modifier = if (isSubscreenActive) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxSize(),
                         transitionSpec = {
                             if (targetState != null) {
                                 (slideInHorizontally(animationSpec = tween(220)) { it / 3 } + fadeIn(animationSpec = tween(200)))
@@ -1431,116 +1398,133 @@ fun MainDashboard(
                     ) { currentCategory ->
                         if (currentCategory == null) {
                             // ── HUB VIEW (FULL-WIDTH SUBSYSTEM CARDS) ──
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Spacer(Modifier.height(8.dp))
-                                if (!uiState.isModuleInstalled) {
-                                    StandaloneModuleBanner(
-                                        onInstallModule = {
-                                            viewModel.installLynxModule("/data/local/tmp/Lynx.zip")
-                                        }
-                                    )
+                            LazyColumn(
+                                state = tuningHubLazyState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .statusBarsPadding()
+                            ) {
+                                item(key = "hub_header") {
+                                    Spacer(Modifier.height(8.dp))
+                                    if (!uiState.isModuleInstalled) {
+                                        StandaloneModuleBanner(
+                                            onInstallModule = {
+                                                viewModel.installLynxModule("/data/local/tmp/Lynx.zip")
+                                            }
+                                        )
+                                    }
+
+                                    // Flat Typographic Hub Header (Minimalist & Clean)
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 20.dp, vertical = 10.dp)
+                                    ) {
+                                        Text(
+                                            "Pusat Tuning",
+                                            color = TextPrimary,
+                                            fontSize = 24.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = (-0.3).sp
+                                        )
+                                        Spacer(Modifier.height(3.dp))
+                                        Text(
+                                            "Pilih modul subsistem untuk konfigurasi hardware & kernel",
+                                            color = TextSecondary,
+                                            fontSize = 12.sp,
+                                            lineHeight = 16.sp
+                                        )
+                                    }
                                 }
 
-                                // Flat Typographic Hub Header (Minimalist & Clean)
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 20.dp, vertical = 10.dp)
-                                ) {
-                                    Text(
-                                        "Pusat Tuning",
-                                        color = TextPrimary,
-                                        fontSize = 24.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = (-0.3).sp
-                                    )
-                                    Spacer(Modifier.height(3.dp))
-                                    Text(
-                                        "Pilih modul subsistem untuk konfigurasi hardware & kernel",
-                                        color = TextSecondary,
-                                        fontSize = 12.sp,
-                                        lineHeight = 16.sp
-                                    )
+                                item(key = "hub_cards") {
+                                    // Vertical List of Full-width Subsystem Cards
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        // 1. CPU & Governor
+                                        SubsystemCategoryCard(
+                                            category = TuningCategory.CPU,
+                                            badgeText = "${uiState.cpuCores.count { it.isOnline }}/${uiState.cpuCores.size} Cores",
+                                            detailText1 = "${uiState.clusters.size} Cluster",
+                                            detailText2 = uiState.activeGovernorPreset.ifBlank { "Schedutil" },
+                                            onClick = { selectedCategory = "cpu" }
+                                        )
+
+                                        // 2. GPU & Display
+                                        SubsystemCategoryCard(
+                                            category = TuningCategory.GPU,
+                                            badgeText = if (uiState.gpuInfo.curFreqMhz > 0) "${uiState.gpuInfo.curFreqMhz} MHz" else "Dynamic",
+                                            detailText1 = "Load ${uiState.gpuInfo.gpuLoadPercent}%",
+                                            detailText2 = "${uiState.displayRefreshRate}Hz",
+                                            onClick = { selectedCategory = "gpu" }
+                                        )
+
+                                        // 3. Thermal & Anti-Throttling
+                                        val validThermalZones = uiState.thermalZones.filter { it.tempC in 15f..115f }
+                                        val maxT = validThermalZones.maxOfOrNull { it.tempC } ?: (uiState.telemetry?.temp?.toFloat() ?: 0f)
+                                        SubsystemCategoryCard(
+                                            category = TuningCategory.THERMAL,
+                                            badgeText = if (state.thermal.fullBypass) "BYPASS AKTIF" else "${state.thermal.customTempLimitC}°C LIMIT",
+                                            detailText1 = if (maxT > 0) "Maks ${String.format("%.1f", maxT)}°C" else "Normal",
+                                            detailText2 = if (state.oemNeutralizer.joyoseNeutralize) "Anti-Joyose" else "${validThermalZones.size} Sensor",
+                                            onClick = { selectedCategory = "thermal" }
+                                        )
+
+                                        // 4. Battery & Charging
+                                        SubsystemCategoryCard(
+                                            category = TuningCategory.CHARGING,
+                                            badgeText = if (state.charging.bypassEnabled) "BYPASS" else if (state.charging.extremeChargingEnabled) "EXTREME" else "${state.charging.limitCurrentMa} mA",
+                                            detailText1 = "${uiState.batteryDetails?.tempC ?: 0f}°C",
+                                            detailText2 = "${uiState.batteryDetails?.currentMa ?: 0} mA",
+                                            onClick = { selectedCategory = "charging" }
+                                        )
+
+                                        // 5. Memory & Storage
+                                        SubsystemCategoryCard(
+                                            category = TuningCategory.MEMORY,
+                                            badgeText = "ZRAM ${uiState.zramCompAlgorithm.ifBlank { "lz4" }.uppercase()}",
+                                            detailText1 = "Swap ${state.memory.swappiness}%",
+                                            detailText2 = "${uiState.ioDevices.size} I/O Dev",
+                                            onClick = { selectedCategory = "memory" }
+                                        )
+
+                                        // 6. Network & Audio
+                                        SubsystemCategoryCard(
+                                            category = TuningCategory.NETWORK,
+                                            badgeText = uiState.currentTcpCongestion.ifBlank { "bbr" }.uppercase(),
+                                            detailText1 = if (state.network.wifiPingStabilizer) "FQ-CoDel" else "Standard",
+                                            detailText2 = if (state.audio.lowLatencyMmap) "MMAP" else "Audio",
+                                            onClick = { selectedCategory = "network" }
+                                        )
+
+                                        // 7. Subsystem & Automation
+                                        SubsystemCategoryCard(
+                                            category = TuningCategory.SYSTEM,
+                                            badgeText = "${uiState.appProfileRules.size} Aturan",
+                                            detailText1 = if (uiState.isAppAutomationActive) "Auto ON" else "Auto OFF",
+                                            detailText2 = "${uiState.deepTunables.size} Tunables",
+                                            onClick = { selectedCategory = "system" }
+                                        )
+                                    }
                                 }
 
-                                // Vertical List of Full-width Subsystem Cards
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    // 1. CPU & Governor
-                                    SubsystemCategoryCard(
-                                        category = TuningCategory.CPU,
-                                        badgeText = "${uiState.cpuCores.count { it.isOnline }}/${uiState.cpuCores.size} Cores",
-                                        detailText1 = "${uiState.clusters.size} Cluster",
-                                        detailText2 = uiState.activeGovernorPreset.ifBlank { "Schedutil" },
-                                        onClick = { selectedCategory = "cpu" }
-                                    )
-
-                                    // 2. GPU & Display
-                                    SubsystemCategoryCard(
-                                        category = TuningCategory.GPU,
-                                        badgeText = if (uiState.gpuInfo.curFreqMhz > 0) "${uiState.gpuInfo.curFreqMhz} MHz" else "Dynamic",
-                                        detailText1 = "Load ${uiState.gpuInfo.gpuLoadPercent}%",
-                                        detailText2 = "${uiState.displayRefreshRate}Hz",
-                                        onClick = { selectedCategory = "gpu" }
-                                    )
-
-                                    // 3. Thermal & Anti-Throttling
-                                    val validThermalZones = uiState.thermalZones.filter { it.tempC in 15f..115f }
-                                    val maxT = validThermalZones.maxOfOrNull { it.tempC } ?: (uiState.telemetry?.temp?.toFloat() ?: 0f)
-                                    SubsystemCategoryCard(
-                                        category = TuningCategory.THERMAL,
-                                        badgeText = if (state.thermal.fullBypass) "BYPASS AKTIF" else "${state.thermal.customTempLimitC}°C LIMIT",
-                                        detailText1 = if (maxT > 0) "Maks ${String.format("%.1f", maxT)}°C" else "Normal",
-                                        detailText2 = if (state.oemNeutralizer.joyoseNeutralize) "Anti-Joyose" else "${validThermalZones.size} Sensor",
-                                        onClick = { selectedCategory = "thermal" }
-                                    )
-
-                                    // 4. Battery & Charging
-                                    SubsystemCategoryCard(
-                                        category = TuningCategory.CHARGING,
-                                        badgeText = if (state.charging.bypassEnabled) "BYPASS" else if (state.charging.extremeChargingEnabled) "EXTREME" else "${state.charging.limitCurrentMa} mA",
-                                        detailText1 = "${uiState.batteryDetails?.tempC ?: 0f}°C",
-                                        detailText2 = "${uiState.batteryDetails?.currentMa ?: 0} mA",
-                                        onClick = { selectedCategory = "charging" }
-                                    )
-
-                                    // 5. Memory & Storage
-                                    SubsystemCategoryCard(
-                                        category = TuningCategory.MEMORY,
-                                        badgeText = "ZRAM ${uiState.zramCompAlgorithm.ifBlank { "lz4" }.uppercase()}",
-                                        detailText1 = "Swap ${state.memory.swappiness}%",
-                                        detailText2 = "${uiState.ioDevices.size} I/O Dev",
-                                        onClick = { selectedCategory = "memory" }
-                                    )
-
-                                    // 6. Network & Audio
-                                    SubsystemCategoryCard(
-                                        category = TuningCategory.NETWORK,
-                                        badgeText = uiState.currentTcpCongestion.ifBlank { "bbr" }.uppercase(),
-                                        detailText1 = if (state.network.wifiPingStabilizer) "FQ-CoDel" else "Standard",
-                                        detailText2 = if (state.audio.lowLatencyMmap) "MMAP" else "Audio",
-                                        onClick = { selectedCategory = "network" }
-                                    )
-
-                                    // 7. Subsystem & Automation
-                                    SubsystemCategoryCard(
-                                        category = TuningCategory.SYSTEM,
-                                        badgeText = "${uiState.appProfileRules.size} Aturan",
-                                        detailText1 = if (uiState.isAppAutomationActive) "Auto ON" else "Auto OFF",
-                                        detailText2 = "${uiState.deepTunables.size} Tunables",
-                                        onClick = { selectedCategory = "system" }
-                                    )
+                                item(key = "hub_bottom_spacer") {
+                                    Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
                                 }
                             }
                         } else {
                             // ── SUB-PAGE VIEW WITH PERMANENT STICKY PINNED HEADER ──
                             val cat = TuningCategory.fromId(currentCategory) ?: TuningCategory.CPU
 
-                            Column(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .statusBarsPadding()
+                            ) {
                                 // 1. Sticky Header (Pinned outside scrollable area, never sinks)
                                 Surface(
                                     color = Color(0xF20B0C10),
@@ -1683,136 +1667,14 @@ fun MainDashboard(
 
                 // ── TAB 2 & 3: TOOLS & FLASHER ──────────────────────────────
                 2, 3 -> {
-                    Spacer(Modifier.height(8.dp))
-                    FlasherCard(
-                        isFlashing = uiState.isFlashing,
-                        flashLog = uiState.flashLog,
-                        onFlash = { viewModel.flashKernel(it) }
-                    )
-
-                    BootBackupCard(
-                        backups = uiState.backups,
-                        isBackingUp = uiState.isBackingUp,
-                        onBackup = { viewModel.backupBoot() },
-                        onRestore = { viewModel.restoreBoot(it) }
-                    )
-
-                    LynxCard(
-                        title = "Pemeliharaan & Diagnostik 1-Klik",
-                        icon = Icons.Default.Build,
-                        accentColor = AccentCyan
-                    ) {
-                        LynxActionButton(
-                            text = "Live Benchmark & Hardware Frame Profiler",
-                            icon = Icons.Default.Assessment,
-                            onClick = { viewModel.openBenchmarkDialog() },
-                            accentColor = AccentPurple,
-                            modifier = Modifier.padding(bottom = 10.dp)
-                        )
-                        LynxActionButton(
-                            text = "Optimasi SQLite & FSTRIM Storage",
-                            icon = Icons.Default.Storage,
-                            onClick = { viewModel.runMaintenance() },
-                            isLoading = uiState.maintenanceRunning,
-                            accentColor = AccentCyan,
-                            modifier = Modifier.padding(bottom = 10.dp)
-                        )
-                        LynxActionButton(
-                            text = "Jalankan CCleaner (Memory Purge)",
-                            icon = Icons.Default.Speed,
-                            onClick = { viewModel.runCCleaner() },
-                            accentColor = AccentBlue,
-                            modifier = Modifier.padding(bottom = 10.dp)
-                        )
-                        LynxActionButton(
-                            text = "Ekspor Laporan Diagnostik 1-Klik (.ZIP)",
-                            icon = Icons.Default.Build,
-                            onClick = { viewModel.exportBugReport() },
-                            isLoading = uiState.exportRunning,
-                            accentColor = AccentOrange,
-                            modifier = Modifier.padding(bottom = 10.dp)
-                        )
-                        LynxActionButton(
-                            text = "Reset Aman Kernel ke Bawaan (Stock Safe)",
-                            icon = Icons.Default.RestartAlt,
-                            onClick = { viewModel.resetKernelToStock() },
-                            accentColor = AccentGreen
-                        )
-                    }
-
-                    // ── SELinux & Kernel Printk Logging Card ───────────────────
-                    LynxCard(
-                        title = "SELinux & Kernel Printk Logging",
-                        icon = Icons.Default.Security,
-                        accentColor = AccentCyan
-                    ) {
-                        val isEnforcing = uiState.selinuxMode.equals("Enforcing", ignoreCase = true)
-                        Row(
-                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text("Status Mode SELinux", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                Text(
-                                    if (isEnforcing) "Perlindungan keamanan kernel aktif (Enforcing)" else "Mode Permissive aktif (Debugging / Modifikasi)",
-                                    color = TextSecondary, fontSize = 11.sp
-                                )
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isEnforcing) AccentCyan.copy(alpha = 0.18f) else AccentOrange.copy(alpha = 0.18f),
-                                border = BorderStroke(1.dp, if (isEnforcing) AccentCyan else AccentOrange)
-                            ) {
-                                Text(
-                                    uiState.selinuxMode.uppercase(),
-                                    color = if (isEnforcing) AccentCyan else AccentOrange,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
+                    LaunchedEffect(Unit) {
+                        viewModel.loadCustomRules()
+                        viewModel.refreshThermalZones()
+                        viewModel.refreshWakelocks()
+                        if (uiState.capabilityReport == null) {
+                            viewModel.scanKernelCapabilities()
                         }
-                        Row(
-                            Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = { viewModel.setSelinuxMode(true) },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isEnforcing) AccentCyan else BgElevated
-                                ),
-                                border = BorderStroke(1.dp, if (isEnforcing) AccentCyan else BorderGlass)
-                            ) {
-                                Text("Enforcing", color = if (isEnforcing) Color.Black else TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Button(
-                                onClick = { viewModel.setSelinuxMode(false) },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (!isEnforcing) AccentOrange else BgElevated
-                                ),
-                                border = BorderStroke(1.dp, if (!isEnforcing) AccentOrange else BorderGlass)
-                            ) {
-                                Text("Permissive", color = if (!isEnforcing) Color.Black else TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 10.dp))
-
-                        LynxSwitch(
-                            label = "Kernel Printk Silent Mode (Zero Overhead)",
-                            subLabel = "Nonaktifkan pencatatan dmesg di background untuk mencegah micro-stutter saat gaming",
-                            checked = uiState.isPrintkSilent,
-                            onCheckedChange = { viewModel.setPrintkSilent(it) }
-                        )
                     }
-
-
-                    // ── Custom Sysfs Rules & Boot Tweaks Card ───────────────────
-                    LaunchedEffect(Unit) { viewModel.loadCustomRules() }
 
                     var customScriptText by remember { mutableStateOf("") }
                     var hasUserEditedCustomScript by remember { mutableStateOf(false) }
@@ -1826,535 +1688,678 @@ fun MainDashboard(
                         }
                     }
 
-                    LynxCard(
-                        title = "Custom Sysfs Rules & Boot Tweaks",
-                        icon = Icons.Default.Terminal,
-                        accentColor = AccentOrange
+                    LazyColumn(
+                        state = toolsLazyState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
                     ) {
-                        Text(
-                            "Tulis perintah sysfs atau shell kustom Anda sendiri. Skrip disimpan di /data/adb/modules/Lynx/custom_rules.sh dan dieksekusi otomatis saat boot oleh service.sh.",
-                            color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp,
-                            modifier = Modifier.padding(bottom = 10.dp)
-                        )
+                        item(key = "tools_top_spacer") {
+                            Spacer(Modifier.height(8.dp))
+                        }
 
-                        // Quick snippet chips & Reload button
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Templat Cepat:", color = AccentOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Surface(
-                                onClick = {
-                                    viewModel.loadCustomRules()
-                                    customScriptText = uiState.customRulesScript
-                                    hasUserEditedCustomScript = false
-                                },
-                                shape = RoundedCornerShape(6.dp),
-                                color = AccentCyan.copy(alpha = 0.12f),
-                                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.3f))
+                        item(key = "flasher") {
+                            FlasherCard(
+                                isFlashing = uiState.isFlashing,
+                                flashLog = uiState.flashLog,
+                                onFlash = { viewModel.flashKernel(it) }
+                            )
+                        }
+
+                        item(key = "boot_backup") {
+                            BootBackupCard(
+                                backups = uiState.backups,
+                                isBackingUp = uiState.isBackingUp,
+                                onBackup = { viewModel.backupBoot() },
+                                onRestore = { viewModel.restoreBoot(it) }
+                            )
+                        }
+
+                        item(key = "maintenance_actions") {
+                            LynxCard(
+                                title = "Pemeliharaan & Diagnostik 1-Klik",
+                                icon = Icons.Default.Build,
+                                accentColor = AccentCyan
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Refresh, null, tint = AccentCyan, modifier = Modifier.size(12.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Muat Ulang Berkas", fontSize = 10.sp, color = AccentCyan, fontWeight = FontWeight.SemiBold)
-                                }
+                                LynxActionButton(
+                                    text = "Live Benchmark & Hardware Frame Profiler",
+                                    icon = Icons.Default.Assessment,
+                                    onClick = { viewModel.openBenchmarkDialog() },
+                                    accentColor = AccentPurple,
+                                    modifier = Modifier.padding(bottom = 10.dp)
+                                )
+                                LynxActionButton(
+                                    text = "Optimasi SQLite & FSTRIM Storage",
+                                    icon = Icons.Default.Storage,
+                                    onClick = { viewModel.runMaintenance() },
+                                    isLoading = uiState.maintenanceRunning,
+                                    accentColor = AccentCyan,
+                                    modifier = Modifier.padding(bottom = 10.dp)
+                                )
+                                LynxActionButton(
+                                    text = "Jalankan CCleaner (Memory Purge)",
+                                    icon = Icons.Default.Speed,
+                                    onClick = { viewModel.runCCleaner() },
+                                    accentColor = AccentBlue,
+                                    modifier = Modifier.padding(bottom = 10.dp)
+                                )
+                                LynxActionButton(
+                                    text = "Ekspor Laporan Diagnostik 1-Klik (.ZIP)",
+                                    icon = Icons.Default.Build,
+                                    onClick = { viewModel.exportBugReport() },
+                                    isLoading = uiState.exportRunning,
+                                    accentColor = AccentOrange,
+                                    modifier = Modifier.padding(bottom = 10.dp)
+                                )
+                                LynxActionButton(
+                                    text = "Reset Aman Kernel ke Bawaan (Stock Safe)",
+                                    icon = Icons.Default.RestartAlt,
+                                    onClick = { viewModel.resetKernelToStock() },
+                                    accentColor = AccentGreen
+                                )
                             }
                         }
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
-                        ) {
-                            val snippets = listOf(
-                                "+ TCP FastOpen" to "\necho 3 > /proc/sys/net/ipv4/tcp_fastopen",
-                                "+ Drop Caches" to "\necho 3 > /proc/sys/vm/drop_caches",
-                                "+ Compact Memory" to "\necho 1 > /proc/sys/vm/compact_memory",
-                                "+ Sched Migration" to "\necho 32 > /proc/sys/kernel/sched_nr_migrate",
-                            )
-                            items(snippets.size) { i ->
-                                val (title, code) = snippets[i]
-                                Surface(
-                                    onClick = {
-                                        customScriptText += code
+
+                        // ── SELinux & Kernel Printk Logging Card ───────────────────
+                        item(key = "selinux_card") {
+                            LynxCard(
+                                title = "SELinux & Kernel Printk Logging",
+                                icon = Icons.Default.Security,
+                                accentColor = AccentCyan
+                            ) {
+                                val isEnforcing = uiState.selinuxMode.equals("Enforcing", ignoreCase = true)
+                                Row(
+                                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("Status Mode SELinux", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                        Text(
+                                            if (isEnforcing) "Perlindungan keamanan kernel aktif (Enforcing)" else "Mode Permissive aktif (Debugging / Modifikasi)",
+                                            color = TextSecondary, fontSize = 11.sp
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isEnforcing) AccentCyan.copy(alpha = 0.18f) else AccentOrange.copy(alpha = 0.18f),
+                                        border = BorderStroke(1.dp, if (isEnforcing) AccentCyan else AccentOrange)
+                                    ) {
+                                        Text(
+                                            uiState.selinuxMode.uppercase(),
+                                            color = if (isEnforcing) AccentCyan else AccentOrange,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                                Row(
+                                    Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = { viewModel.setSelinuxMode(true) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isEnforcing) AccentCyan else BgElevated
+                                        ),
+                                        border = BorderStroke(1.dp, if (isEnforcing) AccentCyan else BorderGlass)
+                                    ) {
+                                        Text("Enforcing", color = if (isEnforcing) Color.Black else TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Button(
+                                        onClick = { viewModel.setSelinuxMode(false) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (!isEnforcing) AccentOrange else BgElevated
+                                        ),
+                                        border = BorderStroke(1.dp, if (!isEnforcing) AccentOrange else BorderGlass)
+                                    ) {
+                                        Text("Permissive", color = if (!isEnforcing) Color.Black else TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 10.dp))
+
+                                LynxSwitch(
+                                    label = "Kernel Printk Silent Mode (Zero Overhead)",
+                                    subLabel = "Nonaktifkan pencatatan dmesg di background untuk mencegah micro-stutter saat gaming",
+                                    checked = uiState.isPrintkSilent,
+                                    onCheckedChange = { viewModel.setPrintkSilent(it) }
+                                )
+                            }
+                        }
+
+                        // ── Custom Sysfs Rules & Boot Tweaks Card ───────────────────
+                        item(key = "custom_rules") {
+                            LynxCard(
+                                title = "Custom Sysfs Rules & Boot Tweaks",
+                                icon = Icons.Default.Terminal,
+                                accentColor = AccentOrange
+                            ) {
+                                Text(
+                                    "Tulis perintah sysfs atau shell kustom Anda sendiri. Skrip disimpan di /data/adb/modules/Lynx/custom_rules.sh dan dieksekusi otomatis saat boot oleh service.sh.",
+                                    color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp,
+                                    modifier = Modifier.padding(bottom = 10.dp)
+                                )
+
+                                // Quick snippet chips & Reload button
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Templat Cepat:", color = AccentOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Surface(
+                                        onClick = {
+                                            viewModel.loadCustomRules()
+                                            customScriptText = uiState.customRulesScript
+                                            hasUserEditedCustomScript = false
+                                        },
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AccentCyan.copy(alpha = 0.12f),
+                                        border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.3f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.Refresh, null, tint = AccentCyan, modifier = Modifier.size(12.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Muat Ulang Berkas", fontSize = 10.sp, color = AccentCyan, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                                ) {
+                                    val snippets = listOf(
+                                        "+ TCP FastOpen" to "\necho 3 > /proc/sys/net/ipv4/tcp_fastopen",
+                                        "+ Drop Caches" to "\necho 3 > /proc/sys/vm/drop_caches",
+                                        "+ Compact Memory" to "\necho 1 > /proc/sys/vm/compact_memory",
+                                        "+ Sched Migration" to "\necho 32 > /proc/sys/kernel/sched_nr_migrate",
+                                    )
+                                    items(snippets.size) { i ->
+                                        val (title, code) = snippets[i]
+                                        Surface(
+                                            onClick = {
+                                                customScriptText += code
+                                                hasUserEditedCustomScript = true
+                                                lastCustomScriptInteraction = System.currentTimeMillis()
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = BgElevated,
+                                            border = BorderStroke(1.dp, BorderGlass)
+                                        ) {
+                                            Text(
+                                                title,
+                                                color = AccentOrange,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                OutlinedTextField(
+                                    value = customScriptText,
+                                    onValueChange = {
+                                        customScriptText = it
                                         hasUserEditedCustomScript = true
                                         lastCustomScriptInteraction = System.currentTimeMillis()
                                     },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = BgElevated,
-                                    border = BorderStroke(1.dp, BorderGlass)
-                                ) {
-                                    Text(
-                                        title,
-                                        color = AccentOrange,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = customScriptText,
-                            onValueChange = {
-                                customScriptText = it
-                                hasUserEditedCustomScript = true
-                                lastCustomScriptInteraction = System.currentTimeMillis()
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 130.dp, max = 240.dp),
-                            textStyle = androidx.compose.ui.text.TextStyle(
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.5.sp,
-                                color = TextPrimary
-                            ),
-                            placeholder = { Text("# Tulis skrip shell Anda disini...", color = TextSecondary, fontSize = 11.sp) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = AccentOrange,
-                                unfocusedBorderColor = BorderGlass,
-                                focusedContainerColor = Color(0xFF0A0C12),
-                                unfocusedContainerColor = Color(0xFF0A0C12),
-                            )
-                        )
-
-                        Spacer(Modifier.height(10.dp))
-
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    val now = System.currentTimeMillis()
-                                    if (now - lastCustomScriptBtnClick >= 400L) {
-                                        lastCustomScriptBtnClick = now
-                                        hasUserEditedCustomScript = false
-                                        lastCustomScriptInteraction = 0L
-                                        viewModel.saveCustomRules(customScriptText)
-                                    }
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AccentOrange)
-                            ) {
-                                Icon(Icons.Default.Save, null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text("Simpan Skrip", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Button(
-                                onClick = {
-                                    val now = System.currentTimeMillis()
-                                    if (now - lastCustomScriptBtnClick >= 400L) {
-                                        lastCustomScriptBtnClick = now
-                                        hasUserEditedCustomScript = false
-                                        lastCustomScriptInteraction = 0L
-                                        viewModel.saveCustomRules(customScriptText)
-                                        viewModel.executeCustomRules()
-                                    }
-                                },
-                                enabled = !uiState.customRulesRunning,
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
-                            ) {
-                                if (uiState.customRulesRunning) {
-                                    CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                } else {
-                                    Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Jalankan (Root)", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-
-                        uiState.customRulesOutput?.let { out ->
-                            Spacer(Modifier.height(10.dp))
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFF08090D),
-                                border = BorderStroke(1.dp, BorderGlass),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(Modifier.padding(10.dp)) {
-                                    Text("LOG EKSEKUSI TERAKHIR:", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        out,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 130.dp, max = 240.dp),
+                                    textStyle = androidx.compose.ui.text.TextStyle(
                                         fontFamily = FontFamily.Monospace,
-                                        fontSize = 11.sp,
-                                        color = TextSecondary,
-                                        lineHeight = 15.sp
+                                        fontSize = 11.5.sp,
+                                        color = TextPrimary
+                                    ),
+                                    placeholder = { Text("# Tulis skrip shell Anda disini...", color = TextSecondary, fontSize = 11.sp) },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = AccentOrange,
+                                        unfocusedBorderColor = BorderGlass,
+                                        focusedContainerColor = Color(0xFF0A0C12),
+                                        unfocusedContainerColor = Color(0xFF0A0C12),
                                     )
+                                )
+
+                                Spacer(Modifier.height(10.dp))
+
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            val now = System.currentTimeMillis()
+                                            if (now - lastCustomScriptBtnClick >= 400L) {
+                                                lastCustomScriptBtnClick = now
+                                                hasUserEditedCustomScript = false
+                                                lastCustomScriptInteraction = 0L
+                                                viewModel.saveCustomRules(customScriptText)
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = AccentOrange)
+                                    ) {
+                                        Icon(Icons.Default.Save, null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Simpan Skrip", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Button(
+                                        onClick = {
+                                            val now = System.currentTimeMillis()
+                                            if (now - lastCustomScriptBtnClick >= 400L) {
+                                                lastCustomScriptBtnClick = now
+                                                hasUserEditedCustomScript = false
+                                                lastCustomScriptInteraction = 0L
+                                                viewModel.saveCustomRules(customScriptText)
+                                                viewModel.executeCustomRules()
+                                            }
+                                        },
+                                        enabled = !uiState.customRulesRunning,
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan)
+                                    ) {
+                                        if (uiState.customRulesRunning) {
+                                            CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Jalankan (Root)", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+
+                                uiState.customRulesOutput?.let { out ->
+                                    Spacer(Modifier.height(10.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Color(0xFF08090D),
+                                        border = BorderStroke(1.dp, BorderGlass),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(Modifier.padding(10.dp)) {
+                                            Text("LOG EKSEKUSI TERAKHIR:", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                out,
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 11.sp,
+                                                color = TextSecondary,
+                                                lineHeight = 15.sp
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // ── Dynamic Hardware Thermal Zones Card ────────────────────
-                    LaunchedEffect(Unit) { viewModel.refreshThermalZones() }
-                    if (uiState.thermalZones.isNotEmpty()) {
-                        LynxCard(
-                            title = "Monitor Sensor Thermal Hardware",
-                            icon = Icons.Default.Thermostat,
-                            accentColor = AccentRed
-                        ) {
-                            Row(
-                                Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "${uiState.thermalZones.size} Sensor Thermal Hardware Aktif",
-                                    color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp
-                                )
-                                IconButton(onClick = { viewModel.refreshThermalZones() }) {
-                                    Icon(Icons.Default.Refresh, "Refresh", tint = AccentRed, modifier = Modifier.size(18.dp))
+                        // ── Dynamic Hardware Thermal Zones Card ────────────────────
+                        if (uiState.thermalZones.isNotEmpty()) {
+                            item(key = "thermal_zones_monitor") {
+                                LynxCard(
+                                    title = "Monitor Sensor Thermal Hardware",
+                                    icon = Icons.Default.Thermostat,
+                                    accentColor = AccentRed
+                                ) {
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            "${uiState.thermalZones.size} Sensor Thermal Hardware Aktif",
+                                            color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp
+                                        )
+                                        IconButton(onClick = { viewModel.refreshThermalZones() }) {
+                                            Icon(Icons.Default.Refresh, "Refresh", tint = AccentRed, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                    val chunkedZones = uiState.thermalZones.chunked(2)
+                                    chunkedZones.forEach { row ->
+                                        Row(
+                                            Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            row.forEach { tz ->
+                                                val tempColor = when {
+                                                    tz.tempC >= 60f -> AccentRed
+                                                    tz.tempC >= 45f -> AccentOrange
+                                                    else -> AccentCyan
+                                                }
+                                                Surface(
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    color = BgElevated,
+                                                    border = BorderStroke(1.dp, BorderGlass),
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    Row(
+                                                        Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Column(Modifier.weight(1f)) {
+                                                            Text(
+                                                                tz.type.take(16),
+                                                                color = TextPrimary,
+                                                                fontSize = 11.sp,
+                                                                fontWeight = FontWeight.Medium,
+                                                                maxLines = 1
+                                                            )
+                                                            Text("Zone ${tz.id}", color = TextSecondary, fontSize = 9.sp)
+                                                        }
+                                                        Text(
+                                                            "${String.format("%.1f", tz.tempC)}°C",
+                                                            color = tempColor,
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            if (row.size == 1) Spacer(Modifier.weight(1f))
+                                        }
+                                    }
                                 }
                             }
-                            val chunkedZones = uiState.thermalZones.chunked(2)
-                            chunkedZones.forEach { row ->
+                        }
+
+                        // ── Wakelock Blocker & Deep Sleep Audit Card ─────────────────────
+                        item(key = "wakelock_audit") {
+                            val wlInfo = uiState.wakelockBlockerInfo
+                            LynxCard(
+                                title = "Wakelock Blocker & Deep Sleep Audit",
+                                icon = Icons.Default.Bedtime,
+                                accentColor = AccentPurple
+                            ) {
+                                // Driver Status Header
                                 Row(
-                                    Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    row.forEach { tz ->
-                                        val tempColor = when {
-                                            tz.tempC >= 60f -> AccentRed
-                                            tz.tempC >= 45f -> AccentOrange
-                                            else -> AccentCyan
+                                    Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                                        Text(
+                                            "Audit Sumber Bangun Kernel (Wakeup Sources)",
+                                            color = TextPrimary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                        Text(
+                                            "Mendeteksi driver & thread yang menahan CPU dari mode deep sleep",
+                                            color = TextSecondary,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (wlInfo.isDriverSupported) AccentGreen.copy(alpha = 0.18f) else AccentOrange.copy(alpha = 0.18f),
+                                        border = BorderStroke(1.dp, if (wlInfo.isDriverSupported) AccentGreen.copy(alpha = 0.4f) else AccentOrange.copy(alpha = 0.4f))
+                                    ) {
+                                        Text(
+                                            if (wlInfo.isDriverSupported) "DRIVER: BOEFFLA" else "DRIVER: UNSUPPORTED",
+                                            color = if (wlInfo.isDriverSupported) AccentGreen else AccentOrange,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+
+                                if (!wlInfo.isDriverSupported) {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = BgElevated,
+                                        border = BorderStroke(0.8.dp, BorderSubtle),
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                                    ) {
+                                        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Info, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                "Kernel stock OEM ini tidak memiliki driver Boeffla Wakelock Blocker. Pemantauan wakeup sources tetap aktif 100%, dan penghematan daya dilakukan via Aggressive Doze.",
+                                                color = TextSecondary, fontSize = 10.5.sp, lineHeight = 15.sp
+                                            )
                                         }
+                                    }
+                                }
+
+                                // Aggressive Doze Switch
+                                LynxSwitch(
+                                    label = "Aggressive Doze (Paksa Idle)",
+                                    subLabel = "Paksa status idle sistem saat layar mati untuk memotong konsumsi baterai standby",
+                                    checked = wlInfo.aggressiveDozeEnabled,
+                                    onCheckedChange = { viewModel.toggleAggressiveDoze(it) }
+                                )
+
+                                Spacer(Modifier.height(8.dp))
+
+                                // Wakeup Sources List Header
+                                Row(
+                                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Sumber Wakeup Tertinggi (${uiState.topWakelocks.size})",
+                                        color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold
+                                    )
+                                    IconButton(onClick = { viewModel.refreshWakelocks() }) {
+                                        Icon(Icons.Default.Refresh, "Refresh", tint = AccentPurple, modifier = Modifier.size(18.dp))
+                                    }
+                                }
+
+                                if (uiState.topWakelocks.isEmpty()) {
+                                    Text(
+                                        "Tidak ada sumber wakeup yang aktif menahan sistem. Deep sleep berfungsi optimal.",
+                                        color = AccentCyan, fontSize = 11.5.sp, modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                } else {
+                                    uiState.topWakelocks.take(8).forEach { wl ->
+                                        val isBlocked = wlInfo.blockedWakelocks.contains(wl.name)
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = BgElevated,
+                                            border = BorderStroke(1.dp, if (isBlocked) AccentRed.copy(alpha = 0.5f) else BorderGlass),
+                                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                                        ) {
+                                            Row(
+                                                Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Text(
+                                                            wl.name,
+                                                            color = if (isBlocked) AccentRed else TextPrimary,
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.SemiBold
+                                                        )
+                                                        if (isBlocked) {
+                                                            Spacer(Modifier.width(6.dp))
+                                                            Surface(shape = RoundedCornerShape(4.dp), color = AccentRed.copy(alpha = 0.2f)) {
+                                                                Text("DIBLOKIR", color = AccentRed, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                                                            }
+                                                        }
+                                                    }
+                                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                                                        Text(
+                                                            "${wl.activeCount}x bangun",
+                                                            color = AccentCyan,
+                                                            fontSize = 10.5.sp
+                                                        )
+                                                        if (wl.preventSuspendMs > 0) {
+                                                            Spacer(Modifier.width(8.dp))
+                                                            Text(
+                                                                "${wl.preventSuspendMs}ms tahan sleep",
+                                                                color = AccentOrange,
+                                                                fontSize = 10.5.sp
+                                                            )
+                                                        }
+                                                    }
+                                                }
+
+                                                if (wlInfo.isDriverSupported) {
+                                                    Switch(
+                                                        checked = isBlocked,
+                                                        onCheckedChange = { viewModel.toggleWakelockBlocked(wl.name, it) },
+                                                        colors = SwitchDefaults.colors(
+                                                            checkedThumbColor = BgDeepOled,
+                                                            checkedTrackColor = AccentRed
+                                                        ),
+                                                        modifier = Modifier.scale(0.8f)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Kernel Capability Matrix & Hardware Node Inspector Card ──
+                        item(key = "kernel_capabilities") {
+                            val capReport = uiState.capabilityReport
+                            LynxCard(
+                                title = "Kernel Capability Matrix & Node Inspector",
+                                icon = Icons.Default.CheckCircle,
+                                accentColor = AccentGreen
+                            ) {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        val score = capReport?.scorePercent ?: 0
+                                        Text(
+                                            "Skor Kompatibilitas Kernel: $score%",
+                                            color = if (score >= 70) AccentGreen else AccentOrange,
+                                            fontWeight = FontWeight.Bold, fontSize = 13.sp
+                                        )
+                                        Text(
+                                            capReport?.kernelRelease?.take(36) ?: "Memindai kernel...",
+                                            color = TextSecondary, fontSize = 11.sp, maxLines = 1
+                                        )
+                                    }
+                                    IconButton(onClick = { viewModel.scanKernelCapabilities() }) {
+                                        Icon(Icons.Default.Refresh, "Rescan", tint = AccentGreen, modifier = Modifier.size(20.dp))
+                                    }
+                                }
+
+                                if (capReport == null) {
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        CircularProgressIndicator(color = AccentGreen, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        Spacer(Modifier.width(10.dp))
+                                        Text("Memeriksa 9 subsistem hardware...", color = TextSecondary, fontSize = 12.sp)
+                                    }
+                                } else {
+                                    capReport.items.forEach { cap ->
                                         Surface(
                                             shape = RoundedCornerShape(10.dp),
                                             color = BgElevated,
                                             border = BorderStroke(1.dp, BorderGlass),
-                                            modifier = Modifier.weight(1f)
+                                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
                                         ) {
                                             Row(
-                                                Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                                Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Column(Modifier.weight(1f)) {
-                                                    Text(
-                                                        tz.type.take(16),
-                                                        color = TextPrimary,
-                                                        fontSize = 11.sp,
-                                                        fontWeight = FontWeight.Medium,
-                                                        maxLines = 1
-                                                    )
-                                                    Text("Zone ${tz.id}", color = TextSecondary, fontSize = 9.sp)
-                                                }
-                                                Text(
-                                                    "${String.format("%.1f", tz.tempC)}°C",
-                                                    color = tempColor,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-                                    }
-                                    if (row.size == 1) Spacer(Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    }
-
-                    // ── Wakelock Blocker & Deep Sleep Audit Card ─────────────────────
-                    LaunchedEffect(Unit) { viewModel.refreshWakelocks() }
-                    val wlInfo = uiState.wakelockBlockerInfo
-                    LynxCard(
-                        title = "Wakelock Blocker & Deep Sleep Audit",
-                        icon = Icons.Default.Bedtime,
-                        accentColor = AccentPurple
-                    ) {
-                        // Driver Status Header
-                        Row(
-                            Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                                Text(
-                                    "Audit Sumber Bangun Kernel (Wakeup Sources)",
-                                    color = TextPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                                Text(
-                                    "Mendeteksi driver & thread yang menahan CPU dari mode deep sleep",
-                                    color = TextSecondary,
-                                    fontSize = 11.sp
-                                )
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (wlInfo.isDriverSupported) AccentGreen.copy(alpha = 0.18f) else AccentOrange.copy(alpha = 0.18f),
-                                border = BorderStroke(1.dp, if (wlInfo.isDriverSupported) AccentGreen.copy(alpha = 0.4f) else AccentOrange.copy(alpha = 0.4f))
-                            ) {
-                                Text(
-                                    if (wlInfo.isDriverSupported) "DRIVER: BOEFFLA" else "DRIVER: UNSUPPORTED",
-                                    color = if (wlInfo.isDriverSupported) AccentGreen else AccentOrange,
-                                    fontSize = 9.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                )
-                            }
-                        }
-
-                        if (!wlInfo.isDriverSupported) {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = BgElevated,
-                                border = BorderStroke(0.8.dp, BorderSubtle),
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
-                            ) {
-                                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Info, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        "Kernel stock OEM ini tidak memiliki driver Boeffla Wakelock Blocker. Pemantauan wakeup sources tetap aktif 100%, dan penghematan daya dilakukan via Aggressive Doze.",
-                                        color = TextSecondary, fontSize = 10.5.sp, lineHeight = 15.sp
-                                    )
-                                }
-                            }
-                        }
-
-                        // Aggressive Doze Switch
-                        LynxSwitch(
-                            label = "Aggressive Doze (Paksa Idle)",
-                            subLabel = "Paksa status idle sistem saat layar mati untuk memotong konsumsi baterai standby",
-                            checked = wlInfo.aggressiveDozeEnabled,
-                            onCheckedChange = { viewModel.toggleAggressiveDoze(it) }
-                        )
-
-                        Spacer(Modifier.height(8.dp))
-
-                        // Wakeup Sources List Header
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Sumber Wakeup Tertinggi (${uiState.topWakelocks.size})",
-                                color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold
-                            )
-                            IconButton(onClick = { viewModel.refreshWakelocks() }) {
-                                Icon(Icons.Default.Refresh, "Refresh", tint = AccentPurple, modifier = Modifier.size(18.dp))
-                            }
-                        }
-
-                        if (uiState.topWakelocks.isEmpty()) {
-                            Text(
-                                "Tidak ada sumber wakeup yang aktif menahan sistem. Deep sleep berfungsi optimal.",
-                                color = AccentCyan, fontSize = 11.5.sp, modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                        } else {
-                            uiState.topWakelocks.take(8).forEach { wl ->
-                                val isBlocked = wlInfo.blockedWakelocks.contains(wl.name)
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = BgElevated,
-                                    border = BorderStroke(1.dp, if (isBlocked) AccentRed.copy(alpha = 0.5f) else BorderGlass),
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
-                                ) {
-                                    Row(
-                                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(
-                                                    wl.name,
-                                                    color = if (isBlocked) AccentRed else TextPrimary,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.SemiBold
-                                                )
-                                                if (isBlocked) {
-                                                    Spacer(Modifier.width(6.dp))
-                                                    Surface(shape = RoundedCornerShape(4.dp), color = AccentRed.copy(alpha = 0.2f)) {
-                                                        Text("DIBLOKIR", color = AccentRed, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Text(
+                                                            cap.title,
+                                                            color = TextPrimary,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            fontSize = 12.sp
+                                                        )
+                                                        Spacer(Modifier.width(6.dp))
+                                                        Surface(
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            color = if (cap.isSupported) AccentGreen.copy(alpha = 0.18f) else Color.Red.copy(alpha = 0.12f),
+                                                            border = BorderStroke(1.dp, if (cap.isSupported) AccentGreen.copy(alpha = 0.5f) else Color.Red.copy(alpha = 0.3f))
+                                                        ) {
+                                                            Text(
+                                                                if (cap.isSupported) "SUPPORTED" else "UNAVAILABLE",
+                                                                color = if (cap.isSupported) AccentGreen else Color.Red.copy(alpha = 0.8f),
+                                                                fontSize = 9.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                            )
+                                                        }
                                                     }
-                                                }
-                                            }
-                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                                                Text(
-                                                    "${wl.activeCount}x bangun",
-                                                    color = AccentCyan,
-                                                    fontSize = 10.5.sp
-                                                )
-                                                if (wl.preventSuspendMs > 0) {
-                                                    Spacer(Modifier.width(8.dp))
                                                     Text(
-                                                        "${wl.preventSuspendMs}ms tahan sleep",
-                                                        color = AccentOrange,
-                                                        fontSize = 10.5.sp
+                                                        cap.detail,
+                                                        color = TextSecondary,
+                                                        fontSize = 10.5.sp,
+                                                        lineHeight = 14.sp,
+                                                        modifier = Modifier.padding(top = 2.dp)
                                                     )
                                                 }
                                             }
-                                        }
-
-                                        if (wlInfo.isDriverSupported) {
-                                            Switch(
-                                                checked = isBlocked,
-                                                onCheckedChange = { viewModel.toggleWakelockBlocked(wl.name, it) },
-                                                colors = SwitchDefaults.colors(
-                                                    checkedThumbColor = BgDeepOled,
-                                                    checkedTrackColor = AccentRed
-                                                ),
-                                                modifier = Modifier.scale(0.8f)
-                                            )
                                         }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    // ── Kernel Capability Matrix & Hardware Node Inspector Card ──
-                    LaunchedEffect(Unit) {
-                        if (uiState.capabilityReport == null) {
-                            viewModel.scanKernelCapabilities()
-                        }
-                    }
-                    val capReport = uiState.capabilityReport
-                    LynxCard(
-                        title = "Kernel Capability Matrix & Node Inspector",
-                        icon = Icons.Default.CheckCircle,
-                        accentColor = AccentGreen
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                val score = capReport?.scorePercent ?: 0
-                                Text(
-                                    "Skor Kompatibilitas Kernel: $score%",
-                                    color = if (score >= 70) AccentGreen else AccentOrange,
-                                    fontWeight = FontWeight.Bold, fontSize = 13.sp
-                                )
-                                Text(
-                                    capReport?.kernelRelease?.take(36) ?: "Memindai kernel...",
-                                    color = TextSecondary, fontSize = 11.sp, maxLines = 1
-                                )
-                            }
-                            IconButton(onClick = { viewModel.scanKernelCapabilities() }) {
-                                Icon(Icons.Default.Refresh, "Rescan", tint = AccentGreen, modifier = Modifier.size(20.dp))
-                            }
+                        // ── FKM Parity: Custom Shell Script Manager Card ──────────
+                        item(key = "custom_scripts") {
+                            CustomScriptManagerCard(
+                                scripts = uiState.customScripts,
+                                onExecute = { viewModel.executeCustomScript(it) },
+                                onSave = { viewModel.saveCustomScript(it) },
+                                onDelete = { viewModel.deleteCustomScript(it) }
+                            )
                         }
 
-                        if (capReport == null) {
-                            Row(
-                                Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                CircularProgressIndicator(color = AccentGreen, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                Spacer(Modifier.width(10.dp))
-                                Text("Memeriksa 9 subsistem hardware...", color = TextSecondary, fontSize = 12.sp)
-                            }
-                        } else {
-                            capReport.items.forEach { cap ->
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = BgElevated,
-                                    border = BorderStroke(1.dp, BorderGlass),
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
-                                ) {
-                                    Row(
-                                        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(Modifier.weight(1f)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(
-                                                    cap.title,
-                                                    color = TextPrimary,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    fontSize = 12.sp
-                                                )
-                                                Spacer(Modifier.width(6.dp))
-                                                Surface(
-                                                    shape = RoundedCornerShape(6.dp),
-                                                    color = if (cap.isSupported) AccentGreen.copy(alpha = 0.18f) else Color.Red.copy(alpha = 0.12f),
-                                                    border = BorderStroke(1.dp, if (cap.isSupported) AccentGreen.copy(alpha = 0.5f) else Color.Red.copy(alpha = 0.3f))
-                                                ) {
-                                                    Text(
-                                                        if (cap.isSupported) "SUPPORTED" else "UNAVAILABLE",
-                                                        color = if (cap.isSupported) AccentGreen else Color.Red.copy(alpha = 0.8f),
-                                                        fontSize = 9.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                    )
-                                                }
-                                            }
-                                            Text(
-                                                cap.detail,
-                                                color = TextSecondary,
-                                                fontSize = 10.5.sp,
-                                                lineHeight = 14.sp,
-                                                modifier = Modifier.padding(top = 2.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                        // ── FKM Parity: Live Kernel Dmesg Ring Buffer Viewer Card ─
+                        item(key = "dmesg_viewer") {
+                            DmesgViewerCard(
+                                dmesgState = uiState.dmesgState,
+                                onLoadLogs = { viewModel.loadDmesgLog(it) },
+                                onExport = { viewModel.exportDmesgLog() }
+                            )
+                        }
+
+                        item(key = "tools_bottom_spacer") {
+                            Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
                         }
                     }
-
-                    // ── FKM Parity: Custom Shell Script Manager Card ──────────
-                    CustomScriptManagerCard(
-                        scripts = uiState.customScripts,
-                        onExecute = { viewModel.executeCustomScript(it) },
-                        onSave = { viewModel.saveCustomScript(it) },
-                        onDelete = { viewModel.deleteCustomScript(it) }
-                    )
-
-                    // ── FKM Parity: Live Kernel Dmesg Ring Buffer Viewer Card ─
-                    DmesgViewerCard(
-                        dmesgState = uiState.dmesgState,
-                        onLoadLogs = { viewModel.loadDmesgLog(it) },
-                        onExport = { viewModel.exportDmesgLog() }
-                    )
-
                 }
             }
-            if (!isSubscreenActive) {
-                // Bottom spacer so content can scroll completely clear of the floating dock
-                Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
-            }
-        }
 
         // ── 2. Subtle Bottom Atmospheric Vignette (Soft content pass-through) ──
-        AnimatedVisibility(
-            visible = isNavbarVisible,
-            enter = fadeIn(animationSpec = tween(180)),
-            exit = fadeOut(animationSpec = tween(150)),
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(125.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.Transparent,
-                                BgDeepOled.copy(alpha = 0.55f),
-                                BgDeepOled.copy(alpha = 0.92f)
-                            )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(115.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            BgDeepOled.copy(alpha = 0.55f),
+                            BgDeepOled.copy(alpha = 0.92f)
                         )
                     )
-            )
-        }
+                )
+        )
 
         // ── 3. Model 1: Floating Dynamic Capsule Dock (True Overlay) ────────
         val haptic = LocalHapticFeedback.current
@@ -2364,24 +2369,13 @@ fun MainDashboard(
             Triple("Tools", Icons.Default.Build, 2),
         )
 
-        AnimatedVisibility(
-            visible = isNavbarVisible,
-            enter = slideInVertically(
-                initialOffsetY = { it * 2 },
-                animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)
-            ) + fadeIn(animationSpec = tween(180)),
-            exit = slideOutVertically(
-                targetOffsetY = { it * 2 },
-                animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)
-            ) + fadeOut(animationSpec = tween(150)),
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 14.dp)
+                .padding(bottom = 14.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                contentAlignment = Alignment.Center
-            ) {
             Surface(
                 shape = CircleShape,
                 color = Color(0xD90E121E), // Luxury Translucent OLED Glass (~85% opacity)
@@ -2395,7 +2389,7 @@ fun MainDashboard(
                         )
                     )
                 ),
-                shadowElevation = 14.dp,
+                shadowElevation = 0.dp,
                 modifier = Modifier.shadow(
                     elevation = 18.dp,
                     shape = CircleShape,
@@ -2514,7 +2508,6 @@ fun MainDashboard(
             }
         }
     }
-}
 }
 
 // ============================================================
