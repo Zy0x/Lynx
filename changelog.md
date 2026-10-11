@@ -1,3 +1,17 @@
+# Lynx Universal [Featherlight Chromium Fluid Fling & Friction Calibration] 7.0.0-RC21
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC21** mengalibrasi koefisien redaman fluida inersia pada aplikasi Lynx Kernel Manager (v3.0.86) untuk menghadirkan sensasi scrolling yang super ringan (*featherlight*): **Penurunan Koefisien Friksi Viscous Damping dari $\gamma = 2.10\text{ s}^{-1}$ ke $\gamma = 1.25\text{ s}^{-1}$ (Peningkatan Jarak Luncur Inersia 68% Lebih Ringan Tanpa Bobot), serta Penyesuaian Ambang Batas Cutoff Kecepatan ke $6\text{ px/s}$ untuk Transisi Berhenti Sehalus Sutra**. Menghilangkan sensasi berat atau hambatan saat mengusap layar, memberikan pergerakan yang ringan, cepat, dan presisi layaknya Google Chrome Android asli di layar 120Hz.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC21)
+
+### 1. Kalibrasi Friksi Fluida Viskos Featherlight ($\gamma = 1.25\text{ s}^{-1}$)
+- Mengurangi hambatan inersia hingga 40% lebih ringan dibandingkan RC20:
+  $$v(t) = v_0 \cdot e^{-1.25 \cdot t}$$
+- Jarak tempuh luncuran usapan jari meningkat hingga 68% lebih leluasa, memungkinkan pengguna menjelajahi dashboard dan daftar opsi hanya dengan satu usapan santai tanpa harus mengayuh layar berulang-ulang.
+- Ambang batas penghentian akhir diturunkan dari $15\text{ px/s}$ menjadi $6\text{ px/s}$ untuk deselerasi terminal yang mulus tanpa penghentian mendadak.
+
+---
+
 # Lynx Universal [Chrome Android Viscous Fluid Fling & Stretch Overscroll Damping] 7.0.0-RC20
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC20** menyempurnakan fisika scroll aplikasi Lynx Kernel Manager (v3.0.85) dengan mengadopsi model pergerakan **Google Chrome Android (Viscous Fluid Damping Model)**: **Eliminasi Pengali Kecepatan Artifisial (Normal 1.0x Velocity), Implementasi Model Friksi Eksponensial Kontinu Chromium ($\gamma = 2.10\text{ s}^{-1}$), Absorpsi Energi Kinetik Batas Kontainer (Zero Residual Overscroll Recoil), serta Penonaktifan Global Stretch Overscroll Elastis (`LocalOverscrollConfiguration provides null`)**. Menghasilkan sensasi scrolling yang super ringan, mulus tanpa hentakan, stabil di layar 120Hz, dan bebas dari sentakan balik.

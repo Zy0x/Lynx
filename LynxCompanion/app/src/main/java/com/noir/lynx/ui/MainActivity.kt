@@ -374,13 +374,13 @@ fun rememberFluidFlingBehavior(
             override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
                 if (kotlin.math.abs(initialVelocity) < 25f) return 0f
 
-                // Chrome Android Viscous Fluid Damping (Gamma = 2.10 s^-1)
-                // Produces a natural, frictionless glide without hyper-sensitivity
-                val gamma = 2.10f
+                // Chrome Android Viscous Fluid Damping (Gamma = 1.25 s^-1)
+                // Calibrated for lightweight, effortless gliding without friction heaviness
+                val gamma = 1.25f
                 var currentVelocity = initialVelocity.coerceIn(-24000f, 24000f)
                 var lastFrameTime = 0L
 
-                while (kotlin.math.abs(currentVelocity) > 15f) {
+                while (kotlin.math.abs(currentVelocity) > 6f) {
                     withFrameNanos { frameTimeNanos ->
                         val dt = if (lastFrameTime == 0L) {
                             0.0083f // Base 120Hz frame delta
