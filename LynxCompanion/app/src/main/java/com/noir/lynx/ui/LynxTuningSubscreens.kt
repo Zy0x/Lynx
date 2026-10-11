@@ -31,6 +31,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -2823,6 +2828,8 @@ fun RealDischargeStepHistoryCard(
     val steps = stats.dischargeSteps
     var scrubbedIndex by remember { mutableStateOf<Int?>(null) }
     var historyTab by remember { mutableIntStateOf(0) }
+    var isStepsExpanded by remember { mutableStateOf(false) }
+    var isAppsExpanded by remember { mutableStateOf(false) }
 
     LynxCard(
         title = if (historyTab == 0) "Riwayat Penurunan (Waktu)" else "Penggunaan Baterai (Aplikasi)",
@@ -3123,55 +3130,108 @@ fun RealDischargeStepHistoryCard(
                     )
                 }
             } else {
-                Text(
-                    text = "Log Durasi per 1% Penurunan (${steps.size} langkah tercatat)",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
-                    color = TextSecondary,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    steps.take(10).forEach { step ->
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgCard,
-                            border = BorderStroke(0.7.dp, BorderGlass),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    onClick = { isStepsExpanded = !isStepsExpanded },
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgElevated.copy(alpha = 0.5f),
+                    border = BorderStroke(0.8.dp, if (isStepsExpanded) AccentCyan.copy(alpha = 0.5f) else BorderGlass),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 44.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = null,
+                                tint = if (isStepsExpanded) AccentCyan else TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Log Durasi per 1% Penurunan",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isStepsExpanded) TextPrimary else TextSecondary,
+                                fontSize = 11.5.sp
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "(${steps.size})",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.5.sp,
+                                color = TextSecondary.copy(alpha = 0.7f)
+                            )
+                        }
+
+                        Icon(
+                            imageVector = if (isStepsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (isStepsExpanded) "Tutup" else "Buka",
+                            tint = if (isStepsExpanded) AccentCyan else TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = isStepsExpanded,
+                    enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(220)),
+                    exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(180))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        steps.take(15).forEach { step ->
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = BgCard,
+                                border = BorderStroke(0.7.dp, BorderGlass),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "${step.fromLevel}% ➔ ${step.toLevel}%",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(5.dp),
+                                            color = if (step.isScreenOn) AccentGreen.copy(alpha = 0.15f) else AccentCyan.copy(alpha = 0.12f),
+                                            border = BorderStroke(0.5.dp, if (step.isScreenOn) AccentGreen.copy(alpha = 0.6f) else AccentCyan.copy(alpha = 0.5f))
+                                        ) {
+                                            Text(
+                                                text = if (step.isScreenOn) "Layar Aktif" else if (step.isDeviceIdle) "Deep Doze" else "Layar Mati",
+                                                fontSize = 9.5.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = if (step.isScreenOn) AccentGreen else AccentCyan,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
                                     Text(
-                                        text = "${step.fromLevel}% ➔ ${step.toLevel}%",
+                                        text = step.durationText,
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = TextPrimary
+                                        color = if (step.isScreenOn) AccentGreen else TextPrimary
                                     )
-                                    Spacer(Modifier.width(8.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(5.dp),
-                                        color = if (step.isScreenOn) AccentGreen.copy(alpha = 0.15f) else AccentCyan.copy(alpha = 0.12f),
-                                        border = BorderStroke(0.5.dp, if (step.isScreenOn) AccentGreen.copy(alpha = 0.6f) else AccentCyan.copy(alpha = 0.5f))
-                                    ) {
-                                        Text(
-                                            text = if (step.isScreenOn) "Layar Aktif" else if (step.isDeviceIdle) "Deep Doze" else "Layar Mati",
-                                            fontSize = 9.5.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (step.isScreenOn) AccentGreen else AccentCyan,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
                                 }
-
-                                Text(
-                                    text = step.durationText,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (step.isScreenOn) AccentGreen else TextPrimary
-                                )
                             }
                         }
                     }
@@ -3201,93 +3261,151 @@ fun RealDischargeStepHistoryCard(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    apps.forEach { item ->
+                    apps.take(5).forEach { item ->
+                        AppDrainRow(item, maxDrainPct)
+                    }
+
+                    if (apps.size > 5) {
+                        AnimatedVisibility(
+                            visible = isAppsExpanded,
+                            enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(220)),
+                            exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(180))
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                apps.drop(5).forEach { item ->
+                                    AppDrainRow(item, maxDrainPct)
+                                }
+                            }
+                        }
+
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = BgCard,
-                            border = BorderStroke(0.7.dp, BorderGlass),
-                            modifier = Modifier.fillMaxWidth()
+                            onClick = { isAppsExpanded = !isAppsExpanded },
+                            shape = RoundedCornerShape(8.dp),
+                            color = BgElevated.copy(alpha = 0.45f),
+                            border = BorderStroke(0.8.dp, if (isAppsExpanded) AccentCyan.copy(alpha = 0.5f) else BorderGlass),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 44.dp)
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                BatteryConsumerIcon(
-                                    packageName = item.packageName,
-                                    appName = item.appName,
-                                    modifier = Modifier.size(34.dp)
+                                Icon(
+                                    imageVector = if (isAppsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = AccentCyan,
+                                    modifier = Modifier.size(16.dp)
                                 )
-
-                                Spacer(Modifier.width(12.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = item.appName,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = TextPrimary,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f, fill = false)
-                                        )
-
-                                        Spacer(Modifier.width(8.dp))
-
-                                        Row(verticalAlignment = Alignment.Bottom) {
-                                            Text(
-                                                text = "${kotlin.math.round(item.drainPercent).toInt()}%",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = TextPrimary
-                                            )
-                                            if (item.drainMah > 0f) {
-                                                Spacer(Modifier.width(4.dp))
-                                                Text(
-                                                    text = if (item.drainMah >= 10f) "${kotlin.math.round(item.drainMah).toInt()} mAh" else String.format(java.util.Locale.US, "%.1f mAh", item.drainMah),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    fontSize = 10.sp,
-                                                    color = TextSecondary
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    Spacer(Modifier.height(5.dp))
-
-                                    val progressRatio = if (maxDrainPct > 0f) {
-                                        (item.drainPercent / maxDrainPct).coerceIn(0.03f, 1f)
-                                    } else 0f
-
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(3.dp)
-                                            .clip(RoundedCornerShape(1.5.dp))
-                                            .background(BgElevated)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth(progressRatio)
-                                                .fillMaxHeight()
-                                                .clip(RoundedCornerShape(1.5.dp))
-                                                .background(
-                                                    Brush.horizontalGradient(
-                                                        listOf(AccentCyan, AccentBlue)
-                                                    )
-                                                )
-                                        )
-                                    }
-                                }
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = if (isAppsExpanded) "Tampilkan Lebih Sedikit" else "Lihat ${apps.size - 5} Aplikasi Lainnya",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = AccentCyan,
+                                    fontSize = 11.5.sp
+                                )
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppDrainRow(
+    item: AppDrainItem,
+    maxDrainPct: Float
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = BgCard,
+        border = BorderStroke(0.7.dp, BorderGlass),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BatteryConsumerIcon(
+                packageName = item.packageName,
+                appName = item.appName,
+                modifier = Modifier.size(34.dp)
+            )
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = item.appName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = "${kotlin.math.round(item.drainPercent).toInt()}%",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        if (item.drainMah > 0f) {
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = if (item.drainMah >= 10f) "${kotlin.math.round(item.drainMah).toInt()} mAh" else String.format(java.util.Locale.US, "%.1f mAh", item.drainMah),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(5.dp))
+
+                val progressRatio = if (maxDrainPct > 0f) {
+                    (item.drainPercent / maxDrainPct).coerceIn(0.03f, 1f)
+                } else 0f
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(1.5.dp))
+                        .background(BgElevated)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progressRatio)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(1.5.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(AccentCyan, AccentBlue)
+                                )
+                            )
+                    )
                 }
             }
         }

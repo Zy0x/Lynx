@@ -1,3 +1,20 @@
+# Lynx Universal [Collapsible Step Log Accordion & Top-5 App Drain Views] 7.0.0-RC24
+Released on: 2026-10-12
+> **Lynx Universal v7.0.0-RC24** menghadirkan penyempurnaan antarmuka yang sangat ringkas, bersih, dan elegan (*compact & glanceable*) pada kartu Riwayat & Penggunaan Baterai di Lynx Kernel Manager (v3.0.89): **Accordion Lipat Minimalis untuk Log Durasi per 1% Penurunan (Eliminasi Beban Vertikal 10+ Kartu Langkah dengan Header Sentuh Modern & Transisi Halus `AnimatedVisibility`), Tampilan Top-5 Prioritas untuk Konsumsi Daya Aplikasi & Proses Sistem (Fokus pada Konsumen Terbesar dengan Tombol Ekspansi Sleek `Lihat X Aplikasi Lainnya`), serta Kepatuhan Penuh Standar Touch-First $\ge 44\text{ px}$ Tanpa Kebisingan Visual**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC24)
+
+### 1. Accordion Lipat Log Durasi per 1% Penurunan (`LynxTuningSubscreens.kt`)
+- Mengemas daftar panjang langkah penurunan baterai 1% ke dalam header lipat (accordion) interaktif berlatar elevasi halus dengan ikon riwayat dan indikator jumlah langkah.
+- Membuka dan menutup dengan animasi tinggi dan opasitas halus (*fluid expand/shrink transition*), menjaga kanvas grafik penurunan waktu tetap menjadi fokus utama tanpa terdorong ke bawah.
+
+### 2. Tampilan Ringkas Top-5 Aplikasi & Tombol Ekspansi Sleek (`LynxTuningSubscreens.kt`)
+- Secara cerdas menampilkan 5 aplikasi/proses sistem yang paling banyak menghabiskan daya baterai secara default.
+- Menyediakan tombol sentuh yang sangat elegan di bagian bawah untuk mengekspansi daftar lengkap dengan transisi lembut saat pengguna ingin menelusuri seluruh proses yang aktif.
+- Menjaga kebersihan layout antarmuka agar selalu rapi, modern, dan tidak membebani layar pengguna.
+
+---
+
 # Lynx Universal [Clean Minimalist App & System Battery Drain Analytics] 7.0.0-RC23
 Released on: 2026-10-12
 > **Lynx Universal v7.0.0-RC23** menghadirkan modul analisis konsumsi daya aplikasi dan proses sistem yang akurat, minimalis, dan elegan pada halaman Informasi Baterai di Lynx Kernel Manager (v3.0.88): **Segmented Switcher 2-Mode Minimalis (`Grafik Waktu` | `Penggunaan Aplikasi`), Ekstraksi 100% Data Riil & Akurat dari Subsistem Kernel/Android (`dumpsys batterystats --charged` Section `Estimated power use (mAh)` Sub-100ms Tanpa Lag), Eliminasi Kebisingan Visual (Tanpa Tumpukan Pill, Badge, Maupun Jargon Rumit), Serta Resolusi Otomatis UID ke Ikon & Label Resmi Aplikasi (`PackageManager` In-Memory Caching)**. Memberikan visibilitas instan kepada pengguna mengenai aplikasi maupun layanan latar belakang yang paling menguras daya baterai secara transparan dan mudah dipahami.
