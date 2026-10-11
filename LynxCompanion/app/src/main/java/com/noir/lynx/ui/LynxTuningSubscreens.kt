@@ -41,7 +41,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import android.content.Intent
 import android.net.Uri
@@ -2873,7 +2873,7 @@ fun RealDischargeStepHistoryCard(
                     .clip(RoundedCornerShape(10.dp))
                     .background(BgElevated.copy(alpha = 0.4f))
                     .pointerInput(points) {
-                        detectDragGestures(
+                        detectHorizontalDragGestures(
                             onDragStart = { offset ->
                                 val n = points.size
                                 val w = size.width - 36.dp.toPx()
@@ -2881,7 +2881,8 @@ fun RealDischargeStepHistoryCard(
                                 val idx = ((offset.x - 20.dp.toPx()) / stepX).toInt().coerceIn(0, n - 1)
                                 scrubbedIndex = idx
                             },
-                            onDrag = { change, _ ->
+                            onHorizontalDrag = { change, _ ->
+                                change.consume()
                                 val n = points.size
                                 val w = size.width - 36.dp.toPx()
                                 val stepX = w / (n - 1).coerceAtLeast(1)

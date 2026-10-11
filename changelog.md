@@ -1,3 +1,27 @@
+# Lynx Universal [Touchscreen Fling Recoil Elimination & Native Platform Scroll Physics] 7.0.0-RC18
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC18** menghadirkan perbaikan kritis pada subsistem interaksi sentuh dan inersia scroll di aplikasi Lynx Kernel Manager (v3.0.83): **Eliminasi Total Bug Recoil/Snap-Back Fling pada Touchscreen Fisik, Restorasi Fisika Inersia Native Android (`ScrollableDefaults.flingBehavior`), Perbaikan Konsumsi Gesture Chart Riwayat Penurunan Baterai (`detectHorizontalDragGestures`), serta Penguncian Recomposisi Anchor Scroll Tab**. Menuntaskan anomali scroll di mana sapuan jari fisik pada layar touchscreen langsung ditarik/dikembalikan ke posisi awal (snap-back) akibat inversi tanda kecepatan (`VelocityTracker` jitter) dan pencegatan event sentuh vertikal.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC18)
+
+### 1. Eliminasi Total Bug Fling Recoil / Snap-Back (`MainActivity.kt`)
+- **Restorasi Fisika Fling Native Android**:
+  - Menggantikan implementasi custom `rememberFluidFlingBehavior` dengan `ScrollableDefaults.flingBehavior()` bawaan Jetpack Compose yang telah terkalibrasi presisi terhadap `ViewConfiguration` dan kepadatan layar fisik perangkat.
+  - Mengeliminasi pengali kecepatan `1.15x/1.20x` dan logika pembatalan `unconsumed > 2.0f && abs(consumed) < 0.1f` yang sebelumnya memicu eksekusi spline decay terbalik ketika terjadi micro-jitter pada saat jari diangkat (*finger lift-off*) dari panel kapasitif.
+  - Memulihkan integrasi penuh dengan `AndroidEdgeEffect` overscroll damping sehingga batas kontainer diredam secara mulus tanpa sentakan.
+
+### 2. Eliminasi Hambatan Gesture Vertikal pada Chart Baterai (`LynxTuningSubscreens.kt`)
+- **Peralihan ke `detectHorizontalDragGestures`**:
+  - Memperbaiki kartu grafik riwayat penurunan baterai (`RealDischargeStepHistoryCard`) yang sebelumnya menggunakan `detectDragGestures` umum tanpa filter arah, yang memonopoli dan memakan seluruh event sentuh vertikal ketika pengguna meletakkan ibu jari di area grafik untuk menggulir halaman ke bawah.
+  - Mengalihkan scrubber grafik ke `detectHorizontalDragGestures` murni sehingga geseran vertikal diteruskan 100% tanpa hambatan ke kontainer scroll induk, sementara penjelajahan titik horizontal dan ketukan langsung (`detectTapGestures`) tetap responsif.
+
+### 3. Stabilisasi Reset Posisi Scroll Subhalaman (`MainActivity.kt`)
+- **Guard Transisi Tab Berbasis Komparasi State**:
+  - Membungkus pemicu `subscreenLazyState.scrollToItem(0)` pada `LaunchedEffect(selectedCpuTab, selectedGpuTab, batterySubTab)` dengan pengecekan state sebelumnya (`lastCpuTab`, `lastGpuTab`, `lastBattTab`).
+  - Mencegah reset scroll yang tidak disengaja ke posisi 0 saat terjadi recomposisi rutin atau pembaruan telemetri background periodik (1 Hz) ketika pengguna sedang membaca konten di bagian bawah halaman.
+
+---
+
 # Lynx Universal [Zero-Hardcode Battery Information & Unified Cycle Runtime Breakdown] 7.0.0-RC17
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC17** menghadirkan perombakan total pada halaman **Informasi Baterai** di aplikasi Lynx Kernel Manager (v3.0.82): **100% Data Sensor & Kernel Asli Tanpa Hardcode/Sintetis, Penggabungan Total Waktu & Proporsi Siklus Berjalan (Awal Dilepas ➔ Sekarang: Layar Aktif, Deep Sleep, dan Siaga Bangun), Riwayat Penurunan Per-Persen Asli (`Discharge Step History`), serta Penyederhanaan Tata Letak Menjadi 3 Kartu Presisi**. Mengeliminasi seluruh angka estimasi statis, grafik sintetis, maupun daftar aplikasi fallback tiruan, sehingga seluruh metrik yang ditampilkan murni mencerminkan data aktual dari `dumpsys batterystats --charged` dan node `/sys/class/power_supply/battery/`.

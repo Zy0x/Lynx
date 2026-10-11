@@ -52,6 +52,7 @@ import androidx.compose.animation.core.animateDecay
 import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.ScrollScope
+import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -353,7 +354,7 @@ fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
 }
 
 // ============================================================
-//  Fluid Natural Fling Behavior (Low Friction Glide Spec)
+//  Fluid Natural Fling Behavior (Platform Calibrated)
 // ============================================================
 
 @Composable
@@ -361,34 +362,7 @@ fun rememberFluidFlingBehavior(
     lazyState: LazyListState? = null,
     scrollState: ScrollState? = null
 ): FlingBehavior {
-    val splineSpec = rememberSplineBasedDecay<Float>()
-    return remember(splineSpec) {
-        object : FlingBehavior {
-            override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
-                if (kotlin.math.abs(initialVelocity) < 1f) return 0f
-                val boostedVelocity = initialVelocity * 1.15f
-                var lastValue = 0f
-                var velocityLeft = boostedVelocity
-                AnimationState(
-                    initialValue = 0f,
-                    initialVelocity = boostedVelocity
-                ).animateDecay(splineSpec) {
-                    val delta = value - lastValue
-                    val consumed = scrollBy(delta)
-                    lastValue = value
-                    velocityLeft = velocity
-
-                    // Avoid false halts during section transitions:
-                    // Only cancel if attempted delta > 2.0px AND virtually zero was consumed (hit hard container end)
-                    val unconsumed = kotlin.math.abs(delta - consumed)
-                    if (unconsumed > 2.0f && kotlin.math.abs(consumed) < 0.1f) {
-                        cancelAnimation()
-                    }
-                }
-                return velocityLeft
-            }
-        }
-    }
+    return ScrollableDefaults.flingBehavior()
 }
 
 // ============================================================
@@ -434,8 +408,16 @@ fun MainDashboard(
             viewModel.refreshInstalledApps()
         }
     }
+    var lastCpuTab by rememberSaveable { mutableStateOf(uiState.selectedCpuTab) }
+    var lastGpuTab by rememberSaveable { mutableStateOf(uiState.selectedGpuTab) }
+    var lastBattTab by rememberSaveable { mutableStateOf(uiState.batterySubTab) }
     LaunchedEffect(uiState.selectedCpuTab, uiState.selectedGpuTab, uiState.batterySubTab) {
-        subscreenLazyState.scrollToItem(0)
+        if (uiState.selectedCpuTab != lastCpuTab || uiState.selectedGpuTab != lastGpuTab || uiState.batterySubTab != lastBattTab) {
+            lastCpuTab = uiState.selectedCpuTab
+            lastGpuTab = uiState.selectedGpuTab
+            lastBattTab = uiState.batterySubTab
+            subscreenLazyState.scrollToItem(0)
+        }
     }
     var showAddAppDialog by remember { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<AppProfileRule?>(null) }
