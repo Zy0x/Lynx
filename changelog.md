@@ -14,6 +14,7 @@ Released on: 2026-10-12
 - Memicu pemulihan otomatis seketika saat aplikasi dibuka (`init`) dan saat kembali ke latar depan (`onAppResume`) jika port terdeteksi tertutup saat status keep-alive aktif.
 - Memperbarui badge status: menampilkan `● LOCKED : <PORT>` (Hijau) jika socket aktif mendengarkan, `⚡ MEMULIHKAN : <PORT>` (Oranye) saat proses re-binding, dan `○ STANDBY` jika dinonaktifkan.
 - Menambahkan kartu ringkas `adb connect <IP>:<PORT>` untuk memudahkan pengembang menyambungkan terminal tanpa perlu memeriksa IP perangkat secara manual.
+- Perbaikan susulan: label tombol `Kunci Port` yang sempat hilang pada build awal RC26 telah dikembalikan.
 
 ---
 

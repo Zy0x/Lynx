@@ -4073,6 +4073,7 @@ fun TuningNetworkCategory(
                 ) {
                     Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
+                    Text("Kunci Port", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
