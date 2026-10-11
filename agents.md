@@ -27,7 +27,7 @@ Kode modul dipisahkan secara tegas antara **Logika Universal (Core)** dan **Hard
 
 ```
 Lynx/
-├── agents.md                    # Dokumen ini (Master Guidelines)
+├── AGENTS.md                    # Dokumen ini (Master Guidelines)
 ├── module.prop                  # Template metadata modul
 ├── customize.sh                 # Otak instalasi, deteksi SoC, & conditional file injector
 ├── library.sh                   # Pustaka fungsi instalasi, root check, & helper umum
@@ -35,9 +35,20 @@ Lynx/
 ├── service.sh                   # Late start service (router inisialisasi boot utama)
 ├── sepolicy.rule                # Aturan SELinux terpadu (QCOM & MTK)
 ├── uninstall.sh                 # Skrip restorasi sistem saat modul dihapus
-├── Toast.apk                    # Utilitas visual notifikasi toast
 │
-├── core/                        # 🌐 LOGIKA UNIVERSAL (SoC-Agnostic)
+├── native/                      # 🦀 MESIN UTAMA NATIVE RUST (High-Performance Engine)
+│   └── lynxd/                   # Rust Daemon Source (aarch64-linux-android)
+│       ├── Cargo.toml           # Dependensi & profil rilis strip LTO
+│       └── src/                 # Modul-modul Rust (subsystems, sysfs, hardware, daemon)
+│
+├── LynxCompanion/               # 📱 APLIKASI NATIVE ANDROID (Modular Kotlin Jetpack Compose)
+│   ├── app/src/main/java/com/noir/lynx/
+│   │   ├── core/                # Lapisan bersama: RootShell, Config, Telemetry, Sysfs
+│   │   ├── designsystem/        # UI token, komponen kartu, slider aman, switch, sparkline
+│   │   └── feature/             # Domain terisolasi per-fitur (battery, cpu, gpu, display, dll.)
+│   └── build.gradle.kts         # Build config & ProGuard rules
+│
+├── core/                        # 🌐 LOGIKA UNIVERSAL MODUL (SoC-Agnostic Shell Fallbacks)
 │   ├── Smart-AI.sh              # Daemon pemantau aplikasi aktif (foreground window watcher)
 │   ├── applist_perf.txt         # Basis data paket aplikasi/game pemicu mode performa
 │   ├── Charging-Controller.sh   # Pengontrol arus pengisian daya, bypass, & AutoCut
@@ -61,19 +72,20 @@ Lynx/
 │       └── system/              # Berkas overlay vendor MediaTek (HANYA di-mount jika MTK)
 │           └── vendor/          # .tp/thermal.conf, firmware/wifi.cfg, Mali EGL configs
 │
-├── webroot/                     # 🌐 ANTARMUKA UTAMA (WebUI Dashboard Pasca-Instalasi)
+├── webroot/                     # 🌐 ANTARMUKA WEB (WebUI Dashboard Pasca-Instalasi)
 │   ├── index.html               # Antarmuka SPA Modern (Mobile-First, Dark Theme, Touch-First)
 │   ├── app.js / script.js       # Logika interaksi & ksu.exec() bridge
 │   ├── style.css                # Sistem token desain modern & responsif
 │   └── script.sh                # Helper eksekusi cepat dari WebUI
 │
-├── system/bin/                  # Utilitas Eksekusi CLI & Helper Modul
+├── system/bin/                  # Utilitas Eksekusi CLI & Biner Kompilasi
+│   ├── lynxd                    # Biner Native Rust Daemon (Kompilasi dari native/lynxd)
 │   ├── lynx                     # TUI Menu interaktif (Termux secondary fallback)
 │   ├── Lxcore                   # Modular CLI tool untuk kontrol skrip
 │   └── sqlite3                  # Database optimization binary
 │
 └── archive/                     # 📦 ARSIP & REFERENSI (TIDAK di-flash)
-    ├── packages/                # Berkas ZIP rilis mentah (Lynx Beta 3, Chimera, dll.)
+    ├── packages/                # Berkas ZIP rilis mentah
     ├── Chimera/                 # Ekstraksi modul MediaTek Chimera untuk acuan kode
     └── device_reference/        # Sampel & referensi nyata (Infinix X698 Helio G96 & Redmi Note 7 SD660)
 ```
@@ -473,5 +485,59 @@ Untuk memastikan seluruh konfigurasi profil (`extreme`, `performance`, `balance`
    - Diintegrasikan ke Companion App via `LynxRepository.verifyProfile()` dan `readProfileAuditJson()`.
 
 ---
+
+## 🏛️ 14. Mandat Arsitektur Modular & Manajemen Ukuran Berkas (Strict Modularity & Anti-Monolith Policy)
+
+Untuk mencegah degradasi keterbacaan, konflik git skala besar, dan kompleksitas kode yang berlebihan (*spaghetti codebase*), seluruh pengembang dan AI Agent **WAJIB** mematuhi pedoman ukuran dan modularisasi berkas berikut:
+
+### 14.1 Batas Ukuran Berkas & Fungsi (File & Function Size Budgets)
+1. **Target Ukuran Berkas**: Setiap berkas sumber (`.kt`, `.rs`) ditargetkan berukuran **$\le$ 400 baris**.
+2. **Batas Keras Berkas Baru / Hasil Ekstraksi**: Dilarang keras membuat berkas baru atau hasil pemecahan refactor yang melebihi **700 baris**.
+3. **Larangan Menambah Beban File Monolitik**: Dilarang menambahkan baris kode baru ke berkas monolitik lama (`LynxRepository.kt`, `LynxComponents.kt`, `LynxViewModel.kt`, `LynxTuningSubscreens.kt`, `MainActivity.kt`). Setiap penambahan fitur baru wajib diekstraksi atau dibuat ke dalam berkas terisolasi sesuai domain fiturnya.
+4. **Batas Fungsi `@Composable`**: Satu fungsi Composable dibatasi maksimal **250 baris**. Jika komponen antarmuka membutuhkan kode lebih panjang, wajib dipecah menjadi sub-composable `private` dalam berkas yang sama atau modul partisi terpisah (`*Sections.kt` / `*Cards.kt`).
+5. **Prinsip Satu Simbol Utama per Berkas (One Public Component per File)**: Setiap kartu visual publik atau subscreen diletakkan pada berkas tersendiri dengan penamaan berkas identik dengan nama simbol utamanya (contoh: `GpuMasterTunerCard.kt`, `BatteryRuntimeCard.kt`).
+
+### 14.2 Arsitektur Terisolasi per Fitur (`feature/<nama_fitur>/`)
+Struktur kode aplikasi Android (`LynxCompanion`) diatur secara ketat per domain fitur dengan pola baku:
+- **`Route`**: Entry point composable untuk navigasi layar (contoh: `BatteryRoute.kt`).
+- **`State`**: Slice state terisolasi khusus fitur tersebut (mengeliminasi penumpukan field datar di `LynxUiState`).
+- **`Controller`**: Handler aksi bisnis dan intent guard coroutine (pindahan dari `LynxViewModel`).
+- **`data/`**: Repository domain dan parser murni (contoh: `BatteryRepository.kt`, `BatteryStatsParser.kt`).
+- **`ui/`**: Kartu visual murni tanpa akses root atau I/O langsung.
+- **Larangan Impor Silang UI**: Fitur dilarang saling mengimpor Composable fitur lain secara langsung. Komunikasi lintas fitur hanya diperbolehkan melalui `core/` atau shell navigasi pusat.
+
+### 14.3 Pemisahan Parser Murni dari I/O (Testable Contract)
+Seluruh fungsi parsing teks kernel (`dumpsys batterystats`, `top`, `/proc/stat`, time_in_state, scheduler) wajib dipisahkan dari logika eksekusi I/O shell. Parser murni menerima input `String` dan menghasilkan objek data terstruktur, sehingga dapat diverifikasi via Unit Test (`src/test/`) tanpa ketergantungan perangkat keras.
+
+---
+
+## 🦀 15. Mandat Mesin Native Rust (`lynxd`) — Rust-First Computation & Subshell Ban
+
+Sistem eksekusi Lynx menempatkan biner native Rust (`native/lynxd/`) sebagai **jantung utama pemrosesan kernel**, bukan sekadar utilitas pendamping:
+
+### 15.1 Prinsip Rust-First untuk Beban Komputasi & Sysfs I/O
+1. **Delegasi Penuh ke Rust**: Seluruh operasi yang membutuhkan parsing teks besar di kernel, query status frekuensi tinggi, batching sysfs multi-node, mitigasi Doze, penguncian atomic lockfile, dan background watchdog **WAJIB** dijalankan oleh `lynxd`.
+2. **Lapisan Kotlin Hanya Presentation Layer**: Aplikasi Android Kotlin Jetpack Compose berfungsi murni sebagai antarmuka pengguna yang reaktif, mengonsumsi data terstruktur berformat JSON dari `lynxd` melalui memory cache atau eksekusi cepat.
+
+### 15.2 Larangan Keras Perulangan Subshell di Layer Android (`Subshell Polling Ban`)
+1. **Larangan Fork Berulang**: Dilarang keras membuat perulangan polling di Kotlin menggunakan `Shell.cmd(...)` berulang-ulang untuk membaca sensor atau status sysfs.
+2. **Dampak Negatif yang Dihindari**: Fork proses `sh`/`su` baru setiap beberapa detik memicu *CPU spikes*, membanjiri logcat, menyebabkan *Garbage Collection (GC) thrashing*, menghasilkan *micro-stutter / dropped frames* pada UI Compose, dan menguras baterai perangkat.
+3. **Standar Zero-IO Fast-Path**: Seluruh telemetri berkala wajib memanfaatkan fast-path in-process read yang disediakan `lynxd` (eksekusi sub-0.02ms, CPU duty cycle <0.001%).
+
+### 15.3 Protokol Daya Hemat & Deep Sleep Shield (Zero Persistent Wakelocks)
+1. **Watchdog Adaptif Non-Blocking**: Loop pemantauan latar belakang di Rust (seperti `lynxd adb watchdog`) wajib menggunakan jeda adaptif minimal **2500ms** tanpa menahan Android Partial Wakelock.
+2. **Jaminan C-States 100%**: Saat layar padam (*Screen OFF*), kernel Linux harus diizinkan sepenuhnya memasuki status tidur lelap (*Deep Sleep C-States*). Loop pemantauan tidak boleh mencegah CPU masuk suspend.
+
+### 15.4 Standar Kompilasi & Penempatan Biner Rust
+1. **Target Toolchain**: Biner native selalu dikompilasi dengan arsitektur 64-bit Android:
+   ```powershell
+   cargo build --release --target aarch64-linux-android
+   ```
+2. **Lokasi Biner Produksi**: Biner hasil kompilasi disalin langsung ke path modul:
+   `system/bin/lynxd` (dengan izin berkas `0755` / `rwxr-xr-x`).
+3. **Auto-Resurrection Supervised**: Setiap pemanggilan query status subsistem (misal `lynxd adb status`) wajib menyertakan verifikasi liveness; jika proses watchdog terbunuh oleh Android OOM killer, daemon secara otomatis membangkitkan proses tersebut kembali di latar belakang.
+
+---
 *Dokumen ini sah sebagai panduan teknis dan acuan implementasi resmi proyek Lynx Universal.*
+
 
