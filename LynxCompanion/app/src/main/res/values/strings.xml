@@ -4,4 +4,56 @@
     <string name="tile_profile_label">Lynx Profile</string>
     <string name="tile_hbm_label">Lynx HBM</string>
     <string name="tile_hud_label">Lynx HUD</string>
+
+    <!-- Design System & Common Controls -->
+    <string name="reset_to_oem_default">Reset ke Default OEM</string>
+    <string name="full_info_guide">Panduan Informasi Lengkap</string>
+    <string name="restore_default">Pulihkan Bawaan</string>
+    <string name="value_applied">Nilai Diterapkan</string>
+    <string name="manual_precision_tuning">Penyetelan Manual Presisi</string>
+    <string name="status_active">AKTIF</string>
+    <string name="status_inactive">NONAKTIF</string>
+    <string name="switch_status_active">Sakelar Berstatus Aktif</string>
+    <string name="switch_status_inactive">Sakelar Berstatus Nonaktif</string>
+    <string name="switch_status_hint">Sentuh tombol untuk beralih status konfigurasi secara instan</string>
+    <string name="header_kernel_function">FUNGSI &amp; CARA KERJA KERNEL</string>
+    <string name="header_status_comparison">PERBANDINGAN STATUS PENGGUNAAN</string>
+    <string name="header_scenario_recommendations">PANDUAN &amp; REKOMENDASI SKENARIO</string>
+    <string name="label_gaming_heavy">Gaming &amp; Berat</string>
+    <string name="label_daily_balanced">Harian Seimbang</string>
+    <string name="label_battery_saver">Hemat Baterai</string>
+    <string name="close_guide">Tutup Panduan</string>
+    <string name="unsupported_badge">UNSUPPORTED</string>
+
+    <!-- Profiles -->
+    <string name="profile_auto">Auto (AI)</string>
+    <string name="profile_auto_desc">Adaptive Foreground</string>
+    <string name="profile_balance">Balance</string>
+    <string name="profile_balance_desc">EAS Daily Efficiency</string>
+    <string name="profile_performance">Performa</string>
+    <string name="profile_performance_desc">High Clock Sustained</string>
+    <string name="profile_extreme">Extreme</string>
+    <string name="profile_extreme_desc">Unrestricted Bypass</string>
+    <string name="profile_powersave">Powersave</string>
+    <string name="profile_powersave_desc">Deep C-States Endurance</string>
+    <string name="profile_standby">Standby</string>
+
+    <!-- SoC Chip -->
+    <string name="soc_snapdragon">Snapdragon</string>
+    <string name="soc_mediatek">MediaTek Dimensity</string>
+    <string name="soc_snapdragon_spoofed">Snapdragon (Spoofed)</string>
+    <string name="soc_mediatek_spoofed">MediaTek (Spoofed)</string>
+    <string name="soc_universal_linux">Universal Linux</string>
+
+    <!-- Scheduler Preset & Status Extras -->
+    <string name="status_on">Status Aktif (ON)</string>
+    <string name="status_off">Status Non-Aktif (OFF)</string>
+    <string name="scheduler_kernel">PENJADWAL KERNEL</string>
+    <string name="scheduler_custom_mode_active">Mode Kustom Aktif</string>
+    <string name="scheduler_4_tested_profiles">4 Profil Teruji</string>
+    <string name="scheduler_profile_response">Profil Respon Penjadwal</string>
+    <string name="scheduler_profile_response_desc">Pilih profil responsivitas penjadwal untuk mengatur akselerasi frekuensi CPU (ramp-up limit), durasi penahanan clock (ramp-down), serta latensi antrean proses sistem.</string>
+    <string name="scheduler_custom_alert_title">Mode Kustom Sedang Aktif</string>
+    <string name="scheduler_custom_alert_desc">Salah satu atau beberapa parameter telah disetel secara manual. Memilih salah satu preset di bawah akan menerapkan nilai profil terpadu.</string>
+    <string name="status_badge_active">Aktif</string>
 </resources>

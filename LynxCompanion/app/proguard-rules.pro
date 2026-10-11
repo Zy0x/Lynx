@@ -30,4 +30,12 @@
 -keep class com.noir.lynx.kernel.** { *; }
 -keep class com.noir.lynx.lab.** { *; }
 
+# Modular Feature Architecture: Core, DesignSystem, Feature
+-keep class com.noir.lynx.core.** { *; }
+-keepclassmembers class com.noir.lynx.core.** { *; }
+-keep class com.noir.lynx.designsystem.** { *; }
+-keepclassmembers class com.noir.lynx.designsystem.** { *; }
+-keep class com.noir.lynx.feature.** { *; }
+-keepclassmembers class com.noir.lynx.feature.** { *; }
+
 -dontwarn kotlinx.serialization.**
