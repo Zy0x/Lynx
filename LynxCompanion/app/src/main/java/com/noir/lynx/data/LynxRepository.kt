@@ -5758,22 +5758,16 @@ object LynxRepository {
             val targetWrites = mutableListOf<Pair<String, String>>()
             val caps = com.noir.lynx.hardware.ThermalCapabilityDetector.detect()
 
-            // 1. Calculate OPP Floor for each CPU policy (Target OPP Floor Index = 70%)
+            // 1. Restore Lowest OPP Floor for each CPU policy to ensure true cool idle (<400mA)
             val oppScript = """
                 for p in /sys/devices/system/cpu/cpufreq/policy*; do
                     [ -d "${'$'}p" ] || continue
                     freqs=${'$'}(cat "${'$'}p/scaling_available_frequencies" 2>/dev/null)
                     if [ -n "${'$'}freqs" ]; then
-                        sorted=${'$'}(echo "${'$'}freqs" | tr ' ' '\n' | sort -n | tr '\n' ' ')
-                        count=${'$'}(echo "${'$'}sorted" | wc -w)
-                        if [ "${'$'}count" -gt 0 ]; then
-                            idx=${'$'}(( count * 7 / 10 ))
-                            [ "${'$'}idx" -lt 1 ] && idx=1
-                            target_f=${'$'}(echo "${'$'}sorted" | awk "{print \${'$'}idx}")
-                            [ -n "${'$'}target_f" ] && echo "OPP|${'$'}p/scaling_min_freq|${'$'}target_f"
-                        fi
+                        min_f=${'$'}(echo "${'$'}freqs" | tr ' ' '\n' | sort -n | head -n 1)
+                        [ -n "${'$'}min_f" ] && echo "OPP|${'$'}p/scaling_min_freq|${'$'}min_f"
                     fi
-                    # Schedutil rate limits
+                    # Schedutil rate limits (fast ramp up for multitasking, smooth downclock for low heat)
                     [ -d "${'$'}p/schedutil" ] && echo "SCHED|${'$'}p/schedutil/up_rate_limit_us|500"
                     [ -d "${'$'}p/schedutil" ] && echo "SCHED|${'$'}p/schedutil/down_rate_limit_us|10000"
                 done

@@ -977,20 +977,34 @@ impl ChargingRegulator {
         // 5. Restore MediaTek & Qualcomm specific hardware nodes & charging rails
         Self::restore_discharging_hardware_nodes();
 
-        // 6. Restore system thermal mode to match active profile
+        // 6. Restore system thermal mode to match active profile and respect user custom tweaks
         let active_prof = Self::read_node("/data/adb/lynx/active_profile").unwrap_or_else(|| "balance".to_string());
-        match active_prof.as_str() {
-            "powersave" => {
-                ThermalController::set_mode("conservative");
-            }
-            "balance" => {
-                ThermalController::set_mode("stable");
-            }
-            "performance" | "extreme" => {
-                ThermalController::set_mode("gaming");
-            }
-            _ => {
-                ThermalController::set_mode("restore");
+        let is_full_bypass = ConfigStore::get("thermal.full_bypass")
+            .map(|s| s == "true")
+            .unwrap_or(false);
+        let custom_temp_limit: i32 = ConfigStore::get("thermal.custom_temp_limit_c")
+            .and_then(|s| s.parse::<i32>().ok())
+            .unwrap_or(50);
+
+        if is_full_bypass {
+            ThermalController::set_mode("gaming");
+        } else {
+            match active_prof.as_str() {
+                "powersave" => {
+                    ThermalController::set_mode("conservative");
+                    ThermalController::set_limit(custom_temp_limit);
+                }
+                "balance" => {
+                    ThermalController::set_mode("stable");
+                    ThermalController::set_limit(custom_temp_limit);
+                }
+                "performance" | "extreme" => {
+                    ThermalController::set_mode("gaming");
+                    ThermalController::set_limit(custom_temp_limit);
+                }
+                _ => {
+                    ThermalController::set_mode("restore");
+                }
             }
         }
     }
@@ -1135,6 +1149,31 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/charge_control_limit", BATT_DIR), "0");
         Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
         Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+
+        Self::write_node(&format!("{}/charge_stop_level", BATT_DIR), "100");
+        Self::write_node("/sys/devices/platform/google,battery/charge_stop_level", "100");
+        Self::write_node("/sys/devices/platform/google,charger/charge_stop_level", "100");
+        Self::write_node(&format!("{}/bd_trickle_dry_run", BATT_DIR), "0");
+        Self::write_node(&format!("{}/siop_level", BATT_DIR), "100");
+        Self::write_node(&format!("{}/cool_mode", BATT_DIR), "0");
+        Self::write_node(&format!("{}/call_mode", BATT_DIR), "0");
+        Self::write_node(&format!("{}/boost_current", BATT_DIR), "0");
+        Self::write_node(&format!("{}/fastcharge_mode", BATT_DIR), "0");
+        Self::write_node(&format!("{}/fast_charge", BATT_DIR), "0");
+        Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "1");
+        Self::write_node(&format!("{}/mmi_charging_enable", BATT_DIR), "1");
+        Self::write_node(&format!("{}/factory_mode", BATT_DIR), "0");
+        Self::write_node(&format!("{}/enable_sc", MTK_DIR), "1");
+        Self::write_node(&format!("{}/pe40", MTK_DIR), "1");
+        Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
+        Self::write_node(&format!("{}/tran_game_mode", MTK_DIR), "0");
+        Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+        Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+        Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
+        Self::write_node("/sys/class/power_supply/smb1390/parallel_charging_enabled", "0");
+        if let Some(byp_node) = Self::detect_hw_bypass_node() {
+            Self::write_node(byp_node, "0");
+        }
 
         // Safe OEM default current (3000 mA = 3,000,000 uA)
         let def_ua = "3000000";

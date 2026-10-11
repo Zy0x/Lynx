@@ -173,7 +173,7 @@ impl HardwareTranslator {
                 "extreme" => ("0", "20000"),
                 "performance" => ("0", "10000"),
                 "powersave" => ("4000", "1000"),
-                _ => ("1000", "4000"),
+                _ => ("500", "15000"),
             };
 
             for gdir in &pol.gov_tunable_dirs {
@@ -235,7 +235,7 @@ impl HardwareTranslator {
             Vendor::MediaTek => {
                 let target_mode = match profile.name {
                     "extreme" | "performance" => "3",
-                    "balanced" | "balance" => "1",
+                    "powersave" => "1",
                     _ => "0",
                 };
                 Self::push_op(
@@ -623,6 +623,20 @@ impl HardwareTranslator {
                 "Touchscreen high-sampling game mode",
                 *tnode,
                 touch_val,
+                false,
+            );
+        }
+
+        // ── 8. Power-Efficient Workqueue (Battery Saver & Balanced) ─────────
+        let wq_path = Path::new("/sys/module/workqueue/parameters/power_efficient");
+        if wq_path.exists() {
+            let target_wq = if is_extreme { "N" } else { "Y" };
+            Self::push_op(
+                &mut ops,
+                "Kernel",
+                "Power-efficient workqueue",
+                wq_path,
+                target_wq,
                 false,
             );
         }

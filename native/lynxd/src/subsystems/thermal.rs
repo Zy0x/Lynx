@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::process::Command;
 
+use crate::state::ConfigStore;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
 
 pub struct ThermalController;
@@ -196,14 +197,18 @@ impl ThermalController {
                     Self::write_opt(p_down, "10000");
                 }
 
-                // Calibrate non-battery zones to 55°C (55000 milli-celsius)
-                Self::set_limit_raw(55000);
+                // Calibrate non-battery zones to user's configured temperature limit (default 50°C)
+                let custom_limit = ConfigStore::get("thermal.custom_temp_limit_c")
+                    .and_then(|s| s.parse::<i32>().ok())
+                    .unwrap_or(50)
+                    .clamp(40, 95);
+                Self::set_limit(custom_limit);
 
                 // FPSGO margins
                 Self::write_opt("/sys/kernel/fpsgo/fbt/thrm_limit_cpu", "0");
                 Self::write_opt("/sys/module/fbt_cpu/parameters/thrm_limit_cpu", "0");
 
-                "Thermal mode configured to Thermal Stable (55°C calibrated curve).".to_string()
+                format!("Thermal mode configured to Thermal Stable ({}°C calibrated curve).", custom_limit)
             }
 
             "gaming" | "hardware_safety_dominant" | "dominant" => {

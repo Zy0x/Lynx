@@ -7,7 +7,7 @@ pub fn get_profile() -> Profile {
         description: "Daily smooth responsiveness with optimal battery efficiency",
         cpu: CpuPolicy {
             governor: Governor::Schedutil,
-            min_percent: 20,
+            min_percent: 0,
             max_percent: 100,
             boost: false,
         },
@@ -22,7 +22,7 @@ pub fn get_profile() -> Profile {
         scheduler: SchedulerPolicy {
             prefer_latency: false,
             prefer_power: false,
-            uclamp_min_percent: 20,
+            uclamp_min_percent: 0,
         },
     }
 }

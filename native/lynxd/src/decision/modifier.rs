@@ -43,28 +43,28 @@ pub fn apply_modifier(base: &Profile, level: ModifierLevel) -> Profile {
         ModifierLevel::None => modified,
 
         ModifierLevel::ThermalCooling => {
-            // Relax CPU minimum frequency floor by 15%, clamped to minimum 20%
-            modified.cpu.min_percent = modified.cpu.min_percent.saturating_sub(15).max(20);
-            // Relax scheduler uclamp min floor by 15%, clamped to minimum 10%
+            // Relax CPU minimum frequency floor by 15%
+            modified.cpu.min_percent = modified.cpu.min_percent.saturating_sub(15);
+            // Relax scheduler uclamp min floor by 15%
             modified.scheduler.uclamp_min_percent =
-                modified.scheduler.uclamp_min_percent.saturating_sub(15).max(10);
+                modified.scheduler.uclamp_min_percent.saturating_sub(15);
             modified
         }
 
         ModifierLevel::ThermalThrottled => {
-            // Drop CPU floor by 30%, clamped to minimum 15%
-            modified.cpu.min_percent = modified.cpu.min_percent.saturating_sub(30).max(15);
-            // Drop scheduler uclamp min floor by 30%, clamped to minimum 10%
+            // Drop CPU floor by 30%
+            modified.cpu.min_percent = modified.cpu.min_percent.saturating_sub(30);
+            // Drop scheduler uclamp min floor by 30%
             modified.scheduler.uclamp_min_percent =
-                modified.scheduler.uclamp_min_percent.saturating_sub(30).max(10);
+                modified.scheduler.uclamp_min_percent.saturating_sub(30);
             // Disable GPU turbo boost during critical thermal condition
             modified.gpu.boost = false;
             modified
         }
 
         ModifierLevel::BatterySaver => {
-            // Reduce CPU floor by 10%, clamped to minimum 20%
-            modified.cpu.min_percent = modified.cpu.min_percent.saturating_sub(10).max(20);
+            // Reduce CPU floor by 10%
+            modified.cpu.min_percent = modified.cpu.min_percent.saturating_sub(10);
             modified
         }
     }

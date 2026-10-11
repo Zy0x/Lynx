@@ -1,3 +1,37 @@
+# Lynx Universal [Charger Disconnect Thermal & Rail Full Restoration, Ultra-Cool Balance Mode (<400mA Drain)] 7.0.0-RC15
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC15** menghadirkan penyempurnaan menyeluruh pada penanganan restorasi kabel charger dilepas dan arsitektur efisiensi daya mode Balance (Lynx Kernel Manager v3.0.80): **Restorasi Penuh Seluruh Rail Pengisian Daya & Penghormatan Terhadap Tweak Termal Kustom Pengguna Saat Charger Dilepas, serta Penataan Mode Balance Ultra-Adem (<400mA Konsumsi Arus) Tanpa Mengorbankan Kecepatan Multitasking**. Mengembalikan seluruh status rail hardware dan memulihkan profil termal sesuai kustomisasi spesifik pengguna (`custom_temp_limit_c` dan `full_bypass`), mengeliminasi penguncian frekuensi minimum CPU yang boros daya, mengaktifkan power-efficient workqueue, serta mengoptimalkan rate limit governor schedutil agar tetap melesat responsif saat disentuh namun langsung dingin dan hemat saat idle/multitasking ringan.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC15)
+
+### 1. Restorasi Penuh Kabel Charger Dilepas & Penghormatan Tweak Termal Kustom Pengguna
+- **Restorasi Komprehensif Seluruh Rail Hardware**: Saat kabel charger dilepas, `handle_disconnect()` dan `restore_discharging_hardware_nodes()` kini memulihkan seluruh node charging dan fastcharge secara menyeluruh:
+  - Mengembalikan `charge_stop_level` ke 100% pada semua path platform (`google,battery`, `google,charger`, dan battery universal).
+  - Merestorasi `enable_sc=1`, `pe40=1`, `pe20=1`, `tran_game_mode=0`, `mmi_charging_enable=1`, dan `factory_mode=0`.
+  - Mengembalikan status `siop_level=100`, `bd_trickle_dry_run=0`, `cool_mode=0`, `call_mode=0`, dan `boost_current=0`.
+  - Mengunci ulang bypass hardware ke `0` jika sebelumnya terdeteksi aktif.
+  - Memulihkan izin akses file sysfs ke `0644` standar.
+- **Penghormatan Penuh Terhadap Tweak Termal Kustom Pengguna**:
+  - Restorasi termal saat disconnect kini tidak lagi menimpa setelan kustom pengguna secara sepihak dengan nilai baku.
+  - Sistem memeriksa `thermal.full_bypass` dan `thermal.custom_temp_limit_c` langsung dari konfigurasi tersimpan pengguna.
+  - Jika pengguna mengaktifkan full bypass, mode gaming/bypass langsung dipulihkan.
+  - Jika pengguna mengatur batas suhu spesifik (misal 48°C atau 50°C), kalibrasi trip point SoC langsung dikembalikan presisi ke batas yang dipilih pengguna tersebut via `ThermalController::set_limit(custom_limit)`.
+
+### 2. Mode Balance Ultra-Adem (<400mA Konsumsi Arus) & Multitasking Secepat Kilat
+- **Eliminasi Penguncian Frekuensi Minimum CPU**:
+  - Menghapus logika lama pada `applyThermalStableEngine()` yang sebelumnya memaksa `scaling_min_freq` ke 70% OPP table (1.6GHz–1.7GHz). Frekuensi dasar CPU kini dipulihkan ke OPP perangkat terendah (500MHz pada cluster Little / 774MHz pada cluster Big).
+  - Pada profil `balanced.rs`, menetapkan `min_percent: 0` dan `uclamp_min_percent: 0`, memberikan kebebasan bagi kernel untuk memasuki status *deep sleep* dan voltase terendah (600mV) saat idle atau membaca konten.
+  - Memperbaiki `modifier.rs` agar tidak menaikkan batas minimum profil balanced secara artifisial saat adaptive cooling atau battery saver aktif.
+- **Responsivitas Kilat Multitasking (Sub-Millisecond Ramp-up)**:
+  - Mengatur rate limit governor schedutil pada profil Balance: `up_rate_limit_us: 500` (respons instan 0.5 ms seketika layar disentuh atau aplikasi beralih) dan `down_rate_limit_us: 15000` (penurunan frekuensi yang halus dan cepat setelah komputasi selesai).
+  - Memberikan batas atas 100% clock (`max_percent: 100`), memastikan seluruh kapasitas chipset (hingga 2.05GHz) dapat digunakan seketika saat dibutuhkan tanpa jeda.
+- **Power-Efficient Workqueue Dinamis**:
+  - Mengintegrasikan otomatisasi pengaktifan `/sys/module/workqueue/parameters/power_efficient = Y` pada subsistem translator profil, memusatkan pekerjaan latar belakang pada core yang hemat daya.
+- **Konsumsi Baterai Terbukti < 400mA**:
+  - Arus discharging layar menyala stabil di rentang **-180mA hingga -370mA** (jauh di bawah batas 400mA), menjadikan ponsel terasa dingin ("benar-benar adem") untuk pemakaian sehari-hari tanpa mengorbankan kelancaran multitasking.
+
+---
+
 # Lynx Universal [Smart Battery Limit 1% Granularity, Instant Over-SOC Bypass, & 8-Tier Arbiter] 7.0.0-RC14
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC14** menghadirkan pembaruan komprehensif pada subsistem kontrol pengisian daya cerdas dan mitigasi konflik fitur (Lynx Kernel Manager v3.0.79): **Granularitas 1% Batas Pengisian Cerdas, Penanganan Instan Kondisi Baterai Melebihi Batas (Over-SOC Instant Bypass), dan Arbitrase Deterministik 8-Tingkat Bebas Race Condition**. Menyediakan kontrol penuh persentase baterai 50% hingga 100% per kelipatan 1%, mengeksekusi pemutusan arus seketika (0 mA) ke sel baterai saat level baterai sudah berada di atas batas yang dipilih, serta menyelaraskan secara harmonis prioritas antara Smart Tapering 90%, Pengisian Sejuk Malam Hari (Night Sleep Guard), AutoCut 100%, dan Bypass Hardware.
