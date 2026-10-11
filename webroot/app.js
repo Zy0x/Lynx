@@ -160,6 +160,16 @@ function renderUI(state) {
         wifiToggle.checked = !!(state.network && state.network.wifi_ping_stabilizer);
     }
 
+    const adbToggle = document.getElementById('adb-keepalive-toggle');
+    if (adbToggle && !adbToggle.matches(':focus')) {
+        adbToggle.checked = !!(state.adb_keepalive && state.adb_keepalive.enabled);
+    }
+
+    const adbPortInput = document.getElementById('adb-custom-port');
+    if (adbPortInput && !adbPortInput.matches(':focus')) {
+        adbPortInput.value = (state.adb_keepalive && state.adb_keepalive.port) || 5555;
+    }
+
     const touchToggle = document.getElementById('touchboost-toggle');
     if (touchToggle && !touchToggle.matches(':focus')) {
         touchToggle.checked = !!(state.display_touch && state.display_touch.touchboost);
@@ -241,6 +251,31 @@ async function updateStateKey(key, value, isString = false) {
         logToConsole(`Failed setting ${key}: ${res.stderr}`, 'error');
     }
     isUpdating = false;
+    await syncState();
+}
+
+async function toggleAdbKeepAlive(enabled) {
+    const portEl = document.getElementById('adb-custom-port');
+    const port = portEl ? parseInt(portEl.value, 10) || 5555 : 5555;
+    if (enabled) {
+        await execCmd(`${LYNXD} adb enable ${port}`);
+        logToConsole(`ADB Keep-Alive locked on port ${port}`, 'success');
+    } else {
+        await execCmd(`${LYNXD} adb disable`);
+        logToConsole(`ADB Keep-Alive disabled`, 'info');
+    }
+    await syncState();
+}
+
+async function applyAdbPort() {
+    const portEl = document.getElementById('adb-custom-port');
+    const port = portEl ? parseInt(portEl.value, 10) : 5555;
+    if (!port || port < 1024 || port > 65535) {
+        logToConsole(`Port tidak valid! Masukkan port 1024 - 65535`, 'error');
+        return;
+    }
+    await execCmd(`${LYNXD} adb set-port ${port}`);
+    logToConsole(`ADB Custom Port locked to ${port}`, 'success');
     await syncState();
 }
 

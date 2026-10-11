@@ -145,6 +145,8 @@ class LynxViewModel : ViewModel() {
                     val savedColorProf = LynxRepository.readSavedColorProfile()
                     val perAppGfxRules = LynxRepository.readPerAppGraphicsRules(appContext)
                     val savedSessions = LynxRepository.listLabSessions(appContext)
+                    val adbConfig = LynxRepository.readAdbKeepAliveConfig()
+                    val adbStatusJson = LynxRepository.getAdbStatus()
 
                     val resolvedState = if (currentTcp.isNotBlank()) {
                         state.copy(network = state.network.copy(tcpCongestion = currentTcp))
@@ -220,6 +222,10 @@ class LynxViewModel : ViewModel() {
                         soundControl = soundControl,
                         memoryEntropy = memoryEntropy,
                         customScripts = customScripts,
+                        adbKeepAliveEnabled = adbConfig.first,
+                        adbPort = adbConfig.second,
+                        adbPortInput = adbConfig.second.toString(),
+                        adbStatus = adbStatusJson,
                         lastSyncedAt = System.currentTimeMillis(),
                     )
                 }
@@ -1529,6 +1535,83 @@ class LynxViewModel : ViewModel() {
             val ok = LynxRepository.applyWifiPingStabilizer(enabled)
             if (ok) {
                 _uiState.update { it.copy(successMessage = if (enabled) "Wi-Fi Ping Stabilizer diaktifkan" else "Wi-Fi Ping Stabilizer dinonaktifkan") }
+            }
+        }
+    }
+
+    fun refreshAdbConfig() {
+        viewModelScope.launch {
+            val (enabled, port) = LynxRepository.readAdbKeepAliveConfig()
+            val status = LynxRepository.getAdbStatus()
+            _uiState.update {
+                it.copy(
+                    adbKeepAliveEnabled = enabled,
+                    adbPort = port,
+                    adbPortInput = port.toString(),
+                    adbStatus = status
+                )
+            }
+        }
+    }
+
+    fun setAdbPortInput(input: String) {
+        val filtered = input.filter { it.isDigit() }.take(5)
+        _uiState.update { it.copy(adbPortInput = filtered) }
+    }
+
+    fun setAdbKeepAlive(enabled: Boolean) {
+        recordStateMutation()
+        val currentPort = _uiState.value.adbPortInput.toIntOrNull()?.coerceIn(1024, 65535) ?: _uiState.value.adbPort
+        _uiState.update {
+            it.copy(
+                adbKeepAliveEnabled = enabled,
+                adbPort = currentPort,
+                adbPortInput = currentPort.toString()
+            )
+        }
+        viewModelScope.launch {
+            val ok = LynxRepository.setAdbKeepAlive(enabled, currentPort)
+            val status = LynxRepository.getAdbStatus()
+            _uiState.update {
+                it.copy(
+                    adbStatus = status,
+                    successMessage = if (ok) {
+                        if (enabled) "ADB Wireless Keep-Alive diaktifkan & dikunci pada port $currentPort"
+                        else "ADB Wireless Keep-Alive dinonaktifkan"
+                    } else null,
+                    errorMessage = if (!ok) "Gagal menerapkan konfigurasi ADB Keep-Alive" else null
+                )
+            }
+        }
+    }
+
+    fun applyAdbCustomPort(portStr: String) {
+        val parsed = portStr.trim().toIntOrNull()
+        if (parsed == null || parsed !in 1024..65535) {
+            _uiState.update { it.copy(errorMessage = "Port tidak valid! Masukkan angka antara 1024 hingga 65535 (contoh: 5555)") }
+            return
+        }
+        recordStateMutation()
+        _uiState.update {
+            it.copy(
+                adbPort = parsed,
+                adbPortInput = parsed.toString()
+            )
+        }
+        viewModelScope.launch {
+            val isEnabled = _uiState.value.adbKeepAliveEnabled
+            val ok = if (isEnabled) {
+                LynxRepository.setAdbKeepAlive(true, parsed)
+            } else {
+                LynxRepository.setAdbPort(parsed)
+            }
+            val status = LynxRepository.getAdbStatus()
+            _uiState.update {
+                it.copy(
+                    adbStatus = status,
+                    successMessage = if (ok) "Port ADB berhasil dikunci ke $parsed" else null,
+                    errorMessage = if (!ok) "Gagal menyimpan port ADB $parsed" else null
+                )
             }
         }
     }

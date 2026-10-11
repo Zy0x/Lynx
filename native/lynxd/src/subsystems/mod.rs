@@ -1,3 +1,4 @@
+pub mod adb;
 pub mod applist;
 pub mod cluster;
 pub mod cpuidle;
@@ -16,6 +17,7 @@ pub mod system;
 pub mod thermal;
 pub mod tui;
 
+pub use adb::AdbController;
 pub use applist::ApplistController;
 pub use cluster::ClusterController;
 pub use cpuidle::CpuIdleController;

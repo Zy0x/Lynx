@@ -5694,6 +5694,46 @@ object LynxRepository {
         } catch (_: Exception) { false }
     }
 
+    // ----------------------------------------------------------------
+    //  ADB Wireless Keep-Alive & Port Lock Engine
+    // ----------------------------------------------------------------
+
+    suspend fun readAdbKeepAliveConfig(): Pair<Boolean, Int> = withContext(Dispatchers.IO) {
+        try {
+            val enabledStr = Shell.cmd("$LYNXD_PATH state get adb_keepalive.enabled").exec().out.firstOrNull()?.trim() ?: "false"
+            val portStr = Shell.cmd("$LYNXD_PATH state get adb_keepalive.port 5555").exec().out.firstOrNull()?.trim() ?: "5555"
+            val enabled = enabledStr == "true" || enabledStr == "1"
+            val port = portStr.toIntOrNull()?.coerceIn(1024, 65535) ?: 5555
+            Pair(enabled, port)
+        } catch (_: Exception) {
+            Pair(false, 5555)
+        }
+    }
+
+    suspend fun setAdbKeepAlive(enabled: Boolean, port: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val clampedPort = port.coerceIn(1024, 65535)
+            val sub = if (enabled) "enable $clampedPort" else "disable"
+            val result = Shell.cmd("$LYNXD_PATH adb $sub").exec()
+            result.isSuccess
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun setAdbPort(port: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val clampedPort = port.coerceIn(1024, 65535)
+            val result = Shell.cmd("$LYNXD_PATH adb set-port $clampedPort").exec()
+            result.isSuccess
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun getAdbStatus(): String = withContext(Dispatchers.IO) {
+        try {
+            val result = Shell.cmd("$LYNXD_PATH adb status").exec()
+            result.out.joinToString("\n").trim()
+        } catch (_: Exception) { "{}" }
+    }
+
     suspend fun applyJoyoseNeutralizer(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
             val script = if (enabled) {

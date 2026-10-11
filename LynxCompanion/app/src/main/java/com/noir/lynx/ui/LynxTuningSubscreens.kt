@@ -4068,6 +4068,137 @@ fun TuningNetworkCategory(
             )
         }
 
+        // ── ADB Wireless Keep-Alive & Custom Port Lock Card ──────
+        LaunchedEffect(Unit) { viewModel.refreshAdbConfig() }
+        LynxCard(
+            title = "ADB Wireless Keep-Alive & Port Lock",
+            icon = Icons.Default.Terminal,
+            accentColor = AccentGreen
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Mengunci port TCP adbd secara permanen (persist.adb.tcp.port + Doze Whitelist) agar tidak pernah reset atau terputus saat layar mati maupun setelah reboot.",
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                )
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (uiState.adbKeepAliveEnabled) AccentGreen.copy(alpha = 0.15f) else BgElevated,
+                    border = BorderStroke(
+                        1.dp,
+                        if (uiState.adbKeepAliveEnabled) AccentGreen.copy(alpha = 0.4f) else BorderGlass
+                    )
+                ) {
+                    Text(
+                        if (uiState.adbKeepAliveEnabled) "● LOCKED : ${uiState.adbPort}" else "○ STANDBY",
+                        color = if (uiState.adbKeepAliveEnabled) AccentGreen else TextSecondary,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            LynxSwitch(
+                label = "Pertahankan Port ADB Saat Layar Mati",
+                subLabel = "Auto-heal oleh daemon lynxd jika sistem Android mereset port saat sleep",
+                checked = uiState.adbKeepAliveEnabled,
+                onCheckedChange = { viewModel.setAdbKeepAlive(it) },
+            )
+
+            HorizontalDivider(
+                color = BorderGlass.copy(alpha = 0.6f),
+                modifier = Modifier.padding(vertical = 10.dp)
+            )
+
+            Text(
+                "Konfigurasi Manual Custom Port (1024 – 65535)",
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+
+            // Quick port presets
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(5555 to "5555 (Default)", 5556 to "5556", 8888 to "8888").forEach { (presetPort, label) ->
+                    val isSelected = uiState.adbPort == presetPort
+                    Surface(
+                        onClick = { viewModel.applyAdbCustomPort(presetPort.toString()) },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSelected) AccentGreen.copy(alpha = 0.16f) else BgElevated,
+                        border = BorderStroke(1.dp, if (isSelected) AccentGreen else BorderGlass),
+                        modifier = Modifier.heightIn(min = 38.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                label,
+                                color = if (isSelected) AccentGreen else TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Manual custom port entry + Apply button
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = uiState.adbPortInput,
+                    onValueChange = { viewModel.setAdbPortInput(it) },
+                    singleLine = true,
+                    placeholder = { Text("Contoh: 5555", color = TextSecondary, fontSize = 12.sp) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentGreen,
+                        unfocusedBorderColor = BorderGlass,
+                        focusedContainerColor = Color(0xFF0A0C12),
+                        unfocusedContainerColor = Color(0xFF0A0C12)
+                    )
+                )
+
+                Button(
+                    onClick = { viewModel.applyAdbCustomPort(uiState.adbPortInput) },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentGreen.copy(alpha = 0.2f),
+                        contentColor = AccentGreen
+                    ),
+                    border = BorderStroke(1.dp, AccentGreen.copy(alpha = 0.45f)),
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Kunci Port", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
         // ── Sound Control (Gain Booster) Card ────────────────────
         SoundControlCard(
             soundControl = uiState.soundControl,

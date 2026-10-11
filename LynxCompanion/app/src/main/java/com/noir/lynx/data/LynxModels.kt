@@ -845,6 +845,11 @@ data class LynxUiState(
     val batteryInfoStats: BatteryInfoStats = BatteryInfoStats(),
     val isCableBenchmarkRunning: Boolean = false,
     val isCalibratingBattery: Boolean = false,
+    // ADB Wireless Keep-Alive & Port Lock Engine
+    val adbKeepAliveEnabled: Boolean = false,
+    val adbPort: Int = 5555,
+    val adbPortInput: String = "5555",
+    val adbStatus: String = "",
 ) {
     fun resolveCpuTempC(): Int {
         val validZones = thermalZones.filter { it.tempC in 20f..115f }

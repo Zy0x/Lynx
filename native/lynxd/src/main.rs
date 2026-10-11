@@ -20,10 +20,10 @@ use crate::inspector::{TunableScanner, TunableStore};
 use crate::profile::{get_profile_by_name, list_profiles, ProfileValidator, ProfileVerifier};
 use crate::state::{ConfigStore, DeviceState, ProfileStateManager, RecoveryReport};
 use crate::subsystems::{
-    ApplistController, ClusterController, CpuIdleController, CpusetController, DisplayController,
-    FlasherController, GameController, GpuController, IoController, LifecycleHooks,
-    MaintenanceController, MemoryController, NetworkController, SwapController, SystemController,
-    ThermalController, TuiController,
+    AdbController, ApplistController, ClusterController, CpuIdleController, CpusetController,
+    DisplayController, FlasherController, GameController, GpuController, IoController,
+    LifecycleHooks, MaintenanceController, MemoryController, NetworkController, SwapController,
+    SystemController, ThermalController, TuiController,
 };
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
 use crate::utils::Logger;
@@ -62,6 +62,7 @@ fn print_usage() {
     println!("  memory apply|zram-info|zram-set|zram-disable|clean|vm-info|vm-set|vm-preset");
     println!("  io apply|info|set-scheduler");
     println!("  network apply|game|balance|set-algo|info");
+    println!("  adb status|enable|disable|set-port Manage wireless ADB keep-alive & persistent port lock");
     println!("  inspect scan|node <path>          Deep sysfs/procfs hardware tunable introspection (<40ms)");
     println!("  tunable set|apply|list|reset      Declarative user kernel tunable store with auto-rollback");
     println!("  daemon run|status|stop            Manage native adaptive background daemon");
@@ -1262,6 +1263,71 @@ fn main() {
                     }
                 }
                 _ => println!("{}", NetworkController::apply_universal()),
+            }
+        }
+        "adb" => {
+            let sub = args.get(2).map(|s| s.as_str()).unwrap_or("status");
+            match sub {
+                "status" => {
+                    println!("{}", AdbController::status_json());
+                }
+                "enable" => {
+                    let port = args.get(3).and_then(|p| p.parse::<u16>().ok()).unwrap_or_else(|| {
+                        AdbController::load_config().port
+                    });
+                    if let Err(e) = AdbController::save_config(true, port) {
+                        eprintln!("{}", e);
+                        std::process::exit(1);
+                    }
+                    match AdbController::apply(port) {
+                        Ok(msg) => println!("{}", msg),
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                "disable" => {
+                    match AdbController::disable() {
+                        Ok(msg) => println!("{}", msg),
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                "set-port" | "set_port" => {
+                    if let Some(port_str) = args.get(3) {
+                        if let Ok(port) = port_str.parse::<u16>() {
+                            let cfg = AdbController::load_config();
+                            if let Err(e) = AdbController::save_config(cfg.enabled, port) {
+                                eprintln!("{}", e);
+                                std::process::exit(1);
+                            }
+                            if cfg.enabled {
+                                match AdbController::apply(port) {
+                                    Ok(msg) => println!("{}", msg),
+                                    Err(e) => {
+                                        eprintln!("{}", e);
+                                        std::process::exit(1);
+                                    }
+                                }
+                            } else {
+                                println!("Port configured to {}. Enable ADB keep-alive to activate.", port);
+                            }
+                        } else {
+                            eprintln!("Invalid port number: {}", port_str);
+                            std::process::exit(1);
+                        }
+                    } else {
+                        eprintln!("Usage: lynxd adb set-port <port>");
+                        std::process::exit(1);
+                    }
+                }
+                other => {
+                    eprintln!("Unknown adb subcommand: '{}'. Available: status, enable [port], disable, set-port <port>", other);
+                    std::process::exit(1);
+                }
             }
         }
         "inspect" | "deep" => {

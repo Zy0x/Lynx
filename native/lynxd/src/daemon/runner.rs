@@ -217,6 +217,9 @@ impl DaemonRunner {
             // Autonomous Charging Regulator & Safety Guard tick (Zero-fork native)
             ChargingRegulator::tick();
 
+            // Autonomous ADB Wireless Keep-Alive & Port Lock Watchdog tick
+            crate::subsystems::AdbController::tick();
+
             // Native Daily Maintenance Scheduler (replaces legacy crond & core/cron/root)
             if current_screen == ScreenState::Off && now.saturating_sub(last_maintenance_ts) >= 86400 {
                 Logger::info("[DAEMON] Executing scheduled 24h storage & memory maintenance...");
@@ -271,6 +274,7 @@ impl DaemonRunner {
                     }
                 } else if idx > 0 && idx % 6 == 0 {
                     ChargingRegulator::tick();
+                    crate::subsystems::AdbController::tick();
                 }
                 sleep(Duration::from_millis(500));
             }

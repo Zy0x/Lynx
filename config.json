@@ -61,6 +61,10 @@
     "fq_codel_enabled": true,
     "wifi_power_save_in_game": false
   },
+  "adb_keepalive": {
+    "enabled": false,
+    "port": 5555
+  },
   "audio": {
     "low_latency_mmap": true,
     "fast_track_enabled": true,

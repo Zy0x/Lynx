@@ -211,11 +211,12 @@ impl LifecycleHooks {
             .stderr(Stdio::null())
             .status();
 
-        // 7. Apply Charging & Storage Maintenance
+        // 7. Apply Charging, ADB Keep-Alive & Storage Maintenance
         ChargingRegulator::apply_from_config();
+        crate::subsystems::AdbController::apply_from_config();
         let _ = MaintenanceController::run(false);
         let _ = MemoryController::clean_memory();
-        Self::log_msg("[+] Charging & storage maintenance executed natively via lynxd");
+        Self::log_msg("[+] Charging, ADB Keep-Alive & storage maintenance executed natively via lynxd");
 
         // 8. Profile Action Execution
         let lynxd_bin = format!("{}/system/bin/lynxd", MODPATH);
@@ -282,6 +283,7 @@ impl LifecycleHooks {
     pub fn run_uninstall() -> i32 {
         // 1. Terminate Background Daemons
         let _ = DaemonLifecycle::stop_running();
+        let _ = crate::subsystems::AdbController::disable();
 
         // 2. Unfreeze any OEM Throttler Processes
         ThermalController::unfreeze_oem_throttlers();

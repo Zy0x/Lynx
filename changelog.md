@@ -1,3 +1,28 @@
+# Lynx Universal [ADB Wireless Keep-Alive & Custom Port Lock Engine] 7.0.0-RC16
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC16** menghadirkan subsistem baru **ADB Wireless Keep-Alive & Persistent Custom Port Lock Engine** (Lynx Kernel Manager v3.0.81): **Penguncian Port TCP ADB Permanen, Proteksi Anti-Reset Saat Layar Mati (Screen-Off Sleep Guard), Konfigurasi Port Kustom Manual (1024–65535), serta Daemon Watchdog Auto-Heal**. Mengatasi masalah klasik Android yang secara sepihak mematikan daemon `adbd` atau mereset port TCP saat layar ponsel mati/terkunci maupun setelah reboot.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC16)
+
+### 1. Native Rust `AdbController` Subsystem (`native/lynxd/src/subsystems/adb.rs`)
+- **Persistent & Runtime Port Locking**:
+  - Mengonfigurasi secara simultan properti persisten (`persist.adb.tcp.port`) melalui `resetprop -n` dan `setprop` serta properti layanan (`service.adb.tcp.port`), memastikan port tetap terkunci di `/data/property/persistent_properties` dan langsung aktif saat boot tanpa memerlukan kabel USB.
+- **Anti-Disconnect & Screen-Off Doze Bypass**:
+  - Mengatur kebijakan sistem `wifi_sleep_policy=2` (Wi-Fi tetap terjaga saat tidur) dan `adb_allowed_connection_time=0` (tanpa batas waktu pemutusan koneksi otomatis).
+  - Menambahkan `com.android.shell` dan `com.android.providers.settings` ke daftar putih Doze (`deviceidle whitelist`) agar soket TCP tidak dibekukan ketika perangkat memasuki mode hemat daya.
+- **Daemon Watchdog Auto-Heal (`AdbController::tick()`)**:
+  - Terintegrasi langsung ke dalam siklus hidup `DaemonRunner` (`lynxd`) dengan pemeriksaan ringan sub-0.1ms pada tabel soket kernel (`/proc/net/tcp` & `/proc/net/tcp6` state `0A` / `TCP_LISTEN`).
+  - Apabila framework Android mereset port atau menghentikan `adbd` saat layar dimatikan, watchdog secara otomatis mendeteksi dan memulihkan port yang dikunci dalam hitungan detik.
+- **Antarmuka CLI Lengkap**:
+  - Mendukung perintah `lynxd adb status`, `lynxd adb enable [port]`, `lynxd adb disable`, dan `lynxd adb set-port <port>`.
+
+### 2. Konfigurasi Port Kustom Manual di Aplikasi Lynx & WebUI
+- **Kartu Kontrol "ADB Wireless Keep-Alive & Port Lock"**:
+  - Tersedia di menu **Network & Audio** pada aplikasi Lynx Kernel Manager serta di **WebUI Dashboard**.
+  - Dilengkapi indikator status *real-time* (`● LOCKED : <PORT>` vs `○ STANDBY`), toggle aktivasi Keep-Alive, tombol preset cepat (`5555`, `5556`, `8888`), serta kolom input manual untuk port kustom pilihan pengguna (`1024` hingga `65535`).
+
+---
+
 # Lynx Universal [Charger Disconnect Thermal & Rail Full Restoration, Ultra-Cool Balance Mode (<400mA Drain)] 7.0.0-RC15
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC15** menghadirkan penyempurnaan menyeluruh pada penanganan restorasi kabel charger dilepas dan arsitektur efisiensi daya mode Balance (Lynx Kernel Manager v3.0.80): **Restorasi Penuh Seluruh Rail Pengisian Daya & Penghormatan Terhadap Tweak Termal Kustom Pengguna Saat Charger Dilepas, serta Penataan Mode Balance Ultra-Adem (<400mA Konsumsi Arus) Tanpa Mengorbankan Kecepatan Multitasking**. Mengembalikan seluruh status rail hardware dan memulihkan profil termal sesuai kustomisasi spesifik pengguna (`custom_temp_limit_c` dan `full_bypass`), mengeliminasi penguncian frekuensi minimum CPU yang boros daya, mengaktifkan power-efficient workqueue, serta mengoptimalkan rate limit governor schedutil agar tetap melesat responsif saat disentuh namun langsung dingin dan hemat saat idle/multitasking ringan.

@@ -512,6 +512,27 @@
                 </div>
             </div>
 
+            <!-- ADB Wireless Keep-Alive & Custom Port Lock -->
+            <div class="card">
+                <div class="card-title">ADB Wireless Keep-Alive & Port Lock</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                    Mengunci port TCP adbd secara permanen (<code>persist.adb.tcp.port</code> + Doze Whitelist) agar tidak pernah reset atau terputus saat layar mati maupun setelah reboot.
+                </div>
+                <div class="switch-row">
+                    <span class="switch-label">Pertahankan Port ADB Saat Layar Mati</span>
+                    <label class="switch">
+                        <input type="checkbox" id="adb-keepalive-toggle" onchange="toggleAdbKeepAlive(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
+                    <input type="number" id="adb-custom-port" class="input-text" placeholder="5555" min="1024" max="65535" value="5555" style="margin-bottom: 0; flex: 1;">
+                    <button class="btn btn-accent" onclick="applyAdbPort()" style="width: auto; padding: 10px 16px;">
+                        Kunci Port
+                    </button>
+                </div>
+            </div>
+
             <!-- Storage I/O Scheduler Manager -->
             <div class="card" id="card-io-sched">
                 <div class="card-title">Storage I/O Scheduler Manager</div>
