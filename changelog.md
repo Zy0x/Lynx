@@ -1,3 +1,19 @@
+# Lynx Universal [Seamless Vector Discharge Curve & Single Interactive Cursor] 7.0.0-RC25
+Released on: 2026-10-12
+> **Lynx Universal v7.0.0-RC25** memperbarui estetika kanvas grafik penurunan baterai pada aplikasi Lynx Kernel Manager (v3.0.90): **Eliminasi Total Bulatan Titik Koordinat Bergerombol (*Clutter-Free Vector Spline Curve* dengan `StrokeCap.Round` & `StrokeJoin.Round`), Pengenalan Kursor Interaktif Tunggal Dinamis (*Single Active Glow Cursor* yang Mengikuti Sentuhan Jari Pengguna atau Titik Terkini), serta Retensi Penuh Indikator Status Layar Aktif/Mati (SOT/Off-Screen) Melalui Strip Garis Bawah Kanvas dan Chip Ringkasan Cerdas**. Menghadirkan visual grafik analitik yang sangat bersih, elegan, dan profesional setara dashboard analitik modern.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC25)
+
+### 1. Kurva Vektor Mulus Tanpa Distorsi Titik Bergerombol (`LynxTuningSubscreens.kt`)
+- Menghapus perulangan penggambaran lingkaran statis pada seluruh koordinat titik riwayat baterai yang sebelumnya membuat kurva terlihat padat dan bergelombang tidak rata saat jumlah data meningkat.
+- Mengonfigurasi rendering garis kurva dengan sambungan membulat antialiased (`StrokeJoin.Round`, `StrokeCap.Round`), menghasilkan garis vektor yang bersih dan tajam di atas gradien vertikal transparan.
+
+### 2. Kursor Titik Interaktif Tunggal dengan Halo Bersinar (`LynxTuningSubscreens.kt`)
+- Menampilkan satu titik fokus interaktif yang presisi hanya pada posisi yang sedang disentuh (*scrubbing*) atau titik riwayat terakhir.
+- Dilengkapi lingkaran halo bersinar lembut (*subtle glowing aura*) dan garis vertikal putus-putus panduan waktu yang secara cerdas berganti warna mengikuti status layar (Hijau untuk Layar Aktif / SOT dan Cyan untuk Layar Mati).
+
+---
+
 # Lynx Universal [Collapsible Step Log Accordion & Top-5 App Drain Views] 7.0.0-RC24
 Released on: 2026-10-12
 > **Lynx Universal v7.0.0-RC24** menghadirkan penyempurnaan antarmuka yang sangat ringkas, bersih, dan elegan (*compact & glanceable*) pada kartu Riwayat & Penggunaan Baterai di Lynx Kernel Manager (v3.0.89): **Accordion Lipat Minimalis untuk Log Durasi per 1% Penurunan (Eliminasi Beban Vertikal 10+ Kartu Langkah dengan Header Sentuh Modern & Transisi Halus `AnimatedVisibility`), Tampilan Top-5 Prioritas untuk Konsumsi Daya Aplikasi & Proses Sistem (Fokus pada Konsumen Terbesar dengan Tombol Ekspansi Sleek `Lihat X Aplikasi Lainnya`), serta Kepatuhan Penuh Standar Touch-First $\ge 44\text{ px}$ Tanpa Kebisingan Visual**.

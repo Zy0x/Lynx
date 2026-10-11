@@ -43,6 +43,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -3085,29 +3087,28 @@ fun RealDischargeStepHistoryCard(
                         drawPath(
                             path = strokePath,
                             color = AccentCyan,
-                            style = Stroke(width = 2.5.dp.toPx())
+                            style = Stroke(
+                                width = 2.4.dp.toPx(),
+                                cap = StrokeCap.Round,
+                                join = StrokeJoin.Round
+                            )
                         )
 
-                        coords.forEachIndexed { idx, pt ->
-                            val isSot = points[idx].isScreenOn
-                            drawCircle(
-                                color = if (isSot) AccentGreen else AccentCyan,
-                                radius = 3.2.dp.toPx(),
-                                center = pt
-                            )
-                        }
-
+                        // Indikator Titik Aktif: Hanya 1 kursor interaktif saat disentuh / titik terakhir
                         val activeIdx = scrubbedIndex ?: (n - 1)
                         val activeCoord = coords.getOrNull(activeIdx) ?: coords.last()
+                        val activePointItem = points.getOrNull(activeIdx)
+                        val activeColor = if (activePointItem?.isScreenOn == true) AccentGreen else AccentCyan
+
                         drawLine(
-                            color = AccentCyan.copy(alpha = 0.6f),
+                            color = activeColor.copy(alpha = 0.5f),
                             start = Offset(activeCoord.x, padTop),
                             end = Offset(activeCoord.x, size.height - padBottom),
                             strokeWidth = 1.2.dp.toPx(),
                             pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
                         )
-                        drawCircle(color = AccentCyan.copy(alpha = 0.35f), radius = 8.dp.toPx(), center = activeCoord)
-                        drawCircle(color = AccentCyan, radius = 4.dp.toPx(), center = activeCoord)
+                        drawCircle(color = activeColor.copy(alpha = 0.25f), radius = 7.dp.toPx(), center = activeCoord)
+                        drawCircle(color = activeColor, radius = 3.5.dp.toPx(), center = activeCoord)
                     }
                 }
 
