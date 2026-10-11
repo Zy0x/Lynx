@@ -3,6 +3,7 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::state::ConfigStore;
+use crate::subsystems::ThermalController;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -276,9 +277,10 @@ impl ChargingRegulator {
         Self::write_node("/sys/devices/platform/charger/bypass_charger", "1");
 
         // MediaTek Kernel PID Thermal Derater (ABCCT) Zero Current Enforcement
-        let abcct_zero = "30000 1000 200000 5 0 0 0 0";
+        let abcct_zero = "30000 1000 200000 5 0 0 1 1 0";
+        let abcct_lcmoff_zero = "1 30000 1000 200000 5 0 0 0 0";
         Self::write_node_lock("/proc/driver/thermal/clabcct", abcct_zero);
-        Self::write_node_lock("/proc/driver/thermal/clabcct_lcmoff", abcct_zero);
+        Self::write_node_lock("/proc/driver/thermal/clabcct_lcmoff", abcct_lcmoff_zero);
 
         // Transsion 33W+ Direct Pump Suspend
         let pcb_zero = "[30,0,35,0,0]";
@@ -286,8 +288,8 @@ impl ChargingRegulator {
         Self::write_node_lock("/sys/devices/platform/tran_battery/pcb_thermal_debug", pcb_zero);
         if Path::new("/sys/devices/platform/pca_dv2_algo/dv2_debug").exists() {
             Self::set_perm("/sys/devices/platform/pca_dv2_algo/dv2_debug", 0o666);
-            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[101,10,20,30,6000,6000,6000]");
-            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[102,10,20,30,6000,6000,6000]");
+            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[101,10,20,30,0,0,0]");
+            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[102,10,20,30,0,0,0]");
             Self::set_perm("/sys/devices/platform/pca_dv2_algo/dv2_debug", 0o444);
         }
 
@@ -433,9 +435,11 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/sc_tuisoc", MTK_DIR), &target_soc_str);
 
         // MediaTek Kernel PID Thermal Derater (ABCCT) Screen-On & Screen-Off Full Speed
-        // Format: <target_temp> <kp> <ki> <kd> <max_bat_chr_curr_limit> <min_bat_chr_curr_limit> <pep30_max> <pep30_min>
-        let abcct_payload = format!("70000 1000 200000 5 {} 4500 {} 4500", mtk_ma, mtk_ma);
-        Self::write_node_lock("/proc/driver/thermal/clabcct_lcmoff", &abcct_payload);
+        // clabcct_lcmoff expects: <enable> <target_temp> <kp> <ki> <kd> <max_bat_curr> <min_bat_curr> <pep30_max> <pep30_min>
+        let abcct_lcmoff_payload = format!("1 70000 1000 200000 5 {} 4500 {} 4500", mtk_ma, mtk_ma);
+        // clabcct (LCM on) expects: <target_temp> <kp> <ki> <kd> <max_bat_curr> <min_bat_curr> <input_limit_on> <HW_thermal_solution> <min_chr_input_limit>
+        let abcct_payload = format!("70000 1000 200000 5 {} 4500 1 1 4500", mtk_ma);
+        Self::write_node_lock("/proc/driver/thermal/clabcct_lcmoff", &abcct_lcmoff_payload);
         Self::write_node_lock("/proc/driver/thermal/clabcct", &abcct_payload);
         Self::signal_processes(&["thermalloadalgod", "com.xiaomi.joyose", "mi_thermald", "thermal-engine"], true);
 
@@ -476,13 +480,13 @@ impl ChargingRegulator {
         Self::write_node_lock(&format!("{}/factory_mode", BATT_DIR), "1");
 
         // 5. Transsion (Infinix / Tecno) 33W+ Direct Charge Pump (pca_dv2_algo) & PCB Thermal Bypass
-        let pcb_payload = format!("[95,{},100,{},{}]", mtk_ma, mtk_ma, mtk_ma);
+        let pcb_payload = format!("[95,{},100,{},{}]", mtk_ma, mtk_ma, (mtk_ma as u64) * 1000);
         Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug", &pcb_payload);
         Self::write_node_lock("/sys/devices/platform/tran_battery/pcb_thermal_debug", &pcb_payload);
         if Path::new("/sys/devices/platform/pca_dv2_algo/dv2_debug").exists() {
             Self::set_perm("/sys/devices/platform/pca_dv2_algo/dv2_debug", 0o666);
-            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[101,85,88,90,0,0,0]");
-            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[102,85,88,90,0,0,0]");
+            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", format!("[101,85,88,90,{},{},{}]", mtk_ma, mtk_ma, mtk_ma));
+            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", format!("[102,85,88,90,{},{},{}]", mtk_ma, mtk_ma, mtk_ma));
             Self::set_perm("/sys/devices/platform/pca_dv2_algo/dv2_debug", 0o444);
         }
         if Path::new("/proc/driver/thermal/tzbts_param").exists() {
@@ -562,22 +566,28 @@ impl ChargingRegulator {
 
     /// Ultra-fast (< 0.5 ms) lock re-assertion for active Extreme/Fast Charging
     pub fn reapply_lock() {
+        if !Self::is_hardware_plugged() {
+            Self::handle_disconnect();
+            return;
+        }
+
         let cfg = ConfigStore::load_charging_config();
         let mtk_ma = cfg.limit_current_ma.max(3500).min(6000);
         let mtk_ma_str = mtk_ma.to_string();
         let target_ua_str = ((mtk_ma as u64) * 1000).to_string();
 
-        let abcct_payload = format!("70000 1000 200000 5 {} 4500 {} 4500", mtk_ma, mtk_ma);
-        Self::write_node_lock("/proc/driver/thermal/clabcct_lcmoff", &abcct_payload);
+        let abcct_lcmoff_payload = format!("1 70000 1000 200000 5 {} 4500 {} 4500", mtk_ma, mtk_ma);
+        let abcct_payload = format!("70000 1000 200000 5 {} 4500 1 1 4500", mtk_ma);
+        Self::write_node_lock("/proc/driver/thermal/clabcct_lcmoff", &abcct_lcmoff_payload);
         Self::write_node_lock("/proc/driver/thermal/clabcct", &abcct_payload);
 
-        let pcb_payload = format!("[95,{},100,{},{}]", mtk_ma, mtk_ma, mtk_ma);
+        let pcb_payload = format!("[95,{},100,{},{}]", mtk_ma, mtk_ma, (mtk_ma as u64) * 1000);
         Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug", &pcb_payload);
         Self::write_node_lock("/sys/devices/platform/tran_battery/pcb_thermal_debug", &pcb_payload);
         if Path::new("/sys/devices/platform/pca_dv2_algo/dv2_debug").exists() {
             Self::set_perm("/sys/devices/platform/pca_dv2_algo/dv2_debug", 0o666);
-            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[101,85,88,90,0,0,0]");
-            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[102,85,88,90,0,0,0]");
+            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", format!("[101,85,88,90,{},{},{}]", mtk_ma, mtk_ma, mtk_ma));
+            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", format!("[102,85,88,90,{},{},{}]", mtk_ma, mtk_ma, mtk_ma));
             Self::set_perm("/sys/devices/platform/pca_dv2_algo/dv2_debug", 0o444);
         }
         if Path::new("/proc/driver/thermal/tzbts_param").exists() {
@@ -626,12 +636,12 @@ impl ChargingRegulator {
 
         if Path::new("/proc/driver/thermal/clabcct_lcmoff").exists() {
             Self::set_perm("/proc/driver/thermal/clabcct_lcmoff", 0o666);
-            let _ = fs::write("/proc/driver/thermal/clabcct_lcmoff", "1");
+            let _ = fs::write("/proc/driver/thermal/clabcct_lcmoff", "1 42000 1000 200000 5 2000 0 2000 0");
             Self::set_perm("/proc/driver/thermal/clabcct_lcmoff", 0o644);
         }
         if Path::new("/proc/driver/thermal/clabcct").exists() {
             Self::set_perm("/proc/driver/thermal/clabcct", 0o666);
-            let _ = fs::write("/proc/driver/thermal/clabcct", "1 42000 1000 200000 5 2000 0");
+            let _ = fs::write("/proc/driver/thermal/clabcct", "42000 1000 200000 5 2000 0 1 1 0");
             Self::set_perm("/proc/driver/thermal/clabcct", 0o644);
         }
 
@@ -837,26 +847,246 @@ impl ChargingRegulator {
         }
     }
 
-    /// Periodic tick called inside `DaemonRunner::run()` every cycle.
-    pub fn tick() {
+    pub fn is_hardware_plugged() -> bool {
+        let batt_status = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_default();
+        if batt_status == "Discharging" {
+            return false;
+        }
+
         let usb_online = Self::read_node(&format!("{}/online", USB_DIR)).unwrap_or_default();
         let ac_online = Self::read_node(&format!("{}/ac/online", PS_DIR)).unwrap_or_default();
         let chg_online = Self::read_node(&format!("{}/charger/online", PS_DIR)).unwrap_or_default();
-        let batt_status = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_default();
 
-        let is_plugged = usb_online == "1"
-            || ac_online == "1"
-            || chg_online == "1"
-            || batt_status == "Charging"
-            || batt_status == "Not charging";
+        if usb_online == "1" || ac_online == "1" || chg_online == "1" {
+            return true;
+        }
 
-        if !is_plugged || batt_status == "Discharging" {
-            let _ = fs::remove_file("/dev/lynx_charging_guard");
-            let _ = fs::remove_file("/dev/lynx_extreme_charging");
-            let _ = fs::remove_file("/dev/lynx_bypass_active");
-            Self::restore_battery_temperature();
-            let cap_now = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
-            let _ = fs::write("/dev/lynx_charging_state", format!("state=discharging cap={}\n", cap_now));
+        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+            .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+            .unwrap_or(0);
+        let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+
+        if adpv_clean >= 3500 && (batt_status == "Charging" || batt_status == "Not charging" || batt_status == "Full") {
+            return true;
+        }
+
+        batt_status == "Charging" || batt_status == "Full" || batt_status == "Not charging"
+    }
+
+    pub fn handle_disconnect() {
+        // 1. Clear all active charging lock flags in /dev/
+        let _ = fs::remove_file("/dev/lynx_charging_guard");
+        let _ = fs::remove_file("/dev/lynx_extreme_charging");
+        let _ = fs::remove_file("/dev/lynx_bypass_active");
+        let cap_now = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
+        let _ = fs::write("/dev/lynx_charging_state", format!("state=discharging cap={}\n", cap_now));
+
+        // 2. Restore unspoofed real battery temperature
+        Self::restore_battery_temperature();
+
+        // 3. Fully unlock and restore all thermal zones & cooling devices to OEM baseline
+        Self::restore_thermal_and_cooling();
+
+        // 4. Unfreeze OEM userspace thermal daemons with SIGCONT
+        ThermalController::unfreeze_oem_throttlers();
+
+        // 5. Restore MediaTek & Qualcomm specific hardware nodes & charging rails
+        Self::restore_discharging_hardware_nodes();
+
+        // 6. Restore system thermal mode to match active profile
+        let active_prof = Self::read_node("/data/adb/lynx/active_profile").unwrap_or_else(|| "balance".to_string());
+        match active_prof.as_str() {
+            "powersave" => {
+                ThermalController::set_mode("conservative");
+            }
+            "balance" => {
+                ThermalController::set_mode("stable");
+            }
+            "performance" | "extreme" => {
+                ThermalController::set_mode("gaming");
+            }
+            _ => {
+                ThermalController::set_mode("restore");
+            }
+        }
+    }
+
+    pub fn restore_thermal_and_cooling() {
+        if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("thermal_zone") {
+                    let tz_dir = format!("/sys/class/thermal/{}", name_str);
+                    let mode_path = format!("{}/mode", tz_dir);
+                    if Path::new(&mode_path).exists() {
+                        Self::set_perm(&mode_path, 0o666);
+                        let _ = fs::write(&mode_path, "enabled");
+                        Self::set_perm(&mode_path, 0o644);
+                    }
+
+                    let tz_type = Self::read_node(&format!("{}/type", tz_dir))
+                        .unwrap_or_default()
+                        .to_lowercase();
+
+                    // Restore reasonable trip points:
+                    // Battery/Skin/Charger/BMS: 48°C (48000 mC)
+                    // Silicon/CPU/GPU/SoC/AP: 70°C (70000 mC)
+                    let def_trip = if tz_type.contains("batt")
+                        || tz_type.contains("bms")
+                        || tz_type.contains("skin")
+                        || tz_type.contains("chg")
+                        || tz_type.contains("charger")
+                    {
+                        "48000"
+                    } else {
+                        "70000"
+                    };
+
+                    for idx in 0..16 {
+                        let tp = format!("{}/trip_point_{}_temp", tz_dir, idx);
+                        if Path::new(&tp).exists() {
+                            Self::set_perm(&tp, 0o666);
+                            let _ = fs::write(&tp, def_trip);
+                            Self::set_perm(&tp, 0o644);
+                        }
+                    }
+                } else if name_str.starts_with("cooling_device") {
+                    let cur_state = format!("/sys/class/thermal/{}/cur_state", name_str);
+                    if Path::new(&cur_state).exists() {
+                        Self::set_perm(&cur_state, 0o666);
+                        let _ = fs::write(&cur_state, "0");
+                        Self::set_perm(&cur_state, 0o644);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn restore_discharging_hardware_nodes() {
+        // MediaTek charging & thermal deraters
+        if Path::new("/proc/driver/thermal/clabcct").exists() {
+            Self::set_perm("/proc/driver/thermal/clabcct", 0o666);
+            let _ = fs::write("/proc/driver/thermal/clabcct", "42000 1000 200000 5 2000 0 1 1 0");
+            Self::set_perm("/proc/driver/thermal/clabcct", 0o644);
+        }
+        if Path::new("/proc/driver/thermal/clabcct_lcmoff").exists() {
+            Self::set_perm("/proc/driver/thermal/clabcct_lcmoff", 0o666);
+            let _ = fs::write("/proc/driver/thermal/clabcct_lcmoff", "1 42000 1000 200000 5 2000 0 2000 0");
+            Self::set_perm("/proc/driver/thermal/clabcct_lcmoff", 0o644);
+        }
+        for node in [
+            "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug",
+            "/sys/devices/platform/tran_battery/pcb_thermal_debug",
+        ] {
+            if Path::new(node).exists() {
+                Self::set_perm(node, 0o666);
+                let _ = fs::write(node, "[45,3000,50,2000,1000000]");
+                Self::set_perm(node, 0o644);
+            }
+        }
+        if Path::new("/sys/devices/platform/pca_dv2_algo/dv2_debug").exists() {
+            Self::set_perm("/sys/devices/platform/pca_dv2_algo/dv2_debug", 0o666);
+            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[101,43,45,50,500,1000,1500]");
+            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[102,65,68,72,500,1000,1500]");
+            Self::set_perm("/sys/devices/platform/pca_dv2_algo/dv2_debug", 0o644);
+        }
+        if Path::new("/proc/driver/thermal/tzbts_param").exists() {
+            Self::set_perm("/proc/driver/thermal/tzbts_param", 0o666);
+            let _ = fs::write(
+                "/proc/driver/thermal/tzbts_param",
+                "PUP_R 100000 PUP_VOLT 1800 OVER_CRITICAL_L 4397119 NTC_TABLE 7 0",
+            );
+            Self::set_perm("/proc/driver/thermal/tzbts_param", 0o644);
+        }
+
+        // Standard MediaTek charger nodes
+        Self::set_perm(&format!("{}/BN_TestMode", MTK_DIR), 0o666);
+        Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "0");
+        Self::set_perm(&format!("{}/BatteryNotify", MTK_DIR), 0o666);
+        Self::write_node(&format!("{}/BatteryNotify", MTK_DIR), "1");
+        Self::set_perm(&format!("{}/sw_jeita", MTK_DIR), 0o666);
+        Self::write_node(&format!("{}/sw_jeita", MTK_DIR), "1");
+        Self::set_perm(&format!("{}/bypass_charger", MTK_DIR), 0o666);
+        Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
+        Self::set_perm(&format!("{}/tran_charger_full", MTK_DIR), 0o666);
+        Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
+
+        // Unlock battery charging rails to normal permissions and safe values
+        for node in [
+            format!("{}/charging_enabled", BATT_DIR),
+            format!("{}/input_suspend", BATT_DIR),
+            format!("{}/store_mode", BATT_DIR),
+            format!("{}/batt_slate_mode", BATT_DIR),
+            format!("{}/device/smart_charging", BATT_DIR),
+            format!("{}/charging_limit_mode", BATT_DIR),
+            format!("{}/smart_charging_activation", BATT_DIR),
+            format!("{}/charge_control_limit_max", BATT_DIR),
+            format!("{}/charge_control_limit", BATT_DIR),
+            format!("{}/constant_charge_current_max", BATT_DIR),
+            format!("{}/constant_charge_current", BATT_DIR),
+            format!("{}/current_max", BATT_DIR),
+            format!("{}/input_current_limit", BATT_DIR),
+            format!("{}/current_max", USB_DIR),
+            format!("{}/hw_current_max", USB_DIR),
+            format!("{}/current_max", MAIN_DIR),
+            format!("{}/constant_charge_current_max", MAIN_DIR),
+            format!("{}/direct_charging", QC_DIR),
+            format!("{}/restricted_charging", QC_DIR),
+            format!("{}/restrict_cur", QC_DIR),
+        ] {
+            if Path::new(&node).exists() {
+                Self::set_perm(&node, 0o666);
+            }
+        }
+
+        Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
+        Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+        Self::write_node(&format!("{}/store_mode", BATT_DIR), "0");
+        Self::write_node(&format!("{}/batt_slate_mode", BATT_DIR), "0");
+        Self::write_node(&format!("{}/device/smart_charging", BATT_DIR), "0");
+        Self::write_node(&format!("{}/charging_limit_mode", BATT_DIR), "0");
+        Self::write_node(&format!("{}/smart_charging_activation", BATT_DIR), "0");
+        Self::write_node(&format!("{}/charge_control_limit_max", BATT_DIR), "0");
+        Self::write_node(&format!("{}/charge_control_limit", BATT_DIR), "0");
+        Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
+        Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+
+        // Safe OEM default current (3000 mA = 3,000,000 uA)
+        let def_ua = "3000000";
+        Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), def_ua);
+        Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), def_ua);
+        Self::write_node(&format!("{}/current_max", BATT_DIR), def_ua);
+        Self::write_node(&format!("{}/input_current_limit", BATT_DIR), def_ua);
+        Self::write_node(&format!("{}/current_max", USB_DIR), def_ua);
+        Self::write_node(&format!("{}/hw_current_max", USB_DIR), def_ua);
+        Self::write_node(&format!("{}/current_max", MAIN_DIR), def_ua);
+        Self::write_node(&format!("{}/constant_charge_current_max", MAIN_DIR), def_ua);
+        Self::write_node(&format!("{}/input_current", MTK_DIR), "3000");
+        Self::write_node(&format!("{}/chg1_current", MTK_DIR), "3000");
+        Self::write_node(&format!("{}/chg2_current", MTK_DIR), "3000");
+        Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "3000");
+
+        // Restore normal file permissions
+        for node in [
+            format!("{}/charging_enabled", BATT_DIR),
+            format!("{}/input_suspend", BATT_DIR),
+            format!("{}/constant_charge_current_max", BATT_DIR),
+            format!("{}/constant_charge_current", BATT_DIR),
+            format!("{}/current_max", BATT_DIR),
+            format!("{}/input_current_limit", BATT_DIR),
+        ] {
+            if Path::new(&node).exists() {
+                Self::set_perm(&node, 0o644);
+            }
+        }
+    }
+
+    /// Periodic tick called inside `DaemonRunner::run()` every cycle.
+    pub fn tick() {
+        if !Self::is_hardware_plugged() {
+            Self::handle_disconnect();
             return;
         }
 
@@ -912,8 +1142,11 @@ impl ChargingRegulator {
 
         let real_dc = Self::read_real_battery_temp_dc();
 
-        let v_clean = if volt_raw.abs() > 100_000 { volt_raw / 1000 } else { volt_raw };
-        let c_clean = if cur_raw.abs() > 100_000 { cur_raw / 1000 } else { cur_raw };
+        let v_clean = if volt_raw.abs() >= 10_000 { volt_raw / 1000 } else { volt_raw };
+        let mut c_clean = if cur_raw.abs() >= 10_000 { cur_raw / 1000 } else { cur_raw };
+        if stat == "Charging" && c_clean < 0 {
+            c_clean = c_clean.abs();
+        }
 
         let is_chg = c_clean > 50 || stat == "Charging";
 

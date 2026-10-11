@@ -256,13 +256,20 @@ impl DaemonRunner {
                 _ => Duration::from_secs(5),                // Active screen: 5 seconds
             };
 
-            // Sleep in small 500ms chunks to respond immediately to SIGTERM/SIGINT
+            // Sleep in small 500ms chunks to respond immediately to SIGTERM/SIGINT and cable disconnect
             let chunks = (sleep_duration.as_millis() / 500) as usize;
             for idx in 0..chunks {
                 if !DaemonLifecycle::is_running() {
                     break;
                 }
-                if idx > 0 && idx % 6 == 0 && std::path::Path::new("/dev/lynx_extreme_charging").exists() {
+                if !ChargingRegulator::is_hardware_plugged() {
+                    if std::path::Path::new("/dev/lynx_extreme_charging").exists()
+                        || std::path::Path::new("/dev/lynx_bypass_active").exists()
+                        || std::path::Path::new("/dev/lynx_charging_guard").exists()
+                    {
+                        ChargingRegulator::handle_disconnect();
+                    }
+                } else if idx > 0 && idx % 6 == 0 && std::path::Path::new("/dev/lynx_extreme_charging").exists() {
                     ChargingRegulator::reapply_lock();
                 }
                 sleep(Duration::from_millis(500));

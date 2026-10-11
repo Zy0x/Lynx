@@ -1,3 +1,27 @@
+# Lynx Universal [Fast Charging Sustained Current & Cable Disconnect Thermal Restoration] 7.0.0-RC13
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC13** menghadirkan pembaruan kritis pada subsistem manajemen pengisian daya cepat, mitigasi pemutusan kabel daya, dan perlindungan termal baterai (Lynx Kernel Manager v3.0.78): **Pencegahan Drop Arus Masuk Fast Charging, Deteksi Putus Kabel Instan, & Restorasi Penuh Kebijakan Termal saat Discharging**. Memperbaiki anomali pemangkasan arus oleh kernel derater saat layar mati, mengeliminasi celah di mana daemon pengisian daya tetap aktif saat kabel dilepas, serta mengembalikan seluruh thermal trip points, cooling devices, dan daemon thermal OEM ke kondisi normal guna menghentikan total kebocoran arus (*current leakage*) dan pemborosan daya saat discharging.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC13)
+
+### 1. Pencegahan Drop Arus Masuk Fast Charging (Sustained High-Current Charging)
+- **Koreksi Driver `clabcct` & `clabcct_lcmoff` (MediaTek Charging Thermal Derater)**: Memperbaiki format parameter kernel derater dengan menyertakan token boolean `policy_enable` (`"1"`). Sebelumnya, parameter pertama langsung diawali `70000` sehingga driver menginterpretasikan `70000` sebagai flag enable dan `1000` sebagai ambang suhu target 1.0°C. Hal ini menyebabkan driver memotong arus pengisian daya ke batas minimum seketika layar mati (`lcmoff`).
+- **Koreksi Logika Parameter Inversi `pca_dv2_algo/dv2_debug` (Transsion Direct Charge Pump)**: Mengoreksi pemetaan parameter temperatur baterai hangat (`tbat_warm_cur`, `tbat_very_warm_cur`, `tbat_hot_cur`) yang sebelumnya keliru diisi `0, 0, 0` pada mode extreme charging (memutus arus pompa pengisian menjadi 0 mA saat baterai menghangat). Nilai kini dikalibrasi presisi: extreme charging mempertahankan `6000, 6000, 6000` mA agar daya cepat tetap stabil tanpa drop, dan bypass charging mengunci `0, 0, 0` agar arus murni mengalir ke sistem.
+- **Koreksi Skala Satuan Arus `pcb_thermal_debug`**: Parameter ke-5 (`Tmin_curr`) pada driver PCB thermal kini menggunakan satuan mikroampere yang benar (`1000000` = 1A) alih-alih `6000` yang sebelumnya dibaca driver sebagai 6 mA.
+- **Kalibrasi Satuan Telemetri Charging (`status_json`)**: Mengeliminasi bug unsigned underflow pada `adapter_current_ma` serta menyesuaikan ambang batas konversi mikroampere `c_clean`, memastikan arus negatif discharging seperti `-27400 uA` terbaca presisi sebagai `-27 mA` bukan `-27400 mA`.
+
+### 2. Penutupan Celah Kabel Dilepas (Disconnect Detection & Instant Termination)
+- **Deteksi Putus Kabel Hardware Instan (`is_hardware_plugged`)**: Menambahkan validasi status sambungan multi-node pada daemon native (`/sys/class/power_supply/battery/status`, `usb/online`, `ac/online`, `charger/online`, dan tegangan adapter). Begitu kabel dicabut, lockfile `/dev/lynx_extreme_charging` dan `/dev/lynx_bypass_charging` langsung dihapus tanpa penundaan.
+- **Loop Polling Non-Blocking 500ms**: Loop internal `lynxd` kini mendeteksi pelepasan kabel dalam interval chunk 500ms dan segera membatalkan siklus penguncian tanpa harus menunggu tick periodik selesai.
+- **Integrasi Android Broadcast `ACTION_POWER_DISCONNECTED`**: Mendaftarkan receiver `ACTION_POWER_DISCONNECTED` pada `LynxPowerReceiver` dan manifes Android sehingga aplikasi segera memanggil `lynxd charging disconnect` saat kabel daya dilepas.
+
+### 3. Restorasi Penuh Kebijakan Termal & Eliminasi Kebocoran Arus Discharging (Zero Battery Drain)
+- **Eliminasi Kebocoran Arus Masif Saat Discharging**: Mengatasi celah kritis di mana mode extreme charging sebelumnya menaikkan semua thermal trip points ke 95°C (`95000`) dan membekukan daemon thermal OEM (`thermalloadalgod`, `joyose`, `mi_thermald`) via `SIGSTOP`. Ketika kabel dicabut, ketiadaan proses restorasi sebelumnya meninggalkan trip points di 95°C dan daemon tetap beku, menyebabkan CPU/GPU berjalan tanpa thermal scaling saat baterai digunakan normal sehingga memicu panas dan baterai cepat habis.
+- **Restorasi Otomatis Trip Points & Cooling Devices**: Saat kabel dilepas, fungsi `handle_disconnect()` seketika merestorasi seluruh `trip_point_*_temp` ke ambang batas aman normal (48°C / 70°C), mengaktifkan kembali thermal mode (`mode = enabled`), mengembalikan `cur_state` cooling devices, dan mengirimkan sinyal `SIGCONT` untuk mencairkan kembali daemon thermal OEM.
+- **Pemulihan Driver Hardware & Profil Termal Aktif**: Mengembalikan setelan `clabcct`, `dv2_debug`, dan `pcb_thermal_debug` ke profil discharging normal serta menyinkronkan kembali governor thermal sesuai profil pengguna aktif (`conservative`, `stable`, atau `gaming`).
+
+---
+
 # Lynx Universal [Subscreen Virtualization & Bidirectional Continuous Drag Stabilization] 7.0.0-RC12
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC12** menghadirkan optimasi performa tata letak UI dan penyempurnaan mesin input sentuh (Lynx Kernel Manager v3.0.77): **Virtualisasi Penuh Subhalaman Pusat Tuning & Stabilisasi Drag Dua Arah (Bidirectional Continuous Drag)**. Mengeliminasi total kendala macet (*stuck*) saat melakukan gestur geser bolak-balik (bawah-atas berulang dalam satu tarikan tanpa melepas jari), serta menghapus sisa-sisa hambatan kinetik (*false boundary halts*) antar-section kartu GPU.

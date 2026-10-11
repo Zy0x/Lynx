@@ -645,6 +645,10 @@ fn handle_charging(args: &[String]) {
         "status" => {
             println!("{}", ChargingRegulator::status_json());
         }
+        "disconnect" | "reset" => {
+            ChargingRegulator::handle_disconnect();
+            println!("[OK] Fast charging stopped, nodes reset, and thermal baseline restored.");
+        }
         "tick" => {
             ChargingRegulator::tick();
         }

@@ -3771,19 +3771,19 @@ object LynxRepository {
             # Keeps min_bat_chr_curr_limit at 4500mA so Screen-On LCM active never clamps below 4.5A.
             if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
                 chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                echo "70000 1000 200000 5 $effectiveMtkMa 4500 $effectiveMtkMa 4500" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+                echo "1 70000 1000 200000 5 $effectiveMtkMa 4500 $effectiveMtkMa 4500" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
                 chmod 444 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
             fi
             if [ -e /proc/driver/thermal/clabcct ]; then
                 chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-                echo "70000 1000 200000 5 $effectiveMtkMa 4500 $effectiveMtkMa 4500" > /proc/driver/thermal/clabcct 2>/dev/null
+                echo "70000 1000 200000 5 $effectiveMtkMa 4500 1 1 4500" > /proc/driver/thermal/clabcct 2>/dev/null
                 chmod 444 /proc/driver/thermal/clabcct 2>/dev/null
             fi
             # MediaTek 33W+ 2:1 Direct Charge Pump (pca_dv2_algo / PCA9468 / SC8551):
             if [ -e /sys/devices/platform/pca_dv2_algo/dv2_debug ]; then
                 chmod 666 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
-                echo "[101,85,88,90,0,0,0]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
-                echo "[102,85,88,90,0,0,0]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                echo "[101,85,88,90,$effectiveMtkMa,$effectiveMtkMa,$effectiveMtkMa]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                echo "[102,85,88,90,$effectiveMtkMa,$effectiveMtkMa,$effectiveMtkMa]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
             fi
             if [ -e /proc/driver/thermal/tzbts_param ]; then
                 chmod 666 /proc/driver/thermal/tzbts_param 2>/dev/null
@@ -4179,15 +4179,15 @@ object LynxRepository {
                 for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -CONT "${'$'}jpid" 2>/dev/null; done
                 for tpid in ${'$'}(pgrep -f "thermalloadalgod" 2>/dev/null); do kill -CONT "${'$'}tpid" 2>/dev/null; done
 
-                # Revert MediaTek ABCCT PID with proper 8-integer format
+                # Revert MediaTek ABCCT PID with proper format
                 if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
                     chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                    echo "42000 1000 200000 5 $targetMa 3000 $targetMa 3000" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+                    echo "1 42000 1000 200000 5 $targetMa 3000 $targetMa 3000" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
                     chmod 644 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
                 fi
                 if [ -e /proc/driver/thermal/clabcct ]; then
                     chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-                    echo "42000 1000 200000 5 $targetMa 3000 $targetMa 3000" > /proc/driver/thermal/clabcct 2>/dev/null
+                    echo "42000 1000 200000 5 $targetMa 3000 1 1 0" > /proc/driver/thermal/clabcct 2>/dev/null
                     chmod 644 /proc/driver/thermal/clabcct 2>/dev/null
                 fi
 
@@ -4309,6 +4309,11 @@ object LynxRepository {
      */
     suspend fun reapplyExtremeChargingLock(): Boolean = withContext(Dispatchers.IO) {
         try {
+            val stat = Shell.cmd("cat /sys/class/power_supply/battery/status 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            if (stat.equals("Discharging", ignoreCase = true)) {
+                handlePowerDisconnected()
+                return@withContext false
+            }
             val fastRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging lock && echo ok; fi").exec()
             if (fastRes.isSuccess && fastRes.out.any { it.trim() == "ok" }) {
                 return@withContext true
@@ -4316,12 +4321,12 @@ object LynxRepository {
             val script = """
                 if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
                     chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                    echo "70000 1000 200000 5 6000 4500 6000 4500" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
+                    echo "1 70000 1000 200000 5 6000 4500 6000 4500" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
                     chmod 444 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
                 fi
                 if [ -e /proc/driver/thermal/clabcct ]; then
                     chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-                    echo "70000 1000 200000 5 6000 4500 6000 4500" > /proc/driver/thermal/clabcct 2>/dev/null
+                    echo "70000 1000 200000 5 6000 4500 1 1 4500" > /proc/driver/thermal/clabcct 2>/dev/null
                     chmod 444 /proc/driver/thermal/clabcct 2>/dev/null
                 fi
                 for c in /sys/class/thermal/cooling_device*; do
@@ -4337,10 +4342,16 @@ object LynxRepository {
                 for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
                     if [ -e "${'$'}node" ]; then
                         chmod 666 "${'$'}node" 2>/dev/null
-                        echo "[95,6000,100,6000,6000]" > "${'$'}node" 2>/dev/null
+                        echo "[95,6000,100,6000,6000000]" > "${'$'}node" 2>/dev/null
                         chmod 444 "${'$'}node" 2>/dev/null
                     fi
                 done
+                if [ -e /sys/devices/platform/pca_dv2_algo/dv2_debug ]; then
+                    chmod 666 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                    echo "[101,85,88,90,6000,6000,6000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                    echo "[102,85,88,90,6000,6000,6000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                    chmod 444 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                fi
                 for node in /sys/devices/platform/charger/enable_sc /sys/devices/platform/charger/BatteryNotify /sys/devices/platform/charger/sw_jeita; do
                     if [ -e "${'$'}node" ]; then
                         chmod 666 "${'$'}node" 2>/dev/null
@@ -4368,6 +4379,32 @@ object LynxRepository {
             Shell.cmd(script).exec()
             true
         } catch (e: Exception) { false }
+    }
+
+    /**
+     * Reverts fast charging locks, unfreezes thermal daemons, and restores thermal baseline upon charger disconnect.
+     */
+    suspend fun handlePowerDisconnected(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Log.i(TAG, "Handling charger disconnection: reverting fast charging locks and restoring thermal baseline...")
+            val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
+            if (java.io.File(lynxdPath).canExecute()) {
+                Shell.cmd("$lynxdPath charging disconnect").exec()
+            }
+            // Restore thermal mode based on active profile
+            val prof = readCurrentProfileFast()
+            val targetThermalMode = when (prof.lowercase()) {
+                "powersave" -> "conservative"
+                "balance" -> "stable"
+                "performance", "extreme" -> "gaming"
+                else -> "stable"
+            }
+            applyThermalMode(targetThermalMode)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "handlePowerDisconnected error: ${e.message}")
+            false
+        }
     }
 
     /**

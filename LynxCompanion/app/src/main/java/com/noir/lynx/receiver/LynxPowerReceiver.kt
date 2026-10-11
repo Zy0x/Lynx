@@ -34,6 +34,18 @@ class LynxPowerReceiver : BroadcastReceiver() {
                     pendingResult.finish()
                 }
             }
+        } else if (action == Intent.ACTION_POWER_DISCONNECTED) {
+            Log.i("LynxPowerReceiver", "Charger cable unplugged! Reverting fast charging & restoring thermal baseline...")
+            val pendingResult = goAsync()
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    LynxRepository.handlePowerDisconnected()
+                } catch (e: Exception) {
+                    Log.e("LynxPowerReceiver", "Error in power disconnected receiver: ${e.message}")
+                } finally {
+                    pendingResult.finish()
+                }
+            }
         }
     }
 }
