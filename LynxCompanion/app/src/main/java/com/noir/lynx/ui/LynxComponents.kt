@@ -6351,7 +6351,36 @@ fun BatteryHealthStatsCard(
     LynxCard(
         title = "Kesehatan Baterai & Deep Sleep Guard",
         icon = Icons.Default.BatteryChargingFull,
-        accentColor = AccentCyan
+        accentColor = AccentCyan,
+        action = {
+            Surface(
+                shape = CircleShape,
+                color = AccentCyan.copy(alpha = 0.12f),
+                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.45f)),
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable { onRefresh() }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Segarkan",
+                        tint = AccentCyan,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "Segarkan",
+                        color = AccentCyan,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -6407,7 +6436,7 @@ fun BatteryHealthStatsCard(
                 shape = RoundedCornerShape(12.dp),
                 color = BgSurfaceLowest,
                 border = BorderStroke(1.dp, BorderSubtle),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Row(
@@ -6439,13 +6468,6 @@ fun BatteryHealthStatsCard(
                     }
                 }
             }
-
-            LynxActionButton(
-                text = "Segarkan Statistik Baterai & Sleep",
-                icon = Icons.Default.Refresh,
-                onClick = onRefresh,
-                accentColor = AccentCyan
-            )
         }
     }
 }

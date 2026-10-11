@@ -362,7 +362,30 @@ fun rememberFluidFlingBehavior(
     lazyState: LazyListState? = null,
     scrollState: ScrollState? = null
 ): FlingBehavior {
-    return ScrollableDefaults.flingBehavior()
+    val splineSpec = rememberSplineBasedDecay<Float>()
+    return remember(splineSpec) {
+        object : FlingBehavior {
+            override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
+                if (kotlin.math.abs(initialVelocity) < 1f) return 0f
+                val boostedVelocity = initialVelocity * 1.15f
+                var lastValue = 0f
+                var velocityLeft = boostedVelocity
+                AnimationState(
+                    initialValue = 0f,
+                    initialVelocity = boostedVelocity
+                ).animateDecay(splineSpec) {
+                    val delta = value - lastValue
+                    val consumed = scrollBy(delta)
+                    lastValue = value
+                    velocityLeft = velocity
+                    if (kotlin.math.abs(delta) > 1.2f && kotlin.math.abs(consumed) < 0.1f) {
+                        cancelAnimation()
+                    }
+                }
+                return velocityLeft
+            }
+        }
+    }
 }
 
 // ============================================================

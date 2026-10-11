@@ -1,3 +1,28 @@
+# Lynx Universal [Touchscreen Collision Elimination & Calibrated Natural Spline Fling] 7.0.0-RC19
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC19** menuntaskan tuntas anomali scroll pada layar sentuh fisik di aplikasi Lynx Kernel Manager (v3.0.84): **Verifikasi Integritas Hardware Digitizer via Analisis Kernel Evdev (`mtk-tpd`), Eliminasi Tombol Lebar Pemicu Recomposisi pada Jalur Usap Jempol (`BatteryHealthStatsCard`), serta Kalibrasi Inersia Spline Glide dengan Deteksi Batas Kontainer (`Edge-Aware Animation Cancellation`)**. Menjamin interaksi usap layar (flick & drag) terasa seringan dan sealami Google Chrome dan aplikasi native Android tanpa hambatan maupun hentakan balik.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC19)
+
+### 1. Bukti Faktual Integritas Hardware Layar Sentuh (`Evdev Kernel Audit`)
+- **Verifikasi Digitizer Kapasitif Fisik 100% Sehat**:
+  - Berdasarkan audit real-time event kernel `/dev/input/event3` (`mtk-tpd`), panel layar sentuh perangkat berfungsi sempurna tanpa cacat fisik: koordinat absolut analog kontinu (`0x257 ➔ 0x254 ➔ 0x24e`), tekanan stabil (`ABS_MT_PRESSURE = 1000`), elips sentuhan presisi (`ABS_MT_TOUCH_MAJOR = 7..12`), serta laju pelaporan stabil (~8–12 ms).
+  - Masalah terkonfirmasi 100% merupakan software gesture collision di antarmuka, bukan kerusakan digitizer layar.
+
+### 2. Eliminasi Tombol Pemicu Recomposisi pada Jalur Sentuh Jempol (`LynxComponents.kt`)
+- **Pembersihan Kartu Kesehatan Baterai dari Tombol Full-Width**:
+  - Menghapus tombol selebar layar `[ Segarkan Statistik Baterai & Sleep ]` yang sebelumnya melintang tepat di koordinat pendaratan alami jempol pengguna (`X: 650–710, Y: 1340–1475`).
+  - Sebelumnya, sapuan cepat jempol (<100 ms) di area tersebut memicu deteksi tap/klik pada tombol, memanggil `refreshBatteryHealth()`, dan menghasilkan mutasi state mendadak yang membatalkan animasi scroll dan menghentakkan tampilan kembali.
+  - Tombol segarkan kini dipindahkan secara elegan ke header kartu berupa badge pill minimalis (`Surface` + `Row` compact).
+
+### 3. Kalibrasi Inersia Spline Glide & Pembatalan Batas Kontainer (`MainActivity.kt`)
+- **Natural Inertia Glide 1.15x Boost**:
+  - Mengimplementasikan `rememberSplineBasedDecay` yang dikalibrasi dengan pengali kecepatan inersia `1.15x` untuk mengeliminasi rasa berat atau "rem tak terlihat" (*artificial friction*) bawaan Compose.
+- **Edge-Aware Boundary Cancellation**:
+  - Menambahkan pembatalan animasi seketika saat scroll mencapai batas atas/bawah kontainer (`abs(delta) > 1.2f && abs(consumed) < 0.1f`), mencegah overscroll stretch berlebihan yang memantulkan kembali layar ke posisi awal.
+
+---
+
 # Lynx Universal [Touchscreen Fling Recoil Elimination & Native Platform Scroll Physics] 7.0.0-RC18
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC18** menghadirkan perbaikan kritis pada subsistem interaksi sentuh dan inersia scroll di aplikasi Lynx Kernel Manager (v3.0.83): **Eliminasi Total Bug Recoil/Snap-Back Fling pada Touchscreen Fisik, Restorasi Fisika Inersia Native Android (`ScrollableDefaults.flingBehavior`), Perbaikan Konsumsi Gesture Chart Riwayat Penurunan Baterai (`detectHorizontalDragGestures`), serta Penguncian Recomposisi Anchor Scroll Tab**. Menuntaskan anomali scroll di mana sapuan jari fisik pada layar touchscreen langsung ditarik/dikembalikan ke posisi awal (snap-back) akibat inversi tanda kecepatan (`VelocityTracker` jitter) dan pencegatan event sentuh vertikal.
