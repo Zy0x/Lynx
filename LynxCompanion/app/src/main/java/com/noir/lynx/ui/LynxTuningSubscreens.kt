@@ -1782,16 +1782,21 @@ fun TuningChargingCategory(
                 // Active Mode Status Pill
                 val isPlugged = battDetails?.isPlugged == true
                 val isCharging = battDetails?.isCharging == true
-                val isExtreme = state.charging.extremeChargingEnabled && isPlugged
-                val isOvernightLatched = isPlugged && (battDetails?.isOvernightBypassLatched == true || (battDetails?.level ?: 0) >= 100)
-                val isBypassActive = isPlugged && state.charging.bypassEnabled && ((battDetails?.level ?: 0) >= state.charging.maxBatteryPercent || isOvernightLatched)
-                val isNightGentle = isPlugged && (battDetails?.isNightGentleActive == true || (state.charging.nightSleepGuardEnabled && isCharging && java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY).let { it >= 23 || it < 6 })) && !isOvernightLatched && !isBypassActive
-                val isSmartTapering = isPlugged && isCharging && battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled
+                val curLevel = battDetails?.level ?: 0
+                val smartLimit = state.charging.maxBatteryPercent.coerceIn(50, 100)
+                val isOvernightLatched = isPlugged && (battDetails?.isOvernightBypassLatched == true || curLevel >= 100)
+                val isLimitLatched = isPlugged && smartLimit < 100 && (battDetails?.isSmartLimitLatched == true || curLevel >= smartLimit || (battDetails?.isBypassActive == true && curLevel >= (smartLimit - 2)))
+                val isManualBypass = isPlugged && state.charging.bypassEnabled
+                val isBypassActive = isLimitLatched || isOvernightLatched || isManualBypass || (isPlugged && battDetails?.isBypassActive == true)
+                val isNightGentle = isPlugged && (battDetails?.isNightGentleActive == true || (state.charging.nightSleepGuardEnabled && isCharging && java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY).let { it >= 23 || it < 6 })) && !isBypassActive
+                val isSmartTapering = isPlugged && isCharging && battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled && !isBypassActive
+                val isExtreme = state.charging.extremeChargingEnabled && isPlugged && !isBypassActive
 
                 val modePillLabel = when {
                     !isPlugged -> "Terputus • Menggunakan Daya Baterai"
-                    isOvernightLatched -> "Baterai Penuh • Daya Beralih ke Sistem"
-                    isBypassActive -> "Daya Langsung Aktif • Baterai Dilewati"
+                    isOvernightLatched -> "Baterai Penuh 100% • Arus Diputus (AutoCut Aktif)"
+                    isLimitLatched -> "Batas Cerdas ${smartLimit}% Tercapai (Baterai ${curLevel}%) • Arus Diputus (Bypass Aktif)"
+                    isManualBypass -> "Bypass Manual Aktif • Baterai Dilewati"
                     isNightGentle -> "Pengisian Sejuk Malam Hari (1.5A • Mode Dingin)"
                     isSmartTapering -> "Pendinginan Aktif • Arus Diturunkan (>90%)"
                     isExtreme -> if (state.charging.isUnconstrainedMaxHw) "Pengisian Cepat Aktif (Kecepatan Maksimal)" else "Pengisian Cepat Aktif (${state.charging.limitCurrentMa} mA)"
@@ -1799,7 +1804,7 @@ fun TuningChargingCategory(
                 }
                 val modePillColor = when {
                     !isPlugged -> TextSecondary
-                    isOvernightLatched || isBypassActive -> AccentCyan
+                    isOvernightLatched || isLimitLatched || isManualBypass -> AccentCyan
                     isNightGentle -> AccentPurple
                     isSmartTapering -> AccentGreen
                     isExtreme -> AccentCyan
@@ -1819,7 +1824,7 @@ fun TuningChargingCategory(
                         Icon(
                             imageVector = when {
                                 !isPlugged -> Icons.Default.BatteryStd
-                                isOvernightLatched || isBypassActive -> Icons.Default.Shield
+                                isOvernightLatched || isLimitLatched || isManualBypass -> Icons.Default.Shield
                                 isNightGentle -> Icons.Default.Bedtime
                                 isExtreme -> Icons.Default.Bolt
                                 else -> Icons.Default.BatteryChargingFull
@@ -2118,21 +2123,25 @@ fun TuningChargingCategory(
                     onValueChange = {
                         isInteractingSafety = true
                         lastSafetyInteraction = System.currentTimeMillis()
-                        maxBatteryValue = it
+                        maxBatteryValue = kotlin.math.round(it)
                     },
                     onValueChangeFinished = {
                         isInteractingSafety = false
                         lastSafetyInteraction = System.currentTimeMillis()
-                        viewModel.setMaxBatteryPercent(maxBatteryValue.toInt())
+                        viewModel.setMaxBatteryPercent(kotlin.math.round(maxBatteryValue).toInt())
                     },
-                    valueRange = 70f..100f,
-                    steps = 5,
-                    displayValue = if (maxBatteryValue >= 99.5f) "100% (Penuh & AutoCut)" else "${maxBatteryValue.toInt()}% (Bypass Langsung)",
+                    valueRange = 50f..100f,
+                    steps = 49,
+                    displayValue = if (maxBatteryValue >= 99.5f) "100% (Penuh & AutoCut)" else "${kotlin.math.round(maxBatteryValue).toInt()}% (Bypass Langsung)",
+                    formatDisplay = { v ->
+                        val p = kotlin.math.round(v).toInt()
+                        if (p >= 100) "100% (Penuh & AutoCut)" else "$p% (Bypass Langsung)"
+                    },
                     accentColor = AccentGreen
                 )
 
                 Text(
-                    text = "Menghentikan pengisian sel baterai pada persentase pilihan Anda dan mengalirkan listrik langsung ke mesin ponsel. Dilengkapi buffer 3% untuk mencegah siklus colok-cabut berulang.",
+                    text = "Menghentikan pengisian sel baterai pada persentase pilihan Anda (50% - 100%) dan mengalirkan listrik langsung ke mesin ponsel. Jika baterai saat ini melebihi batas yang dipilih (misal batas 90% tapi baterai 92%), sistem seketika memutus arus ke baterai (0mA) dan mengaktifkan bypass hardware. Dilengkapi buffer histeresis 2% untuk mencegah siklus colok-cabut berulang.",
                     style = MaterialTheme.typography.bodySmall,
                     fontSize = 11.sp,
                     color = TextSecondary,

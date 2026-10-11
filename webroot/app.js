@@ -120,6 +120,24 @@ function renderUI(state) {
         bypassToggle.checked = !!(state.charging && state.charging.bypass_enabled);
     }
 
+    const smartLimitSlider = document.getElementById('smart-limit-slider');
+    const smartLimitVal = document.getElementById('smart-limit-val');
+    if (smartLimitSlider && !smartLimitSlider.matches(':active')) {
+        const lim = (state.charging && state.charging.max_battery_percent != null) ? state.charging.max_battery_percent : 100;
+        smartLimitSlider.value = lim;
+        if (smartLimitVal) smartLimitVal.textContent = lim >= 100 ? '100% (Penuh & AutoCut)' : `${lim}% (Bypass Langsung)`;
+    }
+
+    const nightGuardToggle = document.getElementById('night-guard-toggle');
+    if (nightGuardToggle && !nightGuardToggle.matches(':focus')) {
+        nightGuardToggle.checked = !!(state.charging && state.charging.night_sleep_guard_enabled);
+    }
+
+    const smartTaperingToggle = document.getElementById('smart-tapering-toggle');
+    if (smartTaperingToggle && !smartTaperingToggle.matches(':focus')) {
+        smartTaperingToggle.checked = !!(state.charging && state.charging.smart_tapering_enabled);
+    }
+
     const tempSlider = document.getElementById('temp-cutoff-slider');
     const tempVal = document.getElementById('temp-cutoff-val');
     if (tempSlider && !tempSlider.matches(':active')) {
@@ -211,10 +229,14 @@ const LYNXD = "/data/adb/modules/Lynx/system/bin/lynxd";
 async function updateStateKey(key, value, isString = false) {
     isUpdating = true;
     logToConsole(`Updating ${key} -> ${value}...`);
-    const cmd = `${LYNXD} state set "${key}" "${value}" ${isString ? 'str' : 'val'}`;
+    const type = typeof value === 'boolean' ? 'bool' : isString ? 'str' : 'val';
+    const cmd = `${LYNXD} state set "${key}" "${value}" ${type}`;
     const res = await execCmd(cmd);
     if (res.errno === 0) {
         logToConsole(`Set ${key} = ${value} success`, 'success');
+        if (key.startsWith('charging.')) {
+            await execCmd(`${LYNXD} charging apply >/dev/null 2>&1`);
+        }
     } else {
         logToConsole(`Failed setting ${key}: ${res.stderr}`, 'error');
     }

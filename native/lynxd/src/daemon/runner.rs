@@ -269,8 +269,8 @@ impl DaemonRunner {
                     {
                         ChargingRegulator::handle_disconnect();
                     }
-                } else if idx > 0 && idx % 6 == 0 && std::path::Path::new("/dev/lynx_extreme_charging").exists() {
-                    ChargingRegulator::reapply_lock();
+                } else if idx > 0 && idx % 6 == 0 {
+                    ChargingRegulator::tick();
                 }
                 sleep(Duration::from_millis(500));
             }

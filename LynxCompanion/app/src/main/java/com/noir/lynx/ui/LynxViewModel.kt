@@ -1598,17 +1598,16 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             LynxRepository.setMaxBatteryPercent(percent)
             val chg = _uiState.value.state.charging
-            if (chg.bypassEnabled) {
-                LynxRepository.applyChargingMode(
-                    bypass = true,
-                    extremeCharging = chg.extremeChargingEnabled,
-                    limitMa = chg.limitCurrentMa,
-                    highTargetPercent = chg.highCurrentTargetPercent,
-                    lockoutBypass = chg.thermalLockoutBypassEnabled,
-                    tempGuard = chg.emergencyTempGuardEnabled,
-                    maxBatteryPercent = percent
-                )
-            }
+            LynxRepository.applyChargingMode(
+                bypass = chg.bypassEnabled,
+                extremeCharging = chg.extremeChargingEnabled,
+                limitMa = chg.limitCurrentMa,
+                highTargetPercent = chg.highCurrentTargetPercent,
+                lockoutBypass = chg.thermalLockoutBypassEnabled,
+                tempGuard = chg.emergencyTempGuardEnabled,
+                maxBatteryPercent = percent,
+                isUnconstrainedMaxHw = chg.isUnconstrainedMaxHw
+            )
         }
     }
 

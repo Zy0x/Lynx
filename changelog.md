@@ -1,3 +1,36 @@
+# Lynx Universal [Smart Battery Limit 1% Granularity, Instant Over-SOC Bypass, & 8-Tier Arbiter] 7.0.0-RC14
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC14** menghadirkan pembaruan komprehensif pada subsistem kontrol pengisian daya cerdas dan mitigasi konflik fitur (Lynx Kernel Manager v3.0.79): **Granularitas 1% Batas Pengisian Cerdas, Penanganan Instan Kondisi Baterai Melebihi Batas (Over-SOC Instant Bypass), dan Arbitrase Deterministik 8-Tingkat Bebas Race Condition**. Menyediakan kontrol penuh persentase baterai 50% hingga 100% per kelipatan 1%, mengeksekusi pemutusan arus seketika (0 mA) ke sel baterai saat level baterai sudah berada di atas batas yang dipilih, serta menyelaraskan secara harmonis prioritas antara Smart Tapering 90%, Pengisian Sejuk Malam Hari (Night Sleep Guard), AutoCut 100%, dan Bypass Hardware.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC14)
+
+### 1. Granularitas 1% Batas Pengisian Cerdas (1% Fine Step Precision)
+- **Rentang Luas & Fleksibel (50% - 100%)**: Menggantikan slider lama yang kaku (70%–100% per kelipatan 5%) dengan rentang penuh 50% hingga 100% berpeningkatan granular per 1% (49 steps presisi).
+- **Format Label Dinamis**: Menampilkan label deskriptif `100% (Penuh & AutoCut)` saat mencapai 100%, dan `${target}% (Bypass Langsung)` pada nilai 50%–99%.
+- **Paritas Penuh Dashboard WebUI**: Menyediakan kontrol slider batas pengisian cerdas (50%–100%, step 1%), toggle Night Sleep Guard, dan Smart Tapering pada antarmuka WebUI (`webroot/index.html` dan `webroot/app.js`) dengan sinkronisasi instan via `lynxd charging apply`.
+
+### 2. Penanganan Cerdas Baterai Melebihi Batas (Instant Over-SOC Bypass Latch)
+- **Mitigasi Kondisi Over-SOC Real-Time**: Ketika pengguna menetapkan batas (misal 90%) sementara kondisi baterai saat ini sudah berada di atas batas tersebut (misal 92%), sistem native `lynxd` dan UI seketika mengaktifkan hardware bypass. Arus pengisian sel baterai diputus total menjadi 0 mA (`sc_ibat_limit=0`, `constant_charge_current_max=0`, `chg1_current=0`), dan daya dialihkan 100% langsung ke motherboard ponsel.
+- **Istirahat Sel Baterai**: Baterai tidak akan terus dipaksa mengisi ke level lebih tinggi, mencegah stres elektroda dan pembengkakan baterai.
+- **Buffer Histeresis 2%**: Mode bypass dipertahankan terkunci (*latched*) hingga level baterai turun di bawah `smart_limit - 2` (misal 88%), mencegah siklus putus-sambung berulang (*flapping*) akibat fluktuasi beban.
+- **Indikator Status Pill UI Transparan**: Menampilkan status real-time: `Batas Cerdas [Target]% Tercapai (Baterai [Level]%) • Arus Diputus (Bypass Aktif)` dengan ikon perisai (*Shield*) dan aksen warna cyan.
+
+### 3. Arbitrase Deterministik 8-Tingkat & Eliminasi Race Condition
+- **Struktur Prioritas Hirarkis Tanpa Tabrakan**: Mengorganisasikan eksekusi pengisian daya ke dalam hierarki deterministik 8-tingkat:
+  - **Tier 0**: Disconnected / Discharging Guard (zero cable check).
+  - **Tier 1**: Emergency Physical Thermal Guard (sel >= 49.0°C membatasi arus ke 750 mA).
+  - **Tier 2**: Manual User Bypass Toggle (prioritas manual tertinggi).
+  - **Tier 3**: AutoCut 100% Full (bypass saat baterai terisi penuh).
+  - **Tier 4**: Batas Pengisian Cerdas 50%–99% (bypass instan saat SOC >= target).
+  - **Tier 5**: Pengisian Sejuk Malam Hari (23:00–06:00 arus dibatasi 1.5A agar suhu sel baterai <30°C).
+  - **Tier 6**: Smart Tapering (>90% arus diturunkan ke 1.5A / 750mA menjelang target).
+  - **Tier 7**: Extreme Fast Charging (6000 mA unthrottled jika mode extreme aktif).
+  - **Tier 8**: Normal Regulated Charging (arus normal sesuai pengaturan).
+- **Proteksi False Disconnect pada Hardware Bypass**: Memperbaiki fungsi `is_hardware_plugged()` dengan memverifikasi rel fisik adaptor (`usb/online`, `ac/online`, `charger/online`, dan `adpv >= 3500mV`) sebelum memeriksa status baterai. Ketika hardware bypass memutus arus ke sel, status baterai kernel yang berubah menjadi `"Discharging"` tidak akan lagi memicu false disconnect yang sebelumnya mematikan mode bypass.
+- **Daemon Watchdog Tick Terpadu**: Runner daemon `lynxd` mengevaluasi `ChargingRegulator::tick()` secara berkala setiap 3 detik, menjamin seluruh kondisi (waktu, persentase baterai, batas termal) terpantau dan diterapkan secara berkelanjutan.
+
+---
+
 # Lynx Universal [Fast Charging Sustained Current & Cable Disconnect Thermal Restoration] 7.0.0-RC13
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC13** menghadirkan pembaruan kritis pada subsistem manajemen pengisian daya cepat, mitigasi pemutusan kabel daya, dan perlindungan termal baterai (Lynx Kernel Manager v3.0.78): **Pencegahan Drop Arus Masuk Fast Charging, Deteksi Putus Kabel Instan, & Restorasi Penuh Kebijakan Termal saat Discharging**. Memperbaiki anomali pemangkasan arus oleh kernel derater saat layar mati, mengeliminasi celah di mana daemon pengisian daya tetap aktif saat kabel dilepas, serta mengembalikan seluruh thermal trip points, cooling devices, dan daemon thermal OEM ke kondisi normal guna menghentikan total kebocoran arus (*current leakage*) dan pemborosan daya saat discharging.

@@ -278,6 +278,8 @@ data class BatteryDetails(
     val isPlugged: Boolean = false,
     val isEmergencyGuardActive: Boolean = false,
     val isOvernightBypassLatched: Boolean = false,
+    val isSmartLimitLatched: Boolean = false,
+    val isBypassActive: Boolean = false,
     val isSmartTaperingActive: Boolean = false,
     val isNightGentleActive: Boolean = false,
 ) {

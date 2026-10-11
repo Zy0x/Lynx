@@ -900,6 +900,8 @@ object LynxRepository {
             isPlugged = isPlugged,
             isEmergencyGuardActive = existingBatt?.isEmergencyGuardActive ?: false,
             isOvernightBypassLatched = existingBatt?.isOvernightBypassLatched ?: false,
+            isSmartLimitLatched = existingBatt?.isSmartLimitLatched ?: false,
+            isBypassActive = existingBatt?.isBypassActive ?: false,
             isSmartTaperingActive = existingBatt?.isSmartTaperingActive ?: false,
             isNightGentleActive = existingBatt?.isNightGentleActive ?: false,
         )
@@ -3659,6 +3661,8 @@ object LynxRepository {
     suspend fun setMaxBatteryPercent(percent: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             writeStateKey("charging.max_battery_percent", percent.toString(), "val")
+            // Apply charging mode immediately via lynxd deterministic arbiter
+            Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging apply 2>/dev/null; fi").exec()
             // Try direct sysfs node if available
             Shell.cmd("""
                 echo $percent > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
@@ -4309,14 +4313,14 @@ object LynxRepository {
      */
     suspend fun reapplyExtremeChargingLock(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val stat = Shell.cmd("cat /sys/class/power_supply/battery/status 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
-            if (stat.equals("Discharging", ignoreCase = true)) {
-                handlePowerDisconnected()
-                return@withContext false
-            }
-            val fastRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging lock && echo ok; fi").exec()
+            val fastRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging tick && echo ok; fi").exec()
             if (fastRes.isSuccess && fastRes.out.any { it.trim() == "ok" }) {
                 return@withContext true
+            }
+            val isPlugged = Shell.cmd("uon=\$(cat /sys/class/power_supply/usb/online /sys/class/power_supply/ac/online /sys/class/power_supply/charger/online 2>/dev/null | grep -m1 1); [ -n \"\$uon\" ] && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
+            if (!isPlugged) {
+                handlePowerDisconnected()
+                return@withContext false
             }
             val script = """
                 if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
@@ -6923,6 +6927,7 @@ object LynxRepository {
                 [ -z "${'$'}rtmp" ] || [ "${'$'}rtmp" -le 0 ] 2>/dev/null && rtmp=${'$'}temp
                 grd=${'$'}([ -f /dev/lynx_charging_guard ] && echo 1 || echo 0)
                 cst=${'$'}(cat /dev/lynx_charging_state 2>/dev/null || echo "")
+                bpa=${'$'}([ -f /dev/lynx_bypass_active ] && echo 1 || echo 0)
 
                 # Multi-vendor PMIC detection
                 pmic_sig=""
@@ -6958,7 +6963,7 @@ object LynxRepository {
                 rcbl=${'$'}(cat /sys/devices/platform/battery/FG_meter_resistance 2>/dev/null || cat /sys/class/power_supply/battery/resistance 2>/dev/null || cat /sys/class/power_supply/bms/resistance 2>/dev/null || echo 0)
                 spftmp=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null || echo 0)
 
-                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst|${'$'}pmic_sig|${'$'}sec_sig|${'$'}vooc_sig|${'$'}qc_sig|${'$'}mi_sig|${'$'}pd_sig|${'$'}ptyp|${'$'}rcbl|${'$'}spftmp|${'$'}is_plugged"
+                echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst|${'$'}pmic_sig|${'$'}sec_sig|${'$'}vooc_sig|${'$'}qc_sig|${'$'}mi_sig|${'$'}pd_sig|${'$'}ptyp|${'$'}rcbl|${'$'}spftmp|${'$'}is_plugged|${'$'}bpa"
 
                 if [ "$deepFlag" = "1" ]; then
                     echo "---ADC---"
@@ -7066,15 +7071,18 @@ object LynxRepository {
                 }
 
                 val isPlugged = parts.getOrNull(24)?.trim() == "1"
+                val rawBpa = parts.getOrNull(25)?.trim() == "1"
+                val isBypassActive = rawBpa || chgState.contains("bypass")
                 val isCharging = isPlugged && (curMa > 50 || stat.equals("Charging", ignoreCase = true))
                 val isOvernightLatched = isPlugged && (cap >= 100 || stat.equals("Full", ignoreCase = true) || chgState.contains("bypass_100"))
+                val isLimitLatched = isPlugged && (chgState.contains("bypass_limit") || (isBypassActive && !isOvernightLatched && !chgState.contains("bypass_forced")))
                 val isTapering = isPlugged && (chgState.contains("tapering") || (cap in 90..99 && isCharging))
 
                 val cal = java.util.Calendar.getInstance()
                 val hr = cal.get(java.util.Calendar.HOUR_OF_DAY)
                 val isNightHour = (hr >= 23 || hr < 6)
                 val isNightPref = appContext?.getSharedPreferences("lynx_charging_prefs", Context.MODE_PRIVATE)?.getBoolean("night_sleep_guard", false) == true
-                val isNightGentle = isPlugged && (chgState.contains("night_gentle") || (isNightPref && isNightHour && isCharging && !isOvernightLatched))
+                val isNightGentle = isPlugged && (chgState.contains("night_gentle") || (isNightPref && isNightHour && isCharging && !isOvernightLatched && !isLimitLatched))
 
                 val watt = if (isCharging && curMa > 0 && voltMv > 0) {
                     (curMa.toFloat() * voltMv.toFloat()) / 1_000_000f
@@ -7153,6 +7161,8 @@ object LynxRepository {
                     isPlugged = isPlugged,
                     isEmergencyGuardActive = isGuardActive,
                     isOvernightBypassLatched = isOvernightLatched,
+                    isSmartLimitLatched = isLimitLatched,
+                    isBypassActive = isBypassActive,
                     isSmartTaperingActive = isTapering,
                     isNightGentleActive = isNightGentle
                 )
@@ -7317,8 +7327,10 @@ object LynxRepository {
 
             // Status text (concise to fit nicely in pill)
             val isCharging = currentDetails?.isCharging == true
-            val isBypass = currentDetails?.status?.contains("bypass", ignoreCase = true) == true ||
+            val isBypass = currentDetails?.isBypassActive == true ||
+                           currentDetails?.isSmartLimitLatched == true ||
                            currentDetails?.isOvernightBypassLatched == true ||
+                           currentDetails?.status?.contains("bypass", ignoreCase = true) == true ||
                            (isCharging && (currentDetails?.currentMa ?: -999) in -50..50)
             val statusText = when {
                 isBypass -> "Hardware Bypass (0mA)"

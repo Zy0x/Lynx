@@ -572,6 +572,32 @@ impl ChargingRegulator {
         }
 
         let cfg = ConfigStore::load_charging_config();
+        let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
+
+        // Conflict guard: Never force 6000mA if bypass, autocut, smart limit, night guard, or tapering is active!
+        if cfg.bypass_enabled
+            || Path::new("/dev/lynx_bypass_active").exists()
+            || cur_cap >= 100
+            || (cfg.max_battery_percent > 0 && cfg.max_battery_percent < 100 && cur_cap >= cfg.max_battery_percent as u32)
+        {
+            Self::apply_from_config();
+            return;
+        }
+
+        let is_night_time = {
+            let h = Self::get_local_hour();
+            h >= 23 || h < 6
+        };
+        if cfg.night_sleep_guard_enabled && is_night_time {
+            Self::apply_from_config();
+            return;
+        }
+
+        if cfg.smart_tapering_enabled && cur_cap >= 90 {
+            Self::apply_from_config();
+            return;
+        }
+
         let mtk_ma = cfg.limit_current_ma.max(3500).min(6000);
         let mtk_ma_str = mtk_ma.to_string();
         let target_ua_str = ((mtk_ma as u64) * 1000).to_string();
@@ -754,47 +780,81 @@ impl ChargingRegulator {
         batt_tz_dc.unwrap_or(320)
     }
 
+    #[inline]
+    pub fn get_local_hour() -> u32 {
+        #[repr(C)]
+        struct Tm {
+            tm_sec: i32,
+            tm_min: i32,
+            tm_hour: i32,
+            tm_mday: i32,
+            tm_mon: i32,
+            tm_year: i32,
+            tm_wday: i32,
+            tm_yday: i32,
+            tm_isdst: i32,
+            tm_gmtoff: i64,
+            tm_zone: *const u8,
+        }
+        extern "C" {
+            fn time(t: *mut i64) -> i64;
+            fn localtime_r(timep: *const i64, result: *mut Tm) -> *mut Tm;
+        }
+        let mut t: i64 = 0;
+        unsafe {
+            time(&mut t);
+            let mut tm: Tm = std::mem::zeroed();
+            localtime_r(&t, &mut tm);
+            tm.tm_hour.max(0) as u32
+        }
+    }
+
     /// Evaluates `config.json` and live battery state, applying the appropriate charging mode immediately.
     pub fn apply_from_config() {
+        if !Self::is_hardware_plugged() {
+            Self::handle_disconnect();
+            return;
+        }
+
         let cfg = ConfigStore::load_charging_config();
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
         let cur_stat = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_else(|| "Unknown".to_string());
         let real_dc = Self::read_real_battery_temp_dc();
 
-        // 1. Emergency Thermal Guard (>= 49.0°C physical battery cell)
+        // Tier 1: Emergency Thermal Guard (>= 49.0°C physical battery cell)
         if cfg.emergency_temp_guard_enabled && real_dc >= 490 {
             let _ = fs::write("/dev/lynx_charging_guard", format!("guard_active=true temp={}\n", real_dc));
             let _ = fs::remove_file("/dev/lynx_extreme_charging");
             Self::restore_battery_temperature();
-            Self::apply_regulated_charging(1500);
+            Self::apply_regulated_charging(750);
             return;
         } else if real_dc <= 430 {
             let _ = fs::remove_file("/dev/lynx_charging_guard");
         }
 
-        // 2. Immediate User-Forced Bypass Toggle
+        // Tier 2: Immediate User-Forced Bypass Toggle
         if cfg.bypass_enabled {
             let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_forced cap={}\n", cur_cap));
             Self::apply_bypass_charging();
             return;
         }
 
-        // 3. AutoCut when 100% Full (Overnight / Safe Full AutoCut)
+        // Tier 3: AutoCut when 100% Full (Overnight / Safe Full AutoCut)
         if cur_cap >= 100 || cur_stat == "Full" {
             let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_100 cap={}\n", cur_cap));
             Self::apply_bypass_charging();
             return;
         }
 
-        // 4. Smart Battery Limit (Batas Pengisian Cerdas, e.g. 70% - 99%)
-        // With 3% hysteresis buffer to prevent continuous cycling
+        // Tier 4: Batas Pengisian Cerdas (Smart Battery Limit: 50% - 99%)
+        // With 2% hysteresis buffer to prevent continuous flapping
         let smart_limit = cfg.max_battery_percent.clamp(0, 100) as u32;
         if smart_limit > 0 && smart_limit < 100 {
             let is_currently_bypassed = Path::new("/dev/lynx_bypass_active").exists();
-            let lower_hysteresis_bound = smart_limit.saturating_sub(3);
+            let lower_hysteresis_bound = smart_limit.saturating_sub(2);
 
             if is_currently_bypassed {
-                // Keep bypass active until battery drops below (limit - 3)%
+                // Maintain bypass as long as capacity is at or above lower bound (limit - 2)%
                 if cur_cap >= lower_hysteresis_bound {
                     let _ = fs::write(
                         "/dev/lynx_charging_state",
@@ -802,9 +862,13 @@ impl ChargingRegulator {
                     );
                     Self::apply_bypass_charging();
                     return;
+                } else {
+                    // Battery dropped below lower bound: drop bypass lock so charging can top it back up to limit
+                    let _ = fs::remove_file("/dev/lynx_bypass_active");
+                    Self::unlock_extreme_nodes();
                 }
             } else if cur_cap >= smart_limit {
-                // Trigger bypass as soon as battery hits smart limit
+                // Battery is at or above limit (e.g. limit=90, battery=92): immediately engage hardware bypass!
                 let _ = fs::write(
                     "/dev/lynx_charging_state",
                     format!("state=bypass_limit cap={} limit={}\n", cur_cap, smart_limit),
@@ -814,7 +878,19 @@ impl ChargingRegulator {
             }
         }
 
-        // 4. Smart Tapering (>= 90%)
+        // Tier 5: Pengisian Sejuk Malam Hari (Overnight Gentle Charging: 23:00 - 06:00, 1500mA)
+        let is_night_time = {
+            let h = Self::get_local_hour();
+            h >= 23 || h < 6
+        };
+        if cfg.night_sleep_guard_enabled && is_night_time {
+            let _ = fs::write("/dev/lynx_charging_state", format!("state=night_gentle cap={}\n", cur_cap));
+            Self::restore_battery_temperature();
+            Self::apply_regulated_charging(1500);
+            return;
+        }
+
+        // Tier 6: Smart Tapering (High SOC Current Tapering: >= 90% and < smart_limit)
         if cfg.smart_tapering_enabled && cur_cap >= 90 {
             Self::restore_battery_temperature();
             if cur_cap >= 95 {
@@ -827,7 +903,7 @@ impl ChargingRegulator {
             return;
         }
 
-        // 5. Extreme / Super Fast Charging or High Current (>= 3000mA)
+        // Tier 7: Extreme / Super Fast Charging or High Current (>= 3000mA)
         let active_prof = Self::read_node("/data/adb/lynx/active_profile").unwrap_or_else(|| "balance".to_string());
         if cfg.extreme_charging_enabled || active_prof == "extreme" || cfg.limit_current_ma >= 3000 {
             let effective_ma = if cfg.limit_current_ma >= 3000 {
@@ -842,17 +918,14 @@ impl ChargingRegulator {
                 effective_ma,
             );
         } else {
+            // Tier 8: Normal Regulated Charging
             let _ = fs::write("/dev/lynx_charging_state", format!("state=regulated cap={}\n", cur_cap));
             Self::apply_regulated_charging(cfg.limit_current_ma.max(500) as u32);
         }
     }
 
     pub fn is_hardware_plugged() -> bool {
-        let batt_status = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_default();
-        if batt_status == "Discharging" {
-            return false;
-        }
-
+        // 1. Primary check: USB, AC, or Charger subsystem reporting online
         let usb_online = Self::read_node(&format!("{}/online", USB_DIR)).unwrap_or_default();
         let ac_online = Self::read_node(&format!("{}/ac/online", PS_DIR)).unwrap_or_default();
         let chg_online = Self::read_node(&format!("{}/charger/online", PS_DIR)).unwrap_or_default();
@@ -861,17 +934,27 @@ impl ChargingRegulator {
             return true;
         }
 
+        // 2. Hardware ADC / PMIC adapter voltage (> 3500 mV indicates physical adapter is connected)
         let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
             .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
             .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+            .or_else(|| Self::read_i64(&format!("{}/charger_voltage", BATT_DIR)))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", MAIN_DIR)))
             .unwrap_or(0);
         let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
 
-        if adpv_clean >= 3500 && (batt_status == "Charging" || batt_status == "Not charging" || batt_status == "Full") {
+        if adpv_clean >= 3500 {
             return true;
         }
 
-        batt_status == "Charging" || batt_status == "Full" || batt_status == "Not charging"
+        // 3. Battery status verification
+        let batt_status = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_default();
+        if batt_status == "Charging" || batt_status == "Full" || batt_status == "Not charging" {
+            return true;
+        }
+
+        // Cable physically unplugged: No online rails, no adapter voltage, and battery discharging
+        false
     }
 
     pub fn handle_disconnect() {
@@ -1125,6 +1208,9 @@ impl ChargingRegulator {
             .or_else(|| Self::read_i64(&format!("{}/input_current_now", USB_DIR)))
             .or_else(|| Self::read_i64(&format!("{}/current_now", MAIN_DIR)))
             .unwrap_or(0);
+        if ibus_val > 4_000_000_000 {
+            ibus_val = (ibus_val as u32 as i32) as i64;
+        }
         if ibus_val > 100_000 {
             ibus_val /= 1000;
         }

@@ -340,6 +340,32 @@
 
                 <div class="control-group" style="margin-top: 10px;">
                     <div class="control-label">
+                        <span>Batas Pengisian Cerdas</span>
+                        <strong id="smart-limit-val">100% (Penuh & AutoCut)</strong>
+                    </div>
+                    <input type="range" id="smart-limit-slider" min="50" max="100" step="1" value="100"
+                           oninput="document.getElementById('smart-limit-val').textContent = this.value >= 100 ? '100% (Penuh & AutoCut)' : this.value + '% (Bypass Langsung)'"
+                           onchange="updateStateKey('charging.max_battery_percent', parseInt(this.value))">
+                </div>
+
+                <div class="switch-row" style="margin-top: 10px;">
+                    <span class="switch-label">Pengisian Sejuk Malam Hari (23:00 - 06:00)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="night-guard-toggle" onchange="updateStateKey('charging.night_sleep_guard_enabled', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="switch-row" style="margin-top: 10px;">
+                    <span class="switch-label">Pendinginan Otomatis (>90%)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="smart-tapering-toggle" onchange="updateStateKey('charging.smart_tapering_enabled', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="control-group" style="margin-top: 10px;">
+                    <div class="control-label">
                         <span>Batas Suhu Thermal AutoCut</span>
                         <strong id="temp-cutoff-val">45°C</strong>
                     </div>
