@@ -1,3 +1,31 @@
+# Lynx Universal [Zero-Hardcode Battery Information & Unified Cycle Runtime Breakdown] 7.0.0-RC17
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC17** menghadirkan perombakan total pada halaman **Informasi Baterai** di aplikasi Lynx Kernel Manager (v3.0.82): **100% Data Sensor & Kernel Asli Tanpa Hardcode/Sintetis, Penggabungan Total Waktu & Proporsi Siklus Berjalan (Awal Dilepas ➔ Sekarang: Layar Aktif, Deep Sleep, dan Siaga Bangun), Riwayat Penurunan Per-Persen Asli (`Discharge Step History`), serta Penyederhanaan Tata Letak Menjadi 3 Kartu Presisi**. Mengeliminasi seluruh angka estimasi statis, grafik sintetis, maupun daftar aplikasi fallback tiruan, sehingga seluruh metrik yang ditampilkan murni mencerminkan data aktual dari `dumpsys batterystats --charged` dan node `/sys/class/power_supply/battery/`.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC17)
+
+### 1. Eliminasi Total Nilai Hardcode & Data Sintetis (`LynxRepository.kt` & `LynxModels.kt`)
+- **Zero-Hardcode Policy**:
+  - Menghapus seluruh nilai default atau fallback statis pada statistik baterai (seperti laju terkuras statis `~10.8% / jam`, siklus fallback `868`, suhu offset buatan `+3.2°C` / `+1.1°C`, kurva riwayat sintetis `getOrGenerateDrainHistory`, serta daftar aplikasi fallback).
+  - Seluruh metrik kini dibaca langsung dari `dumpsys batterystats --charged`, `dumpsys battery`, dan node sysfs perangkat (`/sys/devices/platform/odm/odm:tran_battery/BATTERY_QMAX`, `charge_full`, `charge_counter`, `cycle_count`, `voltage_now`, `current_now`, `current_avg`, `temp`).
+
+### 2. Penggabungan Total Waktu & Proporsi Siklus Berjalan (`Awal ➔ Sekarang`)
+- **Rincian Siklus Terpadu 100% Akurat**:
+  - Menampilkan rentang level sejak charger dilepas hingga saat ini (misal `100% ➔ 91% (-9%)`), jam pelepasan charger (`Start clock time`), total mAh terkuras (`Discharge: mAh`), serta **Total Waktu Berjalan** gabungan (`Time on battery`).
+  - **Stacked Bar 3-Segmen Proporsional (100% Total Waktu)**:
+    1. **Layar Aktif (Screen-On / SOT)**: Durasi presisi, persentase terhadap total waktu, serta mAh & persentase baterai yang terkuras saat layar menyala.
+    2. **Tidur Lelap (Deep Sleep)**: Dihitung presisi dari `Waktu Layar Mati - Waktu Partial Wakelock`, lengkap dengan persentase terhadap total waktu dan rasio efisiensi idle.
+    3. **Siaga Bangun (Screen-Off Awake / Wakelock)**: Durasi aktual saat layar mati namun CPU terjaga oleh wakelock (`Total partial wakelock time`), dilengkapi rincian konsumsi daya layar mati.
+  - **Kalkulasi Laju Konsumsi Daya Real-Time**: Laju terkuras layar aktif dan layar mati (`%/jam` dan `mA`) dihitung secara matematis dari pembagian `Amount discharged while screen on/off` dan `Screen on/off discharge (mAh)` terhadap durasi aktualnya.
+
+### 3. Riwayat Penurunan Per-Persen Asli (`Discharge Step History`) & Sensor Fisik
+- **Grafik & Log Langkah Penurunan 1% Asli**:
+  - Mem-parsing langsung tabel `Discharge step durations:` (`#0`, `#1`, dst.) dari `dumpsys batterystats --charged` untuk menampilkan grafik interaktif dan log durasi nyata setiap penurunan 1% baterai beserta statusnya (`Layar Aktif`, `Layar Mati`, atau `Deep Doze`).
+- **Kartu Kondisi Fisik & Kalibrasi Baterai**:
+  - Menampilkan Kapasitas Desain Pabrik (`BATTERY_QMAX` / `PowerProfile`), Kapasitas Penuh Terukur (`charge_full`), Muatan Tersisa Saat Ini (`charge_counter`), Siklus Hardware (`cycle_count`), Tegangan Sel Real-time (`voltage_now`), Arus Real-time & Rata-rata (`current_now` / `current_avg`), Suhu Fisik (`temp`), serta tombol 1-klik **Kalibrasi Indikator Baterai & Fuel Gauge**.
+
+---
+
 # Lynx Universal [ADB Wireless Keep-Alive & Custom Port Lock Engine] 7.0.0-RC16
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC16** menghadirkan subsistem baru **ADB Wireless Keep-Alive & Persistent Custom Port Lock Engine** (Lynx Kernel Manager v3.0.81): **Penguncian Port TCP ADB Permanen, Proteksi Anti-Reset Saat Layar Mati (Screen-Off Sleep Guard), Konfigurasi Port Kustom Manual (1024–65535), serta Daemon Watchdog Auto-Heal**. Mengatasi masalah klasik Android yang secara sepihak mematikan daemon `adbd` atau mereset port TCP saat layar ponsel mati/terkunci maupun setelah reboot.

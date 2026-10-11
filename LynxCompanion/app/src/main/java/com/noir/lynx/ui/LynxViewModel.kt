@@ -4299,6 +4299,9 @@ class LynxViewModel : ViewModel() {
                     // 1. Immediate Fast UI Update (<20ms) for 1Hz Live Current, Wattmeter, Sparkline & Session Timer
                     _uiState.update { current ->
                         val liveInfoStats = current.batteryInfoStats.copy(
+                            currentLevel = details.level,
+                            realTimeCurrentMa = details.currentMa,
+                            bmsTempC = if (details.tempC > 0f) details.tempC else current.batteryInfoStats.bmsTempC,
                             isSessionCharging = isChargingNow,
                             chargingDurationText = durationStr,
                             chargeStartLevel = startLvl,
@@ -4309,7 +4312,7 @@ class LynxViewModel : ViewModel() {
                             peakChargingWatt = chargeSessionPeakWatt * cellMult,
                             avgChargingWatt = if (details.chargerWatt > 0f) ((chargeSessionPeakWatt + details.chargerWatt) / 2f) * cellMult else 0f,
                             peakChargingMa = chargeSessionPeakMa,
-                            voltageNowMv = effectiveVoltageMv,
+                            voltageNowMv = if (effectiveVoltageMv > 0) effectiveVoltageMv else current.batteryInfoStats.voltageNowMv,
                             lastChargingSessionSummary = lastChargingSessionSummaryCached
                         )
                         current.copy(batteryDetails = updatedDetails, batteryInfoStats = liveInfoStats)
@@ -4339,7 +4342,7 @@ class LynxViewModel : ViewModel() {
                                             peakChargingWatt = curInfo.peakChargingWatt,
                                             avgChargingWatt = curInfo.avgChargingWatt,
                                             peakChargingMa = curInfo.peakChargingMa,
-                                            voltageNowMv = curInfo.voltageNowMv,
+                                            voltageNowMv = if (curInfo.voltageNowMv > 0) curInfo.voltageNowMv else rawStats.voltageNowMv,
                                             lastChargingSessionSummary = curInfo.lastChargingSessionSummary,
                                             cableBenchmark = if (current.isCableBenchmarkRunning) curInfo.cableBenchmark else rawStats.cableBenchmark
                                         )

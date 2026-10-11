@@ -291,17 +291,29 @@ data class BatteryDrainPoint(
     val level: Int,
     val isScreenOn: Boolean = true,
     val isCharging: Boolean = false,
-    val tempC: Float = 28.0f
+    val tempC: Float = 0f,
+    val stepDurationText: String = ""
+)
+
+data class DischargeStepItem(
+    val stepIndex: Int,
+    val fromLevel: Int,
+    val toLevel: Int,
+    val durationText: String,
+    val durationMs: Long,
+    val isScreenOn: Boolean,
+    val isDeviceIdle: Boolean = false,
+    val isPowerSave: Boolean = false
 )
 
 data class CableBenchmarkResult(
     val isTested: Boolean = false,
     val isRunning: Boolean = false,
-    val resistanceMohm: Int = 100,
-    val voltageDropV: Float = 0.05f,
-    val starRating: Int = 5,
-    val qualityVerdict: String = "Kualitas Kabel Sangat Bagus",
-    val maxRecommendedWatt: Int = 33,
+    val resistanceMohm: Int = 0,
+    val voltageDropV: Float = 0f,
+    val starRating: Int = 0,
+    val qualityVerdict: String = "-",
+    val maxRecommendedWatt: Int = 0,
     val testTimestampMs: Long = 0L
 )
 
@@ -316,30 +328,55 @@ data class AppDrainItem(
 
 data class BatteryInfoStats(
     // 1. Status & Active Session
-    val batteryStatusText: String = "Discharging",
-    val powerSourceText: String = "Baterai",
+    val batteryStatusText: String = "-",
+    val powerSourceText: String = "-",
     val isCharging: Boolean = false,
     val isBypassMode: Boolean = false,
 
-    // 2. Hardware Specs & Degradation
-    val technology: String = "Li-ion",
-    val designCapacityMah: Int = 5000,
-    val fullChargeCapacityMah: Int = 4800,
-    val stateOfHealthPercent: Int = 96,
-    val wearLevelPercent: Int = 4,
-    val nominalVoltageMv: Int = 3850,
-    val voltageNowMv: Int = 4146,
-    val batteryResistanceMohm: Int = 100,
-    val cycleCount: Int = 868,
-    val fuelGaugeChip: String = "MT6358 / Universal Gauge",
-    val chargingPolicyText: String = "Standard",
-    val healthVerdictBadge: String = "Sangat Prima",
-    val healthVerdictDesc: String = "Kapasitas sel baterai dalam performa puncak.",
-    val remainingCycleEstimateText: String = "Sisa ~2-3 tahun pemakaian optimal",
+    // 2. Unified Cycle & Runtime Breakdown (Start / 100% -> Now)
+    val unplugStartLevel: Int = 0,
+    val currentLevel: Int = 0,
+    val dischargedPercent: Int = 0,
+    val dischargedMah: Int = 0,
+    val screenOnDischargedMah: Int = 0,
+    val screenOffDischargedMah: Int = 0,
+    val screenOnDischargedPercent: Int = 0,
+    val screenOffDischargedPercent: Int = 0,
+    val startClockTimeText: String = "-",
+    val totalRuntimeMs: Long = 0L,
+    val screenOnMs: Long = 0L,
+    val screenOffTotalMs: Long = 0L,
+    val deepSleepMs: Long = 0L,
+    val screenOffAwakeMs: Long = 0L,
+    val screenOnRatioPercent: Float = 0f,
+    val deepSleepRatioPercent: Float = 0f,
+    val screenOffAwakeRatioPercent: Float = 0f,
+    val deepSleepTimeText: String = "-",
+    val screenOffAwakeTimeText: String = "-",
 
-    // 3. Charging Session Analytics (Active or Last)
+    // 3. Real Hardware Specs & Sensors (Zero Hardcode)
+    val technology: String = "-",
+    val kernelHealthText: String = "-",
+    val designCapacityMah: Int = 0,
+    val fullChargeCapacityMah: Int = 0,
+    val remainingChargeMah: Int = 0,
+    val stateOfHealthPercent: Int = 0,
+    val wearLevelPercent: Int = 0,
+    val nominalVoltageMv: Int = 0,
+    val voltageNowMv: Int = 0,
+    val realTimeCurrentMa: Int = 0,
+    val averageCurrentMa: Int = 0,
+    val batteryResistanceMohm: Int = 0,
+    val cycleCount: Int = -1,
+    val fuelGaugeChip: String = "-",
+    val chargingPolicyText: String = "-",
+    val healthVerdictBadge: String = "-",
+    val healthVerdictDesc: String = "-",
+    val remainingCycleEstimateText: String = "-",
+
+    // 4. Charging Session Analytics (Active or Last)
     val isSessionCharging: Boolean = false,
-    val chargingDurationText: String = "0m",
+    val chargingDurationText: String = "-",
     val chargeStartLevel: Int = 0,
     val currentChargeLevel: Int = 0,
     val chargeDeltaLevel: Int = 0,
@@ -348,28 +385,29 @@ data class BatteryInfoStats(
     val peakChargingWatt: Float = 0f,
     val avgChargingWatt: Float = 0f,
     val peakChargingMa: Int = 0,
-    val timeToFullEstimatedText: String = "Menghitung...",
-    val lastChargingSessionSummary: String = "Belum ada sesi pengisian tercatat",
+    val timeToFullEstimatedText: String = "-",
+    val lastChargingSessionSummary: String = "-",
 
-    // 4. Discharge & Runtime Analytics
-    val timeSinceUnpluggedText: String = "0j 0m",
-    val screenOnTimeText: String = "0j 0m",
-    val screenOffTimeText: String = "0j 0m",
-    val activeDrainRatePerHour: String = "0.0% / jam",
-    val idleDrainRatePerHour: String = "0.0% / jam",
+    // 5. Discharge & Runtime Analytics
+    val timeSinceUnpluggedText: String = "-",
+    val screenOnTimeText: String = "-",
+    val screenOffTimeText: String = "-",
+    val activeDrainRatePerHour: String = "-",
+    val idleDrainRatePerHour: String = "-",
     val estimatedScreenRemainingText: String = "-",
     val estimatedStandbyRemainingText: String = "-",
-    val deepSleepPercentage: Int = 90,
-    val awakeWakelockPercentage: Int = 10,
+    val deepSleepPercentage: Int = 0,
+    val awakeWakelockPercentage: Int = 0,
 
-    // 5. Thermal & Power Diagnostics
-    val bmsTempC: Float = 28.0f,
-    val chargerIcTempC: Float = 32.0f,
-    val usbPortTempC: Float = 29.0f,
-    val vbusVoltageV: Float = 5.0f,
-    val negotiatedProtocolText: String = "Standar",
+    // 6. Thermal & Power Diagnostics
+    val bmsTempC: Float = 0f,
+    val chargerIcTempC: Float = 0f,
+    val usbPortTempC: Float = 0f,
+    val vbusVoltageV: Float = 0f,
+    val negotiatedProtocolText: String = "-",
 
-    // 6. Timeline, Benchmark & Top Drain Analytics
+    // 7. Real Discharge Step History & Analytics
+    val dischargeSteps: List<DischargeStepItem> = emptyList(),
     val drainHistoryPoints: List<BatteryDrainPoint> = emptyList(),
     val cableBenchmark: CableBenchmarkResult = CableBenchmarkResult(),
     val topDrainApps: List<AppDrainItem> = emptyList()
