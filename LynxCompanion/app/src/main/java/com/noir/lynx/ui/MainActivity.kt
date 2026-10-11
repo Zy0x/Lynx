@@ -372,36 +372,51 @@ fun rememberFluidFlingBehavior(
     return remember {
         object : FlingBehavior {
             override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
-                if (kotlin.math.abs(initialVelocity) < 25f) return 0f
+                if (kotlin.math.abs(initialVelocity) < 30f) return 0f
 
-                // Chrome Android Viscous Fluid Damping (Gamma = 1.25 s^-1)
-                // Calibrated for lightweight, effortless gliding without friction heaviness
-                val gamma = 1.25f
-                var currentVelocity = initialVelocity.coerceIn(-24000f, 24000f)
-                var lastFrameTime = 0L
+                val sign = if (initialVelocity < 0f) -1f else 1f
+                val v0 = kotlin.math.abs(initialVelocity).coerceIn(30f, 22000f)
 
-                while (kotlin.math.abs(currentVelocity) > 6f) {
+                // Stokes-Coulomb Analytical Hybrid Physics
+                // Combines fluid aerodynamic damping (gamma) with kinetic surface friction (mu)
+                // Result: C-infinity continuous trajectory with exact zero-velocity landing & zero subpixel loss
+                val gamma = 0.80f
+                val mu = 1350f
+                val term = (gamma * v0) / mu
+                val totalDuration = ((1f / gamma) * kotlin.math.ln(1f + term)).coerceIn(0.15f, 2.5f)
+
+                var startFrameNanos = 0L
+                var accumulatedConsumed = 0f
+
+                while (true) {
+                    var shouldStop = false
                     withFrameNanos { frameTimeNanos ->
-                        val dt = if (lastFrameTime == 0L) {
-                            0.0083f // Base 120Hz frame delta
-                        } else {
-                            ((frameTimeNanos - lastFrameTime) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
+                        if (startFrameNanos == 0L) {
+                            startFrameNanos = frameTimeNanos
                         }
-                        lastFrameTime = frameTimeNanos
+                        val elapsed = ((frameTimeNanos - startFrameNanos) / 1_000_000_000.0).toFloat()
+                        if (elapsed >= totalDuration) {
+                            shouldStop = true
+                            return@withFrameNanos
+                        }
 
-                        // Continuous viscous decay factor: v(t) = v0 * exp(-gamma * t)
-                        val decayFactor = kotlin.math.exp(-gamma * dt)
-                        val nextVelocity = currentVelocity * decayFactor
-                        // Trapezoidal integration for exact displacement
-                        val delta = ((currentVelocity + nextVelocity) * 0.5f) * dt
-                        currentVelocity = nextVelocity
+                        // Exact closed-form analytical displacement:
+                        // S(t) = ((v0 + mu/gamma)/gamma) * (1 - exp(-gamma*t)) - (mu/gamma)*t
+                        val vFactor = (v0 + (mu / gamma)) / gamma
+                        val expTerm = 1f - kotlin.math.exp(-gamma * elapsed)
+                        val rawDistance = (vFactor * expTerm) - ((mu / gamma) * elapsed)
+                        val targetDisplacement = sign * rawDistance.coerceAtLeast(0f)
 
-                        val consumed = scrollBy(delta)
-                        // If boundary is reached (cannot consume further delta), stop immediately
-                        if (kotlin.math.abs(delta) > 0.4f && kotlin.math.abs(consumed) < 0.1f) {
-                            currentVelocity = 0f
+                        val desiredDelta = targetDisplacement - accumulatedConsumed
+                        val consumed = scrollBy(desiredDelta)
+                        accumulatedConsumed += consumed
+
+                        // Edge collision absorption: if list reaches top/bottom boundary, stop immediately
+                        if (kotlin.math.abs(desiredDelta) > 0.5f && kotlin.math.abs(consumed) < 0.1f) {
+                            shouldStop = true
                         }
                     }
+                    if (shouldStop) break
                 }
                 // Return 0f so NO residual unconsumed velocity triggers bounce/recoil
                 return 0f

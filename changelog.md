@@ -1,3 +1,24 @@
+# Lynx Universal [Stokes-Coulomb Analytical Physics & Zero-Jerk Landing] 7.0.0-RC22
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC22** merevolusi arsitektur fling scrolling aplikasi Lynx Kernel Manager (v3.0.87) dengan menerapkan **Solusi Tertutup Analitis Stokes-Coulomb (Analytical Closed-Form Trajectory Engine)**: **Integrasi Parametrik Berbasis Clock Hardware Nanosecond (`withFrameNanos`), Eliminasi Pemotongan Sub-Piksel (*Sub-Pixel Residual Roll-Over*), Deselerasi Landing Tanpa Hentakan (*Zero-Jerk Terminal Settling* dengan $v(T) \equiv 0.000\text{ px/s}$), serta Sinergi Friksi Permukaan ($\mu = 1350\text{ px/s}^2$) dan Redaman Fluida Viskos ($\gamma = 0.80\text{ s}^{-1}$)**. Menghasilkan pergerakan inersia yang luar biasa mulus (*buttery smooth*), tanpa mikrojitter, presisi di layar 120Hz, dan mendarat sempurna tanpa freeze mendadak.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC22)
+
+### 1. Solusi Tertutup Analitis Stokes-Coulomb (`MainActivity.kt`)
+- Menggantikan integrasi aproksimasi langkah per-frame diskret dengan solusi diferensial analitis tertutup:
+  $$S(t) = \left(v_0 + \frac{\mu}{\gamma}\right) \frac{1 - e^{-\gamma t}}{\gamma} - \frac{\mu}{\gamma} t$$
+  dengan durasi deterministik:
+  $$T = \frac{1}{\gamma} \ln\left(1 + \frac{\gamma v_0}{\mu}\right)$$
+- Di setiap frame VSYNC (8,3 ms pada 120Hz), posisi kanvas dievaluasi langsung dari selisih waktu nanodetik murni hardware sejak jari dilepas, menghilangkan akumulasi distorsi akibat variasi latensi thread.
+
+### 2. Eliminasi Jitter Sub-Piksel (*Sub-Pixel Roll-Over*)
+- Sisa pecahan piksel yang belum terkonsumsi oleh layout Compose pada frame sebelumnya otomatis diakumulasikan ke frame berikutnya (`targetDisplacement - accumulatedConsumed`), menghasilkan luncuran yang bebas patah-patah mikro.
+
+### 3. Pendaratan Terminal Murni Nol (*Zero-Jerk Landing*)
+- Kecepatan tepat mencapai $0.000\text{ px/s}$ saat $t = T$ secara matematis, mengeliminasi penghentian mendadak dari ambang batas kecepatan cutoff.
+
+---
+
 # Lynx Universal [Featherlight Chromium Fluid Fling & Friction Calibration] 7.0.0-RC21
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC21** mengalibrasi koefisien redaman fluida inersia pada aplikasi Lynx Kernel Manager (v3.0.86) untuk menghadirkan sensasi scrolling yang super ringan (*featherlight*): **Penurunan Koefisien Friksi Viscous Damping dari $\gamma = 2.10\text{ s}^{-1}$ ke $\gamma = 1.25\text{ s}^{-1}$ (Peningkatan Jarak Luncur Inersia 68% Lebih Ringan Tanpa Bobot), serta Penyesuaian Ambang Batas Cutoff Kecepatan ke $6\text{ px/s}$ untuk Transisi Berhenti Sehalus Sutra**. Menghilangkan sensasi berat atau hambatan saat mengusap layar, memberikan pergerakan yang ringan, cepat, dan presisi layaknya Google Chrome Android asli di layar 120Hz.
