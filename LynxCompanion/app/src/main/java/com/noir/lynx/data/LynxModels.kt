@@ -318,12 +318,13 @@ data class CableBenchmarkResult(
 )
 
 data class AppDrainItem(
-    val packageName: String,
-    val appName: String,
-    val drainMah: Int,
-    val drainPercent: Float,
-    val foregroundTimeText: String,
-    val backgroundTimeText: String
+    val packageName: String = "",
+    val appName: String = "",
+    val drainMah: Float = 0f,
+    val drainPercent: Float = 0f,
+    val foregroundTimeText: String = "",
+    val backgroundTimeText: String = "",
+    val isSystem: Boolean = false
 )
 
 data class BatteryInfoStats(

@@ -1,3 +1,23 @@
+# Lynx Universal [Clean Minimalist App & System Battery Drain Analytics] 7.0.0-RC23
+Released on: 2026-10-12
+> **Lynx Universal v7.0.0-RC23** menghadirkan modul analisis konsumsi daya aplikasi dan proses sistem yang akurat, minimalis, dan elegan pada halaman Informasi Baterai di Lynx Kernel Manager (v3.0.88): **Segmented Switcher 2-Mode Minimalis (`Grafik Waktu` | `Penggunaan Aplikasi`), Ekstraksi 100% Data Riil & Akurat dari Subsistem Kernel/Android (`dumpsys batterystats --charged` Section `Estimated power use (mAh)` Sub-100ms Tanpa Lag), Eliminasi Kebisingan Visual (Tanpa Tumpukan Pill, Badge, Maupun Jargon Rumit), Serta Resolusi Otomatis UID ke Ikon & Label Resmi Aplikasi (`PackageManager` In-Memory Caching)**. Memberikan visibilitas instan kepada pengguna mengenai aplikasi maupun layanan latar belakang yang paling menguras daya baterai secara transparan dan mudah dipahami.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC23)
+
+### 1. Kartu Riwayat & Penggunaan Baterai Terpadu (`LynxTuningSubscreens.kt`)
+- Menyatukan dimensi waktu (grafik kurva penurunan dan log durasi per 1%) dengan dimensi aktor/penyebab penurunan daya ke dalam satu kartu terpadu via switcher 2-segmen yang rapi dan touch-friendly.
+- **Tampilan Minimalis & Elegan**:
+  - Menghilangkan filter pill berlapis dan badge warna-warni yang mengaburkan fokus.
+  - Setiap baris hanya menyajikan 3 elemen esensial: Ikon resmi (aplikasi atau komponen sistem), nama yang jelas, persentase (%) tebal dengan estimasi mAh riil, serta bilah proporsi gradien tipis (*subtle glowing progress bar*).
+  - Diurutkan otomatis dari konsumsi tertinggi ke terendah secara deterministik.
+
+### 2. Ekstraksi Akurat & Resolusi UID Cepat (`LynxRepository.kt`)
+- Mengoptimalkan pembacaan `dumpsys batterystats --charged` hingga 350 baris pertama untuk menangkap tabel `Estimated power use (mAh):` secara lengkap tanpa memicu pemotongan data.
+- Menambahkan *in-memory cache* (`appDrainLabelCache`) untuk memetakan UID sistem (`UID 0` -> Kernel & Root, `UID 1000` -> Sistem Android, `UID 1041` -> Audio Server, `UID 2000` -> Shell/ADB) dan UID aplikasi pengguna (`u0aXXX`) ke nama dan paket resmi aplikasi secara instan dalam hitungan mikrodetik.
+- Menjumlahkan dan menggabungkan sub-komponen paket ganda agar setiap aplikasi tampil dalam satu entitas yang akurat dan bersih.
+
+---
+
 # Lynx Universal [Stokes-Coulomb Analytical Physics & Zero-Jerk Landing] 7.0.0-RC22
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC22** merevolusi arsitektur fling scrolling aplikasi Lynx Kernel Manager (v3.0.87) dengan menerapkan **Solusi Tertutup Analitis Stokes-Coulomb (Analytical Closed-Form Trajectory Engine)**: **Integrasi Parametrik Berbasis Clock Hardware Nanosecond (`withFrameNanos`), Eliminasi Pemotongan Sub-Piksel (*Sub-Pixel Residual Roll-Over*), Deselerasi Landing Tanpa Hentakan (*Zero-Jerk Terminal Settling* dengan $v(T) \equiv 0.000\text{ px/s}$), serta Sinergi Friksi Permukaan ($\mu = 1350\text{ px/s}^2$) dan Redaman Fluida Viskos ($\gamma = 0.80\text{ s}^{-1}$)**. Menghasilkan pergerakan inersia yang luar biasa mulus (*buttery smooth*), tanpa mikrojitter, presisi di layar 120Hz, dan mendarat sempurna tanpa freeze mendadak.

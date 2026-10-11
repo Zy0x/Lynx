@@ -388,7 +388,7 @@ fun TuningGpuCategory(
     }
 
     val lazyState = rememberLazyListState()
-    val fling = rememberFluidFlingBehavior(lazyState = lazyState)
+    val fling = rememberFluidFlingBehavior()
     LazyColumn(
         state = lazyState,
         flingBehavior = fling,
@@ -1718,14 +1718,9 @@ fun TuningMemoryCategory(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TuningChargingCategory(
-    uiState: LynxUiState,
-    viewModel: LynxViewModel,
-    modifier: Modifier = Modifier
-) {
+fun ChargingScreenLifecycle(uiState: LynxUiState, viewModel: LynxViewModel) {
     val state = uiState.state
     val battDetails = uiState.batteryDetails
-
     LaunchedEffect(Unit) {
         viewModel.isBatteryScreenActive = true
         try {
@@ -1755,6 +1750,20 @@ fun TuningChargingCategory(
             onDismiss = { viewModel.closeBatteryDetailSheet() }
         )
     }
+
+}
+
+@Composable
+fun TuningChargingCategory(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    modifier: Modifier = Modifier,
+    manageLifecycle: Boolean = true
+) {
+    val state = uiState.state
+    val battDetails = uiState.batteryDetails
+
+    if (manageLifecycle) ChargingScreenLifecycle(uiState, viewModel)
 
     val selectedTab = uiState.batterySubTab
 
@@ -2279,18 +2288,31 @@ fun BatteryInformationContent(
     viewModel: LynxViewModel,
     modifier: Modifier = Modifier
 ) {
-    val stats = uiState.batteryInfoStats
-    val battDetails = uiState.batteryDetails
-    val currentLevel = if (stats.currentLevel > 0) stats.currentLevel else (battDetails?.level ?: 0)
-    val startLevel = if (stats.unplugStartLevel > 0) stats.unplugStartLevel else currentLevel
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        BatteryRuntimeCard(uiState)
+        val stats = uiState.batteryInfoStats
+        RealDischargeStepHistoryCard(stats, batteryCurrentLevel(uiState))
+        BatteryHardwareCard(uiState, viewModel)
+    }
+}
 
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // ============================================================
-        //  BENTO CARD 1: TOTAL WAKTU & PROPORSI SIKLUS BERJALAN (AWAL ➔ SEKARANG)
-        // ============================================================
+private fun batteryCurrentLevel(uiState: LynxUiState): Int =
+    uiState.batteryInfoStats.currentLevel.takeIf { it > 0 } ?: (uiState.batteryDetails?.level ?: 0)
+
+// Stable card keys let the list skip off-screen draw trees and retain its anchor.
+fun LazyListScope.batteryInformationItems(uiState: LynxUiState, viewModel: LynxViewModel) {
+    item(key = "battery_runtime") { BatteryRuntimeCard(uiState) }
+    item(key = "battery_history") {
+        RealDischargeStepHistoryCard(uiState.batteryInfoStats, batteryCurrentLevel(uiState))
+    }
+    item(key = "battery_hardware") { BatteryHardwareCard(uiState, viewModel) }
+}
+
+@Composable
+private fun BatteryRuntimeCard(uiState: LynxUiState) {
+    val stats = uiState.batteryInfoStats
+    val currentLevel = batteryCurrentLevel(uiState)
+    val startLevel = stats.unplugStartLevel.takeIf { it > 0 } ?: currentLevel
         LynxCard(
             title = "Total Waktu & Rincian Siklus Berjalan",
             icon = Icons.Default.Timer,
@@ -2576,18 +2598,12 @@ fun BatteryInformationContent(
                 }
             }
         }
+}
 
-        // ============================================================
-        //  BENTO CARD 2: RIWAYAT PENURUNAN PER-PERSEN ASLI (DISCHARGE STEPS)
-        // ============================================================
-        RealDischargeStepHistoryCard(
-            stats = stats,
-            currentLevel = currentLevel
-        )
-
-        // ============================================================
-        //  BENTO CARD 3: KONDISI FISIK & SENSOR BATERAI (REAL HARDWARE)
-        // ============================================================
+@Composable
+private fun BatteryHardwareCard(uiState: LynxUiState, viewModel: LynxViewModel) {
+    val stats = uiState.batteryInfoStats
+    val currentLevel = batteryCurrentLevel(uiState)
         LynxCard(
             title = "Kondisi Fisik & Sensor Baterai",
             icon = Icons.Default.Memory,
@@ -2789,7 +2805,6 @@ fun BatteryInformationContent(
                 Text("Buka Telemetri Raw ADC & Matriks Sensor", fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
-    }
 }
 
 // ============================================================
@@ -2803,279 +2818,527 @@ fun RealDischargeStepHistoryCard(
     modifier: Modifier = Modifier
 ) {
     val points = stats.drainHistoryPoints
+    // Keep gesture coroutines alive across telemetry updates, reading fresh data.
+    val latestPoints by rememberUpdatedState(points)
     val steps = stats.dischargeSteps
     var scrubbedIndex by remember { mutableStateOf<Int?>(null) }
+    var historyTab by remember { mutableIntStateOf(0) }
 
     LynxCard(
-        title = "Riwayat Penurunan Per-Persen (Asli)",
-        icon = Icons.Default.Timeline,
+        title = if (historyTab == 0) "Riwayat Penurunan (Waktu)" else "Penggunaan Baterai (Aplikasi)",
+        icon = if (historyTab == 0) Icons.Default.Timeline else Icons.Default.Apps,
         accentColor = AccentCyan,
         modifier = modifier
     ) {
-        if (points.size >= 2) {
-            val activePoint = scrubbedIndex?.let { points.getOrNull(it) } ?: points.lastOrNull()
-
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgCard,
-                border = BorderStroke(0.8.dp, if (scrubbedIndex != null) AccentCyan.copy(alpha = 0.8f) else BorderGlass),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(if (activePoint?.isScreenOn == true) AccentGreen else AccentCyan)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = if (scrubbedIndex != null) "Detail Langkah Terpilih" else "Langkah Terakhir Tercatat",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 9.5.sp,
-                                color = TextSecondary
-                            )
-                            Text(
-                                text = activePoint?.stepDurationText?.ifBlank { "${activePoint.level}%" } ?: "$currentLevel%",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                        }
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (activePoint?.isScreenOn == true) AccentGreen.copy(alpha = 0.15f) else AccentCyan.copy(alpha = 0.15f),
-                        border = BorderStroke(0.6.dp, if (activePoint?.isScreenOn == true) AccentGreen else AccentCyan)
-                    ) {
-                        Text(
-                            text = if (activePoint?.isScreenOn == true) "Layar Aktif" else "Layar Mati",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (activePoint?.isScreenOn == true) AccentGreen else AccentCyan,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-            }
-
-            Box(
+        // 2-Segment Switcher: Minimalis & Touch-Friendly
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            shape = RoundedCornerShape(10.dp),
+            color = BgElevated.copy(alpha = 0.5f),
+            border = BorderStroke(0.8.dp, BorderSubtle)
+        ) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(155.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(BgElevated.copy(alpha = 0.4f))
-                    .pointerInput(points) {
-                        detectHorizontalDragGestures(
-                            onDragStart = { offset ->
-                                val n = points.size
-                                val w = size.width - 36.dp.toPx()
-                                val stepX = w / (n - 1).coerceAtLeast(1)
-                                val idx = ((offset.x - 20.dp.toPx()) / stepX).toInt().coerceIn(0, n - 1)
-                                scrubbedIndex = idx
-                            },
-                            onHorizontalDrag = { change, _ ->
-                                change.consume()
-                                val n = points.size
-                                val w = size.width - 36.dp.toPx()
-                                val stepX = w / (n - 1).coerceAtLeast(1)
-                                val idx = ((change.position.x - 20.dp.toPx()) / stepX).toInt().coerceIn(0, n - 1)
-                                scrubbedIndex = idx
-                            },
-                            onDragEnd = { scrubbedIndex = null },
-                            onDragCancel = { scrubbedIndex = null }
-                        )
-                    }
-                    .pointerInput(points) {
-                        detectTapGestures(
-                            onTap = { offset ->
-                                val n = points.size
-                                val w = size.width - 36.dp.toPx()
-                                val stepX = w / (n - 1).coerceAtLeast(1)
-                                val idx = ((offset.x - 20.dp.toPx()) / stepX).toInt().coerceIn(0, n - 1)
-                                scrubbedIndex = idx
-                            }
-                        )
-                    }
+                    .padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val padLeft = 20.dp.toPx()
-                    val padRight = 16.dp.toPx()
-                    val padTop = 16.dp.toPx()
-                    val padBottom = 24.dp.toPx()
-
-                    val graphWidth = size.width - padLeft - padRight
-                    val graphHeight = size.height - padTop - padBottom
-
-                    val maxLvl = (points.maxOfOrNull { it.level } ?: 100).coerceAtMost(100)
-                    val minLvl = ((points.minOfOrNull { it.level } ?: currentLevel) - 2).coerceAtLeast(0)
-                    val lvlSpan = (maxLvl - minLvl).coerceAtLeast(5).toFloat()
-
-                    for (gridStep in 0..3) {
-                        val y = padTop + (gridStep / 3f) * graphHeight
-                        drawLine(
-                            color = Color.White.copy(alpha = 0.05f),
-                            start = Offset(padLeft, y),
-                            end = Offset(size.width - padRight, y),
-                            strokeWidth = 1.dp.toPx()
+                // Segment 0: Grafik Waktu
+                Surface(
+                    onClick = { historyTab = 0 },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (historyTab == 0) AccentCyan.copy(alpha = 0.18f) else Color.Transparent,
+                    border = if (historyTab == 0) BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f)) else null,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(34.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Timeline,
+                            contentDescription = null,
+                            tint = if (historyTab == 0) AccentCyan else TextSecondary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Grafik Waktu",
+                            fontSize = 11.5.sp,
+                            fontWeight = if (historyTab == 0) FontWeight.Bold else FontWeight.Medium,
+                            color = if (historyTab == 0) TextPrimary else TextSecondary
                         )
                     }
+                }
 
-                    val n = points.size
-                    val stepX = graphWidth / (n - 1).coerceAtLeast(1)
-
-                    val coords = points.mapIndexed { idx, p ->
-                        val x = padLeft + idx * stepX
-                        val normY = ((maxLvl - p.level).toFloat() / lvlSpan).coerceIn(0f, 1f)
-                        val y = padTop + normY * graphHeight
-                        Offset(x, y)
-                    }
-
-                    val stripY = size.height - 10.dp.toPx()
-                    val stripHeight = 5.dp.toPx()
-                    for (i in 0 until n - 1) {
-                        val x1 = coords[i].x
-                        val x2 = coords[i + 1].x
-                        val isSot = points[i + 1].isScreenOn
-                        drawRect(
-                            color = if (isSot) AccentGreen.copy(alpha = 0.85f) else AccentCyan.copy(alpha = 0.45f),
-                            topLeft = Offset(x1, stripY),
-                            size = androidx.compose.ui.geometry.Size(x2 - x1, stripHeight)
+                // Segment 1: Penggunaan Aplikasi
+                Surface(
+                    onClick = { historyTab = 1 },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (historyTab == 1) AccentCyan.copy(alpha = 0.18f) else Color.Transparent,
+                    border = if (historyTab == 1) BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f)) else null,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(34.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Apps,
+                            contentDescription = null,
+                            tint = if (historyTab == 1) AccentCyan else TextSecondary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Penggunaan Aplikasi",
+                            fontSize = 11.5.sp,
+                            fontWeight = if (historyTab == 1) FontWeight.Bold else FontWeight.Medium,
+                            color = if (historyTab == 1) TextPrimary else TextSecondary
                         )
                     }
-
-                    val strokePath = Path().apply {
-                        moveTo(coords[0].x, coords[0].y)
-                        for (i in 1 until coords.size) {
-                            lineTo(coords[i].x, coords[i].y)
-                        }
-                    }
-
-                    val fillPath = Path().apply {
-                        addPath(strokePath)
-                        lineTo(coords.last().x, size.height - padBottom)
-                        lineTo(coords.first().x, size.height - padBottom)
-                        close()
-                    }
-
-                    drawPath(
-                        path = fillPath,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(AccentCyan.copy(alpha = 0.25f), Color.Transparent),
-                            startY = padTop,
-                            endY = size.height - padBottom
-                        )
-                    )
-
-                    drawPath(
-                        path = strokePath,
-                        color = AccentCyan,
-                        style = Stroke(width = 2.5.dp.toPx())
-                    )
-
-                    coords.forEachIndexed { idx, pt ->
-                        val isSot = points[idx].isScreenOn
-                        drawCircle(
-                            color = if (isSot) AccentGreen else AccentCyan,
-                            radius = 3.2.dp.toPx(),
-                            center = pt
-                        )
-                    }
-
-                    val activeIdx = scrubbedIndex ?: (n - 1)
-                    val activeCoord = coords.getOrNull(activeIdx) ?: coords.last()
-                    drawLine(
-                        color = AccentCyan.copy(alpha = 0.6f),
-                        start = Offset(activeCoord.x, padTop),
-                        end = Offset(activeCoord.x, size.height - padBottom),
-                        strokeWidth = 1.2.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
-                    )
-                    drawCircle(color = AccentCyan.copy(alpha = 0.35f), radius = 8.dp.toPx(), center = activeCoord)
-                    drawCircle(color = AccentCyan, radius = 4.dp.toPx(), center = activeCoord)
                 }
             }
-
-            Spacer(Modifier.height(10.dp))
         }
 
-        if (steps.isEmpty()) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgCard,
-                border = BorderStroke(0.8.dp, BorderGlass),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Belum ada penurunan 1% yang tercatat pada siklus ini sejak charger dilepas.",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontSize = 11.sp,
-                    color = TextSecondary,
-                    modifier = Modifier.padding(12.dp)
-                )
-            }
-        } else {
-            Text(
-                text = "Log Durasi per 1% Penurunan (${steps.size} langkah tercatat)",
-                style = MaterialTheme.typography.labelSmall,
-                fontSize = 10.sp,
-                color = TextSecondary,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                steps.take(10).forEach { step ->
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = BgCard,
-                        border = BorderStroke(0.7.dp, BorderGlass),
-                        modifier = Modifier.fillMaxWidth()
+        if (historyTab == 0) {
+            if (points.size >= 2) {
+                val activePoint = scrubbedIndex?.let { points.getOrNull(it) } ?: points.lastOrNull()
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.8.dp, if (scrubbedIndex != null) AccentCyan.copy(alpha = 0.8f) else BorderGlass),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(if (activePoint?.isScreenOn == true) AccentGreen else AccentCyan)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column {
                                 Text(
-                                    text = "${step.fromLevel}% ➔ ${step.toLevel}%",
+                                    text = if (scrubbedIndex != null) "Detail Langkah Terpilih" else "Langkah Terakhir Tercatat",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 9.5.sp,
+                                    color = TextSecondary
+                                )
+                                Text(
+                                    text = activePoint?.stepDurationText?.ifBlank { "${activePoint.level}%" } ?: "$currentLevel%",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = TextPrimary
                                 )
-                                Spacer(Modifier.width(8.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(5.dp),
-                                    color = if (step.isScreenOn) AccentGreen.copy(alpha = 0.15f) else AccentCyan.copy(alpha = 0.12f),
-                                    border = BorderStroke(0.5.dp, if (step.isScreenOn) AccentGreen.copy(alpha = 0.6f) else AccentCyan.copy(alpha = 0.5f))
-                                ) {
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (activePoint?.isScreenOn == true) AccentGreen.copy(alpha = 0.15f) else AccentCyan.copy(alpha = 0.15f),
+                            border = BorderStroke(0.6.dp, if (activePoint?.isScreenOn == true) AccentGreen else AccentCyan)
+                        ) {
+                            Text(
+                                text = if (activePoint?.isScreenOn == true) "Layar Aktif" else "Layar Mati",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (activePoint?.isScreenOn == true) AccentGreen else AccentCyan,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(155.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(BgElevated.copy(alpha = 0.4f))
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onDragStart = { offset ->
+                                    val n = latestPoints.size
+                                    if (n < 2) return@detectHorizontalDragGestures
+                                    val w = size.width - 36.dp.toPx()
+                                    val stepX = w / (n - 1).coerceAtLeast(1)
+                                    val idx = ((offset.x - 20.dp.toPx()) / stepX).toInt().coerceIn(0, n - 1)
+                                    scrubbedIndex = idx
+                                },
+                                onHorizontalDrag = { change, _ ->
+                                    change.consume()
+                                    val n = latestPoints.size
+                                    if (n < 2) return@detectHorizontalDragGestures
+                                    val w = size.width - 36.dp.toPx()
+                                    val stepX = w / (n - 1).coerceAtLeast(1)
+                                    val idx = ((change.position.x - 20.dp.toPx()) / stepX).toInt().coerceIn(0, n - 1)
+                                    scrubbedIndex = idx
+                                },
+                                onDragEnd = { scrubbedIndex = null },
+                                onDragCancel = { scrubbedIndex = null }
+                            )
+                        }
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { offset ->
+                                    val n = latestPoints.size
+                                    if (n < 2) return@detectTapGestures
+                                    val w = size.width - 36.dp.toPx()
+                                    val stepX = w / (n - 1).coerceAtLeast(1)
+                                    val idx = ((offset.x - 20.dp.toPx()) / stepX).toInt().coerceIn(0, n - 1)
+                                    scrubbedIndex = idx
+                                }
+                            )
+                        }
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val padLeft = 20.dp.toPx()
+                        val padRight = 16.dp.toPx()
+                        val padTop = 16.dp.toPx()
+                        val padBottom = 24.dp.toPx()
+
+                        val graphWidth = size.width - padLeft - padRight
+                        val graphHeight = size.height - padTop - padBottom
+
+                        val maxLvl = (points.maxOfOrNull { it.level } ?: 100).coerceAtMost(100)
+                        val minLvl = ((points.minOfOrNull { it.level } ?: currentLevel) - 2).coerceAtLeast(0)
+                        val lvlSpan = (maxLvl - minLvl).coerceAtLeast(5).toFloat()
+
+                        for (gridStep in 0..3) {
+                            val y = padTop + (gridStep / 3f) * graphHeight
+                            drawLine(
+                                color = Color.White.copy(alpha = 0.05f),
+                                start = Offset(padLeft, y),
+                                end = Offset(size.width - padRight, y),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                        }
+
+                        val n = points.size
+                        val stepX = graphWidth / (n - 1).coerceAtLeast(1)
+
+                        val coords = points.mapIndexed { idx, p ->
+                            val x = padLeft + idx * stepX
+                            val normY = ((maxLvl - p.level).toFloat() / lvlSpan).coerceIn(0f, 1f)
+                            val y = padTop + normY * graphHeight
+                            Offset(x, y)
+                        }
+
+                        val stripY = size.height - 10.dp.toPx()
+                        val stripHeight = 5.dp.toPx()
+                        for (i in 0 until n - 1) {
+                            val x1 = coords[i].x
+                            val x2 = coords[i + 1].x
+                            val isSot = points[i + 1].isScreenOn
+                            drawRect(
+                                color = if (isSot) AccentGreen.copy(alpha = 0.85f) else AccentCyan.copy(alpha = 0.45f),
+                                topLeft = Offset(x1, stripY),
+                                size = androidx.compose.ui.geometry.Size(x2 - x1, stripHeight)
+                            )
+                        }
+
+                        val strokePath = Path().apply {
+                            moveTo(coords[0].x, coords[0].y)
+                            for (i in 1 until coords.size) {
+                                lineTo(coords[i].x, coords[i].y)
+                            }
+                        }
+
+                        val fillPath = Path().apply {
+                            addPath(strokePath)
+                            lineTo(coords.last().x, size.height - padBottom)
+                            lineTo(coords.first().x, size.height - padBottom)
+                            close()
+                        }
+
+                        drawPath(
+                            path = fillPath,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(AccentCyan.copy(alpha = 0.25f), Color.Transparent),
+                                startY = padTop,
+                                endY = size.height - padBottom
+                            )
+                        )
+
+                        drawPath(
+                            path = strokePath,
+                            color = AccentCyan,
+                            style = Stroke(width = 2.5.dp.toPx())
+                        )
+
+                        coords.forEachIndexed { idx, pt ->
+                            val isSot = points[idx].isScreenOn
+                            drawCircle(
+                                color = if (isSot) AccentGreen else AccentCyan,
+                                radius = 3.2.dp.toPx(),
+                                center = pt
+                            )
+                        }
+
+                        val activeIdx = scrubbedIndex ?: (n - 1)
+                        val activeCoord = coords.getOrNull(activeIdx) ?: coords.last()
+                        drawLine(
+                            color = AccentCyan.copy(alpha = 0.6f),
+                            start = Offset(activeCoord.x, padTop),
+                            end = Offset(activeCoord.x, size.height - padBottom),
+                            strokeWidth = 1.2.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+                        )
+                        drawCircle(color = AccentCyan.copy(alpha = 0.35f), radius = 8.dp.toPx(), center = activeCoord)
+                        drawCircle(color = AccentCyan, radius = 4.dp.toPx(), center = activeCoord)
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+            }
+
+            if (steps.isEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.8.dp, BorderGlass),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Belum ada penurunan 1% yang tercatat pada siklus ini sejak charger dilepas.",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 11.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            } else {
+                Text(
+                    text = "Log Durasi per 1% Penurunan (${steps.size} langkah tercatat)",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    steps.take(10).forEach { step ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = BgCard,
+                            border = BorderStroke(0.7.dp, BorderGlass),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = if (step.isScreenOn) "Layar Aktif" else if (step.isDeviceIdle) "Deep Doze" else "Layar Mati",
-                                        fontSize = 9.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (step.isScreenOn) AccentGreen else AccentCyan,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        text = "${step.fromLevel}% ➔ ${step.toLevel}%",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextPrimary
                                     )
+                                    Spacer(Modifier.width(8.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(5.dp),
+                                        color = if (step.isScreenOn) AccentGreen.copy(alpha = 0.15f) else AccentCyan.copy(alpha = 0.12f),
+                                        border = BorderStroke(0.5.dp, if (step.isScreenOn) AccentGreen.copy(alpha = 0.6f) else AccentCyan.copy(alpha = 0.5f))
+                                    ) {
+                                        Text(
+                                            text = if (step.isScreenOn) "Layar Aktif" else if (step.isDeviceIdle) "Deep Doze" else "Layar Mati",
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (step.isScreenOn) AccentGreen else AccentCyan,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+
+                                Text(
+                                    text = step.durationText,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (step.isScreenOn) AccentGreen else TextPrimary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Segment 1: Penggunaan Aplikasi & Sistem (Minimalis & Elegan)
+            val apps = stats.topDrainApps
+            if (apps.isEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.8.dp, BorderGlass),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Belum ada rincian penggunaan aplikasi yang tercatat pada siklus ini sejak charger dilepas.",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 11.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            } else {
+                val maxDrainPct = apps.firstOrNull()?.drainPercent ?: 100f
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    apps.forEach { item ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = BgCard,
+                            border = BorderStroke(0.7.dp, BorderGlass),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                BatteryConsumerIcon(
+                                    packageName = item.packageName,
+                                    appName = item.appName,
+                                    modifier = Modifier.size(34.dp)
+                                )
+
+                                Spacer(Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = item.appName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = TextPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        )
+
+                                        Spacer(Modifier.width(8.dp))
+
+                                        Row(verticalAlignment = Alignment.Bottom) {
+                                            Text(
+                                                text = "${kotlin.math.round(item.drainPercent).toInt()}%",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextPrimary
+                                            )
+                                            if (item.drainMah > 0f) {
+                                                Spacer(Modifier.width(4.dp))
+                                                Text(
+                                                    text = if (item.drainMah >= 10f) "${kotlin.math.round(item.drainMah).toInt()} mAh" else String.format(java.util.Locale.US, "%.1f mAh", item.drainMah),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontSize = 10.sp,
+                                                    color = TextSecondary
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(Modifier.height(5.dp))
+
+                                    val progressRatio = if (maxDrainPct > 0f) {
+                                        (item.drainPercent / maxDrainPct).coerceIn(0.03f, 1f)
+                                    } else 0f
+
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(3.dp)
+                                            .clip(RoundedCornerShape(1.5.dp))
+                                            .background(BgElevated)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(progressRatio)
+                                                .fillMaxHeight()
+                                                .clip(RoundedCornerShape(1.5.dp))
+                                                .background(
+                                                    Brush.horizontalGradient(
+                                                        listOf(AccentCyan, AccentBlue)
+                                                    )
+                                                )
+                                        )
+                                    }
                                 }
                             }
-
-                            Text(
-                                text = step.durationText,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (step.isScreenOn) AccentGreen else TextPrimary
-                            )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BatteryConsumerIcon(
+    packageName: String,
+    appName: String,
+    modifier: Modifier = Modifier
+) {
+    val isSystemOrHardware = packageName in listOf("screen", "idle", "wakelock", "audio", "wifi", "cell", "cellular", "system_services", "kernel", "android", "audioserver", "mediaextractor", "bluetooth", "camera")
+
+    if (isSystemOrHardware) {
+        val (icon, tint) = when (packageName) {
+            "screen" -> Pair(Icons.Default.StayCurrentPortrait, AccentCyan)
+            "idle" -> Pair(Icons.Default.Bedtime, AccentBlue)
+            "wakelock" -> Pair(Icons.Default.Timer, AccentOrange)
+            "audio", "audioserver" -> Pair(Icons.Default.VolumeUp, AccentPurple)
+            "wifi" -> Pair(Icons.Default.Wifi, AccentCyan)
+            "cell", "cellular" -> Pair(Icons.Default.SignalCellularAlt, AccentGreen)
+            "kernel" -> Pair(Icons.Default.Memory, AccentGreen)
+            "android", "system_services" -> Pair(Icons.Default.Android, AccentGreen)
+            "camera" -> Pair(Icons.Default.Videocam, AccentOrange)
+            else -> Pair(Icons.Default.Memory, AccentCyan)
+        }
+        Surface(
+            modifier = modifier,
+            shape = RoundedCornerShape(8.dp),
+            color = BgElevated,
+            border = BorderStroke(0.6.dp, BorderSubtle)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = appName,
+                    tint = tint,
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+        }
+    } else {
+        ProcessIcon(
+            packageName = packageName,
+            processName = appName,
+            modifier = modifier
+        )
     }
 }
 

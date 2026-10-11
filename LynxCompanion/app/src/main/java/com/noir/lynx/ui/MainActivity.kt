@@ -1,6 +1,8 @@
 package com.noir.lynx.ui
 
 import android.os.Bundle
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.input.pointer.util.VelocityTrackerAddPointsFix
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -39,9 +41,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -49,11 +49,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.animation.core.AnimationState
-import androidx.compose.animation.core.animateDecay
-import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.gestures.FlingBehavior
-import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,8 +95,14 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: LynxViewModel by viewModels()
 
+    @OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Compose 1.6.1 defaults to legacy relative-coordinate velocity tracking.
+        // Use original MotionEvent coordinates and exclude ACTION_UP samples so
+        // batched physical touch events cannot inherit movement of the scroll target.
+        VelocityTrackerAddPointsFix = true
 
         // Enable edge-to-edge
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -361,69 +363,11 @@ fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
 }
 
 // ============================================================
-//  Chrome Android Fluid Fling Behavior (Viscous Damping Model)
+//  Native Compose fling: uses platform density and cancels on a new drag.
 // ============================================================
 
 @Composable
-fun rememberFluidFlingBehavior(
-    lazyState: LazyListState? = null,
-    scrollState: ScrollState? = null
-): FlingBehavior {
-    return remember {
-        object : FlingBehavior {
-            override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
-                if (kotlin.math.abs(initialVelocity) < 30f) return 0f
-
-                val sign = if (initialVelocity < 0f) -1f else 1f
-                val v0 = kotlin.math.abs(initialVelocity).coerceIn(30f, 22000f)
-
-                // Stokes-Coulomb Analytical Hybrid Physics
-                // Combines fluid aerodynamic damping (gamma) with kinetic surface friction (mu)
-                // Result: C-infinity continuous trajectory with exact zero-velocity landing & zero subpixel loss
-                val gamma = 0.80f
-                val mu = 1350f
-                val term = (gamma * v0) / mu
-                val totalDuration = ((1f / gamma) * kotlin.math.ln(1f + term)).coerceIn(0.15f, 2.5f)
-
-                var startFrameNanos = 0L
-                var accumulatedConsumed = 0f
-
-                while (true) {
-                    var shouldStop = false
-                    withFrameNanos { frameTimeNanos ->
-                        if (startFrameNanos == 0L) {
-                            startFrameNanos = frameTimeNanos
-                        }
-                        val elapsed = ((frameTimeNanos - startFrameNanos) / 1_000_000_000.0).toFloat()
-                        if (elapsed >= totalDuration) {
-                            shouldStop = true
-                            return@withFrameNanos
-                        }
-
-                        // Exact closed-form analytical displacement:
-                        // S(t) = ((v0 + mu/gamma)/gamma) * (1 - exp(-gamma*t)) - (mu/gamma)*t
-                        val vFactor = (v0 + (mu / gamma)) / gamma
-                        val expTerm = 1f - kotlin.math.exp(-gamma * elapsed)
-                        val rawDistance = (vFactor * expTerm) - ((mu / gamma) * elapsed)
-                        val targetDisplacement = sign * rawDistance.coerceAtLeast(0f)
-
-                        val desiredDelta = targetDisplacement - accumulatedConsumed
-                        val consumed = scrollBy(desiredDelta)
-                        accumulatedConsumed += consumed
-
-                        // Edge collision absorption: if list reaches top/bottom boundary, stop immediately
-                        if (kotlin.math.abs(desiredDelta) > 0.5f && kotlin.math.abs(consumed) < 0.1f) {
-                            shouldStop = true
-                        }
-                    }
-                    if (shouldStop) break
-                }
-                // Return 0f so NO residual unconsumed velocity triggers bounce/recoil
-                return 0f
-            }
-        }
-    }
-}
+fun rememberFluidFlingBehavior(): FlingBehavior = ScrollableDefaults.flingBehavior()
 
 // ============================================================
 //  Main Dashboard — 4-Tab Luxury Material 3 Navigation
@@ -442,15 +386,16 @@ fun MainDashboard(
     val tuningHubLazyState = rememberLazyListState()
     val subscreenLazyState = rememberLazyListState()
 
-    val dashboardFling = rememberFluidFlingBehavior(lazyState = dashboardLazyState)
-    val tuningHubFling = rememberFluidFlingBehavior(lazyState = tuningHubLazyState)
-    val toolsFling = rememberFluidFlingBehavior(lazyState = toolsLazyState)
-    val subscreenFling = rememberFluidFlingBehavior(lazyState = subscreenLazyState)
+    val dashboardFling = rememberFluidFlingBehavior()
+    val tuningHubFling = rememberFluidFlingBehavior()
+    val toolsFling = rememberFluidFlingBehavior()
+    val subscreenFling = rememberFluidFlingBehavior()
     var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         viewModel.syncHudPrefs(context)
     }
     BackHandler(enabled = uiState.currentTab == 1 && selectedCategory != null) {
+        android.util.Log.i("LynxNavigation", "system-back category=$selectedCategory scrolling=${subscreenLazyState.isScrollInProgress}")
         selectedCategory = null
     }
     LaunchedEffect(selectedCategory) {
@@ -1655,7 +1600,10 @@ fun MainDashboard(
                                         ) {
                                             // Circular Back Arrow
                                             Surface(
-                                                onClick = { selectedCategory = null },
+                                                onClick = {
+                                                    android.util.Log.i("LynxNavigation", "header-back category=$selectedCategory")
+                                                    selectedCategory = null
+                                                },
                                                 shape = CircleShape,
                                                 color = BgElevated,
                                                 border = BorderStroke(0.8.dp, BorderSubtle),
@@ -1747,6 +1695,11 @@ fun MainDashboard(
                                     )
                                 }
 
+                                // Own charging polling/dialogs for the whole page, not a lazy item.
+                                if (currentCategory == "charging") {
+                                    ChargingScreenLifecycle(uiState, viewModel)
+                                }
+
                                 // 2. Scrollable Subscreen Content Area (Virtualized LazyColumn)
                                 LazyColumn(
                                     state = subscreenLazyState,
@@ -1764,7 +1717,13 @@ fun MainDashboard(
                                         "cpu" -> item(key = "subscreen_cpu") { TuningCpuCategory(uiState = uiState, viewModel = viewModel) }
                                         "thermal" -> item(key = "subscreen_thermal") { TuningThermalCategory(uiState = uiState, viewModel = viewModel) }
                                         "memory" -> item(key = "subscreen_memory") { TuningMemoryCategory(uiState = uiState, viewModel = viewModel) }
-                                        "charging" -> item(key = "subscreen_charging") { TuningChargingCategory(uiState = uiState, viewModel = viewModel) }
+                                        "charging" -> if (uiState.batterySubTab == 1) {
+                                            batteryInformationItems(uiState, viewModel)
+                                        } else {
+                                            item(key = "subscreen_charging") {
+                                                TuningChargingCategory(uiState, viewModel, manageLifecycle = false)
+                                            }
+                                        }
                                         "network" -> item(key = "subscreen_network") { TuningNetworkCategory(uiState = uiState, viewModel = viewModel) }
                                         "system" -> item(key = "subscreen_system") {
                                             TuningSystemCategory(
@@ -2569,9 +2528,9 @@ fun MainDashboard(
                                 .clip(CircleShape)
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    if (uiState.currentTab == 1 && index == 1) {
-                                        selectedCategory = null
-                                    } else {
+                                    // Reselecting an active tab must not discard its subpage.
+                                    if (uiState.currentTab != index) {
+                                        android.util.Log.i("LynxNavigation", "tab ${uiState.currentTab} -> $index")
                                         viewModel.switchTab(index)
                                     }
                                 },

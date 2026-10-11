@@ -7237,6 +7237,78 @@ object LynxRepository {
         return fallback
     }
 
+    private val appDrainLabelCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, String>>()
+
+    private fun resolveAppDrainInfo(type: String, id: String): Pair<String, String> {
+        val cacheKey = "$type:$id"
+        appDrainLabelCache[cacheKey]?.let { return it }
+
+        if (type == "global") {
+            val res = when (id.lowercase()) {
+                "screen" -> Pair("Layar", "screen")
+                "idle" -> Pair("Mode Siaga (Standby)", "idle")
+                "wakelock" -> Pair("Sistem Wakelock", "wakelock")
+                "audio" -> Pair("Pemutar Audio", "audio")
+                "system_services" -> Pair("Layanan Sistem", "system_services")
+                "wifi" -> Pair("Wi-Fi", "wifi")
+                "cell", "cellular" -> Pair("Sinyal Seluler", "cellular")
+                "bluetooth" -> Pair("Bluetooth", "bluetooth")
+                "camera" -> Pair("Kamera", "camera")
+                else -> Pair(id.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ROOT) else it.toString() }, id)
+            }
+            appDrainLabelCache[cacheKey] = res
+            return res
+        }
+
+        val rawUid = id.trim().lowercase()
+        val numericUid = when {
+            rawUid.matches(Regex("""\d+""")) -> rawUid.toIntOrNull()
+            Regex("""u(\d+)a(\d+)""").matches(rawUid) -> {
+                val m = Regex("""u(\d+)a(\d+)""").find(rawUid)
+                if (m != null) {
+                    val user = m.groupValues[1].toIntOrNull() ?: 0
+                    val appId = m.groupValues[2].toIntOrNull() ?: 0
+                    user * 100000 + 10000 + appId
+                } else null
+            }
+            else -> null
+        }
+
+        if (numericUid == null) {
+            val res = Pair("UID $id", id)
+            appDrainLabelCache[cacheKey] = res
+            return res
+        }
+
+        val res = when (numericUid) {
+            0 -> Pair("Kernel & Root", "kernel")
+            1000 -> Pair("Sistem Android", "android")
+            1041 -> Pair("Audio Server", "audioserver")
+            1036 -> Pair("Media Server", "mediaextractor")
+            2000 -> Pair("Shell / ADB", "com.android.shell")
+            1001 -> Pair("Layanan Seluler & Telepon", "com.android.phone")
+            else -> {
+                val pm = appContext?.packageManager
+                val packages = pm?.getPackagesForUid(numericUid)
+                val pkg = packages?.firstOrNull() ?: "uid.$id"
+                val label = if (pkg.contains(".")) {
+                    try {
+                        val appInfo = pm?.getApplicationInfo(pkg, 0)
+                        if (appInfo != null) pm.getApplicationLabel(appInfo).toString() else pkg
+                    } catch (_: Exception) {
+                        pkg.substringAfterLast(".").replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ROOT) else it.toString() }
+                    }
+                } else {
+                    "UID $id"
+                }
+                Pair(label.ifBlank { pkg }, pkg)
+            }
+        }
+
+        appDrainLabelCache[cacheKey] = res
+        return res
+    }
+
     suspend fun readBatteryInfoStats(currentDetails: BatteryDetails?): BatteryInfoStats = withContext(Dispatchers.IO) {
         try {
             val script = """
@@ -7278,7 +7350,7 @@ object LynxRepository {
 
                 echo "LYNX_SYS|${'$'}tech|${'$'}hlth_sys|${'$'}lvl_sys|${'$'}d_cap|${'$'}max_cap|${'$'}chg_pol|${'$'}ac_pwr|${'$'}usb_pwr|${'$'}wls_pwr|${'$'}qmax|${'$'}cfd|${'$'}chg_full|${'$'}chg_cnt|${'$'}v_now|${'$'}i_now|${'$'}i_avg|${'$'}t_now|${'$'}ttf_sec|${'$'}cyc_sys|${'$'}esr_sys|${'$'}chip"
                 echo "===BATSTATS_START==="
-                dumpsys batterystats --charged 2>/dev/null | head -n 160
+                dumpsys batterystats --charged 2>/dev/null | head -n 350
             """.trimIndent()
             val r = Shell.cmd(script).exec()
             val lines = r.out
@@ -7310,7 +7382,9 @@ object LynxRepository {
             // Parse dumpsys batterystats --charged lines directly in Kotlin
             var inBatStats = false
             var inDischargeSteps = false
+            var inEstimatedPower = false
             val dischargeSteps = mutableListOf<DischargeStepItem>()
+            val rawDrainList = mutableListOf<Triple<String, String, Float>>()
             var estDisRemainingRaw = ""
             var estScreenOnRaw = ""
             var startClockRaw = ""
@@ -7341,6 +7415,12 @@ object LynxRepository {
 
                 if (line.startsWith("Discharge step durations:")) {
                     inDischargeSteps = true
+                    inEstimatedPower = false
+                    continue
+                }
+                if (line.startsWith("Estimated power use (mAh):")) {
+                    inEstimatedPower = true
+                    inDischargeSteps = false
                     continue
                 }
                 if (inDischargeSteps) {
@@ -7368,6 +7448,31 @@ object LynxRepository {
                         continue
                     } else {
                         inDischargeSteps = false
+                    }
+                }
+                if (inEstimatedPower) {
+                    if (line.startsWith("Wake lock") || line.startsWith("All packages:") || line.startsWith("All UIDs:") || line.startsWith("Per process")) {
+                        inEstimatedPower = false
+                    } else {
+                        val uidMatch = Regex("""^(?i)UID\s+([a-zA-Z0-9_-]+):\s*([0-9.]+)""").find(line)
+                        if (uidMatch != null) {
+                            val uidStr = uidMatch.groupValues[1]
+                            val mah = uidMatch.groupValues[2].toFloatOrNull() ?: 0f
+                            if (mah > 0.01f) {
+                                rawDrainList.add(Triple("uid", uidStr, mah))
+                            }
+                            continue
+                        }
+
+                        val globalMatch = Regex("""^(screen|idle|wakelock|audio|wifi|bluetooth|cell|cellular|system_services):\s*([0-9.]+)""").find(line)
+                        if (globalMatch != null) {
+                            val compName = globalMatch.groupValues[1].lowercase()
+                            val mah = globalMatch.groupValues[2].toFloatOrNull() ?: 0f
+                            if (mah > 0.05f) {
+                                rawDrainList.add(Triple("global", compName, mah))
+                            }
+                            continue
+                        }
                     }
                 }
 
@@ -7425,6 +7530,40 @@ object LynxRepository {
                     }
                 }
             }
+
+            // Compute Top Drain Apps & System Services
+            val resolvedDrainList = rawDrainList.map { (type, id, mah) ->
+                val (appName, pkgName) = resolveAppDrainInfo(type, id)
+                val isSys = (type == "global" || id in listOf("0", "1000", "1041", "1036", "2000", "1001") || pkgName.startsWith("com.android.") || pkgName.startsWith("android"))
+                Triple(appName, pkgName, mah) to isSys
+            }
+
+            val groupedDrainMap = mutableMapOf<String, Triple<String, Float, Boolean>>()
+            for ((entry, isSys) in resolvedDrainList) {
+                val (appName, pkgName, mah) = entry
+                val prev = groupedDrainMap[pkgName]
+                if (prev != null) {
+                    groupedDrainMap[pkgName] = Triple(prev.first, prev.second + mah, prev.third || isSys)
+                } else {
+                    groupedDrainMap[pkgName] = Triple(appName, mah, isSys)
+                }
+            }
+
+            val totalAttributedDrain = groupedDrainMap.values.sumOf { it.second.toDouble() }.toFloat()
+            val topDrainApps = groupedDrainMap.entries
+                .map { (pkgName, data) ->
+                    val (appName, mah, isSys) = data
+                    val pct = if (totalAttributedDrain > 0f) (mah / totalAttributedDrain) * 100f else 0f
+                    AppDrainItem(
+                        packageName = pkgName,
+                        appName = appName,
+                        drainMah = mah,
+                        drainPercent = pct,
+                        isSystem = isSys
+                    )
+                }
+                .sortedByDescending { it.drainMah }
+                .take(15)
 
             // 1. Real Physical Capacities (Zero Hardcoding)
             val normQmax = when {
@@ -7728,7 +7867,7 @@ object LynxRepository {
                 dischargeSteps = dischargeSteps,
                 drainHistoryPoints = realDrainPoints,
                 cableBenchmark = CableBenchmarkResult(),
-                topDrainApps = emptyList()
+                topDrainApps = topDrainApps
             )
         } catch (e: Exception) {
             BatteryInfoStats()
