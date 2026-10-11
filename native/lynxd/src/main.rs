@@ -1324,8 +1324,11 @@ fn main() {
                         std::process::exit(1);
                     }
                 }
+                "watchdog" => {
+                    AdbController::run_watchdog_loop();
+                }
                 other => {
-                    eprintln!("Unknown adb subcommand: '{}'. Available: status, enable [port], disable, set-port <port>", other);
+                    eprintln!("Unknown adb subcommand: '{}'. Available: status, enable [port], disable, set-port <port>, watchdog", other);
                     std::process::exit(1);
                 }
             }

@@ -87,7 +87,8 @@ impl DaemonLifecycle {
         None
     }
 
-    /// Sends a graceful termination signal (SIGTERM) to the active daemon process.
+    /// Sends a graceful termination signal (SIGTERM) to the active daemon process
+    /// and waits up to 1.5s for clean shutdown to prevent restart race conditions.
     pub fn stop_daemon() -> Result<(), String> {
         match Self::check_status() {
             Some(pid) => {
@@ -98,6 +99,13 @@ impl DaemonLifecycle {
                     }
                     let res = unsafe { kill(pid as i32, 15) }; // 15 = SIGTERM
                     if res == 0 {
+                        for _ in 0..30 {
+                            if !Self::is_process_alive(pid) {
+                                break;
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(50));
+                        }
+                        Self::release_lock();
                         Ok(())
                     } else {
                         Err(format!("Failed to signal daemon process PID {}", pid))
@@ -124,7 +132,37 @@ impl DaemonLifecycle {
         }
     }
 
+    /// Detaches the current process from any parent ADB shell session and cgroup
+    /// so Android init `killProcessGroup` does not kill it when `adbd` stops/restarts.
+    pub fn detach_from_adbd_cgroup() {
+        #[cfg(unix)]
+        {
+            extern "C" {
+                fn setsid() -> i32;
+                fn signal(sig: std::os::raw::c_int, handler: usize) -> usize;
+            }
+            unsafe {
+                setsid();
+                signal(1, 1); // SIGHUP -> SIG_IGN
+            }
+            let pid_str = std::process::id().to_string();
+            let _ = fs::create_dir_all("/acct/uid_0");
+            for cgroup_file in &[
+                "/sys/fs/cgroup/cgroup.procs",
+                "/acct/cgroup.procs",
+                "/acct/uid_0/cgroup.procs",
+                "/dev/cpuset/system-background/tasks",
+                "/dev/cpuset/tasks",
+            ] {
+                if std::path::Path::new(cgroup_file).exists() {
+                    let _ = fs::write(cgroup_file, &pid_str);
+                }
+            }
+        }
+    }
+
     fn register_signal_handlers() {
+        Self::detach_from_adbd_cgroup();
         #[cfg(unix)]
         {
             extern "C" {

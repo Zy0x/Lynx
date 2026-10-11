@@ -274,6 +274,8 @@ impl DaemonRunner {
                     }
                 } else if idx > 0 && idx % 6 == 0 {
                     ChargingRegulator::tick();
+                }
+                if idx > 0 && idx % 2 == 0 {
                     crate::subsystems::AdbController::tick();
                 }
                 sleep(Duration::from_millis(500));

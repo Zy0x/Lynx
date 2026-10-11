@@ -203,6 +203,9 @@ impl AdbController {
         // 5. Marker in tmpfs /dev/ for instant lock tracking
         let _ = fs::write("/dev/lynx_adb_port", port_str.as_bytes());
 
+        // 6. Ensure dedicated cgroup-detached 1s watchdog is active
+        Self::ensure_watchdog_running();
+
         let ip = Self::get_ip_address();
         let msg = format!(
             "Wireless ADB locked successfully on port {}. Connect via: adb connect {}:{}",
@@ -216,6 +219,9 @@ impl AdbController {
     pub fn disable() -> Result<String, String> {
         Logger::info("[ADB-KEEPALIVE] Disabling wireless ADB port lock...");
 
+        let _ = fs::remove_file("/dev/lynx_adb_port");
+        Self::stop_watchdog();
+
         Self::setprop_persistent("persist.adb.tcp.port", "-1");
         let _ = Command::new("setprop")
             .args(["service.adb.tcp.port", "-1"])
@@ -223,7 +229,6 @@ impl AdbController {
             .stderr(std::process::Stdio::null())
             .status();
 
-        let _ = fs::remove_file("/dev/lynx_adb_port");
         let _ = Self::save_config(false, 5555);
 
         let _ = Command::new("setprop")
@@ -235,6 +240,130 @@ impl AdbController {
         let msg = "Wireless ADB keep-alive disabled and port reset.".to_string();
         Logger::info(format!("[ADB-KEEPALIVE] {}", msg));
         Ok(msg)
+    }
+
+    /// Spawns the dedicated cgroup-detached ADB watchdog process if not already running.
+    pub fn ensure_watchdog_running() {
+        let pid_path = Path::new("/dev/lynxd_adb.pid");
+        if pid_path.exists() {
+            if let Ok(s) = fs::read_to_string(pid_path) {
+                if let Ok(existing_pid) = s.trim().parse::<u32>() {
+                    if Path::new(&format!("/proc/{}", existing_pid)).exists() {
+                        return;
+                    }
+                }
+            }
+        }
+        let exe = std::env::current_exe()
+            .unwrap_or_else(|_| std::path::PathBuf::from("/data/adb/modules/Lynx/system/bin/lynxd"));
+        let _ = Command::new(exe)
+            .args(["adb", "watchdog"])
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+    }
+
+    /// Stops the dedicated ADB watchdog process if running.
+    pub fn stop_watchdog() {
+        let pid_path = Path::new("/dev/lynxd_adb.pid");
+        if pid_path.exists() {
+            if let Ok(s) = fs::read_to_string(pid_path) {
+                if let Ok(pid) = s.trim().parse::<u32>() {
+                    #[cfg(unix)]
+                    {
+                        extern "C" {
+                            fn kill(pid: i32, sig: i32) -> i32;
+                        }
+                        unsafe {
+                            kill(pid as i32, 15);
+                        }
+                    }
+                }
+            }
+            let _ = fs::remove_file(pid_path);
+        }
+    }
+
+    /// Dedicated 1-second watchdog loop, detached from `adbd` session and cgroups.
+    /// Uses zero-fork `/proc/net/tcp` inspection (0.02ms) when healthy, and auto-heals
+    /// within 1 second if Android stops `adbd` on screen-off.
+    pub fn run_watchdog_loop() {
+        crate::daemon::DaemonLifecycle::detach_from_adbd_cgroup();
+        let pid_path = Path::new("/dev/lynxd_adb.pid");
+        let my_pid = std::process::id();
+        if pid_path.exists() {
+            if let Ok(s) = fs::read_to_string(pid_path) {
+                if let Ok(existing_pid) = s.trim().parse::<u32>() {
+                    if existing_pid != my_pid
+                        && Path::new(&format!("/proc/{}", existing_pid)).exists()
+                    {
+                        return;
+                    }
+                }
+            }
+        }
+        let _ = fs::write(pid_path, my_pid.to_string());
+        Logger::info(format!(
+            "[ADB-WATCHDOG] Dedicated cgroup-detached ADB Keep-Alive watchdog started [PID: {}]",
+            my_pid
+        ));
+
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+
+            let port = if let Ok(p_str) = fs::read_to_string("/dev/lynx_adb_port") {
+                p_str.trim().parse::<u16>().unwrap_or(0)
+            } else {
+                let cfg = Self::load_config();
+                if !cfg.enabled {
+                    break;
+                }
+                let _ = fs::write("/dev/lynx_adb_port", cfg.port.to_string());
+                cfg.port
+            };
+
+            if !(1024..=65535).contains(&port) {
+                break;
+            }
+
+            // Fast-path: 0.02ms in-process read of /proc/net/tcp (zero forks!)
+            if !Self::is_port_listening(port) {
+                Logger::warn(format!(
+                    "[ADB-WATCHDOG] Port {} closed on screen-off/sleep! Restoring immediately...",
+                    port
+                ));
+                let port_str = port.to_string();
+                Self::setprop_persistent("persist.adb.tcp.port", &port_str);
+                let _ = Command::new("setprop")
+                    .args(["service.adb.tcp.port", &port_str])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status();
+                if !Self::is_adbd_running() {
+                    let _ = Command::new("setprop")
+                        .args(["ctl.start", "adbd"])
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .status();
+                    let _ = Command::new("start")
+                        .arg("adbd")
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .status();
+                } else {
+                    let _ = Command::new("setprop")
+                        .args(["ctl.restart", "adbd"])
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .status();
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1500));
+            }
+        }
+
+        let _ = fs::remove_file(pid_path);
+        Logger::info("[ADB-WATCHDOG] Watchdog exited cleanly.");
     }
 
     /// Applies configuration directly from config.json (used at boot time).
@@ -250,33 +379,30 @@ impl AdbController {
     }
 
     /// Autonomous watchdog tick (called by daemon runner).
-    /// Verifies that adbd is running and listening on the configured port.
-    /// If Android framework reset the port on screen-off or deep sleep, auto-heals immediately!
     pub fn tick() {
-        let cfg = Self::load_config();
-        if !cfg.enabled {
+        let port = if let Ok(p_str) = fs::read_to_string("/dev/lynx_adb_port") {
+            p_str.trim().parse::<u16>().unwrap_or(0)
+        } else {
+            let cfg = Self::load_config();
+            if !cfg.enabled {
+                return;
+            }
+            let _ = fs::write("/dev/lynx_adb_port", cfg.port.to_string());
+            cfg.port
+        };
+
+        if !(1024..=65535).contains(&port) {
             return;
         }
 
-        let target_port_str = cfg.port.to_string();
-        let current_svc_port = Self::getprop("service.adb.tcp.port");
-        let current_persist_port = Self::getprop("persist.adb.tcp.port");
+        Self::ensure_watchdog_running();
 
-        let needs_heal = current_svc_port != target_port_str
-            || current_persist_port != target_port_str
-            || !Self::is_port_listening(cfg.port)
-            || !Self::is_adbd_running();
-
-        if needs_heal {
+        if !Self::is_port_listening(port) {
             Logger::warn(format!(
-                "[ADB-WATCHDOG] Port drop/reset detected (svc: '{}', persist: '{}', listening: {}, adbd_run: {}). Auto-healing to port {}...",
-                current_svc_port,
-                current_persist_port,
-                Self::is_port_listening(cfg.port),
-                Self::is_adbd_running(),
-                cfg.port
+                "[ADB-WATCHDOG] Port {} drop detected during daemon tick. Auto-healing...",
+                port
             ));
-            let _ = Self::apply(cfg.port);
+            let _ = Self::apply(port);
         }
     }
 

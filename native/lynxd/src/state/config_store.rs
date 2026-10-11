@@ -275,7 +275,8 @@ impl ConfigStore {
             let mut sec_lines: Vec<String> = Vec::new();
             let mut found_in_sec = false;
 
-            for line in content.lines() {
+            let lines: Vec<&str> = content.lines().collect();
+            for (idx, line) in lines.iter().enumerate() {
                 let trimmed = line.trim();
                 if !in_sec && !sec_handled {
                     if let Some(pos) = trimmed.find(&sec_pat) {
@@ -286,6 +287,20 @@ impl ConfigStore {
                             out.push('\n');
                             continue;
                         }
+                    }
+                    if idx == lines.len() - 1 && trimmed == "}" {
+                        let trimmed_out = out.trim_end();
+                        if !trimmed_out.ends_with(',') && !trimmed_out.ends_with('{') {
+                            out = format!("{},\n", trimmed_out);
+                        }
+                        out.push_str(&format!(
+                            "  \"{}\": {{\n    \"{}\": {}\n  }}\n",
+                            sec, fld, formatted_val
+                        ));
+                        out.push_str(line);
+                        out.push('\n');
+                        sec_handled = true;
+                        continue;
                     }
                     out.push_str(line);
                     out.push('\n');
