@@ -144,17 +144,40 @@ fun ColorManagementCard(
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentGreen
-    var tempK by remember(colorProfile) { mutableIntStateOf(colorProfile.temperatureK) }
-    var sat by remember(colorProfile) { mutableFloatStateOf(colorProfile.saturation) }
-    var cont by remember(colorProfile) { mutableFloatStateOf(colorProfile.contrast) }
-    var rGain by remember(colorProfile) { mutableFloatStateOf(colorProfile.red) }
-    var gGain by remember(colorProfile) { mutableFloatStateOf(colorProfile.green) }
-    var bGain by remember(colorProfile) { mutableFloatStateOf(colorProfile.blue) }
+    var tempK by remember { mutableIntStateOf(colorProfile.temperatureK) }
+    var sat by remember { mutableFloatStateOf(colorProfile.saturation) }
+    var cont by remember { mutableFloatStateOf(colorProfile.contrast) }
+    var rGain by remember { mutableFloatStateOf(colorProfile.red) }
+    var gGain by remember { mutableFloatStateOf(colorProfile.green) }
+    var bGain by remember { mutableFloatStateOf(colorProfile.blue) }
+    var isDraggingSlider by remember { mutableStateOf(false) }
+    var lastSliderInteraction by remember { mutableLongStateOf(0L) }
     var showAdvancedGains by remember { mutableStateOf(false) }
+
+    LaunchedEffect(colorProfile) {
+        val now = System.currentTimeMillis()
+        if (!isDraggingSlider && (now - lastSliderInteraction > 3500L)) {
+            tempK = colorProfile.temperatureK
+            sat = colorProfile.saturation
+            cont = colorProfile.contrast
+            rGain = colorProfile.red
+            gGain = colorProfile.green
+            bGain = colorProfile.blue
+        }
+    }
 
     // KCAL State
     var kcalEnabled by remember { mutableStateOf(displayCalibration.kcalEnabled) }
     var kcalSat by remember { mutableIntStateOf(displayCalibration.saturation) }
+    var lastKcalInteraction by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(displayCalibration) {
+        val now = System.currentTimeMillis()
+        if (!isDraggingSlider && (now - lastKcalInteraction > 3500L)) {
+            kcalEnabled = displayCalibration.kcalEnabled
+            kcalSat = displayCalibration.saturation
+        }
+    }
 
     LynxCard(
         title = "Manajemen Warna Layar (Color Engine)",
@@ -384,8 +407,14 @@ fun ColorManagementCard(
                 }
                 Slider(
                     value = tempK.toFloat(),
-                    onValueChange = { tempK = it.toInt() },
+                    onValueChange = {
+                        isDraggingSlider = true
+                        lastSliderInteraction = System.currentTimeMillis()
+                        tempK = it.toInt()
+                    },
                     onValueChangeFinished = {
+                        isDraggingSlider = false
+                        lastSliderInteraction = System.currentTimeMillis()
                         onApplyProfile(
                             colorProfile.copy(
                                 name = "Kustom",
@@ -417,8 +446,14 @@ fun ColorManagementCard(
                 }
                 Slider(
                     value = sat,
-                    onValueChange = { sat = it },
+                    onValueChange = {
+                        isDraggingSlider = true
+                        lastSliderInteraction = System.currentTimeMillis()
+                        sat = it
+                    },
                     onValueChangeFinished = {
+                        isDraggingSlider = false
+                        lastSliderInteraction = System.currentTimeMillis()
                         onApplyProfile(
                             colorProfile.copy(
                                 name = "Kustom",
@@ -449,8 +484,14 @@ fun ColorManagementCard(
                 }
                 Slider(
                     value = cont,
-                    onValueChange = { cont = it },
+                    onValueChange = {
+                        isDraggingSlider = true
+                        lastSliderInteraction = System.currentTimeMillis()
+                        cont = it
+                    },
                     onValueChangeFinished = {
+                        isDraggingSlider = false
+                        lastSliderInteraction = System.currentTimeMillis()
                         onApplyProfile(
                             colorProfile.copy(
                                 name = "Kustom",
@@ -506,8 +547,14 @@ fun ColorManagementCard(
                         }
                         Slider(
                             value = rGain,
-                            onValueChange = { rGain = it },
+                            onValueChange = {
+                                isDraggingSlider = true
+                                lastSliderInteraction = System.currentTimeMillis()
+                                rGain = it
+                            },
                             onValueChangeFinished = {
+                                isDraggingSlider = false
+                                lastSliderInteraction = System.currentTimeMillis()
                                 onApplyProfile(
                                     colorProfile.copy(
                                         name = "Kustom",
@@ -532,8 +579,14 @@ fun ColorManagementCard(
                         }
                         Slider(
                             value = gGain,
-                            onValueChange = { gGain = it },
+                            onValueChange = {
+                                isDraggingSlider = true
+                                lastSliderInteraction = System.currentTimeMillis()
+                                gGain = it
+                            },
                             onValueChangeFinished = {
+                                isDraggingSlider = false
+                                lastSliderInteraction = System.currentTimeMillis()
                                 onApplyProfile(
                                     colorProfile.copy(
                                         name = "Kustom",
@@ -558,8 +611,14 @@ fun ColorManagementCard(
                         }
                         Slider(
                             value = bGain,
-                            onValueChange = { bGain = it },
+                            onValueChange = {
+                                isDraggingSlider = true
+                                lastSliderInteraction = System.currentTimeMillis()
+                                bGain = it
+                            },
                             onValueChangeFinished = {
+                                isDraggingSlider = false
+                                lastSliderInteraction = System.currentTimeMillis()
                                 onApplyProfile(
                                     colorProfile.copy(
                                         name = "Kustom",
@@ -628,57 +687,36 @@ fun ColorManagementCard(
         // ── HBM Sunlight Booster (If supported) ──
         if (displayCalibration.isHbmSupported) {
             HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("HBM Sunlight Booster", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Tingkatkan batas kecerahan panel display di bawah terik matahari langsung",
-                        color = TextSecondary,
-                        fontSize = 10.5.sp
-                    )
-                }
-                Switch(
-                    checked = displayCalibration.hbmEnabled,
-                    onCheckedChange = { onSetHbm(it) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = cardAccent)
-                )
-            }
+            LynxSwitch(
+                label = "HBM Sunlight Booster",
+                subLabel = "Tingkatkan batas kecerahan panel display di bawah terik matahari langsung",
+                checked = displayCalibration.hbmEnabled,
+                onCheckedChange = { onSetHbm(it) }
+            )
         }
 
         // ── Kernel KCAL Hardware Engine (If kernel supports KCAL) ──
         if (displayCalibration.isKcalSupported) {
             HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Kernel KCAL Hardware Engine", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Koreksi warna pada tingkat kernel driver panel", color = TextSecondary, fontSize = 10.5.sp)
+            LynxSwitch(
+                label = "Kernel KCAL Hardware Engine",
+                subLabel = "Koreksi warna pada tingkat kernel driver panel",
+                checked = kcalEnabled,
+                onCheckedChange = {
+                    kcalEnabled = it
+                    lastKcalInteraction = System.currentTimeMillis()
+                    onSetKcal(
+                        it,
+                        displayCalibration.red,
+                        displayCalibration.green,
+                        displayCalibration.blue,
+                        kcalSat,
+                        displayCalibration.value,
+                        displayCalibration.contrast,
+                        displayCalibration.hue
+                    )
                 }
-                Switch(
-                    checked = kcalEnabled,
-                    onCheckedChange = {
-                        kcalEnabled = it
-                        onSetKcal(
-                            it,
-                            displayCalibration.red,
-                            displayCalibration.green,
-                            displayCalibration.blue,
-                            kcalSat,
-                            displayCalibration.value,
-                            displayCalibration.contrast,
-                            displayCalibration.hue
-                        )
-                    },
-                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = cardAccent)
-                )
-            }
+            )
 
             if (kcalEnabled) {
                 Spacer(Modifier.height(6.dp))
@@ -687,8 +725,14 @@ fun ColorManagementCard(
                 }
                 Slider(
                     value = kcalSat.toFloat(),
-                    onValueChange = { kcalSat = it.toInt() },
+                    onValueChange = {
+                        isDraggingSlider = true
+                        lastKcalInteraction = System.currentTimeMillis()
+                        kcalSat = it.toInt()
+                    },
                     onValueChangeFinished = {
+                        isDraggingSlider = false
+                        lastKcalInteraction = System.currentTimeMillis()
                         onSetKcal(
                             kcalEnabled,
                             displayCalibration.red,

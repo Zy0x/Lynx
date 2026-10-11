@@ -206,7 +206,18 @@ fun LynxSwitch(
     enabled: Boolean = true,
     onInfoClick: (() -> Unit)? = null,
 ) {
+    var localChecked by remember { mutableStateOf(checked) }
+    var lastInteractionTime by remember { mutableLongStateOf(0L) }
     var lastClickTime by remember { mutableLongStateOf(0L) }
+
+    // Synchronize incoming external changes ONLY when 3500ms has elapsed since the last touch
+    LaunchedEffect(checked) {
+        val now = System.currentTimeMillis()
+        if (now - lastInteractionTime > 3500L) {
+            localChecked = checked
+        }
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -216,9 +227,12 @@ fun LynxSwitch(
                     onInfoClick()
                 } else {
                     val now = System.currentTimeMillis()
-                    if (now - lastClickTime >= 350L) {
+                    if (now - lastClickTime >= 300L) {
                         lastClickTime = now
-                        onCheckedChange(!checked)
+                        lastInteractionTime = now
+                        val next = !localChecked
+                        localChecked = next
+                        onCheckedChange(next)
                     }
                 }
             }
@@ -259,11 +273,13 @@ fun LynxSwitch(
             }
         }
         Switch(
-            checked = checked,
+            checked = localChecked,
             onCheckedChange = { newChecked ->
                 val now = System.currentTimeMillis()
-                if (now - lastClickTime >= 350L) {
+                if (now - lastClickTime >= 300L) {
                     lastClickTime = now
+                    lastInteractionTime = now
+                    localChecked = newChecked
                     onCheckedChange(newChecked)
                 }
             },
@@ -310,10 +326,10 @@ fun LynxSlider(
     var lastInteractionTime by remember { mutableLongStateOf(0L) }
 
     // Synchronize incoming external changes ONLY when the user is NOT dragging
-    // and after a 2000ms grace period has elapsed since the last touch/drag
+    // and after a 3500ms grace period has elapsed since the last touch/drag
     LaunchedEffect(safeValue) {
         val now = System.currentTimeMillis()
-        if (!isDragging && (now - lastInteractionTime > 2000L)) {
+        if (!isDragging && (now - lastInteractionTime > 3500L)) {
             localValue = safeValue
         }
     }
@@ -650,7 +666,7 @@ fun LynxTweakSheet(
 
     LaunchedEffect(config.id, config.currentValue) {
         val now = System.currentTimeMillis()
-        if (!isDragging && (now - lastInteractionTime > 2000L)) {
+        if (!isDragging && (now - lastInteractionTime > 3500L)) {
             sliderValue = config.currentValue
         }
     }
@@ -864,13 +880,13 @@ fun LynxDualTweakSheet(
 
     LaunchedEffect(config.id, config.item1.currentValue) {
         val now = System.currentTimeMillis()
-        if (!isDragging1 && (now - lastInteractionTime1 > 2000L)) {
+        if (!isDragging1 && (now - lastInteractionTime1 > 3500L)) {
             val1 = config.item1.currentValue
         }
     }
     LaunchedEffect(config.id, config.item2.currentValue) {
         val now = System.currentTimeMillis()
-        if (!isDragging2 && (now - lastInteractionTime2 > 2000L)) {
+        if (!isDragging2 && (now - lastInteractionTime2 > 3500L)) {
             val2 = config.item2.currentValue
         }
     }
@@ -1127,8 +1143,16 @@ fun LynxSwitchInfoSheet(
     info: SwitchTweakInfo,
     onDismiss: () -> Unit
 ) {
-    var checkedState by remember(info.id, info.isChecked) {
+    var checkedState by remember(info.id) {
         mutableStateOf(info.isChecked)
+    }
+    var lastInteractionTime by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(info.id, info.isChecked) {
+        val now = System.currentTimeMillis()
+        if (now - lastInteractionTime > 3500L) {
+            checkedState = info.isChecked
+        }
     }
 
     ModalBottomSheet(
@@ -1227,6 +1251,7 @@ fun LynxSwitchInfoSheet(
                     Switch(
                         checked = checkedState,
                         onCheckedChange = { newState ->
+                            lastInteractionTime = System.currentTimeMillis()
                             checkedState = newState
                             info.onCheckedChange(newState)
                         },
@@ -4297,7 +4322,7 @@ fun VoltageControlCard(
     var lastVoltageTouch by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(voltageInfo.globalOffsetMv) {
-        if (System.currentTimeMillis() - lastVoltageTouch > 2000L) {
+        if (System.currentTimeMillis() - lastVoltageTouch > 3500L) {
             offsetMv = voltageInfo.globalOffsetMv
         }
     }
@@ -6080,7 +6105,7 @@ fun DisplayCalibrationCard(
     var lastUnivTouch by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(displayCalibration) {
-        if (System.currentTimeMillis() - lastUnivTouch > 2000L) {
+        if (System.currentTimeMillis() - lastUnivTouch > 3500L) {
             uR = displayCalibration.universalRed
             uG = displayCalibration.universalGreen
             uB = displayCalibration.universalBlue
@@ -6095,7 +6120,7 @@ fun DisplayCalibrationCard(
     var lastKcalTouch by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(displayCalibration) {
-        if (System.currentTimeMillis() - lastKcalTouch > 2000L) {
+        if (System.currentTimeMillis() - lastKcalTouch > 3500L) {
             kcalEnabled = displayCalibration.kcalEnabled
             red = displayCalibration.red
             green = displayCalibration.green
@@ -6209,7 +6234,10 @@ fun DisplayCalibrationCard(
                 Text("Kernel KCAL Hardware Engine", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Switch(
                     checked = kcalEnabled,
-                    onCheckedChange = { kcalEnabled = it },
+                    onCheckedChange = {
+                        lastKcalTouch = System.currentTimeMillis()
+                        kcalEnabled = it
+                    },
                     colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = cardAccent)
                 )
             }
@@ -6254,7 +6282,7 @@ fun SoundControlCard(
     var lastSoundTouch by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(soundControl) {
-        if (System.currentTimeMillis() - lastSoundTouch > 2000L) {
+        if (System.currentTimeMillis() - lastSoundTouch > 3500L) {
             hpL = soundControl.headphoneGainL
             hpR = soundControl.headphoneGainR
             spk = soundControl.speakerGain
@@ -6287,7 +6315,14 @@ fun SoundControlCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("High Performance Audio DAC", color = TextSecondary, fontSize = 12.sp)
-                    Switch(checked = hpMode, onCheckedChange = { hpMode = it }, colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentGreen))
+                    Switch(
+                        checked = hpMode,
+                        onCheckedChange = {
+                            lastSoundTouch = System.currentTimeMillis()
+                            hpMode = it
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentGreen)
+                    )
                 }
 
                 LynxActionButton(
@@ -6429,7 +6464,7 @@ fun MemoryEntropyCard(
     var lastEntropyTouch by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(memoryEntropy.readThreshold, memoryEntropy.writeThreshold) {
-        if (System.currentTimeMillis() - lastEntropyTouch > 2000L) {
+        if (System.currentTimeMillis() - lastEntropyTouch > 3500L) {
             readThresh = memoryEntropy.readThreshold
             writeThresh = memoryEntropy.writeThreshold
         }

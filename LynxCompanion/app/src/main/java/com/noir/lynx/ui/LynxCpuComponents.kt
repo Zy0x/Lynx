@@ -1722,17 +1722,22 @@ fun KernelSchedulerCard(
         when {
             info.isUclampSupported && info.uclampMin > 100 ->
                 ((info.uclampMin * 100f) / 1024f).coerceIn(0f, 100f)
-            info.uclampMin in 1..100 -> info.uclampMin.toFloat()
-            info.topAppSchedtuneBoost in 1..100 -> info.topAppSchedtuneBoost.toFloat()
+            info.uclampMin in 0..100 -> info.uclampMin.toFloat()
+            info.topAppSchedtuneBoost in 0..100 -> info.topAppSchedtuneBoost.toFloat()
             else -> 0f
         }
     }
     var uclampMin by remember { mutableFloatStateOf(resolveBoostPct(schedInfo)) }
     var uclampMax by remember { mutableFloatStateOf(schedInfo.uclampMax.toFloat()) }
+    var isDragging by remember { mutableStateOf(false) }
+    var lastInteractionTime by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(schedInfo) {
-        uclampMin = resolveBoostPct(schedInfo)
-        uclampMax = schedInfo.uclampMax.toFloat()
+        val now = System.currentTimeMillis()
+        if (!isDragging && (now - lastInteractionTime > 3500L)) {
+            uclampMin = resolveBoostPct(schedInfo)
+            uclampMax = schedInfo.uclampMax.toFloat()
+        }
     }
 
     val currentVal = uclampMin.toInt().coerceIn(0, 100)
@@ -1889,8 +1894,16 @@ fun KernelSchedulerCard(
 
                 Slider(
                     value = uclampMin,
-                    onValueChange = { uclampMin = it },
-                    onValueChangeFinished = { onUclampChange(uclampMin, uclampMax) },
+                    onValueChange = {
+                        isDragging = true
+                        lastInteractionTime = System.currentTimeMillis()
+                        uclampMin = it
+                    },
+                    onValueChangeFinished = {
+                        isDragging = false
+                        lastInteractionTime = System.currentTimeMillis()
+                        onUclampChange(uclampMin, uclampMax)
+                    },
                     valueRange = 0f..100f,
                     colors = SliderDefaults.colors(
                         thumbColor = activeColor,

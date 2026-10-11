@@ -351,6 +351,44 @@ class LynxViewModel : ViewModel() {
     private val activeIoSchedulerIntents = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>() // dev -> (scheduler, timestamp)
     private val activeReadAheadIntents = java.util.concurrent.ConcurrentHashMap<String, Pair<Int, Long>>() // dev -> (kb, timestamp)
 
+    private data class SchedulerIntent(
+        val uclampMin: Int? = null,
+        val topAppSchedtuneBoost: Int? = null,
+        val schedtunePreferIdle: Boolean? = null,
+        val architectureMode: String? = null,
+        val ppmPwrThrottlingEnabled: Boolean? = null,
+        val ppmThermalThrottlingEnabled: Boolean? = null,
+        val ppmSysBoostEnabled: Boolean? = null,
+        val ppmDlptBypassEnabled: Boolean? = null,
+        val qcomTouchboostEnabled: Boolean? = null,
+        val universalTouchBoostEnabled: Boolean? = null,
+        val antiThrottlingGuardEnabled: Boolean? = null,
+        val workqueuePowerEfficient: Boolean? = null,
+        val mtkCciPerfMode: Boolean? = null,
+        val mtkCpuPowerMode: Int? = null,
+        val qcomDevfreqBusBoostEnabled: Boolean? = null,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+    @Volatile private var activeSchedulerIntent: SchedulerIntent? = null
+
+    private data class CpuIdleIntent(
+        val disabledStates: Map<Int, Boolean>? = null,
+        val coreParkingMode: String? = null,
+        val activePreset: String? = null,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+    @Volatile private var activeCpuIdleIntent: CpuIdleIntent? = null
+
+    private data class CpuSetIntent(
+        val topAppCpus: String? = null,
+        val foregroundCpus: String? = null,
+        val backgroundCpus: String? = null,
+        val systemBackgroundCpus: String? = null,
+        val restrictedCpus: String? = null,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+    @Volatile private var activeCpuSetIntent: CpuSetIntent? = null
+
     @Volatile private var lastStateMutationTime = 0L
     private var cpuProfileJob: Job? = null
 
@@ -362,7 +400,7 @@ class LynxViewModel : ViewModel() {
         val now = System.currentTimeMillis()
         return rawClusters.map { c ->
             val intent = activeClusterIntents[c.id]
-            if (intent != null && (now - intent.timestamp) < 3000L) {
+            if (intent != null && (now - intent.timestamp) < 3500L) {
                 c.copy(
                     curMin = intent.minFreq ?: c.curMin,
                     curMax = intent.maxFreq ?: c.curMax,
@@ -370,7 +408,7 @@ class LynxViewModel : ViewModel() {
                     isLocked = intent.isLocked ?: c.isLocked
                 )
             } else {
-                if (intent != null && (now - intent.timestamp) >= 3000L) {
+                if (intent != null && (now - intent.timestamp) >= 3500L) {
                     activeClusterIntents.remove(c.id)
                 }
                 c
@@ -382,10 +420,10 @@ class LynxViewModel : ViewModel() {
         val now = System.currentTimeMillis()
         return rawCores.map { core ->
             val intent = activeCoreIntents[core.coreId]
-            if (intent != null && (now - intent.second) < 3000L) {
+            if (intent != null && (now - intent.second) < 3500L) {
                 core.copy(isOnline = intent.first)
             } else {
-                if (intent != null && (now - intent.second) >= 3000L) {
+                if (intent != null && (now - intent.second) >= 3500L) {
                     activeCoreIntents.remove(core.coreId)
                 }
                 core
@@ -396,7 +434,7 @@ class LynxViewModel : ViewModel() {
     private fun mergeGpuInfoWithIntent(rawGpu: GpuInfo): GpuInfo {
         val intent = activeGpuIntent ?: return rawGpu
         val now = System.currentTimeMillis()
-        return if (now - intent.timestamp < 3000L) {
+        return if (now - intent.timestamp < 3500L) {
             rawGpu.copy(
                 adrenoBoostLevel = if (rawGpu.platform == "adreno" && intent.adrenoBoost != null) intent.adrenoBoost else rawGpu.adrenoBoostLevel,
                 gedBoostLevel = if (rawGpu.platform == "mali_ged" && intent.gedBoost != null) intent.gedBoost else rawGpu.gedBoostLevel,
@@ -412,7 +450,7 @@ class LynxViewModel : ViewModel() {
     private fun mergeRefreshRateWithIntent(rawHz: Int): Int {
         val intent = activeRefreshRateIntent ?: return rawHz
         val now = System.currentTimeMillis()
-        return if (now - intent.second < 3000L) {
+        return if (now - intent.second < 3500L) {
             intent.first
         } else {
             activeRefreshRateIntent = null
@@ -425,10 +463,87 @@ class LynxViewModel : ViewModel() {
         return rawDevices.map { dev ->
             val schedIntent = activeIoSchedulerIntents[dev.device]
             val raIntent = activeReadAheadIntents[dev.device]
-            val effectiveSched = if (schedIntent != null && (now - schedIntent.second) < 3000L) schedIntent.first else dev.currentScheduler
-            val effectiveRa = if (raIntent != null && (now - raIntent.second) < 3000L) raIntent.first else dev.readAheadKb
+            val effectiveSched = if (schedIntent != null && (now - schedIntent.second) < 3500L) schedIntent.first else dev.currentScheduler
+            val effectiveRa = if (raIntent != null && (now - raIntent.second) < 3500L) raIntent.first else dev.readAheadKb
             dev.copy(currentScheduler = effectiveSched, readAheadKb = effectiveRa)
         }
+    }
+
+    private fun mergeSchedulerWithIntent(rawSched: SchedulerInfo): SchedulerInfo {
+        val intent = activeSchedulerIntent ?: return rawSched
+        val now = System.currentTimeMillis()
+        return if (now - intent.timestamp < 3500L) {
+            rawSched.copy(
+                uclampMin = intent.uclampMin ?: rawSched.uclampMin,
+                topAppSchedtuneBoost = intent.topAppSchedtuneBoost ?: rawSched.topAppSchedtuneBoost,
+                topAppPreferIdle = intent.schedtunePreferIdle ?: rawSched.topAppPreferIdle,
+                activeArchitectureMode = intent.architectureMode ?: rawSched.activeArchitectureMode,
+                ppmPwrThrottlingEnabled = intent.ppmPwrThrottlingEnabled ?: rawSched.ppmPwrThrottlingEnabled,
+                ppmThermalThrottlingEnabled = intent.ppmThermalThrottlingEnabled ?: rawSched.ppmThermalThrottlingEnabled,
+                ppmSysBoostEnabled = intent.ppmSysBoostEnabled ?: rawSched.ppmSysBoostEnabled,
+                ppmDlptBypassEnabled = intent.ppmDlptBypassEnabled ?: rawSched.ppmDlptBypassEnabled,
+                qcomTouchboostEnabled = intent.qcomTouchboostEnabled ?: rawSched.qcomTouchboostEnabled,
+                universalTouchBoostEnabled = intent.universalTouchBoostEnabled ?: rawSched.universalTouchBoostEnabled,
+                antiThrottlingGuardEnabled = intent.antiThrottlingGuardEnabled ?: rawSched.antiThrottlingGuardEnabled,
+                workqueuePowerEfficient = intent.workqueuePowerEfficient ?: rawSched.workqueuePowerEfficient,
+                mtkCciPerfMode = intent.mtkCciPerfMode ?: rawSched.mtkCciPerfMode,
+                mtkCpuPowerMode = intent.mtkCpuPowerMode ?: rawSched.mtkCpuPowerMode,
+                qcomDevfreqBusBoostEnabled = intent.qcomDevfreqBusBoostEnabled ?: rawSched.qcomDevfreqBusBoostEnabled
+            )
+        } else {
+            activeSchedulerIntent = null
+            rawSched
+        }
+    }
+
+    private suspend fun safeReadSchedulerInfo(context: Context? = null): SchedulerInfo {
+        return mergeSchedulerWithIntent(LynxRepository.readSchedulerInfo(context))
+    }
+
+    private fun mergeCpuIdleWithIntent(rawIdle: CpuIdleInfo): CpuIdleInfo {
+        val intent = activeCpuIdleIntent ?: return rawIdle
+        val now = System.currentTimeMillis()
+        return if (now - intent.timestamp < 3500L) {
+            val updatedStates = if (intent.disabledStates != null) {
+                rawIdle.states.map { s ->
+                    val override = intent.disabledStates[s.index]
+                    if (override != null) s.copy(isDisabled = override) else s
+                }
+            } else rawIdle.states
+            rawIdle.copy(
+                states = updatedStates,
+                coreParkingMode = intent.coreParkingMode ?: rawIdle.coreParkingMode,
+                activePreset = intent.activePreset ?: rawIdle.activePreset
+            )
+        } else {
+            activeCpuIdleIntent = null
+            rawIdle
+        }
+    }
+
+    private suspend fun safeReadCpuIdleInfo(context: Context? = null): CpuIdleInfo {
+        return mergeCpuIdleWithIntent(LynxRepository.readCpuIdleInfo(context))
+    }
+
+    private fun mergeCpuSetsWithIntent(rawSets: CpuSetsInfo): CpuSetsInfo {
+        val intent = activeCpuSetIntent ?: return rawSets
+        val now = System.currentTimeMillis()
+        return if (now - intent.timestamp < 3500L) {
+            rawSets.copy(
+                topAppCpus = intent.topAppCpus ?: rawSets.topAppCpus,
+                foregroundCpus = intent.foregroundCpus ?: rawSets.foregroundCpus,
+                backgroundCpus = intent.backgroundCpus ?: rawSets.backgroundCpus,
+                systemBackgroundCpus = intent.systemBackgroundCpus ?: rawSets.systemBackgroundCpus,
+                restrictedCpus = intent.restrictedCpus ?: rawSets.restrictedCpus
+            )
+        } else {
+            activeCpuSetIntent = null
+            rawSets
+        }
+    }
+
+    private suspend fun safeReadCpuSetsInfo(context: Context? = null): CpuSetsInfo {
+        return mergeCpuSetsWithIntent(LynxRepository.readCpuSetsInfo(context))
     }
 
     private fun startFileObserver() {
@@ -627,8 +742,8 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val clusters = LynxRepository.readClusters()
-                val freshSets = LynxRepository.readCpuSetsInfo()
-                val freshIdle = LynxRepository.readCpuIdleInfo()
+                val freshSets = safeReadCpuSetsInfo()
+                val freshIdle = safeReadCpuIdleInfo()
                 if (clusters.isNotEmpty()) {
                     val mergedClusters = mergeClustersWithActiveIntents(clusters)
                     _uiState.update { current ->
@@ -3057,13 +3172,17 @@ class LynxViewModel : ViewModel() {
 
     fun refreshSchedulerInfo(context: Context? = null) {
         viewModelScope.launch {
-            val sched = LynxRepository.readSchedulerInfo(context)
+            val sched = safeReadSchedulerInfo(context)
             _uiState.update { it.copy(schedulerInfo = sched) }
         }
     }
 
     fun setSchedulerTunable(tunable: String, value: Long, context: Context? = null) {
         recordStateMutation()
+        if (tunable == "uclamp_min") {
+            val pctVal = value.toInt()
+            activeSchedulerIntent = SchedulerIntent(uclampMin = pctVal, topAppSchedtuneBoost = pctVal)
+        }
         _uiState.update { current ->
             val updated = when (tunable) {
                 "up_rate_limit_us" -> current.schedulerInfo.copy(upRateLimitUs = value)
@@ -3075,7 +3194,14 @@ class LynxViewModel : ViewModel() {
                 "sched_child_runs_first" -> current.schedulerInfo.copy(schedChildRunsFirst = value == 1L)
                 "sched_energy_aware" -> current.schedulerInfo.copy(schedEnergyAware = value == 1L)
                 "sched_boost" -> current.schedulerInfo.copy(schedBoost = value.toInt())
-                "uclamp_min" -> current.schedulerInfo.copy(uclampMin = value.toInt())
+                "uclamp_min" -> {
+                    val pctVal = value.toInt()
+                    current.schedulerInfo.copy(
+                        uclampMin = pctVal,
+                        topAppSchedtuneBoost = pctVal,
+                        topAppPreferIdle = if (pctVal >= 10) true else current.schedulerInfo.topAppPreferIdle
+                    )
+                }
                 "uclamp_max" -> current.schedulerInfo.copy(uclampMax = value.toInt())
                 "sched_upmigrate" -> current.schedulerInfo.copy(schedUpmigrate = value.toInt())
                 "sched_downmigrate" -> current.schedulerInfo.copy(schedDownmigrate = value.toInt())
@@ -3090,7 +3216,13 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setSchedulerTunable(tunable, value, context)
             if (ok) {
-                _uiState.update { it.copy(successMessage = if (tunable != "apply_on_boot") "Parameter $tunable diperbarui (Mode Kustom)" else "Pengaturan boot diperbarui") }
+                val fresh = safeReadSchedulerInfo(context)
+                _uiState.update {
+                    it.copy(
+                        schedulerInfo = fresh,
+                        successMessage = if (tunable != "apply_on_boot") "Parameter $tunable diperbarui (Mode Kustom)" else "Pengaturan boot diperbarui"
+                    )
+                }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal memperbarui $tunable") }
             }
@@ -3137,6 +3269,7 @@ class LynxViewModel : ViewModel() {
 
     fun setSchedulerArchitectureMode(mode: String, context: Context? = null, fromMasterProfile: Boolean = false) {
         if (!fromMasterProfile) recordStateMutation()
+        activeSchedulerIntent = SchedulerIntent(architectureMode = mode)
         _uiState.update { current ->
             current.copy(schedulerInfo = current.schedulerInfo.copy(
                 activeArchitectureMode = mode,
@@ -3146,7 +3279,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setSchedulerArchitectureMode(mode, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 if (!fromMasterProfile) {
                     _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Mode arsitektur ${mode.uppercase()} aktif (Mode Kustom)") }
                 } else {
@@ -3171,6 +3304,7 @@ class LynxViewModel : ViewModel() {
             "extreme" -> 80
             else -> 20
         }
+        activeSchedulerIntent = SchedulerIntent(uclampMin = boostPct, topAppSchedtuneBoost = boostPct)
         _uiState.update {
             it.copy(
                 schedulerInfo = it.schedulerInfo.copy(
@@ -3184,7 +3318,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.applySchedulerPreset(preset, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 val presetTitle = when (preset.lowercase()) {
                     "extreme" -> "Extreme (Unrestricted)"
                     "gaming" -> "Responsif (Gaming)"
@@ -3208,7 +3342,7 @@ class LynxViewModel : ViewModel() {
     fun loadCpuSetsInfo(context: Context? = null) {
         viewModelScope.launch {
             try {
-                val sets = LynxRepository.readCpuSetsInfo(context)
+                val sets = safeReadCpuSetsInfo(context)
                 _uiState.update { it.copy(cpuSets = sets) }
             } catch (_: Exception) {
             }
@@ -3222,7 +3356,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.applyCpuSetPreset(preset, totalCores, context)
             if (ok) {
-                val fresh = LynxRepository.readCpuSetsInfo(context)
+                val fresh = safeReadCpuSetsInfo(context)
                 val presetTitle = when (preset.lowercase()) {
                     "gaming" -> "Gaming Isolation (Big Core Reserved)"
                     "battery" -> "Hemat Ekstrem"
@@ -3261,6 +3395,15 @@ class LynxViewModel : ViewModel() {
         }
 
         val newCoresStr = CpuSetsInfo.formatCoresSet(currentCores)
+        activeCpuSetIntent = when (group.lowercase()) {
+            "top-app", "top_app", "game" -> CpuSetIntent(topAppCpus = newCoresStr)
+            "foreground", "fg" -> CpuSetIntent(foregroundCpus = newCoresStr)
+            "background", "bg" -> CpuSetIntent(backgroundCpus = newCoresStr)
+            "system-background", "system_background", "sysbg" -> CpuSetIntent(systemBackgroundCpus = newCoresStr)
+            "restricted" -> CpuSetIntent(restrictedCpus = newCoresStr)
+            else -> null
+        }
+
         val updatedSets = when (group.lowercase()) {
             "top-app", "top_app", "game" -> currentSets.copy(topAppCpus = newCoresStr, activePreset = "custom")
             "foreground", "fg" -> currentSets.copy(foregroundCpus = newCoresStr, activePreset = "custom")
@@ -3274,7 +3417,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setCpuSetCores(group, newCoresStr, context)
             if (ok) {
-                val fresh = LynxRepository.readCpuSetsInfo(context)
+                val fresh = safeReadCpuSetsInfo(context)
                 _uiState.update { it.copy(cpuSets = fresh, isCpuModified = true) }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal memperbarui Core $coreId pada $group") }
@@ -3293,10 +3436,13 @@ class LynxViewModel : ViewModel() {
     // ── Schedtune & Scheduler Hints Controls ─────────────────────────
     fun setSchedtuneBoost(group: String, boost: Int, context: Context? = null) {
         recordStateMutation()
+        if (group.lowercase() in listOf("top-app", "topapp")) {
+            activeSchedulerIntent = SchedulerIntent(uclampMin = boost, topAppSchedtuneBoost = boost)
+        }
         _uiState.update { current ->
             val s = current.schedulerInfo
             val updated = when (group.lowercase()) {
-                "top-app", "topapp" -> s.copy(topAppSchedtuneBoost = boost, activePreset = "custom")
+                "top-app", "topapp" -> s.copy(topAppSchedtuneBoost = boost, uclampMin = boost, activePreset = "custom")
                 "foreground", "fg" -> s.copy(fgSchedtuneBoost = boost, activePreset = "custom")
                 "background", "bg" -> s.copy(bgSchedtuneBoost = boost, activePreset = "custom")
                 else -> s
@@ -3306,7 +3452,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setSchedtuneBoost(group, boost, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update { it.copy(schedulerInfo = fresh) }
             }
         }
@@ -3314,6 +3460,9 @@ class LynxViewModel : ViewModel() {
 
     fun setSchedtunePreferIdle(group: String, preferIdle: Boolean, context: Context? = null) {
         recordStateMutation()
+        if (group.lowercase() in listOf("top-app", "topapp")) {
+            activeSchedulerIntent = SchedulerIntent(schedtunePreferIdle = preferIdle)
+        }
         _uiState.update { current ->
             val s = current.schedulerInfo
             val updated = when (group.lowercase()) {
@@ -3327,7 +3476,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setSchedtunePreferIdle(group, preferIdle, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update { it.copy(schedulerInfo = fresh) }
             }
         }
@@ -3348,7 +3497,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setSchedulerHint(hintKey, enabled, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update { it.copy(schedulerInfo = fresh) }
             }
         }
@@ -3356,6 +3505,7 @@ class LynxViewModel : ViewModel() {
 
     fun setWorkqueuePowerEfficient(enabled: Boolean, context: Context? = null) {
         recordStateMutation()
+        activeSchedulerIntent = SchedulerIntent(workqueuePowerEfficient = enabled)
         _uiState.update { current ->
             current.copy(
                 schedulerInfo = current.schedulerInfo.copy(workqueuePowerEfficient = enabled),
@@ -3365,7 +3515,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setWorkqueuePowerEfficient(enabled, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update {
                     it.copy(
                         schedulerInfo = fresh,
@@ -3379,10 +3529,29 @@ class LynxViewModel : ViewModel() {
     // ── Platform Hardware Engine (MediaTek PPM & Qualcomm Boost) ──
     fun setPpmPolicy(policyIdx: Int, enabled: Boolean, context: Context? = null) {
         recordStateMutation()
+        val intent = when (policyIdx) {
+            0 -> SchedulerIntent(ppmPwrThrottlingEnabled = enabled)
+            1 -> SchedulerIntent(ppmThermalThrottlingEnabled = enabled)
+            2 -> SchedulerIntent(ppmSysBoostEnabled = enabled)
+            4 -> SchedulerIntent(ppmDlptBypassEnabled = enabled)
+            else -> null
+        }
+        if (intent != null) activeSchedulerIntent = intent
+        _uiState.update { current ->
+            val curS = current.schedulerInfo
+            val updated = when (policyIdx) {
+                0 -> curS.copy(ppmPwrThrottlingEnabled = enabled)
+                1 -> curS.copy(ppmThermalThrottlingEnabled = enabled)
+                2 -> curS.copy(ppmSysBoostEnabled = enabled)
+                4 -> curS.copy(ppmDlptBypassEnabled = enabled)
+                else -> curS
+            }
+            current.copy(schedulerInfo = updated, isCpuModified = true)
+        }
         viewModelScope.launch {
             val ok = LynxRepository.setPpmPolicy(policyIdx, enabled, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Kebijakan PPM diperbarui") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal mengubah kebijakan PPM") }
@@ -3392,10 +3561,20 @@ class LynxViewModel : ViewModel() {
 
     fun setQcomTouchboost(enabled: Boolean, context: Context? = null) {
         recordStateMutation()
+        activeSchedulerIntent = SchedulerIntent(qcomTouchboostEnabled = enabled, universalTouchBoostEnabled = enabled)
+        _uiState.update { current ->
+            current.copy(
+                schedulerInfo = current.schedulerInfo.copy(
+                    qcomTouchboostEnabled = enabled,
+                    universalTouchBoostEnabled = enabled
+                ),
+                isCpuModified = true
+            )
+        }
         viewModelScope.launch {
             val ok = LynxRepository.setQcomTouchboost(enabled, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Qualcomm Touchboost ${if (enabled) "diaktifkan" else "dinonaktifkan"}") }
             } else {
                 _uiState.update { it.copy(errorMessage = "Gagal mengubah status Touchboost") }
@@ -3408,7 +3587,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setQcomInputBoost(freq, durationMs, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Qualcomm Input Boost diperbarui") }
             }
         }
@@ -3416,6 +3595,7 @@ class LynxViewModel : ViewModel() {
 
     fun setMtkInterconnectBusBoost(enabled: Boolean, context: Context? = null) {
         recordStateMutation()
+        activeSchedulerIntent = SchedulerIntent(mtkCciPerfMode = enabled)
         _uiState.update {
             it.copy(
                 schedulerInfo = it.schedulerInfo.copy(
@@ -3428,7 +3608,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setMtkInterconnectBusBoost(enabled, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update {
                     it.copy(
                         schedulerInfo = fresh,
@@ -3448,6 +3628,7 @@ class LynxViewModel : ViewModel() {
             3 -> 3
             else -> 0
         }
+        activeSchedulerIntent = SchedulerIntent(mtkCpuPowerMode = safeMode)
         _uiState.update {
             it.copy(
                 schedulerInfo = it.schedulerInfo.copy(mtkCpuPowerMode = safeMode),
@@ -3457,7 +3638,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setMtkCpuPowerMode(safeMode, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 val label = when (safeMode) {
                     1 -> "Hemat [1]"
                     3 -> "Performa [3]"
@@ -3477,6 +3658,7 @@ class LynxViewModel : ViewModel() {
 
     fun setMtkDlptImaxBypass(enabled: Boolean, context: Context? = null) {
         recordStateMutation()
+        activeSchedulerIntent = SchedulerIntent(ppmDlptBypassEnabled = enabled)
         _uiState.update {
             it.copy(
                 schedulerInfo = it.schedulerInfo.copy(ppmDlptBypassEnabled = enabled),
@@ -3486,7 +3668,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setMtkDlptImaxBypass(enabled, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update {
                     it.copy(
                         schedulerInfo = fresh,
@@ -3501,6 +3683,7 @@ class LynxViewModel : ViewModel() {
 
     fun setQcomDevfreqBusBoost(enabled: Boolean, context: Context? = null) {
         recordStateMutation()
+        activeSchedulerIntent = SchedulerIntent(qcomDevfreqBusBoostEnabled = enabled)
         _uiState.update {
             it.copy(
                 schedulerInfo = it.schedulerInfo.copy(qcomDevfreqBusBoostEnabled = enabled),
@@ -3510,7 +3693,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setQcomDevfreqBusBoost(enabled, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update {
                     it.copy(
                         schedulerInfo = fresh,
@@ -3546,7 +3729,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setUniversalBusBandwidthProfile(safeProfile, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 val label = when (safeProfile) {
                     "eco" -> "Efisien"
                     "balanced" -> "Seimbang"
@@ -3567,6 +3750,7 @@ class LynxViewModel : ViewModel() {
 
     fun setUniversalTouchBoost(enabled: Boolean, context: Context? = null) {
         recordStateMutation()
+        activeSchedulerIntent = SchedulerIntent(universalTouchBoostEnabled = enabled, qcomTouchboostEnabled = enabled)
         _uiState.update {
             it.copy(
                 schedulerInfo = it.schedulerInfo.copy(
@@ -3579,7 +3763,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setUniversalTouchBoost(enabled, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update {
                     it.copy(
                         schedulerInfo = fresh,
@@ -3594,6 +3778,7 @@ class LynxViewModel : ViewModel() {
 
     fun setUniversalAntiThrottlingGuard(enabled: Boolean, context: Context? = null) {
         recordStateMutation()
+        activeSchedulerIntent = SchedulerIntent(antiThrottlingGuardEnabled = enabled, ppmDlptBypassEnabled = enabled)
         _uiState.update {
             it.copy(
                 schedulerInfo = it.schedulerInfo.copy(
@@ -3608,7 +3793,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setUniversalAntiThrottlingGuard(enabled, context)
             if (ok) {
-                val fresh = LynxRepository.readSchedulerInfo(context)
+                val fresh = safeReadSchedulerInfo(context)
                 _uiState.update {
                     it.copy(
                         schedulerInfo = fresh,
@@ -3624,7 +3809,7 @@ class LynxViewModel : ViewModel() {
     // ── CPU Idle & C-States / Core Parking Controls ───────────────────
     fun loadCpuIdleInfo(context: Context? = null) {
         viewModelScope.launch {
-            val fresh = LynxRepository.readCpuIdleInfo(context)
+            val fresh = safeReadCpuIdleInfo(context)
             _uiState.update { current ->
                 current.copy(
                     cpuIdle = fresh.copy(
@@ -3637,6 +3822,10 @@ class LynxViewModel : ViewModel() {
 
     fun setCpuIdleStateDisabled(stateIndex: Int, disabled: Boolean, context: Context? = null) {
         recordStateMutation()
+        val currentDisabledMap = _uiState.value.cpuIdle.states.associate { it.index to it.isDisabled }.toMutableMap()
+        currentDisabledMap[stateIndex] = disabled
+        activeCpuIdleIntent = CpuIdleIntent(disabledStates = currentDisabledMap)
+
         _uiState.update { current ->
             val updatedStates = current.cpuIdle.states.map { s ->
                 if (s.index == stateIndex) s.copy(isDisabled = disabled) else s
@@ -3652,7 +3841,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setCpuIdleStateDisabled(stateIndex, disabled, context)
             if (ok) {
-                val fresh = LynxRepository.readCpuIdleInfo(context)
+                val fresh = safeReadCpuIdleInfo(context)
                 _uiState.update { current ->
                     current.copy(
                         cpuIdle = fresh.copy(
@@ -3674,6 +3863,7 @@ class LynxViewModel : ViewModel() {
             "gaming" -> "unpark_all"
             else -> "dynamic"
         }
+        activeCpuIdleIntent = CpuIdleIntent(activePreset = preset, coreParkingMode = defaultParking)
         _uiState.update { current ->
             current.copy(
                 cpuIdle = current.cpuIdle.copy(activePreset = preset, coreParkingMode = defaultParking),
@@ -3683,7 +3873,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.applyCpuIdlePreset(preset, context)
             if (ok) {
-                val fresh = LynxRepository.readCpuIdleInfo(context)
+                val fresh = safeReadCpuIdleInfo(context)
                 val presetTitle = when (preset.lowercase()) {
                     "gaming" -> "Gaming (Zero Latency)"
                     "battery" -> "Hemat Baterai (Deep Sleep)"
@@ -3712,6 +3902,7 @@ class LynxViewModel : ViewModel() {
 
     fun setCoreParkingMode(mode: String, totalCores: Int = 8, context: Context? = null, fromMasterProfile: Boolean = false) {
         if (!fromMasterProfile) recordStateMutation()
+        activeCpuIdleIntent = CpuIdleIntent(coreParkingMode = mode)
         _uiState.update { current ->
             current.copy(
                 cpuIdle = current.cpuIdle.copy(coreParkingMode = mode, activePreset = if (fromMasterProfile) current.cpuIdle.activePreset else "custom"),
@@ -3721,7 +3912,7 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setCoreParkingMode(mode, totalCores, context)
             if (ok) {
-                val fresh = LynxRepository.readCpuIdleInfo(context)
+                val fresh = safeReadCpuIdleInfo(context)
                 val modeLabel = when (mode.lowercase()) {
                     "unpark_all" -> "Unpark Semua Core (Anti-Stutter)"
                     "park_big" -> "Park Big Core (Hemat Daya)"
@@ -4663,8 +4854,8 @@ class LynxViewModel : ViewModel() {
             val cpusetBackend = CpuSetBackendFactory.detect()
             val schedBackend = SchedulerBackendFactory.detect()
             val clusterIdle = CpuIdleDetector.detectClusterIdle(totalCores)
-            val updatedCpuSets = LynxRepository.readCpuSetsInfo()
-            val updatedCpuIdle = LynxRepository.readCpuIdleInfo()
+            val updatedCpuSets = safeReadCpuSetsInfo()
+            val updatedCpuIdle = safeReadCpuIdleInfo()
 
             _uiState.update {
                 it.copy(
@@ -4701,7 +4892,7 @@ class LynxViewModel : ViewModel() {
             LynxRepository.setPpmPolicy(4, true, context)
             refreshClusters()
             refreshCpuCores()
-            val updatedSched = LynxRepository.readSchedulerInfo(context)
+            val updatedSched = safeReadSchedulerInfo(context)
             _uiState.update {
                 it.copy(
                     cpuComprehensiveProfile = "balanced",
@@ -4720,7 +4911,7 @@ class LynxViewModel : ViewModel() {
             val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
             CpuPolicyManager.resetCpuSetsToOem(totalCores)
             setCpuSetApplyOnBoot(false, context)
-            val updated = LynxRepository.readCpuSetsInfo()
+            val updated = safeReadCpuSetsInfo()
             _uiState.update { it.copy(cpuSets = updated, successMessage = "CPU Sets berhasil dikembalikan ke default OEM.") }
         }
     }
@@ -4731,7 +4922,7 @@ class LynxViewModel : ViewModel() {
             val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
             CpuPolicyManager.resetCpuIdleToOem(totalCores)
             setCpuIdleApplyOnBoot(false, context)
-            val updated = LynxRepository.readCpuIdleInfo()
+            val updated = safeReadCpuIdleInfo()
             _uiState.update { it.copy(cpuIdle = updated, successMessage = "Core Parking & C-States berhasil dikembalikan ke default OEM.") }
         }
     }
@@ -4764,7 +4955,7 @@ class LynxViewModel : ViewModel() {
                 echo Y > /sys/module/workqueue/parameters/power_efficient 2>/dev/null || true
             """.trimIndent()
             com.topjohnwu.superuser.Shell.cmd(resetCmds).exec()
-            val updated = LynxRepository.readSchedulerInfo(context)
+            val updated = safeReadSchedulerInfo(context)
             _uiState.update { it.copy(schedulerInfo = updated, successMessage = "Penjadwal Kernel berhasil dikembalikan ke default OEM.") }
         }
     }

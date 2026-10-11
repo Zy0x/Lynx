@@ -1,3 +1,21 @@
+# Lynx Universal [Zero-Fallback State Shielding & Slider/Switch Rubberband Elimination] 7.0.0-RC9
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC9** menghadirkan audit menyeluruh dan perbaikan fundamental terhadap stabilitas kontrol interaktif (Lynx Kernel Manager v3.0.74): **Eliminasi Total State Fallback & Switch Rubberbanding** di seluruh slider, tombol toggle, switch, dan sheet tuning. Masalah nilai Task Priority Boost dan toggle yang memantul kembali (*rubberband*) ke nilai sebelumnya berhasil diatasi dengan implementasi **Optimistic Intent Shielding (3500ms Grace Period)**, proteksi sinkronisasi latar belakang, serta integrasi ganda arsitektur EAS (`uclampMin` & `schedtune.boost`).
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC9)
+
+### 1. Eliminasi Total Fallback Slider & Task Priority Boost
+- **Dual-Sync EAS Schedtune & Uclamp**: Mengatasi inkonsistensi kernel pada platform MediaTek dan Qualcomm di mana penyesuaian Task Priority Boost kini menyinkronkan kedua node (`uclampMin` dan `topAppSchedtuneBoost`) secara simultan, mencegah pembacaan status usang saat refresh berkala.
+- **Perbaikan Resolusi Skala 0–100%**: Memperbaiki validasi ambang batas `resolveBoostPct` pada kartu Penjadwal Kernel dari rentang kaku `1..100` menjadi `0..100`, memastikan nilai 0% (Hemat Daya) terkunci stabil tanpa memantul kembali ke nilai sebelumnya.
+- **Interaksi Dragging Intent Lock**: Komponen `Slider` kini mengunci state lokal selama interaksi geser (`isDragging = true`) dan mempertahankan pelindung jeda 3500ms setelah interaksi selesai (`onValueChangeFinished`), menjamin nilai baru tidak ditimpa oleh polling telemetri.
+
+### 2. Eliminasi Switch Rubberbanding & Polling Shield
+- **Komponen `LynxSwitch` Berpelindung Lokal**: Memperkenalkan state optimistik lokal (`localChecked`) dengan jendela proteksi 3500ms (`lastInteraction`) di dalam `LynxSwitch`, mengabaikan pembaruan polling eksternal sesaat setelah pengguna menekan tombol hingga perubahan pada sysfs kernel selesai diterapkan sepenuhnya.
+- **Proteksi C-States & CPU Sets Intent**: Mengalihkan pembacaan berkala `refreshClusters()` melalui `safeReadCpuIdleInfo()` dan `safeReadCpuSetsInfo()`, mencegah pembaruan latar belakang menimpa status interaktif C-States dan isolasi core sebelum transaksi sysfs tuntas.
+- **Perluasan Grace Period 3500ms Universal**: Memperpanjang batas waktu debounce dan pelindung interaksi dari 2000ms ke 3500ms pada seluruh sheet tuning (ZRAM, VM Swappiness, KSM, I/O Read-Ahead, Smart Charging Limit, Kalibrasi Warna Layar, dan Subsystem Deep Tunables).
+
+---
+
 # Lynx Universal [Silky Low-Friction Spline Fling & Scroll Lock Stabilization] 7.0.0-RC8
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC8** menghadirkan penyempurnaan menyeluruh pada mesin sentuh dan kinetic fling antarmuka Android (Lynx Kernel Manager v3.0.73): **Overhaul Mesin Fling Berbasis Spline Decay** dan **Eliminasi Subpixel Fling Cancellation**, menyelesaikan kendala scrolling macet (*hard-brake stutter*), efek seperti menahan saat scroll cepat, serta *fallback/recoil jump* ke atas. Seluruh subhalaman Pusat Tuning kini diselaraskan dengan low-friction physics, dikombinasikan dengan stabilisasi kunci item dinamis pada kartu telemetri dan termal.

@@ -1231,7 +1231,7 @@ fun TuningMemoryCategory(
             var lastZramInteraction by remember { mutableLongStateOf(0L) }
 
             LaunchedEffect(state.memory.zramSizeMb) {
-                if (!isInteractingZram && (System.currentTimeMillis() - lastZramInteraction > 2000L)) {
+                if (!isInteractingZram && (System.currentTimeMillis() - lastZramInteraction > 3500L)) {
                     zramValue = state.memory.zramSizeMb.toFloat().coerceIn(minZram, maxZram)
                 }
             }
@@ -1313,7 +1313,7 @@ fun TuningMemoryCategory(
             var lastVmInteraction by remember { mutableLongStateOf(0L) }
 
             LaunchedEffect(uiState.vmAdvanced) {
-                if (!isInteractingVm && (System.currentTimeMillis() - lastVmInteraction > 2000L)) {
+                if (!isInteractingVm && (System.currentTimeMillis() - lastVmInteraction > 3500L)) {
                     swapValue = uiState.vmAdvanced.swappiness.toFloat()
                     dirtyValue = uiState.vmAdvanced.dirtyRatio.toFloat()
                     dirtyBgValue = uiState.vmAdvanced.dirtyBackgroundRatio.toFloat()
@@ -1518,7 +1518,7 @@ fun TuningMemoryCategory(
                 var lastKsmInteraction by remember { mutableLongStateOf(0L) }
 
                 LaunchedEffect(ksm.pagesToScan) {
-                    if (!isInteractingKsm && (System.currentTimeMillis() - lastKsmInteraction > 2000L)) {
+                    if (!isInteractingKsm && (System.currentTimeMillis() - lastKsmInteraction > 3500L)) {
                         scanValue = ksm.pagesToScan.toFloat()
                     }
                 }
@@ -1640,7 +1640,7 @@ fun TuningMemoryCategory(
                     var lastRaInteraction by remember(dev.device) { mutableLongStateOf(0L) }
 
                     LaunchedEffect(dev.device, dev.readAheadKb) {
-                        if (!isInteractingRa && (System.currentTimeMillis() - lastRaInteraction > 2000L)) {
+                        if (!isInteractingRa && (System.currentTimeMillis() - lastRaInteraction > 3500L)) {
                             raValue = dev.readAheadKb.toFloat()
                         }
                     }
@@ -2065,7 +2065,7 @@ fun TuningChargingCategory(
                 var lastSafetyInteraction by remember { mutableLongStateOf(0L) }
 
                 LaunchedEffect(state.charging.maxBatteryPercent) {
-                    if (!isInteractingSafety && (System.currentTimeMillis() - lastSafetyInteraction > 2000L)) {
+                    if (!isInteractingSafety && (System.currentTimeMillis() - lastSafetyInteraction > 3500L)) {
                         maxBatteryValue = state.charging.maxBatteryPercent.toFloat()
                     }
                 }
@@ -4619,11 +4619,11 @@ fun DeepTunableItemCard(
 
     LaunchedEffect(tunable.path, tunable.value) {
         val now = System.currentTimeMillis()
-        if (!isDraggingSlider && (now - lastSliderInteraction > 2000L)) {
+        if (!isDraggingSlider && (now - lastSliderInteraction > 3500L)) {
             val fVal = tunable.value.toFloatOrNull() ?: tunable.min
             sliderValue = fVal.coerceIn(tunable.min, tunable.max)
         }
-        if (!isEditingText && (now - lastTextInteraction > 3000L)) {
+        if (!isEditingText && (now - lastTextInteraction > 3500L)) {
             editValue = tunable.value
         }
     }
