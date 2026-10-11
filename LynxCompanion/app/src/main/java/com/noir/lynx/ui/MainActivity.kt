@@ -5,6 +5,8 @@ import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
 import com.noir.lynx.designsystem.tweak.*
 import com.noir.lynx.designsystem.profile.*
+import com.noir.lynx.feature.battery.*
+import com.noir.lynx.feature.battery.ui.*
 
 import android.os.Bundle
 import androidx.compose.ui.ExperimentalComposeUiApi

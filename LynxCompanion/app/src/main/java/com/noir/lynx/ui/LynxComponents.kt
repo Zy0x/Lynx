@@ -1,4 +1,4 @@
-﻿package com.noir.lynx.ui
+package com.noir.lynx.ui
 
 import java.util.Locale
 import android.content.Context
@@ -4447,136 +4447,20 @@ fun SoundControlCard(
 }
 
 // ============================================================
-//  FKM PARITY: BATTERY HEALTH & DEEP SLEEP CARD
+//  FKM PARITY: BATTERY HEALTH & DEEP SLEEP CARD (Modularized)
 // ============================================================
 
 @Composable
 fun BatteryHealthStatsCard(
     batteryHealth: BatteryHealthStats,
     onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    LynxCard(
-        title = "Kesehatan Baterai & Deep Sleep Guard",
-        icon = Icons.Default.BatteryChargingFull,
-        accentColor = AccentCyan,
-        action = {
-            Surface(
-                shape = CircleShape,
-                color = AccentCyan.copy(alpha = 0.12f),
-                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.45f)),
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable { onRefresh() }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Segarkan",
-                        tint = AccentCyan,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = "Segarkan",
-                        color = AccentCyan,
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Health % Bento Tile
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = BgElevated,
-                    border = BorderStroke(1.dp, BorderSubtle),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Favorite, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Health", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text("${batteryHealth.healthPct}%", color = AccentCyan, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-                        Text(if (batteryHealth.healthPct >= 80) "Kondisi Prima" else "Degradasi Moderat", color = TextTertiary, fontSize = 10.sp)
-                    }
-                }
-
-                // Cycle Count Bento Tile
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = BgElevated,
-                    border = BorderStroke(1.dp, BorderSubtle),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Refresh, null, tint = AccentOrange, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Siklus Pengisian", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = if (batteryHealth.cycleCount >= 0) "${batteryHealth.cycleCount} Siklus" else "N/A",
-                            color = AccentOrange,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Text("Hardware Node Real", color = TextTertiary, fontSize = 10.sp)
-                    }
-                }
-            }
-
-            // Deep Sleep & Drain Metrics Row
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = BgSurfaceLowest,
-                border = BorderStroke(1.dp, BorderSubtle),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Rasio Deep Sleep (Tidur Pulas)", color = TextSecondary, fontSize = 11.5.sp)
-                        Text(
-                            text = "${batteryHealth.deepSleepPct.toInt()}%",
-                            color = if (batteryHealth.deepSleepPct > 70f) AccentGreen else AccentOrange,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    LinearProgressIndicator(
-                        progress = { batteryHealth.deepSleepPct / 100f },
-                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                        color = if (batteryHealth.deepSleepPct > 70f) AccentGreen else AccentOrange,
-                        trackColor = BgElevated
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Kapasitas: ${batteryHealth.actualCapacityMah} / ${batteryHealth.designedCapacityMah} mAh", color = TextTertiary, fontSize = 10.5.sp)
-                        Text("Drain: ${String.format("%.1f", batteryHealth.activeDrainRateMh)}%/h (Aktif)", color = TextTertiary, fontSize = 10.5.sp)
-                    }
-                }
-            }
-        }
-    }
+    com.noir.lynx.feature.battery.ui.BatteryHealthStatsCard(
+        batteryHealth = batteryHealth,
+        onRefresh = onRefresh,
+        modifier = modifier
+    )
 }
 
 // ============================================================
