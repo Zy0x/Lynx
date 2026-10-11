@@ -358,18 +358,17 @@ fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
 
 @Composable
 fun rememberFluidFlingBehavior(
-    scrollState: ScrollState? = null,
-    lazyState: LazyListState? = null
+    lazyState: LazyListState? = null,
+    scrollState: ScrollState? = null
 ): FlingBehavior {
     val splineSpec = rememberSplineBasedDecay<Float>()
-    return remember(splineSpec, scrollState, lazyState) {
+    return remember(splineSpec) {
         object : FlingBehavior {
             override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
                 if (kotlin.math.abs(initialVelocity) < 1f) return 0f
-                val boostedVelocity = initialVelocity * 1.20f
+                val boostedVelocity = initialVelocity * 1.15f
                 var lastValue = 0f
                 var velocityLeft = boostedVelocity
-                var consecutiveEdgeFrames = 0
                 AnimationState(
                     initialValue = 0f,
                     initialVelocity = boostedVelocity
@@ -379,37 +378,11 @@ fun rememberFluidFlingBehavior(
                     lastValue = value
                     velocityLeft = velocity
 
-                    val atPhysicalEdge = when {
-                        scrollState != null -> {
-                            if (delta > 0f) {
-                                scrollState.value >= scrollState.maxValue || !scrollState.canScrollForward
-                            } else {
-                                scrollState.value <= 0 || !scrollState.canScrollBackward
-                            }
-                        }
-                        lazyState != null -> {
-                            if (delta > 0f) {
-                                !lazyState.canScrollForward
-                            } else {
-                                !lazyState.canScrollBackward
-                            }
-                        }
-                        else -> false
-                    }
-
-                    // Only cancel if physically at container edge AND delta attempted > 1.5px with 0 consumed for 2 consecutive frames
-                    if (atPhysicalEdge && kotlin.math.abs(delta) > 1.5f && kotlin.math.abs(consumed) < 0.1f) {
-                        consecutiveEdgeFrames++
-                        if (consecutiveEdgeFrames >= 2) {
-                            cancelAnimation()
-                        }
-                    } else if (scrollState == null && lazyState == null && kotlin.math.abs(delta) > 1.5f && kotlin.math.abs(consumed) < 0.1f) {
-                        consecutiveEdgeFrames++
-                        if (consecutiveEdgeFrames >= 4) {
-                            cancelAnimation()
-                        }
-                    } else {
-                        consecutiveEdgeFrames = 0
+                    // Avoid false halts during section transitions:
+                    // Only cancel if attempted delta > 2.0px AND virtually zero was consumed (hit hard container end)
+                    val unconsumed = kotlin.math.abs(delta - consumed)
+                    if (unconsumed > 2.0f && kotlin.math.abs(consumed) < 0.1f) {
+                        cancelAnimation()
                     }
                 }
                 return velocityLeft
@@ -433,12 +406,12 @@ fun MainDashboard(
     val dashboardLazyState = rememberLazyListState()
     val toolsLazyState = rememberLazyListState()
     val tuningHubLazyState = rememberLazyListState()
-    val subscreenScrollState = rememberScrollState()
+    val subscreenLazyState = rememberLazyListState()
 
     val dashboardFling = rememberFluidFlingBehavior(lazyState = dashboardLazyState)
     val tuningHubFling = rememberFluidFlingBehavior(lazyState = tuningHubLazyState)
     val toolsFling = rememberFluidFlingBehavior(lazyState = toolsLazyState)
-    val subscreenFling = rememberFluidFlingBehavior(scrollState = subscreenScrollState)
+    val subscreenFling = rememberFluidFlingBehavior(lazyState = subscreenLazyState)
     var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         viewModel.syncHudPrefs(context)
@@ -447,10 +420,22 @@ fun MainDashboard(
         selectedCategory = null
     }
     LaunchedEffect(selectedCategory) {
-        subscreenScrollState.scrollTo(0)
+        subscreenLazyState.scrollToItem(0)
+        if (selectedCategory == "gpu") {
+            viewModel.refreshGpuInfo()
+            viewModel.refreshGraphicsHwui()
+            viewModel.refreshDisplayRefreshRate()
+            viewModel.refreshDisplayCalibration()
+            viewModel.refreshGraphicsCapabilities()
+            viewModel.refreshDisplayPipeline()
+            viewModel.refreshColorConflict()
+            viewModel.refreshSavedLabSessions(context)
+            viewModel.loadPerAppGraphicsRules(context)
+            viewModel.refreshInstalledApps()
+        }
     }
     LaunchedEffect(uiState.selectedCpuTab, uiState.selectedGpuTab, uiState.batterySubTab) {
-        subscreenScrollState.scrollTo(0)
+        subscreenLazyState.scrollToItem(0)
     }
     var showAddAppDialog by remember { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<AppProfileRule?>(null) }
@@ -1720,36 +1705,41 @@ fun MainDashboard(
                                     )
                                 }
 
-                                // 2. Scrollable Subscreen Content Area
-                                Column(
+                                // 2. Scrollable Subscreen Content Area (Virtualized LazyColumn)
+                                LazyColumn(
+                                    state = subscreenLazyState,
+                                    flingBehavior = subscreenFling,
                                     modifier = Modifier
                                         .weight(1f)
-                                        .fillMaxWidth()
-                                        .verticalScroll(
-                                            state = subscreenScrollState,
-                                            flingBehavior = subscreenFling
-                                        )
+                                        .fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Spacer(Modifier.height(8.dp))
-                                    when (currentCategory) {
-                                        "cpu" -> TuningCpuCategory(uiState = uiState, viewModel = viewModel)
-                                        "gpu" -> TuningGpuCategory(uiState = uiState, viewModel = viewModel)
-                                        "thermal" -> TuningThermalCategory(uiState = uiState, viewModel = viewModel)
-                                        "memory" -> TuningMemoryCategory(uiState = uiState, viewModel = viewModel)
-                                        "charging" -> TuningChargingCategory(uiState = uiState, viewModel = viewModel)
-                                        "network" -> TuningNetworkCategory(uiState = uiState, viewModel = viewModel)
-                                        "system" -> TuningSystemCategory(
-                                            uiState = uiState,
-                                            viewModel = viewModel,
-                                            onAddAppClick = {
-                                                viewModel.refreshInstalledApps()
-                                                showAddAppDialog = true
-                                            },
-                                            onEditRuleClick = { editingRule = it }
-                                        )
-                                        else -> TuningCpuCategory(uiState = uiState, viewModel = viewModel)
+                                    item(key = "subscreen_top_spacer") {
+                                        Spacer(Modifier.height(8.dp))
                                     }
-                                    Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding())
+                                    when (currentCategory) {
+                                        "gpu" -> tuningGpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context)
+                                        "cpu" -> item(key = "subscreen_cpu") { TuningCpuCategory(uiState = uiState, viewModel = viewModel) }
+                                        "thermal" -> item(key = "subscreen_thermal") { TuningThermalCategory(uiState = uiState, viewModel = viewModel) }
+                                        "memory" -> item(key = "subscreen_memory") { TuningMemoryCategory(uiState = uiState, viewModel = viewModel) }
+                                        "charging" -> item(key = "subscreen_charging") { TuningChargingCategory(uiState = uiState, viewModel = viewModel) }
+                                        "network" -> item(key = "subscreen_network") { TuningNetworkCategory(uiState = uiState, viewModel = viewModel) }
+                                        "system" -> item(key = "subscreen_system") {
+                                            TuningSystemCategory(
+                                                uiState = uiState,
+                                                viewModel = viewModel,
+                                                onAddAppClick = {
+                                                    viewModel.refreshInstalledApps()
+                                                    showAddAppDialog = true
+                                                },
+                                                onEditRuleClick = { editingRule = it }
+                                            )
+                                        }
+                                        else -> item(key = "subscreen_cpu_default") { TuningCpuCategory(uiState = uiState, viewModel = viewModel) }
+                                    }
+                                    item(key = "subscreen_bottom_spacer") {
+                                        Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding())
+                                    }
                                 }
                             }
                         }

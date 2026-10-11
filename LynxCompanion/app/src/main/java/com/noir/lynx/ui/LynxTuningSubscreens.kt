@@ -5,7 +5,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
@@ -193,52 +196,37 @@ fun TuningCpuCategory(
 //  CATEGORY 2: GPU & DISPLAY SUBSCREEN
 // ============================================================
 
-@Composable
-fun TuningGpuCategory(
+fun LazyListScope.tuningGpuCategoryItems(
     uiState: LynxUiState,
     viewModel: LynxViewModel,
-    modifier: Modifier = Modifier
+    context: android.content.Context
 ) {
-    val context = LocalContext.current
     val state = uiState.state
     val gpu = uiState.gpuInfo
     val graphics = uiState.graphicsHwui
 
-    // Auto refresh data on load
-    LaunchedEffect(Unit) {
-        viewModel.refreshGpuInfo()
-        viewModel.refreshGraphicsHwui()
-        viewModel.refreshDisplayRefreshRate()
-        viewModel.refreshDisplayCalibration()
-        viewModel.refreshGraphicsCapabilities()
-        viewModel.refreshDisplayPipeline()
-        viewModel.refreshColorConflict()
-        viewModel.refreshSavedLabSessions(context)
-        viewModel.loadPerAppGraphicsRules(context)
-        viewModel.refreshInstalledApps()
-    }
-
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        when (uiState.selectedGpuTab) {
-            0 -> {
-                // ── TAB 0: TUNING ──
-                // 1. One-Click GPU Quick Profiles (Harmonic Presets)
+    when (uiState.selectedGpuTab) {
+        0 -> {
+            // ── TAB 0: TUNING ──
+            // 1. One-Click GPU Quick Profiles (Harmonic Presets)
+            item(key = "gpu_quick_profiles") {
                 GpuQuickProfilesCard(
                     activeProfile = gpu.activeProfile,
                     onSelectProfile = { viewModel.applyGpuProfile(it, context) }
                 )
+            }
 
-                // 2. Master GPU Tuner & Telemetri Card (Dual-Pill Clock, Lock, & Waveform)
+            // 2. Master GPU Tuner & Telemetri Card (Dual-Pill Clock, Lock, & Waveform)
+            item(key = "gpu_master_tuner") {
                 GpuMasterTunerCard(
                     gpu = gpu,
                     onSetFreq = { minMhz, maxMhz -> viewModel.setGpuFreq(minMhz, maxMhz) },
                     onSetLock = { locked -> viewModel.setGpuLock(locked) }
                 )
+            }
 
-                // 2b. Adaptive Hardware Acceleration Card (SoC-Specific Engine)
+            // 2b. Adaptive Hardware Acceleration Card (SoC-Specific Engine)
+            item(key = "gpu_adaptive_hw") {
                 AdaptiveGpuHardwareCard(
                     gpu = gpu,
                     onSetFeature = { feature, targetVal -> viewModel.setGpuFeature(feature, targetVal) },
@@ -255,8 +243,10 @@ fun TuningGpuCategory(
                     onSetMaliPowerPolicy = { viewModel.setMaliPowerPolicy(it) },
                     onSetGovernor = { viewModel.setGpuGovernor(it) }
                 )
+            }
 
-                // 3. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, Backpressure, Shader Cache)
+            // 3. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, Backpressure, Shader Cache)
+            item(key = "gpu_graphics_hwui") {
                 GraphicsDriverHwuiCard(
                     graphics = graphics,
                     onSetGameDriver = { mode -> viewModel.setUpdatableGameDriver(mode) },
@@ -269,8 +259,10 @@ fun TuningGpuCategory(
                     onClearShaderCache = { viewModel.clearShaderCache(context) },
                     onPrewarmShaderCache = { viewModel.prewarmShaderCache(context) }
                 )
+            }
 
-                // 2b. Manajemen Rendering Per-Aplikasi (Game Driver Hub)
+            // 2b. Manajemen Rendering Per-Aplikasi (Game Driver Hub)
+            item(key = "gpu_per_app_hub") {
                 PerAppGraphicsHubCard(
                     rules = uiState.perAppGraphicsRules,
                     installedApps = uiState.installedAppList,
@@ -279,8 +271,10 @@ fun TuningGpuCategory(
                     onSaveRule = { rule -> viewModel.savePerAppGraphicsRule(rule, context) },
                     onDeleteRule = { pkg -> viewModel.deletePerAppGraphicsRule(pkg, context) }
                 )
+            }
 
-                // 3. Display Refresh Rate & Touch Card (4-Way Chips: Auto + 60/90/120Hz)
+            // 3. Display Refresh Rate & Touch Card (4-Way Chips: Auto + 60/90/120Hz)
+            item(key = "gpu_display_refresh") {
                 DisplayRefreshRateTouchCard(
                     currentHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60,
                     isAuto = uiState.isAutoRefreshRate,
@@ -292,8 +286,10 @@ fun TuningGpuCategory(
                     onSetTouchBoost = { viewModel.setTouchboost(it) },
                     onSetDcDimming = { viewModel.setDcDimming(it) }
                 )
+            }
 
-                // 4. Color Management Card (SurfaceFlinger Matrix 1015, D65 White Point, & KCAL)
+            // 4. Color Management Card (SurfaceFlinger Matrix 1015, D65 White Point, & KCAL)
+            item(key = "gpu_color_management") {
                 ColorManagementCard(
                     displayCalibration = uiState.displayCalibration,
                     colorProfile = uiState.colorMatrixProfile,
@@ -309,8 +305,10 @@ fun TuningGpuCategory(
                     onSetHbm = { viewModel.setHbmEnabled(it) }
                 )
             }
-            1 -> {
-                // ── TAB 1: LAB (PERFORMANCE LAB & IN-GAME OSD) ──
+        }
+        1 -> {
+            // ── TAB 1: LAB (PERFORMANCE LAB & IN-GAME OSD) ──
+            item(key = "gpu_hud_card") {
                 FloatingGameHudCard(
                     isHudRunning = uiState.isGameHudActive,
                     hudMode = uiState.hudMode,
@@ -319,21 +317,29 @@ fun TuningGpuCategory(
                     onSetMode = { viewModel.setHudMode(context, it) },
                     onSetStyle = { viewModel.setHudStyle(context, it) }
                 )
+            }
 
+            item(key = "gpu_lab_record") {
                 LabRecordCard(
                     isRecording = uiState.isLabRecording,
                     onStartRecording = { viewModel.startLabRecording(it) },
                     onStopRecording = { viewModel.stopLabRecording(context) }
                 )
+            }
 
-                uiState.lastLabReport?.let { report ->
+            if (uiState.lastLabReport != null) {
+                item(key = "gpu_session_summary") {
                     SessionSummaryCard(
-                        report = report,
-                        onExportCsv = { viewModel.exportLabReport(context, report) }
+                        report = uiState.lastLabReport,
+                        onExportCsv = { viewModel.exportLabReport(context, uiState.lastLabReport) }
                     )
-                    DropAnalysisCard(report = report)
                 }
+                item(key = "gpu_drop_analysis") {
+                    DropAnalysisCard(report = uiState.lastLabReport)
+                }
+            }
 
+            item(key = "gpu_session_history") {
                 SessionHistoryList(
                     sessions = uiState.savedLabSessions,
                     onSelectSession = { session ->
@@ -341,8 +347,10 @@ fun TuningGpuCategory(
                     }
                 )
             }
-            2 -> {
-                // ── TAB 2: INFO (UNIFIED HARDWARE & COMPOSITOR DIAGNOSTICS) ──
+        }
+        2 -> {
+            // ── TAB 2: INFO (UNIFIED HARDWARE & COMPOSITOR DIAGNOSTICS) ──
+            item(key = "gpu_hardware_info") {
                 GpuHardwareInfoDashboard(
                     caps = uiState.graphicsCapabilities,
                     pipeline = uiState.displayPipeline,
@@ -354,6 +362,40 @@ fun TuningGpuCategory(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun TuningGpuCategory(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    // Auto refresh data on load
+    LaunchedEffect(Unit) {
+        viewModel.refreshGpuInfo()
+        viewModel.refreshGraphicsHwui()
+        viewModel.refreshDisplayRefreshRate()
+        viewModel.refreshDisplayCalibration()
+        viewModel.refreshGraphicsCapabilities()
+        viewModel.refreshDisplayPipeline()
+        viewModel.refreshColorConflict()
+        viewModel.refreshSavedLabSessions(context)
+        viewModel.loadPerAppGraphicsRules(context)
+        viewModel.refreshInstalledApps()
+    }
+
+    val lazyState = rememberLazyListState()
+    val fling = rememberFluidFlingBehavior(lazyState = lazyState)
+    LazyColumn(
+        state = lazyState,
+        flingBehavior = fling,
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        tuningGpuCategoryItems(uiState, viewModel, context)
     }
 }
 
