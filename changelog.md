@@ -1,3 +1,29 @@
+# Lynx Universal [Chrome Android Viscous Fluid Fling & Stretch Overscroll Damping] 7.0.0-RC20
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC20** menyempurnakan fisika scroll aplikasi Lynx Kernel Manager (v3.0.85) dengan mengadopsi model pergerakan **Google Chrome Android (Viscous Fluid Damping Model)**: **Eliminasi Pengali Kecepatan Artifisial (Normal 1.0x Velocity), Implementasi Model Friksi Eksponensial Kontinu Chromium ($\gamma = 2.10\text{ s}^{-1}$), Absorpsi Energi Kinetik Batas Kontainer (Zero Residual Overscroll Recoil), serta Penonaktifan Global Stretch Overscroll Elastis (`LocalOverscrollConfiguration provides null`)**. Menghasilkan sensasi scrolling yang super ringan, mulus tanpa hentakan, stabil di layar 120Hz, dan bebas dari sentakan balik.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC20)
+
+### 1. Adopsi Fisika Viscous Damping Google Chrome Android (`MainActivity.kt`)
+- **Model Redaman Fluida Kontinu**:
+  - Menggantikan spline decay bawaan dengan model gesekan fluida viskos kontinu Chromium:
+    $$v(t) = v_0 \cdot e^{-\gamma \cdot t}$$
+    dengan koefisien redaman $\gamma = 2.10\text{ s}^{-1}$.
+  - Mengeliminasi pengali kecepatan `1.15x` yang sebelumnya membuat layar terlalu sensitif/liar saat disentuh perlahan, mengembalikan rasio kecepatan alami `1.0x` yang presisi mengikuti laju jari pengguna.
+  - Pergerakan inersia kini meluncur dengan kebebasan hambatan di awal dan melambat secara sangat anggun tanpa rem mendadak (*soft aerodynamic settling*), identik dengan sensasi scrolling Google Chrome.
+
+### 2. Eliminasi Total Lentingan Balik Batas Kontainer (*Zero Residual Bounce*)
+- **Absorpsi Kecepatan Kinetik pada Batas Layar**:
+  - Saat daftar mencapai puncak atas atau batas terbawah kontainer, sisa kecepatan inersia seketika diserap dan dinetralkan (`currentVelocity = 0f`), dan fungsi `performFling` selalu mengembalikan `0f`.
+  - Mencegah Compose menyalurkan sisa ribuan pixel/detik kecepatan inersia ke mesin overscroll yang sebelumnya memicu lentingan balik (*elastic snap-back*).
+
+### 3. Penonaktifan Global Stretch Overscroll Elastis (`MainActivity.kt`)
+- **Pemberian `LocalOverscrollConfiguration provides null`**:
+  - Membungkus seluruh hierarki tampilan root dengan `CompositionLocalProvider(LocalOverscrollConfiguration provides null)`.
+  - Menghilangkan efek melar (*rubber-band stretch*) Android 12+ yang sering disalahartikan sebagai tampilan yang terpental kembali ke posisi awal saat digulir hingga ujung halaman.
+
+---
+
 # Lynx Universal [Touchscreen Collision Elimination & Calibrated Natural Spline Fling] 7.0.0-RC19
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC19** menuntaskan tuntas anomali scroll pada layar sentuh fisik di aplikasi Lynx Kernel Manager (v3.0.84): **Verifikasi Integritas Hardware Digitizer via Analisis Kernel Evdev (`mtk-tpd`), Eliminasi Tombol Lebar Pemicu Recomposisi pada Jalur Usap Jempol (`BatteryHealthStatsCard`), serta Kalibrasi Inersia Spline Glide dengan Deteksi Batas Kontainer (`Edge-Aware Animation Cancellation`)**. Menjamin interaksi usap layar (flick & drag) terasa seringan dan sealami Google Chrome dan aplikasi native Android tanpa hambatan maupun hentakan balik.

@@ -32,6 +32,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -105,7 +107,12 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val uiState by viewModel.uiState.collectAsState()
-            LynxAppContent(uiState = uiState, viewModel = viewModel)
+            @OptIn(ExperimentalFoundationApi::class)
+            CompositionLocalProvider(
+                LocalOverscrollConfiguration provides null
+            ) {
+                LynxAppContent(uiState = uiState, viewModel = viewModel)
+            }
         }
     }
 
@@ -354,7 +361,7 @@ fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
 }
 
 // ============================================================
-//  Fluid Natural Fling Behavior (Platform Calibrated)
+//  Chrome Android Fluid Fling Behavior (Viscous Damping Model)
 // ============================================================
 
 @Composable
@@ -362,27 +369,42 @@ fun rememberFluidFlingBehavior(
     lazyState: LazyListState? = null,
     scrollState: ScrollState? = null
 ): FlingBehavior {
-    val splineSpec = rememberSplineBasedDecay<Float>()
-    return remember(splineSpec) {
+    return remember {
         object : FlingBehavior {
             override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
-                if (kotlin.math.abs(initialVelocity) < 1f) return 0f
-                val boostedVelocity = initialVelocity * 1.15f
-                var lastValue = 0f
-                var velocityLeft = boostedVelocity
-                AnimationState(
-                    initialValue = 0f,
-                    initialVelocity = boostedVelocity
-                ).animateDecay(splineSpec) {
-                    val delta = value - lastValue
-                    val consumed = scrollBy(delta)
-                    lastValue = value
-                    velocityLeft = velocity
-                    if (kotlin.math.abs(delta) > 1.2f && kotlin.math.abs(consumed) < 0.1f) {
-                        cancelAnimation()
+                if (kotlin.math.abs(initialVelocity) < 25f) return 0f
+
+                // Chrome Android Viscous Fluid Damping (Gamma = 2.10 s^-1)
+                // Produces a natural, frictionless glide without hyper-sensitivity
+                val gamma = 2.10f
+                var currentVelocity = initialVelocity.coerceIn(-24000f, 24000f)
+                var lastFrameTime = 0L
+
+                while (kotlin.math.abs(currentVelocity) > 15f) {
+                    withFrameNanos { frameTimeNanos ->
+                        val dt = if (lastFrameTime == 0L) {
+                            0.0083f // Base 120Hz frame delta
+                        } else {
+                            ((frameTimeNanos - lastFrameTime) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
+                        }
+                        lastFrameTime = frameTimeNanos
+
+                        // Continuous viscous decay factor: v(t) = v0 * exp(-gamma * t)
+                        val decayFactor = kotlin.math.exp(-gamma * dt)
+                        val nextVelocity = currentVelocity * decayFactor
+                        // Trapezoidal integration for exact displacement
+                        val delta = ((currentVelocity + nextVelocity) * 0.5f) * dt
+                        currentVelocity = nextVelocity
+
+                        val consumed = scrollBy(delta)
+                        // If boundary is reached (cannot consume further delta), stop immediately
+                        if (kotlin.math.abs(delta) > 0.4f && kotlin.math.abs(consumed) < 0.1f) {
+                            currentVelocity = 0f
+                        }
                     }
                 }
-                return velocityLeft
+                // Return 0f so NO residual unconsumed velocity triggers bounce/recoil
+                return 0f
             }
         }
     }
