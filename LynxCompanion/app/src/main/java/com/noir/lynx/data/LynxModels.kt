@@ -196,6 +196,7 @@ data class CpuProcessDetail(
 data class CpuMonitorSnapshot(
     val totalCpuLoadPercent: Int = 0,
     val topProcesses: List<CpuProcessInfo> = emptyList(),
+    val perCoreLoads: Map<Int, Int> = emptyMap(),
     val timestampMs: Long = System.currentTimeMillis()
 )
 

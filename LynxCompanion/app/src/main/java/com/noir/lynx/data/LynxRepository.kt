@@ -813,19 +813,21 @@ object LynxRepository {
     fun mapTelemetryToCpuCores(
         tel: TelemetryData,
         currentClusters: List<CpuClusterInfo>,
-        existingCores: List<CpuCoreInfo> = emptyList()
+        existingCores: List<CpuCoreInfo> = emptyList(),
+        perCoreLoads: Map<Int, Int> = latestPerCoreLoads
     ): List<CpuCoreInfo> {
         if (tel.cpu.isEmpty()) return existingCores
         val existingMap = existingCores.associateBy { it.coreId }
         return tel.cpu.mapIndexed { index, freqKhz ->
             val parentCluster = currentClusters.find { it.containsCore(index) }
             val prev = existingMap[index]
+            val liveLoad = perCoreLoads[index] ?: (prev?.loadPercent ?: 0)
             CpuCoreInfo(
                 coreId = index,
                 isOnline = freqKhz > 0L,
                 isSwitchable = prev?.isSwitchable ?: true,
                 curFreqKhz = freqKhz,
-                loadPercent = prev?.loadPercent ?: 0,
+                loadPercent = if (freqKhz > 0L) liveLoad.coerceIn(0, 100) else 0,
                 minFreqKhz = parentCluster?.curMin ?: (prev?.minFreqKhz ?: 0L),
                 maxFreqKhz = parentCluster?.curMax ?: (prev?.maxFreqKhz ?: 0L),
                 isLocked = parentCluster?.isLocked ?: (prev?.isLocked ?: false)
@@ -5767,11 +5769,92 @@ object LynxRepository {
     // ----------------------------------------------------------------
 
     private var prevCpuStats: Map<String, Pair<Long, Long>> = emptyMap()
+    @Volatile
     var latestTotalCpuLoadPercent: Int = 0
         private set
 
+    @Volatile
+    var latestPerCoreLoads: Map<Int, Int> = emptyMap()
+        private set
+
+    private val cpuStatLock = Any()
+
+    suspend fun sampleCpuStatLoads(): Pair<Int, Map<Int, Int>> = withContext(Dispatchers.IO) {
+        synchronized(cpuStatLock) {
+            try {
+                val lines: List<String> = try {
+                    val f = java.io.File("/proc/stat")
+                    if (f.canRead()) {
+                        f.bufferedReader().useLines { seq -> seq.take(18).toList() }
+                    } else {
+                        Shell.cmd("head -n 18 /proc/stat 2>/dev/null").exec().out
+                    }
+                } catch (_: Exception) {
+                    Shell.cmd("head -n 18 /proc/stat 2>/dev/null").exec().out
+                }
+
+                if (lines.isEmpty()) {
+                    return@synchronized Pair(latestTotalCpuLoadPercent, latestPerCoreLoads)
+                }
+
+                val currentStats = mutableMapOf<String, Pair<Long, Long>>()
+                val perCoreLoads = mutableMapOf<Int, Int>()
+
+                for (line in lines) {
+                    val trimmed = line.trim()
+                    if (trimmed.startsWith("cpu")) {
+                        val tokens = trimmed.split(Regex("\\s+"))
+                        if (tokens.size >= 5) {
+                            val tag = tokens[0]
+                            val user = tokens[1].toLongOrNull() ?: 0L
+                            val nice = tokens[2].toLongOrNull() ?: 0L
+                            val sys = tokens[3].toLongOrNull() ?: 0L
+                            val idle = tokens[4].toLongOrNull() ?: 0L
+                            val iowait = tokens.getOrNull(5)?.toLongOrNull() ?: 0L
+                            val irq = tokens.getOrNull(6)?.toLongOrNull() ?: 0L
+                            val softirq = tokens.getOrNull(7)?.toLongOrNull() ?: 0L
+                            val steal = tokens.getOrNull(8)?.toLongOrNull() ?: 0L
+
+                            val total = user + nice + sys + idle + iowait + irq + softirq + steal
+                            val idleAll = idle + iowait
+                            currentStats[tag] = Pair(total, idleAll)
+
+                            val prev = prevCpuStats[tag]
+                            if (prev != null) {
+                                val deltaTotal = total - prev.first
+                                val deltaIdle = idleAll - prev.second
+                                if (deltaTotal > 0L) {
+                                    val load = (((deltaTotal - deltaIdle) * 100L) / deltaTotal).toInt().coerceIn(0, 100)
+                                    if (tag == "cpu") {
+                                        latestTotalCpuLoadPercent = load
+                                    } else if (tag.startsWith("cpu")) {
+                                        val cId = tag.removePrefix("cpu").toIntOrNull()
+                                        if (cId != null) {
+                                            perCoreLoads[cId] = load
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (currentStats.isNotEmpty()) {
+                    prevCpuStats = currentStats
+                }
+                if (perCoreLoads.isNotEmpty()) {
+                    latestPerCoreLoads = perCoreLoads
+                }
+
+                Pair(latestTotalCpuLoadPercent, latestPerCoreLoads)
+            } catch (_: Exception) {
+                Pair(latestTotalCpuLoadPercent, latestPerCoreLoads)
+            }
+        }
+    }
+
     suspend fun readCpuStatLoads(): Pair<Int, Map<Int, Int>> = withContext(Dispatchers.IO) {
-        Pair(latestTotalCpuLoadPercent, emptyMap())
+        sampleCpuStatLoads()
     }
 
     private var cachedTotalCpuCores: Int = 0
@@ -5814,9 +5897,11 @@ object LynxRepository {
                 // 800%cpu 126%user 2%nice 152%sys 520%idle 0%iow 0%irq 0%sirq 0%host
                 if (trimmed.contains("%cpu") && trimmed.contains("%idle")) {
                     if (currentProcesses.isNotEmpty()) {
+                        val statLoads = sampleCpuStatLoads()
                         val snapshot = CpuMonitorSnapshot(
-                            totalCpuLoadPercent = currentTotalLoad.coerceIn(1, 100),
+                            totalCpuLoadPercent = if (currentTotalLoad > 0) currentTotalLoad.coerceIn(1, 100) else statLoads.first.coerceIn(1, 100),
                             topProcesses = currentProcesses.toList(),
+                            perCoreLoads = if (statLoads.second.isNotEmpty()) statLoads.second else latestPerCoreLoads,
                             timestampMs = System.currentTimeMillis()
                         )
                         latestStreamSnapshot = snapshot
@@ -5857,9 +5942,11 @@ object LynxRepository {
 
                 if (trimmed.isBlank()) {
                     if (currentProcesses.isNotEmpty()) {
+                        val statLoads = sampleCpuStatLoads()
                         val snapshot = CpuMonitorSnapshot(
-                            totalCpuLoadPercent = currentTotalLoad.coerceIn(1, 100),
+                            totalCpuLoadPercent = if (currentTotalLoad > 0) currentTotalLoad.coerceIn(1, 100) else statLoads.first.coerceIn(1, 100),
                             topProcesses = currentProcesses.toList(),
+                            perCoreLoads = if (statLoads.second.isNotEmpty()) statLoads.second else latestPerCoreLoads,
                             timestampMs = System.currentTimeMillis()
                         )
                         latestStreamSnapshot = snapshot
@@ -6555,7 +6642,7 @@ object LynxRepository {
                     val minKhz = lockedRange?.first ?: rawMinKhz
                     val maxKhz = lockedRange?.second ?: rawMaxKhz
 
-                    val load = if (online) (perCoreLoads[id] ?: (latestTotalCpuLoadPercent.coerceIn(0, 100))).coerceIn(0, 100) else 0
+                    val load = if (online) (perCoreLoads[id] ?: (latestPerCoreLoads[id] ?: latestTotalCpuLoadPercent.coerceIn(0, 100))).coerceIn(0, 100) else 0
 
                     CpuCoreInfo(
                         coreId = id,

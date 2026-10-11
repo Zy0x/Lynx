@@ -292,10 +292,20 @@ class LynxViewModel : ViewModel() {
                         } else {
                             (current.cpuLoadHistory + snapshot.totalCpuLoadPercent).takeLast(30)
                         }
+                        val updatedCores = if (snapshot.perCoreLoads.isNotEmpty()) {
+                            current.cpuCores.map { core ->
+                                val l = snapshot.perCoreLoads[core.coreId]
+                                if (l != null && core.isOnline) {
+                                    core.copy(loadPercent = l.coerceIn(0, 100))
+                                } else core
+                            }
+                        } else current.cpuCores
+
                         current.copy(
                             totalCpuLoadPercent = snapshot.totalCpuLoadPercent,
                             cpuLoadHistory = newHistory,
-                            topCpuProcesses = snapshot.topProcesses
+                            topCpuProcesses = snapshot.topProcesses,
+                            cpuCores = updatedCores
                         )
                     }
                 }
@@ -593,8 +603,18 @@ class LynxViewModel : ViewModel() {
                     val gpu: GpuInfo?
 
                     if (tel != null && tel.cpu.isNotEmpty()) {
+                        val livePerCoreMap = if (!isMonitorTabActive && (counter % 2 == 0 || LynxRepository.latestPerCoreLoads.isEmpty())) {
+                            LynxRepository.sampleCpuStatLoads().second
+                        } else {
+                            LynxRepository.latestPerCoreLoads
+                        }
                         cores = mergeCoresWithActiveIntents(
-                            LynxRepository.mapTelemetryToCpuCores(tel, _uiState.value.clusters, _uiState.value.cpuCores)
+                            LynxRepository.mapTelemetryToCpuCores(
+                                tel = tel,
+                                currentClusters = _uiState.value.clusters,
+                                existingCores = _uiState.value.cpuCores,
+                                perCoreLoads = livePerCoreMap
+                            )
                         )
                         if (!isBatteryScreenActive) {
                             val curSample = tel.battCurrentMa.toFloat()

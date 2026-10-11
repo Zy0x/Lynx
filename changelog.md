@@ -1,3 +1,16 @@
+# Lynx Universal [Real-Time Per-Core Telemetry & Kernel CPU Stat Calibration] 7.0.0-RC10
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC10** menghadirkan pembaruan esensial pada subsistem telemetri kernel dan pemantauan perangkat keras (Lynx Kernel Manager v3.0.75): **Perbaikan Akurasi Beban Inti CPU 100% Real-Time & Kalibrasi `/proc/stat` Per-Core**. Mengeliminasi total anomali di mana kartu status inti fisik CPU (C0–C7) sebelumnya stuck di angka 0% saat sistem berada di bawah beban komputasi tinggi. Kini seluruh progress bar dan metrik beban individual terintegrasi penuh secara presisi dengan tick delta kernel Linux.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC10)
+
+### 1. Kalibrasi Beban Inti Fisik CPU (Eliminasi Anomali Stuck 0%)
+- **Integrasi Direct `/proc/stat` Delta Tick Sampler**: Membaca `/proc/stat` secara langsung (`File.bufferedReader()`, <0.1ms tanpa pembentukan subshell atau overhead proses) untuk menghitung selisih tick jiffies aktif (`user + nice + sys + irq + softirq + steal`) berbanding waktu tunggu (`idle + iowait`) secara presisi per masing-masing inti (`cpu0`..`cpu7`).
+- **Sinkronisasi State Antar-Pipeline**: Memperbaiki `startCpuMonitorStream()` dan `startTelemetryPolling()` sehingga `snapshot.perCoreLoads` dialirkan langsung ke komponen kartu `cpuCores`, memastikan clock frekuensi (MHz), progress bar visual, dan label persentase beban setiap inti fisik selalu terbarui secara dinamis.
+- **Klarifikasi Metrik Kapasitas Proses**: Menjelaskan interpretasi kapasitas komputasi pada tabel proses CPU aktif di mana label badge `"1.0 Inti"` merepresentasikan saturasi 100% dari kapasitas 1 inti fisik penuh (skala komputasi Toybox `top` per-core).
+
+---
+
 # Lynx Universal [Zero-Fallback State Shielding & Slider/Switch Rubberband Elimination] 7.0.0-RC9
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC9** menghadirkan audit menyeluruh dan perbaikan fundamental terhadap stabilitas kontrol interaktif (Lynx Kernel Manager v3.0.74): **Eliminasi Total State Fallback & Switch Rubberbanding** di seluruh slider, tombol toggle, switch, dan sheet tuning. Masalah nilai Task Priority Boost dan toggle yang memantul kembali (*rubberband*) ke nilai sebelumnya berhasil diatasi dengan implementasi **Optimistic Intent Shielding (3500ms Grace Period)**, proteksi sinkronisasi latar belakang, serta integrasi ganda arsitektur EAS (`uclampMin` & `schedtune.boost`).
