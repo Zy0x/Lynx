@@ -145,6 +145,7 @@ data class TelemetryData(
     val zramTotalMb: Int = 0,
     val swapUsedMb: Int = 0,
     val swapTotalMb: Int = 0,
+    val thermalZones: List<ThermalZoneInfo> = emptyList(),
 )
 
 data class CpuClusterInfo(

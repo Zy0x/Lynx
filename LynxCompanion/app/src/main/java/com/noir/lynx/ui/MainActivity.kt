@@ -37,7 +37,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -355,15 +357,19 @@ fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
 // ============================================================
 
 @Composable
-fun rememberFluidFlingBehavior(): FlingBehavior {
+fun rememberFluidFlingBehavior(
+    scrollState: ScrollState? = null,
+    lazyState: LazyListState? = null
+): FlingBehavior {
     val splineSpec = rememberSplineBasedDecay<Float>()
-    return remember(splineSpec) {
+    return remember(splineSpec, scrollState, lazyState) {
         object : FlingBehavior {
             override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
                 if (kotlin.math.abs(initialVelocity) < 1f) return 0f
                 val boostedVelocity = initialVelocity * 1.20f
                 var lastValue = 0f
                 var velocityLeft = boostedVelocity
+                var consecutiveEdgeFrames = 0
                 AnimationState(
                     initialValue = 0f,
                     initialVelocity = boostedVelocity
@@ -372,9 +378,38 @@ fun rememberFluidFlingBehavior(): FlingBehavior {
                     val consumed = scrollBy(delta)
                     lastValue = value
                     velocityLeft = velocity
-                    // Only cancel if we hit a hard container boundary (delta attempted > 1.5px but 0 consumed)
-                    if (kotlin.math.abs(delta) > 1.5f && kotlin.math.abs(consumed) < 0.1f) {
-                        cancelAnimation()
+
+                    val atPhysicalEdge = when {
+                        scrollState != null -> {
+                            if (delta > 0f) {
+                                scrollState.value >= scrollState.maxValue || !scrollState.canScrollForward
+                            } else {
+                                scrollState.value <= 0 || !scrollState.canScrollBackward
+                            }
+                        }
+                        lazyState != null -> {
+                            if (delta > 0f) {
+                                !lazyState.canScrollForward
+                            } else {
+                                !lazyState.canScrollBackward
+                            }
+                        }
+                        else -> false
+                    }
+
+                    // Only cancel if physically at container edge AND delta attempted > 1.5px with 0 consumed for 2 consecutive frames
+                    if (atPhysicalEdge && kotlin.math.abs(delta) > 1.5f && kotlin.math.abs(consumed) < 0.1f) {
+                        consecutiveEdgeFrames++
+                        if (consecutiveEdgeFrames >= 2) {
+                            cancelAnimation()
+                        }
+                    } else if (scrollState == null && lazyState == null && kotlin.math.abs(delta) > 1.5f && kotlin.math.abs(consumed) < 0.1f) {
+                        consecutiveEdgeFrames++
+                        if (consecutiveEdgeFrames >= 4) {
+                            cancelAnimation()
+                        }
+                    } else {
+                        consecutiveEdgeFrames = 0
                     }
                 }
                 return velocityLeft
@@ -395,11 +430,15 @@ fun MainDashboard(
 ) {
     val state = uiState.state
     val context = LocalContext.current
-    val fluidFling = rememberFluidFlingBehavior()
     val dashboardLazyState = rememberLazyListState()
     val toolsLazyState = rememberLazyListState()
     val tuningHubLazyState = rememberLazyListState()
     val subscreenScrollState = rememberScrollState()
+
+    val dashboardFling = rememberFluidFlingBehavior(lazyState = dashboardLazyState)
+    val tuningHubFling = rememberFluidFlingBehavior(lazyState = tuningHubLazyState)
+    val toolsFling = rememberFluidFlingBehavior(lazyState = toolsLazyState)
+    val subscreenFling = rememberFluidFlingBehavior(scrollState = subscreenScrollState)
     var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         viewModel.syncHudPrefs(context)
@@ -828,7 +867,7 @@ fun MainDashboard(
             0 -> {
                 LazyColumn(
                     state = dashboardLazyState,
-                    flingBehavior = fluidFling,
+                    flingBehavior = dashboardFling,
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding(),
@@ -1448,7 +1487,7 @@ fun MainDashboard(
                             // ── HUB VIEW (FULL-WIDTH SUBSYSTEM CARDS) ──
                             LazyColumn(
                                 state = tuningHubLazyState,
-                                flingBehavior = fluidFling,
+                                flingBehavior = tuningHubFling,
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .statusBarsPadding()
@@ -1688,7 +1727,7 @@ fun MainDashboard(
                                         .fillMaxWidth()
                                         .verticalScroll(
                                             state = subscreenScrollState,
-                                            flingBehavior = fluidFling
+                                            flingBehavior = subscreenFling
                                         )
                                 ) {
                                     Spacer(Modifier.height(8.dp))
@@ -1742,7 +1781,7 @@ fun MainDashboard(
 
                     LazyColumn(
                         state = toolsLazyState,
-                        flingBehavior = fluidFling,
+                        flingBehavior = toolsFling,
                         modifier = Modifier
                             .fillMaxSize()
                             .statusBarsPadding()

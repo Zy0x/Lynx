@@ -526,6 +526,19 @@ object LynxRepository {
             }
             val bStat = json.optString("batt_status", "")
             val isCharging = bStat.equals("Charging", ignoreCase = true) || (bStat != "Discharging" && bCurMa > 0)
+
+            val tzList = mutableListOf<ThermalZoneInfo>()
+            val tzArr = json.optJSONArray("thermal_zones")
+            if (tzArr != null) {
+                for (i in 0 until tzArr.length()) {
+                    val tzObj = tzArr.optJSONObject(i) ?: continue
+                    val id = tzObj.optInt("id", i)
+                    val type = tzObj.optString("type", "unknown")
+                    val tempC = tzObj.optDouble("temp_c", tzObj.optDouble("temp", 0.0)).toFloat()
+                    tzList.add(ThermalZoneInfo(id = id, type = type, tempC = tempC))
+                }
+            }
+
             return TelemetryData(
                 cpu = cpuList,
                 gpuFreq = json.optInt("gpu_freq", 0),
@@ -542,6 +555,7 @@ object LynxRepository {
                 zramTotalMb = zTotal,
                 swapUsedMb = sUsed,
                 swapTotalMb = sTotal,
+                thermalZones = tzList,
             )
         } catch (e: Exception) {
             return null
@@ -898,9 +912,35 @@ object LynxRepository {
         tel: TelemetryData,
         existingGpu: GpuInfo
     ): GpuInfo {
+        val busy = if (tel.gpuBusy >= 0) tel.gpuBusy else existingGpu.gpuLoadPercent
+        synchronized(gpuLoadRingBuffer) {
+            gpuLoadRingBuffer.add(busy)
+            while (gpuLoadRingBuffer.size > 30) {
+                gpuLoadRingBuffer.removeAt(0)
+            }
+        }
+        val currentHistory = synchronized(gpuLoadRingBuffer) { gpuLoadRingBuffer.toList() }
+
+        val resolvedGpuTemp = tel.thermalZones.firstOrNull { tz ->
+            val t = tz.type.lowercase(java.util.Locale.US)
+            t.contains("gpu") || t.contains("mali") || t.contains("g3d") || t.contains("mtktsap") || t.contains("soc")
+        }?.tempC ?: tel.temp.toFloatOrNull() ?: existingGpu.gpuTempC
+
+        val isThrottled = (resolvedGpuTemp >= 65f) || (existingGpu.platform == "adreno" && !existingGpu.isThrottlingBypassed && busy > 85 && existingGpu.curFreqMhz < existingGpu.maxFreqMhz / 2)
+        val throttleReason = if (isThrottled) {
+            if (resolvedGpuTemp >= 65f) "Suhu Silicon GPU Melampaui Batas (${resolvedGpuTemp.toInt()}°C)"
+            else "DVFS Thermal Clamping Aktif"
+        } else "Normal (Bebas Throttling)"
+
         return existingGpu.copy(
             curFreqMhz = if (tel.gpuFreq > 0) tel.gpuFreq else existingGpu.curFreqMhz,
-            gpuLoadPercent = if (tel.gpuBusy >= 0) tel.gpuBusy else existingGpu.gpuLoadPercent
+            gpuLoadPercent = busy,
+            gpuLoadHistory = currentHistory,
+            gpuTempC = if (resolvedGpuTemp > 0f) resolvedGpuTemp else existingGpu.gpuTempC,
+            isThrottled = isThrottled,
+            isThermalThrottlingActive = isThrottled,
+            thermalThrottleReason = throttleReason,
+            topGraphicsProcesses = if (cachedTopGraphicsProcesses.isNotEmpty()) cachedTopGraphicsProcesses else existingGpu.topGraphicsProcesses
         )
     }
 
@@ -2055,6 +2095,72 @@ object LynxRepository {
                             val gedBoost = if (plat == "mali_ged") boost else 0
                             val isLocked = minMhz > 0 && minMhz == maxMhz
 
+                            synchronized(gpuLoadRingBuffer) {
+                                gpuLoadRingBuffer.add(loadPct)
+                                while (gpuLoadRingBuffer.size > 30) {
+                                    gpuLoadRingBuffer.removeAt(0)
+                                }
+                            }
+                            val loadHistory = synchronized(gpuLoadRingBuffer) { gpuLoadRingBuffer.toList() }
+                            val topProcs = readTopGraphicsProcesses()
+
+                            // Query Universal Dynamic HAL Adapter
+                            val activeAdapter = GpuBackendManager.getActiveAdapter()
+                            val backendFeatures = try { activeAdapter.scanFeatures() } catch (_: Exception) { emptyList() }
+                            val backendConfidence = try {
+                                if (backendFeatures.isNotEmpty()) {
+                                    val writableCount = backendFeatures.count { it.accessState == FeatureAccessState.VERIFIED_WORKING }
+                                    val pct = (writableCount * 100) / backendFeatures.size
+                                    val rating = if (writableCount > 0) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK
+                                    HardwareConfidence(100, pct, 95, rating)
+                                } else {
+                                    activeAdapter.getConfidence()
+                                }
+                            } catch (_: Exception) { HardwareConfidence() }
+
+                            // Quick probes for hardware flags
+                            var busOn = false; var framePacing = false; var thrmBypass = false; var idleTimer = 64
+                            var rawGpuTemp = 0f; var maliMargin = 0; var fpsgoRescue = false
+                            try {
+                                if (plat == "mali_ged") {
+                                    val mtkProbe = Shell.cmd("cat /sys/kernel/fpsgo/common/gpu_block_boost 2>/dev/null; cat /sys/kernel/fpsgo/fbt/ultra_rescue 2>/dev/null; cat /proc/gpufreq/gpufreq_limit_table 2>/dev/null | awk '\$1 == \"THERMAL\" || \$2 == \"THERMAL\" {print \$5}'; cat /sys/kernel/ged/hal/dvfs_margin_value 2>/dev/null; for tz in /sys/class/thermal/thermal_zone*; do [ -f \"\$tz/type\" ] && cat \"\$tz/type\" 2>/dev/null | grep -qiE 'gpu|mali|mtktsap|soc' && cat \"\$tz/temp\" 2>/dev/null && break; done").exec().out
+                                    if (mtkProbe.isNotEmpty()) {
+                                        val fp = mtkProbe.getOrNull(0)?.trim()?.toIntOrNull() ?: 0
+                                        framePacing = fp > 0
+                                        val ur = mtkProbe.getOrNull(1)?.trim()
+                                        fpsgoRescue = ur == "1"
+                                        val th = mtkProbe.getOrNull(2)?.trim()
+                                        thrmBypass = th == "0"
+                                        maliMargin = mtkProbe.getOrNull(3)?.trim()?.toIntOrNull() ?: 0
+                                        val rawT = mtkProbe.getOrNull(4)?.trim()?.toFloatOrNull() ?: 0f
+                                        rawGpuTemp = if (rawT > 1000f) rawT / 1000f else rawT
+                                    }
+                                } else if (plat == "adreno") {
+                                    val qcomProbe = Shell.cmd("cat /sys/class/kgsl/kgsl-3d0/force_bus_on 2>/dev/null; cat /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel 2>/dev/null; cat /sys/class/kgsl/kgsl-3d0/idle_timer 2>/dev/null; cat /sys/class/kgsl/kgsl-3d0/temp 2>/dev/null").exec().out
+                                    if (qcomProbe.isNotEmpty()) {
+                                        busOn = qcomProbe.getOrNull(0)?.trim() == "1"
+                                        thrmBypass = qcomProbe.getOrNull(1)?.trim() == "0"
+                                        idleTimer = qcomProbe.getOrNull(2)?.trim()?.toIntOrNull() ?: 64
+                                        val rawT = qcomProbe.getOrNull(3)?.trim()?.toFloatOrNull() ?: 0f
+                                        rawGpuTemp = if (rawT > 1000f) rawT / 1000f else rawT
+                                    }
+                                }
+                            } catch (_: Exception) {}
+
+                            val refMax = if (freqs.isNotEmpty()) freqs.maxOrNull() ?: 850 else 850
+                            val activeProf = when {
+                                isLocked && maxMhz >= refMax && thrmBypass -> "extreme"
+                                (minMhz >= (refMax * 0.6).toInt() || framePacing) && (boost >= 2) && !thrmBypass -> "esports"
+                                maxMhz <= (refMax * 0.7).toInt() && boost == 0 -> "battery"
+                                else -> "balanced"
+                            }
+
+                            val isThrottled = (rawGpuTemp >= 65f) || (plat == "adreno" && !thrmBypass && loadPct > 85 && curMhz < maxMhz / 2)
+                            val throttleReason = if (isThrottled) {
+                                if (rawGpuTemp >= 65f) "Suhu Silicon GPU Melampaui Batas (${rawGpuTemp.toInt()}°C)"
+                                else "DVFS Thermal Clamping Aktif"
+                            } else "Normal (Bebas Throttling)"
+
                             return@withContext GpuInfo(
                                 minFreqMhz = minMhz,
                                 maxFreqMhz = maxMhz,
@@ -2068,7 +2174,24 @@ object LynxRepository {
                                 availableGovernors = govs,
                                 subArchitecture = subArch,
                                 isLocked = isLocked,
-                                powerPolicy = "always_on"
+                                powerPolicy = "always_on",
+                                isThrottlingBypassed = thrmBypass,
+                                isBusAlwaysOn = busOn,
+                                isFramePacingActive = framePacing,
+                                idleTimerMs = idleTimer,
+                                gpuTempC = rawGpuTemp,
+                                isThrottled = isThrottled,
+                                isThermalThrottlingActive = isThrottled,
+                                thermalThrottleReason = throttleReason,
+                                maliDvfsMargin = maliMargin,
+                                gpuLoadHistory = loadHistory,
+                                topGraphicsProcesses = topProcs,
+                                activeProfile = activeProf,
+                                isFpsgoUltraRescue = fpsgoRescue,
+                                mtkGenType = if (vendor.contains("Helio", ignoreCase = true)) "helio" else "dimensity",
+                                hardwareFeatures = backendFeatures,
+                                activeBackendName = activeAdapter.displayName,
+                                backendConfidence = backendConfidence
                             )
                         } catch (e: Exception) {
                             Log.w(TAG, "lynxd gpu info parse failed, fallback to script: ${e.message}")

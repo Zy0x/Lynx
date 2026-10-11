@@ -1,3 +1,20 @@
+# Lynx Universal [GPU Telemetry Calibration & Boundary-Aware Spline Fling] 7.0.0-RC11
+Released on: 2026-10-11
+> **Lynx Universal v7.0.0-RC11** menghadirkan pembaruan presisi pada subsistem GPU & Display serta perbaikan kinetic fling antarmuka Android (Lynx Kernel Manager v3.0.76): **Kalibrasi Penuh Telemetri GPU & Eliminasi Hambatan Scroll Antar-Section**. Memperbaiki sinkronisasi data telemetri GPU di mana grafik beban bezier waveform, ring buffer riwayat beban, badge suhu silikon GPU, dan daftar proses render aktif kini terhubung langsung dengan aliran telemetri daemon tanpa overhead shell. Selain itu, mesin scroll kinetik disempurnakan dengan *boundary-aware edge gating*, mengeliminasi total sensasi hambatan atau "rem" per section saat melepaskan scroll cepat (*scrol lepas*).
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC11)
+
+### 1. Kalibrasi Telemetri & Monitor GPU 100% Real-Time
+- **Integrasi Ring Buffer Beban GPU (`gpuLoadRingBuffer`)**: Memperbaiki pemetaan `mapTelemetryToGpuInfo()` sehingga data beban GPU (`gpuBusy`) dari aliran telemetri instan langsung dimasukkan ke ring buffer rolling 30 sampel, mengaktifkan visualisasi dinamis pada kurva kurvatur Bezier GPU dan metrik Min/Avg/Max secara *real-time*.
+- **Pendeteksian Suhu Silikon GPU Real-Time**: Menambahkan parsing `thermalZones` pada data telemetri dan memetakan sensor termal GPU (`gpu`, `mali`, `g3d`, `mtktsAP`, atau `soc`) ke badge suhu `GpuMasterTunerCard`, menampilkan indikator suhu yang akurat dan dinamis.
+- **Top Graphics Rendering Processes**: Memperbarui Tier 0 `readGpuInfo()` dan pipeline polling agar daftar proses render grafis aktif terisi secara akurat beserta pembagian persentase beban GPU masing-masing.
+
+### 2. Eliminasi Hambatan Scroll Antar-Section (Boundary-Aware Spline Fling)
+- **Eliminasi Premature Fling Cancellation**: Mengidentifikasi akar masalah di mana kondisi pembatalan animasi fling (`abs(consumed) < 0.1f`) sebelumnya terpicu secara keliru saat transisi batas kartu/section akibat satu frame hitch, menyebabkan inersia fling terhenti mendadak di tengah layar.
+- **Boundary-Aware Edge Gating**: Menambahkan verifikasi batas kontainer fisik (`atPhysicalEdge` untuk `ScrollState` dan `LazyListState`) dengan toleransi 2 frame berturut-turut. Pembatalan animasi kinetik kini secara mutlak HANYA diizinkan saat scroll telah menyentuh batas fisik ujung atas (`value <= 0`) atau ujung bawah (`value >= maxValue`), menjamin luncuran scroll panjang (*scrol lepas*) meluncur bebas tanpa hambatan antar-section.
+
+---
+
 # Lynx Universal [Real-Time Per-Core Telemetry & Kernel CPU Stat Calibration] 7.0.0-RC10
 Released on: 2026-10-11
 > **Lynx Universal v7.0.0-RC10** menghadirkan pembaruan esensial pada subsistem telemetri kernel dan pemantauan perangkat keras (Lynx Kernel Manager v3.0.75): **Perbaikan Akurasi Beban Inti CPU 100% Real-Time & Kalibrasi `/proc/stat` Per-Core**. Mengeliminasi total anomali di mana kartu status inti fisik CPU (C0–C7) sebelumnya stuck di angka 0% saat sistem berada di bawah beban komputasi tinggi. Kini seluruh progress bar dan metrik beban individual terintegrasi penuh secara presisi dengan tick delta kernel Linux.
