@@ -3946,17 +3946,37 @@ fun TuningNetworkCategory(
                     lineHeight = 16.sp,
                     modifier = Modifier.weight(1f).padding(end = 8.dp)
                 )
+                val isPortLocked = uiState.adbKeepAliveEnabled && uiState.isAdbListening
+                val isPortRestoring = uiState.adbKeepAliveEnabled && !uiState.isAdbListening
+                val badgeColor = when {
+                    isPortLocked -> AccentGreen
+                    isPortRestoring -> AccentOrange
+                    else -> TextSecondary
+                }
+                val badgeBg = when {
+                    isPortLocked -> AccentGreen.copy(alpha = 0.15f)
+                    isPortRestoring -> AccentOrange.copy(alpha = 0.15f)
+                    else -> BgElevated
+                }
+                val badgeBorder = when {
+                    isPortLocked -> AccentGreen.copy(alpha = 0.4f)
+                    isPortRestoring -> AccentOrange.copy(alpha = 0.4f)
+                    else -> BorderGlass
+                }
+                val badgeText = when {
+                    isPortLocked -> "● LOCKED : ${uiState.adbPort}"
+                    isPortRestoring -> "⚡ MEMULIHKAN : ${uiState.adbPort}"
+                    else -> "○ STANDBY"
+                }
+
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (uiState.adbKeepAliveEnabled) AccentGreen.copy(alpha = 0.15f) else BgElevated,
-                    border = BorderStroke(
-                        1.dp,
-                        if (uiState.adbKeepAliveEnabled) AccentGreen.copy(alpha = 0.4f) else BorderGlass
-                    )
+                    color = badgeBg,
+                    border = BorderStroke(1.dp, badgeBorder)
                 ) {
                     Text(
-                        if (uiState.adbKeepAliveEnabled) "● LOCKED : ${uiState.adbPort}" else "○ STANDBY",
-                        color = if (uiState.adbKeepAliveEnabled) AccentGreen else TextSecondary,
+                        badgeText,
+                        color = badgeColor,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -4053,7 +4073,42 @@ fun TuningNetworkCategory(
                 ) {
                     Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Kunci Port", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            if (uiState.adbKeepAliveEnabled) {
+                val ip = remember(uiState.adbStatus) {
+                    val regex = """"ip_address":"([^"]+)"""".toRegex()
+                    regex.find(uiState.adbStatus)?.groupValues?.getOrNull(1)?.takeIf { it.isNotBlank() } ?: ""
+                }
+                if (ip.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(1.dp, BorderGlass),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "adb connect $ip:${uiState.adbPort}",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AccentCyan
+                            )
+                            Text(
+                                if (uiState.isAdbListening) "Tersambung" else "Memulihkan...",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (uiState.isAdbListening) AccentGreen else AccentOrange
+                            )
+                        }
+                    }
                 }
             }
         }

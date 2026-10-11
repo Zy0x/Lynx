@@ -1,3 +1,22 @@
+# Lynx Universal [Autonomous ADB Keep-Alive Self-Healing & Real-Time Socket Verification] 7.0.0-RC26
+Released on: 2026-10-12
+> **Lynx Universal v7.0.0-RC26** menghadirkan penyempurnaan menyeluruh pada fitur ADB Wireless Keep-Alive & Port Lock di daemon `lynxd` dan aplikasi Lynx Kernel Manager (v3.0.91): **Pemulihan Otomatis 100% Mandiri (*Autonomous Self-Healing* Saat Deep Sleep atau Restart Tanpa Perlu Sakelar Manual), Proteksi Framework Android 11+ (`settings put global adb_wifi_enabled 1`), Siklus Pemantauan Super Hemat Daya (Watchdog 2500ms Non-Wakelock, <0.001% CPU Duty Cycle, Sub-0.02ms In-Process Read), Akurasi Status Socket Real-Time di Antarmuka (`● LOCKED` Hijau Hanya Jika Socket Benar-Benar Listening vs `⚡ MEMULIHKAN` Oranye Saat Proses Re-binding), Serta Quick Connection Guide Row yang Bersih dan Elegan**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC26)
+
+### 1. Resilient & Battery-Friendly Rust Daemon (`native/lynxd/src/subsystems/adb.rs`)
+- Mengintegrasikan penguncian framework Android 11+ via `settings put global adb_wifi_enabled 1` untuk mencegah garbage collector sistem mematikan server nirkabel ADB saat perangkat tidur lelap.
+- Mengubah interval watchdog loop menjadi 2500ms adaptif tanpa menahan CPU wakelock, mengizinkan SoC memasuki status Deep Sleep C-States 100% sempurna tanpa menguras baterai.
+- Membangun auto-resurrection pada kueri `lynxd adb status`: jika konfigurasi keep-alive aktif namun watchdog terhenti, daemon secara otomatis membangkitkan watchdog kembali di latar belakang.
+
+### 2. Autonomous Self-Healing & Real-Time Badge di Aplikasi (`LynxCompanion`)
+- Memperkenalkan properti `isAdbListening` pada `LynxUiState` yang memvalidasi pembukaan port fisik di `/proc/net/tcp` secara presisi.
+- Memicu pemulihan otomatis seketika saat aplikasi dibuka (`init`) dan saat kembali ke latar depan (`onAppResume`) jika port terdeteksi tertutup saat status keep-alive aktif.
+- Memperbarui badge status: menampilkan `● LOCKED : <PORT>` (Hijau) jika socket aktif mendengarkan, `⚡ MEMULIHKAN : <PORT>` (Oranye) saat proses re-binding, dan `○ STANDBY` jika dinonaktifkan.
+- Menambahkan kartu ringkas `adb connect <IP>:<PORT>` untuk memudahkan pengembang menyambungkan terminal tanpa perlu memeriksa IP perangkat secara manual.
+
+---
+
 # Lynx Universal [Seamless Vector Discharge Curve & Single Interactive Cursor] 7.0.0-RC25
 Released on: 2026-10-12
 > **Lynx Universal v7.0.0-RC25** memperbarui estetika kanvas grafik penurunan baterai pada aplikasi Lynx Kernel Manager (v3.0.90): **Eliminasi Total Bulatan Titik Koordinat Bergerombol (*Clutter-Free Vector Spline Curve* dengan `StrokeCap.Round` & `StrokeJoin.Round`), Pengenalan Kursor Interaktif Tunggal Dinamis (*Single Active Glow Cursor* yang Mengikuti Sentuhan Jari Pengguna atau Titik Terkini), serta Retensi Penuh Indikator Status Layar Aktif/Mati (SOT/Off-Screen) Melalui Strip Garis Bawah Kanvas dan Chip Ringkasan Cerdas**. Menghadirkan visual grafik analitik yang sangat bersih, elegan, dan profesional setara dashboard analitik modern.

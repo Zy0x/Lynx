@@ -886,6 +886,7 @@ data class LynxUiState(
     val isCalibratingBattery: Boolean = false,
     // ADB Wireless Keep-Alive & Port Lock Engine
     val adbKeepAliveEnabled: Boolean = false,
+    val isAdbListening: Boolean = false,
     val adbPort: Int = 5555,
     val adbPortInput: String = "5555",
     val adbStatus: String = "",

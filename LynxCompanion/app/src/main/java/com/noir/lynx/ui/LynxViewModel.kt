@@ -147,6 +147,7 @@ class LynxViewModel : ViewModel() {
                     val savedSessions = LynxRepository.listLabSessions(appContext)
                     val adbConfig = LynxRepository.readAdbKeepAliveConfig()
                     val adbStatusJson = LynxRepository.getAdbStatus()
+                    val isAdbListening = adbStatusJson.contains("\"is_listening\":true")
 
                     val resolvedState = if (currentTcp.isNotBlank()) {
                         state.copy(network = state.network.copy(tcpCongestion = currentTcp))
@@ -223,11 +224,25 @@ class LynxViewModel : ViewModel() {
                         memoryEntropy = memoryEntropy,
                         customScripts = customScripts,
                         adbKeepAliveEnabled = adbConfig.first,
+                        isAdbListening = isAdbListening,
                         adbPort = adbConfig.second,
                         adbPortInput = adbConfig.second.toString(),
                         adbStatus = adbStatusJson,
                         lastSyncedAt = System.currentTimeMillis(),
                     )
+                }
+
+                if (adbConfig.first && !isAdbListening) {
+                    viewModelScope.launch(Dispatchers.IO) {
+                        LynxRepository.setAdbKeepAlive(true, adbConfig.second)
+                        val healedStatus = LynxRepository.getAdbStatus()
+                        _uiState.update {
+                            it.copy(
+                                isAdbListening = healedStatus.contains("\"is_listening\":true"),
+                                adbStatus = healedStatus
+                            )
+                        }
+                    }
                 }
 
                 // Auto-discover deep hardware tree in background (non-blocking)
@@ -331,6 +346,9 @@ class LynxViewModel : ViewModel() {
         if (foreground) {
             refreshState()
             refreshClusters()
+            if (_uiState.value.adbKeepAliveEnabled) {
+                refreshAdbConfig()
+            }
             if (_uiState.value.currentTab == 1 && _uiState.value.selectedCpuTab == 2) {
                 startCpuMonitorStream()
             }
@@ -675,6 +693,24 @@ class LynxViewModel : ViewModel() {
                     val therm = if (counter % 6 == 0) LynxRepository.readThermalZones() else null
                     val freshClusters = if (counter == 1 || counter % 6 == 0) LynxRepository.readClusters() else null
                     val freshNatStatus = if (counter == 1 || counter % 4 == 0) LynxRepository.readNativeStatus() else null
+
+                    if (counter % 8 == 0 && _uiState.value.adbKeepAliveEnabled) {
+                        val adbStatusJson = LynxRepository.getAdbStatus()
+                        val isListening = adbStatusJson.contains("\"is_listening\":true")
+                        if (_uiState.value.isAdbListening != isListening || _uiState.value.adbStatus != adbStatusJson) {
+                            _uiState.update { it.copy(isAdbListening = isListening, adbStatus = adbStatusJson) }
+                        }
+                        if (!isListening) {
+                            LynxRepository.setAdbKeepAlive(true, _uiState.value.adbPort)
+                            val refreshed = LynxRepository.getAdbStatus()
+                            _uiState.update {
+                                it.copy(
+                                    isAdbListening = refreshed.contains("\"is_listening\":true"),
+                                    adbStatus = refreshed
+                                )
+                            }
+                        }
+                    }
 
                     if (tel != null || cores.isNotEmpty() || batt != null || gpu != null || therm != null || procs.isNotEmpty() || (freshClusters != null && freshClusters.isNotEmpty())) {
                         _uiState.update { current ->
@@ -1543,13 +1579,27 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val (enabled, port) = LynxRepository.readAdbKeepAliveConfig()
             val status = LynxRepository.getAdbStatus()
+            val isListening = status.contains("\"is_listening\":true")
             _uiState.update {
                 it.copy(
                     adbKeepAliveEnabled = enabled,
+                    isAdbListening = isListening,
                     adbPort = port,
                     adbPortInput = port.toString(),
                     adbStatus = status
                 )
+            }
+            if (enabled && !isListening) {
+                withContext(Dispatchers.IO) {
+                    LynxRepository.setAdbKeepAlive(true, port)
+                }
+                val healedStatus = LynxRepository.getAdbStatus()
+                _uiState.update {
+                    it.copy(
+                        isAdbListening = healedStatus.contains("\"is_listening\":true"),
+                        adbStatus = healedStatus
+                    )
+                }
             }
         }
     }
@@ -1565,6 +1615,7 @@ class LynxViewModel : ViewModel() {
         _uiState.update {
             it.copy(
                 adbKeepAliveEnabled = enabled,
+                isAdbListening = if (enabled) it.isAdbListening else false,
                 adbPort = currentPort,
                 adbPortInput = currentPort.toString()
             )
@@ -1572,8 +1623,10 @@ class LynxViewModel : ViewModel() {
         viewModelScope.launch {
             val ok = LynxRepository.setAdbKeepAlive(enabled, currentPort)
             val status = LynxRepository.getAdbStatus()
+            val isListening = status.contains("\"is_listening\":true")
             _uiState.update {
                 it.copy(
+                    isAdbListening = isListening,
                     adbStatus = status,
                     successMessage = if (ok) {
                         if (enabled) "ADB Wireless Keep-Alive diaktifkan & dikunci pada port $currentPort"
@@ -1606,8 +1659,10 @@ class LynxViewModel : ViewModel() {
                 LynxRepository.setAdbPort(parsed)
             }
             val status = LynxRepository.getAdbStatus()
+            val isListening = status.contains("\"is_listening\":true")
             _uiState.update {
                 it.copy(
+                    isAdbListening = isListening,
                     adbStatus = status,
                     successMessage = if (ok) "Port ADB berhasil dikunci ke $parsed" else null,
                     errorMessage = if (!ok) "Gagal menyimpan port ADB $parsed" else null
