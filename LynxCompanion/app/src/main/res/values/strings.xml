@@ -160,4 +160,105 @@
     <string name="battery_deep_sleep_ratio">Rasio Deep Sleep (Tidur Pulas)</string>
     <string name="battery_capacity_stats">Kapasitas: %1$d / %2$d mAh</string>
     <string name="battery_drain_rate_active">Drain: %1$s%%/h (Aktif)</string>
+
+    <!-- CPU Cluster Tuner Feature -->
+    <string name="cpu_cluster_tuner_title">Dynamic CPU Clusters &amp; Governors</string>
+    <string name="cpu_cluster_loading_topology">Memuat topologi cluster CPU...</string>
+    <string name="cpu_cluster_policy_title">Policy %1$d: %2$s</string>
+    <string name="cpu_cluster_cores">Cores: %1$s</string>
+    <string name="cpu_cluster_min_freq">Frekuensi Min</string>
+    <string name="cpu_cluster_max_freq">Frekuensi Max</string>
+    <string name="cpu_cluster_locked">Terkunci</string>
+    <string name="cpu_cluster_unlocked">Buka Kunci</string>
+    <string name="cpu_cluster_governor">Governor</string>
+    <string name="cpu_cluster_tunables">Tunables</string>
+    <string name="cpu_cluster_pick_min_limit">Pilih Batas Minimum</string>
+    <string name="cpu_cluster_pick_max_limit">Pilih Batas Puncak</string>
+    <string name="cpu_cluster_policy_subtitle">Policy %1$d: %2$s (%3$s)</string>
+    <string name="cpu_cluster_auto_max">Auto Max</string>
+    <string name="cpu_cluster_auto_min">Auto Min</string>
+    <string name="cpu_cluster_pick_gov">Pilih Scaling Governor</string>
+    <string name="cpu_cluster_gov_subtitle">Policy %1$d: %2$s • Algoritma Respon Jam CPU</string>
+    <string name="cpu_cluster_gov_tunables_title">Governor Tunables: %1$s</string>
+    <string name="cpu_cluster_gov_tunables_subtitle">Policy %1$d: %2$s • Pengaturan Lanjutan Kernel CPU</string>
+    <string name="cpu_cluster_reset_tunables_title">Reset Tunables Policy %1$d?</string>
+    <string name="cpu_cluster_reset_tunables_desc">Seluruh parameter tunable untuk governor %1$s pada Policy %2$d akan dikembalikan ke konfigurasi standar bawaan pabrik (OEM).</string>
+    <string name="cpu_cluster_reset_oem_btn">Reset ke OEM</string>
+    <string name="cpu_cluster_clock_presets_title">Preset Responsivitas Clock</string>
+    <string name="cpu_cluster_clock_profile_label">Profil latensi terkalibrasi kluster (%1$s • Ramp-Up / Ramp-Down):</string>
+    <string name="cpu_cluster_little_cores">Little Cores</string>
+    <string name="cpu_cluster_big_cores">Big Cores</string>
+    <string name="cpu_cluster_no_tunables_detected">Tidak ada tunable sysfs yang terdeteksi untuk governor %1$s</string>
+    <string name="cpu_cluster_params_count">%1$d Parameter</string>
+    <string name="cpu_cluster_edit_param_title">Edit Parameter: %1$s</string>
+    <string name="cpu_cluster_sysfs_node">Sysfs Node: %1$s</string>
+    <string name="cpu_cluster_recommended_quick_options">Pilihan Cepat yang Direkomendasikan:</string>
+    <string name="cpu_cluster_input_val_label">Nilai (%1$s)</string>
+    <string name="cpu_cluster_fallback_num">angka</string>
+
+    <!-- CPU Tunable Presets -->
+    <string name="cpu_cluster_preset_responsive_active">Responsif Aktif</string>
+    <string name="cpu_cluster_preset_balanced_active">Seimbang Aktif</string>
+    <string name="cpu_cluster_preset_powersave_active">Hemat Aktif</string>
+    <string name="cpu_cluster_preset_oem_active">Bawaan OEM Aktif</string>
+    <string name="cpu_cluster_preset_custom_active">Setelan Kustom</string>
+    <string name="cpu_cluster_preset_responsive">Responsif</string>
+    <string name="cpu_cluster_preset_balanced">Seimbang</string>
+    <string name="cpu_cluster_preset_powersave">Hemat</string>
+    <string name="cpu_cluster_preset_oem">OEM</string>
+
+    <!-- CPU Governor Descriptions & Tags -->
+    <string name="cpu_gov_schedutil_desc">EAS energy-aware scheduler bawaan kernel Linux modern</string>
+    <string name="cpu_gov_performance_desc">Kunci frekuensi tertinggi setiap saat tanpa throttling</string>
+    <string name="cpu_gov_powersave_desc">Kunci clock terendah untuk memaksimalkan daya tahan baterai</string>
+    <string name="cpu_gov_ondemand_desc">Naik instan ke batas atas saat CPU terdeteksi sibuk</string>
+    <string name="cpu_gov_conservative_desc">Menaikkan dan menurunkan frekuensi secara halus</string>
+    <string name="cpu_gov_userspace_desc">Frekuensi dikontrol langsung oleh aplikasi ruang pengguna</string>
+    <string name="cpu_gov_other_desc">Algoritma pengontrol frekuensi OEM</string>
+    <string name="cpu_gov_tag_recommended">Direkomendasikan</string>
+    <string name="cpu_gov_tag_max_perf">Performa Maksimal</string>
+    <string name="cpu_gov_tag_extreme_saver">Ekstrem Hemat</string>
+    <string name="cpu_gov_tag_traditional">Tradisional</string>
+    <string name="cpu_gov_tag_gradual">Bertahap</string>
+    <string name="cpu_gov_tag_manual">Manual</string>
+    <string name="cpu_gov_tag_alternative">Alternatif</string>
+
+    <!-- CPU Tunable Metadata & Guides -->
+    <string name="tunable_ramp_up_title">Ramp-Up Rate Limit</string>
+    <string name="tunable_ramp_up_desc">Jeda evaluasi kernel sebelum menaikkan frekuensi CPU saat beban komputasi melonjak.</string>
+    <string name="tunable_ramp_up_hint_little">Panduan Policy 0: 0 µs (Responsif) • 1 ms (Seimbang) • 10 ms (Hemat Daya)</string>
+    <string name="tunable_ramp_up_hint_big">Panduan Policy Big: 0 µs (Instan / Seimbang) • 20 ms (Hemat Daya)</string>
+    <string name="tunable_ramp_down_title">Ramp-Down Rate Limit</string>
+    <string name="tunable_ramp_down_desc">Durasi penahanan clock tinggi saat beban kerja mereda guna mencegah micro-stutter frekuensi.</string>
+    <string name="tunable_ramp_down_hint_little">Panduan Policy 0: 10 ms (Responsif) • 20 ms (Seimbang) • 1 ms (Hemat) • 30 ms (OEM)</string>
+    <string name="tunable_ramp_down_hint_big">Panduan Policy Big: 5 ms (Responsif) • 10 ms (Seimbang) • 0.5 ms (Hemat) • 30 ms (OEM)</string>
+    <string name="tunable_iowait_title">I/O Wait Boost</string>
+    <string name="tunable_iowait_desc">Akselerasi frekuensi CPU secara instan ketika thread terhambat antrean operasi storage.</string>
+    <string name="tunable_iowait_hint">Aktifkan untuk respon instan saat operasi I/O storage, atau matikan untuk efisiensi daya.</string>
+    <string name="tunable_hispeed_freq_title">HiSpeed Target Frequency</string>
+    <string name="tunable_hispeed_freq_desc">Frekuensi acuan awal saat mendeteksi lonjakan beban tiba-tiba sebelum eskalasi bertahap.</string>
+    <string name="tunable_hispeed_freq_hint">Satuan kHz. Otomatis dikalibrasi mengikuti titik tengah kurva frekuensi kluster.</string>
+    <string name="tunable_up_threshold_title">Ambang Beban Naik (Up Threshold)</string>
+    <string name="tunable_up_threshold_desc">Persentase beban kerja CPU minimum untuk memicu eskalasi ke frekuensi lebih tinggi.</string>
+    <string name="tunable_up_threshold_hint" formatted="false">Rekomendasi: 65%–75% (Responsif) • 80%–90% (Seimbang)</string>
+    <string name="tunable_down_threshold_title">Ambang Beban Turun (Down Threshold)</string>
+    <string name="tunable_down_threshold_desc">Batas bawah beban kerja CPU sebelum frekuensi diizinkan turun ke tingkat lebih hemat.</string>
+    <string name="tunable_down_threshold_hint" formatted="false">Rekomendasi: 20%–35% (Menjaga kestabilan transisi clock)</string>
+    <string name="tunable_sampling_rate_title">Interval Sampling (Sampling Rate)</string>
+    <string name="tunable_sampling_rate_desc">Periode polling kernel dalam mengevaluasi pembebanan komputasi CPU.</string>
+    <string name="tunable_sampling_rate_hint">Satuan mikrodetik (µs). Contoh: 10000 µs = 10 ms (responsif) • 20000 µs = 20 ms (standar)</string>
+    <string name="tunable_sampling_down_factor_title">Sampling Down Factor</string>
+    <string name="tunable_sampling_down_factor_desc">Faktor pengali interval evaluasi saat frekuensi berada di tingkat maksimal.</string>
+    <string name="tunable_sampling_down_factor_hint">Rekomendasi: 1x (Normal) • 2x–4x (Tahan performa puncak lebih lama)</string>
+    <string name="tunable_min_sample_time_title">Waktu Minimum Sampel (Min Sample Time)</string>
+    <string name="tunable_min_sample_time_desc">Durasi minimum kernel bertahan pada suatu frekuensi sebelum evaluasi baru.</string>
+    <string name="tunable_min_sample_time_hint">Satuan mikrodetik (µs). Contoh: 50000 µs = 50 ms.</string>
+    <string name="tunable_fallback_desc">Parameter tunable sysfs: %1$s</string>
+
+    <!-- Tunable Formatter Display -->
+    <string name="tunable_instant">0 µs (Instan)</string>
+    <string name="tunable_instant_preview">0 µs (Transisi Instan Tanpa Jeda)</string>
+    <string name="tunable_preview_ms">Setara dengan %1$d ms (%2$d µs)</string>
+    <string name="tunable_preview_ms_float">Setara dengan %1$s ms (%2$d µs)</string>
+    <string name="tunable_preview_us">%1$d mikrodetik (µs)</string>
 </resources>

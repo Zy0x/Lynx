@@ -1,3 +1,31 @@
+# Lynx Universal [CPU Cluster Tuner Modularization & i18n Localization Engine] 7.0.0-RC27
+Released on: 2026-10-12
+> **Lynx Universal v7.0.0-RC27** menandai implementasi Tahap 3 (Modularisasi Domain CPU - Sub-domain A: CPU Cluster Tuner) pada aplikasi Lynx Kernel Manager (v3.0.92): **Dekomposisi Monolith `CpuClusterTunerCard` (1.377 Baris) Menjadi 8 Modul Mandiri Terfokus di Bawah `com.noir.lynx.feature.cpu.ui.cluster.*`, Kepatuhan Anggaran Baris Ketat ($\le 330$ Baris per File Sesuai Pedoman Arsitektur AGENTS.md), Standarisasi i18n Multi-Bahasa Menyeluruh via `strings.xml` dan `stringResource`, Serta Pengurangan Signifikan Ukuran Berkas Inti `LynxComponents.kt` Sebesar 1.351 Baris**. Seluruh fungsionalitas penalaan frekuensi kluster (stepped grid MHz/GHz, auto min/max, thermal lock, selector scaling governor, preset latensi Schedutil, dan governor tunables editor) terverifikasi 100% utuh tanpa kehilangan fungsi sedikit pun.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC27)
+
+### 1. Dekomposisi Modular Domain CPU Cluster (`feature/cpu/ui/cluster/`)
+- Memecah kartu penala kluster CPU monolith menjadi 8 berkas modular terisolasi:
+  - `TunableMeta.kt` (~144 baris): Metadata parameter kernel, ikonografi, dan fungsi pemformatan satuan mikrodetik/milidetik (`formatTunableDisplay`, `getTunableMeta`).
+  - `dialogs/TunableEditDialog.kt` (~196 baris): Dialog pengeditan parameter tunggal dengan saran nilai cepat, preview konversi waktu instan, dan tombol terapkan.
+  - `dialogs/FrequencyPickerBottomSheet.kt` (~198 baris): Lembar pemilihan frekuensi 2-kolom dengan format MHz/GHz adaptif dan deteksi otomatis batas *Auto Min / Auto Max*.
+  - `dialogs/GovernorPickerBottomSheet.kt` (~178 baris): Lembar pemilihan algoritma scaling governor dengan tag deskriptif dan indikator seleksi aktif.
+  - `dialogs/SchedutilPresetsCard.kt` (~185 baris): Kartu preset latensi responsivitas jam Schedutil (Responsif, Seimbang, Hemat Daya, OEM) dengan detektor status aktif *real-time*.
+  - `dialogs/QuickTunablesBottomSheet.kt` (~330 baris): Lembar orkestrasi tunable governor, pengurutan kronologis, switch boolean, dialog konfirmasi reset OEM, dan delegasi ke kartu preset.
+  - `CpuClusterItemCard.kt` (~250 baris): Kartu kebijakan kluster individual dengan header peran/inti, tombol ganda min/max frekuensi, tombol kunci sentuh 48×48 px, serta tombol aksi governor dan tunables.
+  - `CpuClusterTunerCard.kt` (~128 baris): Orkestrator utama yang mengelola status lembar modal dan merender daftar kartu kluster CPU.
+
+### 2. Standarisasi i18n Multi-Bahasa Menyeluruh (`strings.xml`)
+- Membungkus seluruh teks UI penala kluster CPU (judul kartu, dialog edit, saran cepat, deskripsi governor, preset latensi, dan pesan konfirmasi) ke dalam file sumber daya string `strings.xml` menggunakan format `stringResource(R.string...)`.
+- Menyiapkan fondasi multi-bahasa yang bersih dan terstandarisasi untuk lokalisasi lintas bahasa tanpa teks tertulis keras (*hardcoded string*).
+
+### 3. Pengurangan Beban Monolith & Kepatuhan Metrik Baris
+- Mengurangi ukuran berkas `LynxComponents.kt` dari 6.854 baris menjadi 5.503 baris (-1.351 baris) dengan mendelegasikan pemanggilan ke `com.noir.lynx.feature.cpu.ui.cluster.CpuClusterTunerCard`.
+- Menambah jumlah berkas compliant ($\le 400$ baris) dari 63 menjadi 71 berkas pada repositori Lynx Companion.
+- Menguji rilis APK teroptimasi R8 pada perangkat uji fisik Infinix Note 11S (Helio G96 / Android 14) via Wireless ADB: proses booting mulus, interaksi responsif, dan nol *runtime crash*.
+
+---
+
 # Lynx Universal [Autonomous ADB Keep-Alive Self-Healing & Real-Time Socket Verification] 7.0.0-RC26
 Released on: 2026-10-12
 > **Lynx Universal v7.0.0-RC26** menghadirkan penyempurnaan menyeluruh pada fitur ADB Wireless Keep-Alive & Port Lock di daemon `lynxd` dan aplikasi Lynx Kernel Manager (v3.0.91): **Pemulihan Otomatis 100% Mandiri (*Autonomous Self-Healing* Saat Deep Sleep atau Restart Tanpa Perlu Sakelar Manual), Proteksi Framework Android 11+ (`settings put global adb_wifi_enabled 1`), Siklus Pemantauan Super Hemat Daya (Watchdog 2500ms Non-Wakelock, <0.001% CPU Duty Cycle, Sub-0.02ms In-Process Read), Akurasi Status Socket Real-Time di Antarmuka (`● LOCKED` Hijau Hanya Jika Socket Benar-Benar Listening vs `⚡ MEMULIHKAN` Oranye Saat Proses Re-binding), Serta Quick Connection Guide Row yang Bersih dan Elegan**.
