@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import com.noir.lynx.R
 import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.controls.LynxSlider
@@ -59,8 +60,8 @@ fun BatteryProtectionCard(
             }
         }
 
+        val context = LocalContext.current
         val smartLimitFull = stringResource(R.string.battery_smart_limit_full)
-        val smartLimitBypassTemplate = stringResource(R.string.battery_smart_limit_bypass, 0).replace("0", "%d")
 
         LynxSlider(
             label = stringResource(R.string.battery_smart_charge_limit),
@@ -77,10 +78,10 @@ fun BatteryProtectionCard(
             },
             valueRange = 50f..100f,
             steps = 49,
-            displayValue = if (maxBatteryValue >= 99.5f) smartLimitFull else String.format(java.util.Locale.US, smartLimitBypassTemplate, round(maxBatteryValue).toInt()),
+            displayValue = if (maxBatteryValue >= 99.5f) smartLimitFull else context.getString(R.string.battery_smart_limit_bypass, round(maxBatteryValue).toInt()),
             formatDisplay = { v ->
                 val p = round(v).toInt()
-                if (p >= 100) smartLimitFull else String.format(java.util.Locale.US, smartLimitBypassTemplate, p)
+                if (p >= 100) smartLimitFull else context.getString(R.string.battery_smart_limit_bypass, p)
             },
             accentColor = AccentGreen
         )

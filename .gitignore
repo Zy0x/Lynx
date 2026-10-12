@@ -13,3 +13,5 @@ archive/packages/Lynx.zip
 tools/.last_device_ip
 native/lynxd/target/
 native/lynxd/state/
+docs/android-improvement-plans/
+archive/local_backups/
