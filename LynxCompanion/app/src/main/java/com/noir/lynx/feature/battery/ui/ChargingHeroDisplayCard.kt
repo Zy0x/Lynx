@@ -9,6 +9,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -28,8 +31,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.noir.lynx.data.BatteryDetails
 import com.noir.lynx.data.ChargingConfig
 import com.noir.lynx.data.TelemetryData
@@ -37,8 +43,10 @@ import com.noir.lynx.designsystem.theme.*
 import kotlinx.coroutines.delay
 import java.io.File
 import java.util.Locale
+import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
+import kotlin.math.sin
 
 /**
  * ChargingHeroDisplayCard — Luxury Cyberpunk OLED Charging Display.
@@ -55,12 +63,14 @@ fun ChargingHeroDisplayCard(
     telemetry: TelemetryData? = null,
     chargingConfig: ChargingConfig = ChargingConfig(),
     accentColor: Color = AccentCyan,
+    onSelectChargingMode: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var osPlugged by remember { mutableStateOf(false) }
     var osCharging by remember { mutableStateOf(false) }
     var osLevel by remember { mutableIntStateOf(-1) }
+    var showChargingModeModal by remember { mutableStateOf(false) }
 
     DisposableEffect(context) {
         val receiver = object : BroadcastReceiver() {
@@ -502,14 +512,14 @@ fun ChargingHeroDisplayCard(
         when {
             !isPlugged -> ChargingDisplayMode(
                 title = "BATERAI INTERNAL",
-                description = "Menyuplai motherboard perangkat secara mandiri",
+                description = "Daya mandiri aktif",
                 badgeColor = TextSecondary,
                 badgeBg = BgSurfaceLowest,
                 icon = Icons.Default.BatteryStd
             )
             isBypass -> ChargingDisplayMode(
-                title = "⚡ BYPASS CHARGING AKTIF",
-                description = "Daya dialihkan langsung ke motherboard • 0 mA ke sel baterai",
+                title = "⚡ BYPASS CHARGING",
+                description = "Daya ke motherboard (0 mA)",
                 badgeColor = AccentCyan,
                 badgeBg = AccentCyanDim,
                 icon = Icons.Default.Shield
@@ -527,7 +537,7 @@ fun ChargingHeroDisplayCard(
                     "custom" -> AccentPurple.copy(alpha = 0.15f)
                     else -> AccentGreenDim
                 }
-                val desc = if (liveWatts > 0.5f) "Pengisian cepat aktif • ${String.format(Locale.US, "%.1f", liveWatts)} W" else "Sumber daya eksternal terhubung"
+                val desc = if (liveWatts > 0.5f) "Daya masuk • ${String.format(Locale.US, "%.1f", liveWatts)} W" else "Daya terhubung"
                 ChargingDisplayMode(
                     title = detectedProtocolName,
                     description = desc,
@@ -539,13 +549,13 @@ fun ChargingHeroDisplayCard(
         }
     }
 
-    // Animated battery-level ring with a subtle charging pulse.
+    // Animated battery-level ring with a smooth luxury breathing pulse.
     val infiniteTransition = rememberInfiniteTransition(label = "charging_glow_ring")
     val ringAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.65f,
-        targetValue = if (isCharging) 1.0f else 0.75f,
+        initialValue = 0.70f,
+        targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "ring_pulse"
@@ -564,7 +574,7 @@ fun ChargingHeroDisplayCard(
                 .fillMaxWidth()
                 .padding(14.dp)
         ) {
-            // Header Row: Card Title & Status Pill
+            // Header Row: Card Title & Status Pill (Clickable for Quick Mode Switch)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -590,16 +600,30 @@ fun ChargingHeroDisplayCard(
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = modeInfo.badgeBg,
-                    border = BorderStroke(0.8.dp, modeInfo.badgeColor.copy(alpha = 0.45f))
+                    border = BorderStroke(0.8.dp, modeInfo.badgeColor.copy(alpha = 0.45f)),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { showChargingModeModal = true }
                 ) {
-                    Text(
-                        text = if (isBypass) "BYPASS" else if (isCharging) "CHARGING" else if (isPlugged) "TERHUBUNG" else "BATERAI",
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Black,
-                        color = modeInfo.badgeColor,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        letterSpacing = 0.5.sp
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isBypass) "BYPASS" else if (isCharging) "CHARGING" else if (isPlugged) "TERHUBUNG" else "BATERAI",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black,
+                            color = modeInfo.badgeColor,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        Icon(
+                            imageVector = Icons.Default.UnfoldMore,
+                            contentDescription = "Pilih Mode",
+                            tint = modeInfo.badgeColor.copy(alpha = 0.75f),
+                            modifier = Modifier.size(9.dp)
+                        )
+                    }
                 }
             }
 
@@ -615,56 +639,129 @@ fun ChargingHeroDisplayCard(
                     modifier = Modifier.size(114.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Background Track Arc
+                    // Precision EV / Cyberpunk Ring Canvas
                     Canvas(modifier = Modifier.fillMaxSize()) {
+                        val canvasSize = size.minDimension
+                        val strokeW = 5.5.dp.toPx()
+                        val glowW = 10.dp.toPx()
+                        val radius = (canvasSize - glowW) / 2f
+                        val centerOffset = Offset(size.width / 2f, size.height / 2f)
+
+                        // 1. Sleek Recessed Dark Metallic Track Groove
+                        drawCircle(
+                            color = Color(0xFF0F141D),
+                            radius = radius,
+                            center = centerOffset,
+                            style = Stroke(width = strokeW)
+                        )
+                        // Outer track guide hairline
                         drawCircle(
                             color = Color(0x18FFFFFF),
-                            style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+                            radius = radius + (strokeW / 2f) + 1.dp.toPx(),
+                            center = centerOffset,
+                            style = Stroke(width = 0.75.dp.toPx())
                         )
-                    }
+                        // Inner track guide hairline
+                        drawCircle(
+                            color = Color(0x10FFFFFF),
+                            radius = radius - (strokeW / 2f) - 1.dp.toPx(),
+                            center = centerOffset,
+                            style = Stroke(width = 0.75.dp.toPx())
+                        )
 
-                    // Dynamic Energy Sweep Arc
-                    Canvas(modifier = Modifier.fillMaxSize().rotate(-90f)) {
-                        val strokeW = 6.dp.toPx()
-                        val sweepBrush = if (isCharging) {
-                            Brush.sweepGradient(
-                                listOf(
-                                    modeInfo.badgeColor.copy(alpha = 0.05f),
-                                    modeInfo.badgeColor.copy(alpha = 0.40f),
-                                    modeInfo.badgeColor.copy(alpha = ringAlpha)
-                                )
-                            )
-                        } else if (isBypass) {
-                            Brush.sweepGradient(
-                                listOf(
-                                    AccentCyan.copy(alpha = 0.6f),
-                                    AccentGreen.copy(alpha = 0.9f)
-                                )
-                            )
-                        } else {
-                            Brush.sweepGradient(
-                                listOf(
-                                    AccentCyan.copy(alpha = 0.3f),
-                                    AccentCyan.copy(alpha = 0.7f)
-                                )
+                        // 2. Quadrant Accent Notches (12, 3, 6, 9 o'clock)
+                        val notchAngles = floatArrayOf(-90f, 0f, 90f, 180f)
+                        for (na in notchAngles) {
+                            val nRad = Math.toRadians(na.toDouble()).toFloat()
+                            val nx = centerOffset.x + radius * cos(nRad)
+                            val ny = centerOffset.y + radius * sin(nRad)
+                            drawCircle(
+                                color = Color(0x33FFFFFF),
+                                radius = 1.2.dp.toPx(),
+                                center = Offset(nx, ny)
                             )
                         }
 
+                        // 3. Dynamic Battery Energy Arc
+                        val sweepAngle = (animatedSoc * 3.6f).coerceIn(1.5f, 360f)
+                        val startAngle = -90f
+
+                        // Soft Breathing Glow Halo (underneath the active arc)
+                        if (isCharging || isBypass) {
+                            drawArc(
+                                color = modeInfo.badgeColor.copy(alpha = 0.22f * ringAlpha),
+                                startAngle = startAngle,
+                                sweepAngle = sweepAngle,
+                                useCenter = false,
+                                style = Stroke(width = glowW, cap = StrokeCap.Round)
+                            )
+                        }
+
+                        // High-Precision Energy Arc
+                        val primaryColor = modeInfo.badgeColor
+                        val startColor = when {
+                            isBypass -> AccentCyan
+                            isCharging -> when (activeChargingMode) {
+                                "hyper" -> Color(0xFF00E5FF)
+                                "cool" -> Color(0xFF00B0FF)
+                                else -> Color(0xFF00E676)
+                            }
+                            else -> AccentCyan.copy(alpha = 0.85f)
+                        }
+
+                        val arcBrush = Brush.linearGradient(
+                            colors = listOf(startColor, primaryColor),
+                            start = Offset(centerOffset.x, centerOffset.y - radius),
+                            end = Offset(centerOffset.x, centerOffset.y + radius)
+                        )
+
                         drawArc(
-                            brush = sweepBrush,
-                            startAngle = 0f,
-                            sweepAngle = (animatedSoc * 3.6f).coerceIn(0f, 360f),
+                            brush = arcBrush,
+                            startAngle = startAngle,
+                            sweepAngle = sweepAngle,
                             useCenter = false,
                             style = Stroke(width = strokeW, cap = StrokeCap.Round)
                         )
+
+                        // 4. Glowing Energy Bead / Tip Indicator at leading edge
+                        val tipAngleRad = Math.toRadians((startAngle + sweepAngle).toDouble()).toFloat()
+                        val tipX = centerOffset.x + radius * cos(tipAngleRad)
+                        val tipY = centerOffset.y + radius * sin(tipAngleRad)
+                        val tipOffset = Offset(tipX, tipY)
+
+                        // Soft tip aura
+                        drawCircle(
+                            color = primaryColor.copy(alpha = if (isCharging) 0.50f * ringAlpha else 0.40f),
+                            radius = (4.5.dp.toPx() * (if (isCharging) ringAlpha else 1.0f)),
+                            center = tipOffset
+                        )
+                        // Bright white-hot energy core
+                        drawCircle(
+                            color = Color.White,
+                            radius = 2.2.dp.toPx(),
+                            center = tipOffset
+                        )
                     }
 
-                    // Inner Glow Background
+                    // Inner Dial Face (Clickable for Quick Mode Selector)
                     Box(
                         modifier = Modifier
                             .size(92.dp)
                             .clip(CircleShape)
-                            .background(BgElevated.copy(alpha = 0.85f)),
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        BgElevated,
+                                        Color(0xFF0D121B)
+                                    )
+                                )
+                            )
+                            .border(
+                                0.8.dp,
+                                modeInfo.badgeColor.copy(alpha = if (isCharging) 0.35f else 0.15f),
+                                CircleShape
+                            )
+                            .clickable { showChargingModeModal = true },
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -718,22 +815,73 @@ fun ChargingHeroDisplayCard(
                                 )
                             }
 
-                            // Charging Mode State under percentage (exclusively showing active mode)
+                            Spacer(Modifier.height(3.dp))
+
+                            // Interactive Charging Mode Pill
                             val ringModeText = when {
                                 isBypass -> "⚡ BYPASS"
-                                !isCharging -> "STANDBY"
-                                activeChargingMode == "hyper" -> "⚡ HYPER MODE"
-                                activeChargingMode == "cool" -> "⚡ COOL MODE"
+                                activeChargingMode == "hyper" -> "⚡ HYPER"
+                                activeChargingMode == "cool" -> "⚡ COOL"
                                 activeChargingMode == "custom" -> "⚡ CUSTOM"
+                                !isCharging -> "⚡ STANDBY"
                                 else -> "⚡ STANDARD"
                             }
-                            Text(
-                                text = ringModeText,
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = if (isBypass) AccentCyan else if (isCharging) modeInfo.badgeColor else TextTertiary,
-                                letterSpacing = 0.6.sp
-                            )
+
+                            Surface(
+                                shape = RoundedCornerShape(7.dp),
+                                color = when {
+                                    isBypass -> AccentCyan.copy(alpha = 0.15f)
+                                    activeChargingMode == "hyper" -> Color(0x2400FF9D)
+                                    activeChargingMode == "cool" -> AccentCyan.copy(alpha = 0.15f)
+                                    activeChargingMode == "custom" -> AccentPurple.copy(alpha = 0.15f)
+                                    else -> AccentGreen.copy(alpha = 0.15f)
+                                },
+                                border = BorderStroke(
+                                    0.8.dp,
+                                    when {
+                                        isBypass -> AccentCyan.copy(alpha = 0.45f)
+                                        activeChargingMode == "hyper" -> Color(0xFF00FF9D).copy(alpha = 0.5f)
+                                        activeChargingMode == "cool" -> AccentCyan.copy(alpha = 0.5f)
+                                        activeChargingMode == "custom" -> AccentPurple.copy(alpha = 0.5f)
+                                        else -> AccentGreen.copy(alpha = 0.5f)
+                                    }
+                                ),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(7.dp))
+                                    .clickable { showChargingModeModal = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = ringModeText,
+                                        fontSize = 7.5.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = when {
+                                            isBypass -> AccentCyan
+                                            activeChargingMode == "hyper" -> Color(0xFF00FF9D)
+                                            activeChargingMode == "cool" -> AccentCyan
+                                            activeChargingMode == "custom" -> AccentPurple
+                                            else -> AccentGreen
+                                        },
+                                        letterSpacing = 0.5.sp
+                                    )
+                                    Spacer(Modifier.width(2.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.UnfoldMore,
+                                        contentDescription = "Pilih Mode",
+                                        tint = when {
+                                            isBypass -> AccentCyan.copy(alpha = 0.8f)
+                                            activeChargingMode == "hyper" -> Color(0xFF00FF9D).copy(alpha = 0.8f)
+                                            activeChargingMode == "cool" -> AccentCyan.copy(alpha = 0.8f)
+                                            activeChargingMode == "custom" -> AccentPurple.copy(alpha = 0.8f)
+                                            else -> AccentGreen.copy(alpha = 0.8f)
+                                        },
+                                        modifier = Modifier.size(9.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -777,13 +925,16 @@ fun ChargingHeroDisplayCard(
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextPrimary,
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = modeInfo.description,
                                     fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Medium,
                                     color = TextSecondary,
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -828,6 +979,268 @@ fun ChargingHeroDisplayCard(
                             },
                             color = if (isBypass) AccentCyan else if (isCharging) AccentGreen else TextSecondary,
                             modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showChargingModeModal) {
+        QuickChargingModeModal(
+            currentMode = activeChargingMode,
+            onSelectMode = { mode ->
+                onSelectChargingMode?.invoke(mode)
+            },
+            onDismiss = { showChargingModeModal = false }
+        )
+    }
+}
+
+private data class QuickChargingModeOption(
+    val id: String,
+    val title: String,
+    val tag: String,
+    val description: String,
+    val icon: ImageVector,
+    val accent: Color
+)
+
+@Composable
+private fun QuickChargingModeModal(
+    currentMode: String,
+    onSelectMode: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val modes = listOf(
+        QuickChargingModeOption(
+            id = "cool",
+            title = "Mode Sejuk (Cool)",
+            tag = "~1.0A • DINGIN",
+            description = "Prioritas suhu dingin & menjaga umur sel baterai",
+            icon = Icons.Default.AcUnit,
+            accent = AccentCyan
+        ),
+        QuickChargingModeOption(
+            id = "standard",
+            title = "Mode Standar (Standard)",
+            tag = "REGULASI OEM",
+            description = "Arus & manajemen termal seimbang bawaan pabrikan",
+            icon = Icons.Default.Balance,
+            accent = AccentGreen
+        ),
+        QuickChargingModeOption(
+            id = "hyper",
+            title = "Mode Hyper (Extreme)",
+            tag = "UNRESTRICTED",
+            description = "Lepas batas arus sysfs untuk pengisian super cepat",
+            icon = Icons.Default.Bolt,
+            accent = Color(0xFF00FF9D)
+        )
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        )
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .wrapContentHeight()
+                .padding(vertical = 16.dp),
+            shape = RoundedCornerShape(22.dp),
+            color = BgCard,
+            border = BorderStroke(1.dp, BorderGlass),
+            shadowElevation = 12.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(AccentCyan.copy(alpha = 0.15f))
+                                .border(1.dp, AccentCyan.copy(alpha = 0.35f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Bolt,
+                                contentDescription = null,
+                                tint = AccentCyan,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "MODE PENGISIAN DAYA",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Black,
+                                color = TextPrimary,
+                                letterSpacing = 0.8.sp
+                            )
+                            Text(
+                                text = "Setel profil termal & arus masuk kernel",
+                                fontSize = 10.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Tutup",
+                            tint = TextTertiary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // Mode Selection Cards
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    modes.forEach { item ->
+                        val isSelected = currentMode == item.id
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (isSelected) item.accent.copy(alpha = 0.12f) else BgElevated,
+                            border = BorderStroke(
+                                if (isSelected) 1.2.dp else 0.8.dp,
+                                if (isSelected) item.accent.copy(alpha = 0.8f) else BorderSubtle
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable {
+                                    onSelectMode(item.id)
+                                    onDismiss()
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(item.accent.copy(alpha = if (isSelected) 0.22f else 0.12f))
+                                        .border(
+                                            0.8.dp,
+                                            item.accent.copy(alpha = if (isSelected) 0.6f else 0.25f),
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = null,
+                                        tint = item.accent,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+
+                                Spacer(Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = item.title,
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) TextPrimary else TextPrimary.copy(alpha = 0.9f)
+                                        )
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = item.accent.copy(alpha = 0.16f),
+                                            border = BorderStroke(0.6.dp, item.accent.copy(alpha = 0.4f))
+                                        ) {
+                                            Text(
+                                                text = item.tag,
+                                                fontSize = 8.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = item.accent,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp),
+                                                letterSpacing = 0.4.sp
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(Modifier.height(2.dp))
+
+                                    Text(
+                                        text = item.description,
+                                        fontSize = 9.5.sp,
+                                        color = TextSecondary,
+                                        lineHeight = 13.sp
+                                    )
+                                }
+
+                                if (isSelected) {
+                                    Spacer(Modifier.width(8.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Aktif",
+                                        tint = item.accent,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Footer note
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = TextTertiary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Profil diterapkan langsung ke pengontrol daya kernel secara instan.",
+                            fontSize = 8.5.sp,
+                            color = TextTertiary,
+                            lineHeight = 11.sp
                         )
                     }
                 }

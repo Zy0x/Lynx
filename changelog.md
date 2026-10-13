@@ -1,3 +1,34 @@
+# Lynx Universal [Luxury Battery Energy Ring & Quick Charging Mode Selector Modal] 7.0.0-RC40
+Released on: 2026-10-14
+> **Lynx Universal v7.0.0-RC40** (Lynx Kernel Manager v3.1.2): **Revamp Total Animasi Circle Dial Baterai Menjadi Luxury EV Energy Ring dengan Leading Pulse Bead, Penambahan Quick Charging Mode Selector Modal Langsung dari Dashboard, dan Penyingkatan Seluruh Deskripsi Daya Bebas Truncation**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC40)
+
+### 1. Luxury EV / Cyberpunk Energy Ring Dial Revamp
+- **Desain Mewah Tanpa Gimmick**: Menggantikan sweep gradient lama dengan sistem rendering multi-layer presisi tinggi:
+  - *Recessed Metallic Track Groove*: Alur sirkular gelap (`#0F141D`) dengan hairline guide ring luar dan dalam.
+  - *Precision Quadrant Ticks*: Aksen notch kuadran pada posisi 12, 3, 6, dan 9 tepat untuk estetika instrumen otomotif mewah.
+  - *Soft Breathing Halo*: Lapisan glow halus berdenyut lembut (*smooth sine pulse*) di bawah busur energi aktif.
+  - *Leading Energy Bead / Tip Indicator*: Partikulat energi bercahaya (aura lembut + inti titik putih laser) yang berputar tepat di ujung persentase baterai secara real-time.
+  - *Inner Dial OLED Gradient*: Wajah dial bagian dalam dengan radial gradient halus dan border hairline elegan.
+
+### 2. Quick Charging Mode Selector Modal (Overlay Popup Modern & Clean)
+- **Akses Cepat 1-Ketuk dari Dashboard**: Menekan pill mode di dalam dial ring atau status pill kartu daya langsung menampilkan popup modal modern elegan.
+- **3 Pilihan Profil Pengisian Daya Intuitif**:
+  1. *Mode Sejuk (Cool)*: Batas arus ~1.0A dengan fokus utama suhu baterai dingin & umur pakai sel maksimal.
+  2. *Mode Standar (Standard)*: Regulasi arus dan proteksi termal seimbang bawaan pabrikan OEM.
+  3. *Mode Hyper (Extreme)*: Arus tanpa batas (*unrestricted max hardware speed*) untuk pengisian super cepat.
+- **Penerapan Instan & Feedback Jelas**: Pemilihan mode langsung diterapkan ke kontrol pengisian daya kernel secara instan tanpa perlu reboot ataupun berpindah ke halaman baterai.
+
+### 3. Penyingkatan Seluruh Deskripsi Daya Banner (Bebas Truncation)
+- Menyingkat seluruh string deskripsi banner daya agar tidak lagi terpotong (*no text truncation / ellipsis*) pada semua rasio layar:
+  - Baterai Internal: `"Menyuplai motherboard perangkat secara mandiri"` -> `"Daya mandiri aktif"`
+  - Bypass Charging: `"Daya dialihkan langsung ke motherboard • 0 mA ke sel baterai"` -> `"Daya ke motherboard (0 mA)"`
+  - Pengisian Daya: `"Daya masuk • X.X W"` / `"Daya terhubung"`
+- Mengintegrasikan `TextOverflow.Ellipsis` dan `softWrap` pelindung untuk stabilitas tampilan sempurna.
+
+---
+
 # Lynx Universal [Quick High-Impact RAM Cleaner Button & Multi-Stage Memory Compaction] 7.0.0-RC39
 Released on: 2026-10-14
 > **Lynx Universal v7.0.0-RC39** (Lynx Kernel Manager v3.1.1): **Integrasi Tombol Pembersih RAM Cepat Berupa Icon di Samping Kanan Progress Bar RAM Fisik dengan Pembebasan Memori Multi-Stage Kernel (Sync, Drop Caches, Memory Defrag, ZRAM Compaction) yang Akurat dan Berdampak Nyata**.

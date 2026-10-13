@@ -134,7 +134,10 @@ fun DashboardTabContent(
                             battery = uiState.batteryDetails,
                             telemetry = uiState.telemetry,
                             chargingConfig = state.charging,
-                            accentColor = currentAccent
+                            accentColor = currentAccent,
+                            onSelectChargingMode = { mode ->
+                                viewModel.setChargingMode(mode)
+                            }
                         )
                     }
                     item(key = "telemetry_gauges") {
