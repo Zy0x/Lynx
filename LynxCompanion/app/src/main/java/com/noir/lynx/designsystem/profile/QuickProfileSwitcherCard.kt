@@ -56,7 +56,7 @@ fun QuickProfileSwitcherCard(
                 onClick = onNavigateToProfilesCatalog,
                 shape = RoundedCornerShape(8.dp),
                 color = BgElevated,
-                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f)),
+                border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.45f)),
                 modifier = Modifier.defaultMinSize(minHeight = 28.dp)
             ) {
                 Row(
@@ -64,8 +64,8 @@ fun QuickProfileSwitcherCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Katalog",
-                        color = AccentCyan,
+                        text = "Kustom",
+                        color = AccentOrange,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
@@ -73,8 +73,8 @@ fun QuickProfileSwitcherCard(
                     Spacer(Modifier.width(3.dp))
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Buka Katalog",
-                        tint = AccentCyan,
+                        contentDescription = "Buka Profil Kustom",
+                        tint = AccentOrange,
                         modifier = Modifier.size(12.dp)
                     )
                 }

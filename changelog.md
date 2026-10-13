@@ -35,6 +35,11 @@ Released on: 2026-10-14
 - **Feedback Interaktif Real-Time**: Saat tombol ditekan, status berubah dinamis menjadi **`Membersihkan...`** disertai spinner `CircularProgressIndicator` (12.dp) berputar mulus hingga pembebasan proses latar selesai dan memori bertambah.
 - **Harmoni Visual Cyber Obsidian**: Dibangun dengan kurvatur modern `RoundedCornerShape(8.dp)`, latar belakang `Color(0xFF0E1A17)` beraksen mint cyan halus, serta border hairline presisi (`AccentCyan` 45% alpha) yang sejajar rapi dengan *progress bar* RAM fisik.
 
+### 5. Penyelarasan Badge Header Mode Performa Kernel ("Kustom")
+- **Penyesuaian Konteks Mode (Domain Relevance)**: Menggantikan label `"Katalog"` yang kurang relevan untuk pemilihan mode performa kernel menjadi **`"Kustom"`** (`[ Kustom → ]`), selaras dengan 4 preset bawaan vs profil kustom pengguna.
+- **Harmoni Warna Visual**: Menyelaraskan border dan teks badge dengan aksen oranye kartu (`AccentOrange` 45% alpha) agar selaras dengan ikon speedometer dan tema Mode Performa Kernel.
+- **Navigasi Langsung**: Tombol mengarahkan pengguna secara presisi ke sub-halaman editor profil kustom dan otomasi per-aplikasi di Tuning Engine.
+
 ---
 
 # Lynx Universal [Quick High-Impact RAM Cleaner Button & Multi-Stage Memory Compaction] 7.0.0-RC39
