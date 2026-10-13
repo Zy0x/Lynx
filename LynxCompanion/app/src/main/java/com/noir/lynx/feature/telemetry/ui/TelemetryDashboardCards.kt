@@ -265,9 +265,9 @@ fun TelemetryMemoryCard(
             )
         }
 
-        Spacer(modifier = Modifier.height(7.dp))
+        Spacer(modifier = Modifier.height(5.5.dp))
 
-        // Prominent Physical RAM Progress Bar with Quick Clean Button on the Right
+        // Prominent Physical RAM Progress Bar with Quick Clean Icon Button on the Right
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -294,7 +294,7 @@ fun TelemetryMemoryCard(
 
             Spacer(Modifier.width(8.dp))
 
-            // Tombol Pembersih RAM Jelas & Ergonomis
+            // Tombol Pembersih RAM Ringkas & Presisi (Icon-Only)
             Surface(
                 onClick = {
                     if (!isCleaning) {
@@ -309,29 +309,23 @@ fun TelemetryMemoryCard(
                         }
                     }
                 },
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(6.dp),
                 color = if (isCleaning) AccentCyan.copy(alpha = 0.20f) else Color(0xFF0E1A17),
                 border = BorderStroke(
                     0.8.dp,
                     if (isCleaning) AccentCyan else AccentCyan.copy(alpha = 0.45f)
                 ),
+                modifier = Modifier.size(24.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     if (isCleaning) {
                         CircularProgressIndicator(
                             strokeWidth = 1.4.dp,
                             color = AccentCyan,
                             modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(Modifier.width(5.dp))
-                        Text(
-                            text = "Membersihkan...",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AccentCyan
                         )
                     } else {
                         Icon(
@@ -340,19 +334,12 @@ fun TelemetryMemoryCard(
                             tint = AccentCyan,
                             modifier = Modifier.size(13.dp)
                         )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = "Bersihkan",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AccentCyan
-                        )
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.5.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -360,13 +347,12 @@ fun TelemetryMemoryCard(
         ) {
             Text(
                 text = "Tersedia: $freeRamMb MB",
-                fontSize = 10.sp,
+                fontSize = 9.5.sp,
                 color = TextSecondary
             )
             Text(
-                text = "Penggunaan: $ramPercent%",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
+                text = "Memori Fisik Utama",
+                fontSize = 9.5.sp,
                 color = TextSecondary
             )
         }

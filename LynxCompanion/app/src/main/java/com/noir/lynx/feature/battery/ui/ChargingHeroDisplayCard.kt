@@ -549,7 +549,7 @@ fun ChargingHeroDisplayCard(
         }
     }
 
-    // Animated battery-level ring with a smooth luxury breathing pulse.
+    // Layered charge animation: the battery arc breathes while energy sparks orbit the dial.
     val infiniteTransition = rememberInfiniteTransition(label = "charging_glow_ring")
     val ringAlpha by infiniteTransition.animateFloat(
         initialValue = 0.70f,
@@ -559,6 +559,15 @@ fun ChargingHeroDisplayCard(
             repeatMode = RepeatMode.Reverse
         ),
         label = "ring_pulse"
+    )
+    val orbitAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3600, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "charge_orbit"
     )
 
     Surface(
@@ -574,7 +583,7 @@ fun ChargingHeroDisplayCard(
                 .fillMaxWidth()
                 .padding(14.dp)
         ) {
-            // Header Row: Card Title & Status Pill (Clickable for Quick Mode Switch)
+            // Header Row: card title and read-only charging status.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -600,10 +609,7 @@ fun ChargingHeroDisplayCard(
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = modeInfo.badgeBg,
-                    border = BorderStroke(0.8.dp, modeInfo.badgeColor.copy(alpha = 0.45f)),
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { showChargingModeModal = true }
+                    border = BorderStroke(0.8.dp, modeInfo.badgeColor.copy(alpha = 0.45f))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
@@ -615,13 +621,6 @@ fun ChargingHeroDisplayCard(
                             fontWeight = FontWeight.Black,
                             color = modeInfo.badgeColor,
                             letterSpacing = 0.5.sp
-                        )
-                        Spacer(Modifier.width(3.dp))
-                        Icon(
-                            imageVector = Icons.Default.UnfoldMore,
-                            contentDescription = "Pilih Mode",
-                            tint = modeInfo.badgeColor.copy(alpha = 0.75f),
-                            modifier = Modifier.size(9.dp)
                         )
                     }
                 }
@@ -645,6 +644,7 @@ fun ChargingHeroDisplayCard(
                         val strokeW = 5.5.dp.toPx()
                         val glowW = 10.dp.toPx()
                         val radius = (canvasSize - glowW) / 2f
+                        val orbitRadius = radius + 3.dp.toPx()
                         val centerOffset = Offset(size.width / 2f, size.height / 2f)
 
                         // 1. Sleek Recessed Dark Metallic Track Groove
@@ -667,6 +667,12 @@ fun ChargingHeroDisplayCard(
                             radius = radius - (strokeW / 2f) - 1.dp.toPx(),
                             center = centerOffset,
                             style = Stroke(width = 0.75.dp.toPx())
+                        )
+                        drawCircle(
+                            color = modeInfo.badgeColor.copy(alpha = 0.12f),
+                            radius = orbitRadius,
+                            center = centerOffset,
+                            style = Stroke(width = 0.8.dp.toPx())
                         )
 
                         // 2. Quadrant Accent Notches (12, 3, 6, 9 o'clock)
@@ -722,6 +728,37 @@ fun ChargingHeroDisplayCard(
                             useCenter = false,
                             style = Stroke(width = strokeW, cap = StrokeCap.Round)
                         )
+
+                        // Moving sparks make active charging feel like energy is flowing around the dial.
+                        if (isCharging) {
+                            for (trail in 0..2) {
+                                val angle = Math.toRadians((orbitAngle - 90f - trail * 9f).toDouble())
+                                val sparkCenter = Offset(
+                                    centerOffset.x + orbitRadius * cos(angle).toFloat(),
+                                    centerOffset.y + orbitRadius * sin(angle).toFloat()
+                                )
+                                val fade = (1f - trail * 0.27f) * ringAlpha
+                                drawCircle(
+                                    color = modeInfo.badgeColor.copy(alpha = 0.24f * fade),
+                                    radius = (5.5f - trail * 0.7f).dp.toPx(),
+                                    center = sparkCenter
+                                )
+                                drawCircle(
+                                    color = if (trail == 0) Color.White.copy(alpha = fade) else modeInfo.badgeColor.copy(alpha = fade),
+                                    radius = (2.1f - trail * 0.35f).dp.toPx(),
+                                    center = sparkCenter
+                                )
+                            }
+                        } else if (isBypass) {
+                            // A short cyan comet around the outer rail represents power routed around the battery.
+                            drawArc(
+                                color = AccentCyan.copy(alpha = 0.32f + 0.25f * ringAlpha),
+                                startAngle = orbitAngle - 90f,
+                                sweepAngle = 54f,
+                                useCenter = false,
+                                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+                            )
+                        }
 
                         // 4. Glowing Energy Bead / Tip Indicator at leading edge
                         val tipAngleRad = Math.toRadians((startAngle + sweepAngle).toDouble()).toFloat()
@@ -817,7 +854,7 @@ fun ChargingHeroDisplayCard(
 
                             Spacer(Modifier.height(3.dp))
 
-                            // Interactive Charging Mode Pill
+                            // Mode label is informational; the dial itself is the only mode selector.
                             val ringModeText = when {
                                 isBypass -> "⚡ BYPASS"
                                 activeChargingMode == "hyper" -> "⚡ HYPER"
@@ -831,10 +868,7 @@ fun ChargingHeroDisplayCard(
                             Surface(
                                 shape = RoundedCornerShape(7.dp),
                                 color = activePillColor.copy(alpha = 0.12f),
-                                border = BorderStroke(0.8.dp, activePillColor.copy(alpha = 0.40f)),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(7.dp))
-                                    .clickable { showChargingModeModal = true }
+                                border = BorderStroke(0.8.dp, activePillColor.copy(alpha = 0.40f))
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -846,13 +880,6 @@ fun ChargingHeroDisplayCard(
                                         fontWeight = FontWeight.ExtraBold,
                                         color = activePillColor,
                                         letterSpacing = 0.5.sp
-                                    )
-                                    Spacer(Modifier.width(2.dp))
-                                    Icon(
-                                        imageVector = Icons.Default.UnfoldMore,
-                                        contentDescription = "Pilih Mode",
-                                        tint = activePillColor.copy(alpha = 0.8f),
-                                        modifier = Modifier.size(9.dp)
                                     )
                                 }
                             }
@@ -962,7 +989,7 @@ fun ChargingHeroDisplayCard(
 
     if (showChargingModeModal) {
         QuickChargingModeModal(
-            currentMode = activeChargingMode,
+            currentMode = if (isBypass || chargingConfig.bypassEnabled) "bypass" else activeChargingMode,
             accentColor = if (accentColor != Color.Unspecified) accentColor else AccentCyan,
             onSelectMode = { mode ->
                 onSelectChargingMode?.invoke(mode)
@@ -1030,6 +1057,12 @@ private fun QuickChargingModeModal(
             title = "Mode Sejuk",
             description = "Menjaga perangkat tetap dingin untuk keawetan baterai",
             icon = Icons.Default.AcUnit
+        ),
+        ChargingModeOption(
+            id = "bypass",
+            title = "Bypass Baterai",
+            description = "Jika didukung perangkat, daya adaptor dialirkan ke sistem tanpa mengisi baterai.",
+            icon = Icons.Default.Shield
         )
     )
 

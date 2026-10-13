@@ -136,7 +136,8 @@ fun DashboardTabContent(
                             chargingConfig = state.charging,
                             accentColor = currentAccent,
                             onSelectChargingMode = { mode ->
-                                viewModel.setChargingMode(mode)
+                                if (mode == "bypass") viewModel.setBypassCharging(true)
+                                else viewModel.setChargingMode(mode)
                             }
                         )
                     }

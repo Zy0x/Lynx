@@ -30,10 +30,10 @@ Released on: 2026-10-14
   - Pengisian Daya: `"Daya masuk • X.X W"` / `"Daya terhubung"`
 - Mengintegrasikan `TextOverflow.Ellipsis` dan `softWrap` pelindung untuk stabilitas tampilan sempurna.
 
-### 4. Tombol Pembersih RAM Ergonomis Berkejelasan Tinggi (High-Clarity Action Pill)
-- **Mengutamakan Kejelasan (Readability First)**: Menggantikan ikon ambigu dengan tombol aksi berkejelasan tinggi berlabel eksplisit **`Bersihkan`** dan ikon pembersih **`Icons.Default.DeleteSweep`**. Pengguna dapat langsung memahami fungsi tombol secara intuitif tanpa tebak-tebakan.
-- **Feedback Interaktif Real-Time**: Saat tombol ditekan, status berubah dinamis menjadi **`Membersihkan...`** disertai spinner `CircularProgressIndicator` (12.dp) berputar mulus hingga pembebasan proses latar selesai dan memori bertambah.
-- **Harmoni Visual Cyber Obsidian**: Dibangun dengan kurvatur modern `RoundedCornerShape(8.dp)`, latar belakang `Color(0xFF0E1A17)` beraksen mint cyan halus, serta border hairline presisi (`AccentCyan` 45% alpha) yang sejajar rapi dengan *progress bar* RAM fisik.
+### 4. Tombol Pembersih RAM Ultra-Kompak & Eliminasi Redundansi Persentase
+- **Desain Ultra-Kompak Icon-Only**: Menggantikan tombol pill teks dengan *chip* aksi ringkas berukuran `24.dp` (`RoundedCornerShape(6.dp)`) murni ikon pembersih **`Icons.Default.DeleteSweep`**, menghasilkan jarak baris yang jauh lebih rapat, seimbang, dan konsisten dengan ritme vertikal kartu.
+- **Eliminasi Redundansi Persentase**: Menghapus teks duplikat `"Penggunaan: XX%"` di baris bawah yang sebelumnya redundan dengan persentase di header atas, menggantinya dengan label domain `"Memori Fisik Utama"` sehingga tercipta simetri arsitektur sempurna dengan ZRAM Swap (`"Kompresi RAM Kernel"`).
+- **Feedback Interaktif Real-Time**: Saat tombol ditekan, indikator putar `CircularProgressIndicator` (12.dp) berputar halus hingga proses pembebasan memori selesai seketika.
 
 ### 5. Penyelarasan Badge Header Mode Performa Kernel ("Kustom")
 - **Penyesuaian Konteks Mode (Domain Relevance)**: Menggantikan label `"Katalog"` yang kurang relevan untuk pemilihan mode performa kernel menjadi **`"Kustom"`** (`[ Kustom → ]`), selaras dengan 4 preset bawaan vs profil kustom pengguna.
