@@ -826,26 +826,12 @@ fun ChargingHeroDisplayCard(
                                 !isCharging -> "⚡ STANDBY"
                                 else -> "⚡ STANDARD"
                             }
+                            val activePillColor = if (isBypass) AccentCyan else modeInfo.badgeColor
 
                             Surface(
                                 shape = RoundedCornerShape(7.dp),
-                                color = when {
-                                    isBypass -> AccentCyan.copy(alpha = 0.15f)
-                                    activeChargingMode == "hyper" -> Color(0x2400FF9D)
-                                    activeChargingMode == "cool" -> AccentCyan.copy(alpha = 0.15f)
-                                    activeChargingMode == "custom" -> AccentPurple.copy(alpha = 0.15f)
-                                    else -> AccentGreen.copy(alpha = 0.15f)
-                                },
-                                border = BorderStroke(
-                                    0.8.dp,
-                                    when {
-                                        isBypass -> AccentCyan.copy(alpha = 0.45f)
-                                        activeChargingMode == "hyper" -> Color(0xFF00FF9D).copy(alpha = 0.5f)
-                                        activeChargingMode == "cool" -> AccentCyan.copy(alpha = 0.5f)
-                                        activeChargingMode == "custom" -> AccentPurple.copy(alpha = 0.5f)
-                                        else -> AccentGreen.copy(alpha = 0.5f)
-                                    }
-                                ),
+                                color = activePillColor.copy(alpha = 0.12f),
+                                border = BorderStroke(0.8.dp, activePillColor.copy(alpha = 0.40f)),
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(7.dp))
                                     .clickable { showChargingModeModal = true }
@@ -858,26 +844,14 @@ fun ChargingHeroDisplayCard(
                                         text = ringModeText,
                                         fontSize = 7.5.sp,
                                         fontWeight = FontWeight.ExtraBold,
-                                        color = when {
-                                            isBypass -> AccentCyan
-                                            activeChargingMode == "hyper" -> Color(0xFF00FF9D)
-                                            activeChargingMode == "cool" -> AccentCyan
-                                            activeChargingMode == "custom" -> AccentPurple
-                                            else -> AccentGreen
-                                        },
+                                        color = activePillColor,
                                         letterSpacing = 0.5.sp
                                     )
                                     Spacer(Modifier.width(2.dp))
                                     Icon(
                                         imageVector = Icons.Default.UnfoldMore,
                                         contentDescription = "Pilih Mode",
-                                        tint = when {
-                                            isBypass -> AccentCyan.copy(alpha = 0.8f)
-                                            activeChargingMode == "hyper" -> Color(0xFF00FF9D).copy(alpha = 0.8f)
-                                            activeChargingMode == "cool" -> AccentCyan.copy(alpha = 0.8f)
-                                            activeChargingMode == "custom" -> AccentPurple.copy(alpha = 0.8f)
-                                            else -> AccentGreen.copy(alpha = 0.8f)
-                                        },
+                                        tint = activePillColor.copy(alpha = 0.8f),
                                         modifier = Modifier.size(9.dp)
                                     )
                                 }
@@ -989,6 +963,7 @@ fun ChargingHeroDisplayCard(
     if (showChargingModeModal) {
         QuickChargingModeModal(
             currentMode = activeChargingMode,
+            accentColor = if (accentColor != Color.Unspecified) accentColor else AccentCyan,
             onSelectMode = { mode ->
                 onSelectChargingMode?.invoke(mode)
             },
@@ -997,45 +972,64 @@ fun ChargingHeroDisplayCard(
     }
 }
 
-private data class QuickChargingModeOption(
+private data class ChargingModeOption(
     val id: String,
     val title: String,
-    val tag: String,
     val description: String,
-    val icon: ImageVector,
-    val accent: Color
+    val icon: ImageVector
 )
+
+@Composable
+private fun RadioIndicator(
+    selected: Boolean,
+    accentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(20.dp)
+            .border(
+                width = if (selected) 1.8.dp else 1.2.dp,
+                color = if (selected) accentColor else Color(0x38FFFFFF),
+                shape = CircleShape
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (selected) {
+            Box(
+                modifier = Modifier
+                    .size(9.dp)
+                    .background(accentColor, CircleShape)
+            )
+        }
+    }
+}
 
 @Composable
 private fun QuickChargingModeModal(
     currentMode: String,
+    accentColor: Color,
     onSelectMode: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val modes = listOf(
-        QuickChargingModeOption(
-            id = "cool",
-            title = "Mode Sejuk (Cool)",
-            tag = "~1.0A • DINGIN",
-            description = "Prioritas suhu dingin & menjaga umur sel baterai",
-            icon = Icons.Default.AcUnit,
-            accent = AccentCyan
-        ),
-        QuickChargingModeOption(
-            id = "standard",
-            title = "Mode Standar (Standard)",
-            tag = "REGULASI OEM",
-            description = "Arus & manajemen termal seimbang bawaan pabrikan",
-            icon = Icons.Default.Balance,
-            accent = AccentGreen
-        ),
-        QuickChargingModeOption(
+        ChargingModeOption(
             id = "hyper",
-            title = "Mode Hyper (Extreme)",
-            tag = "UNRESTRICTED",
-            description = "Lepas batas arus sysfs untuk pengisian super cepat",
-            icon = Icons.Default.Bolt,
-            accent = Color(0xFF00FF9D)
+            title = "Mode Hyper",
+            description = "Kecepatan pengisian maksimal dengan daya penuh",
+            icon = Icons.Default.Bolt
+        ),
+        ChargingModeOption(
+            id = "standard",
+            title = "Mode Standar",
+            description = "Keseimbangan cerdas kecepatan dan suhu perangkat",
+            icon = Icons.Default.Balance
+        ),
+        ChargingModeOption(
+            id = "cool",
+            title = "Mode Sejuk",
+            description = "Menjaga perangkat tetap dingin untuk keawetan baterai",
+            icon = Icons.Default.AcUnit
         )
     )
 
@@ -1049,20 +1043,20 @@ private fun QuickChargingModeModal(
     ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth(0.92f)
+                .fillMaxWidth(0.90f)
                 .wrapContentHeight()
                 .padding(vertical = 16.dp),
             shape = RoundedCornerShape(22.dp),
-            color = BgCard,
-            border = BorderStroke(1.dp, BorderGlass),
-            shadowElevation = 12.dp
+            color = Color(0xFF0F1219),
+            border = BorderStroke(1.dp, Color(0x22FFFFFF)),
+            shadowElevation = 16.dp
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(18.dp)
+                    .padding(horizontal = 18.dp, vertical = 18.dp)
             ) {
-                // Header
+                // Header (Clean OEM Style)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1076,28 +1070,27 @@ private fun QuickChargingModeModal(
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(CircleShape)
-                                .background(AccentCyan.copy(alpha = 0.15f))
-                                .border(1.dp, AccentCyan.copy(alpha = 0.35f), CircleShape),
+                                .background(accentColor.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Bolt,
                                 contentDescription = null,
-                                tint = AccentCyan,
+                                tint = accentColor,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         Column {
                             Text(
-                                text = "MODE PENGISIAN DAYA",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Black,
+                                text = "Mode Pengisian Daya",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
                                 color = TextPrimary,
-                                letterSpacing = 0.8.sp
+                                letterSpacing = 0.3.sp
                             )
                             Text(
-                                text = "Setel profil termal & arus masuk kernel",
-                                fontSize = 10.sp,
+                                text = "Pilih prioritas kecepatan dan kontrol termal",
+                                fontSize = 10.5.sp,
                                 color = TextSecondary
                             )
                         }
@@ -1105,7 +1098,7 @@ private fun QuickChargingModeModal(
 
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
@@ -1118,16 +1111,16 @@ private fun QuickChargingModeModal(
 
                 Spacer(Modifier.height(14.dp))
 
-                // Mode Selection Cards
+                // Mode Selection Cards (Streamlined OEM Rows)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     modes.forEach { item ->
                         val isSelected = currentMode == item.id
                         Surface(
                             shape = RoundedCornerShape(14.dp),
-                            color = if (isSelected) item.accent.copy(alpha = 0.12f) else BgElevated,
+                            color = if (isSelected) accentColor.copy(alpha = 0.08f) else Color(0xFF131722),
                             border = BorderStroke(
-                                if (isSelected) 1.2.dp else 0.8.dp,
-                                if (isSelected) item.accent.copy(alpha = 0.8f) else BorderSubtle
+                                width = if (isSelected) 1.2.dp else 0.8.dp,
+                                color = if (isSelected) accentColor.copy(alpha = 0.80f) else Color(0x18FFFFFF)
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1140,109 +1133,70 @@ private fun QuickChargingModeModal(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    .padding(horizontal = 14.dp, vertical = 13.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
                                         .clip(CircleShape)
-                                        .background(item.accent.copy(alpha = if (isSelected) 0.22f else 0.12f))
-                                        .border(
-                                            0.8.dp,
-                                            item.accent.copy(alpha = if (isSelected) 0.6f else 0.25f),
-                                            CircleShape
+                                        .background(
+                                            if (isSelected) accentColor.copy(alpha = 0.16f)
+                                            else Color(0x0EFFFFFF)
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = item.icon,
                                         contentDescription = null,
-                                        tint = item.accent,
-                                        modifier = Modifier.size(19.dp)
+                                        tint = if (isSelected) accentColor else Color(0xFFC0C4CC),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                Spacer(Modifier.width(13.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item.title,
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (isSelected) TextPrimary else TextPrimary.copy(alpha = 0.90f)
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = item.description,
+                                        fontSize = 10.5.sp,
+                                        color = TextSecondary,
+                                        lineHeight = 14.sp
                                     )
                                 }
 
                                 Spacer(Modifier.width(12.dp))
 
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Text(
-                                            text = item.title,
-                                            fontSize = 12.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isSelected) TextPrimary else TextPrimary.copy(alpha = 0.9f)
-                                        )
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = item.accent.copy(alpha = 0.16f),
-                                            border = BorderStroke(0.6.dp, item.accent.copy(alpha = 0.4f))
-                                        ) {
-                                            Text(
-                                                text = item.tag,
-                                                fontSize = 8.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = item.accent,
-                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp),
-                                                letterSpacing = 0.4.sp
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(Modifier.height(2.dp))
-
-                                    Text(
-                                        text = item.description,
-                                        fontSize = 9.5.sp,
-                                        color = TextSecondary,
-                                        lineHeight = 13.sp
-                                    )
-                                }
-
-                                if (isSelected) {
-                                    Spacer(Modifier.width(8.dp))
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = "Aktif",
-                                        tint = item.accent,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
+                                RadioIndicator(
+                                    selected = isSelected,
+                                    accentColor = accentColor
+                                )
                             }
                         }
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(14.dp))
 
-                // Footer note
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = BgSurfaceLowest,
-                    border = BorderStroke(0.6.dp, BorderSubtle),
-                    modifier = Modifier.fillMaxWidth()
+                // Footer (Minimalist Status)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = TextTertiary,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "Profil diterapkan langsung ke pengontrol daya kernel secara instan.",
-                            fontSize = 8.5.sp,
-                            color = TextTertiary,
-                            lineHeight = 11.sp
-                        )
-                    }
+                    Text(
+                        text = "Diterapkan langsung ke kernel tanpa restart",
+                        fontSize = 9.5.sp,
+                        color = TextTertiary,
+                        letterSpacing = 0.2.sp
+                    )
                 }
             }
         }

@@ -115,20 +115,24 @@ fun LynxViewModel.cleanRam() {
     if (_uiState.value.isCleaningRam) return
     _uiState.update { it.copy(isCleaningRam = true) }
     viewModelScope.launch {
-        val (ok, freedMb) = LynxRepository.cleanRam()
+        val result = LynxRepository.cleanRam()
         val tel = LynxRepository.readTelemetry()
-        val msg = if (ok) {
-            if (freedMb > 0) "RAM berhasil dibersihkan! Ruang bebas bertambah +${freedMb} MB."
-            else "RAM & Cache berhasil dibersihkan dan dikompaksi!"
+        val availableDeltaMb = result.availableDeltaMb
+        val msg = if (result.success) {
+            when {
+                availableDeltaMb == null -> "Pembersihan proses latar aman selesai."
+                availableDeltaMb > 0 -> "Setelah pembersihan, MemAvailable naik +${availableDeltaMb} MB sementara."
+                else -> "Pembersihan proses latar selesai. Memori tersedia tidak bertambah pada pengukuran ini."
+            }
         } else {
-            "Gagal membersihkan cache RAM."
+            "Gagal meminta Android membersihkan proses latar. Pastikan akses root aktif."
         }
         _uiState.update {
             it.copy(
                 isCleaningRam = false,
                 telemetry = tel,
-                successMessage = if (ok) msg else null,
-                errorMessage = if (!ok) msg else null
+                successMessage = if (result.success) msg else null,
+                errorMessage = if (!result.success) msg else null
             )
         }
     }

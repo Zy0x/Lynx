@@ -403,7 +403,7 @@ object LynxRepository {
     //  VM Cache & Dirty Ratio Tuning
     // ----------------------------------------------------------------
 
-    suspend fun cleanRam(): Pair<Boolean, Int> = LynxVmTuningRepository.cleanRam()
+    suspend fun cleanRam(): RamReclaimResult = LynxVmTuningRepository.cleanRam()
     suspend fun dropCaches(): Boolean = LynxVmTuningRepository.dropCaches()
     suspend fun readDirtyRatio(): Int = LynxVmTuningRepository.readDirtyRatio()
     suspend fun setDirtyRatio(ratio: Int): Boolean = LynxVmTuningRepository.setDirtyRatio(ratio)

@@ -12,13 +12,16 @@ Released on: 2026-10-14
   - *Leading Energy Bead / Tip Indicator*: Partikulat energi bercahaya (aura lembut + inti titik putih laser) yang berputar tepat di ujung persentase baterai secara real-time.
   - *Inner Dial OLED Gradient*: Wajah dial bagian dalam dengan radial gradient halus dan border hairline elegan.
 
-### 2. Quick Charging Mode Selector Modal (Overlay Popup Modern & Clean)
-- **Akses Cepat 1-Ketuk dari Dashboard**: Menekan pill mode di dalam dial ring atau status pill kartu daya langsung menampilkan popup modal modern elegan.
-- **3 Pilihan Profil Pengisian Daya Intuitif**:
-  1. *Mode Sejuk (Cool)*: Batas arus ~1.0A dengan fokus utama suhu baterai dingin & umur pakai sel maksimal.
-  2. *Mode Standar (Standard)*: Regulasi arus dan proteksi termal seimbang bawaan pabrikan OEM.
-  3. *Mode Hyper (Extreme)*: Arus tanpa batas (*unrestricted max hardware speed*) untuk pengisian super cepat.
-- **Penerapan Instan & Feedback Jelas**: Pemilihan mode langsung diterapkan ke kontrol pengisian daya kernel secara instan tanpa perlu reboot ataupun berpindah ke halaman baterai.
+### 2. Quick Charging Mode Selector Modal (Clean OEM Infinix Hypercharge & Mi Turbo Charge Aesthetic)
+- **Desain Bersih, Elegan & Bebas AI Slop**: Menghilangkan seluruh badge tag warna-warni yang berantakan (*rainbow clutter*) dan menyelaraskan seluruh tampilan overlay dengan bahasa desain OEM flagship:
+  - Menggunakan satu aksen warna tema terpadu yang harmonis (*Single Cohesive Accent Theme*).
+  - Mengadopsi indikator seleksi *OEM Radio Button* modern dengan glowing ring dan dot aktif di sisi kanan.
+  - Kartu opsi berbasis Obsidian Dark (`#0F1219` / `#131722`) dengan kontras tipografi tinggi dan ikon perak monokromatik halus.
+- **3 Pilihan Profil Pengisian Daya Terfokus**:
+  1. *Mode Hyper*: Kecepatan pengisian maksimal dengan daya penuh (*unrestricted max hardware speed*).
+  2. *Mode Standar*: Keseimbangan cerdas kecepatan dan suhu perangkat bawaan regulasi pabrikan.
+  3. *Mode Sejuk*: Menjaga perangkat tetap dingin untuk keawetan baterai (*low-temp comfort*).
+- **Akses Ergonomis & Instan**: Dapat dibuka langsung dengan mengetuk dial tengah atau pill status daya, diterapkan seketika ke hardware tanpa restart.
 
 ### 3. Penyingkatan Seluruh Deskripsi Daya Banner (Bebas Truncation)
 - Menyingkat seluruh string deskripsi banner daya agar tidak lagi terpotong (*no text truncation / ellipsis*) pada semua rasio layar:

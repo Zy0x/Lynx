@@ -329,7 +329,7 @@ fun MemorySubscreen(
 
             Spacer(Modifier.height(8.dp))
             LynxActionButton(
-                text = "Bebaskan Cache RAM (Drop Caches)",
+                text = "Bersihkan Proses Latar Aman",
                 icon = Icons.Default.CleaningServices,
                 onClick = { viewModel.cleanRam() },
                 accentColor = AccentCyan,

@@ -1,61 +1,75 @@
 package com.noir.lynx.data
-import android.util.Log
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+data class RamReclaimResult(
+    val success: Boolean,
+    val availableBeforeMb: Int? = null,
+    val availableAfterMb: Int? = null
+) {
+    val availableDeltaMb: Int?
+        get() = if (availableBeforeMb != null && availableAfterMb != null) {
+            availableAfterMb - availableBeforeMb
+        } else {
+            null
+        }
+}
+
 internal object LynxVmTuningRepository {
-    suspend fun cleanRam(): Pair<Boolean, Int> = withContext(Dispatchers.IO) {
+    suspend fun cleanRam(): RamReclaimResult = withContext(Dispatchers.IO) {
         try {
-            // Read pre-clean memory state directly from /proc/meminfo
-            val meminfoBefore = Shell.cmd("cat /proc/meminfo").exec().out
-            var beforeFreeKb = 0L
-            var beforeCachedKb = 0L
-            for (line in meminfoBefore) {
-                val trimmed = line.trim()
-                if (trimmed.startsWith("MemFree:")) {
-                    beforeFreeKb = trimmed.substringAfter("MemFree:").trim().split(" ").firstOrNull()?.toLongOrNull() ?: 0L
-                } else if (trimmed.startsWith("Cached:")) {
-                    beforeCachedKb = trimmed.substringAfter("Cached:").trim().split(" ").firstOrNull()?.toLongOrNull() ?: 0L
-                }
-            }
-
-            // High-impact multi-stage kernel memory reclamation:
-            // 1. sync: commit dirty pages to flash storage so pending I/O is cleanly flushed
-            // 2. drop_caches: drop pagecache, dentries, and inodes
-            // 3. compact_memory: kernel-level defragmentation of free memory zones into high-order pages
-            // 4. zram compact: compress and defragment zsmalloc swap pool
-            val cmd = "sync; echo 3 > /proc/sys/vm/drop_caches; if [ -w /proc/sys/vm/compact_memory ]; then echo 1 > /proc/sys/vm/compact_memory; fi; if [ -w /sys/block/zram0/compact ]; then echo 1 > /sys/block/zram0/compact; fi; echo ok"
+            // Let Android's Activity Manager choose cached processes that are safe to stop.
+            // Measure MemAvailable rather than MemFree because it includes reclaimable memory.
+            val cmd = """
+                before_kb=${'$'}(/system/bin/awk '${'$'}1 == "MemAvailable:" { print ${'$'}2; exit }' /proc/meminfo 2>/dev/null)
+                case "${'$'}before_kb" in ''|*[!0-9]*) echo LYNX_RAM_RECLAIM_ERROR:meminfo_before; exit 2 ;; esac
+                /system/bin/am kill-all >/dev/null 2>&1
+                am_status=${'$'}?
+                if [ "${'$'}am_status" -ne 0 ]; then echo "LYNX_RAM_RECLAIM_ERROR:activity_manager_${'$'}am_status"; exit "${'$'}am_status"; fi
+                sleep 1
+                after_kb=${'$'}(/system/bin/awk '${'$'}1 == "MemAvailable:" { print ${'$'}2; exit }' /proc/meminfo 2>/dev/null)
+                case "${'$'}after_kb" in ''|*[!0-9]*) echo LYNX_RAM_RECLAIM_ERROR:meminfo_after; exit 3 ;; esac
+                echo "LYNX_RAM_RECLAIM|${'$'}before_kb|${'$'}after_kb"
+            """.trimIndent()
             val res = Shell.cmd(cmd).exec()
-            val success = res.out.any { it.trim() == "ok" } || res.isSuccess
-
-            // Read post-clean memory state
-            val meminfoAfter = Shell.cmd("cat /proc/meminfo").exec().out
-            var afterFreeKb = 0L
-            var afterCachedKb = 0L
-            for (line in meminfoAfter) {
-                val trimmed = line.trim()
-                if (trimmed.startsWith("MemFree:")) {
-                    afterFreeKb = trimmed.substringAfter("MemFree:").trim().split(" ").firstOrNull()?.toLongOrNull() ?: 0L
-                } else if (trimmed.startsWith("Cached:")) {
-                    afterCachedKb = trimmed.substringAfter("Cached:").trim().split(" ").firstOrNull()?.toLongOrNull() ?: 0L
+            val measurement = res.out.firstNotNullOfOrNull { line ->
+                val fields = line.trim().split('|')
+                if (fields.size == 3 && fields[0] == "LYNX_RAM_RECLAIM") {
+                    val beforeMb = fields[1].toLongOrNull()?.div(1024L)?.toInt()
+                    val afterMb = fields[2].toLongOrNull()?.div(1024L)?.toInt()
+                    if (beforeMb != null && afterMb != null) beforeMb to afterMb else null
+                } else {
+                    null
                 }
             }
 
-            // Real impactful RAM freed: either increase in MemFree, or drop in unneeded Cached
-            val freeDeltaMb = ((afterFreeKb - beforeFreeKb) / 1024L).toInt()
-            val cachedDeltaMb = ((beforeCachedKb - afterCachedKb) / 1024L).toInt()
-            val freedMb = maxOf(freeDeltaMb, cachedDeltaMb).coerceAtLeast(0)
-
-            Pair(success, freedMb)
+            if (!res.isSuccess || measurement == null) {
+                RamReclaimResult(success = false)
+            } else {
+                RamReclaimResult(
+                    success = true,
+                    availableBeforeMb = measurement.first,
+                    availableAfterMb = measurement.second
+                )
+            }
         } catch (_: Exception) {
-            Pair(false, 0)
+            RamReclaimResult(success = false)
         }
     }
 
     suspend fun dropCaches(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val cmd = "sync; echo 3 > /proc/sys/vm/drop_caches; if [ -w /proc/sys/vm/compact_memory ]; then echo 1 > /proc/sys/vm/compact_memory; fi; if [ -w /sys/block/zram0/compact ]; then echo 1 > /sys/block/zram0/compact; fi; echo ok"
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            val cmd = """
+                [ -w /proc/sys/vm/drop_caches ] || exit 1
+                sync || exit 1
+                echo 3 > /proc/sys/vm/drop_caches || exit 1
+                if [ -w /proc/sys/vm/compact_memory ]; then echo 1 > /proc/sys/vm/compact_memory || exit 1; fi
+                if [ -w /sys/block/zram0/compact ]; then echo 1 > /sys/block/zram0/compact || exit 1; fi
+                echo ok
+            """.trimIndent()
+            val res = Shell.cmd(cmd).exec()
+            res.isSuccess && res.out.any { it.trim() == "ok" }
         } catch (e: Exception) { false }
     }
 

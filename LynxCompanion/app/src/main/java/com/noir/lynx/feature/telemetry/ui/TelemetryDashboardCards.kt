@@ -294,7 +294,7 @@ fun TelemetryMemoryCard(
 
             Spacer(Modifier.width(8.dp))
 
-            // Tombol Pembersih RAM (Icon Saja di Samping Kanan Progress Bar)
+            // Requests Android to stop cached processes it considers safe to reclaim.
             Surface(
                 onClick = {
                     if (!isCleaning) {
@@ -312,7 +312,7 @@ fun TelemetryMemoryCard(
                 shape = RoundedCornerShape(7.dp),
                 color = if (isCleaning) AccentCyan.copy(alpha = 0.20f) else BgElevated,
                 border = BorderStroke(0.6.dp, if (isCleaning) AccentCyan.copy(alpha = 0.6f) else BorderSubtle),
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -322,14 +322,14 @@ fun TelemetryMemoryCard(
                         CircularProgressIndicator(
                             strokeWidth = 1.5.dp,
                             color = AccentCyan,
-                            modifier = Modifier.size(12.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     } else {
                         Icon(
                             imageVector = Icons.Default.CleaningServices,
-                            contentDescription = "Bersihkan RAM",
+                            contentDescription = "Bersihkan proses latar yang aman",
                             tint = AccentCyan,
-                            modifier = Modifier.size(13.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
