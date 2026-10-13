@@ -63,12 +63,14 @@ import com.noir.lynx.ui.*
 @Composable
 fun TelemetryGaugesCard(
     telemetry: TelemetryData?,
-    cpuLoad: Int = 0
+    cpuLoad: Int = 0,
+    gpuLoad: Int = 0,
+    gpuArchLabel: String = ""
 ) {
     val tel = telemetry ?: TelemetryData()
 
     LynxCard(
-        title = "Live Telemetry & Hardware Gauges",
+        title = "Telemetri & Clock Hardware",
         icon = Icons.Default.Speed,
         accentColor = AccentCyan
     ) {
@@ -78,6 +80,7 @@ fun TelemetryGaugesCard(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // GPU Bento Box
+            val effectiveGpuLoad = if (gpuLoad > 0) gpuLoad else tel.gpuBusy
             Surface(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp),
@@ -91,7 +94,7 @@ fun TelemetryGaugesCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "GPU Engine",
+                            text = "GPU (Grafis)",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TextSecondary,
@@ -130,18 +133,22 @@ fun TelemetryGaugesCard(
                         color = BgSurfaceLowest,
                         border = BorderStroke(0.8.dp, BorderSubtle)
                     ) {
+                        val archSuffix = if (gpuArchLabel.isNotBlank()) " • $gpuArchLabel" else ""
+                        val gpuLoadText = if (effectiveGpuLoad > 0) "Load ${effectiveGpuLoad}%$archSuffix" else "Dynamic DVFS$archSuffix"
                         Text(
-                            text = if (tel.gpuBusy > 0) "Load ${tel.gpuBusy}%" else "Dynamic DVFS",
+                            text = gpuLoadText,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
                             color = TextSecondary,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
             }
 
-            // CPU Bento Box (Eliminating redundant battery metrics)
+            // CPU Bento Box
             val peakCpuKhz = tel.cpu.maxOrNull() ?: 0L
             val peakCpuMhz = if (peakCpuKhz > 0) (peakCpuKhz / 1000).toInt() else 2050
             val activeCoresCount = if (tel.cpu.isNotEmpty()) tel.cpu.count { it > 0 } else 8
@@ -159,7 +166,7 @@ fun TelemetryGaugesCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "CPU Engine",
+                            text = "CPU (Prosesor)",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TextSecondary,
@@ -203,7 +210,9 @@ fun TelemetryGaugesCard(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
                             color = TextSecondary,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }

@@ -85,7 +85,7 @@ fun QuickProfileSwitcherCard(
         // 4 Core Quick Profiles in a modern compact row
         val standardProfiles = listOf(
             QuickModeItem("powersave", "Hemat", "Efisiensi Daya", Color(0xFF00E676), Icons.Default.BatteryChargingFull),
-            QuickModeItem("balance", "Balance", "Harian Seimbang", AccentBlue, Icons.Default.Tune),
+            QuickModeItem("balance", "Seimbang", "Harian Seimbang", AccentBlue, Icons.Default.Tune),
             QuickModeItem("performance", "Performa", "Gaming Responsif", AccentOrange, Icons.Default.Speed),
             QuickModeItem("extreme", "Extreme", "Clock Maksimal", AccentRed, Icons.Default.LocalFireDepartment),
         )

@@ -1,3 +1,26 @@
+# Lynx Universal [Dashboard Harmonization & Telemetry Gauges Symmetry] 7.0.0-RC41
+Released on: 2026-10-14
+> **Lynx Universal v7.0.0-RC41** (Lynx Kernel Manager v3.1.3): **Harmonisasi Total Antarmuka Dashboard, Eliminasi Redundansi Badge Daya & Dial Mode saat Discharging, Simetri Tampilan Load GPU Mirroring CPU, serta Penyelarasan Bahasa Indonesia Baku pada Profil Performa Kernel**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC41)
+
+### 1. Eliminasi Redundansi Status Daya & Baterai
+- **Penghapusan Badge Pojok Kanan Atas Total**: Menghilangkan seluruh badge pill di pojok kanan atas kartu Status Daya (`BATERAI` / `CHARGING` / `BYPASS`) untuk tampilan yang lebih bersih, tenang, dan bebas dari pengulangan kata yang tidak perlu.
+- **Pembersihan Dial Lingkaran saat Discharging**: Saat perangkat berjalan menggunakan daya baterai mandiri, mode pill di dalam dial (`⚡ STANDBY`) otomatis disembunyikan sehingga dial hanya memfokuskan tampilan persentase baterai yang elegan. Mode pill hanya ditampilkan saat kabel pengisi daya terhubung aktif (`⚡ HYPER`, `⚡ STANDARD`, `⚡ COOL`, `⚡ BYPASS`).
+- **Penyelarasan Banner Protokol Daya**: Menyelaraskan teks banner saat unplugged menjadi `"Discharging"` dengan subteks `"Menggunakan daya baterai"`, menghilangkan duplikasi frase "Baterai Internal" yang bertumpuk.
+
+### 2. Simetri Telemetri & Clock Hardware (GPU Load Mirroring CPU Engine)
+- **Judul Kartu Berbahasa Indonesia Baku**: Mengubah judul kartu dari `"Live Telemetry & Hardware Gauges"` menjadi **`"Telemetri & Clock Hardware"`**.
+- **Pelabelan Domain Presisi**: Mengganti label `"GPU Engine"` dan `"CPU Engine"` menjadi **`"GPU (Grafis)"`** dan **`"CPU (Prosesor)"`** untuk menghindari kebingungan asosiasi dengan 3D game engine.
+- **Simetri Tampilan Beban Dinamis Real-Time**:
+  - Mengintegrasikan pemetaan beban GPU (`gpuLoadPercent` / `gpuBusy`) ke dalam kartu telemetri bento box secara simetris dengan CPU.
+  - Saat aktif: Menampilkan beban persentase real-time beserta arsitektur hardware (contoh: `Load 13% • Mali` / `Load 32% • 8 Cores`).
+  - Saat siaga: Menampilkan status manajemen frekuensi dinamis yang bersih (contoh: `Dynamic DVFS • Mali` / `Dynamic EAS • 8 Cores`) dengan perlindungan `TextOverflow.Ellipsis`.
+
+### 3. Konsistensi Penamaan Profil Performa Kernel ("Seimbang")
+- **Penyelarasan Bahasa Baku**: Menggantikan istilah campur aduk `"Balance"` menjadi **`"Seimbang"`** di seluruh aplikasi (`QuickProfileSwitcherCard`, header badge status bar `StatusBadge`, `MainDashboard`, `TuningProfilesCategory`, dan `strings.xml`).
+- Menyelaraskan 4 profil performa kernel inti ke dalam bahasa Indonesia baku yang serasi: **`Hemat`**, **`Seimbang`**, **`Performa`**, dan **`Extreme`**.
+
 # Lynx Universal [Luxury Battery Energy Ring & Quick Charging Mode Selector Modal] 7.0.0-RC40
 Released on: 2026-10-14
 > **Lynx Universal v7.0.0-RC40** (Lynx Kernel Manager v3.1.2): **Revamp Total Animasi Circle Dial Baterai Menjadi Luxury EV Energy Ring dengan Leading Pulse Bead, Penambahan Quick Charging Mode Selector Modal Langsung dari Dashboard, dan Penyingkatan Seluruh Deskripsi Daya Bebas Truncation**.

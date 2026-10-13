@@ -249,7 +249,7 @@ fun TuningProfilesCategory(
                         "extreme" -> "Extreme"
                         "performance" -> "Performa"
                         "powersave" -> "Hemat"
-                        else -> "Balance"
+                        else -> "Seimbang"
                     }
 
                     Surface(

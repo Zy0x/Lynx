@@ -142,9 +142,16 @@ fun DashboardTabContent(
                         )
                     }
                     item(key = "telemetry_gauges") {
+                        val archLabel = when (uiState.gpuInfo.platform) {
+                            "adreno" -> "Adreno"
+                            "mali_ged", "mali_kbase" -> "Mali"
+                            else -> if (uiState.gpuInfo.platform.isNotBlank()) uiState.gpuInfo.platform.uppercase() else "GPU"
+                        }
                         TelemetryGaugesCard(
                             telemetry = uiState.telemetry,
-                            cpuLoad = uiState.totalCpuLoadPercent
+                            cpuLoad = uiState.totalCpuLoadPercent,
+                            gpuLoad = if (uiState.gpuInfo.gpuLoadPercent > 0) uiState.gpuInfo.gpuLoadPercent else uiState.telemetry?.gpuBusy ?: 0,
+                            gpuArchLabel = archLabel
                         )
                     }
 

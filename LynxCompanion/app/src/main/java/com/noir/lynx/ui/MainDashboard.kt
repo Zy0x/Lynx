@@ -228,7 +228,7 @@ fun MainDashboard(
                             listOf(
                                 "extreme" to ("Extreme" to AccentRed),
                                 "performance" to ("Performa" to AccentOrange),
-                                "balance" to ("Balance" to AccentBlue),
+                                "balance" to ("Seimbang" to AccentBlue),
                                 "powersave" to ("Hemat" to AccentGreen),
                             ).forEach { (prof, meta) ->
                                 val isSel = targetProf.equals(prof, ignoreCase = true)

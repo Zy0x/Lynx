@@ -27,15 +27,15 @@
 
     <!-- Profiles -->
     <string name="profile_auto">Auto (AI)</string>
-    <string name="profile_auto_desc">Adaptive Foreground</string>
-    <string name="profile_balance">Balance</string>
-    <string name="profile_balance_desc">EAS Daily Efficiency</string>
+    <string name="profile_auto_desc">Adaptif Otomatis</string>
+    <string name="profile_balance">Seimbang</string>
+    <string name="profile_balance_desc">Efisiensi Harian</string>
     <string name="profile_performance">Performa</string>
-    <string name="profile_performance_desc">High Clock Sustained</string>
+    <string name="profile_performance_desc">Performa Gaming Stabil</string>
     <string name="profile_extreme">Extreme</string>
-    <string name="profile_extreme_desc">Unrestricted Bypass</string>
-    <string name="profile_powersave">Powersave</string>
-    <string name="profile_powersave_desc">Deep C-States Endurance</string>
+    <string name="profile_extreme_desc">Clock Maksimal Tanpa Batas</string>
+    <string name="profile_powersave">Hemat</string>
+    <string name="profile_powersave_desc">Ketahanan Daya Maksimal</string>
     <string name="profile_standby">Standby</string>
 
     <!-- SoC Chip -->

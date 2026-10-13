@@ -511,8 +511,8 @@ fun ChargingHeroDisplayCard(
     val modeInfo = remember(isPlugged, isBypass, isCharging, detectedProtocolName, liveWatts, activeChargingMode) {
         when {
             !isPlugged -> ChargingDisplayMode(
-                title = "BATERAI INTERNAL",
-                description = "Daya mandiri aktif",
+                title = "Discharging",
+                description = "Menggunakan daya baterai",
                 badgeColor = TextSecondary,
                 badgeBg = BgSurfaceLowest,
                 icon = Icons.Default.BatteryStd
@@ -583,47 +583,25 @@ fun ChargingHeroDisplayCard(
                 .fillMaxWidth()
                 .padding(14.dp)
         ) {
-            // Header Row: card title and read-only charging status.
+            // Header Row: card title and clean hardware status icon
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (isPlugged) Icons.Default.Bolt else Icons.Default.BatteryFull,
-                        contentDescription = null,
-                        tint = modeInfo.badgeColor,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = if (isPlugged) "TURBO CHARGE DISPLAY" else "STATUS DAYA & BATERAI",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextSecondary,
-                        letterSpacing = 0.8.sp
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = modeInfo.badgeBg,
-                    border = BorderStroke(0.8.dp, modeInfo.badgeColor.copy(alpha = 0.45f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (isBypass) "BYPASS" else if (isCharging) "CHARGING" else if (isPlugged) "TERHUBUNG" else "BATERAI",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Black,
-                            color = modeInfo.badgeColor,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
-                }
+                Icon(
+                    imageVector = if (isPlugged) Icons.Default.Bolt else Icons.Default.BatteryFull,
+                    contentDescription = null,
+                    tint = modeInfo.badgeColor,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = if (isPlugged) "TURBO CHARGE DISPLAY" else "STATUS DAYA & BATERAI",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextSecondary,
+                    letterSpacing = 0.8.sp
+                )
             }
 
             Spacer(Modifier.height(10.dp))
@@ -852,35 +830,35 @@ fun ChargingHeroDisplayCard(
                                 )
                             }
 
-                            Spacer(Modifier.height(3.dp))
+                            if (isCharging || isBypass) {
+                                Spacer(Modifier.height(3.dp))
 
-                            // Mode label is informational; the dial itself is the only mode selector.
-                            val ringModeText = when {
-                                isBypass -> "⚡ BYPASS"
-                                activeChargingMode == "hyper" -> "⚡ HYPER"
-                                activeChargingMode == "cool" -> "⚡ COOL"
-                                activeChargingMode == "custom" -> "⚡ CUSTOM"
-                                !isCharging -> "⚡ STANDBY"
-                                else -> "⚡ STANDARD"
-                            }
-                            val activePillColor = if (isBypass) AccentCyan else modeInfo.badgeColor
+                                val ringModeText = when {
+                                    isBypass -> "⚡ BYPASS"
+                                    activeChargingMode == "hyper" -> "⚡ HYPER"
+                                    activeChargingMode == "cool" -> "⚡ COOL"
+                                    activeChargingMode == "custom" -> "⚡ CUSTOM"
+                                    else -> "⚡ STANDARD"
+                                }
+                                val activePillColor = if (isBypass) AccentCyan else modeInfo.badgeColor
 
-                            Surface(
-                                shape = RoundedCornerShape(7.dp),
-                                color = activePillColor.copy(alpha = 0.12f),
-                                border = BorderStroke(0.8.dp, activePillColor.copy(alpha = 0.40f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                Surface(
+                                    shape = RoundedCornerShape(7.dp),
+                                    color = activePillColor.copy(alpha = 0.12f),
+                                    border = BorderStroke(0.8.dp, activePillColor.copy(alpha = 0.40f))
                                 ) {
-                                    Text(
-                                        text = ringModeText,
-                                        fontSize = 7.5.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = activePillColor,
-                                        letterSpacing = 0.5.sp
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = ringModeText,
+                                            fontSize = 7.5.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = activePillColor,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                    }
                                 }
                             }
                         }
