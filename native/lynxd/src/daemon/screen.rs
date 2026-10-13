@@ -17,16 +17,10 @@ pub struct ScreenDetector {
 impl ScreenDetector {
     /// Probes and selects the primary kernel display status node.
     pub fn probe() -> Self {
-        // Priority 1: Direct Framebuffer Blanking (Standard Linux FB)
-        let fb_blank = PathBuf::from("/sys/class/graphics/fb0/blank");
-        if SysfsReader::exists(&fb_blank) {
-            return Self {
-                active_node: Some(fb_blank),
-            };
-        }
-
-        // Priority 2: Direct Backlight Brightness
+        // Priority 1: Direct Backlight Brightness (MediaTek, Qualcomm, Samsung)
         let common_backlights = [
+            "/sys/class/leds/lcd-backlight/brightness",
+            "/sys/class/leds/panel0-backlight/brightness",
             "/sys/class/backlight/panel0-backlight/brightness",
             "/sys/class/backlight/sprd_backlight/brightness",
             "/sys/class/backlight/mtk_leds/brightness",
@@ -34,9 +28,13 @@ impl ScreenDetector {
         for &bl in &common_backlights {
             let p = PathBuf::from(bl);
             if SysfsReader::exists(&p) {
-                return Self {
-                    active_node: Some(p),
-                };
+                if let Ok(val) = SysfsReader::read_trimmed(&p) {
+                    if val.parse::<u64>().is_ok() {
+                        return Self {
+                            active_node: Some(p),
+                        };
+                    }
+                }
             }
         }
 
@@ -45,8 +43,43 @@ impl ScreenDetector {
             for entry in entries.flatten() {
                 let brightness = entry.path().join("brightness");
                 if SysfsReader::exists(&brightness) {
+                    if let Ok(val) = SysfsReader::read_trimmed(&brightness) {
+                        if val.parse::<u64>().is_ok() {
+                            return Self {
+                                active_node: Some(brightness),
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check any backlight under /sys/class/leds
+        if let Ok(entries) = std::fs::read_dir("/sys/class/leds") {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_lowercase();
+                if name.contains("backlight") || name.contains("lcd") || name.contains("panel") {
+                    let brightness = entry.path().join("brightness");
+                    if SysfsReader::exists(&brightness) {
+                        if let Ok(val) = SysfsReader::read_trimmed(&brightness) {
+                            if val.parse::<u64>().is_ok() {
+                                return Self {
+                                    active_node: Some(brightness),
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Priority 2: Direct Framebuffer Blanking (Standard Linux FB, ONLY if readable and not empty)
+        let fb_blank = PathBuf::from("/sys/class/graphics/fb0/blank");
+        if SysfsReader::exists(&fb_blank) {
+            if let Ok(val) = SysfsReader::read_trimmed(&fb_blank) {
+                if !val.is_empty() {
                     return Self {
-                        active_node: Some(brightness),
+                        active_node: Some(fb_blank),
                     };
                 }
             }
@@ -67,15 +100,6 @@ impl ScreenDetector {
     pub fn detect(&self) -> ScreenState {
         if let Some(ref node) = self.active_node {
             if let Ok(val) = SysfsReader::read_trimmed(node) {
-                // If fb0/blank: 0 = unblank (ON), non-zero = blank (OFF)
-                if node.ends_with("blank") {
-                    return if val == "0" {
-                        ScreenState::On
-                    } else {
-                        ScreenState::Off
-                    };
-                }
-
                 // If backlight brightness: > 0 is ON, 0 is OFF
                 if node.ends_with("brightness") {
                     if let Ok(b) = val.parse::<u64>() {
@@ -87,10 +111,35 @@ impl ScreenDetector {
                     }
                 }
 
+                // If fb0/blank: 0 = unblank (ON), non-zero = blank (OFF)
+                if node.ends_with("blank") && !val.is_empty() {
+                    return if val == "0" {
+                        ScreenState::On
+                    } else {
+                        ScreenState::Off
+                    };
+                }
+
                 // If DRM runtime_status
                 if val == "active" {
                     return ScreenState::On;
                 } else if val == "suspended" {
+                    return ScreenState::Off;
+                }
+            }
+        }
+
+        // Tier 4 Fallback: Android dumpsys power (compliant with AGENTS.md §4.3)
+        #[cfg(target_os = "android")]
+        {
+            if let Ok(output) = std::process::Command::new("dumpsys")
+                .args(&["power"])
+                .output()
+            {
+                let text = String::from_utf8_lossy(&output.stdout);
+                if text.contains("mHoldingDisplaySuspendBlocker=true") || text.contains("Display Power: state=ON") {
+                    return ScreenState::On;
+                } else if text.contains("mHoldingDisplaySuspendBlocker=false") || text.contains("Display Power: state=OFF") {
                     return ScreenState::Off;
                 }
             }

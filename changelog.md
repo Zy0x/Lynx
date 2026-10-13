@@ -1,3 +1,21 @@
+# Lynx Universal [Autonomous Game Awareness & Screen Backlight Detection Fix] 7.0.0-RC32
+Released on: 2026-10-13
+> **Lynx Universal v7.0.0-RC32** (Lynx Kernel Manager v3.0.96): **Perbaikan Deteksi Layar Aktif (ScreenDetector Prioritizing LCD Backlight over Write-Only fb0/blank), Otomatisasi Peralihan Profil Kernel Game Real-Time (Autonomous Real-Time Game Detection for Honkai: Star Rail & 3D Gaming), serta Verifikasi Telemetri Bypass Hardware di Bawah Beban Berat**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC32)
+
+### 1. Perbaikan Prioritas Sensor Layar Aktif (`ScreenDetector`)
+- **Masalah**: Node `/sys/class/graphics/fb0/blank` pada kernel MediaTek bersifat write-only dan mengembalikan string kosong saat dibaca. Akibatnya daemon `lynxd` menganggap layar dalam status `ScreenState::Off`, memicu Deep Sleep Shield (20s) dan menonaktifkan pemantauan aplikasi aktif.
+- **Solusi**: `ScreenDetector` kini memprioritaskan pemeriksaan node kecerahan backlight fisik (`/sys/class/leds/lcd-backlight/brightness`, `/sys/class/backlight/*/brightness`) yang terbukti membaca nilai aktual numerik secara presisi, dengan fallback terpadu ke `dumpsys power` (`mHoldingDisplaySuspendBlocker=true`).
+
+### 2. Otomatisasi Penuh Peralihan Profil Game Real-Time
+- Begitu game berat (seperti Honkai: Star Rail `com.HoYoverse.hkrpgoversea`) dibuka di latar depan, daemon `lynxd` secara instan mendeteksi status game dan beralih ke profil `performance`.
+- Governor CPU0 (LITTLE) terkunci ke frekuensi maksimum 2.0 GHz, dan CPU6 (BIG Cortex-A76) melonjak ke 1.986 GHz untuk menjamin zero-stutter gaming.
+
+### 3. Verifikasi Telemetri Bypass Hardware Aktual di Bawah Beban Berat
+- Adapter input current (`Pump_Express_ICharger`) terbukti terputus total ke 0 mA saat batas cut-off aktif.
+- Baterai beroperasi dalam status discharge terkendali (`current_now < 0`, -121 mA) untuk menyuplai sisa konsumsi daya motherboard tanpa terjadi pengisian berlebih ke sel baterai.
+
 # Lynx Universal [Hardware Regulated Charging Precision & Dynamic Auto-Cut Latch] 7.0.0-RC31
 Released on: 2026-10-13
 > **Lynx Universal v7.0.0-RC31** (Lynx Kernel Manager v3.0.96): **Penyempurnaan Total Regulasi Arus Fisik Fast Charging (Physical Hardware Charging Regulation), Pemisahan Tegas Spektrum Mode (Cool 1000mA, Standard OEM 33W, Hyper Unconstrained, Custom Slider), Implementasi Kontrol Khusus Chipset Transsion MTK (PDC Max Watt 5W/33W, PE20/PE40 Pump Suppression, Battery Charging Current Throttling BCCT Thermal Devices, dan In-Call Charging Clamping State), Sistem Cutoff Pengisian Cerdas Histeresis Murni (Auto-Cut & Bypass Hysteresis Latching Bebas-Flapping), Serta Restorasi Penuh Register & Izin Sysfs pada Saat Pencabutan Charger**.
