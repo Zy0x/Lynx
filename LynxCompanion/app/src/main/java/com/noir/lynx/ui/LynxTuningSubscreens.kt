@@ -54,6 +54,15 @@ fun TuningGpuCategory(
 }
 
 @Composable
+fun TuningGameHudCategory(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    modifier: Modifier = Modifier
+) {
+    com.noir.lynx.feature.hud.ui.GameHudSubscreen(uiState = uiState, viewModel = viewModel, modifier = modifier)
+}
+
+@Composable
 fun TuningThermalCategory(
     uiState: LynxUiState,
     viewModel: LynxViewModel,

@@ -46,242 +46,37 @@ fun SystemSubscreen(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ── Otomasi Profil Per-Aplikasi Card ────────────────────
-        LynxCard(
-            title = "Otomasi Profil Per-Aplikasi",
-            icon = Icons.Default.SportsEsports,
-            accentColor = AccentGreen
+        // ── Info Relokasi Otomasi Profil Per-Aplikasi ────────────
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = BgElevated,
+            border = BorderStroke(0.8.dp, BorderSubtle),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
         ) {
-            // Master Service Toggle
             Row(
-                Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Column(Modifier.weight(1f)) {
+                Icon(
+                    imageVector = Icons.Default.SportsEsports,
+                    contentDescription = null,
+                    tint = AccentGreen,
+                    modifier = Modifier.size(18.dp)
+                )
+                Column {
                     Text(
-                        "Layanan Otomasi Latar Belakang",
+                        "Otomasi Profil Per-Aplikasi",
                         color = TextPrimary,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
+                        fontSize = 12.sp
                     )
                     Text(
-                        "Pantau aplikasi aktif dan alihkan profil CPU/GPU seketika (0ms boost saat launch)",
+                        "Pengaturan profil per-aplikasi dan game kini dipusatkan di sub-halaman Profil Performa Kernel.",
                         color = TextSecondary,
                         fontSize = 11.sp,
                         lineHeight = 15.sp
                     )
-                }
-                Switch(
-                    checked = uiState.isAppAutomationActive,
-                    onCheckedChange = { viewModel.toggleAppAutomation(context, it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BgDeepOled,
-                        checkedTrackColor = AccentGreen,
-                        uncheckedThumbColor = TextSecondary,
-                        uncheckedTrackColor = BgElevated,
-                        uncheckedBorderColor = BorderGlass
-                    )
-                )
-            }
-
-            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(bottom = 10.dp))
-
-            // Header: Rule Count & Add Button
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "${uiState.appProfileRules.size} Aturan Profil Dikonfigurasi",
-                        color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.5.sp
-                    )
-                    Text(
-                        "Profil khusus diterapkan otomatis saat aplikasi berada di foreground",
-                        color = TextSecondary, fontSize = 10.5.sp
-                    )
-                }
-                Surface(
-                    onClick = onAddAppClick,
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentGreen.copy(alpha = 0.18f),
-                    border = BorderStroke(1.dp, AccentGreen.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Add, null, tint = AccentGreen, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Tambah", color = AccentGreen, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            // App Profile Rules List
-            if (uiState.appProfileRules.isEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = BgElevated,
-                    border = BorderStroke(1.dp, BorderGlass),
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                ) {
-                    Column(
-                        Modifier.padding(14.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(Icons.Default.Tune, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "Belum ada aturan khusus",
-                            color = TextPrimary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            "Klik tombol 'Tambah' untuk mengunci profil tertentu (Performa, Extreme, Balance, Hemat) ke game atau app favorit.",
-                            color = TextSecondary,
-                            fontSize = 10.5.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            } else {
-                uiState.appProfileRules.forEach { rule ->
-                    val profColor = when (rule.targetProfile.lowercase()) {
-                        "extreme" -> AccentRed
-                        "performance" -> AccentOrange
-                        "powersave" -> AccentGreen
-                        else -> AccentCyan
-                    }
-                    val profLabel = when (rule.targetProfile.lowercase()) {
-                        "extreme" -> "Extreme"
-                        "performance" -> "Performa"
-                        "powersave" -> "Hemat"
-                        else -> "Balance"
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = BgElevated,
-                        border = BorderStroke(1.dp, if (rule.enabled) profColor.copy(alpha = 0.35f) else BorderGlass),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
-                            onEditRuleClick(rule)
-                        }
-                    ) {
-                        Row(
-                            Modifier.padding(10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                AppIconImage(
-                                    packageName = rule.packageName,
-                                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp))
-                                )
-                                Spacer(Modifier.width(10.dp))
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            rule.appName,
-                                            color = if (rule.enabled) TextPrimary else TextSecondary,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.5.sp
-                                        )
-                                        if (rule.isGame) {
-                                            Spacer(Modifier.width(4.dp))
-                                            Surface(
-                                                shape = RoundedCornerShape(4.dp),
-                                                color = AccentOrange.copy(alpha = 0.18f)
-                                            ) {
-                                                Text(
-                                                    "GAME",
-                                                    color = AccentOrange,
-                                                    fontSize = 7.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Spacer(Modifier.height(2.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = profColor.copy(alpha = 0.15f),
-                                            border = BorderStroke(1.dp, profColor.copy(alpha = 0.4f))
-                                        ) {
-                                            Text(
-                                                profLabel,
-                                                color = profColor,
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                            )
-                                        }
-                                        if (rule.targetRefreshRate != null) {
-                                            Surface(
-                                                shape = RoundedCornerShape(4.dp),
-                                                color = AccentPurple.copy(alpha = 0.15f)
-                                            ) {
-                                                Text(
-                                                    "${rule.targetRefreshRate} Hz",
-                                                    color = AccentPurple,
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                                )
-                                            }
-                                        }
-                                        if (rule.autoFloatingHud) {
-                                            Surface(
-                                                shape = RoundedCornerShape(4.dp),
-                                                color = AccentCyan.copy(alpha = 0.15f)
-                                            ) {
-                                                Text(
-                                                    "OSD",
-                                                    color = AccentCyan,
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Switch(
-                                    checked = rule.enabled,
-                                    onCheckedChange = { enabled ->
-                                        val updated = rule.copy(enabled = enabled)
-                                        viewModel.addOrUpdateAppProfileRule(context, updated)
-                                    },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = BgDeepOled,
-                                        checkedTrackColor = profColor,
-                                        uncheckedThumbColor = TextSecondary,
-                                        uncheckedTrackColor = BgElevated
-                                    ),
-                                    modifier = Modifier.scale(0.75f)
-                                )
-                                IconButton(
-                                    onClick = { onEditRuleClick(rule) },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        null,
-                                        tint = TextSecondary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }

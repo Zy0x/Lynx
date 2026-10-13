@@ -1,3 +1,24 @@
+# Lynx Universal [UX Architecture Restructure: Dedicated Game HUD Subscreen & Unified Per-App Profiling Hub] 7.0.0-RC36
+Released on: 2026-10-13
+> **Lynx Universal v7.0.0-RC36** (Lynx Kernel Manager v3.0.98): **Restrukturisasi Total Information Architecture (IA) UX/UI: Relokasi Floating Game HUD & OSD ke Sub-Halaman Mandiri di Pusat Tuning, Penyatuan Tunggal Otomasi Profil Per-Aplikasi ke dalam Sub-Halaman Profil Performa Kernel, Dekompresi Visual Halaman Dashboard Menjadi Ringkas dan Berfokus Performa**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC36)
+
+### 1. Relokasi Floating Game HUD & OSD ke Sub-Halaman Mandiri Tuning Hub
+- **Latar Belakang**: Kartu Floating Game HUD sebelumnya memakan ruang vertikal masif (>350 dp) pada Dashboard utama karena memuat konfigurasi interaksi (Edge Drawer vs Floating Window), Pin Mini FPS, dan 6 preset gaya visual layout OSD.
+- **Penyempurnaan Arsitektur**:
+  - Kartu kontrol Game HUD dipindahkan secara menyeluruh ke sub-halaman mandiri baru di Pusat Tuning (`TuningCategory.HUD` - "Floating Game HUD").
+  - Menghadirkan *Permanent Sticky Pinned Header* lengkap dengan navigasi kembali yang mulus, deskripsi telemetri, master sakelar, mode drawer/jendela, serta 6 preset visual OSD (RTSS Pillar, Top Nano-Ribbon, Dual-Block Esport, Quad-Tiles Modular, Steam Deck Banner, dan Ghost Text Frameless).
+  - Dashboard utama kini bersih, responsif, dan ringan tanpa beban visual HUD.
+
+### 2. Penyatuan Otomasi Profil Per-Aplikasi ke "Profil Performa Kernel"
+- **Penyelarasan Domain Tingkat Tinggi**: Aturan profil per-aplikasi (`appProfileRules`) dipindahkan dari sub-halaman *Subsystem & Deep Tunables* langsung ke sub-halaman **Profil Performa Kernel** (`TuningCategory.PROFILES`).
+- **Pengalaman Pengguna (*User Workflow*)**:
+  - Di dalam satu sub-halaman yang sama, pengguna dapat melihat Katalog Profil Kernel (Definisi: Extreme, Performance, Balance, Powersave) dan sekaligus mengonfigurasi aturan aplikasi/game mana yang mengaktifkan profil tersebut (Penerapan).
+  - Sub-halaman *Subsystem & Deep Tunables* kembali murni menangani parameter kernel mendalam (*deep sysfs, printk, SELinux, panic handlers*).
+
+---
+
 # Lynx Universal [Unified Silent Status Bar Notification & Redundancy Purge] 7.0.0-RC35
 Released on: 2026-10-13
 > **Lynx Universal v7.0.0-RC35** (Lynx Kernel Manager v3.0.99): **Penyatuan Tunggal Notifikasi Status Bar Hening (Single Silent Status Bar Notification), Eliminasi Total Redundansi Ganda (Modul & Aplikasi), Penghapusan Mutlak Pop-up Toast Pihak Ketiga (`bellavita.toast` & `Toast.apk` Purged), Serta Pengoptimalan Visual Ringan Berfokus Performa**.

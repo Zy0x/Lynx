@@ -189,13 +189,32 @@ fun TuningTabContent(
                                             .padding(horizontal = 16.dp, vertical = 4.dp),
                                         verticalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        // 0. Profil Performa Kernel (Katalog Preset)
+                                        // 0. Profil Performa Kernel (Katalog Preset & Otomasi Per-Aplikasi)
                                         SubsystemCategoryCard(
                                             category = TuningCategory.PROFILES,
                                             badgeText = state.activeProfile.uppercase(),
                                             detailText1 = "${uiState.kernelProfileCatalog.profiles.size} Profil",
-                                            detailText2 = if (state.profileOverrides.isNotEmpty()) "${state.profileOverrides.size} Override" else "Harmonis",
+                                            detailText2 = "${uiState.appProfileRules.size} Aturan App",
                                             onClick = { onSelectedCategoryChange("profiles") }
+                                        )
+
+                                        // 1. Floating Game HUD & OSD
+                                        val hudStyleName = when (uiState.hudStyle) {
+                                            1 -> "RTSS Pillar"
+                                            2 -> "Top Ribbon"
+                                            3 -> "Dual Esport"
+                                            4 -> "Quad Tiles"
+                                            5 -> "Steam Deck"
+                                            6 -> "Ghost Text"
+                                            else -> "RTSS Pillar"
+                                        }
+                                        val hudModeName = if (uiState.hudMode == 0) "Edge Drawer" else "Floating Window"
+                                        SubsystemCategoryCard(
+                                            category = TuningCategory.HUD,
+                                            badgeText = if (uiState.isGameHudActive) "AKTIF" else "NONAKTIF",
+                                            detailText1 = hudStyleName,
+                                            detailText2 = hudModeName,
+                                            onClick = { onSelectedCategoryChange("hud") }
                                         )
 
                                         // 1. CPU & Governor
@@ -254,12 +273,12 @@ fun TuningTabContent(
                                             onClick = { onSelectedCategoryChange("network") }
                                         )
 
-                                        // 7. Subsystem & Automation
+                                        // 8. Subsystem & Deep Tunables
                                         SubsystemCategoryCard(
                                             category = TuningCategory.SYSTEM,
-                                            badgeText = "${uiState.appProfileRules.size} Aturan",
-                                            detailText1 = if (uiState.isAppAutomationActive) "Auto ON" else "Auto OFF",
-                                            detailText2 = "${uiState.deepTunables.size} Tunables",
+                                            badgeText = "${uiState.deepTunables.size} Tunables",
+                                            detailText1 = "SELinux ${uiState.selinuxMode}",
+                                            detailText2 = "Kernel Safety",
                                             onClick = { onSelectedCategoryChange("system") }
                                         )
                                     }
@@ -410,7 +429,18 @@ fun TuningTabContent(
                                             TuningProfilesCategory(
                                                 uiState = uiState,
                                                 viewModel = viewModel,
+                                                onAddAppClick = {
+                                                    viewModel.refreshInstalledApps()
+                                                    onAddAppClick()
+                                                },
+                                                onEditRuleClick = { onEditRuleClick(it) },
                                                 onExtremeConfirmRequired = onExtremeConfirmRequired
+                                            )
+                                        }
+                                        "hud" -> item(key = "subscreen_hud") {
+                                            TuningGameHudCategory(
+                                                uiState = uiState,
+                                                viewModel = viewModel
                                             )
                                         }
                                         "gpu" -> tuningGpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context)
