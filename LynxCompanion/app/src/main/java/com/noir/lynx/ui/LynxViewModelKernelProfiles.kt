@@ -1,0 +1,333 @@
+package com.noir.lynx.ui
+
+import androidx.lifecycle.viewModelScope
+import com.noir.lynx.data.LynxRepository
+import com.noir.lynx.profiles.KernelProfileSelection
+import com.noir.lynx.profiles.ProfileDomain
+import com.noir.lynx.profiles.ProfileOverridesCodec
+import com.noir.lynx.profiles.KernelPerformanceProfile
+import com.noir.lynx.profiles.KernelProfileCatalog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
+
+/** Records a scoped override without changing the dashboard's master profile. */
+internal fun LynxViewModel.recordProfileOverride(domain: ProfileDomain, profile: String) {
+    val normalized = profile.trim().lowercase().ifBlank { KernelProfileSelection.CUSTOM_OVERRIDE }
+    val changed = _uiState.value.state.profileOverrides[domain] != normalized
+    if (!changed) return
+
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(profileOverrides = current.state.profileOverrides + (domain to normalized)))
+    }
+    profileOverrideSaveJob?.cancel()
+    profileOverrideSaveJob = viewModelScope.launch {
+        // Slider/drag controls may call this repeatedly; persist one consolidated override snapshot.
+        delay(120L)
+        val encoded = ProfileOverridesCodec.encode(_uiState.value.state.profileOverrides)
+        LynxRepository.writeStateKey("profile_overrides", encoded, "str")
+    }
+}
+
+/** The dashboard is authoritative: a new master selection removes local domain overrides. */
+internal suspend fun LynxViewModel.clearProfileOverridesForMasterSelection() {
+    profileOverrideSaveJob?.cancel()
+    profileOverrideSaveJob = null
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(profileOverrides = emptyMap()))
+    }
+    LynxRepository.writeStateKey("profile_overrides", "", "str")
+}
+
+internal fun LynxViewModel.resetGpuProfileToMaster(context: android.content.Context) {
+    profileOverrideSaveJob?.cancel()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(profileOverrides = current.state.profileOverrides - ProfileDomain.GPU - ProfileDomain.GRAPHICS))
+    }
+    viewModelScope.launch {
+        LynxRepository.writeStateKey(
+            "profile_overrides",
+            ProfileOverridesCodec.encode(_uiState.value.state.profileOverrides),
+            "str"
+        )
+        val masterPolicy = _uiState.value.kernelProfileCatalog.find(_uiState.value.state.activeProfile)
+            ?.domainProfiles?.get(ProfileDomain.GPU)
+            ?: _uiState.value.state.activeProfile
+        val masterGpuProfile = when (masterPolicy.lowercase()) {
+            "powersave", "battery" -> "battery"
+            "performance", "gaming" -> "esports"
+            "extreme" -> "extreme"
+            else -> "balanced"
+        }
+        applyGpuProfile(masterGpuProfile, context, fromMasterProfile = true)
+    }
+}
+
+internal fun LynxViewModel.masterDomainPreset(domain: ProfileDomain): String =
+    _uiState.value.kernelProfileCatalog.find(_uiState.value.state.activeProfile)?.domainProfiles?.get(domain)
+        ?: _uiState.value.state.activeProfile
+
+/** Saves the desired app configuration as a portable, validated master profile. */
+internal fun LynxViewModel.saveKernelPerformanceProfile(profile: KernelPerformanceProfile, replaceBuiltIn: Boolean, replaceCustom: Boolean) {
+    viewModelScope.launch(Dispatchers.IO) {
+        val state = _uiState.value.state
+        val effectiveDomains = profile.domainProfiles.toMutableMap()
+        state.profileOverrides.forEach { (domain, preset) ->
+            if (domain in setOf(ProfileDomain.CPU, ProfileDomain.GPU) &&
+                preset != KernelProfileSelection.CUSTOM_OVERRIDE && preset != KernelProfileSelection.INHERIT) {
+                effectiveDomains[domain] = preset
+            }
+        }
+        val values = linkedMapOf(
+            "memory.zram_size_mb" to state.memory.zramSizeMb.toString(),
+            "memory.swappiness" to state.memory.swappiness.toString(),
+            "memory.mglru_enabled" to state.memory.mglruEnabled.toString(),
+            "memory.comp_algorithm" to state.memory.compAlgorithm,
+            "uclamp.game_min_ratio" to state.uclamp.gameMinRatio.toString(),
+            "uclamp.game_max_ratio" to state.uclamp.gameMaxRatio.toString(),
+            "uclamp.balance_min_ratio" to state.uclamp.balanceMinRatio.toString(),
+            "uclamp.schedutil_up_rate_us" to state.uclamp.schedutilUpRateUs.toString(),
+            "uclamp.schedutil_down_rate_us" to state.uclamp.schedutilDownRateUs.toString(),
+            "display_touch.touchboost" to state.displayTouch.touchboost.toString(),
+            "display_touch.refresh_rate_lock" to state.displayTouch.refreshRateLock.toString(),
+            "display_touch.surfaceflinger_offset_ns" to state.displayTouch.surfaceFlingerOffsetNs.toString(),
+            "display_touch.skia_vulkan_enabled" to state.displayTouch.skiaVulkanEnabled.toString(),
+            "network.wifi_ping_stabilizer" to state.network.wifiPingStabilizer.toString(),
+            "network.tcp_congestion" to state.network.tcpCongestion,
+            "network.fq_codel_enabled" to state.network.fqCodelEnabled.toString(),
+            "network.wifi_power_save_in_game" to state.network.wifiPowerSaveInGame.toString(),
+            "audio.low_latency_mmap" to state.audio.lowLatencyMmap.toString(),
+            "audio.fast_track_enabled" to state.audio.fastTrackEnabled.toString(),
+            "audio.bt_crackle_guard" to state.audio.btCrackleGuard.toString(),
+        ).toMutableMap()
+        profile.includedSensitiveSettings.forEach { key ->
+            when (key) {
+                "charging.max_battery_percent" -> values[key] = state.charging.maxBatteryPercent.toString()
+                "charging.high_current_target_percent" -> values[key] = state.charging.highCurrentTargetPercent.toString()
+                "charging.smart_tapering_enabled" -> values[key] = state.charging.smartTaperingEnabled.toString()
+                "charging.emergency_temp_guard_enabled" -> values[key] = state.charging.emergencyTempGuardEnabled.toString()
+                "thermal.mode" -> values[key] = state.thermal.mode
+                "thermal.custom_temp_limit_c" -> values[key] = state.thermal.customTempLimitC.toString()
+                "thermal.trip_point_override_c" -> values[key] = state.thermal.tripPointOverrideC.toString()
+                "thermal.hardware_safety_dominant" -> values[key] = state.thermal.hardwareSafetyDominant.toString()
+            }
+        }
+        val snapshotDomains = mapOf(
+            "memory" to ProfileDomain.MEMORY,
+            "display_touch" to ProfileDomain.DISPLAY,
+            "network" to ProfileDomain.NETWORK,
+            "audio" to ProfileDomain.AUDIO,
+            "charging" to ProfileDomain.BATTERY,
+            "thermal" to ProfileDomain.THERMAL,
+        )
+        val selectedValues = values.filter { (key, _) ->
+            snapshotDomains[key.substringBefore('.')] in profile.includedDomains
+        }
+        val result = LynxRepository.saveKernelProfile(
+            profile.copy(domainProfiles = effectiveDomains, settings = selectedValues),
+            replaceBuiltIn,
+            replaceCustom
+        )
+        withContext(Dispatchers.Main) {
+            result.onSuccess { catalog ->
+                _uiState.update { it.copy(kernelProfileCatalog = catalog, successMessage = "Profil ${profile.name} tersimpan") }
+                if (_uiState.value.state.activeProfile == profile.id) {
+                    selectKernelPerformanceProfile(profile.id, com.noir.lynx.LynxApp.instance, clearOverrides = false)
+                }
+            }.onFailure { error ->
+                _uiState.update { it.copy(errorMessage = error.message ?: "Gagal menyimpan profil") }
+            }
+        }
+    }
+}
+
+internal fun LynxViewModel.deleteKernelPerformanceProfile(id: String) {
+    viewModelScope.launch {
+        if (!LynxRepository.deleteKernelProfile(id)) {
+            _uiState.update { it.copy(errorMessage = "Profil bawaan tidak dapat dihapus") }
+            return@launch
+        }
+        val catalog = LynxRepository.readKernelProfileCatalog()
+        _uiState.update { it.copy(kernelProfileCatalog = catalog) }
+        if (_uiState.value.state.activeProfile == id) selectKernelPerformanceProfile("balance", com.noir.lynx.LynxApp.instance, true)
+    }
+}
+
+internal fun LynxViewModel.duplicateKernelPerformanceProfile(id: String) {
+    viewModelScope.launch {
+        LynxRepository.duplicateKernelProfile(id).onSuccess { catalog ->
+            _uiState.update { it.copy(kernelProfileCatalog = catalog, successMessage = "Profil disalin") }
+        }.onFailure { error ->
+            _uiState.update { it.copy(errorMessage = error.message ?: "Gagal menyalin profil") }
+        }
+    }
+}
+
+internal fun LynxViewModel.restoreBuiltInKernelProfile(id: String, context: android.content.Context) {
+    viewModelScope.launch {
+        if (LynxRepository.restoreBuiltInKernelProfile(id)) {
+            val catalog = LynxRepository.readKernelProfileCatalog()
+            _uiState.update { it.copy(kernelProfileCatalog = catalog, successMessage = "Profil bawaan dipulihkan") }
+            if (_uiState.value.state.activeProfile == id) selectKernelPerformanceProfile(id, context, clearOverrides = false)
+        }
+    }
+}
+
+/** Applies the root profile as baseline, then domain presets and safe saved settings. */
+internal fun LynxViewModel.selectKernelPerformanceProfile(
+    id: String,
+    context: android.content.Context,
+    clearOverrides: Boolean,
+) {
+    viewModelScope.launch {
+        val catalog = LynxRepository.readKernelProfileCatalog()
+        val profile = catalog.find(id) ?: run {
+            _uiState.update { it.copy(errorMessage = "Profil tidak ditemukan") }
+            return@launch
+        }
+        val previousOverrides = _uiState.value.state.profileOverrides
+        val previousState = _uiState.value.state
+        val savedCustomClusters = if (!clearOverrides && previousOverrides[ProfileDomain.CPU] == KernelProfileSelection.CUSTOM_OVERRIDE) {
+            LynxRepository.readClusters()
+        } else emptyList()
+        val savedCustomGpu = if (!clearOverrides && previousOverrides[ProfileDomain.GPU] == KernelProfileSelection.CUSTOM_OVERRIDE) {
+            LynxRepository.readGpuInfo()
+        } else null
+        if (!clearOverrides && previousOverrides[ProfileDomain.CPU] == KernelProfileSelection.CUSTOM_OVERRIDE && savedCustomClusters.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "Override CPU kustom tidak dapat dibaca; pilih hapus override untuk mengganti profil dengan aman") }
+            return@launch
+        }
+        if (!clearOverrides && previousOverrides[ProfileDomain.GPU] == KernelProfileSelection.CUSTOM_OVERRIDE &&
+            (savedCustomGpu == null || savedCustomGpu.platform == "generic" || savedCustomGpu.maxFreqMhz <= 0)) {
+            _uiState.update { it.copy(errorMessage = "Override GPU kustom tidak dapat dibaca; pilih hapus override untuk mengganti profil dengan aman") }
+            return@launch
+        }
+        val base = profile.baseProfile
+        val profileApplied = if (_uiState.value.isModuleInstalled) {
+            LynxRepository.setProfile(id, "user")
+        } else {
+            val baselineWritten = LynxRepository.writeStateKey("active_profile", base, "str")
+            val overridesWritten = if (clearOverrides) LynxRepository.writeStateKey("profile_overrides", "", "str") else true
+            baselineWritten && overridesWritten
+        }
+        if (!profileApplied) {
+            _uiState.update { it.copy(errorMessage = "Profil dasar $base gagal diterapkan") }
+            return@launch
+        }
+
+        val cpuOverride = if (clearOverrides) null else previousOverrides[ProfileDomain.CPU]
+        if (cpuOverride == KernelProfileSelection.CUSTOM_OVERRIDE) {
+            restoreCustomCpuPolicy(savedCustomClusters)
+        } else {
+            val cpuPreset = cpuOverride ?: profile.domainProfiles[ProfileDomain.CPU] ?: base
+            applyComprehensiveCpuProfile(cpuPreset, context, asMasterProfile = false, recordDomainOverride = false)
+            cpuProfileJob?.join()
+        }
+        val gpuOverride = if (clearOverrides) null else previousOverrides[ProfileDomain.GPU]
+        if (gpuOverride == KernelProfileSelection.CUSTOM_OVERRIDE) {
+            savedCustomGpu?.let { restoreCustomGpuPolicy(it) }
+        } else {
+            val gpuPreset = (gpuOverride ?: profile.domainProfiles[ProfileDomain.GPU])?.let(::normalizeGpuPreset)
+                ?: when (base) { "powersave" -> "battery"; "performance" -> "esports"; "extreme" -> "extreme"; else -> "balanced" }
+            applyGpuProfile(gpuPreset, context, fromMasterProfile = true)
+            gpuProfileJob?.join()
+        }
+
+        val skipped = mutableListOf<String>()
+        val overrides = if (clearOverrides) emptyMap() else previousOverrides
+        val settingsDomains = mapOf(
+            "memory" to ProfileDomain.MEMORY,
+            "display_touch" to ProfileDomain.DISPLAY,
+            "network" to ProfileDomain.NETWORK,
+            "audio" to ProfileDomain.AUDIO,
+            "charging" to ProfileDomain.BATTERY,
+            "thermal" to ProfileDomain.THERMAL,
+        )
+        profile.settings.forEach { (key, value) ->
+            val permitted = key in KernelPerformanceProfile.SAFE_SETTING_KEYS &&
+                (key !in KernelPerformanceProfile.SENSITIVE_SETTING_KEYS || key in profile.includedSensitiveSettings) &&
+                key !in setOf("charging.bypass_enabled", "charging.extreme_charging_enabled", "charging.thermal_lockout_bypass_enabled", "thermal.full_bypass") &&
+                settingsDomains[key.substringBefore('.')] !in overrides
+            if (permitted && LynxRepository.writeStateKey(key, value, valueType(value))) Unit
+            else skipped += key.substringBefore('.')
+        }
+
+        val runtimeAppliedKeys = mutableSetOf<String>()
+        val thermalSettings = if (ProfileDomain.THERMAL in overrides) emptyMap() else profile.settings.filterKeys { it.startsWith("thermal.") }
+        if (thermalSettings.isNotEmpty()) {
+            val mode = thermalSettings["thermal.mode"] ?: _uiState.value.state.thermal.mode
+            val limit = thermalSettings["thermal.custom_temp_limit_c"]?.toIntOrNull()
+                ?: _uiState.value.state.thermal.customTempLimitC
+            val applied = if ("thermal.mode" in thermalSettings) LynxRepository.applyThermalMode(mode, limit)
+            else LynxRepository.applyCustomTempLimitLive(limit)
+            if (applied) runtimeAppliedKeys += thermalSettings.keys.filter { it in setOf("thermal.mode", "thermal.custom_temp_limit_c") }
+            else skipped += "thermal"
+        }
+        val chargingSettings = if (ProfileDomain.BATTERY in overrides) emptyMap() else profile.settings
+        if ("charging.max_battery_percent" in chargingSettings) {
+            val applied = com.noir.lynx.feature.battery.data.ChargingRepository(LynxRepository)
+                .setMaxBatteryPercent(chargingSettings.getValue("charging.max_battery_percent").toInt())
+            if (applied) runtimeAppliedKeys += "charging.max_battery_percent" else skipped += "charging"
+        }
+        if ("charging.smart_tapering_enabled" in chargingSettings) {
+            com.noir.lynx.feature.battery.data.ChargingRepository(LynxRepository)
+                .setSmartTapering(chargingSettings.getValue("charging.smart_tapering_enabled").toBoolean())
+            runtimeAppliedKeys += "charging.smart_tapering_enabled"
+        }
+        if ("charging.emergency_temp_guard_enabled" in chargingSettings) {
+            com.noir.lynx.feature.battery.data.ChargingRepository(LynxRepository)
+                .setEmergencyTempGuard(chargingSettings.getValue("charging.emergency_temp_guard_enabled").toBoolean())
+            runtimeAppliedKeys += "charging.emergency_temp_guard_enabled"
+        }
+
+        LynxRepository.writeStateKey("kernel_profile_id", id, "str")
+        LynxRepository.writeStateKey("profile_overrides", ProfileOverridesCodec.encode(overrides), "str")
+        LynxRepository.setActiveKernelProfile(id)
+        if (ProfileDomain.THERMAL in overrides) {
+            LynxRepository.applyThermalMode(previousState.thermal.mode, previousState.thermal.customTempLimitC)
+        }
+        val unhandledSettings = profile.settings.keys.filter {
+            it !in runtimeAppliedKeys && settingsDomains[it.substringBefore('.')] !in overrides
+        }.map { it.substringBefore('.') }.toSet()
+        val note = (skipped + unhandledSettings).distinct().joinToString()
+        val refreshed = LynxRepository.readState()
+        _uiState.update {
+            it.copy(state = refreshed.copy(activeProfile = id, profileOverrides = overrides), kernelProfileCatalog = catalog.copy(activeId = id), successMessage =
+                if (note.isBlank()) "Profil ${profile.name} diterapkan"
+                else "${profile.name} diterapkan; domain perlu adaptasi: $note")
+        }
+    }
+}
+
+private suspend fun restoreCustomCpuPolicy(clusters: List<com.noir.lynx.data.CpuClusterInfo>) {
+    clusters.forEach { cluster ->
+        LynxRepository.setClusterLock(cluster.id, false)
+        LynxRepository.setClusterFreq(cluster.id, cluster.curMin, cluster.curMax)
+        if (cluster.curGov.isNotBlank()) LynxRepository.setClusterGov(cluster.id, cluster.curGov)
+        if (cluster.isLocked) LynxRepository.setClusterLock(cluster.id, true, cluster.curMin, cluster.curMax)
+    }
+}
+
+private suspend fun restoreCustomGpuPolicy(gpu: com.noir.lynx.data.GpuInfo) {
+    if (gpu.minFreqMhz > 0 && gpu.maxFreqMhz >= gpu.minFreqMhz) {
+        LynxRepository.setGpuFreq(gpu.minFreqMhz.toLong() * 1_000_000L, gpu.maxFreqMhz.toLong() * 1_000_000L)
+    }
+    val boost = if (gpu.platform == "adreno") gpu.adrenoBoostLevel else gpu.gedBoostLevel
+    LynxRepository.setGpuBoostLevel(boost.coerceIn(0, if (gpu.platform == "adreno") 3 else 2))
+}
+
+private fun normalizeGpuPreset(value: String): String = when (value.lowercase()) {
+    "powersave", "battery", "eco" -> "battery"
+    "performance", "gaming", "esports" -> "esports"
+    "extreme" -> "extreme"
+    else -> "balanced"
+}
+
+private fun valueType(value: String): String = when {
+    value == "true" || value == "false" -> "bool"
+    value.toLongOrNull() != null -> "val"
+    else -> "str"
+}
+

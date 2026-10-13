@@ -1,4 +1,5 @@
 package com.noir.lynx.feature.battery.ui
+import com.noir.lynx.ui.*
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -103,13 +104,6 @@ fun BatteryProtectionCard(
             onCheckedChange = { viewModel.setNightSleepGuard(it) }
         )
 
-        // Smart Tapering (90%+)
-        LynxSwitch(
-            label = stringResource(R.string.battery_smart_tapering_switch),
-            subLabel = stringResource(R.string.battery_smart_tapering_desc),
-            checked = state.charging.smartTaperingEnabled,
-            onCheckedChange = { viewModel.setSmartTapering(it) }
-        )
 
         // Silent Emergency Guard Status Banner
         Surface(

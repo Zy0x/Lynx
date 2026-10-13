@@ -6,7 +6,8 @@ use crate::hardware::translator::{HardwareTranslator, PlannedOperation};
 use crate::profile::profile::Profile;
 
 pub struct ExecutionPlan {
-    pub profile_name: &'static str,
+    pub profile_name: String,
+    pub base_profile: &'static str,
     pub vendor: Vendor,
     pub capability: HardwareCapability,
     pub operations: Vec<PlannedOperation>,
@@ -15,11 +16,16 @@ pub struct ExecutionPlan {
 impl ExecutionPlan {
     /// Builds an execution plan from the given profile and the device's probed capabilities.
     pub fn build(profile: &Profile) -> Self {
+        Self::build_named(profile, profile.name)
+    }
+
+    pub fn build_named(profile: &Profile, name: &str) -> Self {
         let capability = HardwareCapability::resolve();
         let operations = HardwareTranslator::translate(profile, &capability);
 
         Self {
-            profile_name: profile.name,
+            profile_name: name.to_string(),
+            base_profile: profile.name,
             vendor: capability.vendor,
             capability,
             operations,

@@ -1,31 +1,31 @@
 param(
-    [ValidateSet("release", "debug")]
-    [string]$Type = "release"
+    [string]$Variant = "Release"
 )
 
 $env:JAVA_HOME = "F:\AutoGram\.toolchains\jdk-17"
-$env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$RootDir = Split-Path -Parent $ScriptDir
-$CompanionDir = Join-Path $RootDir "LynxCompanion"
+$env:PATH = "F:\AutoGram\.toolchains\jdk-17\bin;" + $env:PATH
 
-Push-Location $CompanionDir
-try {
-    if ($Type -eq "release") {
-        .\gradlew.bat assembleRelease --no-daemon
-        $apkPath = Join-Path $CompanionDir "app\build\outputs\apk\release\app-release.apk"
-        if (Test-Path $apkPath) {
-            Copy-Item -Path $apkPath -Destination (Join-Path $RootDir "LynxKernelManager.apk") -Force
-            Write-Host "[OK] Bundled optimized release APK to LynxKernelManager.apk" -ForegroundColor Green
-        }
+$repoRoot = Split-Path -Parent $PSScriptRoot
+Set-Location "$repoRoot\LynxCompanion"
+
+if ($Variant -eq "Debug") {
+    Write-Host "[BUILD] Membangun varian DEBUG (Khusus troubleshooting)..." -ForegroundColor Yellow
+    & .\gradlew assembleDebug --no-configuration-cache
+    if ($LASTEXITCODE -eq 0) {
+        Copy-Item "app\build\outputs\apk\debug\app-debug.apk" "$repoRoot\LynxKernelManager.apk" -Force
+        Write-Host "[OK] APK Debug berhasil disalin ke $repoRoot\LynxKernelManager.apk" -ForegroundColor Green
     } else {
-        .\gradlew.bat assembleDebug --no-daemon
-        $apkPath = Join-Path $CompanionDir "app\build\outputs\apk\debug\app-debug.apk"
-        if (Test-Path $apkPath) {
-            Copy-Item -Path $apkPath -Destination (Join-Path $RootDir "LynxKernelManager.apk") -Force
-            Write-Host "[OK] Bundled debug APK to LynxKernelManager.apk" -ForegroundColor Green
-        }
+        Write-Error "[FAIL] Build Debug gagal dengan kode $LASTEXITCODE"
     }
-} finally {
-    Pop-Location
+} else {
+    Write-Host "[BUILD] Membangun varian RELEASE (Standar Wajib Lynx - Minifikasi R8 & Shrink)..." -ForegroundColor Cyan
+    & .\gradlew assembleRelease --no-configuration-cache
+    if ($LASTEXITCODE -eq 0) {
+        Copy-Item "app\build\outputs\apk\release\app-release.apk" "$repoRoot\LynxKernelManager.apk" -Force
+        Write-Host "[OK] APK Release berhasil disalin ke $repoRoot\LynxKernelManager.apk" -ForegroundColor Green
+    } else {
+        Write-Error "[FAIL] Build Release gagal dengan kode $LASTEXITCODE"
+    }
 }
+
+Set-Location $repoRoot

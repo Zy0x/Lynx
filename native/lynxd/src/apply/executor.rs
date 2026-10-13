@@ -19,7 +19,7 @@ pub struct NodeSnapshot {
 
 #[derive(Debug)]
 pub struct ExecutionReport {
-    pub profile_name: &'static str,
+    pub profile_name: String,
     pub dry_run: bool,
     pub operations_planned: usize,
     pub operations_committed: usize,
@@ -98,7 +98,7 @@ impl ProfileExecutor {
             println!("\n[INFO] Pre-validation: PASS (All {} target nodes verified).", plan.operations.len());
             println!("[INFO] Dry-Run Status: COMPLETED SAFELY (No kernel mutations committed).");
             return Ok(ExecutionReport {
-                profile_name: plan.profile_name,
+                profile_name: plan.profile_name.clone(),
                 dry_run: true,
                 operations_planned: plan.operations.len(),
                 operations_committed: 0,
@@ -120,7 +120,7 @@ impl ProfileExecutor {
 
         // ── Phase 5: State Persistence (Pre-Commit Guard) ──────────────────
         let vendor_str = plan.vendor.to_string();
-        if let Err(e) = ProfileStateManager::record_pre_commit(plan.profile_name, &vendor_str, &snapshots) {
+        if let Err(e) = ProfileStateManager::record_pre_commit(&plan.profile_name, &vendor_str, &snapshots) {
             Logger::warn(format!("Failed to record pre-commit snapshot to disk: {}", e));
         }
 
@@ -171,7 +171,7 @@ impl ProfileExecutor {
 
             if rollback_success {
                 Logger::info("Hardware state successfully restored to pre-transaction snapshot.");
-                let _ = ProfileStateManager::record_failed_rollback(plan.profile_name, &vendor_str);
+                let _ = ProfileStateManager::record_failed_rollback(&plan.profile_name, &vendor_str);
             } else {
                 Logger::error("Rollback experienced partial errors. System state may require reboot.");
             }
@@ -180,13 +180,13 @@ impl ProfileExecutor {
         }
 
         // ── Phase 6c: OEM Throttler Process Neutralization & Active Marker ──
-        let is_perf_or_ext = matches!(plan.profile_name, "extreme" | "performance");
+        let is_perf_or_ext = matches!(plan.base_profile, "extreme" | "performance");
         ChargingRegulator::signal_processes(
             &["mi_thermald", "thermal-engine", "thermal-engine-v2", "ituxd"],
             is_perf_or_ext,
         );
         let _ = fs::create_dir_all("/data/adb/lynx");
-        let _ = fs::write("/data/adb/lynx/active_profile", plan.profile_name);
+        let _ = fs::write("/data/adb/lynx/active_profile", &plan.profile_name);
 
         // ── Phase 7: Post-Commit Verification ───────────────────────────────
         let mut verify_mismatches = 0;
@@ -209,11 +209,11 @@ impl ProfileExecutor {
         }
 
         // ── Phase 8: Post-Commit Persistence (Clean State) ──────────────────
-        if let Err(e) = ProfileStateManager::record_post_commit(plan.profile_name, &vendor_str) {
+        if let Err(e) = ProfileStateManager::record_post_commit(&plan.profile_name, &vendor_str) {
             Logger::warn(format!("Failed to record post-commit state: {}", e));
         }
 
-        let desc = match plan.profile_name {
+        let desc = match plan.base_profile {
             "extreme" => "[ Extreme Mode Active ] Deity Hybrid Architecture",
             "performance" => "[ Performance Mode Active ] Deity Hybrid Architecture",
             "powersave" => "[ Powersave Mode Active ] Deity Hybrid Architecture",
@@ -241,7 +241,7 @@ impl ProfileExecutor {
         }
 
         Ok(ExecutionReport {
-            profile_name: plan.profile_name,
+            profile_name: plan.profile_name.clone(),
             dry_run: false,
             operations_planned: plan.operations.len(),
             operations_committed: committed_count,

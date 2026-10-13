@@ -1,8 +1,10 @@
 package com.noir.lynx.feature.battery
+import com.noir.lynx.ui.*
 
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import com.noir.lynx.feature.battery.ui.TuningChargingCategory
 import com.noir.lynx.feature.battery.ui.dialogs.BatteryDetailBottomSheet
@@ -20,6 +22,9 @@ fun ChargingScreenLifecycle(
 ) {
     val state = uiState.state
     val battDetails = uiState.batteryDetails
+    SideEffect {
+        viewModel.updateBatteryInformationScreenVisibility(uiState.batterySubTab == 1)
+    }
     LaunchedEffect(Unit) {
         viewModel.isBatteryScreenActive = true
         try {
@@ -29,6 +34,7 @@ fun ChargingScreenLifecycle(
                 viewModel.refreshBatteryDetails(forceDeepStats = false)
             }
         } finally {
+            viewModel.updateBatteryInformationScreenVisibility(false)
             viewModel.isBatteryScreenActive = false
         }
     }

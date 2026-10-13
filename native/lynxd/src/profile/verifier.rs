@@ -26,10 +26,13 @@ impl ProfileVerifier {
     pub fn resolve_active_profile_name(requested: Option<&str>) -> String {
         if let Some(req) = requested {
             if !req.trim().is_empty() {
-                return match req.trim().to_ascii_lowercase().as_str() {
+                let normalized = req.trim().to_ascii_lowercase();
+                return match normalized.as_str() {
                     "perf" | "performance" => "performance".to_string(),
                     "ext" | "extreme" => "extreme".to_string(),
                     "ps" | "powersave" => "powersave".to_string(),
+                    "balance" | "balanced" => "balanced".to_string(),
+                    _ if super::user_catalog::resolve_profile(&normalized).is_some() => normalized,
                     _ => "balanced".to_string(),
                 };
             }

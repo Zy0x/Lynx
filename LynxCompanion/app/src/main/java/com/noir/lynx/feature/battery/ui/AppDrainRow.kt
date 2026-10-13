@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.AppDrainItem
 import com.noir.lynx.designsystem.theme.*
-import com.noir.lynx.ui.ProcessIcon
+import com.noir.lynx.feature.cpu.ui.ProcessIcon
 import java.util.Locale
 
 @Composable

@@ -7,7 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,10 +19,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.designsystem.card.LynxCard
-import com.noir.lynx.designsystem.controls.LynxSwitch
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.data.LynxUiState
+import com.noir.lynx.feature.battery.ui.dialogs.CustomCurrentLimitDialog
 import com.noir.lynx.ui.LynxViewModel
+import com.noir.lynx.ui.closeCustomCurrentDialog
+import com.noir.lynx.ui.openCustomCurrentDialog
+import com.noir.lynx.ui.setChargingMode
+import com.noir.lynx.ui.setCustomCurrentLimit
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
@@ -36,32 +40,153 @@ fun FastChargingControlCard(
     val state = uiState.state
     val battDetails = uiState.batteryDetails
 
+    var showHyperConfirmDialog by remember { mutableStateOf(false) }
+
+    val activeMode = remember(state.charging.chargingMode, state.charging.extremeChargingEnabled, state.charging.limitCurrentMa) {
+        when {
+            state.charging.chargingMode.isNotBlank() -> state.charging.chargingMode.lowercase()
+            state.charging.extremeChargingEnabled -> "hyper"
+            state.charging.limitCurrentMa in 500..2500 -> "cool"
+            state.charging.limitCurrentMa > 2500 && state.charging.limitCurrentMa != 6000 -> "custom"
+            else -> "standard"
+        }
+    }
+
     LynxCard(
         title = stringResource(R.string.battery_super_fast_charging),
         icon = Icons.Default.Bolt,
         accentColor = AccentCyan,
         modifier = modifier
     ) {
-        // Master Switch: Super Fast Charging
-        LynxSwitch(
-            label = stringResource(R.string.battery_fast_charging),
-            subLabel = stringResource(R.string.battery_fast_charging_desc),
-            checked = state.charging.extremeChargingEnabled,
-            onCheckedChange = { viewModel.setMasterFastCharging(it) }
+        // 4-Tier Charging Mode Selector (2x2 Matrix Grid)
+        Text(
+            text = "MODE PENGISIAN DAYA",
+            style = MaterialTheme.typography.labelSmall,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextSecondary
         )
+        Spacer(Modifier.height(6.dp))
+
+        val modes = listOf(
+            ChargingModeItem(
+                id = "cool",
+                title = stringResource(R.string.battery_mode_cool),
+                sub = stringResource(R.string.battery_mode_cool_sub),
+                icon = Icons.Default.AcUnit,
+                accent = AccentCyan
+            ),
+            ChargingModeItem(
+                id = "standard",
+                title = stringResource(R.string.battery_mode_standard),
+                sub = stringResource(R.string.battery_mode_standard_sub),
+                icon = Icons.Default.Balance,
+                accent = AccentGreen
+            ),
+            ChargingModeItem(
+                id = "hyper",
+                title = stringResource(R.string.battery_mode_hyper),
+                sub = stringResource(R.string.battery_mode_hyper_sub),
+                icon = Icons.Default.Bolt,
+                accent = AccentOrange
+            ),
+            ChargingModeItem(
+                id = "custom",
+                title = stringResource(R.string.battery_mode_custom),
+                sub = if (activeMode == "custom") "${state.charging.limitCurrentMa} mA" else stringResource(R.string.battery_mode_custom_sub),
+                icon = Icons.Default.Tune,
+                accent = AccentPurple
+            )
+        )
+
+        // Row 1: Cool & Standard
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ChargingModeCard(
+                item = modes[0],
+                isSelected = activeMode == "cool",
+                onClick = { viewModel.setChargingMode("cool", 2000) },
+                modifier = Modifier.weight(1f)
+            )
+            ChargingModeCard(
+                item = modes[1],
+                isSelected = activeMode == "standard",
+                onClick = { viewModel.setChargingMode("standard") },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Row 2: Hyper & Custom
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ChargingModeCard(
+                item = modes[2],
+                isSelected = activeMode == "hyper",
+                onClick = {
+                    if (activeMode != "hyper") {
+                        showHyperConfirmDialog = true
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            )
+            ChargingModeCard(
+                item = modes[3],
+                isSelected = activeMode == "custom",
+                onClick = {
+                    viewModel.openCustomCurrentDialog()
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        // Contextual Mode Description Card
+        val modeDesc = when (activeMode) {
+            "cool" -> stringResource(R.string.battery_mode_cool_desc)
+            "standard" -> stringResource(R.string.battery_mode_standard_desc)
+            "hyper" -> stringResource(R.string.battery_mode_hyper_desc)
+            "custom" -> "Batas arus manual disetel ke ${state.charging.limitCurrentMa} mA dengan penguncian sysfs aktif."
+            else -> stringResource(R.string.battery_mode_standard_desc)
+        }
+
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = BgElevated.copy(alpha = 0.35f),
+            border = BorderStroke(0.8.dp, BorderSubtle),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+        ) {
+            Text(
+                text = modeDesc,
+                style = MaterialTheme.typography.bodySmall,
+                fontSize = 11.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+            )
+        }
 
         // Active Mode Status Pill
         val isPlugged = battDetails?.isPlugged == true
         val isCharging = battDetails?.isCharging == true
         val curLevel = battDetails?.level ?: 0
+        val isBypassFeatureEnabled = state.charging.bypassEnabled
         val smartLimit = state.charging.maxBatteryPercent.coerceIn(50, 100)
-        val isOvernightLatched = isPlugged && (battDetails?.isOvernightBypassLatched == true || curLevel >= 100)
-        val isLimitLatched = isPlugged && smartLimit < 100 && (battDetails?.isSmartLimitLatched == true || curLevel >= smartLimit || (battDetails?.isBypassActive == true && curLevel >= (smartLimit - 2)))
-        val isManualBypass = isPlugged && state.charging.bypassEnabled
-        val isBypassActive = isLimitLatched || isOvernightLatched || isManualBypass || (isPlugged && battDetails?.isBypassActive == true)
-        val isNightGentle = isPlugged && (battDetails?.isNightGentleActive == true || (state.charging.nightSleepGuardEnabled && isCharging && Calendar.getInstance().get(Calendar.HOUR_OF_DAY).let { it >= 23 || it < 6 })) && !isBypassActive
-        val isSmartTapering = isPlugged && isCharging && battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled && !isBypassActive
-        val isExtreme = state.charging.extremeChargingEnabled && isPlugged && !isBypassActive
+        val isOvernightLatched = isPlugged && isBypassFeatureEnabled && (battDetails?.isOvernightBypassLatched == true || curLevel >= 100)
+        val isLimitLatched = isPlugged && isBypassFeatureEnabled && smartLimit < 100 && (battDetails?.isSmartLimitLatched == true || (battDetails?.isBypassActive == true && curLevel >= (smartLimit - 2)))
+        val isManualBypass = isPlugged && isBypassFeatureEnabled && battDetails?.isBypassActive == true
+        val isNightGentle = isPlugged && (battDetails?.isNightGentleActive == true || (state.charging.nightSleepGuardEnabled && isCharging && Calendar.getInstance().get(Calendar.HOUR_OF_DAY).let { it >= 23 || it < 6 })) && !isManualBypass
+        val isSmartTapering = isPlugged && isCharging && battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled && !isManualBypass
+        val detectedProtocol = battDetails?.fastChargeProtocol.orEmpty().trim()
+        val isHardwareFastChargeActive = isPlugged && isCharging && detectedProtocol.isNotBlank() &&
+            !detectedProtocol.contains("standard", ignoreCase = true) &&
+            !detectedProtocol.contains("battery power", ignoreCase = true) &&
+            !detectedProtocol.contains("unknown", ignoreCase = true)
 
         val modePillLabel = when {
             !isPlugged -> stringResource(R.string.battery_status_disconnected)
@@ -70,7 +195,11 @@ fun FastChargingControlCard(
             isManualBypass -> stringResource(R.string.battery_status_manual_bypass)
             isNightGentle -> stringResource(R.string.battery_status_night_gentle)
             isSmartTapering -> stringResource(R.string.battery_status_smart_tapering)
-            isExtreme -> if (state.charging.isUnconstrainedMaxHw) stringResource(R.string.battery_status_fast_charging_max) else stringResource(R.string.battery_status_fast_charging_ma, state.charging.limitCurrentMa)
+            activeMode == "hyper" -> "Mode Hyper Aktif • Daya Penuh"
+            activeMode == "cool" -> "Mode Sejuk Aktif • Dibatasi ~2.0A"
+            activeMode == "custom" -> "Mode Kustom Aktif • ${state.charging.limitCurrentMa} mA"
+            activeMode == "standard" -> "Mode Standar Aktif • Regulasi OEM"
+            isHardwareFastChargeActive -> stringResource(R.string.battery_status_fast_charging_max)
             else -> stringResource(R.string.battery_status_standard_ma, state.charging.limitCurrentMa)
         }
         val modePillColor = when {
@@ -78,8 +207,10 @@ fun FastChargingControlCard(
             isOvernightLatched || isLimitLatched || isManualBypass -> AccentCyan
             isNightGentle -> AccentPurple
             isSmartTapering -> AccentGreen
-            isExtreme -> AccentCyan
-            else -> AccentOrange
+            activeMode == "hyper" -> AccentOrange
+            activeMode == "cool" -> AccentCyan
+            activeMode == "custom" -> AccentPurple
+            else -> AccentGreen
         }
 
         Surface(
@@ -97,7 +228,9 @@ fun FastChargingControlCard(
                         !isPlugged -> Icons.Default.BatteryStd
                         isOvernightLatched || isLimitLatched || isManualBypass -> Icons.Default.Shield
                         isNightGentle -> Icons.Default.Bedtime
-                        isExtreme -> Icons.Default.Bolt
+                        activeMode == "hyper" -> Icons.Default.Bolt
+                        activeMode == "cool" -> Icons.Default.AcUnit
+                        activeMode == "custom" -> Icons.Default.Tune
                         else -> Icons.Default.BatteryChargingFull
                     },
                     contentDescription = null,
@@ -277,100 +410,137 @@ fun FastChargingControlCard(
             samples = battDetails?.currentHistorySamples ?: emptyList(),
             currentMa = battDetails?.currentMa ?: 0,
             accentColor = if (battDetails?.isCharging == true) AccentGreen else AccentCyan,
-            modifier = Modifier.padding(bottom = 10.dp)
+            modifier = Modifier.padding(bottom = 4.dp)
         )
+    }
 
-        // Quick-Pills for Current Limit (4 Clean Mobile-First Options)
-        Text(
-            text = stringResource(R.string.battery_current_limit_options),
-            style = MaterialTheme.typography.labelSmall,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSecondary
-        )
-        Spacer(Modifier.height(6.dp))
-
-        val quickPresets = listOf(
-            Triple("2.0A", "Standar", 2000 to false),
-            Triple("4.5A", "Cepat", 4500 to false),
-            Triple("6.0A", "Maksimal", 6000 to true)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            quickPresets.forEach { (ampLabel, descLabel, pair) ->
-                val (ma, isMaxHw) = pair
-                val isSelected = if (isMaxHw) (state.charging.isUnconstrainedMaxHw || state.charging.limitCurrentMa == 6000) else (!state.charging.isUnconstrainedMaxHw && state.charging.limitCurrentMa == ma)
-                val pillColor = if (isSelected) AccentCyan else BgElevated
-                val textColor = if (isSelected) AccentCyan else TextPrimary
-
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = pillColor.copy(alpha = if (isSelected) 0.18f else 0.5f),
-                    border = BorderStroke(1.dp, if (isSelected) AccentCyan else BorderSubtle),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(50.dp)
-                        .clickable { viewModel.setQuickCurrentPreset(ma, isMaxHw) }
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = ampLabel,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                            color = textColor
-                        )
-                        Text(
-                            text = descLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 9.sp,
-                            color = if (isSelected) textColor.copy(alpha = 0.85f) else TextSecondary
-                        )
-                    }
-                }
-            }
-
-            // Custom Pill
-            val isCustom = !state.charging.isUnconstrainedMaxHw && state.charging.limitCurrentMa !in listOf(2000, 4500, 6000)
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = if (isCustom) AccentPurple.copy(alpha = 0.18f) else BgElevated.copy(alpha = 0.5f),
-                border = BorderStroke(1.dp, if (isCustom) AccentPurple else BorderSubtle),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(50.dp)
-                    .clickable { viewModel.openCustomCurrentDialog() }
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 2.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Edit, contentDescription = null, tint = if (isCustom) AccentPurple else TextSecondary, modifier = Modifier.size(11.dp))
-                        Spacer(Modifier.width(2.dp))
-                        Text(
-                            text = if (isCustom) "${state.charging.limitCurrentMa}" else "Kustom",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontSize = 11.5.sp,
-                            fontWeight = if (isCustom) FontWeight.Bold else FontWeight.SemiBold,
-                            color = if (isCustom) AccentPurple else TextPrimary
-                        )
-                    }
+    // Hyper Confirmation Dialog
+    if (showHyperConfirmDialog) {
+        val maxWattStr = if (battDetails?.adapterWatt != null && battDetails.adapterWatt > 10f) {
+            String.format(Locale.US, "%.0fW", battDetails.adapterWatt)
+        } else {
+            "Daya Maksimal Hardware"
+        }
+        AlertDialog(
+            onDismissRequest = { showHyperConfirmDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (isCustom) "mA" else "Manual",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontSize = 9.sp,
-                        color = if (isCustom) AccentPurple.copy(alpha = 0.85f) else TextSecondary
+                        text = stringResource(R.string.battery_hyper_dialog_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
                     )
                 }
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.battery_hyper_dialog_desc, maxWattStr),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showHyperConfirmDialog = false
+                        viewModel.setChargingMode("hyper")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange, contentColor = Color.Black)
+                ) {
+                    Text(stringResource(R.string.action_apply), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showHyperConfirmDialog = false }) {
+                    Text(stringResource(R.string.action_cancel), color = TextSecondary)
+                }
+            },
+            containerColor = BgCard,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary
+        )
+    }
+
+    // Custom Current Limit Dialog
+    if (uiState.isCustomCurrentDialogOpen) {
+        CustomCurrentLimitDialog(
+            currentLimitMa = state.charging.limitCurrentMa,
+            onConfirm = { ma -> viewModel.setCustomCurrentLimit(ma) },
+            onDismiss = { viewModel.closeCustomCurrentDialog() }
+        )
+    }
+}
+
+private data class ChargingModeItem(
+    val id: String,
+    val title: String,
+    val sub: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val accent: Color
+)
+
+@Composable
+private fun ChargingModeCard(
+    item: ChargingModeItem,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cardBg = if (isSelected) item.accent.copy(alpha = 0.16f) else BgElevated.copy(alpha = 0.5f)
+    val borderStroke = if (isSelected) BorderStroke(1.2.dp, item.accent) else BorderStroke(0.8.dp, BorderSubtle)
+    val titleColor = if (isSelected) item.accent else TextPrimary
+
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = cardBg,
+        border = borderStroke,
+        modifier = modifier
+            .heightIn(min = 54.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (isSelected) item.accent.copy(alpha = 0.22f) else BgElevated,
+                modifier = Modifier.size(34.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = null,
+                        tint = if (isSelected) item.accent else TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontSize = 12.5.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                    color = titleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = item.sub,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    color = if (isSelected) titleColor.copy(alpha = 0.85f) else TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }

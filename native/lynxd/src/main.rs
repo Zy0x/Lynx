@@ -18,6 +18,7 @@ use crate::daemon::{DaemonLifecycle, DaemonRunner};
 use crate::hardware::{ChargingRegulator, MtkHardware, QcomHardware, ScoreBoard};
 use crate::inspector::{TunableScanner, TunableStore};
 use crate::profile::{get_profile_by_name, list_profiles, ProfileValidator, ProfileVerifier};
+use crate::profile::user_catalog;
 use crate::state::{ConfigStore, DeviceState, ProfileStateManager, RecoveryReport};
 use crate::subsystems::{
     AdbController, ApplistController, ClusterController, CpuIdleController, CpusetController,
@@ -202,11 +203,19 @@ fn handle_profile_list() {
     for p in list_profiles() {
         println!("  • {:<12} : {}", p.name, p.description);
     }
+    for profile in user_catalog::read_catalog() {
+        if !matches!(profile.id.as_str(), "auto" | "balance" | "performance" | "extreme" | "powersave") {
+            println!("  • {:<12} : {} (adaptif; basis {})", profile.id, profile.name, profile.base_profile);
+        }
+    }
 }
 
 fn handle_profile_show(name: &str) {
     match get_profile_by_name(name) {
         Some(p) => {
+            if let Some(custom) = user_catalog::resolve_profile(name) {
+                println!("Custom Profile: {} ({})\nNative base: {}\n", custom.id, custom.name, custom.base_profile);
+            }
             println!("{}", p.display());
         }
         None => {
@@ -220,21 +229,33 @@ fn handle_profile_show(name: &str) {
 }
 
 fn handle_profile_validate() {
-    Logger::info("Validating all performance policy profiles against hardware safety bounds...");
-    let profiles = list_profiles();
+    Logger::info("Validating all built-in and user performance policies against hardware safety bounds...");
+    let mut profiles: Vec<(String, crate::profile::Profile)> = list_profiles()
+        .into_iter()
+        .map(|profile| (profile.name.to_string(), profile))
+        .collect();
+    for entry in user_catalog::read_catalog() {
+        if let Some(profile) = get_profile_by_name(&entry.id) {
+            if let Some(existing) = profiles.iter_mut().find(|(id, _)| *id == entry.id) {
+                *existing = (entry.id, profile);
+            } else {
+                profiles.push((entry.id, profile));
+            }
+        }
+    }
     let mut all_valid = true;
 
-    for p in &profiles {
+    for (id, p) in &profiles {
         match ProfileValidator::validate(p) {
             Ok(_) => {
                 println!(
                     "  [OK] Profile '{:<12}' satisfies all thermal and mathematical safety bounds.",
-                    p.name
+                    id
                 );
             }
             Err(errors) => {
                 all_valid = false;
-                Logger::error(format!("Profile '{}' failed validation:", p.name));
+                Logger::error(format!("Profile '{}' failed validation:", id));
                 for e in errors {
                     eprintln!("    [-] {}", e);
                 }
@@ -243,7 +264,7 @@ fn handle_profile_validate() {
     }
 
     if all_valid {
-        Logger::info("All 4 profiles successfully passed hardware safety validation.");
+        Logger::info(format!("All {} profile entries passed hardware safety validation.", profiles.len()));
     } else {
         Logger::error("Validation errors encountered!");
         std::process::exit(1);
@@ -273,7 +294,8 @@ fn handle_profile_apply(name: &str, dry_run: bool) {
         std::process::exit(1);
     }
 
-    let plan = ExecutionPlan::build(&profile);
+    let display_name = if user_catalog::resolve_profile(name).is_some() { name } else { profile.name };
+    let plan = ExecutionPlan::build_named(&profile, display_name);
     match ProfileExecutor::execute(&plan, dry_run) {
         Ok(report) => {
             if !dry_run {
@@ -627,11 +649,84 @@ fn handle_charging(args: &[String]) {
         "apply" => {
             ChargingRegulator::apply_from_config();
         }
+        "mode" => {
+            let m = args.get(3).map(|s| s.as_str()).unwrap_or("standard");
+            let target_ma = args.get(4).and_then(|s| s.parse::<u32>().ok()).unwrap_or(2000);
+            let _ = ConfigStore::set("charging.charging_mode", m, "str");
+            match m {
+                "cool" => {
+                    let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
+                    let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
+                    let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+                    ChargingRegulator::apply_cool_mode(target_ma);
+                    println!("[OK] Charging Mode set to: COOL ({} mA)", target_ma);
+                }
+                "standard" => {
+                    let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
+                    let _ = ConfigStore::set("charging.limit_current_ma", "2000", "val");
+                    let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+                    ChargingRegulator::apply_standard_mode();
+                    println!("[OK] Charging Mode set to: STANDARD (OEM Adaptive)");
+                }
+                "hyper" => {
+                    let _ = ConfigStore::set("charging.extreme_charging_enabled", "true", "bool");
+                    let _ = ConfigStore::set("charging.limit_current_ma", "12000", "val");
+                    let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "true", "bool");
+                    ChargingRegulator::apply_hyper_mode();
+                    println!("[OK] Charging Mode set to: HYPER (Unconstrained Peak)");
+                }
+                "custom" => {
+                    let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
+                    let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
+                    let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+                    ChargingRegulator::apply_custom_mode(target_ma);
+                    println!("[OK] Charging Mode set to: CUSTOM ({} mA)", target_ma);
+                }
+                other => {
+                    Logger::error(format!("Unknown charging mode: '{}'. Use: cool, standard, hyper, custom", other));
+                }
+            }
+        }
+        "cool" => {
+            let limit = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(2000);
+            let _ = ConfigStore::set("charging.charging_mode", "cool", "str");
+            let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
+            let _ = ConfigStore::set("charging.limit_current_ma", &limit.to_string(), "val");
+            let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+            ChargingRegulator::apply_cool_mode(limit);
+            println!("[OK] Charging Mode: COOL ({} mA)", limit);
+        }
+        "standard" => {
+            let _ = ConfigStore::set("charging.charging_mode", "standard", "str");
+            let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
+            let _ = ConfigStore::set("charging.limit_current_ma", "2000", "val");
+            let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+            ChargingRegulator::apply_standard_mode();
+            println!("[OK] Charging Mode: STANDARD");
+        }
+        "hyper" => {
+            let _ = ConfigStore::set("charging.charging_mode", "hyper", "str");
+            let _ = ConfigStore::set("charging.extreme_charging_enabled", "true", "bool");
+            let _ = ConfigStore::set("charging.limit_current_ma", "12000", "val");
+            let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "true", "bool");
+            ChargingRegulator::apply_hyper_mode();
+            println!("[OK] Charging Mode: HYPER");
+        }
+        "custom" => {
+            let target_ma = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(2500);
+            let _ = ConfigStore::set("charging.charging_mode", "custom", "str");
+            let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
+            let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
+            let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+            ChargingRegulator::apply_custom_mode(target_ma);
+            println!("[OK] Charging Mode: CUSTOM ({} mA)", target_ma);
+        }
         "lock" => {
             ChargingRegulator::reapply_lock();
         }
         "bypass" => {
             ChargingRegulator::apply_bypass_charging();
+            println!("[OK] Hardware Bypass Charging engaged (0 mA battery cell cutoff)");
         }
         "extreme" => {
             let target_soc = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(90);

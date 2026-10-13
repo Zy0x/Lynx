@@ -1,4 +1,5 @@
 package com.noir.lynx.feature.battery.ui
+import com.noir.lynx.ui.*
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*

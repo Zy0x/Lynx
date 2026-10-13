@@ -14,23 +14,42 @@ if sys.platform == "win32":
 
 DEVICE = "192.168.1.5:5555"
 
-def adb(cmd: str, timeout: int = 15) -> str:
-    res = subprocess.run(f"adb -s {DEVICE} {cmd}", shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
-    return res.stdout.strip() if res.stdout else ""
-
 def ensure_connected():
     subprocess.run(f"adb connect {DEVICE}", shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
+
+def adb(cmd: str, timeout: int = 25) -> str:
+    try:
+        res = subprocess.run(f"adb -s {DEVICE} {cmd}", shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
+        combined = ((res.stdout or "") + " " + (res.stderr or "")).lower()
+        if "device not found" in combined or "offline" in combined or "no devices" in combined:
+            ensure_connected()
+            time.sleep(1.0)
+            res = subprocess.run(f"adb -s {DEVICE} {cmd}", shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
+        return res.stdout.strip() if res.stdout else ""
+    except subprocess.TimeoutExpired:
+        print(f"[!] Warning: adb command '{cmd}' timed out after {timeout}s", flush=True)
+        return ""
 
 def ensure_foreground():
     res = adb("shell dumpsys activity activities")
     if "com.noir.lynx/.ui.MainActivity" not in res:
         print("[+] Bringing LynxCompanion to foreground...", flush=True)
+        adb("shell input keyevent 224")
+        adb("shell wm dismiss-keyguard")
         adb("shell am start -n com.noir.lynx/.ui.MainActivity")
-        time.sleep(2.0)
+        time.sleep(2.5)
 
 def dump_nodes():
-    adb("shell uiautomator dump /sdcard/iso_dump.xml")
-    out = adb("shell cat /sdcard/iso_dump.xml")
+    adb("shell rm -f /data/local/tmp/iso_dump.xml")
+    dump_res = adb("shell uiautomator dump /data/local/tmp/iso_dump.xml", timeout=25)
+    if "dumped to" not in dump_res:
+        adb("shell pkill -f uiautomator")
+        time.sleep(1.0)
+        adb("shell uiautomator dump /data/local/tmp/iso_dump.xml", timeout=25)
+    out = adb("shell cat /data/local/tmp/iso_dump.xml")
+    if not out.strip() or "<hierarchy" not in out:
+        time.sleep(1.0)
+        out = adb("shell cat /data/local/tmp/iso_dump.xml")
     nodes = []
     try:
         root = ET.fromstring(out)

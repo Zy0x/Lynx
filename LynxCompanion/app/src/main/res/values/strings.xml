@@ -60,15 +60,33 @@
     <!-- Battery & Charging Feature -->
     <string name="battery_super_fast_charging">Pengisian Daya Super Cepat</string>
     <string name="battery_fast_charging">Pengisian Daya Cepat</string>
-    <string name="battery_fast_charging_desc">Mengoptimalkan arus masuk ke tingkat tertinggi yang didukung ponsel dan adaptor Anda. Kecepatan tetap optimal meski layar menyala saat digunakan.</string>
+    <string name="battery_fast_charging_desc">Meminta mode tercepat yang dinegosiasikan adaptor dan ponsel. Pengaturan arus dan penurunan daya tetap dikendalikan proteksi suhu serta kebijakan OEM.</string>
+    <string name="battery_mode_cool">Sejuk</string>
+    <string name="battery_mode_cool_sub">1.5A–2.0A</string>
+    <string name="battery_mode_cool_desc">Arus dibatasi (1.5A–2.0A). Suhu minimal &amp; menjaga keawetan sel baterai jangka panjang.</string>
+    <string name="battery_mode_standard">Standar</string>
+    <string name="battery_mode_standard_sub">Bawaan OEM</string>
+    <string name="battery_mode_standard_desc">Regulasi pabrik OEM. Keseimbangan alami antara kecepatan dan kontrol termal.</string>
+    <string name="battery_mode_hyper">Hyper</string>
+    <string name="battery_mode_hyper_sub">Daya Penuh</string>
+    <string name="battery_mode_hyper_desc">Daya penuh tanpa batas hardcoded. Membuka potensi maksimal adaptor &amp; hardware.</string>
+    <string name="battery_mode_custom">Kustom</string>
+    <string name="battery_mode_custom_sub">Manual mA</string>
+    <string name="battery_mode_custom_desc">Batas arus presisi sesuai kebutuhan Anda.</string>
+    <string name="battery_hyper_dialog_title">Konfirmasi Mode Hyper</string>
+    <string name="battery_hyper_dialog_desc">Mode Hyper akan membuka batas regulasi arus dan meminta potensi daya tertinggi hardware (%1$s). Suhu perangkat dapat meningkat lebih cepat saat pengisian daya tinggi.\n\nPastikan adaptor dan kabel dalam kondisi baik. Lanjutkan?</string>
     <string name="battery_status_disconnected">Terputus • Menggunakan Daya Baterai</string>
     <string name="battery_status_full_autocut">Baterai Penuh 100% • Arus Diputus (AutoCut Aktif)</string>
     <string name="battery_status_smart_limit_reached">Batas Cerdas %1$d%% Tercapai (Baterai %2$d%%) • Arus Diputus (Bypass Aktif)</string>
+    <string name="battery_status_smart_limit_unconfirmed">Batas Cerdas %1$d%% Terlewati (Baterai %2$d%%) • Bypass Belum Terkonfirmasi</string>
+    <string name="battery_status_smart_limit_unconfirmed_detail">Perangkat masih melaporkan arus masuk; perlindungan batas belum terverifikasi aktif.</string>
     <string name="battery_status_manual_bypass">Bypass Manual Aktif • Baterai Dilewati</string>
     <string name="battery_status_night_gentle">Pengisian Sejuk Malam Hari (1.5A • Mode Dingin)</string>
     <string name="battery_status_smart_tapering">Pendinginan Aktif • Arus Diturunkan (&gt;90%)</string>
-    <string name="battery_status_fast_charging_max">Pengisian Cepat Aktif (Kecepatan Maksimal)</string>
-    <string name="battery_status_fast_charging_ma">Pengisian Cepat Aktif (%1$d mA)</string>
+    <string name="battery_status_fast_charging_max">Mode Cepat Maksimal OEM Aktif</string>
+    <string name="battery_status_fast_charging_ma">Pengisian cepat OEM aktif</string>
+    <string name="battery_status_oem_fast_charge_still_active">Toggle Lynx nonaktif • fast charge OEM terdeteksi</string>
+    <string name="battery_status_oem_fast_charge_detail">Perangkat masih melaporkan: %1$s</string>
     <string name="battery_status_standard_ma">Pengisian Standar (%1$d mA)</string>
     <string name="battery_laptop_port_detected">Port Komputer Terdeteksi (%1$s)</string>
     <string name="battery_laptop_port_desc">Arus pengisian dibatasi otomatis ke 1.5A agar port USB komputer tidak terbebani.</string>
@@ -93,11 +111,9 @@
     <string name="battery_smart_charge_limit">Batas Pengisian Cerdas</string>
     <string name="battery_smart_limit_full">100% (Penuh &amp; AutoCut)</string>
     <string name="battery_smart_limit_bypass">%1$d%% (Bypass Langsung)</string>
-    <string name="battery_smart_charge_limit_desc" formatted="false">Menghentikan pengisian sel baterai pada persentase pilihan Anda (50% - 100%) dan mengalirkan listrik langsung ke mesin ponsel. Jika baterai saat ini melebihi batas yang dipilih (misal batas 90% tapi baterai 92%), sistem seketika memutus arus ke baterai (0mA) dan mengaktifkan bypass hardware. Dilengkapi buffer histeresis 2% untuk mencegah siklus colok-cabut berulang.</string>
+    <string name="battery_smart_charge_limit_desc" formatted="false">Menghentikan pengisian sel baterai pada persentase pilihan Anda (50% - 100%) dan mengalirkan daya langsung ke mesin. Dilengkapi buffer histeresis 3% pintar (contoh: batas 80% akan berhenti di 80% dan hanya melanjutkan pengisian saat turun ke 77%) untuk mencegah siklus colok-cabut berulang.</string>
     <string name="battery_night_sleep_guard">Pengisian Sejuk Malam Hari (23:00 - 06:00)</string>
     <string name="battery_night_sleep_guard_desc">Otomatis beralih ke arus santai &amp; lambat (1.5A) saat Anda tidur di malam hari agar suhu baterai tetap dingin (&lt;30°C) dan terhindar dari stres akibat arus tinggi.</string>
-    <string name="battery_smart_tapering_switch">Pendinginan Otomatis (&gt;90%)</string>
-    <string name="battery_smart_tapering_desc">Otomatis menurunkan arus pengisian saat baterai di atas 90% agar suhu sel baterai tetap dingin menjelang target.</string>
     <string name="battery_thermal_protection_banner">Proteksi Suhu: Sistem siaga menurunkan arus jika suhu baterai terdeteksi terlalu tinggi demi keamanan perangkat.</string>
     <string name="battery_tab_charging">Pengisian Daya</string>
     <string name="battery_tab_information">Informasi Baterai</string>

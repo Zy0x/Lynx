@@ -37,7 +37,7 @@ class ChargingRepository(
     }
 
     /**
-     * Apply True Hardware Bypass Charging or Extreme Fast Charging directly to sysfs.
+     * Apply OEM bypass, fast-charge negotiation, or standard-rate charging mode.
      * Supports Qualcomm Snapdragon, MediaTek (Dimensity/Helio), Samsung Exynos,
      * Google Tensor, Xiaomi, OnePlus/OPPO, ASUS ROG, and Universal Linux kernels.
      */
@@ -56,7 +56,7 @@ class ChargingRepository(
             val effectiveMa = if (isLaptopPort) 1500 else if (isUnconstrainedMaxHw) 6000 else limitMa.coerceIn(500, 6000)
             val nativeCmd = when {
                 bypass -> "if [ -x '$LYNXD_PATH' ]; then cur_cap=\$(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 50); if [ \"\$cur_cap\" -ge $maxBatteryPercent ] || [ \"\$cur_cap\" -ge 100 ]; then '$LYNXD_PATH' charging bypass; else '$LYNXD_PATH' charging extreme $highTargetPercent $lockoutBypass 6000; fi && echo ok; fi"
-                extremeCharging || effectiveMa >= 3000 -> "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging extreme $highTargetPercent $lockoutBypass $effectiveMa && echo ok; fi"
+                extremeCharging -> "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging extreme $highTargetPercent false $effectiveMa && echo ok; fi"
                 else -> "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging regulated $effectiveMa && echo ok; fi"
             }
             val fastRes = Shell.cmd(nativeCmd).exec()
@@ -76,11 +76,15 @@ class ChargingRepository(
 
                     # 1. MediaTek / Transsion Hardware Bypass
                     echo 1 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
-                    echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                    echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                     echo "${'$'}cur_cap" > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
                     echo 0 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                     echo 0 > /sys/devices/platform/charger/chg1_current 2>/dev/null
                     echo 0 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                    echo 0 > /sys/devices/platform/charger/input_current 2>/dev/null
+                    echo "[30,0,35,0,0]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null
+                    echo 1 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+                    dumpsys battery set status 4 2>/dev/null
 
                     # 2. ASUS ROG Hardware Bypass
                     echo 1 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
@@ -146,157 +150,9 @@ class ChargingRepository(
                     isLaptopPort = isLaptopPort
                 )
             } else {
-                // Standard Fast Charge or Manual Regulated Limit
-                val isUnrestricted = limitMa >= 3000
-                val targetMa = if (isUnrestricted) 6000 else limitMa
-                val targetUa = targetMa * 1000
-                """
-                rm -f /dev/lynx_extreme_charging 2>/dev/null
-
-                # Revert all immutable locks and restore write permissions
-                for node in /sys/class/power_supply/battery/constant_charge_current_max \
-                            /sys/class/power_supply/battery/constant_charge_current \
-                            /sys/class/power_supply/battery/current_max \
-                            /sys/class/power_supply/battery/input_current_limit \
-                            /sys/class/power_supply/main/constant_charge_current_max \
-                            /sys/class/power_supply/main/current_max \
-                            /sys/class/power_supply/usb/current_max \
-                            /sys/class/power_supply/usb/hw_current_max \
-                            /sys/class/power_supply/battery/charge_control_limit_max \
-                            /sys/class/power_supply/battery/charge_control_limit \
-                            /sys/class/power_supply/battery/input_suspend \
-                            /sys/class/power_supply/battery/fastcharge_mode \
-                            /sys/class/power_supply/battery/fast_charge \
-                            /sys/class/power_supply/battery/charging_enabled \
-                            /sys/devices/platform/charger/BN_TestMode \
-                            /sys/devices/platform/charger/BatteryNotify \
-                            /sys/devices/platform/charger/sw_jeita \
-                            /sys/devices/platform/charger/tran_charger_full \
-                            /sys/devices/platform/charger/bypass_charger \
-                            /sys/devices/platform/charger/tran_game_mode \
-                            /sys/devices/platform/charger/input_current \
-                            /sys/devices/platform/charger/chg1_current \
-                            /sys/devices/platform/charger/chg2_current \
-                            /sys/devices/platform/charger/sc_ibat_limit \
-                            /sys/devices/platform/charger/pe40 \
-                            /sys/devices/platform/charger/pe20 \
-                            /sys/devices/platform/charger/pdc_max_watt \
-                            /sys/devices/platform/charger/enable_sc \
-                            /sys/class/qcom-battery/direct_charging \
-                            /sys/class/qcom-battery/restricted_charging \
-                            /sys/class/qcom-battery/restrict_cur \
-                            /sys/class/power_supply/battery/system_temp_level \
-                            /sys/class/power_supply/battery/temp_state \
-                            /sys/class/power_supply/battery/thermal_input_current_limit \
-                            /sys/class/power_supply/battery/input_current_settled \
-                            /sys/class/power_supply/battery/boost_current \
-                            /sys/class/power_supply/battery/step_charging_enabled \
-                            /sys/class/power_supply/battery/quick_charge_type \
-                            /sys/class/power_supply/battery/siop_level \
-                            /sys/class/power_supply/battery/store_mode \
-                            /sys/class/power_supply/battery/batt_slate_mode \
-                            /sys/class/power_supply/battery/wc_control \
-                            /sys/class/power_supply/battery/afc_result \
-                            /sys/class/power_supply/battery/direct_charger_mode \
-                            /sys/class/power_supply/battery/hv_charger_status \
-                            /sys/class/power_supply/battery/cool_mode \
-                            /sys/class/power_supply/battery/call_mode \
-                            /sys/class/power_supply/battery/vooc_charging \
-                            /sys/class/power_supply/battery/fast_charge_user_type \
-                            /sys/class/power_supply/battery/authenticate \
-                            /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug \
-                            /sys/devices/platform/tran_battery/pcb_thermal_debug \
-                            /proc/driver/thermal/clabcct \
-                            /proc/driver/thermal/clabcct_lcmoff; do
-                    [ -e "${'$'}node" ] && chmod 666 "${'$'}node" 2>/dev/null
-                done
-
-                # Re-enable thermal zone modes
-                for tz in /sys/class/thermal/thermal_zone*; do
-                    [ -d "${'$'}tz" ] || continue
-                    tz_type=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
-                    case "${'$'}tz_type" in
-                        *battery*|*bms*|*chg*|*charger*|*mtktsap*|*tsbuck*|*skin*|*pcb*|*sub_batt*|*quiet*|*xo_therm*|*pmic*)
-                            if [ -e "${'$'}tz/mode" ]; then
-                                chmod 666 "${'$'}tz/mode" 2>/dev/null
-                                echo enabled > "${'$'}tz/mode" 2>/dev/null
-                            fi
-                            ;;
-                    esac
-                done
-
-                # Revert userspace thermal daemons
-                for jpid in ${'$'}(pgrep -f "com.xiaomi.joyose" 2>/dev/null); do kill -CONT "${'$'}jpid" 2>/dev/null; done
-                for tpid in ${'$'}(pgrep -f "thermalloadalgod" 2>/dev/null); do kill -CONT "${'$'}tpid" 2>/dev/null; done
-
-                # Revert MediaTek ABCCT PID with proper format
-                if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
-                    chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                    echo "1 42000 1000 200000 5 $targetMa 3000 $targetMa 3000" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                    chmod 644 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                fi
-                if [ -e /proc/driver/thermal/clabcct ]; then
-                    chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-                    echo "42000 1000 200000 5 $targetMa 3000 1 1 0" > /proc/driver/thermal/clabcct 2>/dev/null
-                    chmod 644 /proc/driver/thermal/clabcct 2>/dev/null
-                fi
-
-                # Revert cooling devices
-                for c in /sys/class/thermal/cooling_device*; do
-                    chmod 666 "${'$'}c/cur_state" 2>/dev/null
-                done
-                cmd thermalservice reset 2>/dev/null
-
-                echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
-                echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/store_mode 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
-                chmod 644 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-                echo 33 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-
-                echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
-                echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
-                echo 0 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
-
-                # Enable Pump Express & fast charging hardware
-                echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
-                echo 0 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                echo 1 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
-                echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-                echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
-
-                if [ "$isUnrestricted" = "true" ]; then
-                    echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                    echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                    echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                    echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                    echo 6000000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                    echo 6000000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-                    echo 6000000 > /sys/class/power_supply/main/current_max 2>/dev/null
-                    echo 6000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
-                    echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
-                else
-                    echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                    echo $targetMa > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                    echo $targetMa > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                    echo $targetMa > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                    echo $targetUa > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-                    echo $targetUa > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                    echo $targetUa > /sys/class/power_supply/main/current_max 2>/dev/null
-                    echo $targetUa > /sys/class/power_supply/usb/current_max 2>/dev/null
-                    echo $targetUa > /sys/class/qcom-battery/restrict_cur 2>/dev/null
-                    echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
-                fi
-                echo ok
-                """.trimIndent()
+                StandardChargingScript.buildOemStandardChargingScript()
             }
-            Shell.cmd(script).exec()
-            true
+            Shell.cmd(script).exec().isSuccess
         } catch (e: Exception) {
             Log.e(TAG, "applyChargingMode error: ${e.message}")
             false
@@ -304,9 +160,9 @@ class ChargingRepository(
     }
 
     /**
-     * Force Maximum Super Charge Speed across all SoCs & OEM architectures.
-     * Overrides all thermal throttles, zeroes out cooling devices, and locks battery spoofing.
+     * Request the fastest OEM-negotiated charging mode while retaining device thermal policy.
      */
+    @Suppress("UNUSED_PARAMETER")
     suspend fun applyMasterFastCharging(
         enabled: Boolean,
         targetMa: Int = 6000,
@@ -315,29 +171,32 @@ class ChargingRepository(
         highTargetPercent: Int = 100,
         isLaptopPort: Boolean = false
     ): Boolean = withContext(Dispatchers.IO) {
-        val lockVal = enabled && lockoutBypass
+        // Fast charging must never persist a request to bypass OEM thermal protection.
+        val lockVal = false
         if (repository.isModuleInstalled()) {
-            val batchCmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' state set charging.extreme_charging_enabled=$enabled charging.thermal_lockout_bypass_enabled=$lockVal charging.limit_current_ma=$targetMa charging.is_unconstrained_max_hw=$isUnconstrainedMaxHw; fi"
+            val modeLimitMa = if (enabled) targetMa else 2000
+            val allowUnconstrained = isUnconstrainedMaxHw && enabled
+            val batchCmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' state set charging.extreme_charging_enabled=$enabled charging.thermal_lockout_bypass_enabled=$lockVal charging.limit_current_ma=$modeLimitMa charging.is_unconstrained_max_hw=$allowUnconstrained; fi"
             val r = Shell.cmd(batchCmd).exec()
             if (!r.isSuccess) {
                 repository.writeStateKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
                 repository.writeStateKey("charging.thermal_lockout_bypass_enabled", lockVal.toString(), "bool")
-                repository.writeStateKey("charging.limit_current_ma", targetMa.toString(), "val")
-                repository.writeStateKey("charging.is_unconstrained_max_hw", isUnconstrainedMaxHw.toString(), "bool")
+                repository.writeStateKey("charging.limit_current_ma", modeLimitMa.toString(), "val")
+                repository.writeStateKey("charging.is_unconstrained_max_hw", allowUnconstrained.toString(), "bool")
             }
         } else {
             repository.writeStateKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
             repository.writeStateKey("charging.thermal_lockout_bypass_enabled", lockVal.toString(), "bool")
-            repository.writeStateKey("charging.limit_current_ma", targetMa.toString(), "val")
-            repository.writeStateKey("charging.is_unconstrained_max_hw", isUnconstrainedMaxHw.toString(), "bool")
+            repository.writeStateKey("charging.limit_current_ma", (if (enabled) targetMa else 2000).toString(), "val")
+            repository.writeStateKey("charging.is_unconstrained_max_hw", (isUnconstrainedMaxHw && enabled).toString(), "bool")
         }
         applyChargingMode(
             bypass = false,
             extremeCharging = enabled,
-            limitMa = targetMa,
+            limitMa = if (enabled) targetMa else 2000,
             highTargetPercent = highTargetPercent,
-            lockoutBypass = lockoutBypass,
-            isUnconstrainedMaxHw = isUnconstrainedMaxHw,
+            lockoutBypass = false,
+            isUnconstrainedMaxHw = isUnconstrainedMaxHw && enabled,
             isLaptopPort = isLaptopPort
         )
     }
@@ -358,6 +217,10 @@ class ChargingRepository(
      */
     suspend fun reapplyExtremeChargingLock(): Boolean = withContext(Dispatchers.IO) {
         try {
+            val chg = repository.readState().charging
+            if (chg.chargingMode != "hyper" && !chg.extremeChargingEnabled) {
+                return@withContext false
+            }
             val fastRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging tick && echo ok; fi").exec()
             if (fastRes.isSuccess && fastRes.out.any { it.trim() == "ok" }) {
                 return@withContext true
@@ -367,64 +230,7 @@ class ChargingRepository(
                 handlePowerDisconnected()
                 return@withContext false
             }
-            val script = """
-                if [ -e /proc/driver/thermal/clabcct_lcmoff ]; then
-                    chmod 666 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                    echo "1 70000 1000 200000 5 6000 4500 6000 4500" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                    chmod 444 /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-                fi
-                if [ -e /proc/driver/thermal/clabcct ]; then
-                    chmod 666 /proc/driver/thermal/clabcct 2>/dev/null
-                    echo "70000 1000 200000 5 6000 4500 1 1 4500" > /proc/driver/thermal/clabcct 2>/dev/null
-                    chmod 444 /proc/driver/thermal/clabcct 2>/dev/null
-                fi
-                for c in /sys/class/thermal/cooling_device*; do
-                    type=${'$'}(cat "${'$'}c/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
-                    case "${'$'}type" in
-                        *abcct*|*bcct*)
-                            chmod 666 "${'$'}c/cur_state" 2>/dev/null
-                            echo 0 > "${'$'}c/cur_state" 2>/dev/null
-                            chmod 444 "${'$'}c/cur_state" 2>/dev/null
-                            ;;
-                    esac
-                done
-                for node in /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug; do
-                    if [ -e "${'$'}node" ]; then
-                        chmod 666 "${'$'}node" 2>/dev/null
-                        echo "[95,6000,100,6000,6000000]" > "${'$'}node" 2>/dev/null
-                        chmod 444 "${'$'}node" 2>/dev/null
-                    fi
-                done
-                if [ -e /sys/devices/platform/pca_dv2_algo/dv2_debug ]; then
-                    chmod 666 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
-                    echo "[101,85,88,90,6000,6000,6000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
-                    echo "[102,85,88,90,6000,6000,6000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
-                    chmod 444 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
-                fi
-                for node in /sys/devices/platform/charger/enable_sc /sys/devices/platform/charger/BatteryNotify /sys/devices/platform/charger/sw_jeita; do
-                    if [ -e "${'$'}node" ]; then
-                        chmod 666 "${'$'}node" 2>/dev/null
-                        echo 1 > "${'$'}node" 2>/dev/null
-                        chmod 444 "${'$'}node" 2>/dev/null
-                    fi
-                done
-                if [ -e /sys/devices/platform/charger/BN_TestMode ]; then
-                    chmod 666 /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                    chmod 444 /sys/devices/platform/charger/BN_TestMode 2>/dev/null
-                fi
-                if [ -e /sys/devices/platform/charger/sc_ibat_limit ]; then
-                    chmod 666 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                    echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                    chmod 444 /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                fi
-                if [ -e /sys/class/thermal/thermal_zone1/mode ]; then
-                    chmod 666 /sys/class/thermal/thermal_zone1/mode 2>/dev/null
-                    echo enabled > /sys/class/thermal/thermal_zone1/mode 2>/dev/null
-                fi
-                for tpid in ${'$'}(pgrep -f "thermalloadalgod" 2>/dev/null); do kill -STOP "${'$'}tpid" 2>/dev/null; done
-                echo ok
-            """.trimIndent()
+            val script = ExtremeChargingScript.buildUniversalExtremeChargingScript()
             Shell.cmd(script).exec()
             true
         } catch (e: Exception) {
@@ -442,18 +248,61 @@ class ChargingRepository(
             if (java.io.File(lynxdPath).canExecute()) {
                 Shell.cmd("$lynxdPath charging disconnect").exec()
             }
-            // Restore thermal mode based on active profile
-            val prof = repository.readCurrentProfileFast()
-            val targetThermalMode = when (prof.lowercase()) {
-                "powersave" -> "conservative"
-                "balance" -> "stable"
-                "performance", "extreme" -> "gaming"
-                else -> "stable"
-            }
-            repository.applyThermalMode(targetThermalMode)
             true
         } catch (e: Exception) {
             Log.e(TAG, "handlePowerDisconnected error: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Enforces one of the 4 Universal Charging Modes:
+     * - "cool": safe regulated ~2000mA with thermal protections intact
+     * - "standard": OEM stock default algorithms
+     * - "hyper": dynamic hardware ceiling uncap (up to 120W+, dual-pump, third-party PD uncap)
+     * - "custom": specific user-defined mA limit
+     */
+    suspend fun setChargingMode(
+        mode: String,
+        customMa: Int = 2000
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val normalizedMode = when (mode.lowercase()) {
+                "cool" -> "cool"
+                "hyper" -> "hyper"
+                "custom" -> "custom"
+                else -> "standard"
+            }
+            val isExtreme = normalizedMode == "hyper"
+            val targetMa = when (normalizedMode) {
+                "cool" -> 2000
+                "custom" -> customMa.coerceIn(500, 25000)
+                "hyper" -> 12000
+                else -> 2000
+            }
+
+            repository.writeStateKey("charging.charging_mode", normalizedMode, "str")
+            repository.writeStateKey("charging.extreme_charging_enabled", isExtreme.toString(), "bool")
+            repository.writeStateKey("charging.limit_current_ma", targetMa.toString(), "val")
+            repository.writeStateKey("charging.is_unconstrained_max_hw", (normalizedMode == "hyper").toString(), "bool")
+
+            val nativeCmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging mode $normalizedMode $targetMa && echo ok; fi"
+            val fastRes = Shell.cmd(nativeCmd).exec()
+            if (fastRes.isSuccess && fastRes.out.any { it.trim() == "ok" }) {
+                return@withContext true
+            }
+
+            // Fallback shell execution if lynxd daemon is not reachable
+            val script = when (normalizedMode) {
+                "cool" -> StandardChargingScript.buildCoolChargingScript(targetMa)
+                "standard" -> StandardChargingScript.buildOemStandardChargingScript()
+                "hyper" -> ExtremeChargingScript.buildUniversalExtremeChargingScript(targetMa = 12000, isUnconstrainedMaxHw = true)
+                "custom" -> StandardChargingScript.buildCustomChargingScript(targetMa)
+                else -> StandardChargingScript.buildOemStandardChargingScript()
+            }
+            Shell.cmd(script).exec().isSuccess
+        } catch (e: Exception) {
+            Log.e(TAG, "setChargingMode error: ${e.message}")
             false
         }
     }
@@ -464,16 +313,22 @@ class ChargingRepository(
     suspend fun applySavedChargingConfig(): Boolean = withContext(Dispatchers.IO) {
         try {
             val chg = repository.readState().charging
-            applyChargingMode(
-                bypass = chg.bypassEnabled,
-                extremeCharging = chg.extremeChargingEnabled,
-                limitMa = chg.limitCurrentMa,
-                highTargetPercent = chg.highCurrentTargetPercent,
-                lockoutBypass = chg.thermalLockoutBypassEnabled,
-                tempGuard = chg.emergencyTempGuardEnabled,
-                maxBatteryPercent = chg.maxBatteryPercent,
-                isUnconstrainedMaxHw = chg.isUnconstrainedMaxHw
-            )
+            if (chg.bypassEnabled) {
+                applyChargingMode(
+                    bypass = true,
+                    extremeCharging = false,
+                    limitMa = chg.limitCurrentMa,
+                    highTargetPercent = chg.highCurrentTargetPercent,
+                    lockoutBypass = chg.thermalLockoutBypassEnabled,
+                    tempGuard = chg.emergencyTempGuardEnabled,
+                    maxBatteryPercent = chg.maxBatteryPercent,
+                    isUnconstrainedMaxHw = chg.isUnconstrainedMaxHw
+                )
+            } else if (chg.chargingMode.isNotBlank()) {
+                setChargingMode(chg.chargingMode, chg.limitCurrentMa)
+            } else {
+                setChargingMode(if (chg.extremeChargingEnabled) "hyper" else "standard", chg.limitCurrentMa)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "applySavedChargingConfig error: ${e.message}")
             false
@@ -496,5 +351,37 @@ class ChargingRepository(
         } catch (e: Exception) {
             false
         }
+    }
+
+    suspend fun setHighCurrentTarget(percent: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            repository.writeStateKey("charging.high_current_target_percent", percent.toString(), "val")
+            Shell.cmd("echo $percent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null").exec()
+            true
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setEmergencyTempGuard(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            repository.writeStateKey("charging.emergency_temp_guard_enabled", enabled.toString(), "bool")
+            true
+        } catch (e: Exception) { false }
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    suspend fun setThermalLockoutBypass(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            repository.writeStateKey("charging.thermal_lockout_bypass_enabled", "false", "bool")
+            Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging apply 2>/dev/null; fi").exec()
+            true
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setSmartTapering(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            repository.writeStateKey("charging.smart_tapering_enabled", enabled.toString(), "bool")
+            Shell.cmd("'$LYNXD_PATH' charging apply 2>/dev/null").exec()
+            true
+        } catch (e: Exception) { false }
     }
 }

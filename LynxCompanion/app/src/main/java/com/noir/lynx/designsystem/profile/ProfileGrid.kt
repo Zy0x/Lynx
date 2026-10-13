@@ -2,17 +2,10 @@ package com.noir.lynx.designsystem.profile
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
@@ -20,23 +13,27 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.noir.lynx.R
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.noir.lynx.designsystem.theme.AccentBlue
 import com.noir.lynx.designsystem.theme.AccentCyan
 import com.noir.lynx.designsystem.theme.AccentOrange
@@ -45,184 +42,248 @@ import com.noir.lynx.designsystem.theme.BgElevated
 import com.noir.lynx.designsystem.theme.BorderSubtle
 import com.noir.lynx.designsystem.theme.TextPrimary
 import com.noir.lynx.designsystem.theme.TextSecondary
+import com.noir.lynx.profiles.KernelPerformanceProfile
+import com.noir.lynx.profiles.KernelProfileCatalog
+import com.noir.lynx.profiles.ProfileDomain
 
-/**
- * ProfileGrid — Luxury Bento Profile Selector with i18n support.
- */
 @Composable
 fun ProfileGrid(
+    catalog: KernelProfileCatalog,
     currentProfile: String,
-    onProfileSelected: (String) -> Unit,
+    hasOverrides: Boolean,
+    onProfileSelected: (String, Boolean) -> Unit,
     onExtremeConfirmRequired: () -> Unit,
+    onProfileSaved: (KernelPerformanceProfile, Boolean, Boolean) -> Unit,
+    onProfileDeleted: (String) -> Unit,
+    onProfileDuplicated: (String) -> Unit,
+    onRestoreBuiltIn: (String) -> Unit,
 ) {
-    val profiles = listOf(
-        ProfileItem(
-            id = "auto",
-            name = stringResource(R.string.profile_auto),
-            desc = stringResource(R.string.profile_auto_desc),
-            icon = Icons.Default.Bolt,
-            color = AccentCyan
-        ),
-        ProfileItem(
-            id = "balance",
-            name = stringResource(R.string.profile_balance),
-            desc = stringResource(R.string.profile_balance_desc),
-            icon = Icons.Default.Tune,
-            color = AccentBlue
-        ),
-        ProfileItem(
-            id = "performance",
-            name = stringResource(R.string.profile_performance),
-            desc = stringResource(R.string.profile_performance_desc),
-            icon = Icons.Default.Speed,
-            color = AccentOrange
-        ),
-        ProfileItem(
-            id = "extreme",
-            name = stringResource(R.string.profile_extreme),
-            desc = stringResource(R.string.profile_extreme_desc),
-            icon = Icons.Default.LocalFireDepartment,
-            color = AccentRed
-        ),
-        ProfileItem(
-            id = "powersave",
-            name = stringResource(R.string.profile_powersave),
-            desc = stringResource(R.string.profile_powersave_desc),
-            icon = Icons.Default.BatteryChargingFull,
-            color = Color(0xFF00E676)
-        ),
-    )
-
-    var lastProfileSwitchTime by remember { mutableLongStateOf(0L) }
+    var editing by remember { mutableStateOf<KernelPerformanceProfile?>(null) }
+    var creating by remember { mutableStateOf(false) }
+    var pendingSelection by remember { mutableStateOf<String?>(null) }
+    var pendingExtremeProfile by remember { mutableStateOf<String?>(null) }
+    var pendingDelete by remember { mutableStateOf<String?>(null) }
+    var pendingRestore by remember { mutableStateOf<String?>(null) }
+    val profiles = catalog.profiles
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Hero top card for Auto AI
-        val autoProfile = profiles.first()
-        val isAutoActive = currentProfile == autoProfile.id
-        ProfileBentoTile(
-            item = autoProfile,
-            isActive = isAutoActive,
-            isWide = true,
-            onClick = {
-                val now = System.currentTimeMillis()
-                if (now - lastProfileSwitchTime >= 400L) {
-                    lastProfileSwitchTime = now
-                    onProfileSelected(autoProfile.id)
-                }
-            }
-        )
-
-        // 2x2 Grid for Balance, Perf, Extreme, Powersave
-        val rest = profiles.drop(1)
-        rest.chunked(2).forEach { row ->
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                row.forEach { item ->
-                    val isActive = currentProfile == item.id
-                    ProfileBentoTile(
-                        item = item,
-                        isActive = isActive,
-                        isWide = false,
-                        modifier = Modifier.weight(1f),
+        profiles.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                row.forEach { profile ->
+                    val item = profileItem(profile)
+                    Surface(
                         onClick = {
-                            val now = System.currentTimeMillis()
-                            if (now - lastProfileSwitchTime >= 400L) {
-                                lastProfileSwitchTime = now
-                                if (item.id == "extreme" && currentProfile != "extreme") {
-                                    onExtremeConfirmRequired()
-                                } else {
-                                    onProfileSelected(item.id)
+                            if (profile.id == "extreme" && currentProfile != profile.id) onExtremeConfirmRequired()
+                            else if (profile.baseProfile == "extreme" && currentProfile != profile.id) pendingExtremeProfile = profile.id
+                            else if (currentProfile != profile.id) {
+                                if (hasOverrides) pendingSelection = profile.id else onProfileSelected(profile.id, true)
+                            }
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (profile.id == currentProfile) item.color.copy(alpha = 0.12f) else BgElevated,
+                        border = BorderStroke(1.dp, if (profile.id == currentProfile) item.color.copy(alpha = .6f) else BorderSubtle),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(item.name, color = item.color, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(profile.description.ifBlank { "Profil ${profile.baseProfile}" }, color = TextSecondary, fontSize = 10.sp)
+                            if (!profile.builtIn) {
+                                TextButton(onClick = { editing = profile }) { Text("Edit") }
+                                TextButton(onClick = { onProfileDuplicated(profile.id) }) { Text("Salin") }
+                                TextButton(onClick = { pendingDelete = profile.id }) { Text("Hapus") }
+                            } else {
+                                TextButton(onClick = { editing = profile }) { Text("Kustomisasi") }
+                                val default = KernelPerformanceProfile.builtIns().firstOrNull { it.id == profile.id }
+                                if (default != null && (profile.baseProfile != default.baseProfile || profile.domainProfiles != default.domainProfiles || profile.settings.isNotEmpty() || profile.includedSensitiveSettings.isNotEmpty())) {
+                                    TextButton(onClick = { pendingRestore = profile.id }) { Text("Pulihkan bawaan") }
                                 }
                             }
                         }
-                    )
+                    }
                 }
+                if (row.size == 1) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
             }
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { creating = true }) { Text("Tambah profil") }
+            Button(onClick = { creating = true }) { Text("Simpan kondisi saat ini") }
+        }
+    }
+
+    if (creating || editing != null) {
+        val source = editing ?: KernelPerformanceProfile(
+            id = "profil_baru", name = "Profil Baru", description = "Disimpan dari konfigurasi Lynx",
+            baseProfile = catalog.find(currentProfile)?.baseProfile ?: "balance",
+            domainProfiles = mapOf(
+                ProfileDomain.CPU to (catalog.find(currentProfile)?.domainProfiles?.get(ProfileDomain.CPU) ?: "balance"),
+                ProfileDomain.GPU to (catalog.find(currentProfile)?.domainProfiles?.get(ProfileDomain.GPU) ?: "balanced")
+            ),
+            includedDomains = setOf(ProfileDomain.MEMORY, ProfileDomain.DISPLAY, ProfileDomain.NETWORK, ProfileDomain.AUDIO)
+        )
+        ProfileEditorDialog(
+            source = source,
+            replacingBuiltIn = source.builtIn,
+            allowExistingCustom = editing != null && !source.builtIn,
+            onDismiss = { creating = false; editing = null },
+            onSave = { profile, replace, replaceCustom -> onProfileSaved(profile, replace, replaceCustom); creating = false; editing = null }
+        )
+    }
+
+    pendingSelection?.let { selected ->
+        AlertDialog(
+            onDismissRequest = { pendingSelection = null },
+            title = { Text("Override tweak aktif") },
+            text = { Text("Pertahankan override lokal saat mengganti profil induk, atau hapus agar semua domain mengikuti profil baru?") },
+            confirmButton = { TextButton(onClick = { onProfileSelected(selected, false); pendingSelection = null }) { Text("Pertahankan") } },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { onProfileSelected(selected, true); pendingSelection = null }) { Text("Hapus override") }
+                    TextButton(onClick = { pendingSelection = null }) { Text("Batal") }
+                }
+            }
+        )
+    }
+    pendingExtremeProfile?.let { selected ->
+        AlertDialog(
+            onDismissRequest = { pendingExtremeProfile = null },
+            title = { Text("Profil dasar Extreme") },
+            text = { Text("Profil ini menggunakan kebijakan dasar Extreme. Pilih Lanjutkan untuk menerapkannya.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingExtremeProfile = null
+                    if (hasOverrides) pendingSelection = selected else onProfileSelected(selected, true)
+                }) { Text("Lanjutkan") }
+            },
+            dismissButton = { TextButton(onClick = { pendingExtremeProfile = null }) { Text("Batal") } }
+        )
+    }
+    pendingDelete?.let { selected ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Hapus profil?") },
+            text = { Text("Profil kustom ini akan dihapus dari perangkat.") },
+            confirmButton = { TextButton(onClick = { onProfileDeleted(selected); pendingDelete = null }) { Text("Hapus") } },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Batal") } }
+        )
+    }
+    pendingRestore?.let { selected ->
+        AlertDialog(
+            onDismissRequest = { pendingRestore = null },
+            title = { Text("Pulihkan profil bawaan?") },
+            text = { Text("Kustomisasi ${catalog.find(selected)?.name ?: selected} akan dihapus dan nilai bawaan Lynx dipulihkan.") },
+            confirmButton = { TextButton(onClick = { onRestoreBuiltIn(selected); pendingRestore = null }) { Text("Pulihkan") } },
+            dismissButton = { TextButton(onClick = { pendingRestore = null }) { Text("Batal") } }
+        )
     }
 }
 
-private data class ProfileItem(
-    val id: String,
-    val name: String,
-    val desc: String,
-    val icon: ImageVector,
-    val color: Color
-)
-
 @Composable
-private fun ProfileBentoTile(
-    item: ProfileItem,
-    isActive: Boolean,
-    isWide: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
+private fun ProfileEditorDialog(
+    source: KernelPerformanceProfile,
+    replacingBuiltIn: Boolean,
+    allowExistingCustom: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (KernelPerformanceProfile, Boolean, Boolean) -> Unit,
 ) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = if (isActive) item.color.copy(alpha = 0.12f) else BgElevated,
-        border = BorderStroke(
-            width = if (isActive) 1.2.dp else 0.8.dp,
-            color = if (isActive) item.color.copy(alpha = 0.6f) else BorderSubtle
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .height(if (isWide) 64.dp else 74.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isActive) item.color.copy(alpha = 0.2f) else Color(0x0FFFFFFF),
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = item.icon,
-                            contentDescription = null,
-                            tint = if (isActive) item.color else TextSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
+    var name by remember(source.id) { mutableStateOf(source.name) }
+    var base by remember(source.id) { mutableStateOf(source.baseProfile) }
+    var cpu by remember(source.id) { mutableStateOf(source.domainProfiles[ProfileDomain.CPU] ?: source.baseProfile) }
+    var gpu by remember(source.id) { mutableStateOf(source.domainProfiles[ProfileDomain.GPU] ?: "balanced") }
+    var presetMenu by remember { mutableStateOf("") }
+    var includeThermal by remember(source.id) { mutableStateOf("thermal.mode" in source.includedSensitiveSettings) }
+    var includeBattery by remember(source.id) { mutableStateOf("charging.max_battery_percent" in source.includedSensitiveSettings) }
+    var includedDomains by remember(source.id) { mutableStateOf(source.includedDomains) }
+    var menu by remember { mutableStateOf(false) }
+    var replaceMenu by remember { mutableStateOf(false) }
+    var replaceBuiltIn by remember { mutableStateOf(false) }
+    val selectedSensitive = buildSet {
+        if (includeThermal) addAll(listOf("thermal.mode", "thermal.custom_temp_limit_c"))
+        if (includeBattery) addAll(listOf("charging.max_battery_percent", "charging.high_current_target_percent"))
+    }
+    val selectedDomains = includedDomains + buildSet {
+        if (includeThermal) add(ProfileDomain.THERMAL)
+        if (includeBattery) add(ProfileDomain.BATTERY)
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (source.builtIn) "Kustomisasi ${source.name}" else "Profil Kernel") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it.take(40) }, label = { Text("Nama profil") }, singleLine = true)
+                TextButton(onClick = { menu = true }) { Text("Profil dasar: $base") }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    KernelPerformanceProfile.BUILT_IN_IDS.filter { it != "auto" }.forEach { id ->
+                        DropdownMenuItem(text = { Text(id) }, onClick = {
+                            base = id
+                            cpu = id
+                            gpu = when (id) { "powersave" -> "battery"; "performance" -> "esports"; "balance" -> "balanced"; else -> id }
+                            menu = false
+                        })
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = item.name,
-                        fontSize = 13.5.sp,
-                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
-                        color = if (isActive) item.color else TextPrimary,
-                    )
-                    Text(
-                        text = item.desc,
-                        fontSize = 10.sp,
-                        color = TextSecondary,
-                        maxLines = 1,
-                    )
+                TextButton(onClick = { presetMenu = "cpu" }) { Text("CPU: $cpu · ubah") }
+                TextButton(onClick = { presetMenu = "gpu" }) { Text("GPU: $gpu · ubah") }
+                DropdownMenu(expanded = presetMenu == "cpu", onDismissRequest = { presetMenu = "" }) {
+                    listOf("powersave", "balance", "performance", "extreme").forEach { id ->
+                        DropdownMenuItem(text = { Text(id) }, onClick = { cpu = id; presetMenu = "" })
+                    }
+                }
+                DropdownMenu(expanded = presetMenu == "gpu", onDismissRequest = { presetMenu = "" }) {
+                    listOf("battery", "balanced", "esports", "extreme").forEach { id ->
+                        DropdownMenuItem(text = { Text(id) }, onClick = { gpu = id; presetMenu = "" })
+                    }
+                }
+                Text("Simpan nilai kondisi saat ini per domain:", color = TextSecondary, fontSize = 11.sp)
+                listOf(
+                    ProfileDomain.MEMORY to "Memori",
+                    ProfileDomain.DISPLAY to "Layar",
+                    ProfileDomain.NETWORK to "Jaringan",
+                    ProfileDomain.AUDIO to "Audio",
+                ).forEach { (domain, label) ->
+                    TextButton(onClick = {
+                        includedDomains = if (domain in includedDomains) includedDomains - domain else includedDomains + domain
+                    }) { Text("${if (domain in includedDomains) "☑" else "□"} $label") }
+                }
+                TextButton(onClick = { includeThermal = !includeThermal }) { Text("${if (includeThermal) "☑" else "□"} Sertakan kebijakan termal saat ini") }
+                TextButton(onClick = { includeBattery = !includeBattery }) { Text("${if (includeBattery) "☑" else "□"} Sertakan batas pengisian saat ini") }
+                if (replacingBuiltIn) {
+                    Text("Nilai bawaan asli dapat dipulihkan dari kartu profil.", color = TextSecondary, fontSize = 11.sp)
                 }
             }
-
-            if (isActive) {
-                Surface(
-                    shape = CircleShape,
-                    color = item.color,
-                    modifier = Modifier
-                        .size(8.dp)
-                        .padding(end = 2.dp)
-                ) {}
-            }
-        }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val isNew = source.id == "profil_baru"
+                val id = if (source.builtIn || !isNew) source.id else name.lowercase().trim().replace(Regex("[^a-z0-9]+"), "_").trim('_').take(40).ifBlank { "profil_baru" }
+                val chosen = source.copy(
+                    id = id, name = name.trim(), baseProfile = base,
+                    domainProfiles = source.domainProfiles + mapOf(ProfileDomain.CPU to cpu, ProfileDomain.GPU to gpu),
+                    includedDomains = selectedDomains,
+                    includedSensitiveSettings = selectedSensitive
+                )
+                if (replacingBuiltIn && !replaceBuiltIn) replaceMenu = true else onSave(chosen, replaceBuiltIn, allowExistingCustom)
+            }) { Text("Simpan") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+    )
+    if (replaceMenu) {
+        AlertDialog(
+            onDismissRequest = { replaceMenu = false },
+            title = { Text("Simpan perubahan profil bawaan?") },
+            text = { Text("Anda dapat menimpa ${source.name} atau menyimpan perubahan sebagai profil baru.") },
+            confirmButton = { TextButton(onClick = { replaceBuiltIn = true; replaceMenu = false; onSave(source.copy(name = name.trim(), baseProfile = base, domainProfiles = source.domainProfiles + mapOf(ProfileDomain.CPU to cpu, ProfileDomain.GPU to gpu), includedDomains = selectedDomains, includedSensitiveSettings = selectedSensitive), true, false) }) { Text("Timpa bawaan") } },
+            dismissButton = { TextButton(onClick = { replaceMenu = false; onSave(source.copy(id = name.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_'), name = name.trim(), baseProfile = base, domainProfiles = source.domainProfiles + mapOf(ProfileDomain.CPU to cpu, ProfileDomain.GPU to gpu), includedDomains = selectedDomains, includedSensitiveSettings = selectedSensitive, builtIn = false), false, false) }) { Text("Simpan baru") } }
+        )
     }
+}
+
+private data class Item(val name: String, val color: Color, val icon: ImageVector)
+
+private fun profileItem(profile: KernelPerformanceProfile) = when (profile.id) {
+    "auto" -> Item(profile.name, AccentCyan, Icons.Default.Bolt)
+    "performance" -> Item(profile.name, AccentOrange, Icons.Default.Speed)
+    "extreme" -> Item(profile.name, AccentRed, Icons.Default.LocalFireDepartment)
+    "powersave" -> Item(profile.name, Color(0xFF00E676), Icons.Default.BatteryChargingFull)
+    "balance" -> Item(profile.name, AccentBlue, Icons.Default.Tune)
+    else -> Item(profile.name, AccentCyan, Icons.Default.Tune)
 }

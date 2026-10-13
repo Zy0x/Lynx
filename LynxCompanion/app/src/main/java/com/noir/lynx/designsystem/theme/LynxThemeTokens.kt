@@ -1,7 +1,13 @@
 package com.noir.lynx.designsystem.theme
 
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.ScrollableDefaults
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+
+@Composable
+fun rememberFluidFlingBehavior(): FlingBehavior = ScrollableDefaults.flingBehavior()
 
 // ============================================================
 //  Material 3 Expressive — Clean Minimalist Obsidian Design Tokens

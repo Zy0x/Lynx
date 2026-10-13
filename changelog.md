@@ -1,3 +1,39 @@
+# Lynx Universal [Standard Charging State Restoration & Decimal Battery SOC Precision] 7.0.0-RC30
+Released on: 2026-10-13
+> **Lynx Universal v7.0.0-RC30** (Lynx Kernel Manager v3.0.95): **Pemberantasan Tuntas Masalah Kebocoran Mode Pengisian Ekstrem (Extreme Charging Leak Eliminator), Implementasi Pemulihan Standar OEM Hardware Murni pada Rust Daemon & Kotlin Shell (`apply_standard_mode`), Resolusi Pembekuan Daemon Termal Vendor (`thermalloadalgod` Unfreeze via Signal 18/SIGCONT), Penggantian Skrip Monolitik Lingering dengan Facade Delegator (`core/Charging-Controller.sh`), Serta Kalkulasi Presisi Tinggi Persentase Baterai Desimal 4-Tingkat Bebas-Hilang (`.0` s/d `.9`)**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC30)
+
+### 1. Eliminasi Kebocoran Mode Pengisian Ekstrem (State & Sysfs Leak Fix)
+- **Rust Native Daemon (`native/lynxd`)**:
+  - Merekonstruksi `apply_standard_mode()` di `ChargingRegulator`: Menghapus penulisan kuncian `0444` dan pembatasan arus kaku, serta secara otomatis membuka kunci (*chmod 666*) seluruh node pengisian daya (`input_current`, `sc_ibat_limit`, `chg1_current`, `enable_sc`, dll.) agar driver OEM dapat mengontrol arus secara dinamis.
+  - Memulihkan parameter proteksi termal `/proc/driver/thermal/clabcct`, `clabcct_lcmoff`, `tzbts_param`, dan `pca_dv2_algo/dv2_debug` ke nilai default aman OEM dengan izin tulis `0644`.
+  - Mengirimkan sinyal langsung `SIGCONT` (18) melalui panggilan sistem libc ke seluruh daemon termal vendor (`thermalloadalgod`, `thermal-engine`, `mi_thermald`, `joyose`), memulihkan status daemon dari `T (Stopped)` menjadi `S (Sleeping)` yang aktif menjaga suhu perangkat.
+  - Menghapus flag kuncian atomik `/dev/lynx_extreme_charging` dan menyinkronkan status ke `/dev/lynx_standard_charging`.
+- **Penghentian Skrip Latar Belakang Lingering**:
+  - Mengidentifikasi dan mematikan proses shell lawas `Charging-Controller.sh` yang sebelumnya memicu loop penguncian ekstrem terus-menerus di latar belakang.
+  - Mengganti `core/Charging-Controller.sh` dengan facade delegator 20 baris yang mendelegasikan 100% eksekusi ke biner native `lynxd`, mengeliminasi loop konkuren.
+  - Menyederhanakan `service.sh` modul menjadi pemanggilan langsung `lynxd boot`.
+
+### 2. Guard Penguncian Ekstrem pada Lapisan Kotlin Repository
+- **`ChargingRepository.kt`**:
+  - Melindungi `reapplyExtremeChargingLock()` dengan pengecekan ketat: Eksekusi dibatalkan seketika jika mode pengisian aktif bukan `"hyper"` dan `extremeChargingEnabled` bernilai `false`.
+  - Memperbaiki `applySavedChargingConfig()` agar memanggil `setChargingMode()` yang tepat untuk `"standard"` daripada jatuh ke blok `else` yang berpotensi memicu skrip ekstrem warisan.
+- **`StandardChargingScript.kt`**:
+  - Menyinkronkan pemulihan `/proc/driver/thermal/clabcct`, `clabcct_lcmoff`, dan `tzbts_param` serta mengirimkan sinyal `kill -18` untuk mencairkan proses termal vendor jika lynxd tidak tersedia.
+
+### 3. Presisi Tinggi Kalkulasi Persentase Desimal Baterai (Zero-Drop Decimal SOC)
+- **`ChargingHeroDisplayCard.kt`**:
+  - Merevisi arsitektur kalkulasi desimal baterai dengan model interpolasi 4-tingkat:
+    1. *Tingkat 1*: Delta Coulomb counter perangkat keras sejak persentase integer aktif dimulai (`liveHardwareChargeCounterUah - levelEntryAnchorUah`).
+    2. *Tingkat 2*: Integrasi arus riil listrik dinamis ($\Delta Q = I \times \Delta t$) terkalibrasi per-detik.
+    3. *Tingkat 3*: Rasio Coulomb langsung jika selisih fuel-gauge selaras dengan persentase OS.
+    4. *Tingkat 4*: Estimasi laju aliran listrik kontinu berbasis waktu aktif dan arus pengisian riil.
+  - Memastikan angka desimal (`.0` s/d `.9`) selalu tampil aktif dan mulus selama pengisian terhubung, bebas dari kedipan atau hilang menjadi integer murni.
+  - Mengoreksi penentuan status `isCharging` agar tetap aktif selama perangkat tersambung daya eksternal dan tidak mengalami pelepasan daya aktif.
+
+---
+
 # Lynx Universal [CPU Cluster Tuner Modularization & i18n Localization Engine] 7.0.0-RC27
 Released on: 2026-10-12
 > **Lynx Universal v7.0.0-RC27** menandai implementasi Tahap 3 (Modularisasi Domain CPU - Sub-domain A: CPU Cluster Tuner) pada aplikasi Lynx Kernel Manager (v3.0.92): **Dekomposisi Monolith `CpuClusterTunerCard` (1.377 Baris) Menjadi 8 Modul Mandiri Terfokus di Bawah `com.noir.lynx.feature.cpu.ui.cluster.*`, Kepatuhan Anggaran Baris Ketat ($\le 330$ Baris per File Sesuai Pedoman Arsitektur AGENTS.md), Standarisasi i18n Multi-Bahasa Menyeluruh via `strings.xml` dan `stringResource`, Serta Pengurangan Signifikan Ukuran Berkas Inti `LynxComponents.kt` Sebesar 1.351 Baris**. Seluruh fungsionalitas penalaan frekuensi kluster (stepped grid MHz/GHz, auto min/max, thermal lock, selector scaling governor, preset latensi Schedutil, dan governor tunables editor) terverifikasi 100% utuh tanpa kehilangan fungsi sedikit pun.

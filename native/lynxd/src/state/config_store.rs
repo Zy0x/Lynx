@@ -10,6 +10,7 @@ use std::os::unix::fs::PermissionsExt;
 #[derive(Debug, Clone)]
 pub struct ChargingConfigState {
     pub active_profile: String,
+    pub charging_mode: String,
     pub bypass_enabled: bool,
     pub extreme_charging_enabled: bool,
     pub temp_cutoff_c: i32,
@@ -30,6 +31,7 @@ impl Default for ChargingConfigState {
     fn default() -> Self {
         Self {
             active_profile: "balance".to_string(),
+            charging_mode: "standard".to_string(),
             bypass_enabled: false,
             extreme_charging_enabled: false,
             temp_cutoff_c: 45,
@@ -40,7 +42,7 @@ impl Default for ChargingConfigState {
             max_battery_percent: 80,
             high_current_target_percent: 90,
             emergency_temp_guard_enabled: true,
-            thermal_lockout_bypass_enabled: true,
+            thermal_lockout_bypass_enabled: false,
             smart_tapering_enabled: true,
             night_sleep_guard_enabled: false,
             dual_cell_multiplier: 1,
@@ -213,6 +215,11 @@ impl ConfigStore {
         }
     }
 
+    /// Convenience helper to atomically update a single key in `config.json`.
+    pub fn set(key: &str, val: &str, type_hint: &str) -> Result<(), String> {
+        Self::set_batch(&[(key.to_string(), val.to_string(), Some(type_hint.to_string()))])
+    }
+
     /// Atomically updates one or multiple keys in `config.json` in a single in-memory pass.
     /// Zero temporary file collisions (uses PID suffix + `/dev/lynx_config.lock`).
     pub fn set_batch(updates: &[(String, String, Option<String>)]) -> Result<(), String> {
@@ -376,6 +383,9 @@ impl ConfigStore {
 
         if let Some(p) = Self::get_from_str(&content, "active_profile") {
             cfg.active_profile = p;
+        }
+        if let Some(m) = Self::get_from_str(&content, "charging.charging_mode") {
+            cfg.charging_mode = m;
         }
         if let Some(v) = Self::get_from_str(&content, "charging.bypass_enabled") {
             cfg.bypass_enabled = v == "true";
