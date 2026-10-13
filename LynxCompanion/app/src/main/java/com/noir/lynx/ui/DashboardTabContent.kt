@@ -128,7 +128,13 @@ fun DashboardTabContent(
                         .fillMaxSize()
                         .statusBarsPadding(),
                 ) {
-                    dashboardHeaderItem(uiState, viewModel, currentAccent)
+                    dashboardHeaderItem(
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        currentAccent = currentAccent,
+                        onExtremeConfirmRequired = onExtremeConfirmRequired,
+                        onNavigateToProfilesCatalog = onNavigateToProfilesCatalog
+                    )
                     item(key = "charging_hero_display") {
                         ChargingHeroDisplayCard(
                             battery = uiState.batteryDetails,
@@ -160,19 +166,6 @@ fun DashboardTabContent(
                             telemetry = uiState.telemetry,
                             onCleanRam = { viewModel.cleanRam() },
                             isCleaningRam = uiState.isCleaningRam
-                        )
-                    }
-
-                    item(key = "quick_profiles") {
-                        QuickProfileSwitcherCard(
-                            catalog = uiState.kernelProfileCatalog,
-                            currentProfile = state.activeProfile,
-                            hasOverrides = state.profileOverrides.isNotEmpty(),
-                            onProfileSelected = { id, clearOverrides ->
-                                viewModel.selectKernelPerformanceProfile(id, context, clearOverrides)
-                            },
-                            onExtremeConfirmRequired = onExtremeConfirmRequired,
-                            onNavigateToProfilesCatalog = onNavigateToProfilesCatalog
                         )
                     }
 

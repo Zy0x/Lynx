@@ -1,3 +1,28 @@
+# Lynx Universal [Unified All-in-One Header & Integrated Mode Selector & Official App Icon Revamp] 7.0.0-RC42
+Released on: 2026-10-14
+> **Lynx Universal v7.0.0-RC42** (Lynx Kernel Manager v3.1.4): **Penggabungan Menyeluruh Top Header dan Mode Performa Kernel Menjadi Satu Komponen All-in-One yang Ultra-Kompak, Penyelarasan Sub-Header Status Menjadi "Codename: Deity", dan Integrasi Aset Ikon Aplikasi Resmi Lynx (Cyan Metallic Fold)**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC42)
+
+### 1. Unified All-in-One Header & Mode Selector Terpadu
+- **Penggabungan Dua Komponen Kunci**: Menyatukan Top Header dan pemilih Mode Performa Kernel (`QuickProfileSwitcherCard`) ke dalam satu kartu bento box all-in-one yang rapi dan proporsional.
+- **Efisiensi Ruang Layar Signifikan**: Menghemat ruang vertikal hingga ~110 dp pada dashboard, sehingga kartu telemetri baterai, SoC clock, dan memori dapat langsung terlihat di area *first-fold* tanpa perlu scroll jauh.
+- **Tata Letak Baris Ganda Simetris**:
+  - *Baris 1*: Ikon resmi Lynx, judul `"Lynx Kernel"`, dan status `"Codename: Deity"` dengan dot indikator hijau aktif, berdampingan dengan aksi cepat palet tema dinamis (expandable via `AnimatedVisibility`) dan tombol `[ Kustom → ]`.
+  - *Divider Halus*: Garis pembatas semi-transparan (`White` 5% alpha) pemisah zona identitas dan zona kontrol frekuensi.
+  - *Baris 2*: 4-Way Mode Selector (`Hemat`, `Seimbang`, `Performa`, `Extreme`) dengan feedback glow interaktif, border aktif, dan subteks profil yang presisi.
+
+### 2. Penyelarasan Status Sub-Header ("Codename: Deity")
+- **Standardisasi Identitas Modul**: Mengubah teks sub-header status dari sebelumnya `"Lynx Deity Active"` menjadi **`"Codename: Deity"`** dengan dot indikator hijau bersinar halus (`EmeraldGreen`), mempertegas arsitektur inti modul hybrid Deity secara profesional.
+
+### 3. Integrasi Ikon Aplikasi Resmi Lynx (Cyan Metallic Fold)
+- **Aset Visual Generasi Baru**: Mengadopsi ikon resmi bernuansa *Cyan Metallic Fold* (`ic_lynx_logo.png`) dengan palet kromium futuristik dan aksen cyan yang tajam.
+- **Dukungan Penuh Multi-DPI & Adaptive Icons**:
+  - Menghasilkan aset mipmap berkualitas tinggi di semua densitas: `mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, dan `xxxhdpi` (`ic_launcher.png` dan `ic_launcher_round.png`).
+  - Mengonfigurasi Adaptive Vector Icon XML (`mipmap-anydpi-v26/ic_launcher.xml` dan `ic_launcher_round.xml`) dengan background solid OLED `#0B0F17` dan foreground terpusat 108dp.
+
+---
+
 # Lynx Universal [Dashboard Harmonization & Telemetry Gauges Symmetry] 7.0.0-RC41
 Released on: 2026-10-14
 > **Lynx Universal v7.0.0-RC41** (Lynx Kernel Manager v3.1.3): **Harmonisasi Total Antarmuka Dashboard, Eliminasi Redundansi Badge Daya & Dial Mode saat Discharging, Simetri Tampilan Load GPU Mirroring CPU, serta Penyelarasan Bahasa Indonesia Baku pada Profil Performa Kernel**.
