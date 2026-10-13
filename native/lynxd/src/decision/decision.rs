@@ -89,11 +89,39 @@ impl DecisionEngine {
 
         if is_target_app {
             let app_name = fg_app.map(|a| a.package.as_str()).unwrap_or("Game");
+            let requested_profile: &'static str = match fg_app.and_then(|a| a.target_profile.as_deref()) {
+                Some("extreme") => "extreme",
+                Some("powersave") => "powersave",
+                Some("balance") => "balance",
+                _ => "performance",
+            };
 
             // A. Cancel any running exit cooldown
             self.cooldown.on_game_active();
 
-            // B. If already in performance, evaluate Adaptive Governor modifier
+            // B. If current profile does not match requested_profile, switch!
+            if self.current_profile != requested_profile {
+                match self.policy.can_boost(telemetry) {
+                    Ok(_) => {
+                        self.adaptive.reset();
+                        return DecisionAction::ApplyProfile {
+                            target_profile: requested_profile,
+                            reason: format!(
+                                "Target application active ({}) requesting '{}' profile",
+                                app_name, requested_profile
+                            ),
+                        };
+                    }
+                    Err(inhibit_reason) => {
+                        return DecisionAction::Inhibited {
+                            target_profile: requested_profile,
+                            reason: inhibit_reason,
+                        };
+                    }
+                }
+            }
+
+            // C. If already in requested_profile, evaluate Adaptive Governor modifier
             if self.current_profile == "performance" || self.current_profile == "extreme" {
                 if let Some((new_modifier, reason)) = self.adaptive.update(telemetry) {
                     let target_prof = if self.current_profile == "extreme" {
@@ -109,21 +137,7 @@ impl DecisionEngine {
                 }
                 return DecisionAction::MaintainCurrent;
             }
-
-            // C. Validate entry safety guardrails (Battery & Thermal)
-            match self.policy.can_boost(telemetry) {
-                Ok(_) => {
-                    self.adaptive.reset();
-                    DecisionAction::ApplyProfile {
-                        target_profile: "performance",
-                        reason: format!("Target application active ({})", app_name),
-                    }
-                }
-                Err(inhibit_reason) => DecisionAction::Inhibited {
-                    target_profile: "performance",
-                    reason: inhibit_reason,
-                },
-            }
+            DecisionAction::MaintainCurrent
         } else {
             // Non-target application (Normal, System, Media, or None)
             if self.current_profile == "performance" || self.current_profile == "extreme" {
@@ -169,6 +183,7 @@ mod tests {
             package: "com.tencent.ig".to_string(),
             category: AppCategory::Game,
             confidence: Confidence::High,
+            target_profile: None,
         };
 
         // 1. Enter game at t=100
@@ -190,6 +205,7 @@ mod tests {
             package: "com.whatsapp".to_string(),
             category: AppCategory::Normal,
             confidence: Confidence::Low,
+            target_profile: None,
         };
         let action3 = engine.evaluate(Some(&wa_app), ScreenState::On, &telemetry, 102);
         match action3 {
@@ -212,6 +228,27 @@ mod tests {
                 assert_eq!(target_profile, "balance");
             }
             _ => panic!("Expected ApplyProfile balance"),
+        }
+    }
+
+    #[test]
+    fn test_decision_custom_extreme_game_profile() {
+        let mut engine = DecisionEngine::new("balance", 5);
+        let telemetry = make_test_telemetry();
+
+        let extreme_game = ForegroundApp {
+            package: "com.HoYoverse.hkrpgoversea".to_string(),
+            category: AppCategory::Game,
+            confidence: Confidence::High,
+            target_profile: Some("extreme".to_string()),
+        };
+
+        let action = engine.evaluate(Some(&extreme_game), ScreenState::On, &telemetry, 100);
+        match action {
+            DecisionAction::ApplyProfile { target_profile, .. } => {
+                assert_eq!(target_profile, "extreme");
+            }
+            _ => panic!("Expected ApplyProfile extreme"),
         }
     }
 
@@ -239,6 +276,7 @@ mod tests {
             package: "com.miHoYo.GenshinImpact".to_string(),
             category: AppCategory::Game,
             confidence: Confidence::High,
+            target_profile: None,
         };
 
         let action = engine.evaluate(Some(&game_app), ScreenState::On, &telemetry, 100);
@@ -262,6 +300,7 @@ mod tests {
             package: "com.tencent.ig".to_string(),
             category: AppCategory::Game,
             confidence: Confidence::High,
+            target_profile: None,
         };
 
         // 1. Enter game at normal temp: ApplyProfile performance

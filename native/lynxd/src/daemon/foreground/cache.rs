@@ -52,16 +52,19 @@ mod tests {
             package: "pkg1".to_string(),
             category: AppCategory::Game,
             confidence: Confidence::High,
+            target_profile: None,
         };
         let app2 = ForegroundApp {
             package: "pkg2".to_string(),
             category: AppCategory::Media,
             confidence: Confidence::High,
+            target_profile: None,
         };
         let app3 = ForegroundApp {
             package: "pkg3".to_string(),
             category: AppCategory::System,
             confidence: Confidence::High,
+            target_profile: None,
         };
 
         cache.store("pkg1".to_string(), app1.clone());

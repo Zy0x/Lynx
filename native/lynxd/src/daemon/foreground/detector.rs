@@ -40,6 +40,8 @@ impl ForegroundDetector {
     /// Priority 1 & 2: Direct kernel cpuset procfs & cgroup v2 inspection (Sub-1ms, Zero Fork).
     pub fn detect_top_package(&self) -> Option<String> {
         // ── Priority 1 & 2: Kernel Cpuset & Cgroup v2 Procfs Inspection ─────
+        let mut best_candidate: Option<(i32, String)> = None;
+
         for node_path in &self.cgroup_nodes {
             if let Ok(content) = fs::read_to_string(node_path) {
                 for line in content.lines() {
@@ -59,11 +61,29 @@ impl ForegroundDetector {
                         let first_token = cmd_str.split('\0').next().unwrap_or("").trim();
 
                         if Self::is_valid_user_package(first_token) {
-                            return Some(first_token.to_string());
+                            // Check /proc/{pid}/oom_score_adj (Android sets TOP_APP_ADJ = 0 for focused activity)
+                            let oom_adj_path = format!("/proc/{}/oom_score_adj", pid_str);
+                            let oom_adj = fs::read_to_string(&oom_adj_path)
+                                .ok()
+                                .and_then(|s| s.trim().parse::<i32>().ok())
+                                .unwrap_or(999);
+
+                            if oom_adj == 0 {
+                                // Direct match for active top-app foreground activity
+                                return Some(first_token.to_string());
+                            } else if oom_adj > 0 && oom_adj < 200 {
+                                if best_candidate.as_ref().map_or(true, |(score, _)| oom_adj < *score) {
+                                    best_candidate = Some((oom_adj, first_token.to_string()));
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
+
+        if let Some((_, candidate_pkg)) = best_candidate {
+            return Some(candidate_pkg);
         }
 
         // ── Priority 2: Fallback focused dumpsys parsing ────────────────────
@@ -99,7 +119,7 @@ impl ForegroundDetector {
             return false;
         }
 
-        // Ignore common system daemons and HAL services that reside in top-app cpuset
+        // Ignore common system daemons, HAL services, input methods, and helper services
         let lower = cmd.to_lowercase();
         if lower.starts_with("surfaceflinger")
             || lower.starts_with("android.hardware")
@@ -107,6 +127,9 @@ impl ForegroundDetector {
             || lower.starts_with("/vendor/")
             || lower.starts_with("/system/")
             || lower.starts_with("composer-service")
+            || lower.contains("inputmethod")
+            || lower.contains("keyboard")
+            || lower.ends_with(".tts")
             || lower == "system_server"
         {
             return false;
@@ -160,5 +183,7 @@ mod tests {
         assert!(!ForegroundDetector::is_valid_user_package("surfaceflinger"));
         assert!(!ForegroundDetector::is_valid_user_package("vendor.qti.hardware.display"));
         assert!(!ForegroundDetector::is_valid_user_package("system_server"));
+        assert!(!ForegroundDetector::is_valid_user_package("com.google.android.inputmethod.latin"));
+        assert!(!ForegroundDetector::is_valid_user_package("com.google.android.tts"));
     }
 }

@@ -34,22 +34,25 @@ pub struct ForegroundApp {
     pub package: String,
     pub category: AppCategory,
     pub confidence: Confidence,
+    pub target_profile: Option<String>,
 }
 
 pub struct RulesEngine {
     custom_games: Vec<String>,
+    app_rules: Vec<(String, String)>, // (packageName lowercase, targetProfile lowercase)
 }
 
 impl RulesEngine {
     pub fn new() -> Self {
         let mut engine = Self {
             custom_games: Vec::new(),
+            app_rules: Vec::new(),
         };
         engine.load_default_custom_lists();
         engine
     }
 
-    /// Loads custom target apps from user storage, module root, TSV rules, and config.json.
+    /// Loads custom target apps from user storage, module root, TSV rules, app_rules.json, and config.json.
     pub fn load_default_custom_lists(&mut self) {
         let candidates = [
             "/storage/emulated/0/Lynx/applist_perf.txt",
@@ -63,6 +66,20 @@ impl RulesEngine {
             if p.exists() {
                 self.load_custom_file(&p);
                 break;
+            }
+        }
+
+        // Check app_rules.json (Per-App rules from Companion APK - highest priority)
+        let json_candidates = [
+            "/data/adb/modules/Lynx/core/app_rules.json",
+            "/data/adb/lynx/app_rules.json",
+            "/storage/emulated/0/Lynx/app_rules.json",
+            "./core/app_rules.json",
+        ];
+        for &rule_path in &json_candidates {
+            let p = PathBuf::from(rule_path);
+            if p.exists() {
+                self.load_app_rules_json(&p);
             }
         }
 
@@ -93,6 +110,38 @@ impl RulesEngine {
         }
     }
 
+    pub fn load_app_rules_json(&mut self, path: &Path) {
+        let Ok(content) = fs::read_to_string(path) else { return };
+        for obj_block in content.split('{') {
+            let Some(end_idx) = obj_block.find('}') else { continue };
+            let block = &obj_block[..end_idx];
+
+            let pkg = extract_json_string(block, "packageName");
+            if let Some(pkg) = pkg {
+                let pkg_lower = pkg.trim().to_lowercase();
+                if pkg_lower.is_empty() {
+                    continue;
+                }
+                let profile = extract_json_string(block, "targetProfile")
+                    .unwrap_or_else(|| "performance".to_string())
+                    .trim()
+                    .to_lowercase();
+                let enabled = extract_json_bool(block, "enabled").unwrap_or(true);
+
+                if enabled {
+                    if !self.custom_games.contains(&pkg_lower) {
+                        self.custom_games.push(pkg_lower.clone());
+                    }
+                    self.app_rules.retain(|(p, _)| p != &pkg_lower);
+                    self.app_rules.push((pkg_lower, profile));
+                } else {
+                    self.custom_games.retain(|p| p != &pkg_lower);
+                    self.app_rules.retain(|(p, _)| p != &pkg_lower);
+                }
+            }
+        }
+    }
+
     pub fn load_custom_file(&mut self, path: &Path) {
         if let Ok(content) = fs::read_to_string(path) {
             for line in content.lines() {
@@ -117,8 +166,17 @@ impl RulesEngine {
                 let parts: Vec<&str> = trimmed.split('|').collect();
                 if !parts.is_empty() {
                     let pkg = parts[0].trim().to_lowercase();
-                    if !pkg.is_empty() && !self.custom_games.contains(&pkg) {
-                        self.custom_games.push(pkg);
+                    if !pkg.is_empty() {
+                        if !self.custom_games.contains(&pkg) {
+                            self.custom_games.push(pkg.clone());
+                        }
+                        if parts.len() >= 2 {
+                            let prof = parts[1].trim().to_lowercase();
+                            if !prof.is_empty() {
+                                self.app_rules.retain(|(p, _)| p != &pkg);
+                                self.app_rules.push((pkg, prof));
+                            }
+                        }
                     }
                 }
             }
@@ -145,6 +203,11 @@ impl RulesEngine {
     /// Deterministically categorizes an application package.
     pub fn categorize(&self, package: &str) -> ForegroundApp {
         let pkg_lower = package.to_lowercase();
+        let custom_target_profile = self
+            .app_rules
+            .iter()
+            .find(|(p, _)| p == &pkg_lower || pkg_lower.contains(p))
+            .map(|(_, prof)| prof.clone());
 
         // ── Tier 1: Exact Benchmark Signatures ──────────────────────────────
         const BENCHMARKS: &[&str] = &[
@@ -164,6 +227,7 @@ impl RulesEngine {
                 package: package.to_string(),
                 category: AppCategory::Benchmark,
                 confidence: Confidence::High,
+                target_profile: custom_target_profile.or_else(|| Some("extreme".to_string())),
             };
         }
 
@@ -194,16 +258,18 @@ impl RulesEngine {
                 package: package.to_string(),
                 category: AppCategory::Game,
                 confidence: Confidence::High,
+                target_profile: custom_target_profile,
             };
         }
 
-        // ── Tier 3: User Custom Applist (applist_perf.txt) ──────────────────
+        // ── Tier 3: User Custom Applist (applist_perf.txt / app_rules.json) ─
         for custom in &self.custom_games {
             if pkg_lower.contains(custom) {
                 return ForegroundApp {
                     package: package.to_string(),
                     category: AppCategory::Game,
                     confidence: Confidence::High,
+                    target_profile: custom_target_profile,
                 };
             }
         }
@@ -221,6 +287,7 @@ impl RulesEngine {
                 package: package.to_string(),
                 category: AppCategory::Media,
                 confidence: Confidence::High,
+                target_profile: custom_target_profile,
             };
         }
 
@@ -235,6 +302,7 @@ impl RulesEngine {
                 package: package.to_string(),
                 category: AppCategory::System,
                 confidence: Confidence::High,
+                target_profile: custom_target_profile,
             };
         }
 
@@ -244,6 +312,7 @@ impl RulesEngine {
                 package: package.to_string(),
                 category: AppCategory::Benchmark,
                 confidence: Confidence::Medium,
+                target_profile: custom_target_profile.or_else(|| Some("extreme".to_string())),
             };
         }
 
@@ -262,6 +331,7 @@ impl RulesEngine {
                 package: package.to_string(),
                 category: AppCategory::Game,
                 confidence: Confidence::Medium,
+                target_profile: custom_target_profile,
             };
         }
 
@@ -270,7 +340,34 @@ impl RulesEngine {
             package: package.to_string(),
             category: AppCategory::Normal,
             confidence: Confidence::Low,
+            target_profile: custom_target_profile,
         }
+    }
+}
+
+fn extract_json_string(block: &str, key: &str) -> Option<String> {
+    let key_pattern = format!("\"{}\"", key);
+    let key_pos = block.find(&key_pattern)?;
+    let rem = &block[key_pos + key_pattern.len()..];
+    let colon_pos = rem.find(':')?;
+    let val_rem = &rem[colon_pos + 1..];
+    let first_quote = val_rem.find('"')?;
+    let second_quote = val_rem[first_quote + 1..].find('"')?;
+    Some(val_rem[first_quote + 1..first_quote + 1 + second_quote].to_string())
+}
+
+fn extract_json_bool(block: &str, key: &str) -> Option<bool> {
+    let key_pattern = format!("\"{}\"", key);
+    let key_pos = block.find(&key_pattern)?;
+    let rem = &block[key_pos + key_pattern.len()..];
+    let colon_pos = rem.find(':')?;
+    let val_rem = rem[colon_pos + 1..].trim_start();
+    if val_rem.starts_with("true") {
+        Some(true)
+    } else if val_rem.starts_with("false") {
+        Some(false)
+    } else {
+        None
     }
 }
 

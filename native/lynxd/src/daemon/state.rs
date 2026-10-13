@@ -115,6 +115,7 @@ mod tests {
             package: "com.tencent.ig".to_string(),
             category: AppCategory::Game,
             confidence: Confidence::High,
+            target_profile: None,
         };
 
         let changed = state.update_app(Some(app1.clone()), 200);
@@ -125,6 +126,7 @@ mod tests {
             package: "com.spotify.music".to_string(),
             category: AppCategory::Media,
             confidence: Confidence::High,
+            target_profile: None,
         };
 
         let changed2 = state.update_app(Some(app2), 250);
