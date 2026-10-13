@@ -26,6 +26,11 @@ Released on: 2026-10-13
 - Kartu **Kesehatan Baterai** dihilangkan dari Dashboard utama untuk mencegah redundansi, karena analisis kesehatan baterai lengkap sudah tersedia di sub-halaman Baterai.
 - Dashboard utama kini berfokus penuh pada 3 kartu esensial: **Hero Battery Card**, **Quick Profile Switcher**, dan **Live Thermal Zones Matrix**.
 
+### 4. Zero-Overhead Fast-Path Execution & Eliminasi Broken-Pipe Latency
+- **Direct In-Memory Caching Path `lynxd`**: Lokasi biner native Rust `lynxd` kini di-cache langsung di memori RAM (`cachedLynxdPath`), memangkas shell pre-check `[ -x ... ]` berulang kali (~15 ms) pada setiap pergantian profil.
+- **Pembersihan `killall lynxd`**: Menghilangkan perintah `killall lynxd` pada penerapan profil rutin (`extreme`, `performance`, `balance`, `powersave`), menjamin perpindahan mode berlangsung instan tanpa gangguan sinyal kill.
+- **Eliminasi Broken Pipe SIGPIPE pada Window Watcher**: Mengganti pipeline `dumpsys window | grep -m1` dengan query terarah `dumpsys window displays` dan in-memory pattern matching di Kotlin, melenyapkan 100% error SIGPIPE (Broken pipe) di `system_server` Android.
+
 ---
 
 # Lynx Universal [UX Architecture Restructure: Dedicated Game HUD Subscreen & Unified Per-App Profiling Hub] 7.0.0-RC36

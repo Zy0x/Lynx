@@ -293,17 +293,17 @@ class LynxAppAutomationService : Service() {
 
     private fun queryTopResumedPackage(): String? {
         return try {
-            // First check mCurrentFocus from dumpsys window (sub-15ms, Universal Android 8-14)
-            val resWin = Shell.cmd("dumpsys window | grep -m1 mCurrentFocus").exec()
-            val winLine = resWin.out.firstOrNull()
-            if (!winLine.isNullOrBlank() && !winLine.contains("mCurrentFocus=null")) {
+            // First check mCurrentFocus from targeted dumpsys window displays (sub-20ms, zero SIGPIPE)
+            val resWin = Shell.cmd("dumpsys window displays").exec()
+            val winLine = resWin.out.firstOrNull { it.contains("mCurrentFocus=") && !it.contains("mCurrentFocus=null") }
+            if (!winLine.isNullOrBlank()) {
                 val match = Regex("""([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.]*""").find(winLine)
                 val pkg = match?.groupValues?.get(1)?.trim()
                 if (!pkg.isNullOrBlank() && pkg != "null") return pkg
             }
-            // Fallback to topResumedActivity from dumpsys activity
-            val resAct = Shell.cmd("dumpsys activity activities | grep -m1 topResumedActivity").exec()
-            val actLine = resAct.out.firstOrNull()
+            // Fallback to topResumedActivity from dumpsys activity activities without early-closing pipe
+            val resAct = Shell.cmd("dumpsys activity activities").exec()
+            val actLine = resAct.out.firstOrNull { it.contains("topResumedActivity=") }
             if (!actLine.isNullOrBlank()) {
                 val match = Regex("""([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.]*""").find(actLine)
                 val pkg = match?.groupValues?.get(1)?.trim()

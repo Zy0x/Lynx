@@ -31,6 +31,25 @@ private const val TARGET_SOC_PATH = "/data/adb/modules/Lynx/target_soc"
 private const val STATE_TAG = "LynxRepository"
 
 internal object LynxAppStateRepository {
+    @Volatile
+    private var cachedLynxdPath: String? = null
+
+    private fun getLynxdBinaryPath(): String? {
+        cachedLynxdPath?.let { return it }
+        val candidatePaths = listOf(
+            "$MODULE_DIR/system/bin/lynxd",
+            "/data/adb/modules/Lynx/system/bin/lynxd"
+        )
+        for (p in candidatePaths) {
+            val check = Shell.cmd("[ -x '$p' ] && echo 1 || echo 0").exec()
+            if (check.out.firstOrNull()?.trim() == "1") {
+                cachedLynxdPath = p
+                return p
+            }
+        }
+        return null
+    }
+
     fun getLocalConfigPath(): String {
         return try {
             File(LynxApp.instance.filesDir, "config.json").absolutePath
@@ -244,28 +263,14 @@ internal object LynxAppStateRepository {
 
         try {
             var applied = false
-            // Tier 1: Direct lynxd Native Execution Fast-Path
-            if (LynxRepository.isModuleInstalled()) {
-                val lynxdCheck = Shell.cmd("[ -x '$MODULE_DIR/system/bin/lynxd' ] && echo 1 || echo 0").exec()
-                if (lynxdCheck.out.firstOrNull()?.trim() == "1") {
-                    val cmd = when (profile) {
-                        "auto" -> "killall lynxd 2>/dev/null; '$MODULE_DIR/system/bin/lynxd' daemon run >> /data/adb/lynx/lynxd.log 2>&1 &"
-                        "dormant" -> "killall lynxd 2>/dev/null; '$MODULE_DIR/system/bin/lynxd' profile revert"
-                        else -> "killall lynxd 2>/dev/null; '$MODULE_DIR/system/bin/lynxd' profile apply '$profile'"
-                    }
-                    val res = Shell.cmd(cmd).exec()
-                    applied = res.isSuccess
+            val lynxdPath = getLynxdBinaryPath()
+            if (lynxdPath != null) {
+                val cmd = when (profile) {
+                    "auto" -> "killall lynxd 2>/dev/null; '$lynxdPath' daemon run >> /data/adb/lynx/lynxd.log 2>&1 &"
+                    "dormant" -> "'$lynxdPath' profile revert"
+                    else -> "'$lynxdPath' profile apply '$profile'"
                 }
-            }
-
-            // Tier 2: Direct fallback to lynxd at standard path
-            if (!applied) {
-                val fallbackCmd = when (profile) {
-                    "auto" -> "killall lynxd 2>/dev/null; /data/adb/modules/Lynx/system/bin/lynxd daemon run >> /data/adb/lynx/lynxd.log 2>&1 &"
-                    "dormant" -> "/data/adb/modules/Lynx/system/bin/lynxd profile revert"
-                    else -> "/data/adb/modules/Lynx/system/bin/lynxd profile apply '$profile'"
-                }
-                applied = Shell.cmd(fallbackCmd).exec().isSuccess
+                applied = Shell.cmd(cmd).exec().isSuccess
             }
             applied
         } catch (e: Exception) {
