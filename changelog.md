@@ -1,3 +1,17 @@
+# Lynx Universal [Zero-Freeze Live Battery Synchronization & Hardware Decoupling] 7.0.0-RC33
+Released on: 2026-10-13
+> **Lynx Universal v7.0.0-RC33** (Lynx Kernel Manager v3.0.97): **Eliminasi Total Pembekuan Persentase Baterai Android (`dumpsys battery set` Purged), Sinkronisasi Dinamis Live Uevent Kernel Real-Time, Pencegahan Risiko Sudden Power-Off & Overcharging Akibat Tampilan Terkunci, dan Sinkronisasi Sempurna Perhitungan Persen Desimal**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC33)
+
+### 1. Eliminasi Mutlak Pembekuan Layanan Baterai (`dumpsys battery set` Purged)
+- **Akar Masalah**: Eksekusi perintah `dumpsys battery set status 4` pada saat pengaktifan mode bypass memicu flag `mUpdatesStopped = true` di dalam `BatteryService` Android. Hal ini menghentikan total pembaruan status dan level baterai dari kernel Linux ke framework Android (`UPDATES STOPPED`), sehingga angka di status bar terkunci permanen pada persentase tertentu meskipun baterai secara fisik mengalami penurunan (*discharge*) atau peningkatan daya.
+- **Dampak Kritis yang Dicegah**: Mencegah perangkat mati mendadak (*sudden power-off*) akibat kekurangan daya yang tidak terlihat oleh pengguna (baterai fisik habis padahal UI menampilkan angka statis), serta mencegah salah persepsi pengisian daya berlebih (*overcharge*).
+- **Solusi**: Seluruh pemanggilan `dumpsys battery set` dihapus secara menyeluruh dari lapisan native Rust (`charging.rs`) dan aplikasi Android Companion (`ChargingRepository.kt`). Sebagai gantinya, sistem secara aktif memanggil `dumpsys battery reset` agar Android framework terus menerima uevent live secara real-time langsung dari sensor fuel gauge hardware.
+
+### 2. Presisi Perhitungan Desimal & Visual Baterai
+- Karena persentase baterai kernel dan Android kini sinkron 100%, animasi pengisian daya, persentase desimal (`xx.xx%`), dan status kapasitas pada Hero Card Companion App mencerminkan kondisi riil sel baterai tanpa keterlambatan.
+
 # Lynx Universal [Autonomous Game Awareness & Screen Backlight Detection Fix] 7.0.0-RC32
 Released on: 2026-10-13
 > **Lynx Universal v7.0.0-RC32** (Lynx Kernel Manager v3.0.96): **Perbaikan Deteksi Layar Aktif (ScreenDetector Prioritizing LCD Backlight over Write-Only fb0/blank), Otomatisasi Peralihan Profil Kernel Game Real-Time (Autonomous Real-Time Game Detection for Honkai: Star Rail & 3D Gaming), serta Verifikasi Telemetri Bypass Hardware di Bawah Beban Berat**.

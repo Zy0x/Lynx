@@ -460,9 +460,12 @@ impl ChargingRegulator {
 
         // Keep OEM thermal daemons and trip-point policies active during bypass.
 
-        // Android Framework OS-level status cutoff (4 = BATTERY_STATUS_NOT_CHARGING)
+        // Ensure Android Framework keeps live uevent synchronization with physical kernel battery.
+        // Calling 'dumpsys battery set' halts BatteryService updates ('UPDATES STOPPED'), which
+        // freezes the UI/status bar percentage and prevents the system from tracking actual battery
+        // drain or rise, risking sudden shutdown from undervoltage.
         let _ = std::process::Command::new("dumpsys")
-            .args(["battery", "set", "status", "4"])
+            .args(["battery", "reset"])
             .output();
     }
 

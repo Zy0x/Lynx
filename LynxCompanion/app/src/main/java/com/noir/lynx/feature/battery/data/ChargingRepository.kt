@@ -104,7 +104,7 @@ class ChargingRepository(
                     echo 0 > /sys/devices/platform/charger/input_current 2>/dev/null
                     echo "[30,0,35,0,0]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null
                     echo 1 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
-                    dumpsys battery set status 4 2>/dev/null
+                    dumpsys battery reset 2>/dev/null
 
                     # 2. ASUS ROG Hardware Bypass
                     echo 1 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
