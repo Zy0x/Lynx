@@ -1,3 +1,33 @@
+# Lynx Universal [Ultra-Compact Toast HUD Feedback & In-Header Morpher Architecture] 7.0.0-RC43
+Released on: 2026-10-14
+> **Lynx Universal v7.0.0-RC43** (Lynx Kernel Manager v3.1.5): **Integrasi Sistem Feedback Pergantian Mode Kernel Menjadi Toast HUD Ultra-Compact (26–28 dp) dengan 3 Model Pilihan (Jewel Dynamic Island, In-Header Seamless Morpher, dan Jewel Bottom Capsule), Penghapusan Snackbar Lebar yang Mengganggu, serta Penempatan Kartu Konfigurasi Interaktif di Sub-Halaman Profil Performa Kernel**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC43)
+
+### 1. Sistem Toast HUD Ultra-Compact (26–28 dp Single-Line)
+- **Eliminasi Total Snackbar Kaku**: Menghapus penggunaan Material 3 Snackbar lama yang lebar membentang layar dengan tombol "OK", menggantikannya dengan kapsul melayang (*pill HUD*) ultra-kompak yang adaptif (*hug-content width*).
+- **Estetika Obsidian Glassmorphism**: Latar belakang `#0A0E15` (94% opacity + blur) dengan border hairline 0.85 dp berpendar lembut (*ambient glow*) sesuai warna profil aktif:
+  - 🌿 *Hemat*: Pendaran Hijau Neon (`#00E676`)
+  - ⚖️ *Seimbang*: Pendaran Biru Cyber (`#00A3FF`)
+  - 🚀 *Performa*: Pendaran Oranye Amber (`#FF9100`)
+  - 🔥 *Extreme*: Pendaran Merah Crimson (`#FF3D00`)
+- **Komposisi Jewel Minimalis**: Menggabungkan dot pendaran permata 5 dp + mikro ikon mode + nama mode bold + chip status `AKTIF`.
+- **Zero Friction**: Auto-dismiss dalam 1.8 detik dan mendukung gestur tap-to-dismiss instan.
+
+### 2. 3 Model Pilihan Feedback & Default Jewel Dynamic Island
+- **Model 1: Jewel Dynamic Island (Default)**: Melayang di bagian atas layar tepat di bawah status bar (28 dp). Sangat ergonomis karena searah dengan jari dan pandangan pengguna saat menekan tombol mode di Top Header.
+- **Model 2: In-Header Seamless Morpher**: Subteks header `• Codename: Deity` bermutasi mulus menjadi `• Mode [Nama] Aktif` (0 dp overlap, 100% bebas tumpang tindih).
+- **Model 3: Jewel Bottom Capsule**: Kapsul melayang di atas dock bawah (26 dp).
+- **Dual-Morph Synchronization**: Saat Jewel Dynamic Island aktif, subteks header juga ikut bertransisi serentak menghasilkan feedback harmonis.
+
+### 3. Kartu Konfigurasi Interaktif di Sub-Halaman Profil Performa Kernel (Opsi 1)
+- **Penempatan Fungsional & Koheren**: Ditempatkan di sub-halaman *Profil Performa Kernel* (diakses via tab Tuning atau tombol `[ Kustom → ]` di header).
+- **Pilihan Segmented Interaktif**: Menyediakan 3 kartu radio interaktif dengan indikator bawaan (*DEFAULT badge*).
+- **Tombol Uji Langsung (Live Test)**: Memungkinkan pengguna menguji animasi Toast HUD terpilih secara instan di layar tanpa mengubah profil aktif.
+- **Switch Sinkronisasi Header**: Kontrol penuh atas fitur dual-morphing header.
+
+---
+
 # Lynx Universal [Unified All-in-One Header & Integrated Mode Selector & Official App Icon Revamp] 7.0.0-RC42
 Released on: 2026-10-14
 > **Lynx Universal v7.0.0-RC42** (Lynx Kernel Manager v3.1.4): **Penggabungan Menyeluruh Top Header dan Mode Performa Kernel Menjadi Satu Komponen All-in-One yang Ultra-Kompak, Penyelarasan Sub-Header Status Menjadi "Codename: Deity", dan Integrasi Aset Ikon Aplikasi Resmi Lynx (Cyan Metallic Fold)**.

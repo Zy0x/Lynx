@@ -162,21 +162,50 @@ internal fun LazyListScope.dashboardHeaderItem(
                                 color = TextPrimary,
                                 letterSpacing = 0.sp,
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = AccentGreen,
-                                    modifier = Modifier.size(6.dp)
-                                ) {}
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Codename: Deity",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = AccentGreen,
-                                    letterSpacing = 0.2.sp
-                                )
+                            val activeToast = uiState.activeModeToast
+                            val showMorph = activeToast != null && (uiState.modeFeedbackDualMorph || uiState.modeFeedbackStyle == "header_morph")
+                            AnimatedContent(
+                                targetState = if (showMorph) activeToast else null,
+                                transitionSpec = {
+                                    (slideInVertically { -it } + fadeIn(tween(140)))
+                                        .togetherWith(slideOutVertically { it } + fadeOut(tween(140)))
+                                },
+                                label = "HeaderSubtitleMorph"
+                            ) { toast ->
+                                if (toast != null) {
+                                    val morphColor = Color(toast.accentColorHex)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = morphColor,
+                                            modifier = Modifier.size(6.dp)
+                                        ) {}
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Mode ${toast.modeLabel} Aktif",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = morphColor,
+                                            letterSpacing = 0.2.sp
+                                        )
+                                    }
+                                } else {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = AccentGreen,
+                                            modifier = Modifier.size(6.dp)
+                                        ) {}
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Codename: Deity",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = AccentGreen,
+                                            letterSpacing = 0.2.sp
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -319,6 +348,11 @@ internal fun LazyListScope.dashboardHeaderItem(
                         Surface(
                             onClick = {
                                 if (!isSelected) {
+                                    viewModel.triggerModeFeedback(
+                                        modeId = item.id,
+                                        modeLabel = item.label,
+                                        accentColorHex = item.accentColor.toHexLong()
+                                    )
                                     if (item.id == "extreme") {
                                         onExtremeConfirmRequired()
                                     } else {
@@ -422,3 +456,11 @@ private data class HeaderModeItem(
     val accentColor: Color,
     val icon: ImageVector
 )
+
+private fun Color.toHexLong(): Long {
+    val a = (alpha * 255).toInt() and 0xFF
+    val r = (red * 255).toInt() and 0xFF
+    val g = (green * 255).toInt() and 0xFF
+    val b = (blue * 255).toInt() and 0xFF
+    return ((a.toLong() shl 24) or (r.toLong() shl 16) or (g.toLong() shl 8) or b.toLong()) and 0xFFFFFFFFL
+}

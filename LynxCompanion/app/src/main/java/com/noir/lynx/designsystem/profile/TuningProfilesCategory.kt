@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -101,6 +102,21 @@ fun TuningProfilesCategory(
                 currentProfile = state.activeProfile,
                 hasOverrides = state.profileOverrides.isNotEmpty(),
                 onProfileSelected = { id, clearOverrides ->
+                    val colorHex = when (id.lowercase()) {
+                        "powersave" -> 0xFF00E676L
+                        "balance" -> 0xFF00A3FFL
+                        "performance" -> 0xFFFF9100L
+                        "extreme" -> 0xFFFF3D00L
+                        else -> 0xFF00E5FFL
+                    }
+                    val label = when (id.lowercase()) {
+                        "powersave" -> "Hemat"
+                        "balance" -> "Seimbang"
+                        "performance" -> "Performa"
+                        "extreme" -> "Extreme"
+                        else -> id.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                    }
+                    viewModel.triggerModeFeedback(id, label, colorHex)
                     viewModel.selectKernelPerformanceProfile(id, context, clearOverrides)
                 },
                 onExtremeConfirmRequired = onExtremeConfirmRequired,
@@ -132,7 +148,175 @@ fun TuningProfilesCategory(
             }
         }
 
-        // ── 3. Otomasi Profil Per-Aplikasi Card ─────────────────
+        // ── 3. Gaya Notifikasi & Feedback Mode Card ───────────────
+        LynxCard(
+            title = "Gaya Notifikasi & Feedback Mode",
+            icon = Icons.Default.NotificationsActive,
+            accentColor = AccentCyan
+        ) {
+            Text(
+                text = "Pilih gaya umpan balik visual saat profil performa kernel diubah melalui header, katalog, atau otomasi aplikasi.",
+                color = TextSecondary,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            val feedbackOptions = listOf(
+                Triple("jewel_top", "Jewel Dynamic Island", "Melayang di atas (28 dp) • Kapsul permata elegan"),
+                Triple("header_morph", "In-Header Morpher", "Subteks header bertransisi halus • 0 dp overlap"),
+                Triple("jewel_bottom", "Jewel Bottom Capsule", "Melayang di atas dock bawah (26 dp)")
+            )
+
+            feedbackOptions.forEach { (key, title, subtitle) ->
+                val isSelected = uiState.modeFeedbackStyle == key
+                Surface(
+                    onClick = {
+                        viewModel.setModeFeedbackStyle(context, key)
+                        viewModel.triggerModeFeedback("balance", "Seimbang", 0xFF00A3FFL)
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) AccentCyan.copy(alpha = 0.14f) else BgElevated,
+                    border = BorderStroke(
+                        if (isSelected) 1.2.dp else 0.8.dp,
+                        if (isSelected) AccentCyan else BorderSubtle
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = title,
+                                    color = if (isSelected) AccentCyan else TextPrimary,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (key == "jewel_top") {
+                                    Spacer(Modifier.width(6.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = AccentCyan.copy(alpha = 0.2f),
+                                        border = BorderStroke(0.5.dp, AccentCyan.copy(alpha = 0.4f))
+                                    ) {
+                                        Text(
+                                            text = "DEFAULT",
+                                            color = AccentCyan,
+                                            fontSize = 8.5.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = subtitle,
+                                color = TextSecondary,
+                                fontSize = 10.sp
+                            )
+                        }
+
+                        // Radio dot indicator
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isSelected) AccentCyan else Color.Transparent,
+                            border = BorderStroke(1.5.dp, if (isSelected) AccentCyan else TextSecondary.copy(alpha = 0.4f)),
+                            modifier = Modifier.size(16.dp)
+                        ) {}
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 8.dp))
+
+            // Dual Morph Switch
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+                    Text(
+                        text = "Sinkronisasi Morpher Header Bersamaan",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Teks 'Codename: Deity' ikut bertransisi serasi saat Jewel Toast aktif",
+                        color = TextSecondary,
+                        fontSize = 10.sp
+                    )
+                }
+                Switch(
+                    checked = uiState.modeFeedbackDualMorph,
+                    onCheckedChange = { viewModel.setModeFeedbackDualMorph(context, it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = BgDeepOled,
+                        checkedTrackColor = AccentCyan,
+                        uncheckedThumbColor = TextSecondary,
+                        uncheckedTrackColor = BgElevated,
+                        uncheckedBorderColor = BorderGlass
+                    )
+                )
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            // Test Button
+            Surface(
+                onClick = {
+                    val sampleModes = listOf(
+                        Triple("powersave", "Hemat", 0xFF00E676L),
+                        Triple("balance", "Seimbang", 0xFF00A3FFL),
+                        Triple("performance", "Performa", 0xFFFF9100L),
+                        Triple("extreme", "Extreme", 0xFFFF3D00L)
+                    )
+                    val randomSample = sampleModes.random()
+                    viewModel.triggerModeFeedback(randomSample.first, randomSample.second, randomSample.third)
+                },
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = AccentCyan,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Uji Coba Animasi Toast (Live Test)",
+                        color = AccentCyan,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        // ── 4. Otomasi Profil Per-Aplikasi Card ─────────────────
         LynxCard(
             title = "Otomasi Profil Per-Aplikasi",
             icon = Icons.Default.SportsEsports,

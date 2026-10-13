@@ -328,9 +328,13 @@ data class NativeEngineStatus(
     val memoryHealth: Boolean = true,
 )
 
-// ============================================================
-//  UI STATE WRAPPER
-// ============================================================
+data class ModeToastData(
+    val modeId: String,
+    val modeLabel: String,
+    val accentColorHex: Long,
+    val iconType: String = "",
+    val timestamp: Long = System.currentTimeMillis()
+)
 
 data class LynxUiState(
     val isLoading: Boolean = true,
@@ -469,6 +473,10 @@ data class LynxUiState(
     val adbPort: Int = 5555,
     val adbPortInput: String = "5555",
     val adbStatus: String = "",
+    // Ultra-Compact Toast HUD Feedback Architecture
+    val modeFeedbackStyle: String = "jewel_top", // "jewel_top", "header_morph", "jewel_bottom"
+    val modeFeedbackDualMorph: Boolean = true,
+    val activeModeToast: ModeToastData? = null,
 ) {
     fun resolveCpuTempC(): Int {
         val validZones = thermalZones.filter { it.tempC in 20f..115f }

@@ -71,7 +71,33 @@ import kotlinx.coroutines.flow.update
         val style = prefs.getInt("hud_style", 1)
         val mode = prefs.getInt("hud_mode", 0)
         val pin = prefs.getBoolean("pin_mini_fps", false)
-        _uiState.update { it.copy(hudStyle = style, hudMode = mode, hudPinMiniFps = pin) }
+        val feedbackStyle = prefs.getString("mode_feedback_style", "jewel_top") ?: "jewel_top"
+        val feedbackDual = prefs.getBoolean("mode_feedback_dual", true)
+        _uiState.update {
+            it.copy(
+                hudStyle = style,
+                hudMode = mode,
+                hudPinMiniFps = pin,
+                modeFeedbackStyle = feedbackStyle,
+                modeFeedbackDualMorph = feedbackDual
+            )
+        }
+    }
+
+    fun LynxViewModel.setModeFeedbackStyle(context: android.content.Context, style: String) {
+        context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putString("mode_feedback_style", style)
+            .apply()
+        _uiState.update { it.copy(modeFeedbackStyle = style) }
+    }
+
+    fun LynxViewModel.setModeFeedbackDualMorph(context: android.content.Context, enabled: Boolean) {
+        context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("mode_feedback_dual", enabled)
+            .apply()
+        _uiState.update { it.copy(modeFeedbackDualMorph = enabled) }
     }
 
 

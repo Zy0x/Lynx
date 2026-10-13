@@ -676,6 +676,35 @@ class LynxViewModel : ViewModel() {
 
 
     // ----------------------------------------------------------------
+    //  Ultra-Compact Toast HUD Feedback Architecture
+    // ----------------------------------------------------------------
+
+    internal var modeToastJob: Job? = null
+
+    fun triggerModeFeedback(modeId: String, modeLabel: String, accentColorHex: Long, iconType: String = "") {
+        modeToastJob?.cancel()
+        _uiState.update {
+            it.copy(
+                activeModeToast = ModeToastData(
+                    modeId = modeId,
+                    modeLabel = modeLabel,
+                    accentColorHex = accentColorHex,
+                    iconType = iconType
+                )
+            )
+        }
+        modeToastJob = viewModelScope.launch {
+            delay(1800L)
+            _uiState.update { it.copy(activeModeToast = null) }
+        }
+    }
+
+    fun dismissModeFeedback() {
+        modeToastJob?.cancel()
+        _uiState.update { it.copy(activeModeToast = null) }
+    }
+
+    // ----------------------------------------------------------------
     //  Lifecycle
     // ----------------------------------------------------------------
 

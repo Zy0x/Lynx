@@ -167,23 +167,33 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
             )
         }
 
-        // Success snackbar overlay
+        // Ultra-Compact Toast HUD Feedback Layer
+        LynxModeToastHud(
+            toastData = uiState.activeModeToast,
+            feedbackStyle = uiState.modeFeedbackStyle,
+            onDismiss = { viewModel.dismissModeFeedback() }
+        )
+
+        // Success snackbar overlay (hanya untuk aksi selain mode performa kernel yang sudah ditangani oleh Toast HUD)
         uiState.successMessage?.let { msg ->
-            Snackbar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = 90.dp, start = 16.dp, end = 16.dp),
-                action = {
-                    TextButton(onClick = { viewModel.dismissSuccess() }) {
-                        Text("OK", color = AccentCyan, fontWeight = FontWeight.Bold)
-                    }
-                },
-                containerColor = BgElevated,
-                contentColor = TextPrimary,
-                shape = RoundedCornerShape(14.dp),
-            ) {
-                Text(msg)
+            val isProfileSwitchMsg = msg.contains("Profil", ignoreCase = true) && msg.contains("diterapkan", ignoreCase = true)
+            if (!isProfileSwitchMsg) {
+                Snackbar(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = 90.dp, start = 16.dp, end = 16.dp),
+                    action = {
+                        TextButton(onClick = { viewModel.dismissSuccess() }) {
+                            Text("OK", color = AccentCyan, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    containerColor = BgElevated,
+                    contentColor = TextPrimary,
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text(msg)
+                }
             }
         }
 
