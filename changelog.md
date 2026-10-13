@@ -1,3 +1,23 @@
+# Lynx Universal [Quick High-Impact RAM Cleaner Button & Multi-Stage Memory Compaction] 7.0.0-RC39
+Released on: 2026-10-14
+> **Lynx Universal v7.0.0-RC39** (Lynx Kernel Manager v3.1.1): **Integrasi Tombol Pembersih RAM Cepat Berupa Icon di Samping Kanan Progress Bar RAM Fisik dengan Pembebasan Memori Multi-Stage Kernel (Sync, Drop Caches, Memory Defrag, ZRAM Compaction) yang Akurat dan Berdampak Nyata**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC39)
+
+### 1. Tombol Pembersih RAM di Samping Kanan Progress Bar RAM Fisik
+- **Penempatan Ergonomis & Presisi**: Menambahkan tombol aksi cepat berbentuk ikon sapu pembersih (`CleaningServices`) tepat di sebelah kanan progress bar RAM Fisik pada kartu **Alokasi Memori, ZRAM & Swap**.
+- **Indikator Proses Dinamis**: Menampilkan spinner pembersihan (`CircularProgressIndicator`) halus saat eksekusi berlangsung dan kembali ke ikon semula seketika proses selesai.
+
+### 2. Reklamasi Memori Kernel Multi-Stage Berdampak Nyata
+- **Eksekusi Aman & Terkalibrasi**:
+  1. `sync`: Melakukan commit dirty memory pages ke penyimpanan flash agar integritas berkas terjamin 100%.
+  2. `echo 3 > /proc/sys/vm/drop_caches`: Membebaskan page cache, dentries, dan inode yang tidak lagi digunakan.
+  3. `echo 1 > /proc/sys/vm/compact_memory`: Melakukan defragmentasi ruang halaman memori fisik kernel menjadi blok-blok besar (*high-order blocks*) untuk alokasi RAM instan tanpa lag.
+  4. `echo 1 > /sys/block/zram0/compact`: Mengompaksi pool memori zsmalloc pada swap ZRAM.
+- **Kalkulasi Delta Akurat**: Mengukur delta pembebasan memori sebelum dan sesudah eksekusi melalui pembacaan `/proc/meminfo` secara langsung, memperbarui telemetri secara real-time, dan memberikan notifikasi ringkas hasil pembersihan memori kepada pengguna.
+
+---
+
 # Lynx Universal [Dashboard Streamlining & Quick Profile Header Action & Label Polish] 7.0.0-RC38
 Released on: 2026-10-13
 > **Lynx Universal v7.0.0-RC38** (Lynx Kernel Manager v3.1.0): **Penyelarasan Label Baterai Dashboard ("Arus" & "Suhu Baterai"), Standardisasi Label Protokol Pengisian Daya Ringkas Anti-Truncation, Penghapusan Dot Indicator pada Mode Aktif, dan Desain Header Action Ringkas "Katalog" pada Mode Performa Kernel**.

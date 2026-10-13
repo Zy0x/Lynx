@@ -351,6 +351,7 @@ data class LynxUiState(
     val lastSyncedAt: Long = 0L,
     val maintenanceRunning: Boolean = false,
     val exportRunning: Boolean = false,
+    val isCleaningRam: Boolean = false,
     // Phase 1 & 2 Feature Additions
     val gpuInfo: GpuInfo = GpuInfo(),
     val ksmStats: KsmStats = KsmStats(),

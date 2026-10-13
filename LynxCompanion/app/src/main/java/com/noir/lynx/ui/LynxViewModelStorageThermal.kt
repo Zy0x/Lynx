@@ -111,6 +111,29 @@ fun LynxViewModel.refreshThermalCapabilities() {
     }
 }
 
+fun LynxViewModel.cleanRam() {
+    if (_uiState.value.isCleaningRam) return
+    _uiState.update { it.copy(isCleaningRam = true) }
+    viewModelScope.launch {
+        val (ok, freedMb) = LynxRepository.cleanRam()
+        val tel = LynxRepository.readTelemetry()
+        val msg = if (ok) {
+            if (freedMb > 0) "RAM berhasil dibersihkan! Ruang bebas bertambah +${freedMb} MB."
+            else "RAM & Cache berhasil dibersihkan dan dikompaksi!"
+        } else {
+            "Gagal membersihkan cache RAM."
+        }
+        _uiState.update {
+            it.copy(
+                isCleaningRam = false,
+                telemetry = tel,
+                successMessage = if (ok) msg else null,
+                errorMessage = if (!ok) msg else null
+            )
+        }
+    }
+}
+
 fun LynxViewModel.dropCaches() {
     viewModelScope.launch {
         val ok = LynxRepository.dropCaches()

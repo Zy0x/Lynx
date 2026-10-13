@@ -331,7 +331,7 @@ fun MemorySubscreen(
             LynxActionButton(
                 text = "Bebaskan Cache RAM (Drop Caches)",
                 icon = Icons.Default.CleaningServices,
-                onClick = { viewModel.dropCaches() },
+                onClick = { viewModel.cleanRam() },
                 accentColor = AccentCyan,
                 modifier = Modifier.padding(top = 4.dp)
             )

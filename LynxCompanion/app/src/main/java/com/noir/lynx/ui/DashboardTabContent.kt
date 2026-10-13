@@ -145,7 +145,11 @@ fun DashboardTabContent(
                     }
 
                     item(key = "telemetry_memory") {
-                        TelemetryMemoryCard(telemetry = uiState.telemetry)
+                        TelemetryMemoryCard(
+                            telemetry = uiState.telemetry,
+                            onCleanRam = { viewModel.cleanRam() },
+                            isCleaningRam = uiState.isCleaningRam
+                        )
                     }
 
                     item(key = "quick_profiles") {

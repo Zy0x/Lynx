@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
+import kotlinx.coroutines.launch
 import com.noir.lynx.designsystem.controls.SafeSlider as Slider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -212,8 +213,15 @@ fun TelemetryGaugesCard(
 }
 
 @Composable
-fun TelemetryMemoryCard(telemetry: TelemetryData?) {
+fun TelemetryMemoryCard(
+    telemetry: TelemetryData?,
+    onCleanRam: (() -> Unit)? = null,
+    isCleaningRam: Boolean = false
+) {
     val tel = telemetry ?: TelemetryData()
+    var localIsCleaning by remember { mutableStateOf(false) }
+    val isCleaning = isCleaningRam || localIsCleaning
+    val coroutineScope = rememberCoroutineScope()
 
     LynxCard(
         title = "Alokasi Memori, ZRAM & Swap",
@@ -259,25 +267,73 @@ fun TelemetryMemoryCard(telemetry: TelemetryData?) {
 
         Spacer(modifier = Modifier.height(7.dp))
 
-        // Prominent Physical RAM Progress Bar (7.dp)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(7.dp)
-                .clip(RoundedCornerShape(3.5.dp))
-                .background(Color(0xFF0E121B))
+        // Prominent Physical RAM Progress Bar with Quick Clean Button on the Right
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(ramProgress)
-                    .fillMaxHeight()
+                    .weight(1f)
+                    .height(7.dp)
                     .clip(RoundedCornerShape(3.5.dp))
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(AccentCyan.copy(alpha = 0.85f), AccentCyan)
+                    .background(Color(0xFF0E121B))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(ramProgress)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(3.5.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(AccentCyan.copy(alpha = 0.85f), AccentCyan)
+                            )
                         )
-                    )
-            )
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            // Tombol Pembersih RAM (Icon Saja di Samping Kanan Progress Bar)
+            Surface(
+                onClick = {
+                    if (!isCleaning) {
+                        if (onCleanRam != null) {
+                            onCleanRam()
+                        } else {
+                            coroutineScope.launch {
+                                localIsCleaning = true
+                                com.noir.lynx.data.LynxRepository.cleanRam()
+                                localIsCleaning = false
+                            }
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(7.dp),
+                color = if (isCleaning) AccentCyan.copy(alpha = 0.20f) else BgElevated,
+                border = BorderStroke(0.6.dp, if (isCleaning) AccentCyan.copy(alpha = 0.6f) else BorderSubtle),
+                modifier = Modifier.size(24.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    if (isCleaning) {
+                        CircularProgressIndicator(
+                            strokeWidth = 1.5.dp,
+                            color = AccentCyan,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.CleaningServices,
+                            contentDescription = "Bersihkan RAM",
+                            tint = AccentCyan,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(6.dp))
