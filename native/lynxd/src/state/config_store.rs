@@ -361,6 +361,10 @@ impl ConfigStore {
                     let comma = if trimmed.ends_with(',') { "," } else { "" };
                     out.push_str(&format!("{}\"{}\": {}{}\n", indent, key, formatted_val, comma));
                 } else if idx == lines.len() - 1 && trimmed == "}" && !found {
+                    let trimmed_out = out.trim_end();
+                    if !trimmed_out.ends_with(',') && !trimmed_out.ends_with('{') {
+                        out = format!("{},\n", trimmed_out);
+                    }
                     out.push_str(&format!("  \"{}\": {}\n", key, formatted_val));
                     out.push_str(line);
                     out.push('\n');

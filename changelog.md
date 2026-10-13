@@ -1,3 +1,39 @@
+# Lynx Universal [Hardware Regulated Charging Precision & Dynamic Auto-Cut Latch] 7.0.0-RC31
+Released on: 2026-10-13
+> **Lynx Universal v7.0.0-RC31** (Lynx Kernel Manager v3.0.96): **Penyempurnaan Total Regulasi Arus Fisik Fast Charging (Physical Hardware Charging Regulation), Pemisahan Tegas Spektrum Mode (Cool 1000mA, Standard OEM 33W, Hyper Unconstrained, Custom Slider), Implementasi Kontrol Khusus Chipset Transsion MTK (PDC Max Watt 5W/33W, PE20/PE40 Pump Suppression, Battery Charging Current Throttling BCCT Thermal Devices, dan In-Call Charging Clamping State), Sistem Cutoff Pengisian Cerdas Histeresis Murni (Auto-Cut & Bypass Hysteresis Latching Bebas-Flapping), Serta Restorasi Penuh Register & Izin Sysfs pada Saat Pencabutan Charger**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC31)
+
+### 1. Presisi Arus Fisik Tiap Mode Pengisian Daya (Hardware Regulation)
+- **Mode Sejuk (Cool Mode - 1000 mA Target)**:
+  - Mengunci batas daya adapter `pdc_max_watt` ke 5W (5V/1.0A), mematikan pump express `pe20` & `pe40` (0), dan mengaktifkan BCCT (`mtk-cl-bcct00..02`, `abcct`) ke status 1 (throttle).
+  - Mengaktifkan `Charging_CallState = 2` pada platform Transsion untuk meredam pemanasan baterai secara fisik.
+  - Memperbarui nilai bawaan mode sejuk dari 2000 mA menjadi 1000 mA di seluruh lapisan native Rust (`lynxd`), repository Kotlin (`ChargingRepository.kt`), ViewModel (`LynxViewModelBattery.kt`), dan UI (`FastChargingControlCard.kt`).
+- **Mode Standar (Standard OEM Adaptive)**:
+  - Mengembalikan alokasi daya adapter `pdc_max_watt` ke 33W, membuka kembali pump express `pe20` & `pe40` (1), menormalkan `Charging_CallState = 0`, dan melepaskan BCCT throttling ke status 0.
+  - Membuka seluruh izin node pengisian daya kembali ke `0666` sehingga algoritma termal OEM dapat mengontrol arus secara dinamis tanpa hambatan kuncian.
+- **Mode Hyper & Custom**:
+  - Hyper mode membuka potensi penuh pengisian daya tanpa batasan kaku.
+  - Custom mode menerapkan batasan mA presisi dari slider pengguna (500–25.000 mA) langsung ke register kernel.
+
+### 2. Cutoff Pengisian Cerdas & Bypass Histeresis Bebas-Flapping
+- **Eliminasi Syarat Kaku 50mA**:
+  - Mengganti evaluasi histeresis lama yang bergantung pada pembacaan arus `<= 50mA` dengan evaluasi status kait (*latch state*) berbasis persentase baterai vs ambang batas slider.
+  - Menghilangkan flapping bolak-balik antara bypass dan normal saat arus pengisian masih mengalami sisa trickle flow.
+  - Telemetri `status_json()` secara konsisten melaporkan `smart_limit_latched: true` dan `bypass_active: true`, menampilkan status `⚡ BYPASS (Cutoff Active)` secara stabil pada UI Hero Card.
+- **Pembersihan Otomatis Saat Ganti Mode**:
+  - Mengubah mode pengisian daya (Cool/Standard/Hyper/Custom) secara otomatis mereset status bypass dan menghapus flag kuncian bypass yang kadaluarsa.
+
+### 3. Restorasi Seketika Saat Charger Dilepas (Unplug Restoration)
+- **`handle_disconnect()` Native Rust**:
+  - Secara otomatis memulihkan `pdc_max_watt` ke 33W, melepaskan `Charging_CallState` ke 0, mematikan pembatasan BCCT, mereset `dumpsys battery reset`, dan membuka izin seluruh node sysfs ke `0666`.
+  - Mencegah kebocoran daya atau anomali termal pada saat pengisian daya dihentikan atau kabel dilepas.
+
+### 4. Presisi Desimal Baterai & Animasi Lingkaran
+- Menjaga keakuratan desimal Coulomb counter terintegrasi (`.0` s/d `.9`) yang tersinkronisasi mulus dengan persentase dasar baterai dan indikator animasi lingkaran daya.
+
+---
+
 # Lynx Universal [Standard Charging State Restoration & Decimal Battery SOC Precision] 7.0.0-RC30
 Released on: 2026-10-13
 > **Lynx Universal v7.0.0-RC30** (Lynx Kernel Manager v3.0.95): **Pemberantasan Tuntas Masalah Kebocoran Mode Pengisian Ekstrem (Extreme Charging Leak Eliminator), Implementasi Pemulihan Standar OEM Hardware Murni pada Rust Daemon & Kotlin Shell (`apply_standard_mode`), Resolusi Pembekuan Daemon Termal Vendor (`thermalloadalgod` Unfreeze via Signal 18/SIGCONT), Penggantian Skrip Monolitik Lingering dengan Facade Delegator (`core/Charging-Controller.sh`), Serta Kalkulasi Presisi Tinggi Persentase Baterai Desimal 4-Tingkat Bebas-Hilang (`.0` s/d `.9`)**.

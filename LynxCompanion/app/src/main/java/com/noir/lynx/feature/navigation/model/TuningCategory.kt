@@ -13,6 +13,7 @@ enum class TuningCategory(
     val icon: ImageVector,
     val accentColor: Color
 ) {
+    PROFILES("profiles", "Profil Performa Kernel", "Katalog Profil, Kustomisasi & Editor Preset", Icons.Default.Speed, AccentOrange),
     CPU("cpu", "CPU Performa", "Kluster, Respon Daya & Penjadwal", Icons.Default.Memory, AccentCyan),
     GPU("gpu", "GPU & Display", "Clock GPU, GED Boost & Refresh Rate", Icons.Default.SportsEsports, AccentOrange),
     THERMAL("thermal", "Thermal & Anti-Throttling", "Live Matrix, Trip Points & Bypass", Icons.Default.LocalFireDepartment, AccentRed),

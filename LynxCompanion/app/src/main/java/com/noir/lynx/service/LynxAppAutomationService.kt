@@ -192,7 +192,7 @@ class LynxAppAutomationService : Service() {
                 delay(60000L)
                 try {
                     val state = LynxRepository.readState().charging
-                    if (state.extremeChargingEnabled || state.bypassEnabled) {
+                    if (state.extremeChargingEnabled || state.bypassEnabled || state.maxBatteryPercent in 50..99) {
                         val stat = Shell.cmd("cat /sys/class/power_supply/battery/status 2>/dev/null").exec().out.firstOrNull()?.trim()
                         if (stat.equals("Charging", ignoreCase = true) || stat.equals("Not charging", ignoreCase = true)) {
                             LynxRepository.applySavedChargingConfig()

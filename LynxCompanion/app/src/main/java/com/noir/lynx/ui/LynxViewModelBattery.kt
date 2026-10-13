@@ -181,7 +181,7 @@ fun LynxViewModel.setChargingMode(mode: String, customMa: Int = 2000) {
         else -> "standard"
     }
     val targetMa = when (normalized) {
-        "cool" -> 2000
+        "cool" -> 1000
         "custom" -> customMa.coerceIn(500, 25000)
         "hyper" -> 12000
         else -> 2000
@@ -196,8 +196,13 @@ fun LynxViewModel.setChargingMode(mode: String, customMa: Int = 2000) {
                     chargingMode = normalized,
                     extremeChargingEnabled = isExtreme,
                     limitCurrentMa = targetMa,
-                    isUnconstrainedMaxHw = isMaxHw
+                    isUnconstrainedMaxHw = isMaxHw,
+                    bypassEnabled = false
                 )
+            ),
+            batteryDetails = current.batteryDetails?.copy(
+                isBypassActive = false,
+                isSmartLimitLatched = false
             )
         )
     }
@@ -211,7 +216,7 @@ fun LynxViewModel.setChargingMode(mode: String, customMa: Int = 2000) {
             it.copy(
                 successMessage = if (ok) {
                     when (normalized) {
-                        "cool" -> "Mode Sejuk diaktifkan (~2.0A). Suhu minimal & menjaga keawetan baterai."
+                        "cool" -> "Mode Sejuk diaktifkan (~1.0A). Suhu minimal & menjaga keawetan baterai."
                         "standard" -> "Mode Standar OEM diaktifkan. Regulasi pabrik diterapkan."
                         "hyper" -> "Mode Hyper diaktifkan! Batas arus dibuka penuh mengikuti potensi adaptor."
                         "custom" -> "Mode Kustom diaktifkan. Batas arus diatur ke ${targetMa} mA."

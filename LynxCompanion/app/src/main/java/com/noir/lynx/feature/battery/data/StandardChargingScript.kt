@@ -77,6 +77,20 @@ object StandardChargingScript {
             fi
         done
 
+        if [ -e /sys/devices/platform/charger/pdc_max_watt ]; then
+            chmod 666 /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+            echo 33 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+        fi
+        if [ -e /sys/devices/platform/odm/odm:tran_battery/Charging_CallState ]; then
+            chmod 666 /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+            echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+        fi
+        for c in /sys/class/thermal/cooling_device*; do
+            if [ -f "${'$'}c/type" ] && grep -qi "bcct" "${'$'}c/type" 2>/dev/null; then
+                echo 0 > "${'$'}c/cur_state" 2>/dev/null
+            fi
+        done
+
         if [ -e /sys/class/qcom-battery/direct_charging ]; then
             chmod 666 /sys/class/qcom-battery/direct_charging 2>/dev/null
             chmod 666 /sys/class/qcom-battery/restricted_charging 2>/dev/null
@@ -87,9 +101,9 @@ object StandardChargingScript {
         echo ok
     """.trimIndent()
 
-    /** Cool Mode: Caps current to safe gentle rates (~1500-2000mA) with write-lock to prevent thermal stress. */
-    fun buildCoolChargingScript(limitMa: Int = 2000): String {
-        val effectiveMa = limitMa.coerceIn(1000, 2500)
+    /** Cool Mode: Caps current to safe gentle rates (~1000-1500mA) with write-lock to prevent thermal stress. */
+    fun buildCoolChargingScript(limitMa: Int = 1000): String {
+        val effectiveMa = limitMa.coerceIn(500, 2500)
         val effectiveUa = effectiveMa * 1000L
 
         return """
@@ -120,6 +134,23 @@ object StandardChargingScript {
                 echo "PUP_R 100000 PUP_VOLT 1800 OVER_CRITICAL_L 4397119 NTC_TABLE 7 0" > /proc/driver/thermal/tzbts_param 2>/dev/null
                 chmod 644 /proc/driver/thermal/tzbts_param 2>/dev/null
             fi
+
+            # Restrict MTK fast charge & charge pump
+            if [ -e /sys/devices/platform/charger/pdc_max_watt ]; then
+                chmod 666 /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+                echo 5 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+                chmod 444 /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+            fi
+            if [ -e /sys/devices/platform/odm/odm:tran_battery/Charging_CallState ]; then
+                chmod 666 /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+                echo 2 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+                chmod 444 /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+            fi
+            for c in /sys/class/thermal/cooling_device*; do
+                if [ -f "${'$'}c/type" ] && grep -qi "bcct" "${'$'}c/type" 2>/dev/null; then
+                    echo 1 > "${'$'}c/cur_state" 2>/dev/null
+                fi
+            done
 
             # Disable dual-pump/supercharge rails
             for node in /sys/devices/platform/charger/pe20 \

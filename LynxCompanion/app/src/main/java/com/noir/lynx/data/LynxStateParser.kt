@@ -56,6 +56,7 @@ internal object LynxStateParser {
         )
 
         private fun parseCharging(j: JSONObject?) = ChargingConfig(
+            chargingMode = j?.optString("charging_mode", "standard") ?: "standard",
             bypassEnabled = j?.optBoolean("bypass_enabled", false) ?: false,
             extremeChargingEnabled = j?.optBoolean("extreme_charging_enabled", false) ?: false,
             tempCutoffC = j?.optInt("temp_cutoff_c", 45) ?: 45,

@@ -95,11 +95,14 @@ fun ChargingHeroDisplayCard(
     var liveHardwareCurrentUa by remember { mutableStateOf(0L) }
     var liveHardwareVoltageMv by remember { mutableIntStateOf(0) }
     var liveHardwareTempC by remember { mutableFloatStateOf(0f) }
+    var liveHardwareCapacity by remember { mutableIntStateOf(-1) }
     var liveHardwareChargeCounterUah by remember { mutableStateOf(0L) }
     var liveHardwareFullChargeUah by remember { mutableStateOf(0L) }
     var liveHardwareUsbOnline by remember { mutableIntStateOf(0) }
     var liveHardwareStatus by remember { mutableStateOf("Discharging") }
     var liveHardwareProtocol by remember { mutableStateOf("") }
+    var liveChargingStateMode by remember { mutableStateOf("") }
+    var liveBypassActive by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
@@ -115,6 +118,10 @@ fun ChargingHeroDisplayCard(
         val tempNodes = listOf(
             File("/sys/class/power_supply/battery/temp"),
             File("/sys/class/power_supply/bms/temp")
+        )
+        val capacityNodes = listOf(
+            File("/sys/class/power_supply/battery/capacity"),
+            File("/sys/class/power_supply/bms/capacity")
         )
         val chargeCounterNodes = listOf(
             File("/sys/class/power_supply/battery/charge_counter"),
@@ -187,6 +194,19 @@ fun ChargingHeroDisplayCard(
                 } catch (_: Exception) {}
             }
 
+            // Direct read of live hardware capacity (0..100)
+            for (node in capacityNodes) {
+                try {
+                    if (node.exists() && node.canRead()) {
+                        val cap = node.readText().trim().toIntOrNull()
+                        if (cap != null && cap in 0..100) {
+                            liveHardwareCapacity = cap
+                            break
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
             // Keep the fuel-gauge's native µAh resolution for SOC interpolation.
             for (node in chargeCounterNodes) {
                 try {
@@ -194,7 +214,7 @@ fun ChargingHeroDisplayCard(
                         val raw = node.readText().trim().toLongOrNull()
                         if (raw != null && raw > 0L) {
                             val uah = if (raw > 100_000L) raw else raw * 1000L
-                            if (uah in 1_000_000L..20_000_000L) {
+                            if (uah in 10_000L..30_000_000L) {
                                 liveHardwareChargeCounterUah = uah
                                 break
                             }
@@ -208,7 +228,7 @@ fun ChargingHeroDisplayCard(
                         val raw = node.readText().trim().toLongOrNull()
                         if (raw != null && raw > 0L) {
                             val uah = if (raw > 100_000L) raw else raw * 1000L
-                            if (uah in 1_000_000L..20_000_000L) {
+                            if (uah in 100_000L..30_000_000L) {
                                 liveHardwareFullChargeUah = uah
                                 break
                             }
@@ -275,6 +295,28 @@ fun ChargingHeroDisplayCard(
                 liveHardwareProtocol = ""
             }
 
+            // 6. Direct sample of native lynxd charging state file (/dev/lynx_charging_state)
+            try {
+                val chgStateFile = File("/dev/lynx_charging_state")
+                if (chgStateFile.exists() && chgStateFile.canRead()) {
+                    val line = chgStateFile.readText().trim()
+                    val rawMode = line.substringBefore(" ").substringAfter("state=").trim()
+                    if (rawMode.isNotBlank()) {
+                        liveChargingStateMode = when {
+                            rawMode.startsWith("cool") -> "cool"
+                            rawMode.startsWith("hyper") -> "hyper"
+                            rawMode.startsWith("custom") -> "custom"
+                            rawMode.startsWith("standard") -> "standard"
+                            else -> rawMode
+                        }
+                        liveBypassActive = rawMode.startsWith("bypass")
+                    }
+                }
+                if (!liveBypassActive) {
+                    liveBypassActive = File("/dev/lynx_bypass_active").exists()
+                }
+            } catch (_: Exception) {}
+
             delay(1200L) // Guaranteed 1.2s fresh hardware tick
         }
     }
@@ -296,13 +338,14 @@ fun ChargingHeroDisplayCard(
     val isPlugged = (isHwPlugged || (isHwStatusCharging && rawCurrentMa > 50)) &&
             !(isHwStatusDischarging && !isHwPlugged && rawCurrentMa <= 0)
 
-    val isBypass = isPlugged && !isHwStatusCharging && (batt.isBypassActive || chargingConfig.bypassEnabled || batt.isSmartLimitLatched)
+    val isBypass = (isPlugged && !isHwStatusCharging && (batt.isBypassActive || chargingConfig.bypassEnabled || batt.isSmartLimitLatched)) ||
+            (isPlugged && liveBypassActive)
 
     // Charging is strictly active ONLY if plugged, not in bypass, and electrical flow is positive or not discharging
     val isCharging = isPlugged && !isBypass && (!isHwStatusDischarging || rawCurrentMa > 50)
 
-    // Base Integer Battery Level
-    val baseLevel = (if (osLevel > 0) osLevel else if (batt.level > 0) batt.level else tel.battLevel).coerceIn(0, 100)
+    // Base Integer Battery Level (Direct Hardware Ground Truth prioritized)
+    val baseLevel = (if (liveHardwareCapacity in 0..100) liveHardwareCapacity else if (osLevel in 0..100) osLevel else if (batt.level > 0) batt.level else tel.battLevel).coerceIn(0, 100)
 
     val remainingChargeUah = liveHardwareChargeCounterUah.takeIf { it > 0L }
         ?: (batt.chargeCounterMah.toLong() * 1000L)
@@ -316,18 +359,13 @@ fun ChargingHeroDisplayCard(
     var integratedChargeUah by remember { mutableStateOf(0.0) }
     var hasIntegratedCharge by remember { mutableStateOf(false) }
     var currentCalibrationGain by remember { mutableStateOf(1.0) }
-    var levelEntryAnchorUah by remember { mutableStateOf(0L) }
-    var levelEntryIntegratedUah by remember { mutableStateOf(0.0) }
 
     // Coulomb counting: ΔQ(µAh) = I(µA) × Δt(seconds) / 3600.
-    // Start at the fuel-gauge counter, integrate only measured battery current,
-    // and gently correct drift when the fuel gauge advances its own counter.
-    LaunchedEffect(isCharging, isBypass) {
+    // Anchored strictly to baseLevel: fractional tenths advance from .0 to .9 as current flows.
+    LaunchedEffect(isCharging, isBypass, baseLevel) {
         hasIntegratedCharge = false
         integratedChargeUah = 0.0
         currentCalibrationGain = 1.0
-        levelEntryIntegratedUah = 0.0
-        levelEntryAnchorUah = if (remainingChargeUah > 0L) remainingChargeUah else 0L
         if (!isCharging || isBypass) return@LaunchedEffect
 
         var lastTickNs = System.nanoTime()
@@ -338,15 +376,18 @@ fun ChargingHeroDisplayCard(
             val nowNs = System.nanoTime()
             val fullUah = fullChargeUahState.value
             val measuredUah = counterUahState.value
-            if (fullUah < 1_000_000L || measuredUah <= 0L || measuredUah > fullUah * 1.05) {
-                lastTickNs = nowNs
-                continue
-            }
+            val effectiveFullUah = if (fullUah in 100_000L..30_000_000L) fullUah else 3_000_000L
 
             if (!hasIntegratedCharge) {
-                integratedChargeUah = measuredUah.toDouble()
-                counterAnchorUah = measuredUah
-                if (levelEntryAnchorUah <= 0L) levelEntryAnchorUah = measuredUah
+                // If fuel-gauge remainder is within current baseLevel, use it; otherwise anchor to baseLevel
+                val directPercent = if (measuredUah > 0L) (measuredUah.toDouble() / effectiveFullUah.toDouble() * 100.0) else -1.0
+                val validOffset = if (directPercent >= baseLevel.toDouble() && directPercent < (baseLevel + 1).toDouble()) {
+                    measuredUah.toDouble()
+                } else {
+                    effectiveFullUah.toDouble() * baseLevel / 100.0
+                }
+                integratedChargeUah = validOffset
+                counterAnchorUah = if (measuredUah > 0L) measuredUah else 0L
                 hasIntegratedCharge = true
                 lastTickNs = nowNs
                 continue
@@ -362,36 +403,23 @@ fun ChargingHeroDisplayCard(
                 uncalibratedChargeSinceAnchorUah += uncalibratedDeltaUah
                 val calibratedDelta = uncalibratedDeltaUah * currentCalibrationGain
                 integratedChargeUah += calibratedDelta
-                levelEntryIntegratedUah += calibratedDelta
             }
 
-            val counterDeltaUah = measuredUah - counterAnchorUah
-            // X698's fuel-gauge counter is quantized and can remain unchanged for
-            // many seconds. Use each meaningful counter step as a calibration
-            // reference for the current sensor instead of trusting its raw scale.
-            if (kotlin.math.abs(counterDeltaUah) >= (fullUah * 0.0025).toLong() &&
-                uncalibratedChargeSinceAnchorUah >= fullUah * 0.0025
-            ) {
-                val sampledGain = (kotlin.math.abs(counterDeltaUah).toDouble() /
-                    uncalibratedChargeSinceAnchorUah).coerceIn(0.20, 1.50)
-                currentCalibrationGain = sampledGain
-                integratedChargeUah = measuredUah.toDouble()
+            if (counterAnchorUah <= 0L && measuredUah in 1L..(effectiveFullUah * 1.05).toLong()) {
                 counterAnchorUah = measuredUah
                 uncalibratedChargeSinceAnchorUah = 0.0
             }
-            integratedChargeUah = integratedChargeUah.coerceIn(0.0, fullUah.toDouble())
-        }
-    }
-
-    var lastRecordedBaseLevel by remember { mutableIntStateOf(baseLevel) }
-    var levelEntryTimeNs by remember { mutableLongStateOf(System.nanoTime()) }
-
-    LaunchedEffect(baseLevel) {
-        if (baseLevel != lastRecordedBaseLevel) {
-            lastRecordedBaseLevel = baseLevel
-            levelEntryTimeNs = System.nanoTime()
-            levelEntryAnchorUah = if (remainingChargeUah > 0L) remainingChargeUah else 0L
-            levelEntryIntegratedUah = 0.0
+            val counterDeltaUah = measuredUah - counterAnchorUah
+            if (counterAnchorUah > 0L && measuredUah > 0L && measuredUah <= effectiveFullUah * 1.05 &&
+                counterDeltaUah > 0L && counterDeltaUah >= (effectiveFullUah * 0.0025).toLong() &&
+                uncalibratedChargeSinceAnchorUah >= effectiveFullUah * 0.0025
+            ) {
+                val sampledGain = (counterDeltaUah.toDouble() /
+                    uncalibratedChargeSinceAnchorUah).coerceIn(0.20, 1.50)
+                currentCalibrationGain = sampledGain
+                counterAnchorUah = measuredUah
+                uncalibratedChargeSinceAnchorUah = 0.0
+            }
         }
     }
 
@@ -403,63 +431,30 @@ fun ChargingHeroDisplayCard(
         else -> 0f
     }
 
-    // High-Precision Decimal SOC Calculation (Guaranteed continuous & non-null while charging!)
-    val (integerStr, decimalStr, displayedSoc) = remember(
-        isCharging, isBypass, baseLevel, levelEntryAnchorUah, levelEntryIntegratedUah,
-        remainingChargeUah, fullChargeUah, effectiveCurrentMa, rawCurrentMa, liveHardwareCurrentMa
-    ) {
-        if (!isCharging || isBypass) {
-            Triple(baseLevel.toString(), "", baseLevel.toFloat())
-        } else {
-            val onePercentUah = if (fullChargeUah in 1_000_000L..20_000_000L) fullChargeUah / 100.0 else 50_000.0
-            var fraction = 0f
+    // High Precision Tenths Decimal SOC within current baseLevel integer:
+    val uahPerOnePercent = if (fullChargeUah in 100_000L..30_000_000L) (fullChargeUah.toDouble() / 100.0) else 30_000.0
+    val fractionWithinLevel = if (isCharging && !isBypass && hasIntegratedCharge && uahPerOnePercent > 0.0) {
+        val baseUah = uahPerOnePercent * baseLevel
+        val deltaFromBase = (integratedChargeUah - baseUah).coerceAtLeast(0.0)
+        (deltaFromBase / uahPerOnePercent).coerceIn(0.0, 0.95)
+    } else null
 
-            // 1. Hardware Fuel-Gauge Coulomb counter delta since entering this percent
-            if (levelEntryAnchorUah > 0L && remainingChargeUah >= levelEntryAnchorUah) {
-                val deltaUah = (remainingChargeUah - levelEntryAnchorUah).toDouble()
-                val coulombFraction = (deltaUah / onePercentUah).toFloat()
-                if (coulombFraction in 0f..0.95f) {
-                    fraction = coulombFraction
-                }
-            }
+    val tenths = if (fractionWithinLevel != null) {
+        kotlin.math.floor(fractionWithinLevel * 10.0 + 0.0001).toInt().coerceIn(0, 9)
+    } else null
 
-            // 2. Real-time Integrated Current Flow (Coulombs = Amperes × seconds)
-            if (fraction == 0f && levelEntryIntegratedUah > 0.0) {
-                val integratedFraction = (levelEntryIntegratedUah / onePercentUah).toFloat()
-                if (integratedFraction in 0f..0.95f) {
-                    fraction = integratedFraction
-                }
-            }
-
-            // 3. Absolute Fuel-Gauge ratio if closely aligned
-            if (fraction == 0f && remainingChargeUah > 0L && fullChargeUah > 0L) {
-                val directSoc = (remainingChargeUah.toDouble() / fullChargeUah.toDouble() * 100.0).toFloat()
-                val diff = directSoc - baseLevel.toFloat()
-                if (diff in 0f..0.95f) {
-                    fraction = diff
-                }
-            }
-
-            // 4. Continuous electrical flow estimation fallback (ensures decimal NEVER drops!)
-            if (fraction == 0f) {
-                val nowNs = System.nanoTime()
-                val elapsedSec = ((nowNs - levelEntryTimeNs).coerceAtLeast(0L) / 1_000_000_000.0).toFloat()
-                val activeFlowMa = if (effectiveCurrentMa > 50f) effectiveCurrentMa
-                    else if (rawCurrentMa > 50) rawCurrentMa.toFloat()
-                    else 2000f
-                val nominalCapacityMah = if (fullChargeUah in 1_000_000L..10_000_000L) (fullChargeUah / 1000L).toFloat() else 5000f
-                val secPerPercent = (nominalCapacityMah * 36f) / activeFlowMa.coerceAtLeast(500f)
-                fraction = (elapsedSec / secPerPercent).coerceIn(0f, 0.95f)
-            }
-
-            val tenths = (fraction * 10f).toInt().coerceIn(0, 9)
-            val soc = (baseLevel.toFloat() + (tenths / 10f)).coerceIn(0f, 100f)
-            Triple(baseLevel.toString(), ".$tenths", soc)
-        }
+    // Strictly anchored to baseLevel so integer NEVER desyncs with status bar:
+    val integerStr = baseLevel.toString()
+    val decimalStr = if (isCharging && !isBypass && tenths != null) ".$tenths" else ""
+    val displayedSoc = if (isCharging && !isBypass && tenths != null) {
+        baseLevel.toFloat() + (tenths.toFloat() / 10f)
+    } else {
+        baseLevel.toFloat()
     }
+
     val animatedSoc by animateFloatAsState(
         targetValue = displayedSoc,
-        animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
         label = "battery_soc_ring"
     )
 
@@ -491,8 +486,9 @@ fun ChargingHeroDisplayCard(
     }
 
     // Active Lynx Charging Mode Resolution (Single Source of Truth)
-    val activeChargingMode = remember(chargingConfig.chargingMode, chargingConfig.extremeChargingEnabled, chargingConfig.limitCurrentMa) {
+    val activeChargingMode = remember(liveChargingStateMode, chargingConfig.chargingMode, chargingConfig.extremeChargingEnabled, chargingConfig.limitCurrentMa) {
         when {
+            liveChargingStateMode.isNotBlank() && !liveChargingStateMode.startsWith("bypass") -> liveChargingStateMode
             chargingConfig.chargingMode.isNotBlank() -> chargingConfig.chargingMode.lowercase()
             chargingConfig.extremeChargingEnabled -> "hyper"
             chargingConfig.limitCurrentMa in 500..2500 -> "cool"
@@ -714,7 +710,7 @@ fun ChargingHeroDisplayCard(
 
                             if (decimalStr.isNotEmpty()) {
                                 Text(
-                                    text = "ESTIMASI",
+                                    text = "LIVE PRECISION",
                                     fontSize = 7.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextTertiary,

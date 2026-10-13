@@ -286,18 +286,16 @@ fun LynxViewModel.setMaxBatteryPercent(percent: Int) {
     }
     setKey("charging.max_battery_percent", percent.toString(), "val")
     viewModelScope.launch {
-        LynxRepository.setMaxBatteryPercent(percent)
-        val chg = _uiState.value.state.charging
-        LynxRepository.applyChargingMode(
-            bypass = chg.bypassEnabled,
-            extremeCharging = chg.extremeChargingEnabled,
-            limitMa = chg.limitCurrentMa,
-            highTargetPercent = chg.highCurrentTargetPercent,
-            lockoutBypass = chg.thermalLockoutBypassEnabled,
-            tempGuard = chg.emergencyTempGuardEnabled,
-            maxBatteryPercent = percent,
-            isUnconstrainedMaxHw = chg.isUnconstrainedMaxHw
-        )
+        val applied = LynxRepository.setMaxBatteryPercent(percent)
+        _uiState.update {
+            it.copy(
+                successMessage = if (applied) {
+                    "Batas Pengisian Cerdas ${percent}% diterapkan."
+                } else {
+                    "Batas ${percent}% tersimpan, tetapi kernel tidak mengonfirmasi kontrol pengisian."
+                }
+            )
+        }
     }
 }
 

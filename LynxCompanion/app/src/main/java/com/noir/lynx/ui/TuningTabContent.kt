@@ -121,6 +121,7 @@ fun TuningTabContent(
     subscreenFling: FlingBehavior,
     onAddAppClick: () -> Unit,
     onEditRuleClick: (AppProfileRule) -> Unit,
+    onExtremeConfirmRequired: () -> Unit = {},
 ) {
     val state = uiState.state
     val context = LocalContext.current
@@ -188,6 +189,15 @@ fun TuningTabContent(
                                             .padding(horizontal = 16.dp, vertical = 4.dp),
                                         verticalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
+                                        // 0. Profil Performa Kernel (Katalog Preset)
+                                        SubsystemCategoryCard(
+                                            category = TuningCategory.PROFILES,
+                                            badgeText = state.activeProfile.uppercase(),
+                                            detailText1 = "${uiState.kernelProfileCatalog.profiles.size} Profil",
+                                            detailText2 = if (state.profileOverrides.isNotEmpty()) "${state.profileOverrides.size} Override" else "Harmonis",
+                                            onClick = { onSelectedCategoryChange("profiles") }
+                                        )
+
                                         // 1. CPU & Governor
                                         SubsystemCategoryCard(
                                             category = TuningCategory.CPU,
@@ -396,6 +406,13 @@ fun TuningTabContent(
                                         Spacer(Modifier.height(8.dp))
                                     }
                                     when (currentCategory) {
+                                        "profiles" -> item(key = "subscreen_profiles") {
+                                            TuningProfilesCategory(
+                                                uiState = uiState,
+                                                viewModel = viewModel,
+                                                onExtremeConfirmRequired = onExtremeConfirmRequired
+                                            )
+                                        }
                                         "gpu" -> tuningGpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context)
                                         "cpu" -> item(key = "subscreen_cpu") { TuningCpuCategory(uiState = uiState, viewModel = viewModel) }
                                         "thermal" -> item(key = "subscreen_thermal") { TuningThermalCategory(uiState = uiState, viewModel = viewModel) }

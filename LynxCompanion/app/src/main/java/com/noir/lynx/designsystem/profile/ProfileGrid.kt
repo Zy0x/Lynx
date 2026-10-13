@@ -85,7 +85,13 @@ fun ProfileGrid(
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(Modifier.padding(12.dp)) {
-                            Text(item.name, color = item.color, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(
+                                item.name,
+                                color = item.color,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                            )
                             Text(profile.description.ifBlank { "Profil ${profile.baseProfile}" }, color = TextSecondary, fontSize = 10.sp)
                             if (!profile.builtIn) {
                                 TextButton(onClick = { editing = profile }) { Text("Edit") }

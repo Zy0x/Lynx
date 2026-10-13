@@ -20,7 +20,7 @@ const _EXT_DIR: &str = "/sys/class/power_supply/battery_ext";
 const QC_DIR: &str = "/sys/class/qcom-battery";
 const MTK_DIR: &str = "/sys/devices/platform/charger";
 
-const DISCONNECT_CHARGING_RESETS: [(&str, &str); 13] = [
+const DISCONNECT_CHARGING_RESETS: [(&str, &str); 14] = [
     ("/sys/class/power_supply/battery/input_suspend", "0"),
     ("/sys/class/power_supply/battery/charging_enabled", "1"),
     ("/sys/devices/platform/charger/pe20", "0"),
@@ -31,16 +31,63 @@ const DISCONNECT_CHARGING_RESETS: [(&str, &str); 13] = [
     ("/sys/devices/platform/charger/BN_TestMode", "0"),
     ("/sys/devices/platform/charger/BatteryNotify", "1"),
     ("/sys/devices/platform/charger/sw_jeita", "1"),
+    ("/sys/devices/platform/charger/pdc_max_watt", "33"),
     ("/sys/class/power_supply/battery/fastcharge_mode", "0"),
     ("/sys/class/power_supply/battery/fast_charge", "0"),
     ("/sys/class/qcom-battery/direct_charging", "0"),
 ];
 
-const CHARGER_THERMAL_POLICY_RESETS: [(&str, &str); 4] = [
-    ("/proc/driver/thermal/clabcct", "42000 1000 200000 5 2000 0 1 1 0"),
-    ("/proc/driver/thermal/clabcct_lcmoff", "1 42000 1000 200000 5 2000 0 2000 0"),
-    ("/proc/driver/thermal/tzbts_param", "PUP_R 100000 PUP_VOLT 1800 OVER_CRITICAL_L 4397119 NTC_TABLE 7 0"),
-    ("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[102,65,68,72,500,1000,1500]"),
+// Values and permissions changed by charging modes are captured once per cable
+// session and restored exactly when the physical input is removed.
+const CHARGING_SESSION_NODES: &[&str] = &[
+    "/sys/class/power_supply/battery/input_suspend",
+    "/sys/class/power_supply/battery/charging_enabled",
+    "/sys/class/power_supply/battery/constant_charge_current_max",
+    "/sys/class/power_supply/battery/constant_charge_current",
+    "/sys/class/power_supply/battery/current_max",
+    "/sys/class/power_supply/battery/input_current_limit",
+    "/sys/class/power_supply/battery/charge_control_limit_max",
+    "/sys/class/power_supply/battery/charge_control_limit",
+    "/sys/class/power_supply/battery/fastcharge_mode",
+    "/sys/class/power_supply/battery/fast_charge",
+    "/sys/class/power_supply/battery/boost_current",
+    "/sys/class/power_supply/battery/thermal_input_current_limit",
+    "/sys/class/power_supply/battery/system_temp_level",
+    "/sys/class/power_supply/battery/temp_state",
+    "/sys/class/power_supply/battery/step_charging_enabled",
+    "/sys/class/power_supply/battery/quick_charge_type",
+    "/sys/class/power_supply/battery/siop_level",
+    "/sys/class/power_supply/battery/store_mode",
+    "/sys/class/power_supply/battery/batt_slate_mode",
+    "/sys/class/power_supply/battery/cool_mode",
+    "/sys/class/power_supply/battery/call_mode",
+    "/sys/class/power_supply/battery/charge_stop_level",
+    "/sys/class/power_supply/battery/bd_trickle_dry_run",
+    "/sys/class/power_supply/battery/device/smart_charging",
+    "/sys/class/power_supply/battery/charging_limit_mode",
+    "/sys/class/power_supply/battery/smart_charging_activation",
+    "/sys/class/power_supply/main/current_max",
+    "/sys/class/power_supply/main/constant_charge_current_max",
+    "/sys/class/power_supply/usb/current_max",
+    "/sys/class/power_supply/usb/hw_current_max",
+    "/sys/devices/platform/charger/input_current",
+    "/sys/devices/platform/charger/chg1_current",
+    "/sys/devices/platform/charger/chg2_current",
+    "/sys/devices/platform/charger/sc_ibat_limit",
+    "/sys/devices/platform/charger/enable_sc",
+    "/sys/devices/platform/charger/pe20",
+    "/sys/devices/platform/charger/pe40",
+    "/sys/devices/platform/charger/tran_charger_full",
+    "/sys/devices/platform/charger/bypass_charger",
+    "/sys/devices/platform/charger/BN_TestMode",
+    "/sys/devices/platform/charger/BatteryNotify",
+    "/sys/devices/platform/charger/sw_jeita",
+    "/sys/devices/platform/charger/pdc_max_watt",
+    "/sys/devices/platform/odm/odm:tran_battery/Charging_CallState",
+    "/sys/devices/platform/tran_battery/Charging_CallState",
+    "/sys/class/qcom-battery/direct_charging",
+    "/sys/class/qcom-battery/restricted_charging",
+    "/sys/class/qcom-battery/restrict_cur",
 ];
 
 pub struct ChargingRegulator;
@@ -92,6 +139,27 @@ impl ChargingRegulator {
         Self::set_perm(path, 0o666);
         let _ = fs::write(path, val);
         Self::set_perm(path, 0o444);
+    }
+
+    /// Dynamically enables or disables Battery Charging Current Throttling (BCCT) cooling devices.
+    pub fn set_bcct_throttle(throttle: bool) {
+        let val = if throttle { "1" } else { "0" };
+        if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("cooling_device") {
+                    let type_path = format!("/sys/class/thermal/{}/type", name_str);
+                    if let Ok(t) = fs::read_to_string(&type_path) {
+                        let t_lower = t.trim().to_lowercase();
+                        if t_lower.contains("bcct") {
+                            let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
+                            Self::write_node(&cur_path, val);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// Sends SIGSTOP (19) or SIGCONT (18) to matching processes by scanning `/proc` in pure Rust
@@ -156,9 +224,28 @@ impl ChargingRegulator {
             .or_else(|| Self::read_node(&format!("{}/real_type", USB_DIR)))
             .unwrap_or_default()
             .to_uppercase();
+        // Some MTK/Transsion kernels keep OTG_CTL asserted while the charger
+        // input pump is active. A verified sink connection is stronger evidence
+        // than that ambiguous control bit, so do not suppress charging policies.
+        let sink_online = Self::read_node(&format!("{}/online", USB_DIR)).as_deref() == Some("1")
+            || Self::read_node(&format!("{}/ac/online", PS_DIR)).as_deref() == Some("1")
+            || Self::read_node(&format!("{}/charger/online", PS_DIR)).as_deref() == Some("1");
+        let batt_status = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_default();
+        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+            .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+            .or_else(|| Self::read_i64(&format!("{}/charger_voltage", BATT_DIR)))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", MAIN_DIR)))
+            .unwrap_or(0);
+        let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+        if sink_online || batt_status == "Charging" || adpv_clean >= 3500 {
+            return false;
+        }
+
         if ptyp.contains("OTG") {
             return true;
         }
+
         if let Some(otg_ctl) = Self::read_node("/sys/devices/platform/odm/odm:tran_battery/OTG_CTL")
             .or_else(|| Self::read_node("/sys/devices/platform/tran_battery/OTG_CTL"))
         {
@@ -270,9 +357,6 @@ impl ChargingRegulator {
             "/sys/class/qcom-battery/direct_charging",
             "/sys/class/qcom-battery/restricted_charging",
             "/sys/class/qcom-battery/restrict_cur",
-            "/sys/class/power_supply/battery/system_temp_level",
-            "/sys/class/power_supply/battery/temp_state",
-            "/sys/class/power_supply/battery/thermal_input_current_limit",
             "/sys/class/power_supply/battery/input_current_settled",
             "/sys/class/power_supply/battery/boost_current",
             "/sys/class/power_supply/battery/step_charging_enabled",
@@ -297,12 +381,6 @@ impl ChargingRegulator {
             "/sys/class/power_supply/battery/charging_limit_mode",
             "/sys/class/power_supply/battery/mmi_charging_enable",
             "/sys/class/power_supply/battery/factory_mode",
-            "/proc/driver/thermal/clabcct",
-            "/proc/driver/thermal/clabcct_lcmoff",
-            "/proc/driver/thermal/tzbts_param",
-            "/sys/devices/platform/pca_dv2_algo/dv2_debug",
-            "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug",
-            "/sys/devices/platform/tran_battery/pcb_thermal_debug",
         ];
 
         for &node in NODES {
@@ -311,40 +389,9 @@ impl ChargingRegulator {
             }
         }
 
-        if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
-            for entry in entries.flatten() {
-                let name = entry.file_name();
-                let name_str = name.to_string_lossy();
-                if name_str.starts_with("cooling_device") {
-                    let cur = format!("/sys/class/thermal/{}/cur_state", name_str);
-                    if Path::new(&cur).exists() {
-                        Self::set_perm(&cur, 0o666);
-                    }
-                } else if name_str.starts_with("thermal_zone") {
-                    let mode_path = format!("/sys/class/thermal/{}/mode", name_str);
-                    if Path::new(&mode_path).exists() {
-                        Self::set_perm(&mode_path, 0o666);
-                        let _ = fs::write(&mode_path, "enabled");
-                    }
-                }
-            }
-        }
-
-        if Path::new("/sys/devices/platform/pca_dv2_algo/dv2_debug").exists() {
-            Self::write_node("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[101,43,45,50,500,1000,1500]");
-            Self::write_node("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[102,65,68,72,500,1000,1500]");
-        }
-        if Path::new("/proc/driver/thermal/tzbts_param").exists() {
-            Self::write_node(
-                "/proc/driver/thermal/tzbts_param",
-                "PUP_R 100000 PUP_VOLT 1800 OVER_CRITICAL_L 4397119 NTC_TABLE 7 0",
-            );
-        }
-
         Self::write_node("/sys/devices/platform/charger/BN_TestMode", "0");
         Self::write_node("/sys/devices/platform/charger/BatteryNotify", "1");
         Self::write_node("/sys/devices/platform/charger/sw_jeita", "1");
-        Self::signal_processes(&["thermalloadalgod", "com.xiaomi.joyose", "mi_thermald", "thermal-engine"], false);
     }
 
     /// Mode 1: True Hardware Bypass Charging (Zero Battery Current, Vsys powered by Adapter)
@@ -355,6 +402,10 @@ impl ChargingRegulator {
         Self::unlock_extreme_nodes();
 
         // 1. MediaTek Platform Hardware Zero Cutoff (Vsys powered, battery decoupled)
+        Self::set_bcct_throttle(true);
+        Self::write_node_lock("/sys/devices/platform/charger/pdc_max_watt", "0");
+        Self::write_node("/sys/devices/platform/charger/pe20", "0");
+        Self::write_node("/sys/devices/platform/charger/pe40", "0");
         Self::write_node_lock(&format!("{}/input_current", MTK_DIR), "0");
         Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), "0");
         Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), "0");
@@ -363,25 +414,9 @@ impl ChargingRegulator {
         Self::write_node_lock(&format!("{}/tran_charger_full", MTK_DIR), "1");
         Self::write_node("/sys/devices/platform/charger/bypass_charger", "1");
 
-        // MediaTek Kernel PID Thermal Derater (ABCCT) Zero Current Enforcement
-        let abcct_zero = "30000 1000 200000 5 0 0 1 1 0";
-        let abcct_lcmoff_zero = "1 30000 1000 200000 5 0 0 0 0";
-        Self::write_node_lock("/proc/driver/thermal/clabcct", abcct_zero);
-        Self::write_node_lock("/proc/driver/thermal/clabcct_lcmoff", abcct_lcmoff_zero);
-
         // Transsion 33W+ Direct Pump Suspend & CallState Clamp
-        let pcb_zero = "[30,0,35,0,0]";
-        Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug", pcb_zero);
-        Self::write_node_lock("/sys/devices/platform/tran_battery/pcb_thermal_debug", pcb_zero);
         Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "1");
         Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "1");
-        if Path::new("/sys/devices/platform/pca_dv2_algo/dv2_debug").exists() {
-            Self::set_perm("/sys/devices/platform/pca_dv2_algo/dv2_debug", 0o666);
-            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[101,10,20,30,0,0,0]");
-            let _ = fs::write("/sys/devices/platform/pca_dv2_algo/dv2_debug", "[102,10,20,30,0,0,0]");
-            Self::set_perm("/sys/devices/platform/pca_dv2_algo/dv2_debug", 0o444);
-        }
-
         // 2. Universal Linux & Android Charge Rails Zero Cutoff
         for node in [
             format!("{}/constant_charge_current", BATT_DIR),
@@ -423,7 +458,7 @@ impl ChargingRegulator {
             Self::write_node(byp_node, "1");
         }
 
-        Self::signal_processes(&["thermalloadalgod", "com.xiaomi.joyose", "mi_thermald", "thermal-engine"], true);
+        // Keep OEM thermal daemons and trip-point policies active during bypass.
 
         // Android Framework OS-level status cutoff (4 = BATTERY_STATUS_NOT_CHARGING)
         let _ = std::process::Command::new("dumpsys")
@@ -445,7 +480,7 @@ impl ChargingRegulator {
 
         let hw_ceiling = Self::probe_hardware_ceiling_ma();
         let target_peak_ma = if requested_ma >= 2000 {
-            requested_ma.max(hw_ceiling)
+            requested_ma.min(hw_ceiling)
         } else {
             hw_ceiling
         };
@@ -506,14 +541,7 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
         Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
 
-        // 4. Screen-ON Throttling Bypass (Gaming while charging)
-        let abcct_high_perf = "48000 1000 200000 5 6000 0 1 1 0";
-        let abcct_lcmoff_high_perf = "1 48000 1000 200000 5 6000 0 6000 0";
-        Self::write_node_lock("/proc/driver/thermal/clabcct", abcct_high_perf);
-        Self::write_node_lock("/proc/driver/thermal/clabcct_lcmoff", abcct_lcmoff_high_perf);
-
-        // 5. Freeze aggressive OEM thermal derating daemons
-        Self::signal_processes(&["thermalloadalgod", "com.xiaomi.joyose", "mi_thermald", "thermal-engine"], true);
+        // OEM thermal policy remains active in every fast-charge mode.
     }
 
     /// Reasserts fast-charge negotiation and locks.
@@ -574,6 +602,21 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/fast_charge", BATT_DIR), "0");
         Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
 
+        // Clamping logic:
+        if effective_ma <= 1500 {
+            // Tight Cool Mode throttling (strictly clamps to ~1.0A 5V, suppresses direct pump)
+            Self::set_bcct_throttle(true);
+            Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), "5");
+            Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "2");
+            Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "2");
+        } else {
+            Self::set_bcct_throttle(false);
+            let watt = ((effective_ma * 5) / 1000).max(10).min(68);
+            Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), &watt.to_string());
+            Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
+            Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
+        }
+
         // Actively write limit to hardware registers with permission lock!
         Self::write_node_lock(&format!("{}/input_current", MTK_DIR), &effective_ma_str);
         Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
@@ -586,14 +629,15 @@ impl ChargingRegulator {
         Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
         Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &effective_ua_str);
         Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
+        Self::write_node(&format!("{}/restricted_charging", QC_DIR), "1");
 
         // Always restore thermal safety and unfreeze daemons when in regulated mode
         Self::restore_charger_thermal_safety();
     }
 
-    /// Mode 1: Cool Mode (1500–2000 mA strict limit, cold & safe)
+    /// Mode 1: Cool Mode (1000–1200 mA strict limit, cold & safe)
     pub fn apply_cool_mode(limit_ma: u32) {
-        let target = if limit_ma > 0 && limit_ma <= 2000 { limit_ma } else { 2000 };
+        let target = if limit_ma > 0 && limit_ma <= 1500 { limit_ma } else { 1000 };
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
         let _ = fs::write("/dev/lynx_charging_state", format!("state=cool cap={}\n", cur_cap));
         Self::apply_regulated_charging(target);
@@ -612,6 +656,7 @@ impl ChargingRegulator {
         let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
         Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
+        Self::set_bcct_throttle(false);
 
         // Restore standard charging flags
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
@@ -619,6 +664,9 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "0");
         Self::write_node(&format!("{}/BatteryNotify", MTK_DIR), "1");
         Self::write_node(&format!("{}/sw_jeita", MTK_DIR), "1");
+        Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), "33");
+        Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
+        Self::write_node(&format!("{}/pe40", MTK_DIR), "1");
         Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
         Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
         Self::write_node(&format!("{}/fastcharge_mode", BATT_DIR), "0");
@@ -667,23 +715,8 @@ impl ChargingRegulator {
         }
     }
 
-    /// Restore charging-controller derating and OEM thermal daemons without changing
-    /// Thermal Lynx zones, trip points, cooling devices, or the selected thermal profile.
+    /// Charge-mode changes leave OEM thermal controls and trip points untouched.
     fn restore_charger_thermal_safety() {
-        for (node, value) in CHARGER_THERMAL_POLICY_RESETS {
-            Self::set_perm(node, 0o666);
-            Self::write_node(node, value);
-            Self::set_perm(node, 0o644);
-        }
-        Self::set_perm("/sys/devices/platform/pca_dv2_algo/dv2_debug", 0o666);
-        Self::write_node(
-            "/sys/devices/platform/pca_dv2_algo/dv2_debug",
-            "[101,43,45,50,500,1000,1500]",
-        );
-        Self::signal_processes(
-            &["thermalloadalgo", "thermalloadalgod", "com.xiaomi.joyose", "mi_thermald", "thermal-engine"],
-            false,
-        );
     }
 
     /// Reads real physical battery cell temperature in decicelsius (e.g. 345 = 34.5°C).
@@ -778,6 +811,8 @@ impl ChargingRegulator {
             return;
         }
 
+        Self::capture_charging_session_baseline();
+
         let cfg = ConfigStore::load_charging_config();
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
         let cur_stat = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_else(|| "Unknown".to_string());
@@ -858,6 +893,10 @@ impl ChargingRegulator {
             return;
         }
 
+        if cfg.extreme_charging_enabled {
+            Self::apply_hyper_mode();
+            return;
+        }
 
         // Tier 7: Active Charging Mode Execution (Cool, Standard, Hyper, Custom)
         match cfg.charging_mode.as_str() {
@@ -922,6 +961,17 @@ impl ChargingRegulator {
         false
     }
 
+    /// Confirms that a requested bypass actually stopped cell charging. A marker
+    /// file or Android's reported status alone is not proof on vendor kernels.
+    fn is_battery_cell_current_stopped() -> bool {
+        let Some(raw_current) = Self::read_i64(&format!("{}/current_now", BATT_DIR)) else {
+            return false;
+        };
+        let current_ma = if raw_current.abs() >= 10_000 { raw_current / 1000 } else { raw_current };
+        let status = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_default();
+        current_ma.abs() <= 50 && status != "Charging"
+    }
+
     pub fn handle_disconnect() {
         // Charging protocol requests are session-scoped. Clear those requests on unplug,
         // but leave thermal zones, cooling devices, and Thermal Lynx profile nodes untouched.
@@ -929,6 +979,7 @@ impl ChargingRegulator {
         let needs_session_cleanup = Path::new("/dev/lynx_extreme_charging").exists()
             || Path::new("/dev/lynx_standard_charging").exists()
             || Path::new("/dev/lynx_bypass_active").exists()
+            || Path::new("/dev/lynx_charging_baseline").exists()
             || !previous_state.starts_with("state=discharging");
 
         let _ = fs::remove_file("/dev/lynx_charging_guard");
@@ -936,6 +987,7 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_standard_charging");
         let _ = fs::remove_file("/dev/lynx_bypass_active");
         let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
+        Self::set_bcct_throttle(false);
         Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
         if !needs_session_cleanup {
@@ -947,8 +999,53 @@ impl ChargingRegulator {
         for (node, value) in DISCONNECT_CHARGING_RESETS {
             Self::write_node(node, value);
         }
+        Self::restore_charging_session_baseline();
         Self::restore_charger_thermal_safety();
+        let _ = fs::remove_file("/dev/lynx_orig_chg_max");
         Self::signal_processes(&["thermalloadalgod", "com.xiaomi.joyose", "mi_thermald", "thermal-engine"], false);
+    }
+
+    fn capture_charging_session_baseline() {
+        const DIR: &str = "/dev/lynx_charging_baseline";
+        if Path::new(DIR).exists() || fs::create_dir(DIR).is_err() {
+            return;
+        }
+
+        for (index, node) in CHARGING_SESSION_NODES.iter().enumerate() {
+            let Ok(value) = fs::read_to_string(node) else { continue };
+            let Ok(meta) = fs::metadata(node) else { continue };
+            let value_path = format!("{}/{}.value", DIR, index);
+            let mode_path = format!("{}/{}.mode", DIR, index);
+            let _ = fs::write(value_path, value.trim_end());
+            #[cfg(unix)]
+            let mode = meta.permissions().mode() & 0o777;
+            #[cfg(not(unix))]
+            let mode = 0o644;
+            let _ = fs::write(mode_path, mode.to_string());
+        }
+    }
+
+    fn restore_charging_session_baseline() {
+        const DIR: &str = "/dev/lynx_charging_baseline";
+        if !Path::new(DIR).exists() {
+            return;
+        }
+
+        for (index, node) in CHARGING_SESSION_NODES.iter().enumerate() {
+            let value_path = format!("{}/{}.value", DIR, index);
+            let mode_path = format!("{}/{}.mode", DIR, index);
+            let Ok(value) = fs::read_to_string(&value_path) else { continue };
+            let original_mode = fs::read_to_string(&mode_path)
+                .ok()
+                .and_then(|s| s.trim().parse::<u32>().ok());
+            Self::set_perm(node, 0o666);
+            let _ = fs::write(node, value.trim_end());
+            if let Some(mode) = original_mode {
+                Self::set_perm(node, mode);
+            }
+        }
+
+        let _ = fs::remove_dir_all(DIR);
     }
 
     /// Periodic tick called inside `DaemonRunner::run()` every cycle.
@@ -1052,9 +1149,13 @@ impl ChargingRegulator {
 
         let guard_state = Path::new("/dev/lynx_charging_guard").exists();
         let chg_state = Self::read_node("/dev/lynx_charging_state").unwrap_or_default();
-        let is_bypass_active = Path::new("/dev/lynx_bypass_active").exists();
-        let is_overnight_latch = chg_state.contains("bypass_100") || (cap >= 100 && is_bypass_active) || stat == "Full";
-        let is_limit_latched = chg_state.contains("bypass_limit") || (cfg.max_battery_percent > 0 && cfg.max_battery_percent < 100 && cap >= (cfg.max_battery_percent as i64) && is_bypass_active);
+        let bypass_requested = Path::new("/dev/lynx_bypass_active").exists();
+        let is_overnight_latch = chg_state.contains("bypass_100") || (cap >= 100 && bypass_requested) || stat == "Full";
+        let is_limit_latched = chg_state.contains("bypass_limit")
+            && cfg.max_battery_percent > 0
+            && cfg.max_battery_percent < 100
+            && cap >= cfg.max_battery_percent as i64;
+        let is_bypass_active = bypass_requested || is_overnight_latch || is_limit_latched;
         let is_tapering = chg_state.contains("tapering");
 
         let _now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
@@ -1108,18 +1209,13 @@ impl ChargingRegulator {
 
 #[cfg(test)]
 mod tests {
-    use super::{CHARGER_THERMAL_POLICY_RESETS, DISCONNECT_CHARGING_RESETS};
+    use super::DISCONNECT_CHARGING_RESETS;
 
     #[test]
     fn disconnect_resets_only_charging_protocol_nodes() {
         assert!(DISCONNECT_CHARGING_RESETS.iter().all(|(path, _)| {
             let path = path.to_lowercase();
             !path.contains("thermal") && !path.contains("trip_point") && !path.contains("cooling_device")
-        }));
-        assert!(CHARGER_THERMAL_POLICY_RESETS.iter().all(|(path, _)| {
-            !path.starts_with("/sys/class/thermal/")
-                && !path.contains("trip_point")
-                && !path.contains("cooling_device")
         }));
     }
 }

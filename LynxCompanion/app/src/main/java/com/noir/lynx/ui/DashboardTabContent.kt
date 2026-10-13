@@ -117,6 +117,7 @@ fun DashboardTabContent(
     dashboardLazyState: androidx.compose.foundation.lazy.LazyListState,
     dashboardFling: FlingBehavior,
     onExtremeConfirmRequired: () -> Unit,
+    onNavigateToProfilesCatalog: () -> Unit = {},
 ) {
     val state = uiState.state
     val context = LocalContext.current
@@ -147,39 +148,17 @@ fun DashboardTabContent(
                         TelemetryMemoryCard(telemetry = uiState.telemetry)
                     }
 
-                    item(key = "telemetry_topology") {
-                        TelemetryCpuTopologyCard(telemetry = uiState.telemetry)
-                    }
-
-                    item(key = "profiles") {
-                        LynxCard(
-                            title = "Profil Performa Kernel",
-                            icon = Icons.Default.Speed,
-                            accentColor = AccentOrange
-                        ) {
-                            ProfileGrid(
-                                catalog = uiState.kernelProfileCatalog,
-                                currentProfile = state.activeProfile,
-                                hasOverrides = state.profileOverrides.isNotEmpty(),
-                                onProfileSelected = { id, clearOverrides -> viewModel.selectKernelPerformanceProfile(id, context, clearOverrides) },
-                                onExtremeConfirmRequired = onExtremeConfirmRequired,
-                                onProfileSaved = { profile, replaceBuiltIn, replaceCustom -> viewModel.saveKernelPerformanceProfile(profile, replaceBuiltIn, replaceCustom) },
-                                onProfileDeleted = { id -> viewModel.deleteKernelPerformanceProfile(id) },
-                                onProfileDuplicated = { id -> viewModel.duplicateKernelPerformanceProfile(id) },
-                                onRestoreBuiltIn = { id -> viewModel.restoreBuiltInKernelProfile(id, context) },
-                            )
-                            if (state.profileOverrides.isNotEmpty()) {
-                                val overrides = state.profileOverrides.entries
-                                    .sortedBy { it.key.storageKey }
-                                    .joinToString(" • ") { (domain, profile) -> "${domain.storageKey.uppercase()}: ${profile.uppercase()}" }
-                                Text(
-                                    text = "Induk ${state.activeProfile.uppercase()} · override lokal $overrides",
-                                    color = TextSecondary,
-                                    fontSize = 10.sp,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
+                    item(key = "quick_profiles") {
+                        QuickProfileSwitcherCard(
+                            catalog = uiState.kernelProfileCatalog,
+                            currentProfile = state.activeProfile,
+                            hasOverrides = state.profileOverrides.isNotEmpty(),
+                            onProfileSelected = { id, clearOverrides ->
+                                viewModel.selectKernelPerformanceProfile(id, context, clearOverrides)
+                            },
+                            onExtremeConfirmRequired = onExtremeConfirmRequired,
+                            onNavigateToProfilesCatalog = onNavigateToProfilesCatalog
+                        )
                     }
 
                     // ── Live Floating Game HUD & OSD Card ─────────────────

@@ -78,6 +78,7 @@
     <string name="battery_status_disconnected">Terputus • Menggunakan Daya Baterai</string>
     <string name="battery_status_full_autocut">Baterai Penuh 100% • Arus Diputus (AutoCut Aktif)</string>
     <string name="battery_status_smart_limit_reached">Batas Cerdas %1$d%% Tercapai (Baterai %2$d%%) • Arus Diputus (Bypass Aktif)</string>
+    <string name="battery_status_smart_limit_unapplied">Batas %1$d%% terlewati (Baterai %2$d%%) • Kontrol belum aktif</string>
     <string name="battery_status_smart_limit_unconfirmed">Batas Cerdas %1$d%% Terlewati (Baterai %2$d%%) • Bypass Belum Terkonfirmasi</string>
     <string name="battery_status_smart_limit_unconfirmed_detail">Perangkat masih melaporkan arus masuk; perlindungan batas belum terverifikasi aktif.</string>
     <string name="battery_status_manual_bypass">Bypass Manual Aktif • Baterai Dilewati</string>

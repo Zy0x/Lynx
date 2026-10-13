@@ -107,7 +107,7 @@ fun FastChargingControlCard(
             ChargingModeCard(
                 item = modes[0],
                 isSelected = activeMode == "cool",
-                onClick = { viewModel.setChargingMode("cool", 2000) },
+                onClick = { viewModel.setChargingMode("cool", 1000) },
                 modifier = Modifier.weight(1f)
             )
             ChargingModeCard(
@@ -177,8 +177,9 @@ fun FastChargingControlCard(
         val curLevel = battDetails?.level ?: 0
         val isBypassFeatureEnabled = state.charging.bypassEnabled
         val smartLimit = state.charging.maxBatteryPercent.coerceIn(50, 100)
-        val isOvernightLatched = isPlugged && isBypassFeatureEnabled && (battDetails?.isOvernightBypassLatched == true || curLevel >= 100)
-        val isLimitLatched = isPlugged && isBypassFeatureEnabled && smartLimit < 100 && (battDetails?.isSmartLimitLatched == true || (battDetails?.isBypassActive == true && curLevel >= (smartLimit - 2)))
+        val isOvernightLatched = isPlugged && (battDetails?.isOvernightBypassLatched == true || curLevel >= 100)
+        val isLimitLatched = isPlugged && smartLimit < 100 && (battDetails?.isSmartLimitLatched == true || (battDetails?.isBypassActive == true && curLevel >= (smartLimit - 2)))
+        val isLimitUnapplied = isPlugged && smartLimit < 100 && curLevel >= smartLimit && !isLimitLatched
         val isManualBypass = isPlugged && isBypassFeatureEnabled && battDetails?.isBypassActive == true
         val isNightGentle = isPlugged && (battDetails?.isNightGentleActive == true || (state.charging.nightSleepGuardEnabled && isCharging && Calendar.getInstance().get(Calendar.HOUR_OF_DAY).let { it >= 23 || it < 6 })) && !isManualBypass
         val isSmartTapering = isPlugged && isCharging && battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled && !isManualBypass
@@ -192,6 +193,7 @@ fun FastChargingControlCard(
             !isPlugged -> stringResource(R.string.battery_status_disconnected)
             isOvernightLatched -> stringResource(R.string.battery_status_full_autocut)
             isLimitLatched -> stringResource(R.string.battery_status_smart_limit_reached, smartLimit, curLevel)
+            isLimitUnapplied -> stringResource(R.string.battery_status_smart_limit_unapplied, smartLimit, curLevel)
             isManualBypass -> stringResource(R.string.battery_status_manual_bypass)
             isNightGentle -> stringResource(R.string.battery_status_night_gentle)
             isSmartTapering -> stringResource(R.string.battery_status_smart_tapering)
@@ -205,6 +207,7 @@ fun FastChargingControlCard(
         val modePillColor = when {
             !isPlugged -> TextSecondary
             isOvernightLatched || isLimitLatched || isManualBypass -> AccentCyan
+            isLimitUnapplied -> AccentOrange
             isNightGentle -> AccentPurple
             isSmartTapering -> AccentGreen
             activeMode == "hyper" -> AccentOrange
@@ -227,6 +230,7 @@ fun FastChargingControlCard(
                     imageVector = when {
                         !isPlugged -> Icons.Default.BatteryStd
                         isOvernightLatched || isLimitLatched || isManualBypass -> Icons.Default.Shield
+                        isLimitUnapplied -> Icons.Default.Warning
                         isNightGentle -> Icons.Default.Bedtime
                         activeMode == "hyper" -> Icons.Default.Bolt
                         activeMode == "cool" -> Icons.Default.AcUnit

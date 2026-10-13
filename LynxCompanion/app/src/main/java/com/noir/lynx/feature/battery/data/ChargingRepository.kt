@@ -21,16 +21,34 @@ class ChargingRepository(
 
     suspend fun setMaxBatteryPercent(percent: Int): Boolean = withContext(Dispatchers.IO) {
         try {
-            repository.writeStateKey("charging.max_battery_percent", percent.toString(), "val")
-            // Apply charging mode immediately via lynxd deterministic arbiter
-            Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging apply 2>/dev/null; fi").exec()
-            // Try direct sysfs node if available
-            Shell.cmd("""
-                echo $percent > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
-                echo $percent > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
-                echo ok
+            val safePercent = percent.coerceIn(50, 100)
+            repository.writeStateKey("charging.max_battery_percent", safePercent.toString(), "val")
+            val nativeResult = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging apply && echo lynx_applied; fi").exec()
+            if (nativeResult.isSuccess && nativeResult.out.any { it.trim() == "lynx_applied" }) {
+                // An apply command can exit successfully while a policy guard has
+                // skipped it. Verify the latch if this battery is already past
+                // its requested limit instead of reporting a false success.
+                val liveLevel = Shell.cmd("cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 0").exec()
+                    .out.firstOrNull()?.trim()?.toIntOrNull() ?: 0
+                if (safePercent >= 100 || liveLevel < safePercent) return@withContext true
+                val status = Shell.cmd("'$LYNXD_PATH' charging status 2>/dev/null").exec()
+                val latched = status.out.any {
+                    it.contains("\"smart_limit_latched\": true") || it.contains("\"overnight_bypass_latched\": true")
+                }
+                return@withContext latched
+            }
+
+            // Standalone mode: use only a kernel stop-limit node the device
+            // actually exposes, and report unsupported when neither is writable.
+            val fallback = Shell.cmd("""
+                applied=0
+                for node in /sys/class/power_supply/battery/charge_control_limit_max /sys/class/power_supply/battery/charge_control_limit; do
+                    [ -w "${'$'}node" ] || continue
+                    if printf '%s\n' '$safePercent' > "${'$'}node" 2>/dev/null; then applied=1; fi
+                done
+                [ "${'$'}applied" = "1" ] && echo node_applied || echo unsupported
             """.trimIndent()).exec()
-            true
+            fallback.isSuccess && fallback.out.any { it.trim() == "node_applied" }
         } catch (e: Exception) {
             false
         }
@@ -54,11 +72,13 @@ class ChargingRepository(
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val effectiveMa = if (isLaptopPort) 1500 else if (isUnconstrainedMaxHw) 6000 else limitMa.coerceIn(500, 6000)
-            val nativeCmd = when {
-                bypass -> "if [ -x '$LYNXD_PATH' ]; then cur_cap=\$(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 50); if [ \"\$cur_cap\" -ge $maxBatteryPercent ] || [ \"\$cur_cap\" -ge 100 ]; then '$LYNXD_PATH' charging bypass; else '$LYNXD_PATH' charging extreme $highTargetPercent $lockoutBypass 6000; fi && echo ok; fi"
-                extremeCharging -> "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging extreme $highTargetPercent false $effectiveMa && echo ok; fi"
-                else -> "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging regulated $effectiveMa && echo ok; fi"
-            }
+            val allowUnconstrained = isUnconstrainedMaxHw && extremeCharging
+            val nativeCmd = """
+                if [ -x '$LYNXD_PATH' ]; then
+                    '$LYNXD_PATH' state set charging.bypass_enabled=$bypass charging.extreme_charging_enabled=$extremeCharging charging.limit_current_ma=$effectiveMa charging.high_current_target_percent=$highTargetPercent charging.thermal_lockout_bypass_enabled=$lockoutBypass charging.emergency_temp_guard_enabled=$tempGuard charging.max_battery_percent=${maxBatteryPercent.coerceIn(50, 100)} charging.is_unconstrained_max_hw=$allowUnconstrained &&
+                    '$LYNXD_PATH' charging apply && echo ok
+                fi
+            """.trimIndent()
             val fastRes = Shell.cmd(nativeCmd).exec()
             if (fastRes.isSuccess && fastRes.out.any { it.trim() == "ok" }) {
                 return@withContext true
@@ -275,7 +295,7 @@ class ChargingRepository(
             }
             val isExtreme = normalizedMode == "hyper"
             val targetMa = when (normalizedMode) {
-                "cool" -> 2000
+                "cool" -> 1000
                 "custom" -> customMa.coerceIn(500, 25000)
                 "hyper" -> 12000
                 else -> 2000

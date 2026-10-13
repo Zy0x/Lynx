@@ -557,12 +557,37 @@ fun MainDashboard(
         // ── 1. Full Edge-to-Edge Virtualized Content (Glides behind Navbar) ────
         when (uiState.currentTab) {
             // ── TAB 0: DASHBOARD ────────────────────────────────────────
-            0 -> DashboardTabContent(uiState, viewModel, currentAccent, dashboardLazyState, dashboardFling, onExtremeConfirmRequired)
-                1 -> TuningTabContent(uiState, viewModel, selectedCategory, { selectedCategory = it }, tuningHubLazyState, tuningHubFling, subscreenLazyState, subscreenFling, { showAddAppDialog = true }, { editingRule = it })
+            0 -> DashboardTabContent(
+                uiState = uiState,
+                viewModel = viewModel,
+                currentAccent = currentAccent,
+                dashboardLazyState = dashboardLazyState,
+                dashboardFling = dashboardFling,
+                onExtremeConfirmRequired = onExtremeConfirmRequired,
+                onNavigateToProfilesCatalog = {
+                    android.util.Log.i("LynxNavigation", "navigating to profiles catalog")
+                    selectedCategory = "profiles"
+                    viewModel.switchTab(1)
+                }
+            )
+            // ── TAB 1: TUNING HUB ────────────────────────────────────────
+            1 -> TuningTabContent(
+                uiState = uiState,
+                viewModel = viewModel,
+                selectedCategory = selectedCategory,
+                onSelectedCategoryChange = { selectedCategory = it },
+                tuningHubLazyState = tuningHubLazyState,
+                tuningHubFling = tuningHubFling,
+                subscreenLazyState = subscreenLazyState,
+                subscreenFling = subscreenFling,
+                onAddAppClick = { showAddAppDialog = true },
+                onEditRuleClick = { editingRule = it },
+                onExtremeConfirmRequired = onExtremeConfirmRequired
+            )
 
-                // ── TAB 2 & 3: TOOLS & FLASHER ──────────────────────────────
-                2, 3 -> ToolsTabContent(uiState, viewModel, toolsLazyState, toolsFling)
-            }
+            // ── TAB 2 & 3: TOOLS & FLASHER ──────────────────────────────
+            2, 3 -> ToolsTabContent(uiState, viewModel, toolsLazyState, toolsFling)
+        }
 
         // ── 2. Subtle Bottom Atmospheric Vignette (Soft content pass-through) ──
         Box(

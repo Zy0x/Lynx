@@ -651,35 +651,35 @@ fn handle_charging(args: &[String]) {
         }
         "mode" => {
             let m = args.get(3).map(|s| s.as_str()).unwrap_or("standard");
-            let target_ma = args.get(4).and_then(|s| s.parse::<u32>().ok()).unwrap_or(2000);
+            let target_ma = args.get(4).and_then(|s| s.parse::<u32>().ok()).unwrap_or(if m == "cool" { 1000 } else { 2000 });
             let _ = ConfigStore::set("charging.charging_mode", m, "str");
             match m {
                 "cool" => {
                     let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
                     let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
                     let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
-                    ChargingRegulator::apply_cool_mode(target_ma);
+                    ChargingRegulator::apply_from_config();
                     println!("[OK] Charging Mode set to: COOL ({} mA)", target_ma);
                 }
                 "standard" => {
                     let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
                     let _ = ConfigStore::set("charging.limit_current_ma", "2000", "val");
                     let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
-                    ChargingRegulator::apply_standard_mode();
+                    ChargingRegulator::apply_from_config();
                     println!("[OK] Charging Mode set to: STANDARD (OEM Adaptive)");
                 }
                 "hyper" => {
                     let _ = ConfigStore::set("charging.extreme_charging_enabled", "true", "bool");
                     let _ = ConfigStore::set("charging.limit_current_ma", "12000", "val");
                     let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "true", "bool");
-                    ChargingRegulator::apply_hyper_mode();
+                    ChargingRegulator::apply_from_config();
                     println!("[OK] Charging Mode set to: HYPER (Unconstrained Peak)");
                 }
                 "custom" => {
                     let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
                     let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
                     let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
-                    ChargingRegulator::apply_custom_mode(target_ma);
+                    ChargingRegulator::apply_from_config();
                     println!("[OK] Charging Mode set to: CUSTOM ({} mA)", target_ma);
                 }
                 other => {
@@ -688,12 +688,12 @@ fn handle_charging(args: &[String]) {
             }
         }
         "cool" => {
-            let limit = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(2000);
+            let limit = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(1000);
             let _ = ConfigStore::set("charging.charging_mode", "cool", "str");
             let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
             let _ = ConfigStore::set("charging.limit_current_ma", &limit.to_string(), "val");
             let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
-            ChargingRegulator::apply_cool_mode(limit);
+            ChargingRegulator::apply_from_config();
             println!("[OK] Charging Mode: COOL ({} mA)", limit);
         }
         "standard" => {
@@ -701,7 +701,7 @@ fn handle_charging(args: &[String]) {
             let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
             let _ = ConfigStore::set("charging.limit_current_ma", "2000", "val");
             let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
-            ChargingRegulator::apply_standard_mode();
+            ChargingRegulator::apply_from_config();
             println!("[OK] Charging Mode: STANDARD");
         }
         "hyper" => {
@@ -709,7 +709,7 @@ fn handle_charging(args: &[String]) {
             let _ = ConfigStore::set("charging.extreme_charging_enabled", "true", "bool");
             let _ = ConfigStore::set("charging.limit_current_ma", "12000", "val");
             let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "true", "bool");
-            ChargingRegulator::apply_hyper_mode();
+            ChargingRegulator::apply_from_config();
             println!("[OK] Charging Mode: HYPER");
         }
         "custom" => {
@@ -718,7 +718,7 @@ fn handle_charging(args: &[String]) {
             let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
             let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
             let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
-            ChargingRegulator::apply_custom_mode(target_ma);
+            ChargingRegulator::apply_from_config();
             println!("[OK] Charging Mode: CUSTOM ({} mA)", target_ma);
         }
         "lock" => {

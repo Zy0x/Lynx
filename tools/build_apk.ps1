@@ -2,8 +2,20 @@ param(
     [string]$Variant = "Release"
 )
 
-$env:JAVA_HOME = "F:\AutoGram\.toolchains\jdk-17"
-$env:PATH = "F:\AutoGram\.toolchains\jdk-17\bin;" + $env:PATH
+$env:JAVA_HOME = "D:\temp\jdk-17"
+$env:PATH = "D:\temp\jdk-17\bin;" + $env:PATH
+$env:ANDROID_HOME = "D:\temp\android-sdk"
+$env:ANDROID_SDK_ROOT = "D:\temp\android-sdk"
+$env:ANDROID_USER_HOME = "D:\temp\.build-cache\android-user-home"
+$env:GRADLE_USER_HOME = "D:\temp\.build-cache\gradle"
+$env:GRADLE_OPTS = "-Djava.io.tmpdir=D:\temp -Dorg.gradle.user.home=D:\temp\.build-cache\gradle"
+
+if (-not (Test-Path "D:\temp\.build-cache\gradle")) {
+    New-Item -ItemType Directory -Force -Path "D:\temp\.build-cache\gradle" | Out-Null
+}
+if (-not (Test-Path "D:\temp\.build-cache\android-user-home")) {
+    New-Item -ItemType Directory -Force -Path "D:\temp\.build-cache\android-user-home" | Out-Null
+}
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location "$repoRoot\LynxCompanion"
