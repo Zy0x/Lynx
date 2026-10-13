@@ -801,7 +801,7 @@ fun ChargingHeroDisplayCard(
                             modifier = Modifier.weight(1f)
                         )
                         MetricMiniTile(
-                            label = "Suhu Sel",
+                            label = "Suhu Baterai",
                             value = "${String.format(Locale.US, "%.1f", tempFloat)} °C",
                             color = tempColor,
                             modifier = Modifier.weight(1f)
@@ -819,7 +819,7 @@ fun ChargingHeroDisplayCard(
                             modifier = Modifier.weight(1f)
                         )
                         MetricMiniTile(
-                            label = "Arus Riil",
+                            label = "Arus",
                             value = when {
                                 isBypass -> "0 mA (Bypass)"
                                 isCharging -> "+${effectiveCurrentMa.roundToInt()} mA"
@@ -888,41 +888,41 @@ private fun resolveHardwareProtocolDirect(
     return when {
         // Transsion Fast Charge (Infinix / Tecno 33W/45W/68W PE+ Direct Pump)
         mtkChgType == "9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC") -> {
-            "Transsion Flash Charge (PE+ Pump)"
+            "Transsion Flash (PE+)"
         }
         // Qualcomm Quick Charge (HVDCP, HVDCP_3, HVDCP_3P5, QC 2.0/3.0/4.0/5.0)
         ptypUpper.contains("HVDCP_3P5") || qcUpper.contains("4") || qcUpper.contains("5") -> {
-            "Qualcomm Quick Charge 4.0/5.0"
+            "Qualcomm QC 4/5"
         }
         ptypUpper.contains("HVDCP_3") || qcUpper.contains("3") || qcUpper.contains("QC3") -> {
-            "Qualcomm Quick Charge 3.0"
+            "Qualcomm QC 3.0"
         }
         ptypUpper.contains("HVDCP") || qcUpper.contains("2") || qcUpper.contains("QC2") || qcUpper.contains("QC") -> {
-            "Qualcomm Quick Charge"
+            "Qualcomm QC"
         }
         // USB Power Delivery & PPS
         mtkChgType == "7" || pdSig == "1" || pdSig == "2" || ptypUpper.contains("PD") -> {
-            if (pdSig == "2" || ptypUpper.contains("PPS")) "USB Power Delivery (PD / PPS)"
-            else "USB Power Delivery (USB-PD)"
+            if (pdSig == "2" || ptypUpper.contains("PPS")) "USB-PD / PPS"
+            else "USB-PD"
         }
         // SuperVOOC / Dart Charge (OPPO / Realme / OnePlus)
         voocSig == "1" || voocSig == "2" || ptypUpper.contains("VOOC") || ptypUpper.contains("DART") -> {
-            "SuperVOOC / Dart Charge"
+            "SuperVOOC / Dart"
         }
         // Xiaomi Turbo / HyperCharge
         miSig == "1" || miSig == "2" || ptypUpper.contains("TURBO") || ptypUpper.contains("HYPER") -> {
-            "Xiaomi Turbo / HyperCharge"
+            "Xiaomi TurboCharge"
         }
         // MediaTek Pump Express
         mtkChgType == "8" || peSig.isNotBlank() && peSig != "0" || ptypUpper.contains("PUMP") || ptypUpper.contains("PE") -> {
-            "MediaTek Pump Express (PE+)"
+            "MTK Pump Express"
         }
         // PC / Laptop Port
         ptypUpper.contains("SDP") || ptypUpper.contains("CDP") || ptypUpper.contains("PC") -> {
-            "USB Komputer/Laptop (SDP/CDP)"
+            "USB PC / Laptop"
         }
         // Standard Adapter
-        else -> "Adaptor USB Standar (DCP 5V/2A)"
+        else -> "Adaptor Standar (DCP)"
     }
 }
 

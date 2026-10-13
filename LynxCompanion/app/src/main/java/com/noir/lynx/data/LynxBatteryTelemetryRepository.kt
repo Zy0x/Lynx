@@ -292,23 +292,23 @@ internal object LynxBatteryTelemetryRepository {
                     val protocol = when {
                         !isPlugged -> "Battery Power"
                         rfcAuth || chgTyp == "9" || rawPtyp == "MTK_9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC") -> {
-                            val wLabel = if (watt >= 60f) "68W" else if (watt >= 40f) "45W" else if (watt >= 28f) "33W" else "Flash Charge"
-                            "Transsion $wLabel (PE+ Direct Pump)"
+                            val wLabel = if (watt >= 60f) "68W" else if (watt >= 40f) "45W" else if (watt >= 28f) "33W" else "Flash"
+                            "Transsion $wLabel (PE+)"
                         }
-                        voocSig == "1" || voocSig == "2" || ptypUpper.contains("VOOC") || ptypUpper.contains("DART") -> "SuperVOOC / Warp Fast Charge"
-                        miSig == "1" && adpMv > 8000 -> "Xiaomi HyperCharge / Turbo (67W-120W)"
-                        secSig == "1" || secSig.contains("AFC", ignoreCase = true) -> if (adpMv > 8000) "Samsung Super Fast Charging (25W/45W)" else "Samsung Adaptive Fast Charging (AFC)"
-                        ptypUpper.contains("HVDCP_3P5") || qcUpper.contains("4") || qcUpper.contains("5") -> "Qualcomm Quick Charge 4.0/5.0"
-                        ptypUpper.contains("HVDCP_3") || qcUpper.contains("3") || qcUpper.contains("QC3") -> "Qualcomm Quick Charge 3.0"
-                        ptypUpper.contains("HVDCP") || qcUpper.contains("2") || qcUpper.contains("QC2") || qcUpper.contains("QC") || (qcSig.isNotBlank() && qcSig != "0") -> "Qualcomm Quick Charge"
+                        voocSig == "1" || voocSig == "2" || ptypUpper.contains("VOOC") || ptypUpper.contains("DART") -> "SuperVOOC / Dart"
+                        miSig == "1" && adpMv > 8000 -> "Xiaomi TurboCharge"
+                        secSig == "1" || secSig.contains("AFC", ignoreCase = true) -> if (adpMv > 8000) "Samsung SFC (25W/45W)" else "Samsung AFC"
+                        ptypUpper.contains("HVDCP_3P5") || qcUpper.contains("4") || qcUpper.contains("5") -> "Qualcomm QC 4/5"
+                        ptypUpper.contains("HVDCP_3") || qcUpper.contains("3") || qcUpper.contains("QC3") -> "Qualcomm QC 3.0"
+                        ptypUpper.contains("HVDCP") || qcUpper.contains("2") || qcUpper.contains("QC2") || qcUpper.contains("QC") || (qcSig.isNotBlank() && qcSig != "0") -> "Qualcomm QC"
                         pdSig == "1" || pdSig == "2" || chgTyp == "7" || rawPtyp == "MTK_7" || ptypUpper.contains("PD") -> {
-                            if (pdSig == "2" || ptypUpper.contains("PPS")) "USB Power Delivery / PPS (" + String.format(java.util.Locale.US, "%.1f", (if (adpMv > 1000) adpMv else voltMv) / 1000f) + "V)"
-                            else "USB Power Delivery (USB-PD)"
+                            if (pdSig == "2" || ptypUpper.contains("PPS")) "USB-PD / PPS"
+                            else "USB-PD"
                         }
-                        chgTyp == "8" || rawPtyp == "MTK_8" || ptypUpper.contains("PUMP") || ptypUpper.contains("PE") -> "MediaTek Pump Express (PE+)"
-                        adpMv > 8500 || (watt >= 15f && isCharging) -> "Adaptor Pengisian Cepat (Fast Charger)"
-                        isLaptop || ptypUpper.contains("SDP") || ptypUpper.contains("CDP") -> "Standard USB 5V (500mA - 1500mA)"
-                        else -> "Adaptor USB Standar (DCP 5V/2A)"
+                        chgTyp == "8" || rawPtyp == "MTK_8" || ptypUpper.contains("PUMP") || ptypUpper.contains("PE") -> "MTK Pump Express"
+                        adpMv > 8500 || (watt >= 15f && isCharging) -> "Adaptor Cepat (Fast)"
+                        isLaptop || ptypUpper.contains("SDP") || ptypUpper.contains("CDP") -> "USB PC / Laptop"
+                        else -> "Adaptor Standar (DCP)"
                     }
 
                     val adapterWatt = if (isPlugged && adpMv > 1000 && ibusMa > 50) {

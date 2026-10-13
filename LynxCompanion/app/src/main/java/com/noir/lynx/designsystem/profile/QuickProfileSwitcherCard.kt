@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
@@ -49,55 +48,41 @@ fun QuickProfileSwitcherCard(
 
     LynxCard(
         title = "Mode Performa Kernel",
+        subtitle = if (hasOverrides) "⚡ Override aktif" else null,
         icon = Icons.Default.Speed,
         accentColor = AccentOrange,
-        modifier = modifier
-    ) {
-        // Top Action & Status Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (hasOverrides) "⚡ Profil memiliki override lokal" else "✓ Parameter tersinkronisasi",
-                color = if (hasOverrides) AccentOrange else TextSecondary,
-                fontSize = 10.5.sp,
-                fontWeight = FontWeight.Medium
-            )
-
+        action = {
             Surface(
                 onClick = onNavigateToProfilesCatalog,
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(8.dp),
                 color = BgElevated,
-                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f)),
-                modifier = Modifier.defaultMinSize(minHeight = 44.dp)
+                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f)),
+                modifier = Modifier.defaultMinSize(minHeight = 28.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Katalog & Kustom",
+                        text = "Katalog",
                         color = AccentCyan,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(3.dp))
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
                         contentDescription = "Buka Katalog",
                         tint = AccentCyan,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(12.dp)
                     )
                 }
             }
-        }
-
-        // 4 Core Quick Profiles in a modern row
+        },
+        modifier = modifier
+    ) {
+        // 4 Core Quick Profiles in a modern compact row
         val standardProfiles = listOf(
             QuickModeItem("powersave", "Hemat", "Efisiensi Daya", Color(0xFF00E676), Icons.Default.BatteryChargingFull),
             QuickModeItem("balance", "Balance", "Harian Seimbang", AccentBlue, Icons.Default.Tune),
@@ -129,37 +114,23 @@ fun QuickProfileSwitcherCard(
                     ),
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 68.dp)
+                        .heightIn(min = 64.dp)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 4.dp, vertical = 8.dp),
+                            .padding(horizontal = 4.dp, vertical = 7.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = item.label,
-                                tint = if (isSelected) item.accentColor else TextSecondary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            if (isSelected) {
-                                Spacer(Modifier.width(3.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(5.dp)
-                                        .clip(CircleShape)
-                                        .background(item.accentColor)
-                                )
-                            }
-                        }
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = item.label,
+                            tint = if (isSelected) item.accentColor else TextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
 
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(3.dp))
 
                         Text(
                             text = item.label,

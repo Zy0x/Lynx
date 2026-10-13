@@ -1,3 +1,34 @@
+# Lynx Universal [Dashboard Streamlining & Quick Profile Header Action & Label Polish] 7.0.0-RC38
+Released on: 2026-10-13
+> **Lynx Universal v7.0.0-RC38** (Lynx Kernel Manager v3.1.0): **Penyelarasan Label Baterai Dashboard ("Arus" & "Suhu Baterai"), Standardisasi Label Protokol Pengisian Daya Ringkas Anti-Truncation, Penghapusan Dot Indicator pada Mode Aktif, dan Desain Header Action Ringkas "Katalog" pada Mode Performa Kernel**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC38)
+
+### 1. Penyelarasan & Penyempurnaan Label Telemetri Baterai Dashboard
+- **"Arus Riil" -> "Arus"**: Mengganti label mini tile telemetri daya dari "Arus Riil" menjadi "Arus" untuk kesederhanaan dan kejelasan informasi.
+- **"Suhu Sel" -> "Suhu Baterai"**: Mengganti label "Suhu Sel" menjadi "Suhu Baterai" agar lebih intuitif bagi pengguna umum.
+
+### 2. Standardisasi Label Protokol Fast Charging Ringkas (Anti-Truncation)
+- Memperpendek string protokol pengisian daya pada `ChargingHeroDisplayCard` dan `LynxBatteryTelemetryRepository` agar pas secara sempurna di badge/banner tanpa terpotong (*no text truncation / ellipsis*) pada berbagai rasio layar non-reguler:
+  - `Transsion Flash Charge (PE+ Pump)` -> `Transsion Flash (PE+)`
+  - `Qualcomm Quick Charge 4.0/5.0` -> `Qualcomm QC 4/5`
+  - `Qualcomm Quick Charge 3.0` -> `Qualcomm QC 3.0`
+  - `Qualcomm Quick Charge` -> `Qualcomm QC`
+  - `USB Power Delivery (PD / PPS)` -> `USB-PD / PPS`
+  - `USB Power Delivery (USB-PD)` -> `USB-PD`
+  - `SuperVOOC / Dart Charge` -> `SuperVOOC / Dart`
+  - `Xiaomi Turbo / HyperCharge` -> `Xiaomi TurboCharge`
+  - `MediaTek Pump Express (PE+)` -> `MTK Pump Express`
+  - `USB Komputer/Laptop (SDP/CDP)` -> `USB PC / Laptop`
+  - `Adaptor USB Standar (DCP 5V/2A)` -> `Adaptor Standar (DCP)`
+
+### 3. Quick Profile Switcher Card Compact Header Action & Polish
+- **Penghapusan Dot Indicator**: Menghilangkan titik lingkaran (*dot indicator*) pada mode yang aktif/terpilih, memberikan tampilan tombol mode yang simetris, bersih, dan elegan.
+- **Compact Header Action "Katalog"**: Memindahkan tombol "Katalog & Kustom" yang sebelumnya memakan ruang baris penuh (tinggi 44dp) ke slot header `LynxCard` (`action`) dengan chip ringkas `[ Katalog → ]`.
+- **Penghematan Ruang Vertikal**: Mengurangi tinggi kartu secara signifikan dan menghapus status baris redundan sehingga tata letak Dashboard jauh lebih ringkas, hemat ruang, dan responsif.
+
+---
+
 # Lynx Universal [Dynamic Live Status Bar Mode Icons & Telemetry & Dashboard Cleanup] 7.0.0-RC37
 Released on: 2026-10-13
 > **Lynx Universal v7.0.0-RC37** (Lynx Kernel Manager v3.0.99): **Notifikasi Status Bar Lynx Mode Benar-Benar Live dengan Dynamic Vector Mode Icon Sesuai Mode Aktif, Telemetri Real-Time Baterai & Suhu Tanpa Overhead, Pemindahan Live Benchmark ke Sub-Halaman Game HUD, dan Pembersihan Redundansi Dashboard**.
