@@ -275,15 +275,15 @@ fun TelemetryMemoryCard(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(7.dp)
-                    .clip(RoundedCornerShape(3.5.dp))
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
                     .background(Color(0xFF0E121B))
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(ramProgress)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(3.5.dp))
+                        .clip(RoundedCornerShape(4.dp))
                         .background(
                             Brush.horizontalGradient(
                                 listOf(AccentCyan.copy(alpha = 0.85f), AccentCyan)
@@ -294,42 +294,54 @@ fun TelemetryMemoryCard(
 
             Spacer(Modifier.width(8.dp))
 
-            // Requests Android to stop cached processes it considers safe to reclaim.
-            Surface(
-                onClick = {
-                    if (!isCleaning) {
-                        if (onCleanRam != null) {
-                            onCleanRam()
-                        } else {
-                            coroutineScope.launch {
-                                localIsCleaning = true
-                                com.noir.lynx.data.LynxRepository.cleanRam()
-                                localIsCleaning = false
+            // Quick RAM Clean Action Button
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        enabled = !isCleaning,
+                        onClick = {
+                            if (onCleanRam != null) {
+                                onCleanRam()
+                            } else {
+                                coroutineScope.launch {
+                                    localIsCleaning = true
+                                    com.noir.lynx.data.LynxRepository.cleanRam()
+                                    localIsCleaning = false
+                                }
                             }
                         }
-                    }
-                },
-                shape = RoundedCornerShape(7.dp),
-                color = if (isCleaning) AccentCyan.copy(alpha = 0.20f) else BgElevated,
-                border = BorderStroke(0.6.dp, if (isCleaning) AccentCyan.copy(alpha = 0.6f) else BorderSubtle),
-                modifier = Modifier.size(48.dp)
+                    ),
+                contentAlignment = Alignment.Center
             ) {
                 Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isCleaning) AccentCyan.copy(alpha = 0.22f)
+                            else Color(0xFF0F171A)
+                        )
+                        .border(
+                            width = 0.8.dp,
+                            color = if (isCleaning) AccentCyan else AccentCyan.copy(alpha = 0.35f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
                     if (isCleaning) {
                         CircularProgressIndicator(
                             strokeWidth = 1.5.dp,
                             color = AccentCyan,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(13.dp)
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Default.CleaningServices,
-                            contentDescription = "Bersihkan proses latar yang aman",
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = "Bersihkan RAM",
                             tint = AccentCyan,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(13.dp)
                         )
                     }
                 }

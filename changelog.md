@@ -30,6 +30,11 @@ Released on: 2026-10-14
   - Pengisian Daya: `"Daya masuk • X.X W"` / `"Daya terhubung"`
 - Mengintegrasikan `TextOverflow.Ellipsis` dan `softWrap` pelindung untuk stabilitas tampilan sempurna.
 
+### 4. Redesain Tombol Quick RAM Clean (Cyber Obsidian Action Chip)
+- **Desain Ergonomis & Presisi**: Menggantikan tombol kotak kaku 48dp dan ikon janitor mop bucket (`CleaningServices`) dengan action chip sirkular 26dp (`CircleShape`) berbalut touch wrapper 34dp yang responsif.
+- **Harmoni Visual & Identitas Cyber Deity**: Mengadopsi obsidian dark tint (`#0F171A`), hairline cyber ring (`AccentCyan.copy(alpha = 0.35f)`), dan ikon optimasi Material 3 `Icons.Default.AutoAwesome` (✨) yang modern, mewah, dan selaras sempurna dengan progress bar RAM fisik.
+- **Perataan Spasi Kartu Sempurna**: Menghilangkan void vertikal berlebih pada baris RAM, menjaga keterbacaan data memori tersedia dan persentase penggunaan tetap rapi, seimbang, dan sedap dipandang.
+
 ---
 
 # Lynx Universal [Quick High-Impact RAM Cleaner Button & Multi-Stage Memory Compaction] 7.0.0-RC39
