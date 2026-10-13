@@ -35,6 +35,22 @@ if (Test-Path $ZipFilePath) {
     Remove-Item -Force $ZipFilePath
 }
 
+# Stage Companion APK if built
+$ReleaseApk = Join-Path $ScriptDir "LynxCompanion\app\build\outputs\apk\release\app-release.apk"
+$DebugApk = Join-Path $ScriptDir "LynxCompanion\app\build\outputs\apk\debug\app-debug.apk"
+$StagedApk = Join-Path $ScriptDir "LynxKernelManager.apk"
+$DistApk = Join-Path $OutputDir "LynxKernelManager.apk"
+
+if (Test-Path $ReleaseApk) {
+    Copy-Item -Force $ReleaseApk $StagedApk
+    Copy-Item -Force $ReleaseApk $DistApk
+    Write-Host "  [*] Bundled release LynxKernelManager.apk staged for auto-install." -ForegroundColor Green
+} elseif (Test-Path $DebugApk) {
+    Copy-Item -Force $DebugApk $StagedApk
+    Copy-Item -Force $DebugApk $DistApk
+    Write-Host "  [*] Bundled debug LynxKernelManager.apk staged for auto-install." -ForegroundColor Yellow
+}
+
 # Define root items to include in flashable zip
 $IncludeItems = @(
     "META-INF",
@@ -50,12 +66,10 @@ $IncludeItems = @(
     "customize.sh",
     "LICENSE",
     "module.prop",
-    "post-fs-data.sh",
     "README.md",
     "sepolicy.rule",
     "service.sh",
     "system.prop",
-    "Toast.apk",
     "LynxKernelManager.apk",
     "uninstall.sh",
     "update.json",

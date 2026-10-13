@@ -31,6 +31,11 @@ Released on: 2026-10-13
 - **Pembersihan `killall lynxd`**: Menghilangkan perintah `killall lynxd` pada penerapan profil rutin (`extreme`, `performance`, `balance`, `powersave`), menjamin perpindahan mode berlangsung instan tanpa gangguan sinyal kill.
 - **Eliminasi Broken Pipe SIGPIPE pada Window Watcher**: Mengganti pipeline `dumpsys window | grep -m1` dengan query terarah `dumpsys window displays` dan in-memory pattern matching di Kotlin, melenyapkan 100% error SIGPIPE (Broken pipe) di `system_server` Android.
 
+### 5. Pembersihan Berkas Usang & Modernisasi Packaging Modul
+- **Pembersihan Total Obsolete APKs**: Menghapus `Toast.apk` (119 KB) dan file mentah debug lama `LynxCompanion.apk` (17.5 MB) dari root repositori.
+- **Dynamic Installer Versioning**: `customize.sh` kini secara dinamis membaca versi modul dari `module.prop` untuk banner instalasi terminal, menggantikan teks statis lawas.
+- **Pembaruan Packaging Flashable ZIP**: Skrip `package_module.sh` dan `package_module.ps1` kini memprioritaskan bundel APK release terkompresi R8 (`LynxKernelManager.apk`, 2.9 MB) dan membersihkan seluruh rujukan berkas usang sehingga ZIP bersih tanpa warning.
+
 ---
 
 # Lynx Universal [UX Architecture Restructure: Dedicated Game HUD Subscreen & Unified Per-App Profiling Hub] 7.0.0-RC36

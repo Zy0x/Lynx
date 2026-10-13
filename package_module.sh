@@ -21,13 +21,17 @@ ZIP_FILE="$OUTPUT_DIR/Lynx-Deity-${VERSION}.zip"
 rm -f "$ZIP_FILE"
 
 # Stage Companion APK if built
-if [ -f "$SCRIPT_DIR/LynxCompanion/app/build/outputs/apk/debug/app-debug.apk" ]; then
+if [ -f "$SCRIPT_DIR/LynxCompanion/app/build/outputs/apk/release/app-release.apk" ]; then
+    cp -af "$SCRIPT_DIR/LynxCompanion/app/build/outputs/apk/release/app-release.apk" "$SCRIPT_DIR/LynxKernelManager.apk"
+    cp -af "$SCRIPT_DIR/LynxCompanion/app/build/outputs/apk/release/app-release.apk" "$OUTPUT_DIR/LynxKernelManager.apk"
+    echo "  [*] Bundled release LynxKernelManager.apk staged for auto-install."
+elif [ -f "$SCRIPT_DIR/LynxCompanion/app/build/outputs/apk/debug/app-debug.apk" ]; then
     cp -af "$SCRIPT_DIR/LynxCompanion/app/build/outputs/apk/debug/app-debug.apk" "$SCRIPT_DIR/LynxKernelManager.apk"
     cp -af "$SCRIPT_DIR/LynxCompanion/app/build/outputs/apk/debug/app-debug.apk" "$OUTPUT_DIR/LynxKernelManager.apk"
-    echo "  [*] Bundled LynxKernelManager.apk staged for auto-install."
+    echo "  [*] Bundled debug LynxKernelManager.apk staged for auto-install."
 fi
 
-INCLUDE_ITEMS="META-INF addon core platforms system webroot action.sh changelog.md config.json credit.md customize.sh LICENSE module.prop post-fs-data.sh README.md sepolicy.rule service.sh system.prop Toast.apk uninstall.sh update.json UserGuide-EN.html UserGuide-EN.md UserGuide-ID.html UserGuide-ID.md"
+INCLUDE_ITEMS="META-INF addon core platforms system webroot action.sh changelog.md config.json credit.md customize.sh LICENSE module.prop README.md sepolicy.rule service.sh system.prop uninstall.sh update.json UserGuide-EN.html UserGuide-EN.md UserGuide-ID.html UserGuide-ID.md"
 [ -f "$SCRIPT_DIR/LynxKernelManager.apk" ] && INCLUDE_ITEMS="$INCLUDE_ITEMS LynxKernelManager.apk"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

@@ -9,9 +9,15 @@ command -v ui_print >/dev/null 2>&1 || ui_print() { echo "$@"; }
 command -v abort >/dev/null 2>&1 || abort() { echo "$@"; exit 1; }
 command -v set_perm_recursive >/dev/null 2>&1 || set_perm_recursive() { chmod -R 755 "$1" 2>/dev/null; }
 
+MOD_VER="7.0.0"
+if [ -f "$MODPATH/module.prop" ]; then
+    MOD_VER=$(grep '^version=' "$MODPATH/module.prop" 2>/dev/null | cut -d= -f2 | tr -d '\r\n')
+fi
+[ -z "$MOD_VER" ] && MOD_VER="Universal"
+
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ui_print "  [*] L Y N X   [Codename: Deity]"
-ui_print "  Version: 7.0.0-RC5  |  Author: ɴᴏɪʀ"
+ui_print "  Version: $MOD_VER  |  Author: ɴᴏɪʀ"
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ── 1. Root Implementation Verification ────────────────────────────
@@ -291,6 +297,6 @@ chcon -R u:object_r:system_file:s0 "$MODPATH/platforms" 2>/dev/null
 rm -rf "$MODPATH/archive" "$MODPATH/docs" "$MODPATH/references" "$MODPATH/tests" 2>/dev/null
 
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-ui_print "  [OK] Lynx Universal v7.0.0-RC5 Installed Successfully!"
+ui_print "  [OK] Lynx Universal $MOD_VER Installed Successfully!"
 ui_print "  [*] Buka 'Lynx Companion' atau WebUI untuk mengatur profil."
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
