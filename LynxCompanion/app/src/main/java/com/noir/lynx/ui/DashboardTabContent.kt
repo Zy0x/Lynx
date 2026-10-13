@@ -161,56 +161,6 @@ fun DashboardTabContent(
                         )
                     }
 
-                    // ── Live Hardware Benchmark & Frame Profiler Studio Card ─
-                    item(key = "benchmark") {
-                        LynxCard(
-                            title = "Live Hardware Benchmark & Frame Pacing",
-                            icon = Icons.Default.Assessment,
-                            accentColor = AccentPurple
-                        ) {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        "Studio Benchmark & Frametime Jitter",
-                                        color = TextPrimary,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
-                                    )
-                                    Text(
-                                        "Uji kestabilan frame pacing, 1% Low FPS, & hardware presentation timestamp via SurfaceFlinger.",
-                                        color = TextSecondary,
-                                        fontSize = 11.sp,
-                                        lineHeight = 15.sp
-                                    )
-                                }
-                                Button(
-                                    onClick = { viewModel.openBenchmarkDialog() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
-                                    shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Uji", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                }
-                            }
-                        }
-                    }
-
-
-
-                    // ── FKM Parity: Battery Health & Deep Sleep Card ───────────
-                    item(key = "battery_health") {
-                        BatteryHealthStatsCard(
-                            batteryHealth = uiState.batteryHealthStats,
-                            onRefresh = { viewModel.refreshBatteryHealth() }
-                        )
-                    }
-
                     // ── Live Hardware Thermal Zones Matrix ─────────────────
                     item(key = "thermal_zones") {
                         val zones = uiState.thermalZones.filter { it.tempC in 15f..110f }

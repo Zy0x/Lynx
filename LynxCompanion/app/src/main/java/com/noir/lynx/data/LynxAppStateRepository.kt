@@ -240,6 +240,7 @@ internal object LynxAppStateRepository {
             // Publish only the transient effective mode; keep the persisted master intact.
             Shell.cmd("setprop lynx.mode '$profile' 2>/dev/null").exec()
         }
+        com.noir.lynx.service.LynxAppAutomationService.notifyProfileChanged(effectiveProfile, isManualSelection)
 
         try {
             var applied = false

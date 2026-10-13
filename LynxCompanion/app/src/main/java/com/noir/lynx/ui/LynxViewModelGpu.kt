@@ -546,13 +546,7 @@ fun LynxViewModel.savePerAppGraphicsRule(rule: PerAppGraphicsRule, context: Cont
         val ok = LynxRepository.savePerAppGraphicsRule(rule, context)
         if (ok) {
             val rules = LynxRepository.readPerAppGraphicsRules(context)
-            if (com.noir.lynx.service.LynxAppAutomationService.isRunning) {
-                try {
-                    context.startService(android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
-                        action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
-                    })
-                } catch (_: Exception) {}
-            }
+            com.noir.lynx.service.LynxAppAutomationService.reloadRules()
             _uiState.update { it.copy(perAppGraphicsRules = rules, successMessage = "Aturan grafis untuk ${rule.appName} disimpan") }
         } else {
             _uiState.update { it.copy(errorMessage = "Gagal menyimpan aturan grafis") }
@@ -566,13 +560,7 @@ fun LynxViewModel.deletePerAppGraphicsRule(packageName: String, context: Context
         val ok = LynxRepository.deletePerAppGraphicsRule(packageName, context)
         if (ok) {
             val rules = LynxRepository.readPerAppGraphicsRules(context)
-            if (com.noir.lynx.service.LynxAppAutomationService.isRunning) {
-                try {
-                    context.startService(android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
-                        action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
-                    })
-                } catch (_: Exception) {}
-            }
+            com.noir.lynx.service.LynxAppAutomationService.reloadRules()
             _uiState.update { it.copy(perAppGraphicsRules = rules, successMessage = "Aturan grafis dihapus") }
         } else {
             _uiState.update { it.copy(errorMessage = "Gagal menghapus aturan grafis") }

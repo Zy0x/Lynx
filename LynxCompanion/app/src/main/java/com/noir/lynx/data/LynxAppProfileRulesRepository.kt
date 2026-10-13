@@ -143,6 +143,7 @@ internal object LynxAppProfileRulesRepository {
                     ).exec()
                 }
             }
+            com.noir.lynx.service.LynxAppAutomationService.reloadRules()
             true
         } catch (e: Exception) {
             Log.e("LynxRepository", "saveAllAppProfileRules error: ${e.message}")

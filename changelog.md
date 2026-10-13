@@ -1,3 +1,33 @@
+# Lynx Universal [Dynamic Live Status Bar Mode Icons & Telemetry & Dashboard Cleanup] 7.0.0-RC37
+Released on: 2026-10-13
+> **Lynx Universal v7.0.0-RC37** (Lynx Kernel Manager v3.0.99): **Notifikasi Status Bar Lynx Mode Benar-Benar Live dengan Dynamic Vector Mode Icon Sesuai Mode Aktif, Telemetri Real-Time Baterai & Suhu Tanpa Overhead, Pemindahan Live Benchmark ke Sub-Halaman Game HUD, dan Pembersihan Redundansi Dashboard**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC37)
+
+### 1. Dynamic Mode Icons & Live Telemetry pada Status Bar Notification
+- **Icon Dinamis Status Bar (`setSmallIcon`)**:
+  - `Extreme Mode`: Ikon Api / Flame (`ic_mode_extreme.xml`) dengan aksen warna merah menyala (`#FF3B30`).
+  - `Performance Mode`: Ikon Petir / Lightning Bolt (`ic_mode_performance.xml`) dengan aksen warna oranye/amber (`#FF9500`).
+  - `Balance Mode`: Ikon Yin-Yang Seimbang (`ic_mode_balance.xml`) dengan aksen warna biru cyber (`#007AFF`).
+  - `Powersave Mode`: Ikon Daun / Eco Leaf (`ic_mode_powersave.xml`) dengan aksen warna hijau (`#34C759`).
+  - `Auto (AI) Mode`: Ikon Chipset AI / Memory Core (`ic_mode_auto.xml`) dengan aksen warna ungu (`#AF52DE`).
+- **Telemetri Suhu & Persentase Baterai Real-Time**:
+  - Notifikasi memperbarui suhu (°C) dan daya baterai (%) secara periodik (setiap 3 detik saat layar aktif) menggunakan OS sticky intent tanpa shell fork (0.05ms, 0% CPU overhead).
+  - Ticker telemetri otomatis tidur lelap saat layar mati (*Deep Sleep Shield*) guna menjamin CPU C-States optimal.
+- **Pembaruan Seketika (0ms IPC)**:
+  - Setiap pergantian mode dari Dashboard, Quick Settings Tile, Floating HUD, maupun deteksi game langsung memicu pembaruan notifikasi secara instan via singleton in-process hook.
+  - Perbaikan bug baseline profil di mana sebelumnya mode manual `extreme` atau `performance` dipaksa kembali ke `balance`.
+
+### 2. Relokasi Live Benchmark ke Sub-Halaman Floating Game HUD
+- Kartu **Live Hardware Benchmark & Frame Pacing** dipindahkan dari Dashboard utama ke dalam Sub-Halaman **Floating Game HUD** (`GameHudSubscreen.kt`).
+- Menyatukan seluruh instrumen pengujian performa game dan frametime jitter ke satu tempat yang relevan.
+
+### 3. Pembersihan Redundansi Halaman Dashboard
+- Kartu **Kesehatan Baterai** dihilangkan dari Dashboard utama untuk mencegah redundansi, karena analisis kesehatan baterai lengkap sudah tersedia di sub-halaman Baterai.
+- Dashboard utama kini berfokus penuh pada 3 kartu esensial: **Hero Battery Card**, **Quick Profile Switcher**, dan **Live Thermal Zones Matrix**.
+
+---
+
 # Lynx Universal [UX Architecture Restructure: Dedicated Game HUD Subscreen & Unified Per-App Profiling Hub] 7.0.0-RC36
 Released on: 2026-10-13
 > **Lynx Universal v7.0.0-RC36** (Lynx Kernel Manager v3.0.98): **Restrukturisasi Total Information Architecture (IA) UX/UI: Relokasi Floating Game HUD & OSD ke Sub-Halaman Mandiri di Pusat Tuning, Penyatuan Tunggal Otomasi Profil Per-Aplikasi ke dalam Sub-Halaman Profil Performa Kernel, Dekompresi Visual Halaman Dashboard Menjadi Ringkas dan Berfokus Performa**.
