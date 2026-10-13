@@ -294,54 +294,58 @@ fun TelemetryMemoryCard(
 
             Spacer(Modifier.width(8.dp))
 
-            // Quick RAM Clean Action Button
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .clickable(
-                        enabled = !isCleaning,
-                        onClick = {
-                            if (onCleanRam != null) {
-                                onCleanRam()
-                            } else {
-                                coroutineScope.launch {
-                                    localIsCleaning = true
-                                    com.noir.lynx.data.LynxRepository.cleanRam()
-                                    localIsCleaning = false
-                                }
+            // Tombol Pembersih RAM Jelas & Ergonomis
+            Surface(
+                onClick = {
+                    if (!isCleaning) {
+                        if (onCleanRam != null) {
+                            onCleanRam()
+                        } else {
+                            coroutineScope.launch {
+                                localIsCleaning = true
+                                com.noir.lynx.data.LynxRepository.cleanRam()
+                                localIsCleaning = false
                             }
                         }
-                    ),
-                contentAlignment = Alignment.Center
+                    }
+                },
+                shape = RoundedCornerShape(8.dp),
+                color = if (isCleaning) AccentCyan.copy(alpha = 0.20f) else Color(0xFF0E1A17),
+                border = BorderStroke(
+                    0.8.dp,
+                    if (isCleaning) AccentCyan else AccentCyan.copy(alpha = 0.45f)
+                ),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isCleaning) AccentCyan.copy(alpha = 0.22f)
-                            else Color(0xFF0F171A)
-                        )
-                        .border(
-                            width = 0.8.dp,
-                            color = if (isCleaning) AccentCyan else AccentCyan.copy(alpha = 0.35f),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isCleaning) {
                         CircularProgressIndicator(
-                            strokeWidth = 1.5.dp,
+                            strokeWidth = 1.4.dp,
                             color = AccentCyan,
-                            modifier = Modifier.size(13.dp)
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = "Membersihkan...",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AccentCyan
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Default.AutoAwesome,
+                            imageVector = Icons.Default.DeleteSweep,
                             contentDescription = "Bersihkan RAM",
                             tint = AccentCyan,
                             modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "Bersihkan",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AccentCyan
                         )
                     }
                 }
