@@ -164,8 +164,6 @@ while true; do
                 am start-foreground-service -a com.noir.lynx.service.START_HUD "$LYNX_PKG/com.noir.lynx.service.LynxFloatingHudService" >/dev/null 2>&1
                 AUTO_STARTED_HUD=1
             fi
-
-            cmd notification post -t "Lynx Deity" lynx_automation "[$target_profile] aktif untuk $app_label" >/dev/null 2>&1
         fi
     else
         if [ -n "$CURRENT_ACTIVE_APP" ]; then
@@ -188,7 +186,6 @@ while true; do
                 fi
 
                 CURRENT_ACTIVE_APP=""
-                cmd notification post -t "Lynx Deity" lynx_automation "Kembali ke mode $BASELINE_PROFILE" >/dev/null 2>&1
             fi
         fi
     fi

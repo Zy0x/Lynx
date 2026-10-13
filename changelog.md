@@ -1,3 +1,26 @@
+# Lynx Universal [Unified Silent Status Bar Notification & Redundancy Purge] 7.0.0-RC35
+Released on: 2026-10-13
+> **Lynx Universal v7.0.0-RC35** (Lynx Kernel Manager v3.0.99): **Penyatuan Tunggal Notifikasi Status Bar Hening (Single Silent Status Bar Notification), Eliminasi Total Redundansi Ganda (Modul & Aplikasi), Penghapusan Mutlak Pop-up Toast Pihak Ketiga (`bellavita.toast` & `Toast.apk` Purged), Serta Pengoptimalan Visual Ringan Berfokus Performa**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC35)
+
+### 1. Eliminasi Mutlak Redundansi Notifikasi Ganda
+- **Akar Masalah**: Sebelumnya pengguna menerima notifikasi ganda sekaligus dari modul (`cmd notification post` via root shell) dan dari aplikasi Lynx Companion (`LynxAppAutomationService`), ditambah pop-up toast dari APK pihak ketiga (`bellavita.toast`) yang mencuri fokus layar saat profil berganti.
+- **Solusi**:
+  - Seluruh pemanggilan `cmd notification post` pada biner native Rust `lynxd` (`lifecycle_hooks.rs`) dan skrip otomasi (`lynx_watcher.sh`) dimatikan total. Modul root bekerja secara senyap di level kernel/hardware tanpa menciptakan notifikasi shell liar.
+  - Penataan ulang single-source of truth: Hanya tersisa **1 notifikasi status bar tunggal** yang dikelola rapi oleh aplikasi Lynx Companion.
+
+### 2. Penghapusan Total Pop-up Toast Layar (`Toast.apk` Purged)
+- `Toast.apk` (`bellavita.toast`) dihapus dari instalasi modul (`customize.sh`) dan di-uninstall dari perangkat.
+- Tidak ada lagi pop-up toast yang menginterupsi layar sentuh saat membuka game atau beralih aplikasi, menjamin pengalaman gaming 100% mulus tanpa gangguan visual.
+
+### 3. Notifikasi Status Bar Tunggal yang Bersih & Hening
+- Notifikasi status bar dikonfigurasi dengan prioritas rendah (`IMPORTANCE_LOW`): tanpa suara, tanpa getar, dan tanpa banner pop-up heads-up yang menutupi game.
+- Format teks dibuat minimalis, elegan, dan informatif:
+  - Saat Game Aktif: `Lynx • [EXTREME]` | Teks: `Honkai: Star Rail • 120Hz`
+  - Saat Standby/Harian: `Lynx • [BALANCE]` | Teks: `Mode Standby Aktif`
+- Notifikasi tersemat secara hening (*ongoing silent*) dan memperbarui diri di tempat yang sama (*in-place update*) tanpa menumpuk entri notifikasi baru.
+
 # Lynx Universal [Per-App Custom Target Profile Engine & Zero-Fork Precise Foreground Activity Detection] 7.0.0-RC34
 Released on: 2026-10-13
 > **Lynx Universal v7.0.0-RC34** (Lynx Kernel Manager v3.0.98): **Penyelarasan Dinamis Aturan Per-App Companion (`app_rules.json` Custom Profile Evaluation), Peralihan Otomatis Profil `Extreme` untuk Honkai: Star Rail, Eliminasi Total Masking Keyboard/IME via Pemfilteran Kernel `oom_score_adj == 0`, Latensi Peralihan Sub-100ms (86.87 ms), serta Histeresis Pendinginan Zero-Stutter 5 Detik**.

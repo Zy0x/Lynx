@@ -12,6 +12,7 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import com.noir.lynx.R
 import com.noir.lynx.data.AppProfileRule
 import com.noir.lynx.data.LynxRepository
 import com.noir.lynx.ui.MainActivity
@@ -113,7 +114,7 @@ class LynxAppAutomationService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(NOTIF_ID, buildNotification("Memulai pemantauan aplikasi aktif..."))
+        startForeground(NOTIF_ID, buildNotification("Lynx • [BALANCE]", "Mode Standby Aktif"))
         isRunning = true
 
         val filter = IntentFilter().apply {
@@ -147,7 +148,7 @@ class LynxAppAutomationService : Service() {
                 val newBase = intent?.getStringExtra("baseline") ?: "balance"
                 baselineProfile = if (newBase.isBlank() || newBase == "auto" || newBase == "extreme" || newBase == "performance") "balance" else newBase
                 if (activeCustomPkg == null) {
-                    updateNotification("Standby: Mode [$baselineProfile] aktif")
+                    updateNotification(formatModeTitle(baselineProfile), "Mode Standby Aktif")
                 }
             }
         }
@@ -360,7 +361,7 @@ class LynxAppAutomationService : Service() {
 
                 val hzInfo = matchingRule.targetRefreshRate?.let { " • ${it}Hz" } ?: ""
                 val hudInfo = if (matchingRule.autoFloatingHud) " • HUD" else ""
-                updateNotification("Aktif: [${target.uppercase()}]$hzInfo$hudInfo untuk ${matchingRule.appName}")
+                updateNotification(formatModeTitle(target), "${matchingRule.appName}$hzInfo$hudInfo")
             }
         } else {
             // Not in rules: if we previously boosted an app, start cooldown buffer
@@ -394,10 +395,19 @@ class LynxAppAutomationService : Service() {
                         LynxRepository.setProfile(restoreTarget, caller = "watcher")
 
                         activeCustomPkg = null
-                        updateNotification("Standby: Mode [$restoreTarget] aktif")
+                        updateNotification(formatModeTitle(restoreTarget), "Mode Standby Aktif")
                     }
                 }
             }
+        }
+    }
+
+    private fun formatModeTitle(profile: String): String {
+        return when (profile.lowercase().trim()) {
+            "extreme" -> "Lynx • [EXTREME]"
+            "performance" -> "Lynx • [PERFORMANCE]"
+            "powersave" -> "Lynx • [POWERSAVE]"
+            else -> "Lynx • [BALANCE]"
         }
     }
 
@@ -405,18 +415,21 @@ class LynxAppAutomationService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 NOTIF_CHANNEL_ID,
-                "Lynx Per-App Automation",
+                "Lynx Universal Mode",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Status otomasi profil per-aplikasi Lynx"
+                description = "Status profil performa aktif Lynx Universal"
                 setShowBadge(false)
+                enableVibration(false)
+                enableLights(false)
+                setSound(null, null)
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
         }
     }
 
-    private fun buildNotification(statusText: String): Notification {
+    private fun buildNotification(titleText: String, statusText: String): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
@@ -425,37 +438,34 @@ class LynxAppAutomationService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val stopIntent = Intent(this, LynxAppAutomationService::class.java).apply {
-            action = ACTION_STOP
+        val iconRes = try {
+            R.mipmap.ic_launcher
+        } catch (_: Exception) {
+            android.R.drawable.ic_popup_sync
         }
-        val pStopIntent = PendingIntent.getService(
-            this, 1, stopIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, NOTIF_CHANNEL_ID)
-                .setContentTitle("Lynx App Automation Daemon")
+                .setContentTitle(titleText)
                 .setContentText(statusText)
-                .setSmallIcon(android.R.drawable.ic_popup_sync)
+                .setSmallIcon(iconRes)
                 .setContentIntent(pOpenIntent)
-                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Hentikan", pStopIntent)
                 .setOngoing(true)
                 .build()
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
-                .setContentTitle("Lynx App Automation Daemon")
+                .setContentTitle(titleText)
                 .setContentText(statusText)
-                .setSmallIcon(android.R.drawable.ic_popup_sync)
+                .setSmallIcon(iconRes)
                 .setContentIntent(pOpenIntent)
                 .build()
         }
     }
 
-    private fun updateNotification(statusText: String) {
+    private fun updateNotification(titleText: String, statusText: String) {
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIF_ID, buildNotification(statusText))
+        manager.notify(NOTIF_ID, buildNotification(titleText, statusText))
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {

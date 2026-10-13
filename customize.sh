@@ -225,13 +225,9 @@ if [ -d "$feravolt_dir" ]; then
     fi
 fi
 
-# ── 6. Toast Notification Utility Staging ──────────────────────────
-if [ -f "$MODPATH/Toast.apk" ]; then
-    cp -af "$MODPATH/Toast.apk" /data/local/tmp/LynxToast.apk 2>/dev/null
-    chmod 644 /data/local/tmp/LynxToast.apk 2>/dev/null
-    pm install -r /data/local/tmp/LynxToast.apk >/dev/null 2>&1
-    rm -f /data/local/tmp/LynxToast.apk 2>/dev/null
-fi
+# ── 6. Notification Sanitization ──────────────────────────────────
+# Purge legacy third-party toast popups for distraction-free gaming performance
+pm uninstall bellavita.toast >/dev/null 2>&1
 
 # ── 6.5 Lynx Kernel Manager Companion App Staging ──────────────────
 if [ -f "$MODPATH/LynxKernelManager.apk" ]; then

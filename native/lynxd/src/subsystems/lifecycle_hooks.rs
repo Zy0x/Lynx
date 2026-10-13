@@ -51,16 +51,8 @@ impl LifecycleHooks {
         String::new()
     }
 
-    fn post_notification(text: &str) {
-        let cmd = format!(
-            "cmd notification post -S bigtext -t 'Lynx - Deity' 'Lynx' '{}'",
-            text.replace('\'', "")
-        );
-        let _ = Command::new("su")
-            .args(["-lp", "2000", "-c", &cmd])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+    fn post_notification(_text: &str) {
+        // Redundant shell notification suppressed in favor of unified status bar notification
     }
 
     /// Replaces the 289-line `service.sh` with a 100% native Rust boot orchestrator.
