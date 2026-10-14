@@ -10,6 +10,34 @@ import org.json.JSONObject
 private const val CUSTOM_RULES_PATH = "$MODULE_DIR/custom_rules.sh"
 
 object LynxCustomScriptRepository {
+    private data class ParsedScriptOutput(
+        val stdout: String,
+        val stderr: String,
+        val durationMs: Long,
+        val failure: String = ""
+    )
+
+    private fun parseStoredOutput(output: String, durationMs: Long, storedStderr: String): ParsedScriptOutput {
+        val failurePrefix = "Gagal mengeksekusi skrip: "
+        if (output.startsWith(failurePrefix)) {
+            return ParsedScriptOutput("", storedStderr, durationMs, output.removePrefix(failurePrefix))
+        }
+
+        val legacySummary = Regex("\\n\\[Selesai dalam (\\d+)ms \\| Exit: (-?\\d+)]$")
+        val summaryMatch = legacySummary.find(output)
+        val outputWithoutSummary = summaryMatch?.let { output.removeRange(it.range) } ?: output
+        val legacyStderrMarker = "\n[STDERR]\n"
+        val stderrIndex = outputWithoutSummary.indexOf(legacyStderrMarker)
+        val stdout = if (stderrIndex >= 0) outputWithoutSummary.substring(0, stderrIndex) else outputWithoutSummary
+        val stderr = if (stderrIndex >= 0) {
+            outputWithoutSummary.substring(stderrIndex + legacyStderrMarker.length)
+        } else {
+            storedStderr
+        }
+        val parsedDuration = summaryMatch?.groupValues?.getOrNull(1)?.toLongOrNull() ?: durationMs
+        return ParsedScriptOutput(stdout, stderr, parsedDuration)
+    }
+
     private suspend fun getCustomScriptsJsonPath(): String {
         val basePath = if (LynxRepository.isModuleInstalled()) MODULE_DIR else "/data/user/0/com.noir.lynx/files"
         Shell.cmd("mkdir -p '$basePath' 2>/dev/null").exec()
@@ -27,6 +55,12 @@ object LynxCustomScriptRepository {
             val list = mutableListOf<CustomScriptItem>()
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
+                val storedOutput = obj.optString("lastOutput", "")
+                val parsedOutput = parseStoredOutput(
+                    storedOutput,
+                    obj.optLong("lastDurationMs", 0L),
+                    obj.optString("lastErrorOutput", "")
+                )
                 list.add(
                     CustomScriptItem(
                         id = obj.optString("id", System.currentTimeMillis().toString()),
@@ -35,7 +69,10 @@ object LynxCustomScriptRepository {
                         runOnBoot = obj.optBoolean("runOnBoot", false),
                         lastRunTime = obj.optLong("lastRunTime", 0L),
                         lastExitCode = if (obj.has("lastExitCode")) obj.optInt("lastExitCode") else null,
-                        lastOutput = obj.optString("lastOutput", "")
+                        lastOutput = parsedOutput.stdout,
+                        lastErrorOutput = parsedOutput.stderr,
+                        lastDurationMs = parsedOutput.durationMs,
+                        lastRunFailure = obj.optString("lastRunFailure", parsedOutput.failure)
                     )
                 )
             }
@@ -50,19 +87,19 @@ object LynxCustomScriptRepository {
             CustomScriptItem(
                 id = "drop_caches_flush",
                 name = "Drop Caches & Flush Buffers",
-                script = "sync\necho 3 > /proc/sys/vm/drop_caches\necho 'RAM Caches Successfully Flushed'",
+                script = "sync\necho 3 > /proc/sys/vm/drop_caches",
                 runOnBoot = false
             ),
             CustomScriptItem(
                 id = "fstrim_all",
                 name = "FSTRIM System & Data Partitions",
-                script = "fstrim -v /data\nfstrim -v /cache 2>/dev/null || true\necho 'Storage Blocks Trimmed'",
+                script = "fstrim -v /data\nfstrim -v /cache 2>/dev/null || true",
                 runOnBoot = false
             ),
             CustomScriptItem(
                 id = "optimize_tcp",
                 name = "Aggressive TCP Buffer Optimization",
-                script = "echo 3 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null\necho 1 > /proc/sys/net/ipv4/tcp_tw_reuse 2>/dev/null\necho 'TCP Stack Tuned'",
+                script = "echo 3 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null\necho 1 > /proc/sys/net/ipv4/tcp_tw_reuse 2>/dev/null",
                 runOnBoot = false
             )
         )
@@ -81,6 +118,9 @@ object LynxCustomScriptRepository {
                 obj.put("lastRunTime", s.lastRunTime)
                 if (s.lastExitCode != null) obj.put("lastExitCode", s.lastExitCode)
                 obj.put("lastOutput", s.lastOutput)
+                obj.put("lastErrorOutput", s.lastErrorOutput)
+                obj.put("lastDurationMs", s.lastDurationMs)
+                obj.put("lastRunFailure", s.lastRunFailure)
                 array.put(obj)
             }
             val escaped = array.toString().replace("'", "'\\''")
@@ -95,26 +135,22 @@ object LynxCustomScriptRepository {
             val startTime = System.currentTimeMillis()
             val res = Shell.cmd(item.script).exec()
             val durationMs = System.currentTimeMillis() - startTime
-            val outText = res.out.joinToString("\n").trim()
-            val errText = res.err.joinToString("\n").trim()
-            val combined = buildString {
-                if (outText.isNotEmpty()) append(outText)
-                if (errText.isNotEmpty()) {
-                    if (isNotEmpty()) append("\n[STDERR]\n")
-                    append(errText)
-                }
-                append("\n[Selesai dalam ${durationMs}ms | Exit: ${res.code}]")
-            }
             item.copy(
                 lastRunTime = System.currentTimeMillis(),
                 lastExitCode = res.code,
-                lastOutput = combined
+                lastOutput = res.out.joinToString("\n").trim(),
+                lastErrorOutput = res.err.joinToString("\n").trim(),
+                lastDurationMs = durationMs,
+                lastRunFailure = ""
             )
         } catch (e: Exception) {
             item.copy(
                 lastRunTime = System.currentTimeMillis(),
                 lastExitCode = -1,
-                lastOutput = "Gagal mengeksekusi skrip: ${e.message}"
+                lastOutput = "",
+                lastErrorOutput = "",
+                lastDurationMs = 0L,
+                lastRunFailure = e.message.orEmpty()
             )
         }
     }

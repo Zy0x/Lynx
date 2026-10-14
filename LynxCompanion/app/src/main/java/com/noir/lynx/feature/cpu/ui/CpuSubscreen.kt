@@ -18,7 +18,7 @@ import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.ui.*
 
 /**
- * Subscreen 1: CPU Performa, Sistem, dan Monitor Hardware
+ * Subscreen 1: CPU performance, system, and hardware monitor.
  */
 @Composable
 fun CpuSubscreen(

@@ -1,6 +1,8 @@
 package com.noir.lynx.feature.gpu.ui
 
-import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.noir.lynx.R
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -39,14 +41,12 @@ fun GraphicsDriverHwuiCard(
     onSetLatch: (Boolean) -> Unit,
     onSetMsaa: (Boolean) -> Unit,
     onSetOemShield: (Boolean) -> Unit,
-    onClearShaderCache: () -> Unit = {},
     onSetDisableBackpressure: (Boolean) -> Unit = {},
     onSetEarlyPhase: (Boolean) -> Unit = {},
-    onPrewarmShaderCache: () -> Unit = {},
+    onRefreshShaderCache: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentPurple
-    var showClearShaderConfirm by remember { mutableStateOf(false) }
 
     LynxCard(
         title = "Driver Grafis & HWUI Engine",
@@ -232,7 +232,7 @@ fun GraphicsDriverHwuiCard(
                         }
                         Column {
                             Text(
-                                "Shader & Pipeline Cache",
+                                stringResource(R.string.shader_cache_title),
                                 color = TextPrimary,
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -240,9 +240,14 @@ fun GraphicsDriverHwuiCard(
                             val cacheMb = graphics.shaderCacheSizeBytes / (1024f * 1024f)
                             Text(
                                 text = if (graphics.shaderCacheSizeBytes > 0) {
-                                    String.format(Locale.US, "%.1f MB terkompilasi (%d berkas)", cacheMb, graphics.shaderCacheCount)
+                                    pluralStringResource(
+                                        R.plurals.shader_cache_inventory,
+                                        graphics.shaderCacheCount,
+                                        cacheMb,
+                                        graphics.shaderCacheCount
+                                    )
                                 } else {
-                                    "Cache bersih / Siap dipindai"
+                                    stringResource(R.string.shader_cache_not_detected)
                                 },
                                 color = TextSecondary,
                                 fontSize = 10.5.sp
@@ -258,7 +263,7 @@ fun GraphicsDriverHwuiCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
-                        onClick = { onPrewarmShaderCache() },
+                        onClick = onRefreshShaderCache,
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = cardAccent.copy(alpha = 0.22f),
@@ -269,37 +274,13 @@ fun GraphicsDriverHwuiCard(
                         modifier = Modifier.weight(1.2f).defaultMinSize(minHeight = 48.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Bolt,
+                            imageVector = Icons.Default.Refresh,
                             contentDescription = null,
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            "Pre-Warm (AOT)",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Button(
-                        onClick = { showClearShaderConfirm = true },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = BgSurfaceLowest,
-                            contentColor = TextSecondary
-                        ),
-                        border = BorderStroke(1.dp, BorderGlass),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = null,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            "Bersihkan",
+                            stringResource(R.string.shader_cache_refresh),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -307,7 +288,7 @@ fun GraphicsDriverHwuiCard(
                 }
 
                 Text(
-                    text = "Pre-Warm mengompilasi Ahead-of-Time shader game untuk mencegah micro-stutter saat bermain. Bersihkan menghapus cache shader yang bengkak atau korup.",
+                    text = stringResource(R.string.shader_cache_guidance),
                     color = TextTertiary,
                     fontSize = 10.sp,
                     lineHeight = 14.sp,
@@ -342,51 +323,5 @@ fun GraphicsDriverHwuiCard(
                 }
             }
         }
-    }
-
-    if (showClearShaderConfirm) {
-        AlertDialog(
-            onDismissRequest = { showClearShaderConfirm = false },
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, tint = cardAccent)
-                    Text("Bersihkan Shader Cache?", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Text(
-                    "Tindakan ini akan menghapus file shader cache OpenGL dan Vulkan yang tersimpan di sistem. Driver GPU akan mengompilasi ulang shader baru secara bersih dan mulus saat game 3D dimainkan.",
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showClearShaderConfirm = false
-                        onClearShaderCache()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = cardAccent),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
-                ) {
-                    Text("Ya, Bersihkan", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showClearShaderConfirm = false },
-                    modifier = Modifier.defaultMinSize(minHeight = 48.dp)
-                ) {
-                    Text("Batal", color = TextSecondary)
-                }
-            },
-            containerColor = BgCard,
-            shape = RoundedCornerShape(20.dp)
-        )
     }
 }

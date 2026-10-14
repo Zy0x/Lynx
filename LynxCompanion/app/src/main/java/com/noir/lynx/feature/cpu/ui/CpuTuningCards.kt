@@ -102,7 +102,7 @@ fun CpuUnifiedPerformanceCard(
             accentColor = AccentCyan
         ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Level 1: 3+1 Master Profile Selector (Battery | Balanced | Performa | Ekstrem)
+        // Level 1: 3+1 master profile selector (Battery | Balanced | Performance | Extreme).
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -168,7 +168,7 @@ fun CpuUnifiedPerformanceCard(
                         ) {
                             Icon(
                                 imageVector = icon,
-                                contentDescription = label,
+                                contentDescription = localizedUiText(label),
                                 tint = if (isSelected) pillAccent else TextSecondary,
                                 modifier = Modifier.size(15.dp)
                             )

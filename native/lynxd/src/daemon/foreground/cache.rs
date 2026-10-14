@@ -37,6 +37,10 @@ impl ForegroundCache {
 
         self.entries.insert(0, (package, app));
     }
+
+    pub fn clear(&mut self) {
+        self.entries.clear();
+    }
 }
 
 #[cfg(test)]

@@ -140,7 +140,7 @@ fun TelemetryCpuTopologyCard(telemetry: TelemetryData?) {
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Cluster 1: Performa Cores (6-7)
+            // Cluster 1: Performance cores (6-7).
         Text(
             text = "Kluster 1: Performa (2x Cortex-A76)",
             fontSize = 10.5.sp,

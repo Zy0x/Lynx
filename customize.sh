@@ -18,7 +18,7 @@ fi
 
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ui_print "$(lynx_t install_title)"
-ui_print "  Version: $MOD_VER  |  Author: ɴᴏɪʀ"
+ui_print "$(lynx_t install_meta "$MOD_VER")"
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ── 1. Root Implementation Verification ────────────────────────────
@@ -245,8 +245,16 @@ if [ -f "$MODPATH/LynxKernelManager.apk" ]; then
         ui_print "$(lynx_t companion_installed)"
     else
         ui_print "$(lynx_t companion_staged)"
-    fi
     rm -f /data/local/tmp/LynxKernelManager.apk 2>/dev/null
+
+    # Grant seamless overlay and background execution privileges for Lynx Visual Feedback HUD
+    appops set com.noir.lynx SYSTEM_ALERT_WINDOW allow 2>/dev/null
+    dumpsys deviceidle whitelist +com.noir.lynx 2>/dev/null
+fi
+
+mkdir -p /data/adb/lynx 2>/dev/null
+if [ ! -f /data/adb/lynx/feedback_style ]; then
+    echo "jewel_top" > /data/adb/lynx/feedback_style
 fi
 
 # ── 7. Storage Directory & Applist Initialization ──────────────────

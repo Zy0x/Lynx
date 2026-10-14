@@ -287,7 +287,7 @@ fun ColorManagementCard(
                             ) {
                                 Icon(
                                     imageVector = icon,
-                                    contentDescription = name,
+                                    contentDescription = localizedUiText(name),
                                     tint = if (isSelected) cardAccent else TextSecondary,
                                     modifier = Modifier.size(16.dp)
                                 )

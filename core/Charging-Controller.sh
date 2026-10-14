@@ -1,30 +1,176 @@
 #!/system/bin/sh
-# Lynx Universal - Charging Controller Facade (Delegates 100% to lynxd)
+# Lynx Universal - Charging Controller Facade (Delegates 100% to lynxd with sysfs fallbacks)
 MODPATH="/data/adb/modules/Lynx"
 [ -d "$MODPATH" ] || MODPATH="${0%/*/*}"
 LYNXD="$MODPATH/system/bin/lynxd"
 [ -x "$LYNXD" ] || LYNXD="/system/bin/lynxd"
 
+# If lynxd binary is available and executable, delegate all actions to it
+if [ -x "$LYNXD" ]; then
+    case "$1" in
+        apply)
+            exec "$LYNXD" charging apply 2>/dev/null
+            ;;
+        status)
+            exec "$LYNXD" charging status 2>/dev/null
+            ;;
+        standard)
+            exec "$LYNXD" charging mode standard 2>/dev/null
+            ;;
+        cool)
+            exec "$LYNXD" charging mode cool 2000 2>/dev/null
+            ;;
+        hyper|extreme)
+            exec "$LYNXD" charging mode hyper 2>/dev/null
+            ;;
+        custom)
+            exec "$LYNXD" charging mode custom "$2" 2>/dev/null
+            ;;
+        disconnect)
+            exec "$LYNXD" charging disconnect 2>/dev/null
+            ;;
+        *)
+            exec "$LYNXD" charging tick 2>/dev/null
+            ;;
+    esac
+fi
+
+# ==============================================================================
+# Standalone Shell Fallback (Active when lynxd binary is not yet compiled or present)
+# ==============================================================================
+
+MTK_DIR="/sys/devices/platform/charger"
+TRAN_ODM="/sys/devices/platform/odm/odm:tran_battery"
+TRAN_DIR="/sys/devices/platform/tran_battery"
+BATT_DIR="/sys/class/power_supply/battery"
+USB_DIR="/sys/class/power_supply/usb"
+MAIN_DIR="/sys/class/power_supply/main"
+PCA_DIR="/sys/devices/platform/pca_dv2_algo"
+
+write_node_lock() {
+    local node="$1"
+    local val="$2"
+    if [ -e "$node" ]; then
+        chmod 666 "$node" 2>/dev/null
+        echo "$val" > "$node" 2>/dev/null
+        chmod 444 "$node" 2>/dev/null
+    fi
+}
+
+unlock_node() {
+    local node="$1"
+    [ -e "$node" ] && chmod 666 "$node" 2>/dev/null
+}
+
+fallback_hyper() {
+    mkdir -p /dev 2>/dev/null
+    echo "hyper-12000" > /dev/lynx_extreme_charging 2>/dev/null
+    echo "state=hyper cap=50" > /dev/lynx_charging_state 2>/dev/null
+    rm -f /dev/lynx_bypass_active /dev/lynx_standard_charging 2>/dev/null
+
+    # 1. Native Battery & Linux Charge Rails Uncap
+    write_node_lock "$BATT_DIR/input_suspend" "0"
+    write_node_lock "$BATT_DIR/charging_enabled" "1"
+    write_node_lock "$BATT_DIR/fastcharge_mode" "1"
+    write_node_lock "$BATT_DIR/fast_charge" "1"
+    write_node_lock "$BATT_DIR/boost_current" "1"
+    write_node_lock "$BATT_DIR/constant_charge_current_max" "12000000"
+    write_node_lock "$BATT_DIR/constant_charge_current" "12000000"
+    write_node_lock "$BATT_DIR/input_current_limit" "12000000"
+    write_node_lock "$USB_DIR/current_max" "5000000"
+    write_node_lock "$MAIN_DIR/current_max" "12000000"
+
+    # 2. R1 Screen-On Charging Throttle Bypass
+    write_node_lock "$MTK_DIR/BatteryNotify" "0"
+    write_node_lock "$MTK_DIR/BN_TestMode" "1"
+    write_node_lock "$MTK_DIR/tran_charger_full" "0"
+    write_node_lock "$MTK_DIR/tran_game_mode" "0"
+    write_node_lock "$MTK_DIR/bypass_charger" "0"
+    write_node_lock "$MTK_DIR/sw_jeita" "0"
+
+    # 3. R2 Thermal Neutralization (PCB, DV2, battery temp, ABCCT, cooling devices)
+    write_node_lock "$TRAN_ODM/pcb_thermal_debug" "[95,6000,100,6000,6000]"
+    write_node_lock "$TRAN_DIR/pcb_thermal_debug" "[95,6000,100,6000,6000]"
+    write_node_lock "$PCA_DIR/dv2_debug" "[101,85,88,90,6000,6000,6000]"
+    write_node_lock "$PCA_DIR/dv2_debug" "[102,85,88,90,6000,6000,6000]"
+    write_node_lock "/sys/devices/platform/battery/Battery_Temperature" "28"
+    write_node_lock "/proc/driver/thermal/clabcct" "0"
+    write_node_lock "/proc/driver/thermal/clabcct_lcmoff" "0"
+    for i in 53 54 55 56 57; do
+        write_node_lock "/sys/class/thermal/cooling_device$i/cur_state" "0"
+    done
+
+    # 4. R3 Continuous Maximum Pump Current Enforcement (>6A Battery Current)
+    write_node_lock "$MTK_DIR/pe20" "1"
+    write_node_lock "$MTK_DIR/pe40" "1"
+    write_node_lock "$MTK_DIR/enable_sc" "1"
+    write_node_lock "$MTK_DIR/input_current" "33170"
+    write_node_lock "$MTK_DIR/sc_ibat_limit" "12000"
+    write_node_lock "$MTK_DIR/chg1_current" "33170"
+    write_node_lock "$MTK_DIR/chg2_current" "33170"
+    write_node_lock "$MTK_DIR/pdc_max_watt" "120"
+}
+
+fallback_disconnect() {
+    rm -f /dev/lynx_extreme_charging /dev/lynx_standard_charging /dev/lynx_charging_guard /dev/lynx_bypass_active 2>/dev/null
+    echo "state=disconnect" > /dev/lynx_charging_state 2>/dev/null
+
+    # Unlock all locked sysfs nodes
+    for node in \
+        "$MTK_DIR/input_current" "$MTK_DIR/sc_ibat_limit" "$MTK_DIR/chg1_current" "$MTK_DIR/chg2_current" \
+        "$MTK_DIR/enable_sc" "$MTK_DIR/pe20" "$MTK_DIR/pe40" "$MTK_DIR/pdc_max_watt" \
+        "$MTK_DIR/BN_TestMode" "$MTK_DIR/BatteryNotify" "$MTK_DIR/tran_charger_full" "$MTK_DIR/tran_game_mode" \
+        "$MTK_DIR/bypass_charger" "$MTK_DIR/sw_jeita" \
+        "$BATT_DIR/input_suspend" "$BATT_DIR/charging_enabled" "$BATT_DIR/fastcharge_mode" "$BATT_DIR/fast_charge" \
+        "$BATT_DIR/boost_current" "$BATT_DIR/constant_charge_current_max" "$BATT_DIR/constant_charge_current" \
+        "$BATT_DIR/input_current_limit" "$USB_DIR/current_max" "$MAIN_DIR/current_max" \
+        "$TRAN_ODM/pcb_thermal_debug" "$TRAN_DIR/pcb_thermal_debug" "$PCA_DIR/dv2_debug" \
+        "/sys/devices/platform/battery/Battery_Temperature" \
+        "/proc/driver/thermal/clabcct" "/proc/driver/thermal/clabcct_lcmoff" \
+        /sys/class/thermal/cooling_device*/cur_state; do
+        unlock_node "$node"
+    done
+
+    # Revert to safe OEM baselines
+    [ -e "$MTK_DIR/enable_sc" ] && echo "0" > "$MTK_DIR/enable_sc" 2>/dev/null
+    [ -e "$MTK_DIR/pe20" ] && echo "0" > "$MTK_DIR/pe20" 2>/dev/null
+    [ -e "$MTK_DIR/pe40" ] && echo "0" > "$MTK_DIR/pe40" 2>/dev/null
+    [ -e "$MTK_DIR/input_current" ] && echo "24576" > "$MTK_DIR/input_current" 2>/dev/null
+    [ -e "$MTK_DIR/sc_ibat_limit" ] && echo "2000" > "$MTK_DIR/sc_ibat_limit" 2>/dev/null
+    [ -e "$MTK_DIR/chg1_current" ] && echo "24576" > "$MTK_DIR/chg1_current" 2>/dev/null
+    [ -e "$MTK_DIR/chg2_current" ] && echo "24576" > "$MTK_DIR/chg2_current" 2>/dev/null
+    [ -e "$MTK_DIR/pdc_max_watt" ] && echo "33" > "$MTK_DIR/pdc_max_watt" 2>/dev/null
+    [ -e "$MTK_DIR/BN_TestMode" ] && echo "0" > "$MTK_DIR/BN_TestMode" 2>/dev/null
+    [ -e "$MTK_DIR/BatteryNotify" ] && echo "1" > "$MTK_DIR/BatteryNotify" 2>/dev/null
+    [ -e "$MTK_DIR/tran_charger_full" ] && echo "0" > "$MTK_DIR/tran_charger_full" 2>/dev/null
+    [ -e "$MTK_DIR/tran_game_mode" ] && echo "0" > "$MTK_DIR/tran_game_mode" 2>/dev/null
+    [ -e "$MTK_DIR/sw_jeita" ] && echo "1" > "$MTK_DIR/sw_jeita" 2>/dev/null
+
+    # Thermal reversions
+    [ -e "$TRAN_ODM/pcb_thermal_debug" ] && echo "[45,3000,50,2000,1000]" > "$TRAN_ODM/pcb_thermal_debug" 2>/dev/null
+    [ -e "$TRAN_DIR/pcb_thermal_debug" ] && echo "[45,3000,50,2000,1000]" > "$TRAN_DIR/pcb_thermal_debug" 2>/dev/null
+    [ -e "/sys/devices/platform/battery/Battery_Temperature" ] && echo "65535" > "/sys/devices/platform/battery/Battery_Temperature" 2>/dev/null
+    [ -e "/proc/driver/thermal/clabcct" ] && echo "1" > "/proc/driver/thermal/clabcct" 2>/dev/null
+    [ -e "/sys/class/thermal/cooling_device56/cur_state" ] && echo "1" > "/sys/class/thermal/cooling_device56/cur_state" 2>/dev/null
+
+    # Reset Android battery framework state
+    dumpsys battery reset 2>/dev/null
+
+    # Resume suspended userspace thermal daemons
+    for daemon in thermalloadalgod com.xiaomi.joyose mi_thermald thermal-engine thermal-engine-v2; do
+        killall -CONT "$daemon" 2>/dev/null
+    done
+}
+
 case "$1" in
-    apply)
-        exec "$LYNXD" charging apply 2>/dev/null
-        ;;
-    status)
-        exec "$LYNXD" charging status 2>/dev/null
-        ;;
-    standard)
-        exec "$LYNXD" charging mode standard 2>/dev/null
-        ;;
-    cool)
-        exec "$LYNXD" charging mode cool 2000 2>/dev/null
-        ;;
     hyper|extreme)
-        exec "$LYNXD" charging mode hyper 2>/dev/null
+        fallback_hyper
         ;;
-    custom)
-        exec "$LYNXD" charging mode custom "$2" 2>/dev/null
+    disconnect|reset)
+        fallback_disconnect
         ;;
     *)
-        exec "$LYNXD" charging tick 2>/dev/null
+        # Default fallback
+        [ -e "$MTK_DIR/BN_TestMode" ] && echo "1" > "$MTK_DIR/BN_TestMode" 2>/dev/null
         ;;
 esac

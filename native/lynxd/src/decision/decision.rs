@@ -31,15 +31,24 @@ pub struct DecisionEngine {
     cooldown: CooldownManager,
     adaptive: AdaptiveGovernor,
     current_profile: String,
+    baseline_profile: String,
+    last_target_app: Option<String>,
 }
 
 impl DecisionEngine {
     pub fn new(initial_profile: &str, cooldown_seconds: u64) -> Self {
+        let baseline = if initial_profile == "performance" || initial_profile == "extreme" {
+            "balance".to_string()
+        } else {
+            initial_profile.to_string()
+        };
         Self {
             policy: SwitchingPolicy::default(),
             cooldown: CooldownManager::new(cooldown_seconds),
             adaptive: AdaptiveGovernor::new(),
             current_profile: initial_profile.to_string(),
+            baseline_profile: baseline,
+            last_target_app: None,
         }
     }
 
@@ -49,6 +58,14 @@ impl DecisionEngine {
 
     pub fn current_modifier(&self) -> ModifierLevel {
         self.adaptive.current_modifier()
+    }
+
+    pub fn set_cooldown_duration(&mut self, duration: u64) {
+        self.cooldown.set_buffer_duration(duration);
+    }
+
+    pub fn cooldown_duration(&self) -> u64 {
+        self.cooldown.buffer_duration()
     }
 
     pub fn notify_applied(&mut self, profile_name: &str) {
@@ -68,11 +85,15 @@ impl DecisionEngine {
         // ── 1. Screen OFF Guard ─────────────────────────────────────────────
         if screen == ScreenState::Off {
             self.adaptive.reset();
-            // If screen turned off while in performance, cleanly revert to balanced
+            // If screen turned off while in performance, cleanly revert to baseline
             if self.current_profile == "performance" || self.current_profile == "extreme" {
+                let fallback = match self.baseline_profile.as_str() {
+                    "powersave" => "powersave",
+                    _ => "balance",
+                };
                 return DecisionAction::ApplyProfile {
-                    target_profile: "balance",
-                    reason: "Screen turned OFF (Reverting to balanced to prevent pocket battery drain)"
+                    target_profile: fallback,
+                    reason: "Screen turned OFF (Reverting to baseline to prevent pocket battery drain)"
                         .to_string(),
                 };
             }
@@ -89,6 +110,7 @@ impl DecisionEngine {
 
         if is_target_app {
             let app_name = fg_app.map(|a| a.package.as_str()).unwrap_or("Game");
+            self.last_target_app = fg_app.map(|a| a.package.clone());
             let requested_profile: &'static str = match fg_app.and_then(|a| a.target_profile.as_deref()) {
                 Some("extreme") => "extreme",
                 Some("powersave") => "powersave",
@@ -142,7 +164,11 @@ impl DecisionEngine {
             // Non-target application (Normal, System, Media, or None)
             if self.current_profile == "performance" || self.current_profile == "extreme" {
                 // User left target app: enter or evaluate hysteresis cooldown
-                self.cooldown.on_game_exited(now, "balance");
+                let fallback = match self.baseline_profile.as_str() {
+                    "powersave" => "powersave",
+                    _ => "balance",
+                };
+                self.cooldown.on_game_exited(now, fallback, self.last_target_app.clone());
 
                 match self.cooldown.evaluate(now) {
                     CooldownStatus::Holding { remaining_secs } => {
@@ -152,11 +178,18 @@ impl DecisionEngine {
                         self.adaptive.reset();
                         DecisionAction::ApplyProfile {
                             target_profile: fallback_profile,
-                            reason: "Exit cooldown expired after leaving target application"
+                            reason: "Target application closed or exit cooldown expired"
                                 .to_string(),
                         }
                     }
-                    CooldownStatus::Inactive => DecisionAction::MaintainCurrent,
+                    CooldownStatus::Inactive => {
+                        self.adaptive.reset();
+                        DecisionAction::ApplyProfile {
+                            target_profile: fallback,
+                            reason: "Target application closed (immediate reversion to baseline)"
+                                .to_string(),
+                        }
+                    }
                 }
             } else {
                 DecisionAction::MaintainCurrent

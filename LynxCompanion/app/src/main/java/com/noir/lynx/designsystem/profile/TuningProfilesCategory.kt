@@ -26,16 +26,17 @@ import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.profile.*
 import com.noir.lynx.designsystem.theme.*
+import com.noir.lynx.feature.memory.ui.MountXStorageCard
 import com.noir.lynx.ui.AppIconImage
 
 /**
  * TuningProfilesCategory — Full Kernel Performance Profile Management Subscreen.
  *
  * Provides a dedicated space within the Tuning Hub for:
- * - Viewing all built-in and user-created custom profiles (Katalog Profil Kernel)
+ * - Viewing built-in and user-created kernel profiles
  * - Creating, duplicating, editing, and deleting profiles
  * - Managing domain overrides and restoring default configurations
- * - Per-App Profiling & Automation Rules (Otomasi Profil Per-Aplikasi & Game)
+ * - Per-app and game profiling and automation rules
  */
 @Composable
 fun TuningProfilesCategory(
@@ -48,6 +49,11 @@ fun TuningProfilesCategory(
 ) {
     val state = uiState.state
     val context = LocalContext.current
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.loadAppAutomationCooldown(context)
+        viewModel.refreshMountXStorageInfo()
+    }
 
     Column(
         modifier = modifier
@@ -164,9 +170,11 @@ fun TuningProfilesCategory(
             )
 
             val feedbackOptions = listOf(
-                Triple("jewel_top", "Jewel Dynamic Island", "Melayang di atas (28 dp) • Kapsul permata elegan"),
-                Triple("header_morph", "In-Header Morpher", "Subteks header bertransisi halus • 0 dp overlap"),
-                Triple("jewel_bottom", "Jewel Bottom Capsule", "Melayang di atas dock bawah (26 dp)")
+                Triple("jewel_top", "Jewel Dynamic Island (HUD)", "Kapsul permata melayang di atas layar • Animasi cyberpunk"),
+                Triple("jewel_bottom", "Jewel Bottom Capsule (HUD)", "Kapsul permata melayang di bawah layar • Animasi cyberpunk"),
+                Triple("system_toast", "System Toast (OS Text)", "Gelembung teks standar Android di bawah layar • Ringan (~8 MB)"),
+                Triple("status_bar", "Status Bar Saja (0 MB RAM)", "Notifikasi hening di status bar • Tanpa pop-up layar"),
+                Triple("disabled", "Nonaktifkan Feedback", "Hening total tanpa notifikasi atau pop-up")
             )
 
             feedbackOptions.forEach { (key, title, subtitle) ->
@@ -317,7 +325,10 @@ fun TuningProfilesCategory(
             }
         }
 
-        // ── 4. Otomasi Profil Per-Aplikasi Card ─────────────────
+        // ── 3. MountX & MicroSD Ultra Storage Engine Card ──────
+        MountXStorageCard(uiState = uiState, viewModel = viewModel)
+
+        // ── 4. Per-App Profile Automation Card ─────────────────
         LynxCard(
             title = "Otomasi Profil Per-Aplikasi",
             icon = Icons.Default.SportsEsports,
@@ -354,6 +365,99 @@ fun TuningProfilesCategory(
                         uncheckedBorderColor = BorderGlass
                     )
                 )
+            }
+
+            // ── Buffer Cooldown Selection ──────────────────────
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Timelapse,
+                        contentDescription = null,
+                        tint = AccentGreen,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Durasi Penahanan Mode (Exit Buffer Cooldown)",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Tahan mode performa saat keluar aplikasi sementara (chatting, panduan, download data) agar tidak stutter/drop saat kembali ke game.",
+                    color = TextSecondary,
+                    fontSize = 10.5.sp,
+                    lineHeight = 14.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                val cooldownOptions = listOf(
+                    Triple(5, "5 Detik", "Cepat • Hemat Baterai"),
+                    Triple(30, "30 Detik", "Optimal • Rekomendasi"),
+                    Triple(60, "1 Menit", "Multitasking Ringan"),
+                    Triple(180, "3 Menit", "Multitasking Berat"),
+                    Triple(0, "Persistent", "Selama Game Aktif di RAM")
+                )
+
+                cooldownOptions.forEach { (sec, label, desc) ->
+                    val isSelected = uiState.appAutomationCooldownSeconds == sec
+                    Surface(
+                        onClick = { viewModel.setAppAutomationCooldownSeconds(context, sec) },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) AccentGreen.copy(alpha = 0.14f) else BgElevated,
+                        border = BorderStroke(
+                            if (isSelected) 1.2.dp else 0.8.dp,
+                            if (isSelected) AccentGreen else BorderSubtle
+                        ),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) AccentGreen else TextPrimary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (sec == 30) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = AccentGreen.copy(alpha = 0.2f),
+                                            border = BorderStroke(0.5.dp, AccentGreen.copy(alpha = 0.4f))
+                                        ) {
+                                            Text(
+                                                text = "REKOMENDASI",
+                                                color = AccentGreen,
+                                                fontSize = 8.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Text(
+                                    text = desc,
+                                    color = TextSecondary,
+                                    fontSize = 10.sp
+                                )
+                            }
+                            Surface(
+                                shape = CircleShape,
+                                color = if (isSelected) AccentGreen else Color.Transparent,
+                                border = BorderStroke(1.5.dp, if (isSelected) AccentGreen else TextSecondary.copy(alpha = 0.4f)),
+                                modifier = Modifier.size(15.dp)
+                            ) {}
+                        }
+                    }
+                }
             }
 
             HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(bottom = 10.dp))

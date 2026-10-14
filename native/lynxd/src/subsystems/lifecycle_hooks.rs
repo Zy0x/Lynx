@@ -212,37 +212,39 @@ impl LifecycleHooks {
         Self::log_msg("[+] Charging, ADB Keep-Alive & storage maintenance executed natively via lynxd");
 
         // 8. Profile Action Execution
+        // 8. Profile Action Execution & Autonomous Daemon Spawning
         let lynxd_bin = format!("{}/system/bin/lynxd", MODPATH);
-        if active_profile == "auto" {
-            let lynxd_log = format!("{}/logs/lynxd.log", MODPATH);
-            Self::rotate_log(&lynxd_log, 1_048_576);
-            let _ = DaemonLifecycle::stop_running();
-            if let Ok(log_file) = OpenOptions::new().create(true).append(true).open(&lynxd_log) {
-                let err_file = log_file.try_clone().unwrap_or_else(|_| {
-                    OpenOptions::new().create(true).append(true).open(&lynxd_log).unwrap()
-                });
-                let _ = Command::new(&lynxd_bin)
-                    .args(["daemon", "run"])
-                    .stdout(Stdio::from(log_file))
-                    .stderr(Stdio::from(err_file))
-                    .spawn();
-                Self::log_msg("[+] Native lynxd daemon launched with Autonomous Engine & Hysteresis");
-            }
+        let normalized = if active_profile == "balanced" || active_profile == "auto" {
+            "balance"
         } else {
-            let normalized = if active_profile == "balanced" {
-                "balance"
-            } else {
-                active_profile.as_str()
-            };
+            active_profile.as_str()
+        };
+
+        // Always apply baseline profile initially
+        let _ = Command::new(&lynxd_bin)
+            .args(["profile", "apply", normalized])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        Self::log_msg(&format!(
+            "[+] Applied baseline profile '{}' via lynxd transactional pipeline",
+            normalized
+        ));
+
+        // Always launch the native autonomous daemon (Per-App watcher, Charging Regulator, ADB keepalive)
+        let lynxd_log = format!("{}/logs/lynxd.log", MODPATH);
+        Self::rotate_log(&lynxd_log, 1_048_576);
+        let _ = DaemonLifecycle::stop_running();
+        if let Ok(log_file) = OpenOptions::new().create(true).append(true).open(&lynxd_log) {
+            let err_file = log_file.try_clone().unwrap_or_else(|_| {
+                OpenOptions::new().create(true).append(true).open(&lynxd_log).unwrap()
+            });
             let _ = Command::new(&lynxd_bin)
-                .args(["profile", "apply", normalized])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
-            Self::log_msg(&format!(
-                "[+] Applied profile '{}' via lynxd transactional pipeline",
-                normalized
-            ));
+                .args(["daemon", "run"])
+                .stdout(Stdio::from(log_file))
+                .stderr(Stdio::from(err_file))
+                .spawn();
+            Self::log_msg("[+] Native lynxd daemon launched autonomously (Active Per-App, Charging & Thermal Watchdog)");
         }
 
         // 9. Lynx Thermal Framework Boot Mode Application

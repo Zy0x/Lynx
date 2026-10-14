@@ -172,7 +172,7 @@ fun SubsystemCategoryCard(
             // Right Chevron (Indicating navigable into sub-screen)
             Icon(
                 imageVector = Icons.Default.ChevronRight,
-                contentDescription = stringResource(R.string.accessibility_open_category, category.title),
+                contentDescription = category.title,
                 tint = TextTertiary,
                 modifier = Modifier.size(20.dp)
             )

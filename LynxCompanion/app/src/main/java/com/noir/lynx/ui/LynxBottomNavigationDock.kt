@@ -58,6 +58,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.core.locale.localizedUiText
 import androidx.compose.runtime.*
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.ScrollableDefaults
@@ -204,7 +205,7 @@ internal fun BoxScope.LynxBottomNavigationDock(
                             ) {
                                 Icon(
                                     imageVector = icon,
-                                    contentDescription = label,
+                                    contentDescription = localizedUiText(label),
                                     tint = animatedIconTint,
                                     modifier = Modifier
                                         .size(21.dp)

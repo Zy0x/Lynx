@@ -30,7 +30,7 @@ import com.noir.lynx.data.ModeToastData
 import com.noir.lynx.data.ToastType
 import com.noir.lynx.designsystem.theme.TextPrimary
 
-private val ToastBgObsidian = Color(0xFF090D14)
+internal val ToastBgObsidian = Color(0xFF090D14)
 
 @Composable
 fun LynxModeToastHud(
@@ -98,7 +98,7 @@ fun LynxModeToastHud(
 }
 
 @Composable
-private fun JewelToastPill(
+internal fun JewelToastPill(
     toastData: ModeToastData,
     onDismiss: () -> Unit,
     isCompactMini: Boolean
@@ -173,7 +173,7 @@ private fun JewelToastPill(
     }
 }
 
-private fun resolveToastIcon(toast: ModeToastData): ImageVector = when {
+internal fun resolveToastIcon(toast: ModeToastData): ImageVector = when {
     toast.iconType.isNotBlank() -> when (toast.iconType.lowercase()) {
         "check", "success" -> Icons.Default.CheckCircle
         "error", "gagal" -> Icons.Default.ErrorOutline

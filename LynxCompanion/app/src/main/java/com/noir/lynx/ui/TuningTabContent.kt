@@ -192,7 +192,7 @@ fun TuningTabContent(
                                             .padding(horizontal = 16.dp, vertical = 4.dp),
                                         verticalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        // 0. Profil Performa Kernel (Katalog Preset & Otomasi Per-Aplikasi)
+                                        // 0. Kernel Performance Profiles (Preset Catalog & Per-App Automation)
                                         SubsystemCategoryCard(
                                             category = TuningCategory.PROFILES,
                                             badgeText = state.activeProfile.uppercase(),
@@ -344,7 +344,7 @@ fun TuningTabContent(
                                                 Box(contentAlignment = Alignment.Center) {
                                                     Icon(
                                                         imageVector = cat.icon,
-                                                        contentDescription = cat.title,
+                                                        contentDescription = localizedUiText(cat.title),
                                                         tint = cat.accentColor,
                                                         modifier = Modifier.size(20.dp)
                                                     )

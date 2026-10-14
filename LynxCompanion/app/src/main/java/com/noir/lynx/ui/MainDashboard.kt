@@ -161,7 +161,7 @@ fun MainDashboard(
         else -> AccentCyan
     }
 
-    // ── Dialog Edit Rule Profil Aplikasi ───────────────────────
+    // ── Edit App Profile Rule Dialog ───────────────────────
     if (editingRule != null) {
         val rule = editingRule!!
         var targetProf by remember(rule.packageName) { mutableStateOf(rule.targetProfile) }
@@ -194,7 +194,7 @@ fun MainDashboard(
                     modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Status Aturan Toggle
+                    // Automation rule toggle status.
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -217,7 +217,7 @@ fun MainDashboard(
 
                     HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f))
 
-                    // Target Profil Kernel
+                    // Kernel Profile Target
                     Column {
                         Text("Profil Performa Kernel", color = AccentCyan, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
                         Text("Pilih profil CPU/GPU saat aplikasi berada di foreground", color = TextSecondary, fontSize = 10.sp)
@@ -335,7 +335,7 @@ fun MainDashboard(
         )
     }
 
-    // ── Dialog Tambah Aturan Profil Aplikasi ───────────────────
+    // ── Add App Profile Rule Dialog ───────────────────
     if (showAddAppDialog) {
         AlertDialog(
             onDismissRequest = { showAddAppDialog = false },

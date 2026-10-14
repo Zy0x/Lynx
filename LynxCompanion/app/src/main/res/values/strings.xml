@@ -14,11 +14,6 @@
     <string name="toast_session_exported">Sesi diekspor ke Download/Lynx/</string>
     <string name="toast_session_analyzing">Menganalisis sesi perekaman…</string>
     <string name="toast_recording_started">Perekaman dimulai. Buka game/aplikasi Anda.</string>
-    <string name="toast_shader_cache_cleaned">Shader Cache Grafis berhasil dibersihkan</string>
-    <string name="toast_shader_cache_failed">Gagal membersihkan cache shader</string>
-    <string name="toast_shader_precompile_started">Memulai prapenyusunan shader AOT…</string>
-    <string name="toast_shader_precompile_antistutter">Prapenyusunan shader selesai (Anti-Stutter aktif)</string>
-    <string name="toast_shader_precompile_done">Prapenyusunan shader selesai</string>
     <string name="tile_hbm_unsupported">HBM: Tidak Didukung</string>
     <string name="tile_hbm_subtitle_unsupported">Tidak Didukung</string>
     <string name="tile_hbm_subtitle_active">Outdoor Boost Aktif</string>
@@ -35,6 +30,8 @@
     <string name="automation_game_active">Game / Aplikasi Aktif</string>
     <string name="thermal_guard_channel_name">Lynx Thermal Guard</string>
     <string name="automation_channel_name">Lynx Universal Mode</string>
+    <string name="automation_notification_title">Lynx • %1$s</string>
+    <string name="profile_name_auto">Otomatis (AI)</string>
     <string name="floating_hud_channel_name">Lynx Game HUD Overlay</string>
     <string name="tile_profile_label_format">Lynx: %1$s</string>
     <string name="profile_name_balance">Seimbang</string>
@@ -80,11 +77,12 @@
     <string name="profile_balance_desc">Efisiensi Harian</string>
     <string name="profile_performance">Performa</string>
     <string name="profile_performance_desc">Performa Gaming Stabil</string>
-    <string name="profile_extreme">Extreme</string>
+    <string name="profile_extreme">Ekstrem</string>
     <string name="profile_extreme_desc">Clock Maksimal Tanpa Batas</string>
     <string name="profile_powersave">Hemat</string>
     <string name="profile_powersave_desc">Ketahanan Daya Maksimal</string>
     <string name="profile_standby">Standby</string>
+    <string name="profile_mode_name_format" formatted="false">Mode %1$s</string>
 
     <!-- SoC Chip -->
     <string name="soc_snapdragon">Snapdragon</string>
@@ -362,7 +360,6 @@
     <string name="legacy_ui_7552d6b17503a9" formatted="false">Belum ada aturan khusus</string>
     <string name="legacy_ui_7ceed2ee43b7ab" formatted="false">Belum ada hasil pemindaian sysfs</string>
     <string name="legacy_ui_d5ddec80ce98c0" formatted="false">Bersihkan</string>
-    <string name="legacy_ui_fce7470b88f371" formatted="false">Bersihkan Shader Cache?</string>
     <string name="legacy_ui_28e43e98d78e73" formatted="false">Biru (Blue)</string>
     <string name="legacy_ui_0d6d59d0b0f796" formatted="false">Buka overlay FPS &amp; watt otomatis saat aplikasi dibuka</string>
     <string name="legacy_ui_db9a4c7d4c195e" formatted="false">CPU</string>
@@ -536,7 +533,6 @@
     <string name="legacy_ui_1136fd0e17f422" formatted="false">Pilihan Tersedia:</string>
     <string name="legacy_ui_d0d31452ee4548" formatted="false">Pin FPS</string>
     <string name="legacy_ui_639d9f197549df" formatted="false">Pin Mini FPS di Samping Bilah</string>
-    <string name="legacy_ui_ee6252b8cfe6f9" formatted="false">Pre-Warm (AOT)</string>
     <string name="legacy_ui_25b6122fc0e7ad" formatted="false">Preset Profil Warna Universal</string>
     <string name="legacy_ui_0c7694e7af7a4c" formatted="false">Preset Rekomendasi Virtual Memory</string>
     <string name="legacy_ui_11b5f816cdce7e" formatted="false">Prioritas (Nice)</string>
@@ -584,7 +580,6 @@
     <string name="legacy_ui_42a9e662aa21b3" formatted="false">Saturasi Tampilan</string>
     <string name="legacy_ui_d3a27d96cd0791" formatted="false">Scheduler</string>
     <string name="legacy_ui_220f10ef552b05" formatted="false">Selesai &amp; Tutup</string>
-    <string name="legacy_ui_56e57e57f0c01f" formatted="false">Shader &amp; Pipeline Cache</string>
     <string name="legacy_ui_0de46ac2aa3f95" formatted="false">Siaga Bangun</string>
     <string name="legacy_ui_051093df9158bd" formatted="false">Simpan</string>
     <string name="legacy_ui_2d5cb76271d28b" formatted="false">Simpan Konfigurasi</string>
@@ -624,7 +619,6 @@
     <string name="legacy_ui_f8bf8bb6320034" formatted="false">Tidak ada tunable yang diekspos kernel.</string>
     <string name="legacy_ui_cef4c784b64015" formatted="false">Tidak didukung pada OS/Hardware ini</string>
     <string name="legacy_ui_bbc2c586a5c0db" formatted="false">Timpa bawaan</string>
-    <string name="legacy_ui_4114ddba72c932" formatted="false">Tindakan ini akan menghapus file shader cache OpenGL dan Vulkan yang tersimpan di sistem. Driver GPU akan mengompilasi ulang shader baru secara bersih dan mulus saat game 3D dimainkan.</string>
     <string name="legacy_ui_02f4c3f0e54006" formatted="false">Tingkat Level:</string>
     <string name="legacy_ui_2c9e2a2b5e9769" formatted="false">Tipe Driver GPU (AOSP)</string>
     <string name="legacy_ui_c9b3c38247f744" formatted="false">Total</string>
@@ -640,7 +634,7 @@
     <string name="legacy_ui_00a68defeb9a40" formatted="false">Tutup Kustomisasi</string>
     <string name="legacy_ui_d19f1bd59c4d02" formatted="false">Tutup Verifikasi</string>
     <string name="legacy_ui_7532de338fbef5" formatted="false">UI Rendering Engine (HWUI)</string>
-    <string name="legacy_ui_8282430b9198c2" formatted="false">UNSUPPORTED</string>
+    <string name="legacy_ui_8282430b9198c2" formatted="false">TIDAK DIDUKUNG</string>
     <string name="legacy_ui_bb9046a72b0321" formatted="false">Uji</string>
     <string name="legacy_ui_461c58f4b7edc3" formatted="false">Uji Node</string>
     <string name="legacy_ui_4791ccd460ef4b" formatted="false">Uji Ulang</string>
@@ -913,7 +907,6 @@
     <string name="legacy_ui_091b4fd79c6f38" formatted="false">Pilih prioritas kecepatan dan kontrol termal</string>
     <string name="legacy_ui_e8cdf22fd02a82" formatted="false">Pilihan Gaya Tampilan OSD</string>
     <string name="legacy_ui_e1d3b23b1d6f65" formatted="false">Pipeline Komposisi Grafis</string>
-    <string name="legacy_ui_200abce372b738" formatted="false">Pre-Warm mengompilasi Ahead-of-Time shader game untuk mencegah micro-stutter saat bermain. Bersihkan menghapus cache shader yang bengkak atau korup.</string>
     <string name="legacy_ui_2e66d2ad34782e" formatted="false">Preset Cepat 1-Klik</string>
     <string name="legacy_ui_0015b1958aa2d4" formatted="false">Preset Cepat GPU (One-Click Profiles)</string>
     <string name="legacy_ui_5092731272dadd" formatted="false">Preset Termal Cepat</string>
@@ -1082,11 +1075,11 @@
     <string name="dynamic_edit_tunable">Ubah Tunable: %1$s</string>
     <string name="dynamic_node_label">Node: %1$s</string>
     <string name="dynamic_legacy_minfree_levels">Level Minfree Lama: %1$s</string>
-    <string name="dynamic_read_wakeup_threshold">Ambang Bangun Baca: %1$s bit</string>
-    <string name="dynamic_write_wakeup_threshold">Ambang Bangun Tulis: %1$s bit</string>
-    <string name="dynamic_headphone_gain">Gain Headphone (Kiri/Kanan): %1$s dB / %2$s dB</string>
-    <string name="dynamic_speaker_gain">Gain Speaker: %1$s dB</string>
-    <string name="dynamic_microphone_gain">Gain Mikrofon: %1$s dB</string>
+    <string name="dynamic_read_wakeup_threshold">Ambang Wakeup Baca: %1$s bit</string>
+    <string name="dynamic_write_wakeup_threshold">Ambang Wakeup Tulis: %1$s bit</string>
+    <string name="dynamic_headphone_gain">Penguatan Headphone (Kiri/Kanan): %1$s dB / %2$s dB</string>
+    <string name="dynamic_speaker_gain">Penguatan Speaker: %1$s dB</string>
+    <string name="dynamic_microphone_gain">Penguatan Mikrofon: %1$s dB</string>
     <string name="dynamic_cpu_driver_cstates">Driver: %1$s • Kernel C-States</string>
     <string name="recommendation_gaming_instant_response">Sangat Disarankan [ON] untuk respons bidikan instan</string>
     <string name="recommendation_balance_ui_smoothness">[OFF] atau [ON] sesuai preferensi kelancaran UI</string>
@@ -1239,6 +1232,10 @@
     <string name="dynamic_feedback_script_saved" formatted="false">Skrip \'%1$s\' disimpan</string>
     <string name="dynamic_feedback_script_running" formatted="false">Mengeksekusi \'%1$s\'...</string>
     <string name="dynamic_feedback_script_exit" formatted="false">Eksekusi selesai (Exit: %1$s)</string>
+    <string name="dynamic_script_fallback_name">Skrip #%1$s</string>
+    <string name="script_output_stderr_label">Kesalahan standar</string>
+    <string name="script_output_summary">Selesai dalam %1$d ms • kode keluar %2$d</string>
+    <string name="script_execution_failed">Eksekusi skrip gagal</string>
     <string name="dynamic_feedback_dmesg_exported" formatted="false">Dmesg diekspor ke %1$s</string>
     <string name="dynamic_feedback_kernel_rejected_value" formatted="false">Kernel menolak perubahan (nilai terbaca: %1$s). Parameter dikunci read-only.</string>
     <string name="dynamic_feedback_dc_dimming_enabled" formatted="false">DC Dimming diaktifkan</string>
@@ -1586,7 +1583,7 @@
     <string name="legacy_ui_5255b7decac4ca" formatted="false">busy_up_thres</string>
     <string name="legacy_ui_c3c2b808bb3ecf" formatted="false">custom_boost_gpu_freq</string>
     <string name="legacy_ui_21251d0b23d5a2" formatted="false">dvfs_margin_value</string>
-    <string name="legacy_ui_e97166b54500da" formatted="false">enable</string>
+    <string name="legacy_ui_e97166b54500da" formatted="false">Aktifkan</string>
     <string name="legacy_ui_99a14d737e43b8" formatted="false">min_cpus</string>
     <string name="legacy_ui_4b311ebf43f385" formatted="false">rotational</string>
 
@@ -1711,27 +1708,27 @@
     <string name="legacy_ui_da1aa27b20b28d" formatted="false">adreno_tz_target_load</string>
     <string name="legacy_ui_fcb60e92c1ce87" formatted="false">adrenoboost_level</string>
     <string name="legacy_ui_0bf404069fa005" formatted="false">always_on</string>
-    <string name="legacy_ui_c0905088ba5b80" formatted="false">balanced</string>
-    <string name="legacy_ui_f3d1701e1d575e" formatted="false">battery</string>
+    <string name="legacy_ui_c0905088ba5b80" formatted="false">Seimbang</string>
+    <string name="legacy_ui_f3d1701e1d575e" formatted="false">Baterai</string>
     <string name="legacy_ui_368930a6d0de29" formatted="false">coarse_demand</string>
-    <string name="legacy_ui_c34045c1a1db8d" formatted="false">cool</string>
-    <string name="legacy_ui_6cdfd271da635d" formatted="false">custom</string>
+    <string name="legacy_ui_c34045c1a1db8d" formatted="false">Sejuk</string>
+    <string name="legacy_ui_6cdfd271da635d" formatted="false">Kustom</string>
     <string name="legacy_ui_c0a5719f723b15" formatted="false">devfreq_polling_interval</string>
-    <string name="legacy_ui_60df88c25ded6c" formatted="false">esports</string>
-    <string name="legacy_ui_3393b41eeeea1c" formatted="false">extreme</string>
-    <string name="legacy_ui_8517b64a7dfada" formatted="false">gaming</string>
-    <string name="legacy_ui_91e235e3f81688" formatted="false">hyper</string>
+    <string name="legacy_ui_60df88c25ded6c" formatted="false">Esports</string>
+    <string name="legacy_ui_3393b41eeeea1c" formatted="false">Ekstrem</string>
+    <string name="legacy_ui_8517b64a7dfada" formatted="false">Gaming</string>
+    <string name="legacy_ui_91e235e3f81688" formatted="false">Hiper</string>
     <string name="legacy_ui_2522fe99ddf415" formatted="false">mali_dvfs_period</string>
     <string name="legacy_ui_5ec6f445160db2" formatted="false">mali_power_policy</string>
     <string name="legacy_ui_6f5b691dda70b8" formatted="false">mtk_dvfs_margin</string>
     <string name="legacy_ui_75e0b514ceedd9" formatted="false">mtk_ged_boost_level</string>
-    <string name="legacy_ui_a08373a55b1528" formatted="false">park_big</string>
-    <string name="legacy_ui_4a1898716ef677" formatted="false">performance</string>
-    <string name="legacy_ui_f0008346e16501" formatted="false">powersave</string>
+    <string name="legacy_ui_a08373a55b1528" formatted="false">Nonaktifkan Core Besar</string>
+    <string name="legacy_ui_4a1898716ef677" formatted="false">Performa</string>
+    <string name="legacy_ui_f0008346e16501" formatted="false">Hemat Daya</string>
     <string name="legacy_ui_93df7d4ab97de0" formatted="false">schedutil</string>
-    <string name="legacy_ui_fe6d3468cf5c74" formatted="false">standard</string>
-    <string name="legacy_ui_8d609ae01ba8ba" formatted="false">unpark_all</string>
-    <string name="legacy_ui_8df9858c458dd6" formatted="false">○ STANDBY</string>
+    <string name="legacy_ui_fe6d3468cf5c74" formatted="false">Standar</string>
+    <string name="legacy_ui_8d609ae01ba8ba" formatted="false">Semua Core Aktif</string>
+    <string name="legacy_ui_8df9858c458dd6" formatted="false">○ SIAGA</string>
     <string name="legacy_ui_fc3afee34a0eb4" formatted="false">⚡ BYPASS</string>
     <string name="legacy_ui_e25f8377656911" formatted="false">⚡ COOL</string>
     <string name="legacy_ui_f0020d0833dc7b" formatted="false">⚡ CUSTOM</string>
@@ -1759,4 +1756,129 @@
     <string name="dynamic_cpu_cluster_revision" formatted="false">Kluster %1$s · %2$s</string>
     <string name="dynamic_cpu_cluster_detail" formatted="false">Kluster %1$s (%2$s)</string>
     <string name="dynamic_cpu_core_opp_governor" formatted="false">Core %1$s · %2$s · %3$s Level OPP · Gov: %4$s</string>
+
+    <string name="legacy_ui_a4aac763813ac0" formatted="false"> Instan</string>
+    <string name="legacy_ui_ddaf2aef2cad78" formatted="false">AKTIF (LMh / SPM Protected)</string>
+    <string name="legacy_ui_778678cb086478" formatted="false">AKTIF (Maks 45°C Cutoff)</string>
+    <string name="legacy_ui_9ae25601f3a86a" formatted="false">AKTIF (OEM Daemon)</string>
+    <string name="legacy_ui_2241f7f5c9cf5f" formatted="false">Agresivitas eskalasi frekuensi silikon &amp; sched_load_boost per-kluster</string>
+    <string name="legacy_ui_d5f884547452e6" formatted="false">Aktif</string>
+    <string name="legacy_ui_b2111eba0a8f6b" formatted="false">Bandwidth CPU-LLCC-DDR (bw_hwmon), L3 Latency &amp; UFS Controller</string>
+    <string name="legacy_ui_34afef20310b39" formatted="false">Bersih</string>
+    <string name="legacy_ui_8c26129659de3a" formatted="false">Bersihkan RAM</string>
+    <string name="legacy_ui_2dcfcad05e77c9" formatted="false">DRIVER: BOEFFLA</string>
+    <string name="legacy_ui_42519bbc148eba" formatted="false">DRIVER: TIDAK DIDUKUNG</string>
+    <string name="legacy_ui_f7d10738722e3d" formatted="false">Clock Dinamis</string>
+    <string name="legacy_ui_e1b08b6ced435d" formatted="false">Engine Kalibrasi Aktif</string>
+    <string name="legacy_ui_3f83929f0f4cf5" formatted="false">GPU Siap Tuning</string>
+    <string name="legacy_ui_f61b206ce78afa" formatted="false">PENJAGA</string>
+    <string name="legacy_ui_ed547a602f805e" formatted="false">HUD Mengambang Aktif</string>
+    <string name="legacy_ui_970182f45e0740" formatted="false">HUD Nonaktif</string>
+    <string name="legacy_ui_1b526af5052f5b" formatted="false">HUD dalam status nonaktif.</string>
+    <string name="legacy_ui_3af0ec8369cd20" formatted="false">HUD sedang berjalan di layar.</string>
+    <string name="legacy_ui_b54b2a7c4bbcee" formatted="false">Hardware engine &amp; verifikasi pengembang</string>
+    <string name="legacy_ui_6a9efcbfb4633b" formatted="false">Hentikan Proses</string>
+    <string name="legacy_ui_57ca0f9cdfa9a0" formatted="false">Hentikan Sesi &amp; Analisis Frame</string>
+    <string name="legacy_ui_1c39ad4b2cb23b" formatted="false">Kalibrasi Layar Nonaktif</string>
+    <string name="legacy_ui_55504d78a4b09f" formatted="false">Ketuk sakelar untuk memunculkan OSD di game</string>
+    <string name="legacy_ui_88589a6693a677" formatted="false">Konfirmasi Hentikan</string>
+    <string name="legacy_ui_ad80adf2eab5da" formatted="false">Kurva voltase &amp; agresivitas tabel frekuensi hardware (/proc/cpufreq &amp; perf)</string>
+    <string name="legacy_ui_b0657ddec2450d" formatted="false">Lynx Override Aktif</string>
+    <string name="legacy_ui_967756c668861d" formatted="false">Dikelola Sistem (OEM)</string>
+    <string name="legacy_ui_0f06c34fcd30bc" formatted="false">Matriks warna aktif diterapkan ke SurfaceFlinger &amp; sistem.</string>
+    <string name="legacy_ui_c2bd5bf6f5a40a" formatted="false">Memindai Sysfs...</string>
+    <string name="legacy_ui_a18367b35feac8" formatted="false">Memulihkan...</string>
+    <string name="legacy_ui_2161c0249964a7" formatted="false">Menampilkan FPS, Frame Time, GPU Load, &amp; Suhu di layar</string>
+    <string name="legacy_ui_dc0f063ef3d677" formatted="false">Mode Auto Dinamis: Panel menyesuaikan clock instan saat layar disentuh</string>
+    <string name="legacy_ui_44d3300595a1cc" formatted="false">Mode Permissive aktif (Debugging / Modifikasi)</string>
+    <string name="legacy_ui_1a0632749856c2" formatted="false">Mulai Benchmark 60s</string>
+    <string name="legacy_ui_b41438ef53d60e" formatted="false">Mulai Perekaman Sesi Baru</string>
+    <string name="legacy_ui_4d355164d3a520" formatted="false">NONAKTIF</string>
+    <string name="legacy_ui_ed863c543e6537" formatted="false">NONAKTIF (By-passed)</string>
+    <string name="legacy_ui_38cca6bea010af" formatted="false">MATI</string>
+    <string name="legacy_ui_ca7981b46ecf2c" formatted="false">Mati</string>
+    <string name="legacy_ui_fb44ed10ab5c5e" formatted="false">PENTING</string>
+    <string name="legacy_ui_c73246bc70082f" formatted="false">Panel dikunci tetap pada frekuensi stabil</string>
+    <string name="legacy_ui_f491971c2db46b" formatted="false">Parameter disesuaikan manual</string>
+    <string name="legacy_ui_62fa5a5b0d3c31" formatted="false">Path</string>
+    <string name="legacy_ui_929b004146c462" formatted="false">Perlindungan keamanan kernel aktif (Enforcing)</string>
+    <string name="legacy_ui_9d370e0f8a4a12" formatted="false">Pilih Frekuensi Maksimum GPU</string>
+    <string name="legacy_ui_83b1a3b54a1032" formatted="false">Pilih Frekuensi Minimum GPU</string>
+    <string name="legacy_ui_aa8e4c36b3e063" formatted="false">Pita memori DRAM (DVFSRC &amp; CM_MGR) serta interkoneksi L3 Cache CCI</string>
+    <string name="legacy_ui_f5c3ad15db8b50" formatted="false">Profil Kernel</string>
+    <string name="legacy_ui_648a151114ae51" formatted="false">Profil OEM D65 aktif. Seluruh slider terkunci rapat dari sentuhan tidak sengaja.</string>
+    <string name="legacy_ui_573b42062455d6" formatted="false">HANYA BACA</string>
+    <string name="legacy_ui_2bb155b73540e0" formatted="false">SEDANG MEREKAM SESI AKTIF</string>
+    <string name="legacy_ui_355f28e417b1ef" formatted="false">STATUS DAYA &amp; BATERAI</string>
+    <string name="legacy_ui_7a931e4ad48d86" formatted="false">DIDUKUNG</string>
+    <string name="legacy_ui_3e0ff75a3f7e51" formatted="false">Selaras dengan Tab Performa</string>
+    <string name="legacy_ui_2f1e6b5a95b99f" formatted="false">Seluruh frame dikomposisikan langsung oleh Hardware Composer tanpa membebani GPU.</string>
+    <string name="legacy_ui_fc8032bd02d1d7" formatted="false">Sembunyikan Daftar Node Fisik</string>
+    <string name="legacy_ui_6364003202aa82" formatted="false">Sentuh sakelar untuk mematikan</string>
+    <string name="legacy_ui_1fcc4980bc3cf8" formatted="false">Sentuh sakelar untuk mengaktifkan</string>
+    <string name="legacy_ui_aa6e4164a56077" formatted="false">Status: Aktif (1)</string>
+    <string name="legacy_ui_4a6366afb63fdb" formatted="false">Status: Nonaktif (0)</string>
+    <string name="legacy_ui_1a4b246df45dd3" formatted="false">Status: Standby (Siap Merekam)</string>
+    <string name="legacy_ui_5c3121514df7cf" formatted="false">TERBATAS</string>
+    <string name="legacy_ui_bfc472f52dea2d" formatted="false">TERKUNCI</string>
+    <string name="legacy_ui_b7a1382f0204d9" formatted="false">THROTTLE</string>
+    <string name="legacy_ui_fc0233a0b8e606" formatted="false">TAMPILAN PENGISIAN TURBO</string>
+    <string name="legacy_ui_1bbc34daebff3d" formatted="false">Tersambung</string>
+    <string name="legacy_ui_951940ab58cbb3" formatted="false">Tutup pengaturan terperinci</string>
+    <string name="legacy_ui_92ddfa99499da7" formatted="false">Tutup tabel MHz</string>
+    <string name="legacy_ui_eb0be6d636d527" formatted="false">TIDAK TERSEDIA</string>
+    <string name="legacy_ui_218d6b1063182b" formatted="false">Tanpa Teks Hardcode</string>
+
+    <string name="dynamic_hud_benchmark_countdown" formatted="false">Benchmark berjalan... %1$s dtk</string>
+    <string name="dynamic_gpu_client_composition" formatted="false">Sebagian buffer dikomposisikan melalui GPU Client Fallback (%1$s).</string>
+    <string name="dynamic_physical_driver_node_list" formatted="false">Daftar Node Fisik Driver (%1$s Node)</string>
+
+    <string name="legacy_ui_6924a97e4dae7f" formatted="false">Cegah pemangkasan clock mendadak akibat arus puncak (DLPT, CFP, Imax &amp; Low-Batt)</string>
+    <string name="legacy_ui_f0cc15ce5174c8" formatted="false">Daya Masuk</string>
+    <string name="legacy_ui_a4d7048419a2ec" formatted="false">Izinkan MSM Thermal &amp; Core Control memangkas clock saat suhu tinggi</string>
+    <string name="legacy_ui_b2a5e0ad276053" formatted="false">Izinkan PPM, EARA Thermal &amp; FPSGO memangkas clock saat suhu tinggi</string>
+    <string name="legacy_ui_127e180b453571" formatted="false">Konsumsi</string>
+    <string name="legacy_ui_45e3873d67a4a3" formatted="false">Kunci plafon msm_performance (cpu_max_freq) &amp; tahan core_ctl kluster Big</string>
+    <string name="legacy_ui_6d4a7f282bec8f" formatted="false">Lonjakan frekuensi CPU seketika saat jari menyentuh panel layar (Input Boost)</string>
+    <string name="legacy_ui_2455a5471a79ef" formatted="false">Lonjakan instan frekuensi CPU &amp; sensitivitas panel saat jari menyentuh layar</string>
+    <string name="legacy_ui_02947bdf68ac6c" formatted="false">Lynx mengambil alih kontrol penjadwalan CPU, daya, dan performa dari OEM</string>
+    <string name="legacy_ui_ad3e48a261ce0b" formatted="false">Menggabungkan perlindungan plafon frekuensi silikon secara menyeluruh: menonaktifkan Dynamic Low Power Throttling (PPM_POLICY_DLPT [2]), Power Throttling baterai lemah (PPM_POLICY_PWR_THRO [3]), Force Limit [5], CPU Ceiling Frequency Protection (/proc/perfmgr/boost_ctrl/cpu_ctrl/cfp_enable), Syslimiter, dan pembatas arus puncak Imax, sekaligus mengaktifkan SYS_BOOST [9].</string>
+    <string name="legacy_ui_ab46a155f58d1c" formatted="false">Mengontrol integrasi sensor suhu terhadap tabel frekuensi di tiga titik kernel sekaligus: PPM_POLICY_THERMAL [4], EARA Thermal AI (/sys/kernel/eara_thermal/enable), serta batas suhu CPU pada FPSGO (/sys/kernel/fpsgo/fbt/thrm_limit_cpu).</string>
+    <string name="legacy_ui_03686dcc0eb5b2" formatted="false">Mengontrol modul pembatas suhu kernel Qualcomm secara langsung (/sys/module/msm_thermal/parameters/enabled [Y/N], /sys/module/msm_thermal/core_control/enabled [1/0], dan /sys/module/msm_thermal/vdd_restriction/enabled).</string>
+    <string name="legacy_ui_3c9b651276a4d3" formatted="false">Mengunci batas plafon atas di /sys/module/msm_performance/parameters/cpu_max_freq ke frekuensi perangkat keras tertinggi pada seluruh core (0-7), sekaligus menahan seluruh core kluster Big tetap aktif melalui core_ctl (min_cpus = max_cpus, offline_delay_ms = 500, busy_up_thres = 0).</string>
+    <string name="legacy_ui_68a61f1e3bbbbb" formatted="false">Sistem Android/OEM sepenuhnya mengontrol penjadwalan &amp; daya</string>
+
+    <string name="dynamic_process_thread_count" formatted="false">%1$s thread</string>
+    <string name="dynamic_process_cpu_affinity" formatted="false">Inti %1$s</string>
+    <string name="dynamic_process_nice_priority" formatted="false">%1$s (%2$s)</string>
+
+    <string name="dynamic_thermal_zone_label" formatted="false">Zona %1$s</string>
+    <string name="dynamic_hud_stability_percentile" formatted="false">Stabilitas %1$s% • 1%L %2$s</string>
+    <string name="dynamic_wakelock_prevent_suspend" formatted="false">%1$s ms mencegah tidur</string>
+    <string name="dynamic_resolution_pixels" formatted="false">%1$s piksel</string>
+    <string name="dynamic_gpu_hal_architecture" formatted="false">HAL: %1$s</string>
+    <string name="dynamic_gpu_thermal_throttling_warning" formatted="false">Throttling Termal: %1$s</string>
+    <string name="dynamic_color_saturation" formatted="false">Saturasi: %1$s</string>
+    <string name="dynamic_kcal_saturation" formatted="false">Saturasi KCAL: %1$s</string>
+
+    <string name="dynamic_benchmark_frametime_distribution" formatted="false">DISTRIBUSI FRAMETIME (%1$s FRAME)</string>
+    <string name="dynamic_active_kernel_features" formatted="false">Fitur Kernel Aktif: %1$s</string>
+    <string name="dynamic_available_gpu_opp_steps" formatted="false">Tersedia %1$s step frekuensi clock OPP</string>
+    <string name="dynamic_edit_tunable_title" formatted="false">Edit Tunable: %1$s</string>
+    <string name="dynamic_cpu_core_status_count" formatted="false">STATUS INTI CPU (%1$s CORE)</string>
+    <string name="dynamic_frequency_step_table_count" formatted="false">TABEL LENGKAP STEPPING FREKUENSI (%1$s OPP)</string>
+    <string name="dynamic_physical_gpu_driver" formatted="false">Driver Fisik • %1$s</string>
+    <string name="dynamic_gpu_session_condition" formatted="false">Kondisi: %1$s MHz • %2$s% Beban • %3$s</string>
+    <string name="dynamic_load_more_tunables" formatted="false">Muat Lebih Banyak (%1$s tersisa)</string>
+    <string name="floating_hud_action_close">Tutup HUD</string>
+    <string name="transient_feedback_channel_name">Umpan Balik Profil Lynx</string>
+    <string name="transient_feedback_notification_text">Notifikasi umpan balik profil</string>
+    <string name="shader_cache_title">Cache shader yang terdeteksi</string>
+    <string name="shader_cache_not_detected">Tidak terdeteksi pada lokasi pemindaian terbatas</string>
+    <string name="shader_cache_refresh">Periksa cache</string>
+    <string name="shader_cache_guidance">Kompilasi shader dikendalikan game dan driver GPU. Selesaikan proses di dalam game dan pertahankan cache agar dapat digunakan kembali. Pemindaian ini hanya mencakup sebagian lokasi cache; hasil kosong bukan berarti game tidak memiliki cache. Pemeriksaan tidak mengompilasi atau menghapus shader.</string>
+    <plurals name="shader_cache_inventory">
+        <item quantity="one">%1$.1f MiB terdeteksi (%2$d lokasi cache)</item>
+        <item quantity="other">%1$.1f MiB terdeteksi (%2$d lokasi cache)</item>
+    </plurals>
 </resources>

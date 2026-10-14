@@ -275,7 +275,7 @@ fun KernelSchedulerCard(
                         .height(4.dp)
                         .clip(RoundedCornerShape(2.dp))
                 ) {
-                    // Segment 1: Hemat Daya (0-15%)
+                    // Segment 1: Power saving (0-15%).
                     Box(
                         modifier = Modifier
                             .weight(15f)
@@ -283,7 +283,7 @@ fun KernelSchedulerCard(
                             .background(if (activeZoneIndex == 0) AccentGreen else AccentGreen.copy(alpha = 0.25f))
                     )
                     Spacer(Modifier.width(2.dp))
-                    // Segment 2: Seimbang (16-40%)
+                    // Segment 2: Balanced (16-40%).
                     Box(
                         modifier = Modifier
                             .weight(25f)
@@ -299,7 +299,7 @@ fun KernelSchedulerCard(
                             .background(if (activeZoneIndex == 2) AccentBlue else AccentBlue.copy(alpha = 0.25f))
                     )
                     Spacer(Modifier.width(2.dp))
-                    // Segment 4: Maksimal (76-100%)
+                    // Segment 4: Maximum (76-100%).
                     Box(
                         modifier = Modifier
                             .weight(25f)

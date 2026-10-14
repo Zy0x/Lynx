@@ -460,17 +460,55 @@ class LynxAppAutomationService : Service() {
                 updateNotification(formatModeTitle(target), "${matchingRule.appName}$hzInfo$tele", target)
             }
         } else {
-            // Not in rules: if we previously boosted an app, start cooldown buffer
-            if (activeCustomPkg != null) {
-                if (cooldownJob == null || !cooldownJob!!.isActive) {
-                    val isHome = isHomeLauncher(pkg)
-                    val cooldownMs = if (isHome) 3000L else 4000L // 3s for home screen exit, 4s for app switcher/temporary overlay
-                    cooldownJob = serviceScope.launch {
-                        delay(cooldownMs)
-                        val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
-                        Log.i(TAG, "Cooldown expired (${cooldownMs}ms), restoring baseline profile [$restoreTarget]")
+            // Not in rules: if we previously boosted an app, check if target app is still alive
+            val targetPkg = activeCustomPkg
+            if (targetPkg != null) {
+                val isAlive = isTargetAppAlive(targetPkg)
+                if (!isAlive) {
+                    // App is CLOSED / TERMINATED: IMMEDIATELY cancel cooldown and restore baseline!
+                    cooldownJob?.cancel()
+                    cooldownJob = null
+                    val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
+                    Log.i(TAG, "Target app [$targetPkg] closed: immediate restoration to baseline [$restoreTarget]")
 
-                        // Stop Floating HUD smoothly
+                    if (autoStartedHud) {
+                        try {
+                            val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
+                                action = LynxFloatingHudService.ACTION_STOP
+                            }
+                            startService(hudIntent)
+                            stopService(hudIntent)
+                        } catch (_: Exception) {}
+                        autoStartedHud = false
+                    }
+
+                    baselineRefreshRate?.let { hz ->
+                        LynxRepository.setDisplayRefreshRate(hz)
+                    }
+
+                    LynxRepository.setProfile(restoreTarget, caller = "watcher")
+                    activeCustomPkg = null
+                    val (pct, tempC) = getLiveBatteryTelemetry()
+                    val tele = formatTelemetry(pct, tempC)
+                    updateNotification(formatModeTitle(restoreTarget), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + tele, restoreTarget)
+                } else if (cooldownJob == null || !cooldownJob!!.isActive) {
+                    // Target app is still alive in memory: start cooldown buffer
+                    val cooldownMs = getBufferCooldownMs()
+                    cooldownJob = serviceScope.launch {
+                        var elapsed = 0L
+                        val step = 500L
+                        while (elapsed < cooldownMs) {
+                            delay(step)
+                            elapsed += step
+                            if (!isTargetAppAlive(targetPkg)) {
+                                Log.i(TAG, "Target app [$targetPkg] closed during buffer: terminating cooldown immediately!")
+                                break
+                            }
+                        }
+
+                        val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
+                        Log.i(TAG, "Cooldown expired/terminated (${elapsed}ms), restoring baseline profile [$restoreTarget]")
+
                         if (autoStartedHud) {
                             try {
                                 val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
@@ -482,14 +520,11 @@ class LynxAppAutomationService : Service() {
                             autoStartedHud = false
                         }
 
-                        // Restore baseline refresh rate
                         baselineRefreshRate?.let { hz ->
                             LynxRepository.setDisplayRefreshRate(hz)
                         }
 
-                        // Restore baseline performance profile
                         LynxRepository.setProfile(restoreTarget, caller = "watcher")
-
                         activeCustomPkg = null
                         val (pct, tempC) = getLiveBatteryTelemetry()
                         val tele = formatTelemetry(pct, tempC)
@@ -500,14 +535,75 @@ class LynxAppAutomationService : Service() {
         }
     }
 
-    private fun formatModeTitle(profile: String): String {
-        return when (profile.lowercase().trim()) {
-            "extreme" -> "Lynx • [EXTREME]"
-            "performance" -> "Lynx • [PERFORMANCE]"
-            "powersave" -> "Lynx • [POWERSAVE]"
-            "auto" -> "Lynx • [AUTO (AI)]"
-            else -> "Lynx • [BALANCE]"
+    private fun getBufferCooldownMs(): Long {
+        return try {
+            val file = java.io.File("/data/adb/lynx/cooldown_duration")
+            if (file.exists()) {
+                val secs = file.readText().trim().toLongOrNull() ?: 30L
+                if (secs == 0L) 86400000L else secs * 1000L
+            } else {
+                30000L
+            }
+        } catch (_: Exception) {
+            30000L
         }
+    }
+
+    private fun isTargetAppAlive(pkg: String): Boolean {
+        return try {
+            val procDir = java.io.File("/proc")
+            val pids = procDir.list { _, name -> name.all { it.isDigit() } } ?: return false
+            for (pid in pids) {
+                val cmdlineFile = java.io.File("/proc/$pid/cmdline")
+                if (cmdlineFile.exists()) {
+                    val bytes = try { cmdlineFile.readBytes() } catch (_: Exception) { ByteArray(0) }
+                    if (bytes.isNotEmpty()) {
+                        val cmdStr = String(bytes)
+                        val firstToken = cmdStr.split('\u0000').firstOrNull()?.trim() ?: ""
+                        if (firstToken == pkg || firstToken.startsWith("$pkg:")) {
+                            // Check if zombie
+                            val statFile = java.io.File("/proc/$pid/stat")
+                            if (statFile.exists()) {
+                                val statStr = statFile.readText()
+                                val rParen = statStr.lastIndexOf(')')
+                                if (rParen != -1 && rParen + 2 < statStr.length) {
+                                    val state = statStr.substring(rParen + 1).trimStart().firstOrNull()
+                                    if (state == 'Z') continue
+                                }
+                            }
+                            // Check oom_score_adj < 900
+                            val oomFile = java.io.File("/proc/$pid/oom_score_adj")
+                            if (oomFile.exists()) {
+                                val oomVal = oomFile.readText().trim().toIntOrNull() ?: 0
+                                if (oomVal >= 900) {
+                                    continue
+                                }
+                            }
+                            return true
+                        }
+                    }
+                }
+            }
+            false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun formatModeTitle(profile: String): String {
+        val profileNameRes = when (profile.lowercase().trim()) {
+            "extreme" -> R.string.profile_name_extreme
+            "performance" -> R.string.profile_name_performance
+            "powersave" -> R.string.profile_name_powersave
+            "auto" -> R.string.profile_name_auto
+            else -> R.string.profile_name_balance
+        }
+        val profileName = AppLocale.getString(this@LynxAppAutomationService, profileNameRes)
+        return AppLocale.getString(
+            this@LynxAppAutomationService,
+            R.string.automation_notification_title,
+            profileName
+        )
     }
 
     private fun getModeIconRes(profile: String): Int {

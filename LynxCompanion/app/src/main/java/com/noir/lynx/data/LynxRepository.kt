@@ -353,8 +353,6 @@ object LynxRepository {
     suspend fun listLabSessions(context: android.content.Context): List<com.noir.lynx.lab.FrameSessionReport> = LynxDisplayRepository.listLabSessions(context)
     suspend fun exportLabSession(context: android.content.Context, report: com.noir.lynx.lab.FrameSessionReport): String? = LynxDisplayRepository.exportLabSession(context, report)
     suspend fun readGraphicsHwuiInfo(): GraphicsHwuiInfo = LynxGraphicsEngineRepository.readGraphicsHwuiInfo()
-    suspend fun clearShaderCache(): Boolean = LynxGraphicsEngineRepository.clearShaderCache()
-    suspend fun prewarmShaderCache(): Boolean = LynxGraphicsEngineRepository.prewarmShaderCache()
     suspend fun setSurfaceFlingerEarlyPhase(enabled: Boolean): Boolean = LynxGraphicsEngineRepository.setSurfaceFlingerEarlyPhase(enabled)
     suspend fun setUpdatableGameDriver(mode: String): Boolean = LynxGraphicsEngineRepository.setUpdatableGameDriver(mode)
     suspend fun setHwuiRenderer(backend: String): Boolean = LynxGraphicsEngineRepository.setHwuiRenderer(backend)

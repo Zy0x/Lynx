@@ -11,7 +11,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.core.locale.localizedUiText
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -19,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.*
+import com.noir.lynx.R
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
@@ -142,7 +145,7 @@ fun CustomScriptManagerCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(localizedUiText(item.name), color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 if (item.runOnBoot) {
                                     Text("Run on boot", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                                 }
@@ -157,7 +160,7 @@ fun CustomScriptManagerCard(
                             }
                         }
 
-                        if (item.lastOutput.isNotBlank()) {
+                        if (item.lastOutput.isNotBlank() || item.lastErrorOutput.isNotBlank() || item.lastRunFailure.isNotBlank() || item.lastDurationMs > 0L) {
                             Spacer(Modifier.height(6.dp))
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
@@ -165,13 +168,55 @@ fun CustomScriptManagerCard(
                                 border = BorderStroke(1.dp, BorderSubtle),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(
-                                    text = item.lastOutput,
-                                    color = if (item.lastExitCode == 0) AccentCyan else AccentOrange,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 10.sp,
-                                    modifier = Modifier.padding(8.dp)
-                                )
+                                Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    if (item.lastOutput.isNotBlank()) {
+                                        Text(
+                                            text = item.lastOutput,
+                                            color = if (item.lastExitCode == 0) AccentCyan else AccentOrange,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                    if (item.lastErrorOutput.isNotBlank()) {
+                                        Text(
+                                            text = stringResource(R.string.script_output_stderr_label),
+                                            color = AccentOrange,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp
+                                        )
+                                        Text(
+                                            text = item.lastErrorOutput,
+                                            color = AccentOrange,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                    if (item.lastRunFailure.isNotBlank()) {
+                                        Text(
+                                            text = stringResource(R.string.script_execution_failed),
+                                            color = AccentOrange,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp
+                                        )
+                                        Text(
+                                            text = item.lastRunFailure,
+                                            color = AccentOrange,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                    if (item.lastDurationMs > 0L && item.lastExitCode != null) {
+                                        Text(
+                                            text = stringResource(
+                                                R.string.script_output_summary,
+                                                item.lastDurationMs,
+                                                item.lastExitCode
+                                            ),
+                                            color = TextSecondary,
+                                            fontSize = 9.sp
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

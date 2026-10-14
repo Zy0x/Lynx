@@ -469,6 +469,9 @@ fun MemorySubscreen(
             }
         )
 
+        // ── MountX & MicroSD Ultra Storage Engine Card ───────────
+        MountXStorageCard(uiState = uiState, viewModel = viewModel)
+
         // ── I/O Scheduler Card ───────────────────────────────────
         if (uiState.ioDevices.isNotEmpty()) {
             LynxCard(

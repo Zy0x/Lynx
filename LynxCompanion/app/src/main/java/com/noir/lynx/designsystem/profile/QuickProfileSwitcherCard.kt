@@ -136,7 +136,7 @@ fun QuickProfileSwitcherCard(
                     ) {
                         Icon(
                             imageVector = item.icon,
-                            contentDescription = item.label,
+                            contentDescription = localizedUiText(item.label),
                             tint = if (isSelected) item.accentColor else TextSecondary,
                             modifier = Modifier.size(16.dp)
                         )

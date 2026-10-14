@@ -35,15 +35,18 @@ impl DaemonRunner {
             .map(|a| a.active_profile)
             .unwrap_or_else(|| "balance".to_string());
 
-        let mut decision_engine = DecisionEngine::new(&initial_profile, 5);
+        let initial_cooldown = Self::read_cooldown_duration();
+        let mut decision_engine = DecisionEngine::new(&initial_profile, initial_cooldown);
+        let dur_label = if initial_cooldown == 0 { "Persistent (RAM)" } else { "dynamic" };
         Logger::info(if is_english() {
-            format!("[DAEMON] Initialized DecisionEngine with baseline profile: '{}' (Exit Hysteresis: 5s)", initial_profile)
+            format!("[DAEMON] Initialized DecisionEngine with baseline profile: '{}' (Exit Hysteresis: {}s [{}])", initial_profile, initial_cooldown, dur_label)
         } else {
-            format!("[DAEMON] Mesin keputusan diinisialisasi dengan profil dasar: '{}' (Histeresis keluar: 5 dtk)", initial_profile)
+            format!("[DAEMON] Mesin keputusan diinisialisasi dengan profil dasar: '{}' (Histeresis keluar: {} dtk [{}])", initial_profile, initial_cooldown, dur_label)
         });
 
         let monotonic_boot = std::time::Instant::now();
         let mut last_detect_instant = std::time::Instant::now();
+        let mut last_cooldown_check = 0u64;
         let mut last_maintenance_ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -54,6 +57,17 @@ impl DaemonRunner {
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs();
+
+            // Dynamic cooldown duration reload from Companion App / WebUI config
+            if now.saturating_sub(last_cooldown_check) >= 2 {
+                let target_cooldown = Self::read_cooldown_duration();
+                if target_cooldown != decision_engine.cooldown_duration() {
+                    decision_engine.set_cooldown_duration(target_cooldown);
+                    let label = if target_cooldown == 0 { "Persistent (RAM)".to_string() } else { format!("{}s", target_cooldown) };
+                    Logger::info(format!("[DAEMON] Durasi histeresis keluar diperbarui: {}", label));
+                }
+                last_cooldown_check = now;
+            }
 
             let current_screen = screen.detect();
 
@@ -124,6 +138,7 @@ impl DaemonRunner {
                                 } else {
                                     crate::subsystems::GameController::game_off();
                                 }
+                                Self::notify_profile_transition(target_profile, &reason);
                             }
                             Err(e) => {
                                 Logger::error(if is_english() { format!("[DAEMON] Failed to apply profile '{}': {}", target_profile, e) } else { format!("[DAEMON] Gagal menerapkan profil '{}': {}", target_profile, e) });
@@ -227,32 +242,74 @@ impl DaemonRunner {
             );
             Self::write_telemetry_snapshot(&unified_json);
 
-            // Adaptive sleep interval based on Screen State
-            let sleep_duration = match current_screen {
-                ScreenState::Off => Duration::from_secs(20), // Deep Sleep Shield: 20 seconds
-                _ => Duration::from_secs(5),                // Active screen: 5 seconds
+            // Dynamic Polling Interval per PROJECT.md interface contract:
+            // - If ChargingRegulator::is_hardware_plugged() is true: loop interval <= 1 second (regardless of screen state).
+            // - If unplugged and screen off: loop interval 20 seconds.
+            // - Disconnect latency guarantee: <= 1000 ms (strictly < 2 seconds).
+            let is_plugged = ChargingRegulator::is_hardware_plugged();
+            let sleep_duration = if is_plugged {
+                Duration::from_secs(1)
+            } else {
+                match current_screen {
+                    ScreenState::Off => Duration::from_secs(20), // Deep Sleep Shield: 20 seconds
+                    _ => Duration::from_secs(5),                // Active screen: 5 seconds
+                }
             };
 
-            // Sleep in small 500ms chunks to respond immediately to SIGTERM/SIGINT and cable disconnect
-            let chunks = (sleep_duration.as_millis() / 500) as usize;
-            for idx in 0..chunks {
-                if !DaemonLifecycle::is_running() {
-                    break;
-                }
-                if !ChargingRegulator::is_hardware_plugged() {
-                    if std::path::Path::new("/dev/lynx_extreme_charging").exists()
-                        || std::path::Path::new("/dev/lynx_bypass_active").exists()
-                        || std::path::Path::new("/dev/lynx_charging_guard").exists()
-                    {
-                        ChargingRegulator::handle_disconnect();
+            // Dynamic sleep chunking:
+            // - While plugged in: 500ms chunks for sub-500ms disconnect detection.
+            // - While unplugged & screen off: undisturbed deep sleep without sysfs polling wakeups.
+            // - While unplugged & screen active: 1s chunks to detect plug-in promptly.
+            if is_plugged {
+                let chunks = (sleep_duration.as_millis() / 500) as usize;
+                for idx in 0..chunks {
+                    if !DaemonLifecycle::is_running() {
+                        break;
                     }
-                } else if idx > 0 && idx % 6 == 0 {
-                    ChargingRegulator::tick();
+                    let currently_plugged = ChargingRegulator::is_hardware_plugged();
+                    if currently_plugged != is_plugged {
+                        // Edge trigger: hardware plug state changed! Break sleep loop immediately
+                        if !currently_plugged {
+                            ChargingRegulator::handle_disconnect();
+                        }
+                        break;
+                    }
+
+                    if !currently_plugged {
+                        ChargingRegulator::handle_disconnect();
+                        break;
+                    } else if idx > 0 && idx % 2 == 0 {
+                        ChargingRegulator::tick();
+                    }
+                    if idx > 0 && idx % 2 == 0 {
+                        crate::subsystems::AdbController::tick();
+                    }
+                    sleep(Duration::from_millis(500));
                 }
-                if idx > 0 && idx % 2 == 0 {
-                    crate::subsystems::AdbController::tick();
+            } else if current_screen == ScreenState::Off {
+                // Deep Sleep Shield: When unplugged and screen is off, preserve undisturbed deep sleep.
+                // Do NOT poll sysfs every 500ms. Sleep in 5s increments checking only DaemonLifecycle.
+                let chunks = (sleep_duration.as_secs() / 5).max(1);
+                for _ in 0..chunks {
+                    if !DaemonLifecycle::is_running() {
+                        break;
+                    }
+                    sleep(Duration::from_secs(5));
                 }
-                sleep(Duration::from_millis(500));
+            } else {
+                // Active screen (unplugged): normal 5s sleep in 1s chunks checking lifecycle and charger plug-in
+                let chunks = sleep_duration.as_secs().max(1);
+                for _ in 0..chunks {
+                    if !DaemonLifecycle::is_running() {
+                        break;
+                    }
+                    let currently_plugged = ChargingRegulator::is_hardware_plugged();
+                    if currently_plugged {
+                        // Cable plugged in while screen is active: break sleep loop immediately
+                        break;
+                    }
+                    sleep(Duration::from_secs(1));
+                }
             }
         }
 
@@ -326,6 +383,89 @@ impl DaemonRunner {
         );
 
         let _ = std::fs::write(Self::status_snapshot_path(), content);
+    }
+
+    fn notify_profile_transition(profile: &str, reason: &str) {
+        #[cfg(target_os = "android")]
+        {
+            let feedback_style = std::fs::read_to_string("/data/adb/lynx/feedback_style")
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+
+            if feedback_style == "disabled" {
+                return;
+            }
+
+            let (emoji, mode_label) = match profile {
+                "extreme" => ("🔥", "EXTREME"),
+                "performance" => ("⚡", "PERFORMANCE"),
+                "powersave" => ("🍃", "POWERSAVE"),
+                _ => ("⚖️", "BALANCE"),
+            };
+            let short_reason = if reason.len() > 60 {
+                &reason[..60]
+            } else {
+                reason
+            };
+            let notif_text = format!("{} [{}] Mode Aktif • {}", emoji, mode_label, short_reason);
+
+            // 1. Post native Android System Notification (100% independent of companion APK)
+            let _ = std::process::Command::new("/system/bin/cmd")
+                .args(&[
+                    "notification",
+                    "post",
+                    "-t",
+                    "Lynx Universal",
+                    "lynx_mode",
+                    &notif_text,
+                ])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+
+            // 2. Broadcast intent for Lynx Companion APK (unless status_bar only)
+            if feedback_style != "status_bar" {
+                let _ = std::process::Command::new("/system/bin/am")
+                    .args(&[
+                        "broadcast",
+                        "-a",
+                        "com.noir.lynx.PROFILE_CHANGED",
+                        "-n",
+                        "com.noir.lynx/.receiver.LynxProfileReceiver",
+                        "-f",
+                        "0x10000000",
+                        "--include-stopped-packages",
+                        "-e",
+                        "profile",
+                        profile,
+                        "-e",
+                        "reason",
+                        short_reason,
+                    ])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status();
+            }
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            let _ = (profile, reason);
+        }
+    }
+
+    pub fn read_cooldown_duration() -> u64 {
+        for path in &[
+            "/data/adb/lynx/cooldown_duration",
+            "/data/adb/modules/Lynx/cooldown_duration",
+        ] {
+            if let Ok(s) = std::fs::read_to_string(path) {
+                if let Ok(val) = s.trim().parse::<u64>() {
+                    return val;
+                }
+            }
+        }
+        30 // Default 30s
     }
 }
 

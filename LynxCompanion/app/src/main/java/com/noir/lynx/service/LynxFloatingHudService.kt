@@ -400,7 +400,11 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 .setContentText(AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_notification_tap_close))
                 .setSmallIcon(android.R.drawable.ic_menu_compass)
                 .setContentIntent(pOpenIntent)
-                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Tutup HUD", pStopIntent)
+                .addAction(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_action_close),
+                    pStopIntent
+                )
                 .setOngoing(true)
                 .build()
         } else {

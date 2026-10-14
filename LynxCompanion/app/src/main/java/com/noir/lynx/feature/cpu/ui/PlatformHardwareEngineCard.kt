@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.noir.lynx.R
 import com.noir.lynx.data.*
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
@@ -94,7 +95,7 @@ fun PlatformHardwareEngineCard(
         modifier = modifier
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // 1. Selector 1: Mode Daya Silikon (Hardware DVFS Curve)
+            // 1. Selector 1: Silicon Power Mode (Hardware DVFS Curve)
             if (isMtk || isQcom) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
@@ -142,7 +143,7 @@ fun PlatformHardwareEngineCard(
                                 .padding(3.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            powerModes.forEach { (modeVal, modeLabel, activeColor) ->
+                            for ((modeVal, modeLabel, activeColor) in powerModes) {
                                 val isSelected = schedInfo.mtkCpuPowerMode == modeVal
                                 Box(
                                     modifier = Modifier
@@ -171,7 +172,7 @@ fun PlatformHardwareEngineCard(
                 }
             }
 
-            // 2. Selector 2: Frekuensi Bus Memori & Interkoneksi (CCI + DVFSRC DRAM / Qcom Devfreq)
+            // 2. Selector 2: Memory Bus and Interconnect Frequency (CCI + DVFSRC DRAM / Qcom Devfreq)
             if (isMtk || isQcom) {
                 val activeBusProfile = schedInfo.busBandwidthProfile.lowercase().let { p ->
                     when (p) {

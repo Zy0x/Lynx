@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.core.locale.localizedUiText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,7 +48,7 @@ internal fun BatteryHistoryTabSelector(selectedTab: Int, onSelectTab: (Int) -> U
                     .padding(3.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Segment 0: Grafik Waktu
+                // Segment 0: Timeline chart.
                 Surface(
                     onClick = { onSelectTab(0) },
                     shape = RoundedCornerShape(8.dp),
@@ -78,7 +79,7 @@ internal fun BatteryHistoryTabSelector(selectedTab: Int, onSelectTab: (Int) -> U
                     }
                 }
 
-                // Segment 1: Penggunaan Aplikasi
+                // Segment 1: App usage.
                 Surface(
                     onClick = { onSelectTab(1) },
                     shape = RoundedCornerShape(8.dp),
@@ -244,7 +245,7 @@ internal fun BatteryHistoryTimePanel(
 
                         Icon(
                             imageVector = if (isStepsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = if (isStepsExpanded) "Tutup" else "Buka",
+                            contentDescription = localizedUiText(if (isStepsExpanded) "Tutup" else "Buka"),
                             tint = if (isStepsExpanded) AccentCyan else TextSecondary,
                             modifier = Modifier.size(18.dp)
                         )
@@ -317,7 +318,7 @@ internal fun BatteryHistoryAppPanel(
     isAppsExpanded: Boolean,
     onToggleAppsExpanded: (Boolean) -> Unit
 ) {
-    // Segment 1: Penggunaan Aplikasi & Sistem (Minimalis & Elegan)
+    // Segment 1: App and system usage (minimal, elegant layout).
             val apps = stats.topDrainApps
             if (apps.isEmpty()) {
                 Surface(

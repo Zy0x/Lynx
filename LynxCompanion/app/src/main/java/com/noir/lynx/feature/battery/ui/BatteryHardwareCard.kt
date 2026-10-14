@@ -261,7 +261,7 @@ fun BatteryHardwareCard(
 
         Spacer(Modifier.height(8.dp))
 
-        // Button: Lihat Detail Lengkap Raw ADC
+        // Button: View complete raw ADC details.
         OutlinedButton(
             onClick = onOpenDetail,
             shape = RoundedCornerShape(10.dp),

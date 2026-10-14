@@ -112,7 +112,7 @@ fun CpuTabRow(
                     ) {
                         Icon(
                             imageVector = icon,
-                            contentDescription = title,
+                            contentDescription = localizedUiText(title),
                             tint = if (isSelected) tabAccent else TextSecondary,
                             modifier = Modifier.size(15.dp)
                         )

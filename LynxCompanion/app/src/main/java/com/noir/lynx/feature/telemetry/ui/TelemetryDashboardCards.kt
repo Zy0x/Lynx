@@ -306,7 +306,7 @@ fun TelemetryMemoryCard(
 
             Spacer(Modifier.width(8.dp))
 
-            // Tombol Pembersih RAM Ringkas & Presisi (Icon-Only)
+            // Compact and precise RAM cleanup button (icon only).
             Surface(
                 onClick = {
                     if (!isCleaning) {

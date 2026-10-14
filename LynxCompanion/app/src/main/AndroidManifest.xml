@@ -113,6 +113,15 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".service.LynxToastOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Transient mode transition overlay HUD" />
+        </service>
+
         <receiver
             android:name=".receiver.LynxBootReceiver"
             android:exported="true">
@@ -129,6 +138,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
                 <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".receiver.LynxProfileReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.noir.lynx.PROFILE_CHANGED" />
+                <action android:name="com.noir.lynx.SHOW_TOAST" />
             </intent-filter>
         </receiver>
 

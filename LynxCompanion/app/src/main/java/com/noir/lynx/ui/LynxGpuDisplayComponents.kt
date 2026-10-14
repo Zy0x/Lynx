@@ -117,7 +117,7 @@ fun GpuDisplayTabRow(
                     ) {
                         Icon(
                             imageVector = icon,
-                            contentDescription = title,
+                            contentDescription = localizedUiText(title),
                             tint = if (isSelected) tabAccent else TextSecondary,
                             modifier = Modifier.size(16.dp)
                         )

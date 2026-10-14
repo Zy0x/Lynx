@@ -24,6 +24,22 @@
         const source = normalize(value);
         const key = sourceToKey[source];
         if (key && catalogs[locale][key]) return catalogs[locale][key];
+        if (locale === 'en') {
+            for (const [template, templateKey] of Object.entries(sourceToKey)) {
+                const placeholders = [...template.matchAll(/\$([A-Za-z_][A-Za-z0-9_]*)/g)];
+                if (!placeholders.length) continue;
+                const escaped = template.split(/\$[A-Za-z_][A-Za-z0-9_]*/g)
+                    .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                    .join('(.+?)');
+                const match = source.match(new RegExp(`^${escaped}$`));
+                if (!match) continue;
+                let translated = catalogs.en[templateKey] || template;
+                placeholders.forEach((placeholder, index) => {
+                    translated = translated.replaceAll(placeholder[0], match[index + 1]);
+                });
+                return translated;
+            }
+        }
         const dynamic = [
             [/^Laporan berhasil dibuat: (.+)$/, 'Report created: $1'],
             [/^Export gagal: (.+)$/, 'Export failed: $1'],
@@ -76,6 +92,7 @@
             ,[/^PERINGATAN FLASHING KERNEL:\s+Apakah Anda yakin ingin mem-flash kernel dari:\s+(.+)\?\s+Boot image saat ini akan otomatis dicadangkan terlebih dahulu\.$/, 'KERNEL FLASH WARNING:\nAre you sure you want to flash the kernel from:\n$1?\n\nThe current boot image will be backed up first.']
             ,[/^PERINGATAN RESTORE BOOT:\s+Apakah Anda yakin ingin memulihkan partisi dari backup:\s+(.+)\?$/, 'BOOT RESTORE WARNING:\nAre you sure you want to restore the partition from this backup:\n$1?']
             ,[/^Tidak ada parameter dalam kategori "(.+)"\.$/, 'No parameters in category "$1".']
+            ,[/^(.+)% \(Bypass Langsung\)$/, '$1% (Direct Bypass)']
         ];
         if (locale === 'en') {
             for (const [pattern, replacement] of dynamic) {

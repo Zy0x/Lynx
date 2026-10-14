@@ -19,6 +19,7 @@ lynx_t() {
     if [ "$locale" = "en" ]; then
         case "$key" in
             install_title) printf '  [*] L Y N X   [Codename: Deity]' ;;
+            install_meta) printf '  Version: %s  |  Author: ɴᴏɪʀ' "$2" ;;
             spoof_warning) printf '  [!] WARNING: SoC spoofer detected! (%s / %s)' "$2" "$3" ;;
             real_mtk) printf '  [*] Verified hardware: MediaTek Dimensity/Helio' ;;
             real_qcom) printf '  [*] Verified hardware: Qualcomm Snapdragon' ;;
@@ -60,6 +61,7 @@ lynx_t() {
     else
         case "$key" in
             install_title) printf '  [*] L Y N X   [Codename: Deity]' ;;
+            install_meta) printf '  Versi: %s  |  Pembuat: ɴᴏɪʀ' "$2" ;;
             spoof_warning) printf '  [!] PERINGATAN: SoC Spoofer terdeteksi! (%s / %s)' "$2" "$3" ;;
             real_mtk) printf '  [*] Hardware terverifikasi: MediaTek Dimensity/Helio' ;;
             real_qcom) printf '  [*] Hardware terverifikasi: Qualcomm Snapdragon' ;;

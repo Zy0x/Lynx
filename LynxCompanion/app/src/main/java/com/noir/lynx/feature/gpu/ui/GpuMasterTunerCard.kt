@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.core.locale.localizedUiText
 import com.noir.lynx.designsystem.controls.SafeSlider as Slider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -563,7 +564,7 @@ fun GpuMasterTunerCard(
                     ) {
                         Icon(
                             imageVector = if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                            contentDescription = if (isLocked) "Clock Terkunci" else "Buka Kunci Clock",
+                            contentDescription = localizedUiText(if (isLocked) "Clock Terkunci" else "Buka Kunci Clock"),
                             tint = lockColor,
                             modifier = Modifier.size(19.dp)
                         )

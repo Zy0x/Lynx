@@ -279,7 +279,7 @@ fun CpuIdleCoreParkingCard(
 
         Spacer(Modifier.height(10.dp))
 
-        // 3. Status Performa & Daya (Unified Telemetry Panel - Read-Only)
+        // 3. Performance and Power Status (Unified Read-Only Telemetry Panel)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -321,7 +321,7 @@ fun CpuIdleCoreParkingCard(
                 )
             }
 
-            // Panel Telemetri Terpadu 2-Kolom (Read-Only Display)
+            // Two-column unified telemetry panel (read-only display).
             val isBigParked = cpuIdle.coreParkingMode == "park_big"
             val isBigCore = { coreId: Int ->
                 clusters.any { (it.role.contains("Big", ignoreCase = true) || it.role.contains("Prime", ignoreCase = true) || it.role.contains("Performance", ignoreCase = true) || it.id > 0) && it.containsCore(coreId) }
@@ -370,7 +370,7 @@ fun CpuIdleCoreParkingCard(
                     modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Kolom 1: Status Inti Prosesor
+                    // Column 1: Processor Core Status
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -424,7 +424,7 @@ fun CpuIdleCoreParkingCard(
                             .background(BorderSubtle.copy(alpha = 0.6f))
                     )
 
-                    // Kolom 2: Mode Tidur Daya
+                    // Column 2: Power Sleep Mode
                     Column(
                         modifier = Modifier
                             .weight(1f)

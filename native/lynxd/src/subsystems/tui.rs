@@ -17,21 +17,36 @@ const C_RESET: &str = "\x1b[0m";
 pub(crate) fn is_english() -> bool {
     static ENGLISH: OnceLock<bool> = OnceLock::new();
     *ENGLISH.get_or_init(|| {
-        let mut locale = std::env::var("LANG").unwrap_or_default();
-        if locale.is_empty() {
-            locale = Command::new("getprop").arg("persist.sys.locale").output()
-                .ok().map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string()).unwrap_or_default();
-        }
-        if locale.is_empty() {
-            locale = Command::new("getprop").arg("ro.product.locale").output()
-                .ok().map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string()).unwrap_or_default();
-        }
+        let locale = ["persist.sys.locale", "ro.product.locale"]
+            .iter()
+            .find_map(|property| {
+                Command::new("getprop")
+                    .arg(property)
+                    .output()
+                    .ok()
+                    .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+                    .filter(|value| !value.is_empty())
+            })
+            .or_else(|| std::env::var("LANG").ok())
+            .unwrap_or_default();
         locale.to_ascii_lowercase().starts_with("en")
     })
 }
 
 pub(crate) fn ui<'a>(indonesian: &'a str, english: &'a str) -> &'a str {
     if is_english() { english } else { indonesian }
+}
+
+fn profile_name<'a>(profile: &'a str) -> &'a str {
+    match profile {
+        "auto" => ui("Otomatis (AI)", "Auto (AI)"),
+        "balance" => ui("Seimbang", "Balance"),
+        "performance" => ui("Performa", "Performance"),
+        "extreme" => ui("Ekstrem", "Extreme"),
+        "powersave" => ui("Hemat Daya", "Power Saver"),
+        "dormant" => ui("Siaga", "Standby"),
+        other => other,
+    }
 }
 
 pub struct TuiController;
@@ -75,8 +90,16 @@ impl TuiController {
             C_RESET
         );
         println!(
-            "{}  Author: ɴᴏɪʀ  |  SoC: {}{}{}  |  Profile: {}{}{}",
-            C_CYAN, C_GREEN, soc, C_CYAN, C_YELLOW, prof, C_RESET
+            "{}  {}: ɴᴏɪʀ  |  SoC: {}{}{}  |  {}: {}{}{}",
+            C_CYAN,
+            ui("Pembuat", "Author"),
+            C_GREEN,
+            soc,
+            C_CYAN,
+            ui("Profil", "Profile"),
+            C_YELLOW,
+            profile_name(&prof),
+            C_RESET
         );
         println!("{}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{}", C_CYAN, C_RESET);
     }
@@ -96,12 +119,12 @@ impl TuiController {
     fn menu_profile() {
         Self::show_header();
         println!("  {}{}:{}", C_GREEN, ui("PILIH PROFIL PERFORMA", "CHOOSE PERFORMANCE PROFILE"), C_RESET);
-        println!("{}", ui("  [1] Auto (AI)       - Pemantau aplikasi aktif", "  [1] Auto (AI)       - Adaptive foreground watcher"));
-        println!("{}", ui("  [2] Balance         - Efisiensi harian", "  [2] Balance         - Daily energy efficiency"));
-        println!("  [3] Performance     - {}", ui("Clock tinggi berkelanjutan untuk gaming", "Sustained high clocks for gaming"));
-        println!("  [4] Extreme         - {}", ui("Tanpa batas (disarankan phone cooler)", "Unrestricted (phone cooler recommended)"));
-        println!("  [5] Powersave       - {}", ui("Daya tahan baterai maksimum", "Maximum battery life"));
-        println!("  [6] Standby/Dormant - {}", ui("Mode dasar aman", "Safe baseline mode"));
+        println!("  [1] {}       - {}", profile_name("auto"), ui("Pemantau aplikasi aktif", "Adaptive foreground watcher"));
+        println!("  [2] {}         - {}", profile_name("balance"), ui("Efisiensi harian", "Daily energy efficiency"));
+        println!("  [3] {}     - {}", profile_name("performance"), ui("Clock tinggi berkelanjutan untuk gaming", "Sustained high clocks for gaming"));
+        println!("  [4] {}         - {}", profile_name("extreme"), ui("Tanpa batas (disarankan phone cooler)", "Unrestricted (phone cooler recommended)"));
+        println!("  [5] {}       - {}", profile_name("powersave"), ui("Daya tahan baterai maksimum", "Maximum battery life"));
+        println!("  [6] {}/{} - {}", profile_name("dormant"), ui("Dorman", "Dormant"), ui("Mode dasar aman", "Safe baseline mode"));
         println!("  [0] {}\n", ui("Kembali", "Back"));
         print!("  {} [0-6]: ", ui("Pilih opsi", "Choose an option"));
         match Self::read_line().as_str() {
@@ -122,12 +145,12 @@ impl TuiController {
         let bypass = Self::get_cfg("charging.bypass_enabled", "false");
         let cur = Self::get_cfg("charging.limit_current_ma", "2400");
         println!("  {}{}:{}", C_GREEN, ui("PENGATURAN PENGISIAN", "CHARGING SETTINGS"), C_RESET);
-        println!("  • {} : {}{}{}", ui("Bypass Charging Aktif", "Bypass Charging Active"), C_YELLOW, bypass, C_RESET);
+        println!("  • {} : {}{}{}", ui("Bypass Charging", "Bypass Charging"), C_YELLOW, if bypass == "true" { ui("Aktif", "Active") } else { ui("Mati", "Off") }, C_RESET);
         println!("  • {}     : {}{} mA{}\n", ui("Batas Arus Gaming", "Gaming Current Limit"), C_YELLOW, cur, C_RESET);
         println!("  [1] {} (ON/OFF)", ui("Alihkan Bypass Charging", "Toggle Bypass Charging"));
         println!("  [2] {} (1500mA - {})", ui("Atur Batas Arus", "Set Current Limit"), ui("Aman", "Safe"));
         println!("  [3] {} (2400mA - {})", ui("Atur Batas Arus", "Set Current Limit"), ui("Cepat", "Fast"));
-        println!("  [4] {} (6000mA - Extreme 33W+)", ui("Atur Batas Arus", "Set Current Limit"));
+        println!("  [4] {} (6000mA - {})", ui("Atur Batas Arus", "Set Current Limit"), ui("Ekstrem 33W+", "Extreme 33W+"));
         println!("  [0] {}\n", ui("Kembali", "Back"));
         print!("  {} [0-4]: ", ui("Pilih opsi", "Choose an option"));
         match Self::read_line().as_str() {
@@ -169,9 +192,9 @@ impl TuiController {
         let touch = Self::get_cfg("display_touch.touchboost", "true");
         let joyose = Self::get_cfg("oem_neutralizer.joyose_neutralize", "false");
         println!("  {}{}:{}", C_GREEN, ui("KONTROL ENGINE LANJUTAN", "ADVANCED ENGINE CONTROLS"), C_RESET);
-        println!("  [1] Wi-Fi Ping Stabilizer   : {}{}{}", C_YELLOW, wifi, C_RESET);
-        println!("  [2] Full Thermal Bypass     : {}{}{}", C_YELLOW, therm, C_RESET);
-        println!("  [3] TouchBoost & 120Hz Lock : {}{}{}", C_YELLOW, touch, C_RESET);
+        println!("  [1] {}   : {}{}{}", ui("Penstabil Ping Wi-Fi", "Wi-Fi Ping Stabilizer"), C_YELLOW, wifi, C_RESET);
+        println!("  [2] {}     : {}{}{}", ui("Bypass Termal Penuh", "Full Thermal Bypass"), C_YELLOW, therm, C_RESET);
+        println!("  [3] {} : {}{}{}", ui("TouchBoost & Kunci 120 Hz", "TouchBoost & 120Hz Lock"), C_YELLOW, touch, C_RESET);
         println!("  [4] {}    : {}{}{}", ui("Netralkan Joyose/GOS", "Neutralize Joyose/GOS"), C_YELLOW, joyose, C_RESET);
         println!("  [0] {}\n", ui("Kembali", "Back"));
         print!("  {} [0-4]: ", ui("Pilih toggle", "Choose a toggle"));
@@ -242,7 +265,7 @@ impl TuiController {
             println!("  [5] {}", ui("Optimasi SQLite & Storage TRIM", "SQLite Optimization & Storage TRIM"));
             println!("  [6] {} (.ZIP)", ui("Ekspor Laporan Diagnostik", "Export Diagnostic Report"));
             println!("  [7] {}", ui("Status Lengkap Sistem", "Full System Status"));
-            println!("  [8] GPU Tuner & DVFS Controller");
+            println!("  [8] {}", ui("Pengatur GPU & Pengendali DVFS", "GPU Tuner & DVFS Controller"));
             println!("  [0] {}\n", ui("Keluar", "Exit"));
             print!("  {} [0-8]: ", ui("Pilih menu", "Choose a menu option"));
             match Self::read_line().as_str() {

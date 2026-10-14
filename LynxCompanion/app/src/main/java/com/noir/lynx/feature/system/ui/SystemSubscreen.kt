@@ -47,7 +47,7 @@ fun SystemSubscreen(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ── Info Relokasi Otomasi Profil Per-Aplikasi ────────────
+        // ── Per-App Profile Automation Relocation Notice ────────────
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = BgElevated,
@@ -82,7 +82,7 @@ fun SystemSubscreen(
             }
         }
 
-        // ── Info Relokasi Anti-Throttling OEM ───────────────────
+        // ── OEM Anti-Throttling Relocation Notice ───────────────────
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = BgElevated,

@@ -1371,6 +1371,15 @@ fn main() {
                 "info" => {
                     println!("{}", IoController::info_json());
                 }
+                "mountx-info" | "mountx" => {
+                    println!("{}", IoController::mountx_info_json());
+                }
+                "mountx-tune" | "flash-boost" => {
+                    println!("{}", IoController::apply_flash_streaming_boost(true));
+                }
+                "mountx-restore" | "flash-restore" => {
+                    println!("{}", IoController::apply_flash_streaming_boost(false));
+                }
                 "set-scheduler" | "set_scheduler" => {
                     let blk = args.get(3).map(|s| s.as_str()).unwrap_or("sd");
                     let sched = args.get(4).map(|s| s.as_str()).unwrap_or("none");

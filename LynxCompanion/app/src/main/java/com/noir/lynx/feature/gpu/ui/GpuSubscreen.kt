@@ -106,12 +106,11 @@ fun LazyListScope.tuningGpuCategoryItems(
                     onSetEarlyPhase = { viewModel.setSurfaceFlingerEarlyPhase(it) },
                     onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
                     onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) },
-                    onClearShaderCache = { viewModel.clearShaderCache(context) },
-                    onPrewarmShaderCache = { viewModel.prewarmShaderCache(context) }
+                    onRefreshShaderCache = { viewModel.refreshGraphicsHwui() }
                 )
             }
 
-            // 2b. Manajemen Rendering Per-Aplikasi (Game Driver Hub)
+            // 2b. Per-App Rendering Management (Game Driver Hub)
             item(key = "gpu_per_app_hub") {
                 PerAppGraphicsHubCard(
                     rules = uiState.perAppGraphicsRules,

@@ -103,11 +103,10 @@ impl ScreenDetector {
                 // If backlight brightness: > 0 is ON, 0 is OFF
                 if node.ends_with("brightness") {
                     if let Ok(b) = val.parse::<u64>() {
-                        return if b > 0 {
-                            ScreenState::On
-                        } else {
-                            ScreenState::Off
-                        };
+                        if b > 0 {
+                            return ScreenState::On;
+                        }
+                        // Fall through to verify if b == 0 is real or a dummy/unsupported backlight node
                     }
                 }
 
@@ -123,23 +122,28 @@ impl ScreenDetector {
                 // If DRM runtime_status
                 if val == "active" {
                     return ScreenState::On;
-                } else if val == "suspended" {
-                    return ScreenState::Off;
                 }
             }
         }
 
-        // Tier 4 Fallback: Android dumpsys power (compliant with AGENTS.md §4.3)
+        // Tier 4 Fallback: Android dumpsys power (compliant with AGENTS.md §4.3 & Android 14 wakefulness)
         #[cfg(target_os = "android")]
         {
-            if let Ok(output) = std::process::Command::new("dumpsys")
+            if let Ok(output) = std::process::Command::new("/system/bin/dumpsys")
                 .args(&["power"])
                 .output()
             {
                 let text = String::from_utf8_lossy(&output.stdout);
-                if text.contains("mHoldingDisplaySuspendBlocker=true") || text.contains("Display Power: state=ON") {
+                if text.contains("mWakefulness=Awake")
+                    || text.contains("mHoldingDisplaySuspendBlocker=true")
+                    || text.contains("Display Power: state=ON")
+                {
                     return ScreenState::On;
-                } else if text.contains("mHoldingDisplaySuspendBlocker=false") || text.contains("Display Power: state=OFF") {
+                } else if text.contains("mWakefulness=Asleep")
+                    || text.contains("mWakefulness=Dozing")
+                    || text.contains("mHoldingDisplaySuspendBlocker=false")
+                    || text.contains("Display Power: state=OFF")
+                {
                     return ScreenState::Off;
                 }
             }

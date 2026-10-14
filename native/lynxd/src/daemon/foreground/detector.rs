@@ -9,6 +9,7 @@ pub struct ForegroundDetector {
     rules: RulesEngine,
     cache: ForegroundCache,
     cgroup_nodes: Vec<PathBuf>,
+    last_rules_mtime: u64,
 }
 
 impl ForegroundDetector {
@@ -29,11 +30,14 @@ impl ForegroundDetector {
             }
         }
 
-        Self {
+        let mut detector = Self {
             rules: RulesEngine::new(),
             cache: ForegroundCache::new(64),
             cgroup_nodes,
-        }
+            last_rules_mtime: 0,
+        };
+        detector.last_rules_mtime = detector.probe_max_rules_mtime();
+        detector
     }
 
     /// Detects the raw package name of the top-most foreground application.
@@ -97,8 +101,44 @@ impl ForegroundDetector {
         }
     }
 
+    fn probe_max_rules_mtime(&self) -> u64 {
+        let candidates = [
+            "/data/adb/lynx/app_rules.json",
+            "/data/adb/modules/Lynx/core/app_rules.json",
+            "/data/adb/lynx/app_rules.tsv",
+            "/storage/emulated/0/Lynx/applist_perf.txt",
+        ];
+        let mut max_mtime = 0u64;
+        for path in &candidates {
+            if let Ok(meta) = fs::metadata(path) {
+                if let Ok(mtime) = meta.modified() {
+                    let secs = mtime
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    if secs > max_mtime {
+                        max_mtime = secs;
+                    }
+                }
+            }
+        }
+        max_mtime
+    }
+
+    fn check_and_reload_rules(&mut self) {
+        let current_max = self.probe_max_rules_mtime();
+        if current_max > self.last_rules_mtime {
+            if self.last_rules_mtime > 0 {
+                self.rules = RulesEngine::new();
+                self.cache.clear();
+            }
+            self.last_rules_mtime = current_max;
+        }
+    }
+
     /// Queries, categorizes, and caches the current foreground application.
     pub fn detect(&mut self) -> Option<ForegroundApp> {
+        self.check_and_reload_rules();
         let pkg = self.detect_top_package()?;
 
         // Fast in-memory cache lookup

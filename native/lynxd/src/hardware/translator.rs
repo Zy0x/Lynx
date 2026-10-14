@@ -522,7 +522,41 @@ impl HardwareTranslator {
         Self::push_op(&mut ops, "Memory", "VM dirty_background_ratio", "/proc/sys/vm/dirty_background_ratio", dirty_bg_ratio, false);
         Self::push_op(&mut ops, "Memory", "VM vfs_cache_pressure", "/proc/sys/vm/vfs_cache_pressure", vfs_pressure, false);
 
-        // ── 5. Storage Block I/O Queues ─────────────────────────────────────
+        // VM Dirty Bytes Pacing (Prevents MicroSD/Flash Storage Freezes & Stalls)
+        if is_perf_or_ext {
+            Self::push_op(&mut ops, "Memory", "VM dirty_background_bytes (flash pacing)", "/proc/sys/vm/dirty_background_bytes", "67108864", false);
+            Self::push_op(&mut ops, "Memory", "VM dirty_bytes (flash pacing)", "/proc/sys/vm/dirty_bytes", "134217728", false);
+            Self::push_op(&mut ops, "Memory", "VM dirty_writeback_centisecs", "/proc/sys/vm/dirty_writeback_centisecs", "100", false);
+            Self::push_op(&mut ops, "Memory", "VM dirty_expire_centisecs", "/proc/sys/vm/dirty_expire_centisecs", "300", false);
+        } else {
+            Self::push_op(&mut ops, "Memory", "VM dirty_background_bytes (reset)", "/proc/sys/vm/dirty_background_bytes", "0", false);
+            Self::push_op(&mut ops, "Memory", "VM dirty_bytes (reset)", "/proc/sys/vm/dirty_bytes", "0", false);
+            Self::push_op(&mut ops, "Memory", "VM dirty_writeback_centisecs", "/proc/sys/vm/dirty_writeback_centisecs", "500", false);
+            Self::push_op(&mut ops, "Memory", "VM dirty_expire_centisecs", "/proc/sys/vm/dirty_expire_centisecs", "3000", false);
+        }
+
+        // ── 5. Storage Block I/O Queues & MountX Acceleration ───────────────
+        let mountx = crate::subsystems::IoController::detect_mountx();
+        if mountx.is_detected && !mountx.partition_name.is_empty() {
+            let f2fs_dir = Path::new("/sys/fs/f2fs").join(&mountx.partition_name);
+            if f2fs_dir.is_dir() {
+                let (cp_int, gc_urg) = if is_perf_or_ext { ("300", "0") } else { ("60", "0") };
+                Self::push_op(&mut ops, "Storage", "F2FS checkpoint interval", f2fs_dir.join("cp_interval"), cp_int, false);
+                Self::push_op(&mut ops, "Storage", "F2FS disable urgent GC", f2fs_dir.join("gc_urgent"), gc_urg, false);
+                if is_perf_or_ext {
+                    Self::push_op(&mut ops, "Storage", "F2FS IPU policy", f2fs_dir.join("ipu_policy"), "7", false);
+                    Self::push_op(&mut ops, "Storage", "F2FS min fsync blocks", f2fs_dir.join("min_fsync_blocks"), "64", false);
+                }
+            }
+        }
+
+        let stune_top = Path::new("/dev/stune/top-app");
+        if stune_top.is_dir() {
+            let (s_boost, s_min) = if is_perf_or_ext { ("50", "30") } else { ("0", "0") };
+            Self::push_op(&mut ops, "Scheduler", "Schedtune top-app boost", stune_top.join("schedtune.boost"), s_boost, false);
+            Self::push_op(&mut ops, "Scheduler", "Schedtune top-app util min", stune_top.join("schedtune.util.min"), s_min, false);
+        }
+
         for dev in &cap.storage.devices {
             if dev.device_type == BlockDeviceType::Virtual {
                 continue;
@@ -531,7 +565,7 @@ impl HardwareTranslator {
                 BlockDeviceType::Ufs | BlockDeviceType::Nvme | BlockDeviceType::Loop => {
                     &["none", "mq-deadline", "kyber", "bfq", "noop"]
                 }
-                BlockDeviceType::Emmc => &["mq-deadline", "bfq", "kyber", "none", "noop"],
+                BlockDeviceType::Emmc => &["deadline", "mq-deadline", "bfq", "kyber", "none", "noop"],
                 BlockDeviceType::Virtual => &[],
             };
 
@@ -550,8 +584,8 @@ impl HardwareTranslator {
             }
 
             let read_ahead = match (dev.device_type, is_perf_or_ext) {
-                (BlockDeviceType::Emmc, true) => "512",
-                (BlockDeviceType::Emmc, false) => "256",
+                (BlockDeviceType::Emmc, true) => "2048", // 2MB read-ahead for flash game streaming
+                (BlockDeviceType::Emmc, false) => "512",
                 _ => "128",
             };
             Self::push_op(
@@ -562,6 +596,13 @@ impl HardwareTranslator {
                 read_ahead,
                 false,
             );
+            if dev.device_type == BlockDeviceType::Emmc && is_perf_or_ext {
+                Self::push_op(&mut ops, "Storage", format!("Block {} nr_requests", dev.name), dev.queue_path.join("nr_requests"), "512", false);
+                Self::push_op(&mut ops, "Storage", format!("Block {} rq_affinity", dev.name), dev.queue_path.join("rq_affinity"), "2", false);
+                Self::push_op(&mut ops, "Storage", format!("Block {} nomerges", dev.name), dev.queue_path.join("nomerges"), "0", false);
+                Self::push_op(&mut ops, "Storage", format!("Block {} rotational", dev.name), dev.queue_path.join("rotational"), "0", false);
+                Self::push_op(&mut ops, "Storage", format!("Block {} fifo_batch", dev.name), dev.queue_path.join("iosched/fifo_batch"), "64", false);
+            }
             Self::push_op(
                 &mut ops,
                 "Storage",

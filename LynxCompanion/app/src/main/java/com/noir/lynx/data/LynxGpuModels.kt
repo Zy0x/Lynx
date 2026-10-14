@@ -20,15 +20,15 @@ data class PerAppGraphicsRule(
 )
 
 enum class FeatureAccessState {
-    VERIFIED_WORKING,  // Node ada dan terbukti bisa ditulis serta dibaca (R/W)
-    READ_ONLY_LOCKED,  // Node ada namun kernel menolak penulisan (R/O)
-    UNSUPPORTED        // Node tidak ditemukan pada hardware ini
+    VERIFIED_WORKING,  // Node exists and is verified writable and readable (R/W)
+    READ_ONLY_LOCKED,  // Node exists, but the kernel rejects writes (R/O)
+    UNSUPPORTED        // Node was not found on this hardware
 }
 
 enum class ConfidenceRating {
     HIGH_CONFIDENCE,   // 100% verified working
-    READ_ONLY_LOCK,    // Terdeteksi 100%, write 0%
-    UNCERTAIN,         // Terdeteksi parsial
+    READ_ONLY_LOCK,    // Detected 100%, write access 0%
+    UNCERTAIN,         // Partially detected
     UNAVAILABLE
 }
 
@@ -60,10 +60,10 @@ data class GpuHardwareFeature(
 )
 
 data class DisplayCapabilityInfo(
-    val panelModes: List<Int> = emptyList(),          // Fisik panel: 60, 90, 120, 144, 165, 240
-    val systemAllowedModes: List<Int> = emptyList(),  // Batas min/peak settings Android
-    val gameRequestedHz: Int? = null,                 // Target frame rate dari game aktif
-    val activePresentationHz: Int = 60                // Nilai riil yang sedang disajikan
+    val panelModes: List<Int> = emptyList(),          // Physical panel modes: 60, 90, 120, 144, 165, 240
+    val systemAllowedModes: List<Int> = emptyList(),  // Android minimum and peak setting limits
+    val gameRequestedHz: Int? = null,                 // Target frame rate requested by the active game
+    val activePresentationHz: Int = 60                // Actual frame rate currently presented
 )
 
 data class GpuInfo(
@@ -165,6 +165,21 @@ data class IoDeviceInfo(
     val currentScheduler: String = "",
     val availableSchedulers: List<String> = emptyList(),
     val readAheadKb: Int = 128,
+)
+
+data class MountXStorageInfo(
+    val isDetected: Boolean = false,
+    val mountPoint: String = "",
+    val partitionName: String = "",
+    val parentDevice: String = "",
+    val fsType: String = "",
+    val f2fsSysfsExists: Boolean = false,
+    val mmcqdPids: List<Int> = emptyList(),
+    val currentReadAheadKb: Int = 0,
+    val currentScheduler: String = "",
+    val dirtyBackgroundBytes: Long = 0L,
+    val dirtyBytes: Long = 0L,
+    val isOptimized: Boolean = false
 )
 
 // ============================================================
@@ -296,6 +311,9 @@ data class CustomScriptItem(
     val lastRunTime: Long = 0L,
     val lastExitCode: Int? = null,
     val lastOutput: String = "",
+    val lastErrorOutput: String = "",
+    val lastDurationMs: Long = 0L,
+    val lastRunFailure: String = "",
 )
 
 data class DmesgLogState(
@@ -488,6 +506,9 @@ data class LynxUiState(
     val modeFeedbackStyle: String = "jewel_top", // "jewel_top", "header_morph", "jewel_bottom"
     val modeFeedbackDualMorph: Boolean = true,
     val activeModeToast: ModeToastData? = null,
+    // Hysteresis Exit Cooldown & MountX Storage Engine
+    val appAutomationCooldownSeconds: Int = 30, // 5, 30, 60, 180, 0 (Persistent in RAM)
+    val mountXStorageInfo: MountXStorageInfo = MountXStorageInfo(),
 ) {
     fun resolveCpuTempC(): Int {
         val validZones = thermalZones.filter { it.tempC in 20f..115f }

@@ -233,7 +233,7 @@ fun CpuUnifiedSystemCard(
             onOpenGranularSheet = { showCStateSheet = true }
         )
 
-        // 3. Task Shield & Isolasi Aplikasi (Formerly CPU Sets)
+        // 3. Task Shield and App Isolation (formerly CPU Sets).
         CpuSetsTaskShieldCard(
             cpuSets = uiState.cpuSets,
             clusters = uiState.clusters,

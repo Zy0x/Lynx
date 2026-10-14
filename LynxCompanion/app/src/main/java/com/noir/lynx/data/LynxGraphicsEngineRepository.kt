@@ -37,7 +37,7 @@ internal object LynxGraphicsEngineRepository {
                 done
                 echo "dc:${'$'}dc"
 
-                # Shader cache stats across system apps and games
+                # Partial cache inventory only; games may keep caches in other locations.
                 sc_kb=${'$'}(du -sk /data/user_de/0/*/cache/*shader* /data/data/*/cache/*shader* /data/data/*/code_cache/*shader* 2>/dev/null | awk '{s+=${'$'}1; c++} END {print s "|" c}')
                 echo "scache:${'$'}sc_kb"
 
@@ -128,28 +128,6 @@ internal object LynxGraphicsEngineRepository {
                 isEarlyPhaseOffset = earlyPhase
             )
         } catch (e: Exception) { GraphicsHwuiInfo() }
-    }
-
-    suspend fun clearShaderCache(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val script = """
-                rm -f /data/user_de/0/*/cache/*shader* /data/data/*/cache/*shader* /data/data/*/code_cache/*shader* 2>/dev/null
-                echo ok
-            """.trimIndent()
-            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
-        } catch (e: Exception) { false }
-    }
-
-    suspend fun prewarmShaderCache(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val script = """
-                for pkg in $(pm list packages -3 2>/dev/null | cut -d: -f2 | head -n 12); do
-                    cmd package compile -m speed-profile -f "${'$'}pkg" >/dev/null 2>&1
-                done
-                echo ok
-            """.trimIndent()
-            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
-        } catch (e: Exception) { false }
     }
 
     suspend fun setSurfaceFlingerEarlyPhase(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {

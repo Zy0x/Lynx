@@ -90,6 +90,18 @@ import kotlinx.coroutines.flow.update
             .putString("mode_feedback_style", style)
             .apply()
         _uiState.update { it.copy(modeFeedbackStyle = style) }
+
+        // Persist to root daemon configuration space
+        com.topjohnwu.superuser.Shell.cmd("echo '$style' > /data/adb/lynx/feedback_style 2>/dev/null").submit()
+
+        // Send preview broadcast so receiver shows user's selection immediately
+        val previewIntent = android.content.Intent("com.noir.lynx.PROFILE_CHANGED").apply {
+            setPackage(context.packageName)
+            putExtra("profile", "balance")
+            putExtra("style", style)
+            putExtra("reason", "Pratinjau Mode Feedback")
+        }
+        context.sendBroadcast(previewIntent)
     }
 
     fun LynxViewModel.setModeFeedbackDualMorph(context: android.content.Context, enabled: Boolean) {
@@ -195,3 +207,75 @@ import kotlinx.coroutines.flow.update
             }
         }
     }
+
+    fun LynxViewModel.setAppAutomationCooldownSeconds(context: android.content.Context, seconds: Int) {
+        _uiState.update { it.copy(appAutomationCooldownSeconds = seconds) }
+        context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putInt("app_cooldown_seconds", seconds)
+            .apply()
+
+        com.topjohnwu.superuser.Shell.cmd(
+            "echo '$seconds' > /data/adb/lynx/cooldown_duration 2>/dev/null; chmod 644 /data/adb/lynx/cooldown_duration 2>/dev/null"
+        ).submit()
+
+        val label = if (seconds == 0) "Persistent (Selama di RAM)" else "${seconds} Detik"
+        _uiState.update { it.copy(successMessage = "Durasi penahanan performa diatur ke: $label") }
+    }
+
+    fun LynxViewModel.loadAppAutomationCooldown(context: android.content.Context) {
+        val prefs = context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
+        val defaultSec = prefs.getInt("app_cooldown_seconds", 30)
+        _uiState.update { it.copy(appAutomationCooldownSeconds = defaultSec) }
+    }
+
+    fun LynxViewModel.refreshMountXStorageInfo() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val result = com.topjohnwu.superuser.Shell.cmd("/data/adb/modules/Lynx/system/bin/lynxd io mountx-info").exec()
+            val out = result.out.joinToString("\n").trim()
+            if (out.startsWith("{") && out.endsWith("}")) {
+                try {
+                    val json = org.json.JSONObject(out)
+                    val pidsArray = json.optJSONArray("mmcqd_pids")
+                    val pidsList = mutableListOf<Int>()
+                    if (pidsArray != null) {
+                        for (i in 0 until pidsArray.length()) {
+                            pidsList.add(pidsArray.getInt(i))
+                        }
+                    }
+                    val info = MountXStorageInfo(
+                        isDetected = json.optBoolean("is_detected", false),
+                        mountPoint = json.optString("mount_point", ""),
+                        partitionName = json.optString("partition_name", ""),
+                        parentDevice = json.optString("parent_device", ""),
+                        fsType = json.optString("fs_type", ""),
+                        f2fsSysfsExists = json.optBoolean("f2fs_sysfs_exists", false),
+                        mmcqdPids = pidsList,
+                        currentReadAheadKb = json.optInt("current_read_ahead_kb", 0),
+                        currentScheduler = json.optString("current_scheduler", ""),
+                        dirtyBackgroundBytes = json.optLong("dirty_background_bytes", 0L),
+                        dirtyBytes = json.optLong("dirty_bytes", 0L),
+                        isOptimized = json.optBoolean("is_optimized", false)
+                    )
+                    _uiState.update { it.copy(mountXStorageInfo = info) }
+                } catch (e: Exception) {
+                    android.util.Log.e("LynxAutomation", "Error parsing mountx info: ${e.message}")
+                }
+            }
+        }
+    }
+
+    fun LynxViewModel.triggerMountXBoost(boost: Boolean) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val cmd = if (boost) {
+                "/data/adb/modules/Lynx/system/bin/lynxd io mountx-tune"
+            } else {
+                "/data/adb/modules/Lynx/system/bin/lynxd io mountx-restore"
+            }
+            val res = com.topjohnwu.superuser.Shell.cmd(cmd).exec()
+            val msg = res.out.firstOrNull() ?: if (boost) "Boost Aktif" else "Mode Seimbang"
+            refreshMountXStorageInfo()
+            _uiState.update { it.copy(successMessage = msg) }
+        }
+    }
+

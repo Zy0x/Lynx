@@ -249,7 +249,7 @@ class MediaTekGedAdapter : GpuBackendAdapter {
             }
         }
 
-        // ── Category 3: Manajemen Daya & Proteksi Termal ─────────────────────
+        // ── Category 3: Power Management & Thermal Protection ─────────────────────
 
         // 9. ARM Mali Core Power Policy (if Mali sub-driver is present)
         if (maliDevPath.isNotEmpty()) {
