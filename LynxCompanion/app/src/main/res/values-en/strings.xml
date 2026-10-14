@@ -539,7 +539,7 @@
     <string name="legacy_ui_6553c9a8c93305" formatted="false">PHYSICAL CHARGER &amp; ADC REGISTERS</string>
     <string name="legacy_ui_26b7eed4a2875b" formatted="false">Clean ROM: No aggressive OEM background throttling daemon found</string>
     <string name="legacy_ui_7f8a783d8b33e9" formatted="false">Average:</string>
-    <string name="legacy_ui_fd523668f3222a" formatted="false">Read Only</string>
+    <string name="legacy_ui_fd523668f3222a" formatted="false">Read-only</string>
     <string name="legacy_ui_739692abaf8569" formatted="false">Lynx Optimization Recommendations</string>
     <string name="legacy_ui_cd227c5036fafe" formatted="false">Reset to Default (1.0)</string>
     <string name="legacy_ui_669a6639860aa5" formatted="false">Reset to D65 Standard</string>
@@ -1606,4 +1606,133 @@
     <string name="legacy_ui_c329ff8e2cd259" formatted="false">TrustZone TZ Target Load</string>
     <string name="legacy_ui_2382889f763d4d" formatted="false">Unified Bus Bandwidth (Disable Bus Split)</string>
     <string name="legacy_ui_f277eefd563436" formatted="false">Zygote Init Daemon</string>
+
+    <string name="legacy_ui_bd256afc6bf1f4" formatted="false">%.2f million</string>
+    <string name="legacy_ui_4913ab108c476d" formatted="false">0 • Off</string>
+    <string name="legacy_ui_3d9b76a6219729" formatted="false">0% (Standard)</string>
+    <string name="legacy_ui_fb06db6a048c20" formatted="false">1 • Normal</string>
+    <string name="legacy_ui_66a576f78cb09c" formatted="false">1 • Low</string>
+    <string name="legacy_ui_11a3c167089b11" formatted="false">2 • Extreme</string>
+    <string name="legacy_ui_96b52df072290a" formatted="false">2 • Medium</string>
+    <string name="legacy_ui_67a0994c1986bf" formatted="false">3 • Max</string>
+    <string name="legacy_ui_517a9965ae75a8" formatted="false">50% (Max)</string>
+    <string name="legacy_ui_7b3c807a12153f" formatted="false">80% (Standard)</string>
+    <string name="legacy_ui_2fd39c577d97d2" formatted="false">Qualcomm Adreno Acceleration (QTI KGSL)</string>
+    <string name="legacy_ui_a57629519f6cbd" formatted="false">Always-On (Performance)</string>
+    <string name="legacy_ui_2d0a3e3e55194a" formatted="false">Anti-throttling Active</string>
+    <string name="legacy_ui_c1e7ef8a4b7eed" formatted="false">Anti-throttling active • Peak clock ceiling maintained at 100%</string>
+    <string name="legacy_ui_8ac27c7c7a9aac" formatted="false">Battery</string>
+    <string name="legacy_ui_dd3f1f83650ed9" formatted="false">App workloads are kept on efficient little cores to maximize battery life.</string>
+    <string name="legacy_ui_f69fd263467d47" formatted="false">Big Core</string>
+    <string name="legacy_ui_f07fa3b28b8b41" formatted="false">Big Core Parked</string>
+    <string name="legacy_ui_60641cffcbeafd" formatted="false">Big cores are fully prioritized for games and top apps. Background tasks are isolated to little cores.</string>
+    <string name="legacy_ui_c6a5a56004fc21" formatted="false">Coarse Demand (Power Saving)</string>
+    <string name="legacy_ui_27a50f063874cd" formatted="false">Deep Sleep Disabled</string>
+    <string name="legacy_ui_5b04ddfbe68c01" formatted="false">Dynamic (OEM)</string>
+    <string name="legacy_ui_8fca425ffb0679" formatted="false">Extreme</string>
+    <string name="legacy_ui_325e84939c6410" formatted="false">Fallback</string>
+    <string name="legacy_ui_2b0ab8ae655d42" formatted="false">Peak frequency is limited by the thermal governor</string>
+    <string name="legacy_ui_5c412a262086b9" formatted="false">Game</string>
+    <string name="legacy_ui_4eaa18bd919216" formatted="false">Power Saving (powersave)</string>
+    <string name="legacy_ui_5da7dd82678fef" formatted="false">Maximum Power Saving</string>
+    <string name="legacy_ui_f313c1f405a22a" formatted="false">Big cores are parked and all CPU sleep states are enabled to reduce battery use.</string>
+    <string name="legacy_ui_5af0baa469c9fb" formatted="false">The kernel dynamically manages processor cores and sleep cycles to balance power and responsiveness.</string>
+    <string name="legacy_ui_2f2b4b7a5c4f08" formatted="false">Efficiency Cluster</string>
+    <string name="legacy_ui_db43adb7618eb6" formatted="false">Prime Cluster</string>
+    <string name="legacy_ui_4df358db102c39" formatted="false">Custom C-state and core parking settings are active.</string>
+    <string name="legacy_ui_a061c4057ffaf6" formatted="false">Custom configuration is active. Thread assignments follow the manual matrix.</string>
+    <string name="legacy_ui_a291fad4fb2b6a" formatted="false">Standard OEM Latency</string>
+    <string name="legacy_ui_d587e23e3064b7" formatted="false">Little Core</string>
+    <string name="legacy_ui_ea030d17687d2e" formatted="false">MediaTek DVFS, CCI Interconnect, DVFSRC DRAM &amp; PPM</string>
+    <string name="legacy_ui_7f9c6d6b03c5e0" formatted="false">Raises the minimum frequency and improves responsiveness for stable gaming with thermal protection active.</string>
+    <string name="legacy_ui_2aab52faa987ee" formatted="false">Optimizes frequencies for maximum battery life and cooler temperatures.</string>
+    <string name="legacy_ui_68bd35193f4cd2" formatted="false">Balances everyday power efficiency with smart acceleration when apps open.</string>
+    <string name="legacy_ui_1fd84337123fcb" formatted="false">Battery Mode (Power Saving)</string>
+    <string name="legacy_ui_38cd91a8c7cab0" formatted="false">Extreme Mode (100% Maximum Clock)</string>
+    <string name="legacy_ui_6d4981952176a7" formatted="false">Extreme mode is active: all cores are locked at peak frequency without OEM power limits. An external cooler is recommended.</string>
+    <string name="legacy_ui_7785aedfa8d663" formatted="false">Hyper Mode Active • Full Power</string>
+    <string name="legacy_ui_9de44bea1a7d04" formatted="false">Balanced Mode (Optimal)</string>
+    <string name="legacy_ui_e81f63907b2378" formatted="false">Cool Mode Active • Limited to ~2.0 A</string>
+    <string name="legacy_ui_f48432320e0218" formatted="false">Standard Mode Active • OEM Regulation</string>
+    <string name="legacy_ui_1ae4c7a6572e9c" formatted="false">Optimal (Unthrottled)</string>
+    <string name="legacy_ui_464c7d1c2accbc" formatted="false">Automatic task load</string>
+    <string name="legacy_ui_0a94720fbf343d" formatted="false">PPM Re-Online • Parking Standby</string>
+    <string name="legacy_ui_f091e345c2f009" formatted="false">Performance</string>
+    <string name="legacy_ui_0c14efa8d51699" formatted="false">GPU Profile Applied</string>
+    <string name="legacy_ui_3b1b6ea5fc3da4" formatted="false">Extreme GPU Profile Active</string>
+    <string name="legacy_ui_28fc57a22fe67c" formatted="false">Esports GPU Profile Active</string>
+    <string name="legacy_ui_4ec132a0fb69b4" formatted="false">Power-Saving GPU Profile Active</string>
+    <string name="legacy_ui_92acf081a241cb" formatted="false">Balanced GPU Profile Active</string>
+    <string name="legacy_ui_18426486b04767" formatted="false">Factory protection • OEM throttling active</string>
+    <string name="legacy_ui_d2dc6ef4cf7238" formatted="false">Instant Response (performance)</string>
+    <string name="legacy_ui_8417b834768e27" formatted="false">Balanced (schedutil)</string>
+    <string name="legacy_ui_cfda9e593ee0be" formatted="false">All 8 cores are dynamically allocated by the kernel scheduler.</string>
+    <string name="legacy_ui_279c018b2104c2" formatted="false">All cores on standby</string>
+    <string name="legacy_ui_46d2b401ed36b5" formatted="false">All processor cores stay active without sleep delays. Deep C-states are disabled to prevent micro-stutter.</string>
+    <string name="legacy_ui_d9090a2438a90e" formatted="false">All Cores Unparked</string>
+    <string name="legacy_ui_f459b837a6f99b" formatted="false">Shared L3 / DSU Bus</string>
+    <string name="legacy_ui_c9e041670680e5" formatted="false">Instant Standby (0 µs)</string>
+    <string name="legacy_ui_6f158b1c57a5a7" formatted="false">Snapdragon QTI HAL, LLCC-DDR Devfreq &amp; Input Boost</string>
+    <string name="legacy_ui_22e579bf9549d6" formatted="false">Software throttling disabled • Silicon and battery protection active</string>
+    <string name="legacy_ui_8e8d33567e83f4" formatted="false">OPP curve stabilization • Prevents FPS drops • 52–55°C trip point</string>
+    <string name="legacy_ui_d0eba819f2bc22" formatted="false">Throttled</string>
+    <string name="legacy_ui_4e28db0cfd4ca5" formatted="false">Adaptive Sleep</string>
+    <string name="legacy_ui_b82e66dfcfa145" formatted="false">Deep Sleep Active</string>
+    <string name="legacy_ui_f21fda6b90b9dd" formatted="false">High heat tolerance • Maximum clock lock</string>
+    <string name="legacy_ui_4e313210bf91f4" formatted="false">Uncertain</string>
+    <string name="legacy_ui_6994f8494163dd" formatted="false">Universal Silicon Interconnect &amp; Power Guard</string>
+    <string name="legacy_ui_fa314bc3833e35" formatted="false">Unthrottled (Warm)</string>
+    <string name="legacy_ui_0238f7ef0476ba" formatted="false">Verified HAL</string>
+    <string name="legacy_ui_19d265700c9458" formatted="false">adreno_idle_timer</string>
+    <string name="legacy_ui_da1aa27b20b28d" formatted="false">adreno_tz_target_load</string>
+    <string name="legacy_ui_fcb60e92c1ce87" formatted="false">adrenoboost_level</string>
+    <string name="legacy_ui_0bf404069fa005" formatted="false">always_on</string>
+    <string name="legacy_ui_c0905088ba5b80" formatted="false">balanced</string>
+    <string name="legacy_ui_f3d1701e1d575e" formatted="false">battery</string>
+    <string name="legacy_ui_368930a6d0de29" formatted="false">coarse_demand</string>
+    <string name="legacy_ui_c34045c1a1db8d" formatted="false">cool</string>
+    <string name="legacy_ui_6cdfd271da635d" formatted="false">custom</string>
+    <string name="legacy_ui_c0a5719f723b15" formatted="false">devfreq_polling_interval</string>
+    <string name="legacy_ui_60df88c25ded6c" formatted="false">esports</string>
+    <string name="legacy_ui_3393b41eeeea1c" formatted="false">extreme</string>
+    <string name="legacy_ui_8517b64a7dfada" formatted="false">gaming</string>
+    <string name="legacy_ui_91e235e3f81688" formatted="false">hyper</string>
+    <string name="legacy_ui_2522fe99ddf415" formatted="false">mali_dvfs_period</string>
+    <string name="legacy_ui_5ec6f445160db2" formatted="false">mali_power_policy</string>
+    <string name="legacy_ui_6f5b691dda70b8" formatted="false">mtk_dvfs_margin</string>
+    <string name="legacy_ui_75e0b514ceedd9" formatted="false">mtk_ged_boost_level</string>
+    <string name="legacy_ui_a08373a55b1528" formatted="false">park_big</string>
+    <string name="legacy_ui_4a1898716ef677" formatted="false">performance</string>
+    <string name="legacy_ui_f0008346e16501" formatted="false">powersave</string>
+    <string name="legacy_ui_93df7d4ab97de0" formatted="false">schedutil</string>
+    <string name="legacy_ui_fe6d3468cf5c74" formatted="false">standard</string>
+    <string name="legacy_ui_8d609ae01ba8ba" formatted="false">unpark_all</string>
+    <string name="legacy_ui_8df9858c458dd6" formatted="false">○ STANDBY</string>
+    <string name="legacy_ui_fc3afee34a0eb4" formatted="false">⚡ BYPASS</string>
+    <string name="legacy_ui_e25f8377656911" formatted="false">⚡ COOL</string>
+    <string name="legacy_ui_f0020d0833dc7b" formatted="false">⚡ CUSTOM</string>
+    <string name="legacy_ui_35f63b864f1376" formatted="false">⚡ HYPER</string>
+    <string name="legacy_ui_c65006d4d4d7b9" formatted="false">⚡ STANDARD</string>
+
+    <string name="dynamic_network_port_locked" formatted="false">● LOCKED: %1$s</string>
+    <string name="dynamic_network_port_restoring" formatted="false">⚡ RESTORING: %1$s</string>
+    <string name="dynamic_gpu_mtk_title" formatted="false">MediaTek Acceleration (%1$s &amp; FPSGO)</string>
+    <string name="dynamic_gpu_generic_title" formatted="false">GPU Hardware Acceleration (%1$s)</string>
+    <string name="dynamic_gpu_percent_plus" formatted="false">+%1$s%</string>
+    <string name="dynamic_gpu_percent" formatted="false">%1$s%</string>
+    <string name="dynamic_gpu_milliseconds" formatted="false">%1$s ms</string>
+    <string name="dynamic_cpu_mid_cluster" formatted="false">%1$s Mid Cluster</string>
+    <string name="dynamic_cpu_cluster" formatted="false">%1$s Cluster</string>
+    <string name="dynamic_cpu_performance_limited" formatted="false">%1$s Limited</string>
+    <string name="dynamic_cpu_performance_standby" formatted="false">%1$s on Standby</string>
+    <string name="dynamic_cpu_cores_offline" formatted="false">%1$s Cores Parked (Offline)</string>
+    <string name="dynamic_cpu_cci_freq_voltage" formatted="false">%1$s MHz @ %2$s mV</string>
+    <string name="dynamic_cpu_cci_freq" formatted="false">%1$s MHz</string>
+    <string name="dynamic_cpu_unified_mode" formatted="false">%1$s Mode (Stable Gaming)</string>
+    <string name="dynamic_charging_custom_current" formatted="false">Manual current limit set to %1$s mA with sysfs locking enabled.</string>
+    <string name="dynamic_charging_custom_pill" formatted="false">Custom Mode Active • %1$s mA</string>
+
+    <string name="dynamic_cpu_cluster_revision" formatted="false">Cluster %1$s · %2$s</string>
+    <string name="dynamic_cpu_cluster_detail" formatted="false">Cluster %1$s (%2$s)</string>
+    <string name="dynamic_cpu_core_opp_governor" formatted="false">Core %1$s · %2$s · %3$s OPP Levels · Governor: %4$s</string>
 </resources>

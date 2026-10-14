@@ -180,6 +180,7 @@ impl ChargingRegulator {
                         if t_lower.contains("bcct") || t_lower.contains("abcct") {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             Self::set_perm(&cur_path, 0o666);
+                            let _ = fs::write(&cur_path, "0");
                         }
                     }
                 }

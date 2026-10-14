@@ -190,6 +190,26 @@ private val dynamicUiTextResources = listOf(
     DynamicUiText(Regex("^Algoritma mitigasi panas zona (.+) \\(step_wise, power_allocator, user_space\\)\\.$"), R.string.dynamic_tunable_thermal_policy_description),
     DynamicUiText(Regex("^Status proteksi throttling termal hardware untuk zona (.+)\\.$"), R.string.dynamic_tunable_thermal_status_description),
     DynamicUiText(Regex("^PPM Policy (.+): (.+)$"), R.string.dynamic_tunable_ppm_policy_name),
+    DynamicUiText(Regex("^● LOCKED : (.+)$"), R.string.dynamic_network_port_locked),
+    DynamicUiText(Regex("^⚡ MEMULIHKAN : (.+)$"), R.string.dynamic_network_port_restoring),
+    DynamicUiText(Regex("^Akselerasi MediaTek \\((.+) & FPSGO\\)$"), R.string.dynamic_gpu_mtk_title),
+    DynamicUiText(Regex("^Akselerasi Hardware GPU \\((.+)\\)$"), R.string.dynamic_gpu_generic_title),
+    DynamicUiText(Regex("^\\+(.+)%$"), R.string.dynamic_gpu_percent_plus),
+    DynamicUiText(Regex("^(.+)%$"), R.string.dynamic_gpu_percent),
+    DynamicUiText(Regex("^(.+) ms$"), R.string.dynamic_gpu_milliseconds),
+    DynamicUiText(Regex("^Kluster (.+) Mid$"), R.string.dynamic_cpu_mid_cluster),
+    DynamicUiText(Regex("^Kluster (.+)$"), R.string.dynamic_cpu_cluster),
+    DynamicUiText(Regex("^(.+) Dibatasi$"), R.string.dynamic_cpu_performance_limited),
+    DynamicUiText(Regex("^(.+) Siaga$"), R.string.dynamic_cpu_performance_standby),
+    DynamicUiText(Regex("^(.+) Core Diparkir \\(Offline\\)$"), R.string.dynamic_cpu_cores_offline),
+    DynamicUiText(Regex("^(.+) MHz @ (.+) mV$"), R.string.dynamic_cpu_cci_freq_voltage),
+    DynamicUiText(Regex("^(.+) MHz$"), R.string.dynamic_cpu_cci_freq),
+    DynamicUiText(Regex("^Mode (.+) \\(Gaming Stabil\\)$"), R.string.dynamic_cpu_unified_mode),
+    DynamicUiText(Regex("^Batas arus manual disetel ke (.+) mA dengan penguncian sysfs aktif\\.$"), R.string.dynamic_charging_custom_current),
+    DynamicUiText(Regex("^Mode Kustom Aktif • (.+) mA$"), R.string.dynamic_charging_custom_pill),
+    DynamicUiText(Regex("^Kluster (.+) · (.+)$"), R.string.dynamic_cpu_cluster_revision),
+    DynamicUiText(Regex("^Kluster (.+) \\((.+)\\)$"), R.string.dynamic_cpu_cluster_detail),
+    DynamicUiText(Regex("^Core (.+) · (.+) · (.+) Level OPP · Gov: (.+)$"), R.string.dynamic_cpu_core_opp_governor),
     // END GENERATED FEEDBACK DYNAMIC TEXTS
 )
 
@@ -212,7 +232,10 @@ fun localizedUiText(source: String): String {
     recommendationUiTextResources[source]?.let { return stringResource(it) }
     for (entry in dynamicUiTextResources) {
         val match = entry.pattern.matchEntire(source) ?: continue
-        return stringResource(entry.resource, *match.groupValues.drop(1).toTypedArray())
+        val localizedArguments = match.groupValues.drop(1).map { argument ->
+            legacyUiTextResources[argument]?.let { stringResource(it) } ?: argument
+        }
+        return stringResource(entry.resource, *localizedArguments.toTypedArray())
     }
     return source
 }

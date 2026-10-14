@@ -563,7 +563,7 @@
     <string name="legacy_ui_6553c9a8c93305" formatted="false">REGISTER CHARGER &amp; ADC PHYSICAL</string>
     <string name="legacy_ui_26b7eed4a2875b" formatted="false">ROM Bersih: Tidak ditemukan background daemon throttling agresif vendor OEM</string>
     <string name="legacy_ui_7f8a783d8b33e9" formatted="false">Rata-rata:</string>
-    <string name="legacy_ui_fd523668f3222a" formatted="false">Read-Only</string>
+    <string name="legacy_ui_fd523668f3222a" formatted="false">Hanya Baca</string>
     <string name="legacy_ui_739692abaf8569" formatted="false">Rekomendasi Optimasi Lynx</string>
     <string name="legacy_ui_cd227c5036fafe" formatted="false">Reset Standar (1.0)</string>
     <string name="legacy_ui_669a6639860aa5" formatted="false">Reset Standar D65</string>
@@ -1607,7 +1607,7 @@
     <string name="legacy_ui_7aeb644d28f867" formatted="false">Android SystemUI</string>
     <string name="legacy_ui_72633ed737bf30" formatted="false">Lewati Tunggu 3D Fence (Latensi Rendah)</string>
     <string name="legacy_ui_eb1ef5aac66c2d" formatted="false">Lewati Batas Termal &amp; Daya GPU (PBM/Termal)</string>
-    <string name="legacy_ui_09695fe9471baa" formatted="false">Default OEM (Baseline)</string>
+    <string name="legacy_ui_09695fe9471baa" formatted="false">Bawaan OEM (Dasar)</string>
     <string name="legacy_ui_6f9acf54e37fd3" formatted="false">Governor Devfreq GPU</string>
     <string name="legacy_ui_6678e77245d68b" formatted="false">Interval Polling Devfreq</string>
     <string name="legacy_ui_d96df2ef71bf9b" formatted="false">Bersihkan Cache &amp; Flush Buffer</string>
@@ -1625,9 +1625,138 @@
     <string name="legacy_ui_7c089d6a539f69" formatted="false">Profil Baru</string>
     <string name="legacy_ui_3a57e41046b9bd" formatted="false">SurfaceFlinger</string>
     <string name="legacy_ui_8be6356a830cff" formatted="false">Peluncur Sistem / Beranda</string>
-    <string name="legacy_ui_ea4485472927bf" formatted="false">Suhu Stabil (Berkelanjutan)</string>
+    <string name="legacy_ui_ea4485472927bf" formatted="false">Termal Stabil (Berkelanjutan)</string>
     <string name="legacy_ui_7b8d7978bf0271" formatted="false">Level Boost MTK GED</string>
     <string name="legacy_ui_c329ff8e2cd259" formatted="false">Target Beban TrustZone TZ</string>
     <string name="legacy_ui_2382889f763d4d" formatted="false">Bandwidth Bus Terpadu (Matikan Pemisahan Bus)</string>
     <string name="legacy_ui_f277eefd563436" formatted="false">Zygote Init Daemon</string>
+
+    <string name="legacy_ui_bd256afc6bf1f4" formatted="false">%.2f Juta</string>
+    <string name="legacy_ui_4913ab108c476d" formatted="false">0 • Mati</string>
+    <string name="legacy_ui_3d9b76a6219729" formatted="false">0% (Standar)</string>
+    <string name="legacy_ui_fb06db6a048c20" formatted="false">1 • Normal</string>
+    <string name="legacy_ui_66a576f78cb09c" formatted="false">1 • Rendah</string>
+    <string name="legacy_ui_11a3c167089b11" formatted="false">2 • Ekstrem</string>
+    <string name="legacy_ui_96b52df072290a" formatted="false">2 • Sedang</string>
+    <string name="legacy_ui_67a0994c1986bf" formatted="false">3 • Maksimum</string>
+    <string name="legacy_ui_517a9965ae75a8" formatted="false">50% (Max)</string>
+    <string name="legacy_ui_7b3c807a12153f" formatted="false">80% (Standar)</string>
+    <string name="legacy_ui_2fd39c577d97d2" formatted="false">Akselerasi Qualcomm Adreno (QTI KGSL)</string>
+    <string name="legacy_ui_a57629519f6cbd" formatted="false">Selalu Aktif (Performa)</string>
+    <string name="legacy_ui_2d0a3e3e55194a" formatted="false">Anti-throttle Aktif</string>
+    <string name="legacy_ui_c1e7ef8a4b7eed" formatted="false">Anti-throttling aktif • Batas clock puncak terjaga 100%</string>
+    <string name="legacy_ui_8ac27c7c7a9aac" formatted="false">Baterai</string>
+    <string name="legacy_ui_dd3f1f83650ed9" formatted="false">Beban aplikasi dijalankan pada core kecil yang hemat untuk memaksimalkan daya tahan baterai.</string>
+    <string name="legacy_ui_f69fd263467d47" formatted="false">Core Besar</string>
+    <string name="legacy_ui_f07fa3b28b8b41" formatted="false">Core Besar Diparkir</string>
+    <string name="legacy_ui_60641cffcbeafd" formatted="false">Core besar diprioritaskan penuh untuk game dan aplikasi utama. Proses latar dipisahkan ke core kecil.</string>
+    <string name="legacy_ui_c6a5a56004fc21" formatted="false">Coarse Demand (Hemat Daya)</string>
+    <string name="legacy_ui_27a50f063874cd" formatted="false">Deep Sleep Nonaktif</string>
+    <string name="legacy_ui_5b04ddfbe68c01" formatted="false">Dinamis (OEM)</string>
+    <string name="legacy_ui_8fca425ffb0679" formatted="false">Ekstrem</string>
+    <string name="legacy_ui_325e84939c6410" formatted="false">Alternatif</string>
+    <string name="legacy_ui_2b0ab8ae655d42" formatted="false">Frekuensi puncak dibatasi oleh governor termal</string>
+    <string name="legacy_ui_5c412a262086b9" formatted="false">Game</string>
+    <string name="legacy_ui_4eaa18bd919216" formatted="false">Hemat Daya (powersave)</string>
+    <string name="legacy_ui_5da7dd82678fef" formatted="false">Hemat Daya Maksimal</string>
+    <string name="legacy_ui_f313c1f405a22a" formatted="false">Core besar diparkir dan semua tingkat tidur CPU diaktifkan untuk menghemat baterai.</string>
+    <string name="legacy_ui_5af0baa469c9fb" formatted="false">Core dan siklus tidur diatur dinamis oleh kernel untuk menyeimbangkan daya dan respons.</string>
+    <string name="legacy_ui_2f2b4b7a5c4f08" formatted="false">Kluster Efisiensi</string>
+    <string name="legacy_ui_db43adb7618eb6" formatted="false">Kluster Utama</string>
+    <string name="legacy_ui_4df358db102c39" formatted="false">Konfigurasi kustom C-States dan parkir core sedang aktif.</string>
+    <string name="legacy_ui_a061c4057ffaf6" formatted="false">Konfigurasi kustom aktif. Penugasan thread mengikuti matriks manual.</string>
+    <string name="legacy_ui_a291fad4fb2b6a" formatted="false">Latensi Standar OEM</string>
+    <string name="legacy_ui_d587e23e3064b7" formatted="false">Core Kecil</string>
+    <string name="legacy_ui_ea030d17687d2e" formatted="false">DVFS MediaTek, Interkoneksi CCI, DVFSRC DRAM &amp; PPM</string>
+    <string name="legacy_ui_7f9c6d6b03c5e0" formatted="false">Menaikkan batas frekuensi minimum dan mempercepat respons untuk gaming stabil dengan proteksi termal aktif.</string>
+    <string name="legacy_ui_2aab52faa987ee" formatted="false">Mengoptimalkan frekuensi agar baterai lebih tahan lama dan suhu tetap rendah.</string>
+    <string name="legacy_ui_68bd35193f4cd2" formatted="false">Menyeimbangkan efisiensi daya harian dengan akselerasi cerdas saat aplikasi dibuka.</string>
+    <string name="legacy_ui_1fd84337123fcb" formatted="false">Mode Baterai (Hemat Daya)</string>
+    <string name="legacy_ui_38cd91a8c7cab0" formatted="false">Mode Ekstrem (Clock Maksimum 100%)</string>
+    <string name="legacy_ui_6d4981952176a7" formatted="false">Mode Ekstrem aktif: semua core dikunci pada frekuensi puncak tanpa batas daya OEM. Disarankan menggunakan pendingin eksternal.</string>
+    <string name="legacy_ui_7785aedfa8d663" formatted="false">Mode Hyper Aktif • Daya Penuh</string>
+    <string name="legacy_ui_9de44bea1a7d04" formatted="false">Mode Seimbang (Optimal)</string>
+    <string name="legacy_ui_e81f63907b2378" formatted="false">Mode Sejuk Aktif • Dibatasi ~2,0 A</string>
+    <string name="legacy_ui_f48432320e0218" formatted="false">Mode Standar Aktif • Regulasi OEM</string>
+    <string name="legacy_ui_1ae4c7a6572e9c" formatted="false">Optimal (Unthrottled)</string>
+    <string name="legacy_ui_464c7d1c2accbc" formatted="false">Otomatis mengikuti beban tugas</string>
+    <string name="legacy_ui_0a94720fbf343d" formatted="false">PPM Aktif Kembali • Parkir Siaga</string>
+    <string name="legacy_ui_f091e345c2f009" formatted="false">Performa</string>
+    <string name="legacy_ui_0c14efa8d51699" formatted="false">Profil GPU diterapkan</string>
+    <string name="legacy_ui_3b1b6ea5fc3da4" formatted="false">Profil GPU Ekstrem Aktif</string>
+    <string name="legacy_ui_28fc57a22fe67c" formatted="false">Profil GPU Esports Aktif</string>
+    <string name="legacy_ui_4ec132a0fb69b4" formatted="false">Profil GPU Hemat Daya Aktif</string>
+    <string name="legacy_ui_92acf081a241cb" formatted="false">Profil GPU Seimbang Aktif</string>
+    <string name="legacy_ui_18426486b04767" formatted="false">Proteksi standar pabrik • Throttling OEM aktif</string>
+    <string name="legacy_ui_d2dc6ef4cf7238" formatted="false">Respons Instan (performance)</string>
+    <string name="legacy_ui_8417b834768e27" formatted="false">Seimbang (schedutil)</string>
+    <string name="legacy_ui_cfda9e593ee0be" formatted="false">Semua 8 core dialokasikan secara dinamis oleh penjadwal kernel.</string>
+    <string name="legacy_ui_279c018b2104c2" formatted="false">Seluruh core siaga</string>
+    <string name="legacy_ui_46d2b401ed36b5" formatted="false">Seluruh inti prosesor aktif tanpa jeda tidur. Deep C-States dimatikan agar bebas micro-stutter.</string>
+    <string name="legacy_ui_d9090a2438a90e" formatted="false">Semua Inti Siaga</string>
+    <string name="legacy_ui_f459b837a6f99b" formatted="false">Shared L3 / DSU Bus</string>
+    <string name="legacy_ui_c9e041670680e5" formatted="false">Siaga Instan (0µs)</string>
+    <string name="legacy_ui_6f158b1c57a5a7" formatted="false">HAL Snapdragon QTI, Devfreq LLCC-DDR &amp; Boost Input</string>
+    <string name="legacy_ui_22e579bf9549d6" formatted="false">Throttling perangkat lunak dimatikan • Proteksi silikon dan baterai aktif</string>
+    <string name="legacy_ui_8e8d33567e83f4" formatted="false">Stabilisasi kurva OPP • Cegah FPS turun • Batas trip 52–55°C</string>
+    <string name="legacy_ui_d0eba819f2bc22" formatted="false">Throttled</string>
+    <string name="legacy_ui_4e28db0cfd4ca5" formatted="false">Tidur Adaptif</string>
+    <string name="legacy_ui_b82e66dfcfa145" formatted="false">Tidur Nyenyak Aktif</string>
+    <string name="legacy_ui_f21fda6b90b9dd" formatted="false">Toleransi panas tinggi • Kunci clock maksimum</string>
+    <string name="legacy_ui_4e313210bf91f4" formatted="false">Belum Pasti</string>
+    <string name="legacy_ui_6994f8494163dd" formatted="false">Interkoneksi Silikon Universal &amp; Proteksi Daya</string>
+    <string name="legacy_ui_fa314bc3833e35" formatted="false">Unthrottled (Warm)</string>
+    <string name="legacy_ui_0238f7ef0476ba" formatted="false">HAL Terverifikasi</string>
+    <string name="legacy_ui_19d265700c9458" formatted="false">adreno_idle_timer</string>
+    <string name="legacy_ui_da1aa27b20b28d" formatted="false">adreno_tz_target_load</string>
+    <string name="legacy_ui_fcb60e92c1ce87" formatted="false">adrenoboost_level</string>
+    <string name="legacy_ui_0bf404069fa005" formatted="false">always_on</string>
+    <string name="legacy_ui_c0905088ba5b80" formatted="false">balanced</string>
+    <string name="legacy_ui_f3d1701e1d575e" formatted="false">battery</string>
+    <string name="legacy_ui_368930a6d0de29" formatted="false">coarse_demand</string>
+    <string name="legacy_ui_c34045c1a1db8d" formatted="false">cool</string>
+    <string name="legacy_ui_6cdfd271da635d" formatted="false">custom</string>
+    <string name="legacy_ui_c0a5719f723b15" formatted="false">devfreq_polling_interval</string>
+    <string name="legacy_ui_60df88c25ded6c" formatted="false">esports</string>
+    <string name="legacy_ui_3393b41eeeea1c" formatted="false">extreme</string>
+    <string name="legacy_ui_8517b64a7dfada" formatted="false">gaming</string>
+    <string name="legacy_ui_91e235e3f81688" formatted="false">hyper</string>
+    <string name="legacy_ui_2522fe99ddf415" formatted="false">mali_dvfs_period</string>
+    <string name="legacy_ui_5ec6f445160db2" formatted="false">mali_power_policy</string>
+    <string name="legacy_ui_6f5b691dda70b8" formatted="false">mtk_dvfs_margin</string>
+    <string name="legacy_ui_75e0b514ceedd9" formatted="false">mtk_ged_boost_level</string>
+    <string name="legacy_ui_a08373a55b1528" formatted="false">park_big</string>
+    <string name="legacy_ui_4a1898716ef677" formatted="false">performance</string>
+    <string name="legacy_ui_f0008346e16501" formatted="false">powersave</string>
+    <string name="legacy_ui_93df7d4ab97de0" formatted="false">schedutil</string>
+    <string name="legacy_ui_fe6d3468cf5c74" formatted="false">standard</string>
+    <string name="legacy_ui_8d609ae01ba8ba" formatted="false">unpark_all</string>
+    <string name="legacy_ui_8df9858c458dd6" formatted="false">○ STANDBY</string>
+    <string name="legacy_ui_fc3afee34a0eb4" formatted="false">⚡ BYPASS</string>
+    <string name="legacy_ui_e25f8377656911" formatted="false">⚡ COOL</string>
+    <string name="legacy_ui_f0020d0833dc7b" formatted="false">⚡ CUSTOM</string>
+    <string name="legacy_ui_35f63b864f1376" formatted="false">⚡ HYPER</string>
+    <string name="legacy_ui_c65006d4d4d7b9" formatted="false">⚡ STANDARD</string>
+
+    <string name="dynamic_network_port_locked" formatted="false">● TERKUNCI: %1$s</string>
+    <string name="dynamic_network_port_restoring" formatted="false">⚡ MEMULIHKAN: %1$s</string>
+    <string name="dynamic_gpu_mtk_title" formatted="false">Akselerasi MediaTek (%1$s &amp; FPSGO)</string>
+    <string name="dynamic_gpu_generic_title" formatted="false">Akselerasi Hardware GPU (%1$s)</string>
+    <string name="dynamic_gpu_percent_plus" formatted="false">+%1$s%</string>
+    <string name="dynamic_gpu_percent" formatted="false">%1$s%</string>
+    <string name="dynamic_gpu_milliseconds" formatted="false">%1$s ms</string>
+    <string name="dynamic_cpu_mid_cluster" formatted="false">Kluster %1$s Mid</string>
+    <string name="dynamic_cpu_cluster" formatted="false">Kluster %1$s</string>
+    <string name="dynamic_cpu_performance_limited" formatted="false">%1$s Dibatasi</string>
+    <string name="dynamic_cpu_performance_standby" formatted="false">%1$s Siaga</string>
+    <string name="dynamic_cpu_cores_offline" formatted="false">%1$s Core Diparkir (Offline)</string>
+    <string name="dynamic_cpu_cci_freq_voltage" formatted="false">%1$s MHz @ %2$s mV</string>
+    <string name="dynamic_cpu_cci_freq" formatted="false">%1$s MHz</string>
+    <string name="dynamic_cpu_unified_mode" formatted="false">Mode %1$s (Gaming Stabil)</string>
+    <string name="dynamic_charging_custom_current" formatted="false">Batas arus manual disetel ke %1$s mA dengan penguncian sysfs aktif.</string>
+    <string name="dynamic_charging_custom_pill" formatted="false">Mode Kustom Aktif • %1$s mA</string>
+
+    <string name="dynamic_cpu_cluster_revision" formatted="false">Kluster %1$s · %2$s</string>
+    <string name="dynamic_cpu_cluster_detail" formatted="false">Kluster %1$s (%2$s)</string>
+    <string name="dynamic_cpu_core_opp_governor" formatted="false">Core %1$s · %2$s · %3$s Level OPP · Gov: %4$s</string>
 </resources>
