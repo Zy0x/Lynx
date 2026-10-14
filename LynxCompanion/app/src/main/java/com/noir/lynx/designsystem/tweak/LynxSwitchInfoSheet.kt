@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
+import com.noir.lynx.core.locale.localizedUiText
 import com.noir.lynx.designsystem.theme.AccentCyan
 import com.noir.lynx.designsystem.theme.AccentGreen
 import com.noir.lynx.designsystem.theme.AccentOrange
@@ -275,9 +276,9 @@ fun LynxSwitchInfoSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("• ${stringResource(R.string.label_gaming_heavy)}: ${info.gamingRecommendation}", fontSize = 10.5.sp, color = TextPrimary)
-                    Text("• ${stringResource(R.string.label_daily_balanced)}: ${info.balancedRecommendation}", fontSize = 10.5.sp, color = TextSecondary)
-                    Text("• ${stringResource(R.string.label_battery_saver)}: ${info.batteryRecommendation}", fontSize = 10.5.sp, color = TextSecondary)
+                    Text("• ${stringResource(R.string.label_gaming_heavy)}: ${localizedUiText(info.gamingRecommendation)}", fontSize = 10.5.sp, color = TextPrimary)
+                    Text("• ${stringResource(R.string.label_daily_balanced)}: ${localizedUiText(info.balancedRecommendation)}", fontSize = 10.5.sp, color = TextSecondary)
+                    Text("• ${stringResource(R.string.label_battery_saver)}: ${localizedUiText(info.batteryRecommendation)}", fontSize = 10.5.sp, color = TextSecondary)
                 }
             }
 

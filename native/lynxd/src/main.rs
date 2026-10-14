@@ -26,6 +26,7 @@ use crate::subsystems::{
     LifecycleHooks, MaintenanceController, MemoryController, NetworkController, SwapController,
     SystemController, ThermalController, TuiController,
 };
+use crate::subsystems::tui::ui;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
 use crate::utils::Logger;
 
@@ -207,33 +208,36 @@ fn handle_status(json: bool) {
         );
     } else {
         println!("==================================================");
-        println!("           LYNX SYSTEM & DAEMON STATUS            ");
+        println!("{}", ui("           STATUS SISTEM & DAEMON            ", "           LYNX SYSTEM & DAEMON STATUS            "));
         println!("==================================================");
-        println!("• Native Daemon:");
+        println!("{}", ui("• Daemon Native:", "• Native Daemon:"));
         if let Some(pid) = daemon_pid {
             println!("  Running       : YES (PID: {})", pid);
             println!("  PID Lockfile  : {}", DaemonLifecycle::pid_file_path().display());
         } else {
-            println!("  Running       : NO (Stopped)");
+            println!("{}", ui("  Berjalan      : TIDAK (Berhenti)", "  Running       : NO (Stopped)"));
         }
-        println!("• Profile Engine:");
-        println!("  Active Profile: {}", active_profile);
+        println!("{}", ui("• Mesin Profil:", "• Profile Engine:"));
+        println!("{}: {}", ui("  Profil Aktif", "  Active Profile"), active_profile);
         println!(
-            "  Lifecycle     : {} ({})",
+            "{}: {} ({})",
+            ui("  Siklus        ", "  Lifecycle     "),
             active_status,
-            if is_dirty { "DIRTY - Interrupted" } else { "Clean" }
+            if is_dirty { ui("KOTOR - Terputus", "DIRTY - Interrupted") } else { ui("Bersih", "Clean") }
         );
         println!("  Platform      : {}", device_platform);
-        println!("• Runtime Adaptive Controller:");
-        println!("  Modifier      : {} ({})", modifier, modifier_desc);
-        println!("  Foreground App: {}", fg_app);
-        println!("• System Telemetry & Health:");
-        println!("  Temperature   : {:.1}°C", temp_c);
-        println!("  Battery Level : {}%", bat_pct);
+        println!("{}", ui("• Pengendali Adaptif Runtime:", "• Runtime Adaptive Controller:"));
+        println!("{}: {} ({})", ui("  Modifier", "  Modifier"), modifier, modifier_desc);
+        println!("{}: {}", ui("  Aplikasi Depan", "  Foreground App"), fg_app);
+        println!("{}", ui("• Telemetri & Kesehatan Sistem:", "• System Telemetry & Health:"));
+        println!("{}: {:.1}°C", ui("  Suhu", "  Temperature"), temp_c);
+        println!("{}: {}%", ui("  Level Baterai", "  Battery Level"), bat_pct);
         println!(
-            "  Sensors Health: CPU({}) GPU({}) Batt({}) Mem({})",
+            "{}: CPU({}) GPU({}) {}({}) Mem({})",
+            ui("  Kesehatan Sensor", "  Sensors Health"),
             if state.health.cpu_available { "OK" } else { "FAIL" },
             if state.health.gpu_available { "OK" } else { "FAIL" },
+            ui("Baterai", "Batt"),
             if state.health.battery_available { "OK" } else { "FAIL" },
             if state.health.memory_available { "OK" } else { "FAIL" },
         );
@@ -242,7 +246,7 @@ fn handle_status(json: bool) {
 }
 
 fn handle_profile_list() {
-    println!("Available Performance Policy Profiles:");
+    println!("{}", ui("Profil Kebijakan Performa yang Tersedia:", "Available Performance Policy Profiles:"));
     for p in list_profiles() {
         println!("  • {:<12} : {}", p.name, p.description);
     }
@@ -257,7 +261,7 @@ fn handle_profile_show(name: &str) {
     match get_profile_by_name(name) {
         Some(p) => {
             if let Some(custom) = user_catalog::resolve_profile(name) {
-                println!("Custom Profile: {} ({})\nNative base: {}\n", custom.id, custom.name, custom.base_profile);
+                println!("{}: {} ({})\n{}: {}\n", ui("Profil Kustom", "Custom Profile"), custom.id, custom.name, ui("Basis native", "Native base"), custom.base_profile);
             }
             println!("{}", p.display());
         }
@@ -356,23 +360,23 @@ fn handle_profile_current() {
     match ProfileStateManager::load_active() {
         Ok(Some(state)) => {
             let snap_count = ProfileStateManager::load_snapshot().map(|s| s.len()).unwrap_or(0);
-            println!("Active Profile Persistent Status:");
-            println!("  • Current Profile : {}", state.active_profile);
-            println!("  • Applied Epoch   : {}", state.timestamp);
-            println!("  • Device Platform : {}", state.device);
-            println!("  • Lifecycle Status: {}", state.status);
+            println!("{}", ui("Status Persisten Profil Aktif:", "Active Profile Persistent Status:"));
+            println!("  • {}: {}", ui("Profil Saat Ini", "Current Profile"), state.active_profile);
+            println!("  • {}: {}", ui("Epoch Penerapan", "Applied Epoch"), state.timestamp);
+            println!("  • {}: {}", ui("Platform Perangkat", "Device Platform"), state.device);
+            println!("  • {}: {}", ui("Status Siklus", "Lifecycle Status"), state.status);
             println!(
                 "  • Crash Recovery  : {}",
                 if state.dirty {
-                    "DIRTY (Interrupted transaction detected!)"
+                    ui("KOTOR (Transaksi terputus terdeteksi!)", "DIRTY (Interrupted transaction detected!)")
                 } else {
-                    "CLEAN (Transaction fully committed)"
+                    ui("BERSIH (Transaksi berhasil diselesaikan)", "CLEAN (Transaction fully committed)")
                 }
             );
-            println!("  • Snapshot Backup : {} nodes recorded in last_snapshot.json", snap_count);
+            println!("  • {}: {} {} last_snapshot.json", ui("Cadangan Snapshot", "Snapshot Backup"), snap_count, ui("node tercatat di", "nodes recorded in"));
         }
         Ok(None) => {
-            println!("Active Profile Persistent Status: No active profile recorded yet (OEM baseline).");
+            println!("{}", ui("Status Persisten Profil Aktif: Belum ada profil aktif (setelan dasar OEM).", "Active Profile Persistent Status: No active profile recorded yet (OEM baseline)."));
         }
         Err(e) => {
             Logger::error(format!("Failed to read active profile state: {}", e));
@@ -385,13 +389,13 @@ fn handle_profile_revert() {
     Logger::info("Reverting kernel sysfs nodes to last known good snapshot...");
     match ProfileStateManager::revert() {
         Ok(report) => {
-            println!("Hardware State Revert Report:");
-            println!("  • Restored Nodes : {} nodes", report.restored_nodes.len());
+            println!("{}", ui("Laporan Pemulihan Status Hardware:", "Hardware State Revert Report:"));
+            println!("  • {}: {} {}", ui("Node Dipulihkan", "Restored Nodes"), report.restored_nodes.len(), ui("node", "nodes"));
             for (idx, (path, val)) in report.restored_nodes.iter().enumerate() {
                 println!("      [{}] {} ──> '{}'", idx + 1, path.display(), val);
             }
             if !report.skipped_nodes.is_empty() {
-                println!("  • Skipped Nodes  : {} nodes (non-existent/offline)", report.skipped_nodes.len());
+                println!("  • {}: {} {} ({})", ui("Node Dilewati", "Skipped Nodes"), report.skipped_nodes.len(), ui("node", "nodes"), ui("tidak ada/offline", "non-existent/offline"));
                 for (path, _) in &report.skipped_nodes {
                     println!("      [-] {}", path.display());
                 }
@@ -443,11 +447,11 @@ fn handle_profile_recover() {
 }
 
 fn handle_profile_journal() {
-    println!("Lynx Hardware Transaction & Recovery Journal:");
+    println!("{}", ui("Jurnal Transaksi & Pemulihan Hardware Lynx:", "Lynx Hardware Transaction & Recovery Journal:"));
     match ProfileStateManager::load_journal(50) {
         Ok(lines) => {
             if lines.is_empty() {
-                println!("  [INFO] Journal is empty. No transaction records found.");
+                println!("{}", ui("  [INFO] Jurnal kosong. Tidak ada catatan transaksi.", "  [INFO] Journal is empty. No transaction records found."));
             } else {
                 for line in &lines {
                     println!("  {}", line);
@@ -471,12 +475,12 @@ fn handle_daemon_run() {
 fn handle_daemon_status() {
     match DaemonLifecycle::check_status() {
         Some(pid) => {
-            println!("Lynx Daemon Status: RUNNING");
-            println!("  • Process ID  : {}", pid);
-            println!("  • PID Lockfile: {}", DaemonLifecycle::pid_file_path().display());
+            println!("{}", ui("Status Daemon Lynx: BERJALAN", "Lynx Daemon Status: RUNNING"));
+            println!("  • {}: {}", ui("ID Proses", "Process ID"), pid);
+            println!("  • {}: {}", ui("File Kunci PID", "PID Lockfile"), DaemonLifecycle::pid_file_path().display());
         }
         None => {
-            println!("Lynx Daemon Status: STOPPED (No active background process)");
+            println!("{}", ui("Status Daemon Lynx: BERHENTI (Tidak ada proses latar aktif)", "Lynx Daemon Status: STOPPED (No active background process)"));
         }
     }
 }
@@ -502,12 +506,12 @@ fn handle_probe() {
     if !board.dt_compatible.is_empty() {
         println!("  • DT Compatible : {}", board.dt_compatible);
     }
-    println!("  • Detected Signals:");
+    println!("{}", ui("  • Sinyal Terdeteksi:", "  • Detected Signals:"));
     for sig in &board.detected_signals {
         println!("      [+] {}", sig);
     }
     if board.detected_signals.is_empty() {
-        println!("      [-] No specific vendor driver signature matched.");
+        println!("{}", ui("      [-] Tidak ada tanda tangan driver vendor yang cocok.", "      [-] No specific vendor driver signature matched."));
     }
 }
 
@@ -596,7 +600,7 @@ fn handle_benchmark() {
         }
     }
 
-    println!("Target workload: {} active hardware nodes detected on device.", nodes_tested.len());
+    println!("{}: {}", ui("Beban target", "Target workload"), if crate::subsystems::tui::is_english() { format!("{} active hardware nodes detected on device", nodes_tested.len()) } else { format!("{} node hardware aktif terdeteksi pada perangkat", nodes_tested.len()) });
 
     let mut latencies_micros = Vec::new();
 
@@ -613,7 +617,7 @@ fn handle_benchmark() {
     let avg_micros = if read_count > 0 { total_micros / read_count as u128 } else { 0 };
 
     println!("--------------------------------------------------");
-    println!("Benchmark Results (Real Kernel Hardware Nodes):");
+    println!("{}", ui("Hasil Benchmark (Node Hardware Kernel Nyata):", "Benchmark Results (Real Kernel Hardware Nodes):"));
     println!("  • Operations Executed : {}", read_count);
     println!("  • Total Elapsed Time  : {} µs ({:.2} ms)", total_micros, total_elapsed.as_secs_f64() * 1000.0);
     println!("  • Average Per-Node I/O: {} µs ({:.3} ms)", avg_micros, avg_micros as f64 / 1000.0);
@@ -702,28 +706,28 @@ fn handle_charging(args: &[String]) {
                     let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
                     let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
                     ChargingRegulator::apply_from_config();
-                    println!("[OK] Charging Mode set to: COOL ({} mA)", target_ma);
+                    println!("[OK] {}: COOL ({} mA)", ui("Mode Pengisian diatur ke", "Charging Mode set to"), target_ma);
                 }
                 "standard" => {
                     let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
                     let _ = ConfigStore::set("charging.limit_current_ma", "2000", "val");
                     let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
                     ChargingRegulator::apply_from_config();
-                    println!("[OK] Charging Mode set to: STANDARD (OEM Adaptive)");
+                    println!("[OK] {}: STANDARD ({})", ui("Mode Pengisian diatur ke", "Charging Mode set to"), ui("Adaptif OEM", "OEM Adaptive"));
                 }
                 "hyper" => {
                     let _ = ConfigStore::set("charging.extreme_charging_enabled", "true", "bool");
                     let _ = ConfigStore::set("charging.limit_current_ma", "12000", "val");
                     let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "true", "bool");
                     ChargingRegulator::apply_from_config();
-                    println!("[OK] Charging Mode set to: HYPER (Unconstrained Peak)");
+                    println!("[OK] {}: HYPER ({})", ui("Mode Pengisian diatur ke", "Charging Mode set to"), ui("Puncak Tanpa Batas", "Unconstrained Peak"));
                 }
                 "custom" => {
                     let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
                     let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
                     let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
                     ChargingRegulator::apply_from_config();
-                    println!("[OK] Charging Mode set to: CUSTOM ({} mA)", target_ma);
+                    println!("[OK] {}: CUSTOM ({} mA)", ui("Mode Pengisian diatur ke", "Charging Mode set to"), target_ma);
                 }
                 other => {
                     Logger::error(format!("Unknown charging mode: '{}'. Use: cool, standard, hyper, custom", other));
@@ -737,7 +741,7 @@ fn handle_charging(args: &[String]) {
             let _ = ConfigStore::set("charging.limit_current_ma", &limit.to_string(), "val");
             let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
             ChargingRegulator::apply_from_config();
-            println!("[OK] Charging Mode: COOL ({} mA)", limit);
+            println!("[OK] {}: COOL ({} mA)", ui("Mode Pengisian", "Charging Mode"), limit);
         }
         "standard" => {
             let _ = ConfigStore::set("charging.charging_mode", "standard", "str");
@@ -745,7 +749,7 @@ fn handle_charging(args: &[String]) {
             let _ = ConfigStore::set("charging.limit_current_ma", "2000", "val");
             let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
             ChargingRegulator::apply_from_config();
-            println!("[OK] Charging Mode: STANDARD");
+            println!("[OK] {}: STANDARD", ui("Mode Pengisian", "Charging Mode"));
         }
         "hyper" => {
             let _ = ConfigStore::set("charging.charging_mode", "hyper", "str");
@@ -753,7 +757,7 @@ fn handle_charging(args: &[String]) {
             let _ = ConfigStore::set("charging.limit_current_ma", "12000", "val");
             let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "true", "bool");
             ChargingRegulator::apply_from_config();
-            println!("[OK] Charging Mode: HYPER");
+            println!("[OK] {}: HYPER", ui("Mode Pengisian", "Charging Mode"));
         }
         "custom" => {
             let target_ma = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(2500);
@@ -762,14 +766,14 @@ fn handle_charging(args: &[String]) {
             let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
             let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
             ChargingRegulator::apply_from_config();
-            println!("[OK] Charging Mode: CUSTOM ({} mA)", target_ma);
+            println!("[OK] {}: CUSTOM ({} mA)", ui("Mode Pengisian", "Charging Mode"), target_ma);
         }
         "lock" => {
             ChargingRegulator::reapply_lock();
         }
         "bypass" => {
             ChargingRegulator::apply_bypass_charging();
-            println!("[OK] Hardware Bypass Charging engaged (0 mA battery cell cutoff)");
+            println!("[OK] {}", ui("Bypass pengisian hardware aktif (arus ke sel baterai 0 mA)", "Hardware Bypass Charging engaged (0 mA battery cell cutoff)"));
         }
         "extreme" => {
             let target_soc = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(90);
@@ -786,7 +790,7 @@ fn handle_charging(args: &[String]) {
         }
         "disconnect" | "reset" => {
             ChargingRegulator::handle_disconnect();
-            println!("[OK] Fast charging stopped, nodes reset, and thermal baseline restored.");
+            println!("[OK] {}", ui("Pengisian cepat dihentikan, node direset, dan batas termal dipulihkan.", "Fast charging stopped, nodes reset, and thermal baseline restored."));
         }
         "tick" => {
             ChargingRegulator::tick();
@@ -866,7 +870,7 @@ fn handle_display(args: &[String]) {
 
 fn handle_applist(args: &[String]) {
     if args.len() < 3 {
-        println!("Packages in performance list:");
+        println!("{}", ui("Paket dalam daftar performa:", "Packages in performance list:"));
         for app in ApplistController::list() {
             println!("  {}", app);
         }
@@ -1074,7 +1078,7 @@ fn main() {
                 "optimize" | "optimize-pid" => {
                     if let Some(pid) = args.get(3).and_then(|s| s.parse::<u32>().ok()) {
                         GameController::optimize_pid(pid);
-                        println!("Process {} optimized for low latency gaming.", pid);
+                    println!("{}", if crate::subsystems::tui::is_english() { format!("Process {} optimized for low latency gaming.", pid) } else { format!("Proses {} dioptimalkan untuk gaming latensi rendah.", pid) });
                     } else {
                         eprintln!("Usage: lynxd game optimize-pid <PID>");
                     }
@@ -1091,11 +1095,11 @@ fn main() {
             match sub {
                 "freeze" => {
                     ThermalController::freeze_oem_throttlers();
-                    println!("OEM background throttlers frozen.");
+                    println!("{}", ui("Pembatas performa latar OEM dibekukan.", "OEM background throttlers frozen."));
                 }
                 "unfreeze" | "restore" => {
                     ThermalController::unfreeze_oem_throttlers();
-                    println!("OEM background throttlers unfrozen.");
+                    println!("{}", ui("Pembatas performa latar OEM dipulihkan.", "OEM background throttlers unfrozen."));
                 }
                 _ => eprintln!("Usage: lynxd oem freeze|unfreeze"),
             }

@@ -1138,7 +1138,7 @@ impl ChargingRegulator {
             .unwrap_or_default();
 
         let rfc_val = Self::read_first_i2c_node("/sys/bus/i2c/drivers/rt9759", "rfc_dcp_ta")
-            .unwrap_or_else(|| if chgtyp == "9" { 1 } else { 0 });
+            .unwrap_or(0);
         let rfc_auth = rfc_val == 1;
 
         let real_dc = Self::read_real_battery_temp_dc();
@@ -1162,12 +1162,12 @@ impl ChargingRegulator {
                 "Switching Buck Converter (RT9471/Universal)"
             };
 
-            let proto = if rfc_auth || chgtyp == "9" {
+            let proto = if rfc_auth || (chgtyp == "9" && adpv > 9800) {
                 "Transsion Super Charge (33W/45W/68W RFC)"
             } else if adpv > 8500 {
                 "USB Power Delivery / PPS"
-            } else if adpv > 8000 || chgtyp == "4" {
-                "USB-PD / PE2.0 Fast Charge (18W)"
+            } else if adpv > 8000 || chgtyp == "4" || chgtyp == "7" || (chgtyp == "9" && !rfc_auth) {
+                "USB Power Delivery / PPS"
             } else if adpv > 4500 && c_clean >= 2000 {
                 "Fast Charge (High Current 5V)"
             } else if adpv > 4000 {

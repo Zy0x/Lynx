@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.noir.lynx.data.*
+import com.noir.lynx.R
+import com.noir.lynx.core.locale.AppLocale
 import com.noir.lynx.feature.battery.BatteryInformationUiState
 import com.noir.lynx.hardware.WriteResult
 import com.noir.lynx.engine.CpuPolicyManager
@@ -141,23 +143,23 @@ fun LynxViewModel.setCoreParkingMode(mode: String, totalCores: Int = 8, context:
         if (ok) {
             val fresh = safeReadCpuIdleInfo(context)
             val modeLabel = when (mode.lowercase()) {
-                "unpark_all" -> "Unpark Semua Core (Anti-Stutter)"
-                "park_big" -> "Park Big Core (Hemat Daya)"
-                else -> "Dinamis (OEM Default)"
+                "unpark_all" -> context?.let { AppLocale.getString(it, R.string.cpu_parking_unpark_all) } ?: "Unpark Semua Core (Anti-Stutter)"
+                "park_big" -> context?.let { AppLocale.getString(it, R.string.cpu_parking_park_big) } ?: "Park Big Core (Hemat Daya)"
+                else -> context?.let { AppLocale.getString(it, R.string.cpu_parking_dynamic) } ?: "Dinamis (OEM Default)"
             }
             _uiState.update { current ->
                 current.copy(
                     cpuIdle = fresh.copy(
                         applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
                     ),
-                    successMessage = if (fromMasterProfile) current.successMessage else "Mode Core Parking diubah ke '$modeLabel'",
+                    successMessage = if (fromMasterProfile) current.successMessage else context?.let { AppLocale.getString(it, R.string.cpu_parking_mode_changed, modeLabel) } ?: "Mode Core Parking diubah ke '$modeLabel'",
                     isCpuModified = if (fromMasterProfile) current.isCpuModified else true
                 )
             }
             refreshCpuCores()
         } else {
             if (!fromMasterProfile) {
-                _uiState.update { it.copy(errorMessage = "Gagal mengubah mode Core Parking ke '$mode'") }
+                _uiState.update { current -> current.copy(errorMessage = context?.let { AppLocale.getString(it, R.string.cpu_parking_mode_failed, mode) } ?: "Gagal mengubah mode Core Parking ke '$mode'") }
             }
         }
         if (fromMasterProfile) {

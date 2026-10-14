@@ -30,7 +30,7 @@ pub(crate) fn is_english() -> bool {
     })
 }
 
-fn ui<'a>(indonesian: &'a str, english: &'a str) -> &'a str {
+pub(crate) fn ui<'a>(indonesian: &'a str, english: &'a str) -> &'a str {
     if is_english() { english } else { indonesian }
 }
 

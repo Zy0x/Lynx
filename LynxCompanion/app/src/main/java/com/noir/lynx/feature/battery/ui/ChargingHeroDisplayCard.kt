@@ -1282,7 +1282,7 @@ private fun resolveHardwareProtocolDirect(
             "Qualcomm QC"
         }
         // USB Power Delivery & PPS
-        mtkChgType == "7" || pdSig == "1" || pdSig == "2" || ptypUpper.contains("PD") -> {
+        mtkChgType == "4" || mtkChgType == "7" || pdSig == "1" || pdSig == "2" || ptypUpper.contains("PD") || ptypUpper.contains("PPS") -> {
             if (pdSig == "2" || ptypUpper.contains("PPS")) "USB-PD / PPS"
             else "USB-PD"
         }

@@ -97,7 +97,8 @@ internal object LynxBatteryTelemetryRepository {
                         fi
                     fi
 
-                    rfc=${'$'}([ "${'$'}chgtyp" = "9" ] && echo 1 || (cat /sys/bus/i2c/drivers/rt9759/*/rfc_dcp_ta 2>/dev/null | head -n 1 || echo 0))
+                    rfc=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/rfc_dcp_ta 2>/dev/null | head -n 1)
+                    [ -z "${'$'}rfc" ] && rfc=0
                     rtmp=${'$'}(cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null)
                     [ -z "${'$'}rtmp" ] || [ "${'$'}rtmp" -le 0 ] 2>/dev/null && rtmp=${'$'}temp
                     grd=${'$'}([ -f /dev/lynx_charging_guard ] && echo 1 || echo 0)
@@ -134,8 +135,7 @@ internal object LynxBatteryTelemetryRepository {
                     pd_sig=${'$'}(cat /sys/class/power_supply/usb/pd_active 2>/dev/null || cat /sys/class/power_supply/usb/pd_allowed 2>/dev/null || cat /sys/class/typec/pd_active 2>/dev/null || echo "")
 
                     mtk_chg=${'$'}(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || echo "")
-                    [ "${'$'}mtk_chg" = "7" ] && pd_sig="1"
-                    [ "${'$'}mtk_chg" = "9" ] && rfc="1"
+                    [ "${'$'}mtk_chg" = "7" ] || [ "${'$'}mtk_chg" = "4" ] && pd_sig="1"
                     ptyp=${'$'}(cat /sys/class/power_supply/usb/type 2>/dev/null || cat /sys/class/power_supply/usb/real_type 2>/dev/null || echo "")
                     [ -z "${'$'}ptyp" ] && [ -n "${'$'}mtk_chg" ] && [ "${'$'}mtk_chg" != "0" ] && ptyp="MTK_${'$'}mtk_chg"
                     [ -z "${'$'}ptyp" ] && [ -d /sys/class/power_supply/pc_port ] && ptyp="SDP"
@@ -291,7 +291,15 @@ internal object LynxBatteryTelemetryRepository {
                     val qcUpper = qcSig.uppercase(java.util.Locale.US)
                     val protocol = when {
                         !isPlugged -> "Battery Power"
-                        rfcAuth || chgTyp == "9" || rawPtyp == "MTK_9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC") -> {
+                        // USB Power Delivery & PPS
+                        pdSig == "1" || pdSig == "2" || chgTyp == "7" || chgTyp == "4" || rawPtyp == "MTK_7" || rawPtyp == "MTK_4" ||
+                                ptypUpper.contains("PD") || ptypUpper.contains("PPS") ||
+                                (adpMv in 7500..9800 && (!rfcAuth || watt < 28f)) -> {
+                            if (pdSig == "2" || ptypUpper.contains("PPS") || adpMv > 8500) "USB-PD / PPS"
+                            else "USB-PD"
+                        }
+                        // Genuine Transsion Fast Charge (Infinix / Tecno 33W/45W/68W PE+ Direct Pump)
+                        rfcAuth || (chgTyp == "9" && (rfcAuth || watt >= 28f || adpMv > 9800)) || rawPtyp == "MTK_9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC") -> {
                             val wLabel = if (watt >= 60f) "68W" else if (watt >= 40f) "45W" else if (watt >= 28f) "33W" else "Flash"
                             "Transsion $wLabel (PE+)"
                         }
@@ -301,10 +309,6 @@ internal object LynxBatteryTelemetryRepository {
                         ptypUpper.contains("HVDCP_3P5") || qcUpper.contains("4") || qcUpper.contains("5") -> "Qualcomm QC 4/5"
                         ptypUpper.contains("HVDCP_3") || qcUpper.contains("3") || qcUpper.contains("QC3") -> "Qualcomm QC 3.0"
                         ptypUpper.contains("HVDCP") || qcUpper.contains("2") || qcUpper.contains("QC2") || qcUpper.contains("QC") || (qcSig.isNotBlank() && qcSig != "0") -> "Qualcomm QC"
-                        pdSig == "1" || pdSig == "2" || chgTyp == "7" || rawPtyp == "MTK_7" || ptypUpper.contains("PD") -> {
-                            if (pdSig == "2" || ptypUpper.contains("PPS")) "USB-PD / PPS"
-                            else "USB-PD"
-                        }
                         chgTyp == "8" || rawPtyp == "MTK_8" || ptypUpper.contains("PUMP") || ptypUpper.contains("PE") -> "MTK Pump Express"
                         adpMv > 8500 || (watt >= 15f && isCharging) -> "Adaptor Cepat (Fast)"
                         isLaptop || ptypUpper.contains("SDP") || ptypUpper.contains("CDP") -> "USB PC / Laptop"
