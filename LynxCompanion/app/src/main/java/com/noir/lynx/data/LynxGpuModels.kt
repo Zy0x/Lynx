@@ -328,11 +328,22 @@ data class NativeEngineStatus(
     val memoryHealth: Boolean = true,
 )
 
+enum class ToastType {
+    MODE,
+    PRESET,
+    SUCCESS,
+    ERROR,
+    INFO,
+    WARNING
+}
+
 data class ModeToastData(
     val modeId: String,
     val modeLabel: String,
     val accentColorHex: Long,
     val iconType: String = "",
+    val statusTag: String = "AKTIF",
+    val type: ToastType = ToastType.MODE,
     val timestamp: Long = System.currentTimeMillis()
 )
 

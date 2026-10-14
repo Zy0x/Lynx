@@ -56,6 +56,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.ScrollableDefaults
@@ -69,6 +70,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.noir.lynx.core.locale.AppLocale
+import com.noir.lynx.R
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
@@ -147,6 +151,41 @@ fun ToolsTabContent(
                     ) {
                         item(key = "tools_top_spacer") {
                             Spacer(Modifier.height(8.dp))
+                        }
+
+                        item(key = "language_settings") {
+                            val context = LocalContext.current
+                            val language = AppLocale.selected(context)
+                            LynxCard(
+                                title = stringResource(R.string.language_settings_title),
+                                icon = Icons.Default.Language,
+                                accentColor = AccentCyan
+                            ) {
+                                Text(
+                                    stringResource(R.string.language_settings_desc),
+                                    color = TextSecondary,
+                                    fontSize = 11.sp
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf(
+                                        AppLocale.SYSTEM to R.string.language_system,
+                                        AppLocale.INDONESIAN to R.string.language_indonesian,
+                                        AppLocale.ENGLISH to R.string.language_english
+                                    ).forEach { (tag, label) ->
+                                        FilterChip(
+                                            selected = language == tag,
+                                            onClick = {
+                                                AppLocale.setSelected(context, tag)
+                                                (context as? ComponentActivity)?.recreate()
+                                            },
+                                            label = { Text(stringResource(label), fontSize = 10.sp) }
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         item(key = "flasher") {

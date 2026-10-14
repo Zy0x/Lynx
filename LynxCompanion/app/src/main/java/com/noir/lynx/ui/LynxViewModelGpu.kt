@@ -411,7 +411,19 @@ fun LynxViewModel.applyGpuProfile(profile: String, context: android.content.Cont
                 "extreme" -> "Profil GPU Ekstrem Aktif"
                 else -> "Profil GPU Diterapkan"
             }
-            android.widget.Toast.makeText(context, label, android.widget.Toast.LENGTH_SHORT).show()
+            val accentHex = when (profile) {
+                "battery" -> 0xFF00E676
+                "balanced" -> 0xFF00E5FF
+                "esports" -> 0xFFFF9100
+                else -> 0xFFFF5252
+            }
+            triggerUniversalToast(
+                title = label,
+                statusTag = "GPU",
+                type = com.noir.lynx.data.ToastType.PRESET,
+                accentColorHex = accentHex,
+                iconType = "gpu"
+            )
         }
         delay(300L)
         refreshGpuInfo()

@@ -13,7 +13,11 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
+import com.noir.lynx.core.locale.LynxText as Text
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -96,6 +100,11 @@ fun QuickProfileSwitcherCard(
         ) {
             standardProfiles.forEach { item ->
                 val isSelected = currentProfile.equals(item.id, ignoreCase = true)
+                val targetBg = if (isSelected) item.accentColor.copy(alpha = 0.18f) else BgElevated
+                val targetBorder = if (isSelected) item.accentColor else BorderSubtle
+                val animatedBg by animateColorAsState(targetBg, animationSpec = tween(150), label = "quick_card_bg")
+                val animatedBorder by animateColorAsState(targetBorder, animationSpec = tween(150), label = "quick_card_border")
+
                 Surface(
                     onClick = {
                         if (!isSelected) {
@@ -107,10 +116,10 @@ fun QuickProfileSwitcherCard(
                         }
                     },
                     shape = RoundedCornerShape(14.dp),
-                    color = if (isSelected) item.accentColor.copy(alpha = 0.18f) else BgElevated,
+                    color = animatedBg,
                     border = BorderStroke(
                         width = if (isSelected) 1.5.dp else 0.8.dp,
-                        color = if (isSelected) item.accentColor else BorderSubtle
+                        color = animatedBorder
                     ),
                     modifier = Modifier
                         .weight(1f)

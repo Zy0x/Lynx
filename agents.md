@@ -544,6 +544,31 @@ Sistem eksekusi Lynx menempatkan biner native Rust (`native/lynxd/`) sebagai **j
 3. **Auto-Resurrection Supervised**: Setiap pemanggilan query status subsistem (misal `lynxd adb status`) wajib menyertakan verifikasi liveness; jika proses watchdog terbunuh oleh Android OOM killer, daemon secara otomatis membangkitkan proses tersebut kembali di latar belakang.
 
 ---
+
+## 🌐 16. Mandat Localization Produk (`id` & `en` — No Hardcoded UI Text)
+
+Seluruh teks yang ditampilkan kepada pengguna wajib dapat diterjemahkan. Bahasa rilis awal yang didukung penuh adalah Bahasa Indonesia (`id`) dan English (`en`); struktur katalog harus memungkinkan penambahan locale lain tanpa mengubah alur fitur.
+
+### 16.1 Cakupan Teks yang Wajib Dilokalkan
+1. **Companion Android**: Seluruh teks Compose, menu, dialog, snackbar/toast, status/error/success, notifikasi, Quick Settings tile, label aksesibilitas (`contentDescription`/semantics), placeholder, dan teks yang dibentuk dari nilai dinamis.
+2. **WebUI**: Teks HTML statis dan dinamis, label/tombol, judul, placeholder, pesan console/toast, atribut `title`/`aria-*`, dan setiap teks yang diubah oleh JavaScript.
+3. **Installer, CLI, dan skrip**: Semua prompt, `ui_print`, bantuan, status, peringatan, dan pesan error yang terlihat pengguna. Teks teknis dalam log internal yang tidak ditampilkan sebagai UI boleh tetap memakai format diagnostik teknis.
+4. Dokumentasi teknis, identifier internal, nama properti kernel, perintah, nama paket, enum/protokol, kode, angka, dan satuan standar bukan teks UI dan tidak diterjemahkan.
+
+### 16.2 Sumber Teks dan Preferensi Bahasa
+1. **Jangan menambahkan literal bahasa manusia langsung ke UI baru**. Android Compose wajib mengambil teks dari Android string resources (`values-id/strings.xml` dan `values-en/strings.xml`) menggunakan `stringResource`; WebUI wajib memakai token stabil di katalog `webroot/locale-data.js`; output shell/CLI wajib memakai helper locale bersama (`core/locale.sh`).
+2. Android menyediakan katalog `id` dan `en` dengan key yang sama; `values/strings.xml` tetap menjadi fallback Indonesian untuk locale yang tidak didukung. WebUI memilih dari locale browser dengan aturan yang sama.
+3. Companion menyediakan pilihan bahasa manual yang mengikuti locale sistem secara default dan menyimpan override lokal pada preferensi aplikasi. WebUI menyediakan pilihan manual dan menyimpan override pada browser (local storage); preferensi kedua antarmuka tetap independen.
+4. Output installer/CLI/skrip mengikuti locale sistem Android; jangan menyimpan preferensi bahasa UI ke `config.json` modul atau mencampurnya dengan konfigurasi kernel.
+5. Teks berparameter wajib memakai placeholder bernomor/format yang aman pada katalog. Teks berjumlah wajib memakai plural resources/aturan plural; jangan merangkai kalimat terjemahan dari potongan kata.
+
+### 16.3 Audit, Validator, dan Kriteria Selesai
+1. Perubahan UI harus memperbarui seluruh katalog locale sekaligus. Key yang hilang, key yatim, atau fallback tersembunyi tidak diperbolehkan.
+2. Jalankan `python tools/validate_locales.py` untuk memeriksa kesetaraan key Android dan WebUI, placeholder, dan cakupan semua teks HTML statis. Audit statis juga harus mencari literal bahasa manusia yang tertinggal pada UI; tinjau hasilnya agar identifier, nilai kernel, dan data dinamis tidak salah dianggap sebagai UI.
+3. Verifikasi kedua bahasa pada locale sistem/browser `id`, `en`, serta locale lain yang memakai fallback Indonesian; verifikasi pula override manual tetap tersimpan setelah aplikasi/halaman dibuka ulang.
+4. Periksa placeholder, plural, pesan sukses/error, dialog, notifikasi/tile, label aksesibilitas, installer, dan CLI dalam kedua bahasa. Sebelum menyelesaikan perubahan localization, jalankan unit test dan build aplikasi varian **Release** sesuai kebijakan repo; jangan menaikkan versi.
+
+---
 *Dokumen ini sah sebagai panduan teknis dan acuan implementasi resmi proyek Lynx Universal.*
 
 

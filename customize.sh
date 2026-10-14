@@ -8,6 +8,7 @@
 command -v ui_print >/dev/null 2>&1 || ui_print() { echo "$@"; }
 command -v abort >/dev/null 2>&1 || abort() { echo "$@"; exit 1; }
 command -v set_perm_recursive >/dev/null 2>&1 || set_perm_recursive() { chmod -R 755 "$1" 2>/dev/null; }
+[ -f "$MODPATH/core/locale.sh" ] && . "$MODPATH/core/locale.sh"
 
 MOD_VER="7.0.0"
 if [ -f "$MODPATH/module.prop" ]; then
@@ -16,7 +17,7 @@ fi
 [ -z "$MOD_VER" ] && MOD_VER="Universal"
 
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-ui_print "  [*] L Y N X   [Codename: Deity]"
+ui_print "$(lynx_t install_title)"
 ui_print "  Version: $MOD_VER  |  Author: ɴᴏɪʀ"
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
@@ -24,13 +25,13 @@ ui_print "━━━━━━━━━━━━━━━━━━━━━━━�
 check_root() {
     if [ -n "$BOOTMODE" ]; then
         if [ -n "$KSU" ]; then
-            ui_print "  [+] Root: KernelSU (${KSU_KERNEL_VER_CODE:-kernel} / ${KSU_VER_CODE:-ksud})"
+            ui_print "$(lynx_t root_ksu "${KSU_KERNEL_VER_CODE:-kernel}" "${KSU_VER_CODE:-ksud}")"
         elif [ -n "$APATCH" ] || [ -n "$APATCH_VER_CODE" ]; then
-            ui_print "  [+] Root: APatch (${APATCH_VER:-unknown})"
+            ui_print "$(lynx_t root_apatch "${APATCH_VER:-unknown}")"
         elif [ -n "$MAGISK_VER_CODE" ]; then
-            ui_print "  [+] Root: Magisk (${MAGISK_VER:-unknown})"
+            ui_print "$(lynx_t root_magisk "${MAGISK_VER:-unknown}")"
         else
-            ui_print "  [*] Root: Standard Linux Root Environment"
+            ui_print "$(lynx_t root_generic)"
         fi
     fi
 }
@@ -65,17 +66,17 @@ detect_soc() {
         TARGET_SOC="mtk"
         if echo "$prop_manuf" | grep -q "qualcomm" || echo "$prop_plat" | grep -qE "^(sm|sdm|msm|kona|taro|kalama)"; then
             IS_SPOOFED=true
-            ui_print "  [!] WARNING: SoC Spoofer Detected! ($prop_manuf / $prop_plat)"
-            ui_print "  [*] Real Hardware: MediaTek Dimensity/Helio"
-            ui_print "  [+] Lynx locks installation to MediaTek Engine!"
+            ui_print "$(lynx_t spoof_warning "$prop_manuf" "$prop_plat")"
+            ui_print "$(lynx_t real_mtk)"
+            ui_print "$(lynx_t lock_mtk)"
         fi
     elif [ "$HW_SOC" = "qcom" ]; then
         TARGET_SOC="qcom"
         if echo "$prop_manuf" | grep -q "mediatek" || echo "$prop_plat" | grep -qE "^mt"; then
             IS_SPOOFED=true
-            ui_print "  [!] WARNING: SoC Spoofer Detected! ($prop_manuf / $prop_plat)"
-            ui_print "  [*] Real Hardware: Qualcomm Snapdragon"
-            ui_print "  [+] Lynx locks installation to Qualcomm Engine!"
+            ui_print "$(lynx_t spoof_warning "$prop_manuf" "$prop_plat")"
+            ui_print "$(lynx_t real_qcom)"
+            ui_print "$(lynx_t lock_qcom)"
         fi
     else
         # Level 3: Fallback to System Properties
@@ -90,31 +91,31 @@ detect_soc() {
 
     # Level 4: Volume Key Confirmation Protocol (with 10s auto-confirm timeout)
     if [ "$AUTO_INSTALL" = "1" ] || [ "$AUTO_INSTALL" = "true" ] || [ -f "/data/local/tmp/lynx_auto_install" ]; then
-        ui_print "  [*] Architecture: $TARGET_SOC (Auto-confirmed)"
+        ui_print "$(lynx_t architecture_auto "$TARGET_SOC")"
     elif [ -f "$MODPATH/addon/Volume-Key-Selector/install.sh" ]; then
         . "$MODPATH/addon/Volume-Key-Selector/install.sh"
         if [ -n "$VKSEL" ]; then
             ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            ui_print "  [*] Detected Architecture: $TARGET_SOC"
-            ui_print "  [?] Confirm detected chipset?"
-            ui_print "     [Vol +]  YES, proceed with $TARGET_SOC"
-            ui_print "     [Vol -]  NO, select manually"
+            ui_print "$(lynx_t architecture "$TARGET_SOC")"
+            ui_print "$(lynx_t confirm_chipset)"
+            ui_print "$(lynx_t volume_yes "$TARGET_SOC")"
+            ui_print "$(lynx_t volume_no)"
             if ! $VKSEL 10; then
                 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-                ui_print "  [*] Select SoC Architecture Manually:"
-                ui_print "     [1] Qualcomm Snapdragon"
-                ui_print "     [2] MediaTek Dimensity / Helio"
-                ui_print "     [3] Generic Linux"
+                ui_print "$(lynx_t select_architecture)"
+                ui_print "$(lynx_t qcom_option)"
+                ui_print "$(lynx_t mtk_option)"
+                ui_print "$(lynx_t generic_option)"
                 local opt=1
                 while true; do
-                    ui_print "    -> Option $opt"
+                    ui_print "$(lynx_t selected_option "$opt")"
                     if $VKSEL; then
                         case $opt in
                             1) TARGET_SOC="qcom" ;;
                             2) TARGET_SOC="mtk" ;;
                             3) TARGET_SOC="generic" ;;
                         esac
-                        ui_print "  [+] Selected: $TARGET_SOC"
+                        ui_print "$(lynx_t selected_architecture "$TARGET_SOC")"
                         break
                     else
                         opt=$((opt + 1))
@@ -147,7 +148,7 @@ case "$TARGET_SOC" in
 esac
 
 # ── 4. Conditional Hardware Abstraction Layer Injection ────────────
-ui_print "  [*] Injecting Hardware Abstraction Layer ($TARGET_SOC)..."
+ui_print "$(lynx_t inject_hal "$TARGET_SOC")"
 mkdir -p "$MODPATH/system/vendor"
 
 if [ "$TARGET_SOC" = "qcom" ]; then
@@ -158,7 +159,7 @@ if [ "$TARGET_SOC" = "qcom" ]; then
         echo "" >> "$MODPATH/system.prop"
         cat "$MODPATH/platforms/qcom/system.prop" >> "$MODPATH/system.prop"
     fi
-    ui_print "  [+] Qualcomm HAL Overlays Injected"
+    ui_print "$(lynx_t injected_qcom)"
 elif [ "$TARGET_SOC" = "mtk" ]; then
     if [ -d "$MODPATH/platforms/mtk/system" ]; then
         cp -af "$MODPATH/platforms/mtk/system/"* "$MODPATH/system/" 2>/dev/null
@@ -167,13 +168,13 @@ elif [ "$TARGET_SOC" = "mtk" ]; then
         echo "" >> "$MODPATH/system.prop"
         cat "$MODPATH/platforms/mtk/system.prop" >> "$MODPATH/system.prop"
     fi
-    ui_print "  [+] MediaTek HAL Overlays Injected (Firmware untouched)"
+    ui_print "$(lynx_t injected_mtk)"
 else
-    ui_print "  [*] Generic Linux: Preserving stock vendor partition"
+    ui_print "$(lynx_t generic_vendor)"
 fi
 
 # ── 5. Non-Intrusive Selective BusyBox Installation ────────────────
-ui_print "  [*] Setting up Selective BusyBox Environment..."
+ui_print "$(lynx_t setup_busybox)"
 feravolt_dir="$MODPATH/system/bin/feravolt"
 target_bb="$MODPATH/system/bin/busybox"
 
@@ -206,13 +207,13 @@ if [ -d "$feravolt_dir" ]; then
     if [ -n "$chosen_bb" ] && [ -f "$chosen_bb" ]; then
         cp -af "$chosen_bb" "$target_bb"
         chmod 755 "$target_bb"
-        ui_print "  [+] Active BusyBox: $(basename "$chosen_bb")"
+        ui_print "$(lynx_t active_busybox "$(basename "$chosen_bb")")"
 
         # Selective applet installation with strict system binary shielding
         if [ -d "/system/xbin" ]; then
             mkdir -p "$MODPATH/system/xbin"
             "$target_bb" --install -s "$MODPATH/system/xbin/" 2>/dev/null
-            ui_print "  [+] BusyBox applets isolated in /system/xbin"
+            ui_print "$(lynx_t busybox_isolated)"
         else
             "$target_bb" --install -s "$MODPATH/system/bin/" 2>/dev/null
             removed_count=0
@@ -226,7 +227,7 @@ if [ -d "$feravolt_dir" ]; then
                     removed_count=$((removed_count + 1))
                 fi
             done
-            ui_print "  [*] Shielded stock system binaries ($removed_count collisions purged)"
+            ui_print "$(lynx_t collisions_purged "$removed_count")"
         fi
     fi
 fi
@@ -237,13 +238,13 @@ pm uninstall bellavita.toast >/dev/null 2>&1
 
 # ── 6.5 Lynx Kernel Manager Companion App Staging ──────────────────
 if [ -f "$MODPATH/LynxKernelManager.apk" ]; then
-    ui_print "  [*] Installing Lynx Kernel Manager Companion App..."
+    ui_print "$(lynx_t install_companion)"
     cp -af "$MODPATH/LynxKernelManager.apk" /data/local/tmp/LynxKernelManager.apk 2>/dev/null
     chmod 644 /data/local/tmp/LynxKernelManager.apk 2>/dev/null
     if pm install -r /data/local/tmp/LynxKernelManager.apk >/dev/null 2>&1; then
-        ui_print "  [+] Lynx Kernel Manager App installed successfully!"
+        ui_print "$(lynx_t companion_installed)"
     else
-        ui_print "  [*] APK staged for manual install if pm install is restricted."
+        ui_print "$(lynx_t companion_staged)"
     fi
     rm -f /data/local/tmp/LynxKernelManager.apk 2>/dev/null
 fi
@@ -256,7 +257,7 @@ if [ ! -f /storage/emulated/0/Lynx/applist_perf.txt ]; then
 fi
 
 # ── 7. State Engine (Dormant Mode First-Boot) ──────────────────────
-ui_print "  [*] Initializing State Engine (Dormant Safe Mode)..."
+ui_print "$(lynx_t initialize_engine)"
 mkdir -p "$MODPATH/logs" 2>/dev/null
 
 if [ -f "$MODPATH/config.json" ]; then
@@ -268,7 +269,7 @@ if [ -f "$MODPATH/config.json" ]; then
 fi
 
 # ── 7.5 Create Stock Baseline Restore Point ────────────────────────
-ui_print "  [*] Creating Stock Baseline Restore Point..."
+ui_print "$(lynx_t baseline_restore)"
 mkdir -p "$MODPATH/stock_state" 2>/dev/null
 for n in /proc/sys/vm/dirty_ratio /proc/sys/vm/dirty_background_ratio /proc/sys/vm/vfs_cache_pressure /proc/sys/vm/swappiness /proc/sys/kernel/sched_util_clamp_min /proc/sys/kernel/sched_util_clamp_max; do
     if [ -f "$n" ]; then
@@ -279,7 +280,7 @@ done
 
 
 # ── 8. Permissions & Cleanup ───────────────────────────────────────
-ui_print "  [*] Setting permissions..."
+ui_print "$(lynx_t set_permissions)"
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 set_perm_recursive "$MODPATH/system/bin" 0 0 0755 0755
 [ -d "$MODPATH/system/vendor/bin" ] && set_perm_recursive "$MODPATH/system/vendor/bin" 0 0 0755 0755
@@ -297,6 +298,6 @@ chcon -R u:object_r:system_file:s0 "$MODPATH/platforms" 2>/dev/null
 rm -rf "$MODPATH/archive" "$MODPATH/docs" "$MODPATH/references" "$MODPATH/tests" 2>/dev/null
 
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-ui_print "  [OK] Lynx Universal $MOD_VER Installed Successfully!"
-ui_print "  [*] Buka 'Lynx Companion' atau WebUI untuk mengatur profil."
+ui_print "$(lynx_t installed "$MOD_VER")"
+ui_print "$(lynx_t open_app)"
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

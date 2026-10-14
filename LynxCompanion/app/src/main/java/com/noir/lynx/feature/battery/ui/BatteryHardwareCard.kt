@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
+import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier

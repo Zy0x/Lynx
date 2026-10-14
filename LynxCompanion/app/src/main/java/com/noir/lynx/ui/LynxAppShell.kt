@@ -56,6 +56,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.ScrollableDefaults
@@ -174,46 +175,36 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
             onDismiss = { viewModel.dismissModeFeedback() }
         )
 
-        // Success snackbar overlay (hanya untuk aksi selain mode performa kernel yang sudah ditangani oleh Toast HUD)
-        uiState.successMessage?.let { msg ->
-            val isProfileSwitchMsg = (msg.contains("Profil", ignoreCase = true) || msg.contains("Mode", ignoreCase = true)) && msg.contains("diterapkan", ignoreCase = true)
-            if (!isProfileSwitchMsg) {
-                Snackbar(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .navigationBarsPadding()
-                        .padding(bottom = 90.dp, start = 16.dp, end = 16.dp),
-                    action = {
-                        TextButton(onClick = { viewModel.dismissSuccess() }) {
-                            Text("OK", color = AccentCyan, fontWeight = FontWeight.Bold)
-                        }
-                    },
-                    containerColor = BgElevated,
-                    contentColor = TextPrimary,
-                    shape = RoundedCornerShape(14.dp),
-                ) {
-                    Text(msg)
+        // Automatic routing of successMessage & errorMessage to the Universal Toast HUD
+        LaunchedEffect(uiState.successMessage) {
+            val msg = uiState.successMessage
+            if (!msg.isNullOrBlank()) {
+                val isProfileSwitch = (msg.contains("Profil", ignoreCase = true) || msg.contains("Mode", ignoreCase = true)) && msg.contains("diterapkan", ignoreCase = true)
+                if (!isProfileSwitch) {
+                    viewModel.triggerUniversalToast(
+                        title = msg,
+                        statusTag = "SUKSES",
+                        type = com.noir.lynx.data.ToastType.SUCCESS,
+                        accentColorHex = 0xFF00E676,
+                        iconType = "success"
+                    )
                 }
+                viewModel.dismissSuccess()
             }
         }
 
-        // Error snackbar overlay
-        uiState.errorMessage?.let { msg ->
-            Snackbar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = 90.dp, start = 16.dp, end = 16.dp),
-                action = {
-                    TextButton(onClick = { viewModel.dismissError() }) {
-                        Text("Tutup", color = AccentOrange, fontWeight = FontWeight.Bold)
-                    }
-                },
-                containerColor = BgElevated,
-                contentColor = TextPrimary,
-                shape = RoundedCornerShape(14.dp),
-            ) {
-                Text(msg)
+        LaunchedEffect(uiState.errorMessage) {
+            val msg = uiState.errorMessage
+            if (!msg.isNullOrBlank()) {
+                viewModel.triggerUniversalToast(
+                    title = msg,
+                    statusTag = "GAGAL",
+                    type = com.noir.lynx.data.ToastType.ERROR,
+                    accentColorHex = 0xFFFF5252,
+                    iconType = "error",
+                    durationMs = 2800L
+                )
+                viewModel.dismissError()
             }
         }
     }

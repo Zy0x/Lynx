@@ -1,3 +1,27 @@
+# Lynx Universal [Universal Zero-Latency Controls & Universal Compact Toast HUD Architecture] 7.0.0-RC45
+Released on: 2026-10-14
+> **Lynx Universal v7.0.0-RC45** (Lynx Kernel Manager v3.1.7): **Ekspansi Menyeluruh Arsitektur Zero-Latency dan Feedback Kompak Elegan ke Seluruh Kontrol Aplikasi: Eliminasi Total Material Snackbar Menjadi Universal Toast HUD, Transisi Warna Halus 150 ms pada Seluruh Preset Profil Per Halaman (CPU, GPU, Dashboard, Profil Grid), serta Optimasi Respons Instan LynxSwitch**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC45)
+
+### 1. Universal Compact Toast HUD (Penghapusan Total Material 3 Snackbar)
+- **Eliminasi Total Snackbar Lebar**: Menghapus seluruh komponen `SnackbarHost` Material 3 lama yang lebar dan menutupi dock navigasi bawah.
+- **Universal Event Ingestion**: `successMessage` dan `errorMessage` di seluruh sub-halaman aplikasi (RAM Cleaner, GPU driver reload, thermal profile, governor, dan backup/restore) kini secara otomatis dialirkan ke Universal Toast HUD (`Jewel Dynamic Island` atau `Jewel Bottom Capsule` sesuai preferensi pengguna).
+- **Penanganan Teks Adaptif & Safe Max Width**: Desain Toast HUD diperkuat dengan batas lebar maksimum `240.dp`, teks ber-ellipsis rapi, pendaran status multi-tipe (`MODE`, `PRESET`, `SUCCESS`, `ERROR`, `INFO`, `WARNING`), serta resolusi ikon dinamis.
+- **Header Morph Fallback**: Jika pengguna memilih model *In-Header Seamless Morpher*, notifikasi aksi tetap dimunculkan sebagai floating jewel pill agar pesan sistem penting tidak terlewat.
+
+### 2. Zero-Latency Preset Profil Per Halaman (Animasi Warna Halus 150 ms)
+- **Sub-Halaman CPU (`CpuTuningCards`)**: Tombol preset profil CPU (Hemat Daya, Seimbang, Performa, Ekstrem) kini bereaksi instan (0 ms) dengan transisi animasi halus `animateColorAsState(150 ms)` pada background dan border saat disentuh.
+- **Sub-Halaman GPU (`GpuProfilesAndHardwareCard`)**: Tombol preset profil GPU (Battery Saver, Balanced, Esports, Ekstrem) merespon seketika tanpa jeda, menampilkan transisi warna dan border 150 ms yang mulus.
+- **Katalog Profil Kernel (`ProfileGrid`)**: Kartu profil kernel di halaman tuning kini memiliki transisi warna dinamis 150 ms dan feedback visual seketika.
+- **Penggantian Native Toast**: Mengganti pemanggilan `android.widget.Toast.makeText` di sub-halaman GPU dengan Universal Toast HUD yang konsisten dan elegan.
+
+### 3. Peningkatan Responsivitas Kontrol Sub-Halaman (`LynxSwitch`)
+- **Pangkas Lockout & Debounce**: Memangkas lockout sinkronisasi eksternal dari 3500 ms menjadi 600 ms, serta memangkas debounce klik keras dari 300 ms menjadi 50 ms.
+- **0 ms Touch Feeling**: Toggle switch di seluruh sub-halaman kini memberikan sensasi sentuhan langsung tanpa jeda atau jitter, tetap terlindungi dari bouncing ganda.
+
+---
+
 # Lynx Universal [Zero-Latency Mode Switching & Universal Control Reconciliation Architecture] 7.0.0-RC44
 Released on: 2026-10-14
 > **Lynx Universal v7.0.0-RC44** (Lynx Kernel Manager v3.1.6): **Implementasi Arsitektur Zero-Latency Mode Switching Berkecepatan Tinggi (0 ms Touch Response), Pengurangan Forking Root Shell Berantai Menjadi Single Batch Invocation, Eliminasi Blocking Cascade Jobs, serta Integrasi Two-Phase State Reconciliation dengan Automatic Hardware Rollback Guard**.

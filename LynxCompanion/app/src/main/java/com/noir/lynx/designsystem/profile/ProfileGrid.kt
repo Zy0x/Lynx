@@ -19,8 +19,10 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.material3.TextButton
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +73,12 @@ fun ProfileGrid(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 row.forEach { profile ->
                     val item = profileItem(profile)
+                    val isSelected = profile.id == currentProfile
+                    val targetBg = if (isSelected) item.color.copy(alpha = 0.16f) else BgElevated
+                    val targetBorder = if (isSelected) item.color.copy(alpha = 0.75f) else BorderSubtle
+                    val animatedBg by animateColorAsState(targetBg, animationSpec = tween(150), label = "profile_grid_bg")
+                    val animatedBorder by animateColorAsState(targetBorder, animationSpec = tween(150), label = "profile_grid_border")
+
                     Surface(
                         onClick = {
                             if (profile.id == "extreme" && currentProfile != profile.id) onExtremeConfirmRequired()
@@ -80,8 +88,8 @@ fun ProfileGrid(
                             }
                         },
                         shape = RoundedCornerShape(16.dp),
-                        color = if (profile.id == currentProfile) item.color.copy(alpha = 0.12f) else BgElevated,
-                        border = BorderStroke(1.dp, if (profile.id == currentProfile) item.color.copy(alpha = .6f) else BorderSubtle),
+                        color = animatedBg,
+                        border = BorderStroke(1.dp, animatedBorder),
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(Modifier.padding(12.dp)) {

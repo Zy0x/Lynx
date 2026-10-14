@@ -18,6 +18,11 @@
                 </div>
             </div>
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                <select id="language-picker" aria-label="Bahasa" title="Bahasa" onchange="setWebLocale(this.value)" style="min-height:36px; color:var(--text-primary); background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:8px; padding:4px 8px;">
+                    <option value="system">System / Sistem</option>
+                    <option value="id">Bahasa Indonesia</option>
+                    <option value="en">English</option>
+                </select>
                 <div id="status-badge" class="badge dormant">STANDBY</div>
                 <span id="runtime-modifier-tag" style="font-size: 10px; color: var(--accent-yellow); font-weight: 600; display: none;"></span>
             </div>
@@ -682,6 +687,8 @@
         </nav>
     </div>
 
+    <script src="locale-data.js"></script>
+    <script src="locales.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

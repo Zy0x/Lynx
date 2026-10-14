@@ -13,7 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -23,9 +23,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.ModeToastData
+import com.noir.lynx.data.ToastType
 import com.noir.lynx.designsystem.theme.TextPrimary
 
 private val ToastBgObsidian = Color(0xFF090D14)
@@ -37,7 +39,8 @@ fun LynxModeToastHud(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isVisible = toastData != null && feedbackStyle != "header_morph"
+    // Mode transitions can be absorbed by Header Morph; Action/Error/Preset toasts are ALWAYS visible
+    val isVisible = toastData != null && (feedbackStyle != "header_morph" || toastData.type != ToastType.MODE)
 
     when (feedbackStyle) {
         "jewel_bottom" -> {
@@ -101,7 +104,8 @@ private fun JewelToastPill(
     isCompactMini: Boolean
 ) {
     val accentColor = Color(toastData.accentColorHex)
-    val icon = resolveModeIcon(toastData.modeId)
+    val icon = resolveToastIcon(toastData)
+    val statusTag = toastData.statusTag.ifBlank { "AKTIF" }
 
     Surface(
         shape = CircleShape,
@@ -130,7 +134,7 @@ private fun JewelToastPill(
                     .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = accentColor, spotColor = accentColor)
             )
 
-            // Micro Mode Icon
+            // Micro Mode / Action Icon
             Icon(
                 imageVector = icon,
                 contentDescription = null,
@@ -138,13 +142,16 @@ private fun JewelToastPill(
                 modifier = Modifier.size(12.dp)
             )
 
-            // Mode Name
+            // Toast Message / Label
             Text(
                 text = toastData.modeLabel,
                 color = TextPrimary,
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Bold,
-                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0"),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 240.dp)
             )
 
             // Status Tag Chip
@@ -154,7 +161,7 @@ private fun JewelToastPill(
                 border = BorderStroke(0.5.dp, accentColor.copy(alpha = 0.4f))
             ) {
                 Text(
-                    text = "AKTIF",
+                    text = statusTag,
                     color = accentColor,
                     fontSize = 8.5.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -166,10 +173,26 @@ private fun JewelToastPill(
     }
 }
 
-private fun resolveModeIcon(modeId: String): ImageVector = when (modeId.lowercase()) {
-    "powersave" -> Icons.Default.BatteryChargingFull
-    "balance" -> Icons.Default.Tune
-    "performance" -> Icons.Default.Speed
-    "extreme" -> Icons.Default.LocalFireDepartment
+private fun resolveToastIcon(toast: ModeToastData): ImageVector = when {
+    toast.iconType.isNotBlank() -> when (toast.iconType.lowercase()) {
+        "check", "success" -> Icons.Default.CheckCircle
+        "error", "gagal" -> Icons.Default.ErrorOutline
+        "warning", "alert" -> Icons.Default.Warning
+        "info" -> Icons.Default.Info
+        "cpu" -> Icons.Default.Speed
+        "gpu" -> Icons.Default.SportsEsports
+        "ram", "memory" -> Icons.Default.DeleteSweep
+        "battery", "charging" -> Icons.Default.BatteryChargingFull
+        "network", "wifi" -> Icons.Default.Wifi
+        "thermal" -> Icons.Default.Thermostat
+        else -> Icons.Default.CheckCircle
+    }
+    toast.type == ToastType.ERROR -> Icons.Default.ErrorOutline
+    toast.type == ToastType.WARNING -> Icons.Default.Warning
+    toast.type == ToastType.SUCCESS -> Icons.Default.CheckCircle
+    toast.modeId.equals("powersave", ignoreCase = true) -> Icons.Default.BatteryChargingFull
+    toast.modeId.equals("balance", ignoreCase = true) -> Icons.Default.Tune
+    toast.modeId.equals("performance", ignoreCase = true) -> Icons.Default.Speed
+    toast.modeId.equals("extreme", ignoreCase = true) -> Icons.Default.LocalFireDepartment
     else -> Icons.Default.CheckCircle
 }

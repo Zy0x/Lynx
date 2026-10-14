@@ -12,6 +12,7 @@ import android.os.Bundle
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.pointer.util.VelocityTrackerAddPointsFix
 import androidx.activity.ComponentActivity
+import com.noir.lynx.core.locale.AppLocale
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -109,6 +110,10 @@ import com.noir.lynx.feature.navigation.model.TuningCategory
  *   4. Tools & Flasher (AnyKernel3 Flasher, Boot Backup/Restore, Storage TRIM, CCleaner)
  */
 class MainActivity : ComponentActivity() {
+
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     private val viewModel: LynxViewModel by viewModels()
 

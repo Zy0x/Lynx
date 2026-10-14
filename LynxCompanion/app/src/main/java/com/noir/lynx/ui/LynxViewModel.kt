@@ -689,12 +689,41 @@ class LynxViewModel : ViewModel() {
                     modeId = modeId,
                     modeLabel = modeLabel,
                     accentColorHex = accentColorHex,
-                    iconType = iconType
+                    iconType = iconType,
+                    statusTag = "AKTIF",
+                    type = ToastType.MODE
                 )
             )
         }
         modeToastJob = viewModelScope.launch {
             delay(1800L)
+            _uiState.update { it.copy(activeModeToast = null) }
+        }
+    }
+
+    fun triggerUniversalToast(
+        title: String,
+        statusTag: String = "INFO",
+        type: ToastType = ToastType.INFO,
+        accentColorHex: Long = 0xFF00E5FF,
+        iconType: String = "",
+        durationMs: Long = 2200L
+    ) {
+        modeToastJob?.cancel()
+        _uiState.update {
+            it.copy(
+                activeModeToast = ModeToastData(
+                    modeId = iconType,
+                    modeLabel = title,
+                    accentColorHex = accentColorHex,
+                    iconType = iconType,
+                    statusTag = statusTag,
+                    type = type
+                )
+            )
+        }
+        modeToastJob = viewModelScope.launch {
+            delay(durationMs)
             _uiState.update { it.copy(activeModeToast = null) }
         }
     }

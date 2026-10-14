@@ -15,7 +15,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
+import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,10 +56,10 @@ fun LynxSwitch(
     var lastInteractionTime by remember { mutableLongStateOf(0L) }
     var lastClickTime by remember { mutableLongStateOf(0L) }
 
-    // Synchronize incoming external changes ONLY when 3500ms has elapsed since the last touch
+    // Synchronize incoming external changes once background execution has settled (600ms)
     LaunchedEffect(checked) {
         val now = System.currentTimeMillis()
-        if (now - lastInteractionTime > 3500L) {
+        if (now - lastInteractionTime > 600L) {
             localChecked = checked
         }
     }
@@ -73,7 +73,7 @@ fun LynxSwitch(
                     onInfoClick()
                 } else {
                     val now = System.currentTimeMillis()
-                    if (now - lastClickTime >= 300L) {
+                    if (now - lastClickTime >= 50L) {
                         lastClickTime = now
                         lastInteractionTime = now
                         val next = !localChecked
@@ -122,7 +122,7 @@ fun LynxSwitch(
             checked = localChecked,
             onCheckedChange = { newChecked ->
                 val now = System.currentTimeMillis()
-                if (now - lastClickTime >= 300L) {
+                if (now - lastClickTime >= 50L) {
                     lastClickTime = now
                     lastInteractionTime = now
                     localChecked = newChecked

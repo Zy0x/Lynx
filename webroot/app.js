@@ -29,7 +29,8 @@ function logToConsole(text, type = 'info') {
     const entry = document.createElement('div');
     entry.className = type;
     const time = new Date().toLocaleTimeString();
-    entry.textContent = `[${time}] ${text}`;
+    const localizedText = window.LynxI18n ? window.LynxI18n.text(text) : text;
+    entry.textContent = `[${time}] ${localizedText}`;
     consoleEl.appendChild(entry);
     consoleEl.scrollTop = consoleEl.scrollHeight;
 }

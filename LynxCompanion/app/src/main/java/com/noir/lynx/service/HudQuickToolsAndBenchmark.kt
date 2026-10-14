@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Style
 import androidx.compose.material3.*
+import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier

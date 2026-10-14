@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.designsystem.controls.SafeSlider as Slider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -144,6 +145,10 @@ fun CpuUnifiedPerformanceCard(
                         "performance" -> AccentBlue
                         else -> AccentCyan
                     }
+                    val targetBg = if (isSelected) pillAccent.copy(alpha = 0.22f) else BgSurfaceLowest
+                    val targetBorder = if (isSelected) pillAccent else BorderSubtle
+                    val animatedBg by animateColorAsState(targetBg, animationSpec = tween(150), label = "cpu_pill_bg")
+                    val animatedBorder by animateColorAsState(targetBorder, animationSpec = tween(150), label = "cpu_pill_border")
 
                     Surface(
                         onClick = { onApplyProfile(key) },
@@ -151,8 +156,8 @@ fun CpuUnifiedPerformanceCard(
                             .weight(1f)
                             .defaultMinSize(minHeight = 46.dp),
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) pillAccent.copy(alpha = 0.22f) else BgSurfaceLowest,
-                        border = BorderStroke(1.dp, if (isSelected) pillAccent else BorderSubtle)
+                        color = animatedBg,
+                        border = BorderStroke(1.dp, animatedBorder)
                     ) {
                         Column(
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
@@ -180,6 +185,11 @@ fun CpuUnifiedPerformanceCard(
 
                 // +1 Ekstrem Profile (Requires safety confirmation dialog)
                 val isExtremeSelected = currentProfile == "extreme"
+                val targetExtremeBg = if (isExtremeSelected) AccentRed.copy(alpha = 0.22f) else BgSurfaceLowest
+                val targetExtremeBorder = if (isExtremeSelected) AccentRed else BorderSubtle
+                val animatedExtremeBg by animateColorAsState(targetExtremeBg, animationSpec = tween(150), label = "cpu_extreme_bg")
+                val animatedExtremeBorder by animateColorAsState(targetExtremeBorder, animationSpec = tween(150), label = "cpu_extreme_border")
+
                 Surface(
                     onClick = {
                         if (isExtremeSelected) {
@@ -192,8 +202,8 @@ fun CpuUnifiedPerformanceCard(
                         .weight(1f)
                         .defaultMinSize(minHeight = 46.dp),
                     shape = RoundedCornerShape(10.dp),
-                    color = if (isExtremeSelected) AccentRed.copy(alpha = 0.22f) else BgSurfaceLowest,
-                    border = BorderStroke(1.dp, if (isExtremeSelected) AccentRed else BorderSubtle)
+                    color = animatedExtremeBg,
+                    border = BorderStroke(1.dp, animatedExtremeBorder)
                 ) {
                     Column(
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
+import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.designsystem.controls.SafeSlider as Slider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -91,12 +92,16 @@ fun GpuQuickProfilesCard(
                     "esports" -> AccentOrange
                     else -> AccentRed
                 }
+                val targetBg = if (isSelected) profAccent.copy(alpha = 0.2f) else BgElevated
+                val targetBorder = if (isSelected) profAccent else BorderGlass
+                val animatedBg by animateColorAsState(targetBg, animationSpec = tween(150), label = "gpu_quick_bg")
+                val animatedBorder by animateColorAsState(targetBorder, animationSpec = tween(150), label = "gpu_quick_border")
 
                 Surface(
                     onClick = { onSelectProfile(id) },
                     shape = RoundedCornerShape(12.dp),
-                    color = if (isSelected) profAccent.copy(alpha = 0.2f) else BgElevated,
-                    border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, if (isSelected) profAccent else BorderGlass),
+                    color = animatedBg,
+                    border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, animatedBorder),
                     modifier = Modifier.weight(1f).defaultMinSize(minHeight = 56.dp)
                 ) {
                     Column(
