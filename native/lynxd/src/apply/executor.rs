@@ -10,6 +10,7 @@ use crate::hardware::ChargingRegulator;
 use crate::state::ProfileStateManager;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
 use crate::utils::Logger;
+use crate::subsystems::tui::{is_english, ui};
 
 #[derive(Debug, Clone)]
 pub struct NodeSnapshot {
@@ -82,10 +83,11 @@ impl ProfileExecutor {
         }
 
         if !validation_errors.is_empty() {
-            Logger::error(format!(
-                "Pre-commit validation failed with {} critical errors! Aborting before write.",
-                validation_errors.len()
-            ));
+            Logger::error(if is_english() {
+                format!("Pre-commit validation failed with {} critical errors! Aborting before write.", validation_errors.len())
+            } else {
+                format!("Validasi sebelum commit gagal dengan {} kesalahan kritis! Penulisan dibatalkan.", validation_errors.len())
+            });
             for err in &validation_errors {
                 eprintln!("  [-] {}", err);
             }
@@ -95,8 +97,13 @@ impl ProfileExecutor {
         // ── Phase 3: Dry-Run Guard ──────────────────────────────────────────
         if dry_run {
             println!("{}", plan.display_summary());
-            println!("\n[INFO] Pre-validation: PASS (All {} target nodes verified).", plan.operations.len());
-            println!("[INFO] Dry-Run Status: COMPLETED SAFELY (No kernel mutations committed).");
+            if is_english() {
+                println!("\n[INFO] Pre-validation: PASS (All {} target nodes verified).", plan.operations.len());
+                println!("[INFO] Dry-Run Status: COMPLETED SAFELY (No kernel mutations committed).");
+            } else {
+                println!("\n[INFO] Validasi awal: LULUS (Semua {} node target terverifikasi).", plan.operations.len());
+                println!("[INFO] Status simulasi: SELESAI DENGAN AMAN (Tidak ada perubahan kernel yang diterapkan).");
+            }
             return Ok(ExecutionReport {
                 profile_name: plan.profile_name.clone(),
                 dry_run: true,
@@ -110,7 +117,7 @@ impl ProfileExecutor {
         let _mode_lock = match ModeLock::acquire() {
             Ok(guard) => guard,
             Err(e) => {
-                Logger::error(format!("Cannot proceed with profile apply: {}", e));
+                Logger::error(if is_english() { format!("Cannot proceed with profile apply: {}", e) } else { format!("Tidak dapat menerapkan profil: {}", e) });
                 return Err(SysfsError::IoError {
                     path: ModeLock::lock_path(),
                     source: std::io::Error::new(std::io::ErrorKind::AlreadyExists, e),
@@ -121,7 +128,7 @@ impl ProfileExecutor {
         // ── Phase 5: State Persistence (Pre-Commit Guard) ──────────────────
         let vendor_str = plan.vendor.to_string();
         if let Err(e) = ProfileStateManager::record_pre_commit(&plan.profile_name, &vendor_str, &snapshots) {
-            Logger::warn(format!("Failed to record pre-commit snapshot to disk: {}", e));
+            Logger::warn(if is_english() { format!("Failed to record pre-commit snapshot to disk: {}", e) } else { format!("Gagal merekam snapshot sebelum commit ke penyimpanan: {}", e) });
         }
 
         // ── Phase 6: Transactional Apply Layer ──────────────────────────────
@@ -135,16 +142,15 @@ impl ProfileExecutor {
                 }
                 Err(e) => {
                     if op.critical {
-                        Logger::error(format!("Critical write failed on '{}': {}", op.path.display(), e));
+                        Logger::error(if is_english() { format!("Critical write failed on '{}': {}", op.path.display(), e) } else { format!("Penulisan kritis gagal pada '{}': {}", op.path.display(), e) });
                         commit_failed_at = Some((idx, e));
                         break;
                     } else {
-                        Logger::warn(format!(
-                            "Optional subsystem node '{}' rejected value '{}': {}",
-                            op.path.display(),
-                            op.target_value,
-                            e
-                        ));
+                        Logger::warn(if is_english() {
+                            format!("Optional subsystem node '{}' rejected value '{}': {}", op.path.display(), op.target_value, e)
+                        } else {
+                            format!("Node subsistem opsional '{}' menolak nilai '{}': {}", op.path.display(), op.target_value, e)
+                        });
                     }
                 }
             }
@@ -152,7 +158,7 @@ impl ProfileExecutor {
 
         // ── Phase 6b: Rollback on Critical Failure ──────────────────────────
         if let Some((failed_idx, write_err)) = commit_failed_at {
-            Logger::warn("Critical commit failed! Triggering automatic hardware state rollback...");
+            Logger::warn(ui("Commit kritis gagal! Memulai rollback status hardware otomatis...", "Critical commit failed! Triggering automatic hardware state rollback..."));
             let mut rollback_success = true;
 
             for snapshot in snapshots.iter().take(failed_idx) {
@@ -160,20 +166,16 @@ impl ProfileExecutor {
                     continue;
                 }
                 if let Err(rb_err) = SysfsWriter::write(&snapshot.path, &snapshot.original_value, WriteMode::ForcePermission) {
-                    Logger::error(format!(
-                        "Rollback failed on node '{}': {}",
-                        snapshot.path.display(),
-                        rb_err
-                    ));
+                    Logger::error(if is_english() { format!("Rollback failed on node '{}': {}", snapshot.path.display(), rb_err) } else { format!("Rollback gagal pada node '{}': {}", snapshot.path.display(), rb_err) });
                     rollback_success = false;
                 }
             }
 
             if rollback_success {
-                Logger::info("Hardware state successfully restored to pre-transaction snapshot.");
+                Logger::info(ui("Status hardware berhasil dipulihkan ke snapshot sebelum transaksi.", "Hardware state successfully restored to pre-transaction snapshot."));
                 let _ = ProfileStateManager::record_failed_rollback(&plan.profile_name, &vendor_str);
             } else {
-                Logger::error("Rollback experienced partial errors. System state may require reboot.");
+                Logger::error(ui("Rollback mengalami beberapa kesalahan. Status sistem mungkin memerlukan reboot.", "Rollback experienced partial errors. System state may require reboot."));
             }
 
             return Err(write_err);
@@ -210,7 +212,7 @@ impl ProfileExecutor {
 
         // ── Phase 8: Post-Commit Persistence (Clean State) ──────────────────
         if let Err(e) = ProfileStateManager::record_post_commit(&plan.profile_name, &vendor_str) {
-            Logger::warn(format!("Failed to record post-commit state: {}", e));
+            Logger::warn(if is_english() { format!("Failed to record post-commit state: {}", e) } else { format!("Gagal merekam status setelah commit: {}", e) });
         }
 
         let desc = match plan.base_profile {
@@ -224,20 +226,17 @@ impl ProfileExecutor {
 
         let elapsed = start.elapsed().as_micros();
         if verify_mismatches == 0 {
-            Logger::info(format!(
-                "Profile '{}' applied and verified cleanly ({} nodes modified in {:.2} ms).",
-                plan.profile_name,
-                committed_count,
-                elapsed as f64 / 1000.0
-            ));
+            Logger::info(if is_english() {
+                format!("Profile '{}' applied and verified cleanly ({} nodes modified in {:.2} ms).", plan.profile_name, committed_count, elapsed as f64 / 1000.0)
+            } else {
+                format!("Profil '{}' diterapkan dan terverifikasi ({} node diubah dalam {:.2} ms).", plan.profile_name, committed_count, elapsed as f64 / 1000.0)
+            });
         } else {
-            Logger::info(format!(
-                "Profile '{}' applied ({} nodes committed in {:.2} ms; {} nodes clamped by kernel driver).",
-                plan.profile_name,
-                committed_count,
-                elapsed as f64 / 1000.0,
-                verify_mismatches
-            ));
+            Logger::info(if is_english() {
+                format!("Profile '{}' applied ({} nodes committed in {:.2} ms; {} nodes clamped by kernel driver).", plan.profile_name, committed_count, elapsed as f64 / 1000.0, verify_mismatches)
+            } else {
+                format!("Profil '{}' diterapkan ({} node di-commit dalam {:.2} ms; {} node dibatasi driver kernel).", plan.profile_name, committed_count, elapsed as f64 / 1000.0, verify_mismatches)
+            });
         }
 
         Ok(ExecutionReport {

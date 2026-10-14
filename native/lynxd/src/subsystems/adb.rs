@@ -5,6 +5,7 @@ use std::process::Command;
 
 use crate::state::ConfigStore;
 use crate::utils::Logger;
+use crate::subsystems::tui::{is_english, ui};
 
 pub struct AdbKeepAliveConfig {
     pub enabled: bool,
@@ -32,7 +33,7 @@ impl AdbController {
     /// Saves ADB Keepalive configuration to config.json.
     pub fn save_config(enabled: bool, port: u16) -> Result<(), String> {
         if !(1024..=65535).contains(&port) {
-            return Err(format!("Invalid port {}: must be between 1024 and 65535", port));
+            return Err(if is_english() { format!("Invalid port {}: must be between 1024 and 65535", port) } else { format!("Port {} tidak valid: harus berada di antara 1024 dan 65535", port) });
         }
 
         ConfigStore::set_batch(&[
@@ -128,11 +129,11 @@ impl AdbController {
     /// Applies ADB Wireless Keep-Alive & Locks the specified port.
     pub fn apply(port: u16) -> Result<String, String> {
         if !(1024..=65535).contains(&port) {
-            return Err(format!("Invalid port: {}", port));
+            return Err(if is_english() { format!("Invalid port: {}", port) } else { format!("Port tidak valid: {}", port) });
         }
 
         let port_str = port.to_string();
-        Logger::info(format!("[ADB-KEEPALIVE] Locking wireless ADB to port {}...", port));
+        Logger::info(if is_english() { format!("[ADB-KEEPALIVE] Locking wireless ADB to port {}...", port) } else { format!("[ADB-KEEPALIVE] Mengunci ADB nirkabel ke port {}...", port) });
 
         // 1. Set runtime and persistent Android properties
         Self::setprop_persistent("persist.adb.tcp.port", &port_str);
@@ -179,10 +180,7 @@ impl AdbController {
         // 4. Start or restart adbd atomically via init (PID 1) ONLY if not already listening on target port.
         // Never use sequential `stop adbd` -> `start adbd` because `stop adbd` kills the child process group before `start adbd` executes!
         if !Self::is_adbd_running() {
-            Logger::info(format!(
-                "[ADB-KEEPALIVE] Starting adbd on port {}...",
-                port
-            ));
+            Logger::info(if is_english() { format!("[ADB-KEEPALIVE] Starting adbd on port {}...", port) } else { format!("[ADB-KEEPALIVE] Memulai adbd pada port {}...", port) });
             let _ = Command::new("setprop")
                 .args(["ctl.start", "adbd"])
                 .stdout(std::process::Stdio::null())
@@ -194,10 +192,7 @@ impl AdbController {
                 .stderr(std::process::Stdio::null())
                 .status();
         } else if !Self::is_port_listening(port) {
-            Logger::info(format!(
-                "[ADB-KEEPALIVE] Atomically restarting adbd via init to bind port {}...",
-                port
-            ));
+            Logger::info(if is_english() { format!("[ADB-KEEPALIVE] Atomically restarting adbd via init to bind port {}...", port) } else { format!("[ADB-KEEPALIVE] Memulai ulang adbd secara atomik melalui init untuk mengikat port {}...", port) });
             let _ = Command::new("setprop")
                 .args(["ctl.restart", "adbd"])
                 .stdout(std::process::Stdio::null())
@@ -212,17 +207,18 @@ impl AdbController {
         Self::ensure_watchdog_running();
 
         let ip = Self::get_ip_address();
-        let msg = format!(
-            "Wireless ADB locked successfully on port {}. Connect via: adb connect {}:{}",
-            port, ip, port
-        );
+        let msg = if is_english() {
+            format!("Wireless ADB locked successfully on port {}. Connect via: adb connect {}:{}", port, ip, port)
+        } else {
+            format!("ADB nirkabel berhasil dikunci pada port {}. Hubungkan melalui: adb connect {}:{}", port, ip, port)
+        };
         Logger::info(format!("[ADB-KEEPALIVE] {}", msg));
         Ok(msg)
     }
 
     /// Disables ADB Wireless Keep-Alive and resets ports.
     pub fn disable() -> Result<String, String> {
-        Logger::info("[ADB-KEEPALIVE] Disabling wireless ADB port lock...");
+        Logger::info(ui("[ADB-KEEPALIVE] Menonaktifkan kunci port ADB nirkabel...", "[ADB-KEEPALIVE] Disabling wireless ADB port lock..."));
 
         let _ = fs::remove_file("/dev/lynx_adb_port");
         Self::stop_watchdog();
@@ -242,7 +238,7 @@ impl AdbController {
             .stderr(std::process::Stdio::null())
             .status();
 
-        let msg = "Wireless ADB keep-alive disabled and port reset.".to_string();
+        let msg = ui("Keep-alive ADB nirkabel dinonaktifkan dan port direset.", "Wireless ADB keep-alive disabled and port reset.").to_string();
         Logger::info(format!("[ADB-KEEPALIVE] {}", msg));
         Ok(msg)
     }
@@ -309,10 +305,7 @@ impl AdbController {
             }
         }
         let _ = fs::write(pid_path, my_pid.to_string());
-        Logger::info(format!(
-            "[ADB-WATCHDOG] Dedicated cgroup-detached ADB Keep-Alive watchdog started [PID: {}]",
-            my_pid
-        ));
+        Logger::info(if is_english() { format!("[ADB-WATCHDOG] Dedicated cgroup-detached ADB Keep-Alive watchdog started [PID: {}]", my_pid) } else { format!("[ADB-WATCHDOG] Watchdog Keep-Alive ADB terpisah dari cgroup dimulai [PID: {}]", my_pid) });
 
         loop {
             // Adaptive sleep: 2500ms when healthy: battery-friendly, zero wake-lock overhead (<0.001% CPU)
@@ -335,10 +328,7 @@ impl AdbController {
 
             // Fast-path: 0.02ms in-process read of /proc/net/tcp (zero forks!)
             if !Self::is_port_listening(port) {
-                Logger::warn(format!(
-                    "[ADB-WATCHDOG] Port {} closed on screen-off/sleep! Restoring immediately...",
-                    port
-                ));
+                Logger::warn(if is_english() { format!("[ADB-WATCHDOG] Port {} closed on screen-off/sleep! Restoring immediately...", port) } else { format!("[ADB-WATCHDOG] Port {} tertutup saat layar mati/tidur! Memulihkan segera...", port) });
                 let port_str = port.to_string();
                 Self::setprop_persistent("persist.adb.tcp.port", &port_str);
                 let _ = Command::new("setprop")
@@ -374,17 +364,14 @@ impl AdbController {
         }
 
         let _ = fs::remove_file(pid_path);
-        Logger::info("[ADB-WATCHDOG] Watchdog exited cleanly.");
+        Logger::info(ui("[ADB-WATCHDOG] Watchdog berhenti dengan bersih.", "[ADB-WATCHDOG] Watchdog exited cleanly."));
     }
 
     /// Applies configuration directly from config.json (used at boot time).
     pub fn apply_from_config() {
         let cfg = Self::load_config();
         if cfg.enabled {
-            Logger::info(format!(
-                "[ADB-KEEPALIVE] Auto-applying persistent port lock from config.json (Port: {})...",
-                cfg.port
-            ));
+            Logger::info(if is_english() { format!("[ADB-KEEPALIVE] Auto-applying persistent port lock from config.json (Port: {})...", cfg.port) } else { format!("[ADB-KEEPALIVE] Menerapkan kunci port persisten dari config.json secara otomatis (Port: {})...", cfg.port) });
             let _ = Self::apply(cfg.port);
         }
     }
@@ -409,10 +396,7 @@ impl AdbController {
         Self::ensure_watchdog_running();
 
         if !Self::is_port_listening(port) {
-            Logger::warn(format!(
-                "[ADB-WATCHDOG] Port {} drop detected during daemon tick. Auto-healing...",
-                port
-            ));
+            Logger::warn(if is_english() { format!("[ADB-WATCHDOG] Port {} drop detected during daemon tick. Auto-healing...", port) } else { format!("[ADB-WATCHDOG] Port {} terputus saat daemon tick. Memulihkan otomatis...", port) });
             let _ = Self::apply(port);
         }
     }

@@ -12,6 +12,7 @@ use crate::state::{ConfigStore, ProfileStateManager};
 use crate::subsystems::{
     MaintenanceController, MemoryController, SwapController, SystemController, ThermalController,
 };
+use crate::subsystems::tui::ui;
 use crate::sysfs::{SysfsWriter, WriteMode};
 
 const MODPATH: &str = "/data/adb/modules/Lynx";
@@ -399,12 +400,12 @@ impl LifecycleHooks {
         println!("      LYNX DEITY — MAINTENANCE ACTION     ");
         println!("==========================================");
         println!("");
-        println!("[*] Executing Lynx Native Storage & Memory Maintenance...");
+        println!("[*] {}", ui("Menjalankan pemeliharaan penyimpanan dan memori native Lynx...", "Executing Lynx native storage and memory maintenance..."));
         println!("{}", MaintenanceController::run(true));
         println!("{}", MemoryController::clean_memory());
         println!("");
         println!("==========================================");
-        println!("    [OK] System Optimization Finished!    ");
+        println!("    [OK] {}    ", ui("Optimasi Sistem Selesai!", "System Optimization Finished!"));
         println!("==========================================");
         0
     }

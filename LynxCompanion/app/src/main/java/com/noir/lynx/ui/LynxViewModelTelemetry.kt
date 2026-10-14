@@ -84,6 +84,11 @@ import kotlinx.coroutines.launch
                             }
                             val samplesCopy = synchronized(currentHistoryQueue) { currentHistoryQueue.toList() }
                             batt = LynxRepository.mapTelemetryToBatteryDetails(tel, _uiState.value.batteryDetails, samplesCopy)
+                            if (counter % 3 == 0 && (tel.battWatt > 1f || tel.battCurrentMa > 200) &&
+                                (_uiState.value.batteryDetails?.fastChargeProtocol.isNullOrBlank() ||
+                                 _uiState.value.batteryDetails?.fastChargeProtocol?.contains("Standar") == true)) {
+                                refreshBatteryDetails()
+                            }
                         } else {
                             batt = null
                         }

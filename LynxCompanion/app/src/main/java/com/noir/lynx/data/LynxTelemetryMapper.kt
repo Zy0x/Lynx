@@ -230,6 +230,20 @@ internal object LynxTelemetryMapper {
 
             }
 
+            val isTranssionDevice = android.os.Build.MANUFACTURER.contains("INFINIX", ignoreCase = true) ||
+                    android.os.Build.MANUFACTURER.contains("TECNO", ignoreCase = true) ||
+                    android.os.Build.BRAND.contains("INFINIX", ignoreCase = true) ||
+                    android.os.Build.BRAND.contains("TECNO", ignoreCase = true) ||
+                    android.os.Build.MANUFACTURER.contains("TRANSSION", ignoreCase = true)
+
+            val mappedProtocol = when {
+                !existingBatt?.fastChargeProtocol.isNullOrBlank() -> existingBatt!!.fastChargeProtocol
+                isTranssionDevice && (tel.battWatt > 4f || tel.battCurrentMa > 1000) -> {
+                    if (tel.battWatt >= 20f || adpVoltMv > 8000) "Transsion 33W (PE+)" else "Transsion Flash (PE+)"
+                }
+                else -> ""
+            }
+
             return BatteryDetails(
 
                 level = tel.battLevel,
@@ -242,6 +256,8 @@ internal object LynxTelemetryMapper {
 
                 voltageMv = tel.battVoltMv,
 
+                chargerWatt = tel.battWatt,
+
                 currentMa = tel.battCurrentMa,
 
                 cycleCount = existingBatt?.cycleCount ?: -1,
@@ -252,9 +268,7 @@ internal object LynxTelemetryMapper {
 
                 chargerVoltageMv = existingBatt?.chargerVoltageMv ?: tel.battVoltMv,
 
-                chargerWatt = tel.battWatt,
-
-                fastChargeProtocol = existingBatt?.fastChargeProtocol ?: "",
+                fastChargeProtocol = mappedProtocol,
 
                 activeICName = existingBatt?.activeICName ?: "",
 

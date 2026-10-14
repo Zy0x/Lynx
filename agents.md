@@ -554,6 +554,7 @@ Seluruh teks yang ditampilkan kepada pengguna wajib dapat diterjemahkan. Bahasa 
 2. **WebUI**: Teks HTML statis dan dinamis, label/tombol, judul, placeholder, pesan console/toast, atribut `title`/`aria-*`, dan setiap teks yang diubah oleh JavaScript.
 3. **Installer, CLI, dan skrip**: Semua prompt, `ui_print`, bantuan, status, peringatan, dan pesan error yang terlihat pengguna. Teks teknis dalam log internal yang tidak ditampilkan sebagai UI boleh tetap memakai format diagnostik teknis.
 4. Dokumentasi teknis, identifier internal, nama properti kernel, perintah, nama paket, enum/protokol, kode, angka, dan satuan standar bukan teks UI dan tidak diterjemahkan.
+5. **Metadata parameter**: Nama tampilan, kategori, deskripsi, rekomendasi, label opsi, dan petunjuk `#` yang disediakan Lynx wajib dilokalkan di Companion dan WebUI. Path sysfs/procfs, nama node mentah, nilai kernel, dan komentar kernel yang tidak dikenal tetap diperlakukan sebagai data teknis.
 
 ### 16.2 Sumber Teks dan Preferensi Bahasa
 1. **Jangan menambahkan literal bahasa manusia langsung ke UI baru**. Android Compose wajib mengambil teks dari Android string resources (`values-id/strings.xml` dan `values-en/strings.xml`) menggunakan `stringResource`; WebUI wajib memakai token stabil di katalog `webroot/locale-data.js`; output shell/CLI wajib memakai helper locale bersama (`core/locale.sh`).
@@ -561,11 +562,11 @@ Seluruh teks yang ditampilkan kepada pengguna wajib dapat diterjemahkan. Bahasa 
 3. Companion menyediakan pilihan bahasa manual yang mengikuti locale sistem secara default dan menyimpan override lokal pada preferensi aplikasi. WebUI menyediakan pilihan manual dan menyimpan override pada browser (local storage); preferensi kedua antarmuka tetap independen.
 4. Output installer/CLI/skrip mengikuti locale sistem Android; jangan menyimpan preferensi bahasa UI ke `config.json` modul atau mencampurnya dengan konfigurasi kernel.
 5. Semua komentar kode, docstring, catatan inline, dan komentar pada template skrip yang dibuat atau dipelihara di repositori wajib ditulis dalam English. Komentar menjelaskan implementasi untuk pengembang dan tidak diterjemahkan ke katalog UI; teks yang tampil atau dapat diedit pengguna tetap wajib dilokalkan.
-5. Teks berparameter wajib memakai placeholder bernomor/format yang aman pada katalog. Teks berjumlah wajib memakai plural resources/aturan plural; jangan merangkai kalimat terjemahan dari potongan kata.
+6. Teks berparameter wajib memakai placeholder bernomor/format yang aman pada katalog. Teks berjumlah wajib memakai plural resources/aturan plural; jangan merangkai kalimat terjemahan dari potongan kata.
 
 ### 16.3 Audit, Validator, dan Kriteria Selesai
 1. Perubahan UI harus memperbarui seluruh katalog locale sekaligus. Key yang hilang, key yatim, atau fallback tersembunyi tidak diperbolehkan.
-2. Jalankan `python tools/validate_locales.py` untuk memeriksa kesetaraan key Android dan WebUI, placeholder, cakupan semua teks HTML statis, serta komentar kode non-English pada sumber produk. Audit statis juga harus mencari literal bahasa manusia yang tertinggal pada UI; tinjau hasilnya agar identifier, nilai kernel, dan data dinamis tidak salah dianggap sebagai UI.
+2. Jalankan `python tools/validate_locales.py` untuk memeriksa kesetaraan key Android dan WebUI, placeholder, teks HTML statis dan template dinamis, metadata parameter, label aksesibilitas, serta komentar kode non-English pada sumber produk. Audit statis juga harus mencari literal bahasa manusia yang tertinggal pada UI; tinjau hasilnya agar identifier dan nilai kernel tidak salah dianggap sebagai UI.
 3. Verifikasi kedua bahasa pada locale sistem/browser `id`, `en`, serta locale lain yang memakai fallback Indonesian; verifikasi pula override manual tetap tersimpan setelah aplikasi/halaman dibuka ulang.
 4. Periksa placeholder, plural, pesan sukses/error, dialog, notifikasi/tile, label aksesibilitas, installer, dan CLI dalam kedua bahasa. Sebelum menyelesaikan perubahan localization, jalankan unit test dan build aplikasi varian **Release** sesuai kebijakan repo; jangan menaikkan versi.
 

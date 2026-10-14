@@ -279,16 +279,21 @@ fun ChargingHeroDisplayCard(
             // 5. Direct resolution of physical charger protocol
             if (anyOnline == 1 || liveHardwareStatus.equals("Charging", ignoreCase = true)) {
                 try {
-                    val mtkChgType = File("/sys/devices/platform/charger/Charger_Type").takeIf { it.exists() }?.readText()?.trim().orEmpty()
-                    val peNode = File("/sys/devices/platform/charger/Pump_Express").takeIf { it.exists() }?.readText()?.trim().orEmpty()
-                    val usbType = File("/sys/class/power_supply/usb/type").takeIf { it.exists() }?.readText()?.trim().orEmpty()
-                    val usbRealType = File("/sys/class/power_supply/usb/real_type").takeIf { it.exists() }?.readText()?.trim().orEmpty()
-                    val qcType = File("/sys/class/power_supply/usb/quick_charge_type").takeIf { it.exists() }?.readText()?.trim().orEmpty()
-                    val qcomQc = File("/sys/class/qcom-battery/qc_type").takeIf { it.exists() }?.readText()?.trim().orEmpty()
-                    val pdActive = File("/sys/class/power_supply/usb/pd_active").takeIf { it.exists() }?.readText()?.trim().orEmpty()
-                    val typecPd = File("/sys/class/typec/pd_active").takeIf { it.exists() }?.readText()?.trim().orEmpty()
-                    val vooc = File("/sys/class/power_supply/battery/vooc_charging").takeIf { it.exists() }?.readText()?.trim().orEmpty()
-                    val miFast = File("/sys/class/power_supply/battery/fastcharge_mode").takeIf { it.exists() }?.readText()?.trim().orEmpty()
+                    fun safeRead(path: String): String = runCatching {
+                        val f = File(path)
+                        if (f.exists() && f.canRead()) f.readText().trim() else ""
+                    }.getOrDefault("")
+
+                    val mtkChgType = safeRead("/sys/devices/platform/charger/Charger_Type")
+                    val peNode = safeRead("/sys/devices/platform/charger/Pump_Express")
+                    val usbType = safeRead("/sys/class/power_supply/usb/type")
+                    val usbRealType = safeRead("/sys/class/power_supply/usb/real_type")
+                    val qcType = safeRead("/sys/class/power_supply/usb/quick_charge_type")
+                    val qcomQc = safeRead("/sys/class/qcom-battery/qc_type")
+                    val pdActive = safeRead("/sys/class/power_supply/usb/pd_active")
+                    val typecPd = safeRead("/sys/class/typec/pd_active")
+                    val vooc = safeRead("/sys/class/power_supply/battery/vooc_charging")
+                    val miFast = safeRead("/sys/class/power_supply/battery/fastcharge_mode")
 
                     val ptyp = (usbRealType.ifBlank { usbType }).ifBlank { mtkChgType }
                     val qcSig = qcType.ifBlank { qcomQc }
@@ -488,12 +493,20 @@ fun ChargingHeroDisplayCard(
         else -> AccentCyan
     }
 
+    val isTranssionBrand = remember {
+        val m = android.os.Build.MANUFACTURER.uppercase(Locale.US)
+        val b = android.os.Build.BRAND.uppercase(Locale.US)
+        m.contains("INFINIX") || m.contains("TECNO") || m.contains("TRANSSION") ||
+        b.contains("INFINIX") || b.contains("TECNO")
+    }
+
     // Resolved Hardware Protocol Name for Banner
-    val detectedProtocolName = remember(isPlugged, liveHardwareProtocol, batt.fastChargeProtocol) {
+    val detectedProtocolName = remember(isPlugged, batt.fastChargeProtocol, liveHardwareProtocol, isTranssionBrand) {
         when {
             !isPlugged -> "Baterai Internal (Li-Ion)"
-            liveHardwareProtocol.isNotBlank() -> liveHardwareProtocol
             batt.fastChargeProtocol.isNotBlank() && !batt.fastChargeProtocol.contains("Battery", true) -> batt.fastChargeProtocol
+            liveHardwareProtocol.isNotBlank() && !liveHardwareProtocol.contains("Standar") -> liveHardwareProtocol
+            isTranssionBrand -> "Transsion 33W (PE+)"
             else -> "Adaptor Daya Eksternal"
         }
     }
@@ -1269,7 +1282,7 @@ private fun resolveHardwareProtocolDirect(
     return when {
         // Transsion Fast Charge (Infinix / Tecno 33W/45W/68W PE+ Direct Pump)
         mtkChgType == "9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC") -> {
-            "Transsion Flash (PE+)"
+            "Transsion 33W (PE+)"
         }
         // Qualcomm Quick Charge (HVDCP, HVDCP_3, HVDCP_3P5, QC 2.0/3.0/4.0/5.0)
         ptypUpper.contains("HVDCP_3P5") || qcUpper.contains("4") || qcUpper.contains("5") -> {

@@ -7,6 +7,7 @@ use crate::core::error::SysfsError;
 use crate::core::result::Result;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
 use crate::utils::Logger;
+use crate::subsystems::tui::is_english;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActiveProfileState {
@@ -310,7 +311,7 @@ impl ProfileStateManager {
                 match SysfsWriter::write(&path, &orig_val, WriteMode::Direct) {
                     Ok(_) => restored.push((path, orig_val)),
                     Err(e) => {
-                        Logger::warn(format!("Failed to restore node '{}': {}", path.display(), e));
+                        Logger::warn(if is_english() { format!("Failed to restore node '{}': {}", path.display(), e) } else { format!("Gagal memulihkan node '{}': {}", path.display(), e) });
                         skipped.push((path, orig_val));
                     }
                 }
@@ -355,10 +356,11 @@ impl ProfileStateManager {
         };
 
         if active.dirty {
-            Logger::warn(format!(
-                "Dirty profile transaction detected from previous boot (profile: '{}')! Initiating recovery...",
-                active.active_profile
-            ));
+            Logger::warn(if is_english() {
+                format!("Dirty profile transaction detected from previous boot (profile: '{}')! Initiating recovery...", active.active_profile)
+            } else {
+                format!("Transaksi profil tidak tuntas terdeteksi dari boot sebelumnya (profil: '{}')! Memulai pemulihan...", active.active_profile)
+            });
 
             let report = Self::revert()?;
             let restored_count = report.restored_nodes.len();

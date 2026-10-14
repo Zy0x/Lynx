@@ -14,12 +14,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.DeepTunable
 import com.noir.lynx.data.TunableType
+import com.noir.lynx.R
+import com.noir.lynx.core.locale.localizedUiText
 import com.noir.lynx.designsystem.theme.*
 
 /**
@@ -68,7 +71,7 @@ fun DeepTunableItemCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        tunable.name,
+                        localizedUiText(tunable.name),
                         color = TextPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
@@ -97,7 +100,7 @@ fun DeepTunableItemCard(
                         border = BorderStroke(1.dp, BorderGlass)
                     ) {
                         Text(
-                            tunable.category,
+                            localizedUiText(tunable.category),
                             color = when {
                                 tunable.category.contains("CPU", true) -> AccentCyan
                                 tunable.category.contains("GPU", true) -> AccentPurple
@@ -132,7 +135,7 @@ fun DeepTunableItemCard(
             if (tunable.desc.isNotBlank()) {
                 Spacer(Modifier.height(5.dp))
                 Text(
-                    tunable.desc,
+                    localizedUiText(tunable.desc),
                     color = TextSecondary,
                     fontSize = 11.5.sp,
                     lineHeight = 15.sp
@@ -160,7 +163,10 @@ fun DeepTunableItemCard(
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            "Tips: ${tunable.recommendation}",
+                            stringResource(
+                                R.string.tunable_recommendation_tip,
+                                localizedUiText(tunable.recommendation)
+                            ),
                             color = AccentGreen,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium
@@ -220,7 +226,7 @@ fun DeepTunableItemCard(
                                 fontWeight = FontWeight.ExtraBold
                             )
                             Text(
-                                tunable.help,
+                                localizedUiText(tunable.help),
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 10.sp,
                                 color = TextPrimary,
@@ -336,7 +342,7 @@ fun DeepTunableItemCard(
                                         border = BorderStroke(1.dp, if (isSelected) AccentCyan else BorderGlass)
                                     ) {
                                         Text(
-                                            opt.label.ifBlank { opt.value },
+                                            localizedUiText(opt.label.ifBlank { opt.value }),
                                             color = if (isSelected) AccentCyan else TextPrimary,
                                             fontSize = 11.sp,
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,

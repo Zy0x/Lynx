@@ -3,6 +3,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
+use crate::subsystems::tui::{is_english, ui};
 
 const BACKUP_DIR: &str = "/sdcard/Lynx/backups";
 const TMP_DIR: &str = "/dev/lynx_flasher_tmp";
@@ -127,31 +128,32 @@ impl FlasherController {
             .as_secs();
 
         let boot_dev = Self::find_block_dev("boot")
-            .ok_or_else(|| "Error: Partisi 'boot' tidak ditemukan.".to_string())?;
+            .ok_or_else(|| ui("Error: Partisi 'boot' tidak ditemukan.", "Error: 'boot' partition was not found.").to_string())?;
 
         let boot_out = format!("{}/boot_{}.img", BACKUP_DIR, now);
         let mut out_lines = Vec::new();
-        out_lines.push(format!("Mencadangkan boot partition dari {} ...", boot_dev));
+        out_lines.push(if is_english() { format!("Backing up boot partition from {} ...", boot_dev) } else { format!("Mencadangkan partisi boot dari {} ...", boot_dev) });
 
         match Self::copy_device_or_file(&boot_dev, &boot_out) {
             Ok(bytes) if bytes > 0 => {
-                out_lines.push(format!("[OK] Berhasil mencadangkan boot: {} ({} bytes)", boot_out, bytes));
+                out_lines.push(if is_english() { format!("[OK] Boot backup created: {} ({} bytes)", boot_out, bytes) } else { format!("[OK] Berhasil mencadangkan boot: {} ({} bytes)", boot_out, bytes) });
             }
             _ => {
                 let _ = fs::remove_file(&boot_out);
-                return Err("Error: Gagal mencadangkan boot image.".to_string());
+                return Err(ui("Error: Gagal mencadangkan boot image.", "Error: Failed to back up boot image.").to_string());
             }
         }
 
         if let Some(init_boot_dev) = Self::find_block_dev("init_boot") {
             let init_boot_out = format!("{}/init_boot_{}.img", BACKUP_DIR, now);
-            out_lines.push(format!("Mencadangkan init_boot partition dari {} ...", init_boot_dev));
+            out_lines.push(if is_english() { format!("Backing up init_boot partition from {} ...", init_boot_dev) } else { format!("Mencadangkan partisi init_boot dari {} ...", init_boot_dev) });
             if let Ok(bytes) = Self::copy_device_or_file(&init_boot_dev, &init_boot_out) {
                 if bytes > 0 {
-                    out_lines.push(format!(
-                        "[OK] Berhasil mencadangkan init_boot: {} ({} bytes)",
-                        init_boot_out, bytes
-                    ));
+                    out_lines.push(if is_english() {
+                        format!("[OK] init_boot backup created: {} ({} bytes)", init_boot_out, bytes)
+                    } else {
+                        format!("[OK] Berhasil mencadangkan init_boot: {} ({} bytes)", init_boot_out, bytes)
+                    });
                 } else {
                     let _ = fs::remove_file(&init_boot_out);
                 }
@@ -160,7 +162,7 @@ impl FlasherController {
             }
         }
 
-        out_lines.push("Pencadangan partisi kernel selesai.".to_string());
+        out_lines.push(ui("Pencadangan partisi kernel selesai.", "Kernel partition backup completed.").to_string());
         Ok(out_lines.join("\n"))
     }
 
@@ -204,7 +206,7 @@ impl FlasherController {
     pub fn restore_boot(backup_file: &str) -> Result<String, String> {
         let p = Path::new(backup_file);
         if !p.is_file() {
-            return Err(format!("Error: File backup tidak ditemukan: {}", backup_file));
+            return Err(if is_english() { format!("Error: Backup file was not found: {}", backup_file) } else { format!("Error: File backup tidak ditemukan: {}", backup_file) });
         }
 
         let filename = p
@@ -221,7 +223,8 @@ impl FlasherController {
         };
 
         let target_dev = Self::find_block_dev(target_part).ok_or_else(|| {
-            format!("Error: Perangkat partisi {} tidak ditemukan.", target_part)
+            if is_english() { format!("Error: Partition device {} was not found.", target_part) }
+            else { format!("Error: Perangkat partisi {} tidak ditemukan.", target_part) }
         })?;
 
         let status = Command::new("dd")
@@ -232,20 +235,21 @@ impl FlasherController {
             .map_err(|e| e.to_string())?;
 
         if !status.success() {
-            return Err(format!("Error: Gagal menulis ke partisi {}.", target_dev));
+            return Err(if is_english() { format!("Error: Failed to write to partition {}.", target_dev) } else { format!("Error: Gagal menulis ke partisi {}.", target_dev) });
         }
 
         let _ = Command::new("sync").status();
-        Ok(format!(
-            "Memulihkan {} ke {}...\n[OK] Partisi {} berhasil dipulihkan dari {}.",
-            filename, target_dev, target_part, filename
-        ))
+        Ok(if is_english() {
+            format!("Restoring {} to {}...\n[OK] Partition {} restored from {}.", filename, target_dev, target_part, filename)
+        } else {
+            format!("Memulihkan {} ke {}...\n[OK] Partisi {} berhasil dipulihkan dari {}.", filename, target_dev, target_part, filename)
+        })
     }
 
     pub fn flash_anykernel(zip_path: &str) -> Result<String, String> {
         let p = Path::new(zip_path);
         if !p.is_file() {
-            return Err(format!("Error: Berkas zip tidak ditemukan: {}", zip_path));
+            return Err(if is_english() { format!("Error: ZIP file was not found: {}", zip_path) } else { format!("Error: Berkas ZIP tidak ditemukan: {}", zip_path) });
         }
 
         let mut logs = Vec::new();
@@ -253,19 +257,19 @@ impl FlasherController {
         logs.push("  Lynx Kernel Manager - Native AnyKernel3 Flasher".to_string());
         logs.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".to_string());
         if let Some(fname) = p.file_name() {
-            logs.push(format!("Target ZIP: {}", fname.to_string_lossy()));
+            logs.push(format!("{}: {}", ui("ZIP Target", "Target ZIP"), fname.to_string_lossy()));
         }
 
-        logs.push("Mengamankan kernel lama...".to_string());
+        logs.push(ui("Mengamankan kernel lama...", "Securing the current kernel...").to_string());
         match Self::backup_boot() {
             Ok(b_msg) => logs.push(b_msg),
-            Err(e) => logs.push(format!("Peringatan: Auto-backup gagal ({}), melanjutkan...", e)),
+            Err(e) => logs.push(if is_english() { format!("Warning: Automatic backup failed ({}); continuing...", e) } else { format!("Peringatan: Auto-backup gagal ({}), melanjutkan...", e) }),
         }
 
         let _ = fs::remove_dir_all(TMP_DIR);
         let _ = fs::create_dir_all(TMP_DIR);
 
-        logs.push("Mengekstrak AnyKernel3 package...".to_string());
+        logs.push(ui("Mengekstrak paket AnyKernel3...", "Extracting AnyKernel3 package...").to_string());
         let mut extracted = false;
         for bin in &[
             "unzip",
@@ -293,7 +297,7 @@ impl FlasherController {
 
         if !extracted {
             let _ = fs::remove_dir_all(TMP_DIR);
-            return Err("Error: Gagal mengekstrak berkas ZIP AnyKernel3.".to_string());
+            return Err(ui("Error: Gagal mengekstrak berkas ZIP AnyKernel3.", "Error: Failed to extract the AnyKernel3 ZIP file.").to_string());
         }
 
         let updater_bin = format!("{}/META-INF/com/google/android/update-binary", TMP_DIR);
@@ -309,7 +313,7 @@ impl FlasherController {
                     let _ = fs::set_permissions(&updater_bin, perms);
                 }
             }
-            logs.push("Menjalankan update-binary...".to_string());
+            logs.push(ui("Menjalankan update-binary...", "Running update-binary...").to_string());
             Command::new("sh")
                 .current_dir(TMP_DIR)
                 .args([&updater_bin, "3", "1", zip_path])
@@ -324,14 +328,14 @@ impl FlasherController {
                     let _ = fs::set_permissions(&anykernel_sh, perms);
                 }
             }
-            logs.push("Menjalankan anykernel.sh...".to_string());
+            logs.push(ui("Menjalankan anykernel.sh...", "Running anykernel.sh...").to_string());
             Command::new("sh")
                 .current_dir(TMP_DIR)
                 .arg(&anykernel_sh)
                 .status()
         } else {
             let _ = fs::remove_dir_all(TMP_DIR);
-            return Err("Error: Berkas AnyKernel3 tidak valid (tidak ada update-binary atau anykernel.sh).".to_string());
+            return Err(ui("Error: Berkas AnyKernel3 tidak valid (tidak ada update-binary atau anykernel.sh).", "Error: Invalid AnyKernel3 package (update-binary or anykernel.sh is missing).").to_string());
         };
 
         let _ = fs::remove_dir_all(TMP_DIR);
@@ -340,16 +344,16 @@ impl FlasherController {
         match status {
             Ok(st) if st.success() => {
                 logs.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".to_string());
-                logs.push("[OK] Flashing Kernel Berhasil! Silakan reboot perangkat.".to_string());
+                logs.push(ui("[OK] Flashing kernel berhasil! Silakan reboot perangkat.", "[OK] Kernel flashing succeeded! Reboot the device to continue.").to_string());
                 logs.push("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".to_string());
                 Ok(logs.join("\n"))
             }
-            Ok(st) => Err(format!(
-                "{}\n[ERROR] Flashing Kernel Gagal (Exit code: {}).",
-                logs.join("\n"),
-                st.code().unwrap_or(1)
-            )),
-            Err(e) => Err(format!("{}\n[ERROR] Flashing Kernel Gagal: {}", logs.join("\n"), e)),
+            Ok(st) => Err(if is_english() {
+                format!("{}\n[ERROR] Kernel flashing failed (exit code: {}).", logs.join("\n"), st.code().unwrap_or(1))
+            } else {
+                format!("{}\n[ERROR] Flashing kernel gagal (kode keluar: {}).", logs.join("\n"), st.code().unwrap_or(1))
+            }),
+            Err(e) => Err(if is_english() { format!("{}\n[ERROR] Kernel flashing failed: {}", logs.join("\n"), e) } else { format!("{}\n[ERROR] Flashing kernel gagal: {}", logs.join("\n"), e) }),
         }
     }
 }

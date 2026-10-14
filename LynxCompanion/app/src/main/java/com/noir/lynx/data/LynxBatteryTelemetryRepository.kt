@@ -98,6 +98,11 @@ internal object LynxBatteryTelemetryRepository {
                     fi
 
                     rfc=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/rfc_dcp_ta 2>/dev/null | head -n 1)
+                    if [ -z "${'$'}rfc" ] || [ "${'$'}rfc" = "0" ]; then
+                        if [ "${'$'}chgtyp" = "9" ] || [ -d /sys/devices/platform/odm/odm:pca_rfc_ta ] || [ -e /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger ]; then
+                            rfc=1
+                        fi
+                    fi
                     [ -z "${'$'}rfc" ] && rfc=0
                     rtmp=${'$'}(cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null)
                     [ -z "${'$'}rtmp" ] || [ "${'$'}rtmp" -le 0 ] 2>/dev/null && rtmp=${'$'}temp
@@ -289,30 +294,61 @@ internal object LynxBatteryTelemetryRepository {
 
                     val ptypUpper = rawPtyp.uppercase(java.util.Locale.US)
                     val qcUpper = qcSig.uppercase(java.util.Locale.US)
+                    val isTranssion = android.os.Build.MANUFACTURER.contains("INFINIX", ignoreCase = true) ||
+                            android.os.Build.MANUFACTURER.contains("TECNO", ignoreCase = true) ||
+                            android.os.Build.BRAND.contains("INFINIX", ignoreCase = true) ||
+                            android.os.Build.BRAND.contains("TECNO", ignoreCase = true) ||
+                            android.os.Build.MANUFACTURER.contains("TRANSSION", ignoreCase = true)
+
                     val protocol = when {
                         !isPlugged -> "Battery Power"
-                        // USB Power Delivery & PPS
-                        pdSig == "1" || pdSig == "2" || chgTyp == "7" || chgTyp == "4" || rawPtyp == "MTK_7" || rawPtyp == "MTK_4" ||
+
+                        // 1. Genuine Transsion Fast Charge (Infinix / Tecno 33W/45W/68W PE+ Direct Pump)
+                        (rfcAuth || chgTyp == "9" || rawPtyp == "MTK_9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC")) && pdSig.isBlank() && !ptypUpper.contains("PD") -> {
+                            val wLabel = when {
+                                watt >= 55f -> "68W"
+                                watt >= 38f -> "45W"
+                                watt >= 20f || adpMv > 8000 -> "33W"
+                                else -> "Flash"
+                            }
+                            "Transsion $wLabel (PE+)"
+                        }
+
+                        // 2. USB Power Delivery & PPS
+                        pdSig == "1" || pdSig == "2" || chgTyp == "7" || rawPtyp == "MTK_7" ||
                                 ptypUpper.contains("PD") || ptypUpper.contains("PPS") ||
-                                (adpMv in 7500..9800 && (!rfcAuth || watt < 28f)) -> {
+                                (adpMv in 7500..9800 && chgTyp != "9" && !rfcAuth) -> {
                             if (pdSig == "2" || ptypUpper.contains("PPS") || adpMv > 8500) "USB-PD / PPS"
                             else "USB-PD"
                         }
-                        // Genuine Transsion Fast Charge (Infinix / Tecno 33W/45W/68W PE+ Direct Pump)
-                        rfcAuth || (chgTyp == "9" && (rfcAuth || watt >= 28f || adpMv > 9800)) || rawPtyp == "MTK_9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC") -> {
-                            val wLabel = if (watt >= 60f) "68W" else if (watt >= 40f) "45W" else if (watt >= 28f) "33W" else "Flash"
-                            "Transsion $wLabel (PE+)"
-                        }
+
+                        // 3. SuperVOOC / Dart (OPPO / Realme / OnePlus)
                         voocSig == "1" || voocSig == "2" || ptypUpper.contains("VOOC") || ptypUpper.contains("DART") -> "SuperVOOC / Dart"
+
+                        // 4. Xiaomi TurboCharge / HyperCharge
                         miSig == "1" && adpMv > 8000 -> "Xiaomi TurboCharge"
+
+                        // 5. Samsung SFC / AFC
                         secSig == "1" || secSig.contains("AFC", ignoreCase = true) -> if (adpMv > 8000) "Samsung SFC (25W/45W)" else "Samsung AFC"
+
+                        // 6. Qualcomm Quick Charge
                         ptypUpper.contains("HVDCP_3P5") || qcUpper.contains("4") || qcUpper.contains("5") -> "Qualcomm QC 4/5"
                         ptypUpper.contains("HVDCP_3") || qcUpper.contains("3") || qcUpper.contains("QC3") -> "Qualcomm QC 3.0"
                         ptypUpper.contains("HVDCP") || qcUpper.contains("2") || qcUpper.contains("QC2") || qcUpper.contains("QC") || (qcSig.isNotBlank() && qcSig != "0") -> "Qualcomm QC"
+
+                        // 7. Generic MediaTek Pump Express
                         chgTyp == "8" || rawPtyp == "MTK_8" || ptypUpper.contains("PUMP") || ptypUpper.contains("PE") -> "MTK Pump Express"
-                        adpMv > 8500 || (watt >= 15f && isCharging) -> "Adaptor Cepat (Fast)"
+
+                        // 8. High voltage / high power generic fallback
+                        adpMv > 8500 || (watt >= 15f && isCharging) -> {
+                            if (isTranssion) "Transsion 33W (PE+)" else "Adaptor Cepat (Fast)"
+                        }
+
+                        // 9. PC / Laptop port
                         isLaptop || ptypUpper.contains("SDP") || ptypUpper.contains("CDP") -> "USB PC / Laptop"
-                        else -> "Adaptor Standar (DCP)"
+
+                        // 10. Default
+                        else -> if (isTranssion && isCharging) "Transsion Flash (PE+)" else "Adaptor Standar (DCP)"
                     }
 
                     val adapterWatt = if (isPlugged && adpMv > 1000 && ibusMa > 50) {

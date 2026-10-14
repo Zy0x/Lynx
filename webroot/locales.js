@@ -22,11 +22,38 @@
 
     function text(value) {
         const source = normalize(value);
-        if (locale !== 'en') return value;
         const key = sourceToKey[source];
-        if (key && catalogs.en[key]) return catalogs.en[key];
+        if (key && catalogs[locale][key]) return catalogs[locale][key];
         const dynamic = [
             [/^Laporan berhasil dibuat: (.+)$/, 'Report created: $1'],
+            [/^Export gagal: (.+)$/, 'Export failed: $1'],
+            [/^Membuat arsip diagnostik lengkap\.\.\.$/, 'Creating complete diagnostic archive…'],
+            [/^Menjalankan SQLite VACUUM & Storage TRIM\.\.\.$/, 'Running SQLite VACUUM and storage TRIM…'],
+            [/^Proses backup selesai\.$/, 'Backup process completed.'],
+            [/^Restore selesai\.$/, 'Restore completed.'],
+            [/^Refresh rate disetel$/, 'Refresh rate set'],
+            [/^Meluncurkan aplikasi Lynx Companion\.\.\.$/, 'Launching Lynx Companion…'],
+            [/^Mencadangkan partisi boot\/init_boot\.\.\.$/, 'Backing up boot/init_boot partitions…'],
+            [/^Memulai flashing AnyKernel3: (.+)\.\.\.$/, 'Starting AnyKernel3 flash: $1…'],
+            [/^Memulihkan partisi dari (.+)\.\.\.$/, 'Restoring partition from $1…'],
+            [/^Mengubah refresh rate ke (.+) Hz\.\.\.$/, 'Changing refresh rate to $1 Hz…'],
+            [/^Membebaskan Cache RAM \(Drop Caches\)\.\.\.$/, 'Freeing RAM cache (drop caches)…'],
+            [/^Cache RAM dibebaskan\.$/, 'RAM cache freed.'],
+            [/^Menyetel Aggressive Doze ke (.+)\.\.\.$/, 'Setting Aggressive Doze to $1…'],
+            [/^Aggressive Doze diperbarui$/, 'Aggressive Doze updated'],
+            [/^Menambahkan (.+) ke whitelist game$/, 'Added $1 to the game whitelist'],
+            [/^Menghapus (.+) dari whitelist game$/, 'Removed $1 from the game whitelist'],
+            [/^Menyetel governor GPU ke (.+)\.\.\.$/, 'Setting GPU governor to $1…'],
+            [/^Menyetel tingkat GPU Boost ke Level (.+)\.\.\.$/, 'Setting GPU Boost to Level $1…'],
+            [/^Menerapkan preset governor schedutil: (.+)\.\.\.$/, 'Applying schedutil governor preset: $1…'],
+            [/^Menyetel (.+) -> (.+)\.\.\.$/, 'Setting $1 -> $2…'],
+            [/^Berhasil menyetel (.+) = (.+)$/, 'Successfully set $1 = $2'],
+            [/^Gagal menyetel (.+): (.+)$/, 'Failed to set $1: $2'],
+            [/^Mengatur printk ke (.+)$/, 'Setting printk to $1'],
+            [/^Menyetel scheduler (.+) ke (.+)\.\.\.$/, 'Setting scheduler for $1 to $2…'],
+            [/^Scheduler (.+) diterapkan pada (.+)$/, 'Scheduler $1 applied to $2'],
+            [/^Menerapkan preset VM '(.+)'\.\.\.$/, "Applying VM preset '$1'…"],
+            [/^Preset VM '(.+)' diterapkan$/, 'VM preset $1 applied'],
             [/^Menyetel (.+) -> (.+)\.\.\.$/, 'Setting $1 -> $2…'],
             [/^Berhasil menyetel (.+) = (.+)$/, 'Successfully set $1 = $2'],
             [/^Gagal menyetel (.+): (.+)$/, 'Failed to set $1: $2'],
@@ -50,8 +77,47 @@
             ,[/^PERINGATAN RESTORE BOOT:\s+Apakah Anda yakin ingin memulihkan partisi dari backup:\s+(.+)\?$/, 'BOOT RESTORE WARNING:\nAre you sure you want to restore the partition from this backup:\n$1?']
             ,[/^Tidak ada parameter dalam kategori "(.+)"\.$/, 'No parameters in category "$1".']
         ];
-        for (const [pattern, replacement] of dynamic) {
-            if (pattern.test(source)) return source.replace(pattern, replacement);
+        if (locale === 'en') {
+            for (const [pattern, replacement] of dynamic) {
+                if (pattern.test(source)) return source.replace(pattern, replacement);
+            }
+        } else {
+            const dynamicIndonesian = [
+                [/^Updating (.+) -> (.+)\.\.\.$/, 'Memperbarui $1 -> $2…'],
+                [/^Set (.+) = (.+) success$/, 'Berhasil mengatur $1 = $2'],
+                [/^Failed setting (.+): (.+)$/, 'Gagal mengatur $1: $2'],
+                [/^ADB Keep-Alive locked on port (.+)$/, 'ADB Keep-Alive dikunci pada port $1'],
+                [/^ADB Keep-Alive disabled$/, 'ADB Keep-Alive dinonaktifkan'],
+                [/^Port tidak valid! Masukkan port (.+)$/, 'Port tidak valid! Masukkan port $1'],
+                [/^ADB Custom Port locked to (.+)$/, 'Port kustom ADB dikunci ke $1'],
+                [/^Cluster (.+) locked\.$/, 'Cluster $1 dikunci.'],
+                [/^Cluster (.+) unlocked\.$/, 'Cluster $1 dibuka kuncinya.'],
+                [/^Failed to change cluster lock: (.+)$/, 'Gagal mengubah kunci cluster: $1'],
+                [/^Setting Policy (.+) Freq: Min=(.+)MHz Max=(.+)MHz\.\.\.$/, 'Mengatur frekuensi Policy $1: Min=$2 MHz, Max=$3 MHz…'],
+                [/^Policy (.+) frequency applied\.$/, 'Frekuensi Policy $1 diterapkan.'],
+                [/^Failed setting policy frequency: (.+)$/, 'Gagal mengatur frekuensi policy: $1'],
+                [/^Setting Policy (.+) Governor: (.+)\.\.\.$/, 'Mengatur governor Policy $1: $2…'],
+                [/^Policy (.+) governor set to (.+)\.$/, 'Governor Policy $1 diatur ke $2.'],
+                [/^Failed setting governor: (.+)$/, 'Gagal mengatur governor: $1'],
+                [/^Running CCleaner & Memory Compaction\.\.\.$/, 'Menjalankan CCleaner dan pemadatan memori…'],
+                [/^Memory compaction complete\.$/, 'Pemadatan memori selesai.'],
+                [/^SELinux mode updated$/, 'Mode SELinux diperbarui'],
+                [/^Printk set to (.+)$/, 'Printk diatur ke $1'],
+                [/^Set printk to (.+)$/, 'Mengatur printk ke $1'],
+                [/^Failed setting printk: (.+)$/, 'Gagal mengatur printk: $1'],
+                [/^Setting VM (.+) to (.+)\.\.\.$/, 'Mengatur VM $1 ke $2…'],
+                [/^Setting TCP Congestion Control to (.+)\.\.\.$/, 'Mengatur TCP Congestion Control ke $1…'],
+                [/^Applying VM preset '(.+)'\.\.\.$/, "Menerapkan preset VM '$1'…"],
+                [/^Setting GPU governor to (.+)\.\.\.$/, 'Mengatur governor GPU ke $1…'],
+                [/^Setting GPU Boost Level (.+)\.\.\.$/, 'Mengatur tingkat GPU Boost ke $1…'],
+                [/^Setting scheduler (.+) to (.+)\.\.\.$/, 'Mengatur scheduler $1 ke $2…'],
+                [/^Setting refresh rate to (.+) Hz\.\.\.$/, 'Mengatur refresh rate ke $1 Hz…'],
+                [/^Setting sysfs node (.+) to (.+)\.\.\.$/, 'Mengatur node sysfs $1 ke $2…'],
+                [/^Failed to set sysfs node (.+): (.+)$/, 'Gagal mengatur node sysfs $1: $2'],
+            ];
+            for (const [pattern, replacement] of dynamicIndonesian) {
+                if (pattern.test(source)) return source.replace(pattern, replacement);
+            }
         }
         return value;
     }

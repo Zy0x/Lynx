@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use crate::subsystems::tui::{is_english, ui};
 
 pub struct SwapController;
 
@@ -49,18 +50,18 @@ impl SwapController {
         let s = size_str.trim().to_uppercase();
         if s.ends_with("GB") || s.ends_with('G') {
             let num_str = s.trim_end_matches("GB").trim_end_matches('G');
-            let num: f64 = num_str.parse().map_err(|_| format!("Invalid gigabytes value '{}'", size_str))?;
+            let num: f64 = num_str.parse().map_err(|_| if is_english() { format!("Invalid gigabytes value '{}'", size_str) } else { format!("Nilai gigabyte '{}' tidak valid", size_str) })?;
             Ok((num * 1024.0 * 1024.0 * 1024.0) as u64)
         } else if s.ends_with("MB") || s.ends_with('M') {
             let num_str = s.trim_end_matches("MB").trim_end_matches('M');
-            let num: f64 = num_str.parse().map_err(|_| format!("Invalid megabytes value '{}'", size_str))?;
+            let num: f64 = num_str.parse().map_err(|_| if is_english() { format!("Invalid megabytes value '{}'", size_str) } else { format!("Nilai megabyte '{}' tidak valid", size_str) })?;
             Ok((num * 1024.0 * 1024.0) as u64)
         } else if s.ends_with('B') {
             let num_str = s.trim_end_matches('B');
-            let num: u64 = num_str.parse().map_err(|_| format!("Invalid bytes value '{}'", size_str))?;
+            let num: u64 = num_str.parse().map_err(|_| if is_english() { format!("Invalid bytes value '{}'", size_str) } else { format!("Nilai byte '{}' tidak valid", size_str) })?;
             Ok(num)
         } else {
-            let num: u64 = s.parse().map_err(|_| format!("Invalid swap size format '{}'", size_str))?;
+            let num: u64 = s.parse().map_err(|_| if is_english() { format!("Invalid swap size format '{}'", size_str) } else { format!("Format ukuran swap '{}' tidak valid", size_str) })?;
             Ok(num)
         }
     }
@@ -95,10 +96,10 @@ impl SwapController {
                     &format!("count={}", size_mb),
                 ])
                 .status()
-                .map_err(|e| format!("Failed to allocate swap with dd: {}", e))?;
+                .map_err(|e| if is_english() { format!("Failed to allocate swap with dd: {}", e) } else { format!("Gagal mengalokasikan swap dengan dd: {}", e) })?;
 
             if !status.success() {
-                return Err("Failed to create swap file with dd.".to_string());
+                return Err(ui("Gagal membuat berkas swap dengan dd.", "Failed to create swap file with dd.").to_string());
             }
         }
 
@@ -109,49 +110,49 @@ impl SwapController {
         let mkswap_res = Command::new("mkswap")
             .arg(swap_path)
             .output()
-            .map_err(|e| format!("Failed to run mkswap: {}", e))?;
+            .map_err(|e| if is_english() { format!("Failed to run mkswap: {}", e) } else { format!("Gagal menjalankan mkswap: {}", e) })?;
 
         if !mkswap_res.status.success() {
             let _ = fs::remove_file(swap_path);
-            return Err("mkswap failed to format /data/swap.".to_string());
+            return Err(ui("mkswap gagal memformat /data/swap.", "mkswap failed to format /data/swap.").to_string());
         }
 
         // 6. Enable swapon with priority 3
         let swapon_res = Command::new("swapon")
             .args(&[swap_path, "-p", "3"])
             .output()
-            .map_err(|e| format!("Failed to run swapon: {}", e))?;
+            .map_err(|e| if is_english() { format!("Failed to run swapon: {}", e) } else { format!("Gagal menjalankan swapon: {}", e) })?;
 
         if !swapon_res.status.success() {
-            return Err("swapon failed to activate /data/swap.".to_string());
+            return Err(ui("swapon gagal mengaktifkan /data/swap.", "swapon failed to activate /data/swap.").to_string());
         }
 
-        Ok(format!("SWAP file successfully created and enabled at {} (Size: {} MB).", swap_path, size_mb))
+        Ok(if is_english() { format!("SWAP file created and enabled at {} (Size: {} MB).", swap_path, size_mb) } else { format!("Berkas SWAP berhasil dibuat dan diaktifkan di {} (Ukuran: {} MB).", swap_path, size_mb) })
     }
 
     /// Enables the existing /data/swap file.
     pub fn enable() -> Result<String, String> {
         let swap_path = "/data/swap";
         if !Path::new(swap_path).exists() {
-            return Err("No SWAP file found at /data/swap. Run 'set' first.".to_string());
+            return Err(ui("Berkas SWAP tidak ditemukan di /data/swap. Jalankan 'set' terlebih dahulu.", "No SWAP file found at /data/swap. Run 'set' first.").to_string());
         }
 
         let res = Command::new("swapon")
             .args(&[swap_path, "-p", "3"])
             .output()
-            .map_err(|e| format!("swapon failed: {}", e))?;
+            .map_err(|e| if is_english() { format!("swapon failed: {}", e) } else { format!("swapon gagal: {}", e) })?;
 
         if res.status.success() {
-            Ok("SWAP file /data/swap successfully enabled.".to_string())
+            Ok(ui("Berkas SWAP /data/swap berhasil diaktifkan.", "SWAP file /data/swap successfully enabled.").to_string())
         } else {
-            Err("Failed to enable /data/swap.".to_string())
+            Err(ui("Gagal mengaktifkan /data/swap.", "Failed to enable /data/swap.").to_string())
         }
     }
 
     /// Disables all active swap files.
     pub fn disable() -> Result<String, String> {
         Self::disable_all_swaps()?;
-        Ok("All SWAP files disabled successfully.".to_string())
+        Ok(ui("Semua berkas SWAP berhasil dinonaktifkan.", "All SWAP files disabled successfully.").to_string())
     }
 
     /// Disables and removes /data/swap.
@@ -159,10 +160,10 @@ impl SwapController {
         let _ = Self::disable_all_swaps();
         let swap_path = "/data/swap";
         if Path::new(swap_path).exists() {
-            fs::remove_file(swap_path).map_err(|e| format!("Failed to delete {}: {}", swap_path, e))?;
-            Ok(format!("Deleted SWAP file {}.", swap_path))
+            fs::remove_file(swap_path).map_err(|e| if is_english() { format!("Failed to delete {}: {}", swap_path, e) } else { format!("Gagal menghapus {}: {}", swap_path, e) })?;
+            Ok(if is_english() { format!("Deleted SWAP file {}.", swap_path) } else { format!("Berkas SWAP {} berhasil dihapus.", swap_path) })
         } else {
-            Ok("No SWAP file found to remove.".to_string())
+            Ok(ui("Tidak ada berkas SWAP untuk dihapus.", "No SWAP file found to remove.").to_string())
         }
     }
 }

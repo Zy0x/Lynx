@@ -5,6 +5,7 @@ use std::process::Command;
 use crate::hardware::capability::HardwareCapability;
 use crate::state::ConfigStore;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
+use crate::subsystems::tui::{is_english, ui};
 
 pub struct MemoryController;
 
@@ -100,17 +101,17 @@ impl MemoryController {
     pub fn set_zram(size_arg: Option<&str>, algo_arg: Option<&str>) -> Result<String, String> {
         let mem = HardwareCapability::resolve_memory();
         if !mem.zram_available {
-            return Err("ERROR: ZRAM device (/sys/block/zram0) is not available on this kernel.".to_string());
+            return Err(ui("ERROR: Perangkat ZRAM (/sys/block/zram0) tidak tersedia pada kernel ini.", "ERROR: ZRAM device (/sys/block/zram0) is not available on this kernel.").to_string());
         }
 
         if let Some(algo) = algo_arg {
             if !algo.is_empty() {
                 if !mem.zram_supported_algos.is_empty() && !mem.zram_supported_algos.iter().any(|a| a == algo) {
-                    return Err(format!(
-                        "ERROR: Algorithm '{}' is not supported. Supported: {}",
-                        algo,
-                        mem.zram_supported_algos.join(" ")
-                    ));
+                    return Err(if is_english() {
+                        format!("ERROR: Algorithm '{}' is not supported. Supported: {}", algo, mem.zram_supported_algos.join(" "))
+                    } else {
+                        format!("ERROR: Algoritma '{}' tidak didukung. Pilihan yang didukung: {}", algo, mem.zram_supported_algos.join(" "))
+                    });
                 }
                 Self::write_opt("/sys/block/zram0/comp_algorithm", algo);
             }
@@ -119,14 +120,15 @@ impl MemoryController {
         if let Some(size_str) = size_arg {
             if !size_str.is_empty() {
                 let bytes = Self::parse_size_bytes(size_str)
-                    .ok_or_else(|| format!("ERROR: Invalid ZRAM size '{}'. Use e.g. 2G or 2048M.", size_str))?;
+                    .ok_or_else(|| if is_english() { format!("ERROR: Invalid ZRAM size '{}'. Use e.g. 2G or 2048M.", size_str) } else { format!("ERROR: Ukuran ZRAM '{}' tidak valid. Contoh: 2G atau 2048M.", size_str) })?;
 
                 let max_bytes = (mem.total_ram_mb * 1024 * 1024) / 2;
                 if bytes > max_bytes {
-                    return Err(format!(
-                        "ERROR: Requested ZRAM size ({} bytes) exceeds 50% of physical RAM ({} MB).",
-                        bytes, mem.total_ram_mb
-                    ));
+                    return Err(if is_english() {
+                        format!("ERROR: Requested ZRAM size ({} bytes) exceeds 50% of physical RAM ({} MB).", bytes, mem.total_ram_mb)
+                    } else {
+                        format!("ERROR: Ukuran ZRAM yang diminta ({} byte) melebihi 50% RAM fisik ({} MB).", bytes, mem.total_ram_mb)
+                    });
                 }
 
                 let _ = SysfsReader::read_trimmed("/sys/class/zram-control/hot_add");
@@ -144,14 +146,14 @@ impl MemoryController {
             }
         }
 
-        Ok("ZRAM configuration updated successfully.".to_string())
+        Ok(ui("Konfigurasi ZRAM berhasil diperbarui.", "ZRAM configuration updated successfully.").to_string())
     }
 
     pub fn disable_zram() -> Result<String, String> {
         Self::write_opt("/proc/sys/vm/drop_caches", "3");
         let _ = Command::new("swapoff").arg("/dev/block/zram0").status();
         Self::write_opt("/sys/class/zram-control/hot_remove", "0");
-        Ok("ZRAM disabled successfully.".to_string())
+        Ok(ui("ZRAM berhasil dinonaktifkan.", "ZRAM disabled successfully.").to_string())
     }
 
     pub fn clean_memory() -> String {
@@ -168,7 +170,7 @@ impl MemoryController {
             }
         }
 
-        "Cache and memory compacted cleanly.".to_string()
+        ui("Cache dibersihkan dan memori berhasil dipadatkan.", "Cache cleared and memory compacted successfully.").to_string()
     }
 
     /// Reads kernel VM parameters from /proc/sys/vm/ and returns JSON for WebUI / Companion App.
@@ -211,18 +213,18 @@ impl MemoryController {
 
         let clean_param = param.trim();
         if !allowed.contains(&clean_param) {
-            return Err(format!("Parameter '{}' is not in the VM tunables whitelist.", clean_param));
+            return Err(if is_english() { format!("Parameter '{}' is not in the VM tunables whitelist.", clean_param) } else { format!("Parameter '{}' tidak ada dalam daftar izin VM tunables.", clean_param) });
         }
 
         let clean_val = val.trim();
         if clean_val.is_empty() || !clean_val.chars().all(|c| c.is_ascii_digit() || c == '-') {
-            return Err(format!("Invalid numeric value '{}'.", clean_val));
+            return Err(if is_english() { format!("Invalid numeric value '{}'.", clean_val) } else { format!("Nilai numerik '{}' tidak valid.", clean_val) });
         }
 
         let target_path = format!("/proc/sys/vm/{}", clean_param);
         Self::write_opt(&target_path, clean_val);
 
-        Ok(format!("VM {} set to {}.", clean_param, clean_val))
+        Ok(if is_english() { format!("VM {} set to {}.", clean_param, clean_val) } else { format!("VM {} diatur ke {}.", clean_param, clean_val) })
     }
 
     /// Applies predefined VM tuning profiles.
@@ -236,7 +238,7 @@ impl MemoryController {
                 Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "300");
                 Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "100");
                 Self::write_opt("/proc/sys/vm/stat_interval", "1");
-                Ok("VM preset applied: Gaming (Low dirty buffers, aggressive writeback, vfs pressure 120).".to_string())
+                Ok(ui("Preset VM diterapkan: Gaming (buffer dirty rendah, writeback agresif, tekanan VFS 120).", "VM preset applied: Gaming (Low dirty buffers, aggressive writeback, vfs pressure 120).").to_string())
             }
             "balanced" | "balance" => {
                 Self::write_opt("/proc/sys/vm/dirty_ratio", "20");
@@ -246,7 +248,7 @@ impl MemoryController {
                 Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "500");
                 Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "200");
                 Self::write_opt("/proc/sys/vm/stat_interval", "1");
-                Ok("VM preset applied: Balanced (Stock Linux proportions, balanced paging).".to_string())
+                Ok(ui("Preset VM diterapkan: Balanced (proporsi bawaan Linux, paging seimbang).", "VM preset applied: Balanced (Stock Linux proportions, balanced paging).").to_string())
             }
             "battery" | "powersave" => {
                 Self::write_opt("/proc/sys/vm/dirty_ratio", "30");
@@ -256,9 +258,9 @@ impl MemoryController {
                 Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "1500");
                 Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "500");
                 Self::write_opt("/proc/sys/vm/stat_interval", "5");
-                Ok("VM preset applied: Battery (Delayed writeback, relaxed flush intervals).".to_string())
+                Ok(ui("Preset VM diterapkan: Battery (writeback tertunda, interval flush lebih renggang).", "VM preset applied: Battery (Delayed writeback, relaxed flush intervals).").to_string())
             }
-            other => Err(format!("Unknown VM preset: '{}'. Valid options: gaming, balanced, battery.", other)),
+            other => Err(if is_english() { format!("Unknown VM preset: '{}'. Valid options: gaming, balanced, battery.", other) } else { format!("Preset VM '{}' tidak dikenal. Pilihan valid: gaming, balanced, battery.", other) }),
         }
     }
 }

@@ -30,6 +30,36 @@ use crate::subsystems::tui::ui;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
 use crate::utils::Logger;
 
+macro_rules! log_info {
+    ($indonesian:literal, $english:literal $(, $argument:expr)* $(,)?) => {
+        if crate::subsystems::tui::is_english() {
+            Logger::info(format!($english $(, $argument)*));
+        } else {
+            Logger::info(format!($indonesian $(, $argument)*));
+        }
+    };
+}
+
+macro_rules! log_warn {
+    ($indonesian:literal, $english:literal $(, $argument:expr)* $(,)?) => {
+        if crate::subsystems::tui::is_english() {
+            Logger::warn(format!($english $(, $argument)*));
+        } else {
+            Logger::warn(format!($indonesian $(, $argument)*));
+        }
+    };
+}
+
+macro_rules! log_error {
+    ($indonesian:literal, $english:literal $(, $argument:expr)* $(,)?) => {
+        if crate::subsystems::tui::is_english() {
+            Logger::error(format!($english $(, $argument)*));
+        } else {
+            Logger::error(format!($indonesian $(, $argument)*));
+        }
+    };
+}
+
 fn print_usage() {
     if !crate::subsystems::tui::is_english() {
         println!("==================================================");
@@ -266,17 +296,14 @@ fn handle_profile_show(name: &str) {
             println!("{}", p.display());
         }
         None => {
-            Logger::error(format!(
-                "Profile '{}' not found. Run 'lynxd profile list' to view available profiles.",
-                name
-            ));
+            log_error!("Profil '{}' tidak ditemukan. Jalankan 'lynxd profile list' untuk melihat profil yang tersedia.", "Profile '{}' not found. Run 'lynxd profile list' to view available profiles.", name);
             std::process::exit(1);
         }
     }
 }
 
 fn handle_profile_validate() {
-    Logger::info("Validating all built-in and user performance policies against hardware safety bounds...");
+    log_info!("Memvalidasi kebijakan performa bawaan dan pengguna terhadap batas keamanan hardware...", "Validating all built-in and user performance policies against hardware safety bounds...");
     let mut profiles: Vec<(String, crate::profile::Profile)> = list_profiles()
         .into_iter()
         .map(|profile| (profile.name.to_string(), profile))
@@ -295,14 +322,11 @@ fn handle_profile_validate() {
     for (id, p) in &profiles {
         match ProfileValidator::validate(p) {
             Ok(_) => {
-                println!(
-                    "  [OK] Profile '{:<12}' satisfies all thermal and mathematical safety bounds.",
-                    id
-                );
+                println!("  [OK] {}", if crate::subsystems::tui::is_english() { format!("Profile '{:<12}' satisfies all thermal and mathematical safety bounds.", id) } else { format!("Profil '{:<12}' memenuhi seluruh batas keamanan termal dan matematis.", id) });
             }
             Err(errors) => {
                 all_valid = false;
-                Logger::error(format!("Profile '{}' failed validation:", id));
+                log_error!("Validasi profil '{}' gagal:", "Profile '{}' failed validation:", id);
                 for e in errors {
                     eprintln!("    [-] {}", e);
                 }
@@ -311,9 +335,9 @@ fn handle_profile_validate() {
     }
 
     if all_valid {
-        Logger::info(format!("All {} profile entries passed hardware safety validation.", profiles.len()));
+        log_info!("Semua {} profil lolos validasi keamanan hardware.", "All {} profile entries passed hardware safety validation.", profiles.len());
     } else {
-        Logger::error("Validation errors encountered!");
+        log_error!("Ditemukan kesalahan validasi!", "Validation errors encountered!");
         std::process::exit(1);
     }
 }
@@ -322,19 +346,13 @@ fn handle_profile_apply(name: &str, dry_run: bool) {
     let profile = match get_profile_by_name(name) {
         Some(p) => p,
         None => {
-            Logger::error(format!(
-                "Profile '{}' not found. Run 'lynxd profile list' to view available profiles.",
-                name
-            ));
+            log_error!("Profil '{}' tidak ditemukan. Jalankan 'lynxd profile list' untuk melihat profil yang tersedia.", "Profile '{}' not found. Run 'lynxd profile list' to view available profiles.", name);
             std::process::exit(1);
         }
     };
 
     if let Err(errors) = ProfileValidator::validate(&profile) {
-        Logger::error(format!(
-            "Profile '{}' failed safety validation! Cannot apply.",
-            name
-        ));
+        log_error!("Validasi keamanan profil '{}' gagal! Profil tidak dapat diterapkan.", "Profile '{}' failed safety validation! Cannot apply.", name);
         for e in errors {
             eprintln!("  [-] {}", e);
         }
@@ -350,7 +368,7 @@ fn handle_profile_apply(name: &str, dry_run: bool) {
             }
         }
         Err(e) => {
-            Logger::error(format!("Execution failed: {}", e));
+            log_error!("Eksekusi gagal: {}", "Execution failed: {}", e);
             std::process::exit(1);
         }
     }
@@ -379,14 +397,14 @@ fn handle_profile_current() {
             println!("{}", ui("Status Persisten Profil Aktif: Belum ada profil aktif (setelan dasar OEM).", "Active Profile Persistent Status: No active profile recorded yet (OEM baseline)."));
         }
         Err(e) => {
-            Logger::error(format!("Failed to read active profile state: {}", e));
+            log_error!("Gagal membaca status profil aktif: {}", "Failed to read active profile state: {}", e);
             std::process::exit(1);
         }
     }
 }
 
 fn handle_profile_revert() {
-    Logger::info("Reverting kernel sysfs nodes to last known good snapshot...");
+    log_info!("Memulihkan node sysfs kernel ke snapshot terakhir yang diketahui baik...", "Reverting kernel sysfs nodes to last known good snapshot...");
     match ProfileStateManager::revert() {
         Ok(report) => {
             println!("{}", ui("Laporan Pemulihan Status Hardware:", "Hardware State Revert Report:"));
@@ -405,42 +423,36 @@ fn handle_profile_revert() {
                 report.elapsed_micros,
                 report.elapsed_micros as f64 / 1000.0
             );
-            Logger::info("Hardware baseline successfully restored.");
+            log_info!("Baseline hardware berhasil dipulihkan.", "Hardware baseline successfully restored.");
         }
         Err(e) => {
-            Logger::error(format!("Failed to revert to snapshot: {}", e));
+            log_error!("Gagal memulihkan snapshot: {}", "Failed to revert to snapshot: {}", e);
             std::process::exit(1);
         }
     }
 }
 
 fn handle_profile_recover() {
-    Logger::info("Checking system profile integrity for boot recovery...");
+    log_info!("Memeriksa integritas profil sistem untuk pemulihan boot...", "Checking system profile integrity for boot recovery...");
     match ProfileStateManager::recover_boot() {
         Ok(RecoveryReport::RecoveredFromDirty {
             previous_profile,
             restored_count,
             restored_to,
         }) => {
-            Logger::warn(format!(
-                "RECOVERED: Interrupted transaction from '{}' detected. Restored {} nodes and reset to '{}'.",
-                previous_profile, restored_count, restored_to
-            ));
+            log_warn!("DIPULIHKAN: Transaksi terputus dari '{}' terdeteksi. {} node dipulihkan dan profil diatur ulang ke '{}'.", "RECOVERED: Interrupted transaction from '{}' detected. Restored {} nodes and reset to '{}'.", previous_profile, restored_count, restored_to);
         }
         Ok(RecoveryReport::CleanBaselineVerified {
             active_profile,
             applied_at,
         }) => {
-            Logger::info(format!(
-                "CLEAN: Active profile '{}' verified (Applied at epoch {}). No recovery required.",
-                active_profile, applied_at
-            ));
+            log_info!("BERSIH: Profil aktif '{}' terverifikasi (diterapkan pada epoch {}). Tidak perlu pemulihan.", "CLEAN: Active profile '{}' verified (Applied at epoch {}). No recovery required.", active_profile, applied_at);
         }
         Ok(RecoveryReport::NoPriorState) => {
-            Logger::info("CLEAN: No prior state recorded. System running on OEM baseline.");
+            log_info!("BERSIH: Belum ada status sebelumnya. Sistem berjalan dengan baseline OEM.", "CLEAN: No prior state recorded. System running on OEM baseline.");
         }
         Err(e) => {
-            Logger::error(format!("Boot recovery encountered an error: {}", e));
+            log_error!("Pemulihan boot mengalami kesalahan: {}", "Boot recovery encountered an error: {}", e);
             std::process::exit(1);
         }
     }
@@ -459,7 +471,7 @@ fn handle_profile_journal() {
             }
         }
         Err(e) => {
-            Logger::error(format!("Failed to read transaction journal: {}", e));
+            log_error!("Gagal membaca jurnal transaksi: {}", "Failed to read transaction journal: {}", e);
             std::process::exit(1);
         }
     }
@@ -467,7 +479,7 @@ fn handle_profile_journal() {
 
 fn handle_daemon_run() {
     if let Err(e) = DaemonRunner::run() {
-        Logger::error(format!("Daemon exited with error: {}", e));
+        log_error!("Daemon berhenti karena kesalahan: {}", "Daemon exited with error: {}", e);
         std::process::exit(1);
     }
 }
@@ -486,13 +498,13 @@ fn handle_daemon_status() {
 }
 
 fn handle_daemon_stop() {
-    Logger::info("Sending termination signal to Lynx Daemon...");
+    log_info!("Mengirim sinyal penghentian ke daemon Lynx...", "Sending termination signal to Lynx Daemon...");
     match DaemonLifecycle::stop_daemon() {
         Ok(_) => {
-            Logger::info("Stop signal successfully delivered to daemon process.");
+            log_info!("Sinyal berhenti berhasil dikirim ke proses daemon.", "Stop signal successfully delivered to daemon process.");
         }
         Err(e) => {
-            Logger::error(format!("Failed to stop daemon: {}", e));
+            log_error!("Gagal menghentikan daemon: {}", "Failed to stop daemon: {}", e);
             std::process::exit(1);
         }
     }
@@ -500,7 +512,7 @@ fn handle_daemon_stop() {
 
 fn handle_probe() {
     let (vendor, board) = ScoreBoard::evaluate();
-    Logger::info(format!("Identified Platform: {}", vendor));
+    log_info!("Platform teridentifikasi: {}", "Identified Platform: {}", vendor);
     println!("  • MTK Score   : {}", board.mtk_score);
     println!("  • Qualcomm Score: {}", board.qcom_score);
     if !board.dt_compatible.is_empty() {
@@ -521,7 +533,7 @@ fn handle_sysfs_read(path: &str) {
             println!("{}", val);
         }
         Err(e) => {
-            Logger::error(format!("{}", e));
+            log_error!("Gagal membaca node sysfs: {}", "Failed to read sysfs node: {}", e);
             std::process::exit(1);
         }
     }
@@ -543,10 +555,10 @@ fn handle_sysfs_write(path: &str, value: &str, flags: &[String]) {
     } else {
         match SysfsWriter::write(path, value, mode) {
             Ok(_) => {
-                Logger::info(format!("Successfully applied '{}' -> {}", value, path));
+                log_info!("Berhasil menerapkan '{}' -> {}", "Successfully applied '{}' -> {}", value, path);
             }
             Err(e) => {
-                Logger::error(format!("{}", e));
+                log_error!("Gagal menulis node sysfs: {}", "Failed to write sysfs node: {}", e);
                 std::process::exit(1);
             }
         }
@@ -554,7 +566,7 @@ fn handle_sysfs_write(path: &str, value: &str, flags: &[String]) {
 }
 
 fn handle_benchmark() {
-    Logger::info("Starting Lynx Real-Workload Hardware Benchmark...");
+    log_info!("Memulai benchmark hardware Lynx dengan beban kerja nyata...", "Starting Lynx real-workload hardware benchmark...");
     let start_total = Instant::now();
     let mut read_count = 0usize;
     let mut nodes_tested = Vec::new();
@@ -623,7 +635,7 @@ fn handle_benchmark() {
     println!("  • Average Per-Node I/O: {} µs ({:.3} ms)", avg_micros, avg_micros as f64 / 1000.0);
     println!("--------------------------------------------------");
 
-    Logger::info("Benchmark completed safely without kernel mutations.");
+    log_info!("Benchmark selesai dengan aman tanpa mengubah kernel.", "Benchmark completed safely without kernel mutations.");
 }
 
 fn handle_state(args: &[String]) {
@@ -634,7 +646,7 @@ fn handle_state(args: &[String]) {
     match args[2].as_str() {
         "get" => {
             if args.len() < 4 {
-                Logger::error("Missing key: lynxd state get <key> [default]");
+                log_error!("Key belum diisi: lynxd state get <key> [default]", "Missing key: lynxd state get <key> [default]");
                 std::process::exit(1);
             }
             let key = &args[3];
@@ -644,7 +656,7 @@ fn handle_state(args: &[String]) {
         }
         "set" => {
             if args.len() < 4 {
-                Logger::error("Missing arguments: lynxd state set <key> <val> [type] | <k1=v1> [k2=v2...]");
+                log_error!("Argumen belum lengkap: lynxd state set <key> <val> [type] | <k1=v1> [k2=v2...]", "Missing arguments: lynxd state set <key> <val> [type] | <k1=v1> [k2=v2...]");
                 std::process::exit(1);
             }
             let mut pairs: Vec<(String, String, Option<String>)> = Vec::new();
@@ -662,12 +674,12 @@ fn handle_state(args: &[String]) {
                 let type_hint = args.get(5).cloned();
                 pairs.push((args[3].clone(), args[4].clone(), type_hint));
             } else {
-                Logger::error("Invalid state set arguments.");
+                log_error!("Argumen state set tidak valid.", "Invalid state set arguments.");
                 std::process::exit(1);
             }
 
             if let Err(e) = ConfigStore::set_batch(&pairs) {
-                Logger::error(format!("Failed to update config.json: {}", e));
+                log_error!("Gagal memperbarui config.json: {}", "Failed to update config.json: {}", e);
                 std::process::exit(1);
             }
         }
@@ -680,7 +692,7 @@ fn handle_state(args: &[String]) {
             }
         }
         other => {
-            Logger::error(format!("Unknown state subcommand: '{}'", other));
+            log_error!("Subcommand state tidak dikenal: '{}'", "Unknown state subcommand: '{}'", other);
             print_usage();
             std::process::exit(1);
         }
@@ -730,7 +742,7 @@ fn handle_charging(args: &[String]) {
                     println!("[OK] {}: CUSTOM ({} mA)", ui("Mode Pengisian diatur ke", "Charging Mode set to"), target_ma);
                 }
                 other => {
-                    Logger::error(format!("Unknown charging mode: '{}'. Use: cool, standard, hyper, custom", other));
+                    log_error!("Mode charging '{}' tidak dikenal. Gunakan: cool, standard, hyper, custom", "Unknown charging mode: '{}'. Use: cool, standard, hyper, custom", other);
                 }
             }
         }
@@ -796,7 +808,7 @@ fn handle_charging(args: &[String]) {
             ChargingRegulator::tick();
         }
         other => {
-            Logger::error(format!("Unknown charging subcommand: '{}'", other));
+            log_error!("Subcommand charging tidak dikenal: '{}'", "Unknown charging subcommand: '{}'", other);
             print_usage();
             std::process::exit(1);
         }
@@ -833,7 +845,7 @@ fn handle_system(args: &[String]) {
                 println!("{}", SystemController::export_diagnostic_zip());
             }
             other => {
-                Logger::error(format!("Unknown system subcommand: '{}'", other));
+                log_error!("Subcommand system tidak dikenal: '{}'", "Unknown system subcommand: '{}'", other);
                 print_usage();
                 std::process::exit(1);
             }
@@ -860,7 +872,7 @@ fn handle_display(args: &[String]) {
             println!("{}", DisplayController::apply_touch_boost(enable));
         }
         other => {
-            Logger::error(format!("Unknown display subcommand: '{}'", other));
+            log_error!("Subcommand display tidak dikenal: '{}'", "Unknown display subcommand: '{}'", other);
             print_usage();
             std::process::exit(1);
         }
@@ -892,7 +904,7 @@ fn handle_applist(args: &[String]) {
                     }
                 }
             } else {
-                Logger::error("Usage: lynxd applist add <package>");
+                log_error!("Cara pakai: lynxd applist add <package>", "Usage: lynxd applist add <package>");
                 std::process::exit(1);
             }
         }
@@ -906,7 +918,7 @@ fn handle_applist(args: &[String]) {
                     }
                 }
             } else {
-                Logger::error("Usage: lynxd applist remove <package>");
+                log_error!("Cara pakai: lynxd applist remove <package>", "Usage: lynxd applist remove <package>");
                 std::process::exit(1);
             }
         }
@@ -915,12 +927,12 @@ fn handle_applist(args: &[String]) {
                 let present = ApplistController::check(pkg);
                 println!("{}", if present { "1" } else { "0" });
             } else {
-                Logger::error("Usage: lynxd applist check <package>");
+                log_error!("Cara pakai: lynxd applist check <package>", "Usage: lynxd applist check <package>");
                 std::process::exit(1);
             }
         }
         other => {
-            Logger::error(format!("Unknown applist subcommand: '{}'", other));
+            log_error!("Subcommand applist tidak dikenal: '{}'", "Unknown applist subcommand: '{}'", other);
             print_usage();
             std::process::exit(1);
         }
@@ -968,7 +980,7 @@ fn main() {
                             }
                         }
                     } else {
-                        eprintln!("Usage: lynxd flasher restore <backup_file>");
+                        eprintln!("{}", ui("Penggunaan: lynxd flasher restore <backup_file>", "Usage: lynxd flasher restore <backup_file>"));
                         std::process::exit(1);
                     }
                 }
@@ -982,12 +994,12 @@ fn main() {
                             }
                         }
                     } else {
-                        eprintln!("Usage: lynxd flasher flash <zip_path>");
+                        eprintln!("{}", ui("Penggunaan: lynxd flasher flash <zip_path>", "Usage: lynxd flasher flash <zip_path>"));
                         std::process::exit(1);
                     }
                 }
                 _ => {
-                    eprintln!("Usage: lynxd flasher {{backup|list_backups|restore <file>|flash <zip>}}");
+                    eprintln!("{}", ui("Penggunaan: lynxd flasher {{backup|list_backups|restore <file>|flash <zip>}}", "Usage: lynxd flasher {{backup|list_backups|restore <file>|flash <zip>}}"));
                     std::process::exit(1);
                 }
             }
@@ -1018,7 +1030,7 @@ fn main() {
                 "list" => handle_profile_list(),
                 "show" => {
                     if args.len() < 4 {
-                        Logger::error("Missing profile name: lynxd profile show <name>");
+                        log_error!("Nama profil belum diisi: lynxd profile show <name>", "Missing profile name: lynxd profile show <name>");
                         std::process::exit(1);
                     }
                     handle_profile_show(&args[3]);
@@ -1026,7 +1038,7 @@ fn main() {
                 "validate" => handle_profile_validate(),
                 "apply" => {
                     if args.len() < 4 {
-                        Logger::error("Missing profile name: lynxd profile apply <name> [--dry-run]");
+                        log_error!("Nama profil belum diisi: lynxd profile apply <name> [--dry-run]", "Missing profile name: lynxd profile apply <name> [--dry-run]");
                         std::process::exit(1);
                     }
                     let dry_run = args.iter().any(|a| a == "--dry-run");
@@ -1043,7 +1055,7 @@ fn main() {
                 "recover" => handle_profile_recover(),
                 "journal" | "history" => handle_profile_journal(),
                 other => {
-                    Logger::error(format!("Unknown profile subcommand: '{}'", other));
+                    log_error!("Subcommand profile tidak dikenal: '{}'", "Unknown profile subcommand: '{}'", other);
                     print_usage();
                     std::process::exit(1);
                 }
@@ -1080,7 +1092,7 @@ fn main() {
                         GameController::optimize_pid(pid);
                     println!("{}", if crate::subsystems::tui::is_english() { format!("Process {} optimized for low latency gaming.", pid) } else { format!("Proses {} dioptimalkan untuk gaming latensi rendah.", pid) });
                     } else {
-                        eprintln!("Usage: lynxd game optimize-pid <PID>");
+                        eprintln!("{}", ui("Penggunaan: lynxd game optimize-pid <PID>", "Usage: lynxd game optimize-pid <PID>"));
                     }
                 }
                 "status" | "info" => println!("{}", GameController::status_json()),
@@ -1101,7 +1113,7 @@ fn main() {
                     ThermalController::unfreeze_oem_throttlers();
                     println!("{}", ui("Pembatas performa latar OEM dipulihkan.", "OEM background throttlers unfrozen."));
                 }
-                _ => eprintln!("Usage: lynxd oem freeze|unfreeze"),
+                _ => eprintln!("{}", ui("Penggunaan: lynxd oem freeze|unfreeze", "Usage: lynxd oem freeze|unfreeze")),
             }
         }
         "cpuset" => {
@@ -1114,7 +1126,7 @@ fn main() {
                 }
                 "set" => {
                     if args.len() < 5 {
-                        eprintln!("Usage: lynxd cpuset set <group> <cores>");
+                        eprintln!("{}", ui("Penggunaan: lynxd cpuset set <group> <cores>", "Usage: lynxd cpuset set <group> <cores>"));
                         std::process::exit(1);
                     }
                     println!("{}", CpusetController::set_group(&args[3], &args[4]));
@@ -1147,7 +1159,7 @@ fn main() {
                     match SwapController::set(size) {
                         Ok(msg) => println!("{}", msg),
                         Err(e) => {
-                            eprintln!("Error: {}", e);
+                            eprintln!("{}: {}", ui("Kesalahan", "Error"), e);
                             std::process::exit(1);
                         }
                     }
@@ -1155,21 +1167,21 @@ fn main() {
                 "enable" => match SwapController::enable() {
                     Ok(msg) => println!("{}", msg),
                     Err(e) => {
-                        eprintln!("Error: {}", e);
+                        eprintln!("{}: {}", ui("Kesalahan", "Error"), e);
                         std::process::exit(1);
                     }
                 },
                 "disable" => match SwapController::disable() {
                     Ok(msg) => println!("{}", msg),
                     Err(e) => {
-                        eprintln!("Error: {}", e);
+                        eprintln!("{}: {}", ui("Kesalahan", "Error"), e);
                         std::process::exit(1);
                     }
                 },
                 "remove" => match SwapController::remove() {
                     Ok(msg) => println!("{}", msg),
                     Err(e) => {
-                        eprintln!("Error: {}", e);
+                        eprintln!("{}: {}", ui("Kesalahan", "Error"), e);
                         std::process::exit(1);
                     }
                 },
@@ -1334,7 +1346,7 @@ fn main() {
                             }
                         }
                     } else {
-                        eprintln!("Usage: lynxd memory vm-set <param> <val>");
+                        eprintln!("{}", ui("Penggunaan: lynxd memory vm-set <param> <val>", "Usage: lynxd memory vm-set <param> <val>"));
                         std::process::exit(1);
                     }
                 }
@@ -1455,14 +1467,22 @@ fn main() {
                                     }
                                 }
                             } else {
-                                println!("Port configured to {}. Enable ADB keep-alive to activate.", port);
+                                if crate::subsystems::tui::is_english() {
+                                    println!("Port configured to {}. Enable ADB keep-alive to activate.", port);
+                                } else {
+                                    println!("Port {} telah diatur. Aktifkan ADB keep-alive untuk menggunakannya.", port);
+                                }
                             }
                         } else {
-                            eprintln!("Invalid port number: {}", port_str);
+                            if crate::subsystems::tui::is_english() {
+                                eprintln!("Invalid port number: {}", port_str);
+                            } else {
+                                eprintln!("Nomor port tidak valid: {}", port_str);
+                            }
                             std::process::exit(1);
                         }
                     } else {
-                        eprintln!("Usage: lynxd adb set-port <port>");
+                        eprintln!("{}", ui("Penggunaan: lynxd adb set-port <port>", "Usage: lynxd adb set-port <port>"));
                         std::process::exit(1);
                     }
                 }
@@ -1470,7 +1490,11 @@ fn main() {
                     AdbController::run_watchdog_loop();
                 }
                 other => {
-                    eprintln!("Unknown adb subcommand: '{}'. Available: status, enable [port], disable, set-port <port>, watchdog", other);
+                    if crate::subsystems::tui::is_english() {
+                        eprintln!("Unknown adb subcommand: '{}'. Available: status, enable [port], disable, set-port <port>, watchdog", other);
+                    } else {
+                        eprintln!("Subperintah adb '{}' tidak dikenal. Tersedia: status, enable [port], disable, set-port <port>, watchdog", other);
+                    }
                     std::process::exit(1);
                 }
             }
@@ -1489,7 +1513,7 @@ fn main() {
                             std::process::exit(1);
                         }
                     } else {
-                        Logger::error("Missing path: lynxd inspect node <path>");
+                        log_error!("Path belum diisi: lynxd inspect node <path>", "Missing path: lynxd inspect node <path>");
                         std::process::exit(1);
                     }
                 }
@@ -1503,7 +1527,7 @@ fn main() {
                             }
                         }
                     } else {
-                        Logger::error("Usage: lynxd inspect set <path> <val>");
+                        log_error!("Cara pakai: lynxd inspect set <path> <val>", "Usage: lynxd inspect set <path> <val>");
                         std::process::exit(1);
                     }
                 }
@@ -1525,7 +1549,7 @@ fn main() {
                             }
                         }
                     } else {
-                        Logger::error("Usage: lynxd tunable set <path> <val>");
+                        log_error!("Cara pakai: lynxd tunable set <path> <val>", "Usage: lynxd tunable set <path> <val>");
                         std::process::exit(1);
                     }
                 }
@@ -1551,7 +1575,7 @@ fn main() {
                 "status" => handle_daemon_status(),
                 "stop" => handle_daemon_stop(),
                 other => {
-                    Logger::error(format!("Unknown daemon subcommand: '{}'", other));
+                    log_error!("Subcommand daemon tidak dikenal: '{}'", "Unknown daemon subcommand: '{}'", other);
                     print_usage();
                     std::process::exit(1);
                 }
@@ -1566,14 +1590,14 @@ fn main() {
             match args[2].as_str() {
                 "read" => {
                     if args.len() < 4 {
-                        Logger::error("Missing path argument: lynxd sysfs read <path>");
+                        log_error!("Argumen path belum diisi: lynxd sysfs read <path>", "Missing path argument: lynxd sysfs read <path>");
                         std::process::exit(1);
                     }
                     handle_sysfs_read(&args[3]);
                 }
                 "write" => {
                     if args.len() < 5 {
-                        Logger::error("Missing arguments: lynxd sysfs write <path> <val> [--dry-run] [--force-perm]");
+                        log_error!("Argumen belum lengkap: lynxd sysfs write <path> <val> [--dry-run] [--force-perm]", "Missing arguments: lynxd sysfs write <path> <val> [--dry-run] [--force-perm]");
                         std::process::exit(1);
                     }
                     let flags = if args.len() > 5 { args[5..].to_vec() } else { Vec::new() };
@@ -1581,7 +1605,7 @@ fn main() {
                 }
                 "test-write" => {
                     if args.len() < 5 {
-                        Logger::error("Missing arguments: lynxd sysfs test-write <path> <val>");
+                        log_error!("Argumen belum lengkap: lynxd sysfs test-write <path> <val>", "Missing arguments: lynxd sysfs test-write <path> <val>");
                         std::process::exit(1);
                     }
                     let flags = vec!["--dry-run".to_string()];
@@ -1589,7 +1613,7 @@ fn main() {
                 }
                 "benchmark" => handle_benchmark(),
                 other => {
-                    Logger::error(format!("Unknown sysfs subcommand: '{}'", other));
+                    log_error!("Subcommand sysfs tidak dikenal: '{}'", "Unknown sysfs subcommand: '{}'", other);
                     print_usage();
                     std::process::exit(1);
                 }
@@ -1600,7 +1624,7 @@ fn main() {
         }
         "help" | "-h" | "--help" => print_usage(),
         unknown => {
-            Logger::error(format!("Unknown command: '{}'", unknown));
+            log_error!("Perintah tidak dikenal: '{}'", "Unknown command: '{}'", unknown);
             print_usage();
             std::process::exit(1);
         }

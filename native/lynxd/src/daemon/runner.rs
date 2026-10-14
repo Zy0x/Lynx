@@ -11,6 +11,7 @@ use crate::hardware::ChargingRegulator;
 use crate::profile::get_profile_by_name;
 use crate::state::{DeviceState, ProfileStateManager};
 use crate::utils::Logger;
+use crate::subsystems::tui::{is_english, ui};
 
 pub struct DaemonRunner;
 
@@ -20,8 +21,8 @@ impl DaemonRunner {
     /// Hysteresis Cooldown, and Deterministic Profile Switching.
     pub fn run() -> Result<(), String> {
         let pid = DaemonLifecycle::acquire_lock()?;
-        Logger::info(format!("Lynx Daemon (lynxd) started successfully [PID: {}]", pid));
-        Logger::info("Mode: Autonomous Profile Engine with Hysteresis & Deep Sleep Shield");
+        Logger::info(if is_english() { format!("Lynx Daemon (lynxd) started successfully [PID: {}]", pid) } else { format!("Daemon Lynx (lynxd) berhasil dimulai [PID: {}]", pid) });
+        Logger::info(ui("Mode: Mesin Profil Otonom dengan Histeresis dan Perlindungan Tidur Dalam", "Mode: Autonomous Profile Engine with Hysteresis and Deep Sleep Shield"));
         crate::utils::update_module_prop_description("[ Auto (AI) Mode Active ] Deity Hybrid Architecture");
 
         let screen = ScreenDetector::probe();
@@ -35,10 +36,11 @@ impl DaemonRunner {
             .unwrap_or_else(|| "balance".to_string());
 
         let mut decision_engine = DecisionEngine::new(&initial_profile, 5);
-        Logger::info(format!(
-            "[DAEMON] Initialized DecisionEngine with baseline profile: '{}' (Exit Hysteresis: 5s)",
-            initial_profile
-        ));
+        Logger::info(if is_english() {
+            format!("[DAEMON] Initialized DecisionEngine with baseline profile: '{}' (Exit Hysteresis: 5s)", initial_profile)
+        } else {
+            format!("[DAEMON] Mesin keputusan diinisialisasi dengan profil dasar: '{}' (Histeresis keluar: 5 dtk)", initial_profile)
+        });
 
         let monotonic_boot = std::time::Instant::now();
         let mut last_detect_instant = std::time::Instant::now();
@@ -59,10 +61,10 @@ impl DaemonRunner {
             if daemon_state.update_screen(current_screen, now) {
                 match current_screen {
                     ScreenState::Off => {
-                        Logger::info("[DAEMON] Screen OFF detected. Activating Deep Sleep Shield (loop throttled to 20s).");
+                        Logger::info(ui("[DAEMON] Layar MATI terdeteksi. Perlindungan tidur dalam aktif (interval loop 20 dtk).", "[DAEMON] Screen OFF detected. Activating Deep Sleep Shield (loop throttled to 20s)."));
                     }
                     ScreenState::On => {
-                        Logger::info("[DAEMON] Screen ON detected. Resuming active monitoring (interval: 5s).");
+                        Logger::info(ui("[DAEMON] Layar MENYALA terdeteksi. Pemantauan aktif dilanjutkan (interval: 5 dtk).", "[DAEMON] Screen ON detected. Resuming active monitoring (interval: 5s)."));
                     }
                     ScreenState::Unknown => {}
                 }
@@ -80,13 +82,11 @@ impl DaemonRunner {
                 last_detect_instant = std::time::Instant::now();
                 let detect_ns = last_detect_instant.duration_since(monotonic_boot).as_nanos();
                 if let Some(ref app) = fg_app {
-                    Logger::info(format!(
-                        "[DAEMON] GAME_DETECTED_NS: {} | Foreground switch: '{}' [Category: {}, Confidence: {:?}]",
-                        detect_ns,
-                        app.package,
-                        app.category.as_str(),
-                        app.confidence
-                    ));
+                    Logger::info(if is_english() {
+                        format!("[DAEMON] GAME_DETECTED_NS: {} | Foreground switch: '{}' [Category: {}, Confidence: {:?}]", detect_ns, app.package, app.category.as_str(), app.confidence)
+                    } else {
+                        format!("[DAEMON] GAME_DETECTED_NS: {} | Peralihan aplikasi depan: '{}' [Kategori: {}, Keyakinan: {:?}]", detect_ns, app.package, app.category.as_str(), app.confidence)
+                    });
                 }
             }
 
@@ -104,10 +104,7 @@ impl DaemonRunner {
             match action {
                 DecisionAction::ApplyProfile { target_profile, reason } => {
                     let switch_start = std::time::Instant::now();
-                    Logger::info(format!(
-                        "[DAEMON] Profile switch triggered -> '{}' (Reason: {})",
-                        target_profile, reason
-                    ));
+                    Logger::info(if is_english() { format!("[DAEMON] Profile switch triggered -> '{}' (Reason: {})", target_profile, reason) } else { format!("[DAEMON] Peralihan profil dipicu -> '{}' (Alasan: {})", target_profile, reason) });
                     if let Some(prof) = get_profile_by_name(target_profile) {
                         let plan = ExecutionPlan::build(&prof);
                         match ProfileExecutor::execute(&plan, false) {
@@ -116,15 +113,11 @@ impl DaemonRunner {
                                 let commit_ns = switch_start.duration_since(monotonic_boot).as_nanos();
                                 let delta_ns = last_detect_instant.elapsed().as_nanos();
                                 let delta_ms = delta_ns as f64 / 1_000_000.0;
-                                Logger::info(format!(
-                                    "[DAEMON] PROFILE_COMMIT_NS: {} -> '{}' (Switch Latency delta: {:.2} ms [{} ns], Committed: {} nodes, Total Transitions: {})",
-                                    commit_ns,
-                                    target_profile,
-                                    delta_ms,
-                                    delta_ns,
-                                    report.operations_committed,
-                                    total_transitions
-                                ));
+                                Logger::info(if is_english() {
+                                    format!("[DAEMON] PROFILE_COMMIT_NS: {} -> '{}' (Switch Latency delta: {:.2} ms [{} ns], Committed: {} nodes, Total Transitions: {})", commit_ns, target_profile, delta_ms, delta_ns, report.operations_committed, total_transitions)
+                                } else {
+                                    format!("[DAEMON] PROFILE_COMMIT_NS: {} -> '{}' (Selisih latensi peralihan: {:.2} ms [{} ns], Commit: {} node, Total peralihan: {})", commit_ns, target_profile, delta_ms, delta_ns, report.operations_committed, total_transitions)
+                                });
                                 decision_engine.notify_applied(target_profile);
                                 if target_profile == "performance" || target_profile == "extreme" {
                                     crate::subsystems::GameController::game_on(None);
@@ -133,58 +126,38 @@ impl DaemonRunner {
                                 }
                             }
                             Err(e) => {
-                                Logger::error(format!(
-                                    "[DAEMON] Failed to apply profile '{}': {}",
-                                    target_profile, e
-                                ));
+                                Logger::error(if is_english() { format!("[DAEMON] Failed to apply profile '{}': {}", target_profile, e) } else { format!("[DAEMON] Gagal menerapkan profil '{}': {}", target_profile, e) });
                             }
                         }
                     } else {
-                        Logger::error(format!(
-                            "[DAEMON] Target profile '{}' not found in registry!",
-                            target_profile
-                        ));
+                        Logger::error(if is_english() { format!("[DAEMON] Target profile '{}' not found in registry!", target_profile) } else { format!("[DAEMON] Profil target '{}' tidak ditemukan di registry!", target_profile) });
                     }
                 }
                 DecisionAction::ApplyModifier { target_profile, modifier, reason } => {
-                    Logger::info(format!(
-                        "[DAEMON] Adaptive Modifier triggered -> '{}' [{}] (Reason: {})",
-                        target_profile,
-                        modifier.as_str(),
-                        reason
-                    ));
+                    Logger::info(if is_english() { format!("[DAEMON] Adaptive Modifier triggered -> '{}' [{}] (Reason: {})", target_profile, modifier.as_str(), reason) } else { format!("[DAEMON] Modifier adaptif dipicu -> '{}' [{}] (Alasan: {})", target_profile, modifier.as_str(), reason) });
                     if let Some(base_prof) = get_profile_by_name(target_profile) {
                         let adapted_prof = apply_modifier(&base_prof, modifier);
                         let plan = ExecutionPlan::build(&adapted_prof);
                         match ProfileExecutor::execute(&plan, false) {
                             Ok(report) => {
-                                Logger::info(format!(
-                                    "[DAEMON] Adaptive modifier applied successfully in {:.2} ms ({} nodes adjusted)",
-                                    report.elapsed_micros as f64 / 1000.0,
-                                    report.operations_committed
-                                ));
+                                Logger::info(if is_english() { format!("[DAEMON] Adaptive modifier applied successfully in {:.2} ms ({} nodes adjusted)", report.elapsed_micros as f64 / 1000.0, report.operations_committed) } else { format!("[DAEMON] Modifier adaptif berhasil diterapkan dalam {:.2} ms ({} node disesuaikan)", report.elapsed_micros as f64 / 1000.0, report.operations_committed) });
                             }
                             Err(e) => {
-                                Logger::error(format!(
-                                    "[DAEMON] Failed to apply adaptive modifier: {}",
-                                    e
-                                ));
+                                Logger::error(if is_english() { format!("[DAEMON] Failed to apply adaptive modifier: {}", e) } else { format!("[DAEMON] Gagal menerapkan modifier adaptif: {}", e) });
                             }
                         }
                     }
                 }
                 DecisionAction::HoldInCooldown { remaining_secs } => {
-                    Logger::info(format!(
-                        "[DAEMON] Target app exited: Holding '{}' in hysteresis cooldown ({}s remaining)...",
-                        decision_engine.current_profile(),
-                        remaining_secs
-                    ));
+                    Logger::info(if is_english() { format!("[DAEMON] Target app exited: Holding '{}' in hysteresis cooldown ({}s remaining)...", decision_engine.current_profile(), remaining_secs) } else { format!("[DAEMON] Aplikasi target ditutup: Mempertahankan '{}' selama cooldown histeresis (tersisa {} dtk)...", decision_engine.current_profile(), remaining_secs) });
                 }
                 DecisionAction::Inhibited { target_profile, reason } => {
-                    Logger::warn(format!(
-                        "[DAEMON] Boost transition to '{}' inhibited by safety guardrail: {}",
-                        target_profile, reason
-                    ));
+                    let localized_reason = match reason {
+                        "Battery level <= 15% (Low battery guard prevents performance boost)" => ui("Level baterai ≤15% (pengaman baterai rendah mencegah boost performa)", "Battery level <= 15% (Low battery guard prevents performance boost)"),
+                        "Thermal throttling active (Boost blocked to protect SoC temperature)" => ui("Thermal throttling aktif (boost diblokir untuk melindungi suhu SoC)", "Thermal throttling active (Boost blocked to protect SoC temperature)"),
+                        other => other,
+                    };
+                    Logger::warn(if is_english() { format!("[DAEMON] Boost transition to '{}' inhibited by safety guardrail: {}", target_profile, reason) } else { format!("[DAEMON] Peralihan boost ke '{}' ditahan oleh pengaman keselamatan: {}", target_profile, localized_reason) });
                 }
                 DecisionAction::MaintainCurrent => {}
             }
@@ -203,13 +176,14 @@ impl DaemonRunner {
 
             let app_desc = match &daemon_state.current_app {
                 Some(app) => format!("{} ({})", app.package, app.category.as_str()),
-                None => "None (Idle/ScreenOff)".to_string(),
+                None => ui("Tidak ada (Diam/Layar Mati)", "None (Idle/ScreenOff)").to_string(),
             };
 
-            Logger::info(format!(
-                "[DAEMON] Telemetry: Temp: {:.1}°C | Battery: {}% | Workload: {} | Profile: {} | Screen: {:?} | App: {}",
-                temp_c, bat_pct, workload, profile_desc, current_screen, app_desc
-            ));
+            Logger::info(if is_english() {
+                format!("[DAEMON] Telemetry: Temp: {:.1}°C | Battery: {}% | Workload: {} | Profile: {} | Screen: {:?} | App: {}", temp_c, bat_pct, workload, profile_desc, current_screen, app_desc)
+            } else {
+                format!("[DAEMON] Telemetri: Suhu: {:.1}°C | Baterai: {}% | Beban: {} | Profil: {} | Layar: {:?} | Aplikasi: {}", temp_c, bat_pct, workload, profile_desc, current_screen, app_desc)
+            });
 
             daemon_state.update_telemetry(state.clone());
             daemon_state.cycle_count += 1;
@@ -222,7 +196,7 @@ impl DaemonRunner {
 
             // Native Daily Maintenance Scheduler (replaces legacy crond & core/cron/root)
             if current_screen == ScreenState::Off && now.saturating_sub(last_maintenance_ts) >= 86400 {
-                Logger::info("[DAEMON] Executing scheduled 24h storage & memory maintenance...");
+                Logger::info(ui("[DAEMON] Menjalankan pemeliharaan penyimpanan dan memori terjadwal 24 jam...", "[DAEMON] Executing scheduled 24h storage and memory maintenance..."));
                 let _ = crate::subsystems::MaintenanceController::run(false);
                 let _ = crate::subsystems::MemoryController::clean_memory();
                 last_maintenance_ts = now;
@@ -282,14 +256,15 @@ impl DaemonRunner {
             }
         }
 
-        Logger::info(format!(
-            "Lynx Daemon shutting down gracefully after {} health cycles. Releasing PID lock...",
-            daemon_state.cycle_count
-        ));
+        Logger::info(if is_english() {
+            format!("Lynx Daemon shutting down gracefully after {} health cycles. Releasing PID lock...", daemon_state.cycle_count)
+        } else {
+            format!("Daemon Lynx berhenti dengan aman setelah {} siklus kesehatan. Melepaskan kunci PID...", daemon_state.cycle_count)
+        });
         let _ = std::fs::remove_file(Self::status_snapshot_path());
         let _ = std::fs::remove_file(Self::telemetry_snapshot_path());
         DaemonLifecycle::release_lock();
-        Logger::info("Lynx Daemon stopped cleanly.");
+        Logger::info(ui("Daemon Lynx berhenti dengan bersih.", "Lynx Daemon stopped cleanly."));
 
         Ok(())
     }

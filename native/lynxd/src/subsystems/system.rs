@@ -3,6 +3,7 @@ use std::process::Command;
 
 use crate::sysfs::{SysfsWriter, WriteMode};
 use crate::utils::Logger;
+use crate::subsystems::tui::ui;
 
 pub struct SystemController;
 
@@ -20,7 +21,7 @@ impl SystemController {
     /// - Telemetry, kernel tracing, and logger daemon suppression
     /// - Printk & kernel panic overhead reduction
     pub fn apply() -> String {
-        Logger::info("Applying universal system & kernel core optimizations...");
+        Logger::info(ui("Menerapkan optimasi inti sistem dan kernel universal...", "Applying universal system and kernel core optimizations..."));
         let mut count = 0usize;
 
         // 1. Kernel Scheduler Core Tunings

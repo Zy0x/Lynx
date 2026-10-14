@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::utils::Logger;
+use crate::subsystems::tui::{is_english, ui};
 
 pub struct ApplistController;
 
@@ -44,12 +45,16 @@ impl ApplistController {
     pub fn add(pkg: &str) -> Result<String, String> {
         let safe_pkg: String = pkg.chars().filter(|c| c.is_alphanumeric() || *c == '.' || *c == '_').collect();
         if safe_pkg.is_empty() {
-            return Err("Empty or invalid package name".to_string());
+            return Err(ui("Nama paket kosong atau tidak valid", "Empty or invalid package name").to_string());
         }
 
         let mut current = Self::list();
         if current.contains(&safe_pkg) {
-            return Ok(format!("Package '{}' already present in performance list.", safe_pkg));
+            return Ok(if is_english() {
+                format!("Package '{}' already present in performance list.", safe_pkg)
+            } else {
+                format!("Paket '{}' sudah ada dalam daftar performa.", safe_pkg)
+            });
         }
 
         current.push(safe_pkg.clone());
@@ -62,16 +67,23 @@ impl ApplistController {
             content.push('\n');
         }
 
-        fs::write(&primary, &content).map_err(|e| format!("Failed to write applist: {}", e))?;
-        Logger::info(format!("Added '{}' to Lynx performance applist.", safe_pkg));
-        Ok(format!("Successfully added '{}' to performance list.", safe_pkg))
+        fs::write(&primary, &content).map_err(|e| {
+            if is_english() { format!("Failed to write applist: {}", e) }
+            else { format!("Gagal menulis daftar aplikasi: {}", e) }
+        })?;
+        Logger::info(if is_english() { format!("Added '{}' to Lynx performance applist.", safe_pkg) } else { format!("'{}' ditambahkan ke daftar performa Lynx.", safe_pkg) });
+        Ok(if is_english() {
+            format!("Successfully added '{}' to performance list.", safe_pkg)
+        } else {
+            format!("Berhasil menambahkan '{}' ke daftar performa.", safe_pkg)
+        })
     }
 
     /// Atomically removes a package from all known applists.
     pub fn remove(pkg: &str) -> Result<String, String> {
         let safe_pkg: String = pkg.chars().filter(|c| c.is_alphanumeric() || *c == '.' || *c == '_').collect();
         if safe_pkg.is_empty() {
-            return Err("Empty or invalid package name".to_string());
+            return Err(ui("Nama paket kosong atau tidak valid", "Empty or invalid package name").to_string());
         }
 
         let mut removed = false;
@@ -98,10 +110,18 @@ impl ApplistController {
         }
 
         if removed {
-            Logger::info(format!("Removed '{}' from Lynx performance applist.", safe_pkg));
-            Ok(format!("Successfully removed '{}' from performance list.", safe_pkg))
+            Logger::info(if is_english() { format!("Removed '{}' from Lynx performance applist.", safe_pkg) } else { format!("'{}' dihapus dari daftar performa Lynx.", safe_pkg) });
+            Ok(if is_english() {
+                format!("Successfully removed '{}' from performance list.", safe_pkg)
+            } else {
+                format!("Berhasil menghapus '{}' dari daftar performa.", safe_pkg)
+            })
         } else {
-            Ok(format!("Package '{}' was not found in performance list.", safe_pkg))
+            Ok(if is_english() {
+                format!("Package '{}' was not found in performance list.", safe_pkg)
+            } else {
+                format!("Paket '{}' tidak ditemukan dalam daftar performa.", safe_pkg)
+            })
         }
     }
 
