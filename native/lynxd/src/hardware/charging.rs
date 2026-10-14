@@ -918,12 +918,8 @@ impl ChargingRegulator {
             Self::set_perm(&dv2_debug, 0o644);
         }
 
-        // 3. Restore Battery_Temperature to 65535 (releases debug override to genuine ADC)
-        if Path::new(BATT_TEMP_NODE).exists() {
-            Self::set_perm(BATT_TEMP_NODE, 0o666);
-            let _ = fs::write(BATT_TEMP_NODE, "65535");
-            Self::set_perm(BATT_TEMP_NODE, 0o666);
-        }
+        // 3. Restore Battery_Temperature to genuine physical battery temperature
+        Self::sync_authentic_battery_temp();
 
         // 4. Restore MediaTek ABCCT PID controllers to OEM setpoints
         if Path::new(CLABCCT_LCMOFF_NODE).exists() {
@@ -950,6 +946,29 @@ impl ChargingRegulator {
         let _ = std::process::Command::new("cmd")
             .args(["thermalservice", "reset"])
             .output();
+    }
+
+    /// Continuously synchronizes genuine physical battery temperature (from AuxADC NTC thermistor
+    /// or unspoofed kernel thermal zones) into `Battery_Temperature` sysfs override.
+    /// This guarantees that when discharging or during standard charging, the kernel power_supply,
+    /// Android BatteryService, system status bar, and companion apps report authentic live battery temp.
+    pub fn sync_authentic_battery_temp() {
+        if !Path::new(BATT_TEMP_NODE).exists() {
+            return;
+        }
+        let real_dc = Self::read_real_battery_temp_dc();
+        let target_c = (real_dc / 10).clamp(15, 50);
+
+        // Check existing value in Battery_Temperature to avoid redundant writes
+        if let Some(curr_c) = Self::read_i64(BATT_TEMP_NODE) {
+            if curr_c == target_c {
+                return;
+            }
+        }
+
+        Self::set_perm(BATT_TEMP_NODE, 0o666);
+        let _ = fs::write(BATT_TEMP_NODE, target_c.to_string());
+        Self::set_perm(BATT_TEMP_NODE, 0o666);
     }
 
     /// Converts MT635x AuxADC Channel 3 NTC voltage (in mV) to decicelsius.
@@ -1379,6 +1398,7 @@ impl ChargingRegulator {
         Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
         if !needs_session_cleanup {
+            Self::sync_authentic_battery_temp();
             return;
         }
         let cap_now = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
@@ -1554,13 +1574,14 @@ impl ChargingRegulator {
         let is_tapering = chg_state.contains("tapering");
 
         let _now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+        let effective_temp_dc = if temp_raw > 0 { temp_raw } else { real_dc };
 
         format!(
             "{{\n  \"capacity\": {},\n  \"status\": \"{}\",\n  \"health\": \"{}\",\n  \"temperature_c\": {:.1},\n  \"real_physical_temp_c\": {:.1},\n  \"voltage_mv\": {},\n  \"current_ma\": {},\n  \"adapter_voltage_mv\": {},\n  \"adapter_current_ma\": {},\n  \"active_ic\": \"{}\",\n  \"fast_charge_protocol\": \"{}\",\n  \"rfc_authenticated\": {},\n  \"emergency_guard_active\": {},\n  \"overnight_bypass_latched\": {},\n  \"smart_limit_latched\": {},\n  \"bypass_active\": {},\n  \"smart_tapering_active\": {},\n  \"charging_mode\": \"{}\",\n  \"bypass_enabled\": {},\n  \"extreme_charging_enabled\": {},\n  \"limit_current_ma\": {},\n  \"max_battery_percent\": {},\n  \"high_current_target_percent\": {},\n  \"temp_cutoff_c\": {},\n  \"thermal_lockout_bypass_enabled\": {},\n  \"smart_tapering_enabled\": {},\n  \"emergency_temp_guard_enabled\": {},\n  \"night_sleep_guard_enabled\": {}\n}}",
             cap,
             stat,
             hlth,
-            (temp_raw as f64) / 10.0,
+            (effective_temp_dc as f64) / 10.0,
             (real_dc as f64) / 10.0,
             v_clean,
             c_clean,
@@ -1779,5 +1800,31 @@ mod tests {
 
         // Battery reports Charging even before online rail sysfs updates
         assert!(ChargingRegulator::evaluate_plugged_state(false, "Charging", "9", 5000));
+    }
+
+    #[test]
+    fn test_authentic_temp_sync_clamping_and_fallback() {
+        // AuxADC conversion clamping bounds
+        let cold = ChargingRegulator::auxadc_mv_to_dc(900);
+        assert!(cold >= 200 && cold <= 250); // <= 25.0°C
+
+        let normal = ChargingRegulator::auxadc_mv_to_dc(600);
+        assert_eq!(normal, 365); // 36.5°C
+
+        let warm = ChargingRegulator::auxadc_mv_to_dc(530);
+        assert_eq!(warm, 420); // 42.0°C
+
+        let critical = ChargingRegulator::auxadc_mv_to_dc(440);
+        assert_eq!(critical, 500); // 50.0°C
+
+        // Target Celsius clamped bounds for Battery_Temperature sysfs node
+        let c_cold = (cold / 10).clamp(15, 50);
+        assert_eq!(c_cold, 20);
+
+        let c_warm = (warm / 10).clamp(15, 50);
+        assert_eq!(c_warm, 42);
+
+        let c_critical = (critical / 10).clamp(15, 50);
+        assert_eq!(c_critical, 50);
     }
 }

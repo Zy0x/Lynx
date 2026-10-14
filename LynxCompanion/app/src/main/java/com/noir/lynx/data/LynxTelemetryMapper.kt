@@ -190,7 +190,8 @@ internal object LynxTelemetryMapper {
 
         ): BatteryDetails {
 
-            val tempFloat = tel.temp.toFloatOrNull() ?: (existingBatt?.tempC ?: 28.0f)
+            val parsedTemp = tel.temp.toFloatOrNull() ?: 0f
+            val tempFloat = if (parsedTemp > 0f) parsedTemp else (existingBatt?.tempC ?: 35.0f)
 
             val isDischargingHardware = !tel.isCharging && tel.battCurrentMa < 0
             val isBypass = existingBatt?.isBypassActive == true

@@ -34,6 +34,10 @@ internal object LynxBatteryTelemetryRepository {
                     hlth=${'$'}(cat /sys/class/power_supply/battery/health 2>/dev/null || cat /sys/class/power_supply/bms/health 2>/dev/null || echo "Good")
                     temp=${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null)
                     [ -z "${'$'}temp" ] || [ "${'$'}temp" = "0" ] 2>/dev/null && temp=${'$'}(cat /sys/class/power_supply/bms/temp 2>/dev/null)
+                    if [ -z "${'$'}temp" ] || [ "${'$'}temp" -le 0 ] 2>/dev/null; then
+                        tz1=${'$'}(cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null)
+                        [ -n "${'$'}tz1" ] && [ "${'$'}tz1" -gt 10000 ] 2>/dev/null && temp=${'$'}(( tz1 / 100 ))
+                    fi
                     [ -z "${'$'}temp" ] && temp=0
                     volt=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null)
                     [ -z "${'$'}volt" ] || [ "${'$'}volt" = "0" ] 2>/dev/null && volt=${'$'}(cat /sys/class/power_supply/bms/voltage_now 2>/dev/null)
@@ -205,6 +209,7 @@ internal object LynxBatteryTelemetryRepository {
                     val rfcAuth = parts.getOrNull(11)?.trim() == "1"
                     val rawRtmp = parts.getOrNull(12)?.toFloatOrNull() ?: 0f
                     val realTempC = if (rawRtmp > 1000f) rawRtmp / 1000f else if (rawRtmp > 100f) rawRtmp / 10f else rawRtmp
+                    val finalTempC = if (tempC <= 0f && realTempC > 0f) realTempC else tempC
                     val isGuardActive = parts.getOrNull(13)?.trim() == "1"
                     val chgState = parts.getOrNull(14)?.trim() ?: ""
 
@@ -374,7 +379,7 @@ internal object LynxBatteryTelemetryRepository {
                         level = cap,
                         status = stat,
                         health = hlth,
-                        tempC = tempC,
+                        tempC = finalTempC,
                         voltageMv = voltMv,
                         currentMa = curMa,
                         cycleCount = cyc,

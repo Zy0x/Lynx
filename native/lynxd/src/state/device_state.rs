@@ -386,13 +386,21 @@ impl DeviceState {
             })
             .unwrap_or(50);
 
-        let temp_raw = SysfsReader::read_int::<i32>("/sys/class/power_supply/battery/temp")
+        let mut temp_raw = SysfsReader::read_int::<i32>("/sys/class/power_supply/battery/temp")
             .or_else(|_| SysfsReader::read_int::<i32>("/sys/class/power_supply/bms/temp"))
             .map(|t| {
                 found_any = true;
                 t
             })
             .unwrap_or(350);
+
+        if temp_raw <= 0 {
+            let real_dc = crate::hardware::charging::ChargingRegulator::read_real_battery_temp_dc();
+            if real_dc > 0 {
+                temp_raw = real_dc as i32;
+                found_any = true;
+            }
+        }
 
         let cur_raw = SysfsReader::read_int::<i32>("/sys/class/power_supply/battery/current_now")
             .or_else(|_| SysfsReader::read_int::<i32>("/sys/class/power_supply/battery/BatteryAverageCurrent"))

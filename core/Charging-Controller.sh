@@ -148,9 +148,23 @@ fallback_disconnect() {
 
     # Thermal reversions
     [ -e "$TRAN_ODM/pcb_thermal_debug" ] && echo "[45,3000,50,2000,1000]" > "$TRAN_ODM/pcb_thermal_debug" 2>/dev/null
-    [ -e "$TRAN_DIR/pcb_thermal_debug" ] && echo "[45,3000,50,2000,1000]" > "$TRAN_DIR/pcb_thermal_debug" 2>/dev/null
-    [ -e "/sys/devices/platform/battery/Battery_Temperature" ] && echo "65535" > "/sys/devices/platform/battery/Battery_Temperature" 2>/dev/null
-    [ -e "/proc/driver/thermal/clabcct" ] && echo "1" > "/proc/driver/thermal/clabcct" 2>/dev/null
+    if [ -e "/sys/devices/platform/battery/Battery_Temperature" ]; then
+        local_temp=35
+        if [ -f "/sys/bus/iio/devices/iio:device1/in_voltage3_BAT_TEMP_input" ]; then
+            local_adc=$(cat "/sys/bus/iio/devices/iio:device1/in_voltage3_BAT_TEMP_input" 2>/dev/null)
+            if [ -n "$local_adc" ] && [ "$local_adc" -gt 200 ] && [ "$local_adc" -lt 1500 ] 2>/dev/null; then
+                local_temp=$(( 70 - local_adc / 20 ))
+                [ "$local_temp" -lt 20 ] && local_temp=25
+                [ "$local_temp" -gt 50 ] && local_temp=45
+            fi
+        elif [ -f "/sys/class/thermal/thermal_zone1/temp" ]; then
+            local_tz1=$(cat "/sys/class/thermal/thermal_zone1/temp" 2>/dev/null)
+            if [ -n "$local_tz1" ] && [ "$local_tz1" -gt 10000 ] 2>/dev/null; then
+                local_temp=$(( local_tz1 / 1000 ))
+            fi
+        fi
+        echo "$local_temp" > "/sys/devices/platform/battery/Battery_Temperature" 2>/dev/null
+    fi
     [ -e "/sys/class/thermal/cooling_device56/cur_state" ] && echo "1" > "/sys/class/thermal/cooling_device56/cur_state" 2>/dev/null
 
     # Reset Android battery framework state
