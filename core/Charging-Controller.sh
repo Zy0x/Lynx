@@ -108,6 +108,9 @@ fallback_hyper() {
     write_node_lock "$MTK_DIR/sc_ibat_limit" "12000"
     write_node_lock "$MTK_DIR/chg1_current" "33170"
     write_node_lock "$MTK_DIR/chg2_current" "33170"
+    if [ -e "$MTK_DIR/pdc_max_watt" ] && [ ! -f /dev/lynx_orig_pdc_watt ]; then
+        cat "$MTK_DIR/pdc_max_watt" 2>/dev/null > /dev/lynx_orig_pdc_watt
+    fi
     write_node_lock "$MTK_DIR/pdc_max_watt" "120"
 }
 
@@ -139,7 +142,16 @@ fallback_disconnect() {
     [ -e "$MTK_DIR/sc_ibat_limit" ] && echo "2000" > "$MTK_DIR/sc_ibat_limit" 2>/dev/null
     [ -e "$MTK_DIR/chg1_current" ] && echo "24576" > "$MTK_DIR/chg1_current" 2>/dev/null
     [ -e "$MTK_DIR/chg2_current" ] && echo "24576" > "$MTK_DIR/chg2_current" 2>/dev/null
-    [ -e "$MTK_DIR/pdc_max_watt" ] && echo "33" > "$MTK_DIR/pdc_max_watt" 2>/dev/null
+    if [ -f /dev/lynx_orig_pdc_watt ]; then
+        orig_pdc=$(cat /dev/lynx_orig_pdc_watt 2>/dev/null)
+        [ -n "$orig_pdc" ] && [ -e "$MTK_DIR/pdc_max_watt" ] && echo "$orig_pdc" > "$MTK_DIR/pdc_max_watt" 2>/dev/null
+        rm -f /dev/lynx_orig_pdc_watt 2>/dev/null
+    elif [ -e "$MTK_DIR/pdc_max_watt" ]; then
+        cur_pdc=$(cat "$MTK_DIR/pdc_max_watt" 2>/dev/null)
+        if [ "$cur_pdc" = "120" ] || [ -z "$cur_pdc" ]; then
+            echo "33" > "$MTK_DIR/pdc_max_watt" 2>/dev/null
+        fi
+    fi
     [ -e "$MTK_DIR/BN_TestMode" ] && echo "0" > "$MTK_DIR/BN_TestMode" 2>/dev/null
     [ -e "$MTK_DIR/BatteryNotify" ] && echo "1" > "$MTK_DIR/BatteryNotify" 2>/dev/null
     [ -e "$MTK_DIR/tran_charger_full" ] && echo "0" > "$MTK_DIR/tran_charger_full" 2>/dev/null

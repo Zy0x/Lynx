@@ -313,10 +313,12 @@ internal object LynxBatteryTelemetryRepository {
                             val wLabel = when {
                                 watt >= 55f -> "68W"
                                 watt >= 38f -> "45W"
-                                watt >= 20f || adpMv > 8000 -> "33W"
+                                watt >= 22f -> "33W"
+                                watt >= 12f -> "18W"
+                                adpMv > 8000 -> "Super Charge"
                                 else -> "Flash"
                             }
-                            "Transsion $wLabel (PE+)"
+                            if (wLabel == "Super Charge") "Transsion Super Charge (PE+)" else "Transsion $wLabel (PE+)"
                         }
 
                         // 2. USB Power Delivery & PPS
@@ -346,14 +348,14 @@ internal object LynxBatteryTelemetryRepository {
 
                         // 8. High voltage / high power generic fallback
                         adpMv > 8500 || (watt >= 15f && isCharging) -> {
-                            if (isTranssion) "Transsion 33W (PE+)" else "Adaptor Cepat (Fast)"
+                            if (isTranssion) "Transsion Super Charge (PE+)" else "Adaptor Cepat (Fast)"
                         }
 
                         // 9. PC / Laptop port
                         isLaptop || ptypUpper.contains("SDP") || ptypUpper.contains("CDP") -> "USB PC / Laptop"
 
                         // 10. Default
-                        else -> if (isTranssion && isCharging) "Transsion Flash (PE+)" else "Adaptor Standar (DCP)"
+                        else -> if (isTranssion && isCharging) "Transsion Super Charge (PE+)" else "Adaptor Standar (DCP)"
                     }
 
                     val adapterWatt = if (isPlugged && adpMv > 1000 && ibusMa > 50) {

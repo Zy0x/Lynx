@@ -240,7 +240,15 @@ internal object LynxTelemetryMapper {
             val mappedProtocol = when {
                 !existingBatt?.fastChargeProtocol.isNullOrBlank() -> existingBatt!!.fastChargeProtocol
                 isTranssionDevice && (tel.battWatt > 4f || tel.battCurrentMa > 1000) -> {
-                    if (tel.battWatt >= 20f || adpVoltMv > 8000) "Transsion 33W (PE+)" else "Transsion Flash (PE+)"
+                    val wLabel = when {
+                        tel.battWatt >= 55f -> "68W"
+                        tel.battWatt >= 38f -> "45W"
+                        tel.battWatt >= 22f -> "33W"
+                        tel.battWatt >= 12f -> "18W"
+                        adpVoltMv > 8000 -> "Super Charge"
+                        else -> "Flash"
+                    }
+                    if (wLabel == "Super Charge") "Transsion Super Charge (PE+)" else "Transsion $wLabel (PE+)"
                 }
                 else -> ""
             }

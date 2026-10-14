@@ -506,7 +506,7 @@ fun ChargingHeroDisplayCard(
             !isPlugged -> "Baterai Internal (Li-Ion)"
             batt.fastChargeProtocol.isNotBlank() && !batt.fastChargeProtocol.contains("Battery", true) -> batt.fastChargeProtocol
             liveHardwareProtocol.isNotBlank() && !liveHardwareProtocol.contains("Standar") -> liveHardwareProtocol
-            isTranssionBrand -> "Transsion 33W (PE+)"
+            isTranssionBrand -> "Transsion Super Charge (PE+)"
             else -> "Adaptor Daya Eksternal"
         }
     }
@@ -1282,7 +1282,7 @@ private fun resolveHardwareProtocolDirect(
     return when {
         // Transsion Fast Charge (Infinix / Tecno 33W/45W/68W PE+ Direct Pump)
         mtkChgType == "9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC") -> {
-            "Transsion 33W (PE+)"
+            "Transsion Super Charge (PE+)"
         }
         // Qualcomm Quick Charge (HVDCP, HVDCP_3, HVDCP_3P5, QC 2.0/3.0/4.0/5.0)
         ptypUpper.contains("HVDCP_3P5") || qcUpper.contains("4") || qcUpper.contains("5") -> {

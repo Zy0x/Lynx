@@ -26,7 +26,7 @@ const BATT_TEMP_NODE: &str = "/sys/devices/platform/battery/Battery_Temperature"
 const CLABCCT_NODE: &str = "/proc/driver/thermal/clabcct";
 const CLABCCT_LCMOFF_NODE: &str = "/proc/driver/thermal/clabcct_lcmoff";
 
-const DISCONNECT_CHARGING_RESETS: [(&str, &str); 23] = [
+const DISCONNECT_CHARGING_RESETS: &[(&str, &str)] = &[
     ("/sys/class/power_supply/battery/input_suspend", "0"),
     ("/sys/class/power_supply/battery/charging_enabled", "1"),
     ("/sys/devices/platform/charger/pe20", "0"),
@@ -38,7 +38,6 @@ const DISCONNECT_CHARGING_RESETS: [(&str, &str); 23] = [
     ("/sys/devices/platform/charger/BN_TestMode", "0"),
     ("/sys/devices/platform/charger/BatteryNotify", "1"),
     ("/sys/devices/platform/charger/sw_jeita", "1"),
-    ("/sys/devices/platform/charger/pdc_max_watt", "33"),
     ("/sys/devices/platform/charger/input_current", "24576"),
     ("/sys/devices/platform/charger/sc_ibat_limit", "2000"),
     ("/sys/devices/platform/charger/chg1_current", "24576"),
@@ -783,7 +782,14 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/BatteryNotify", MTK_DIR), "1");
         Self::set_perm(&format!("{}/sw_jeita", MTK_DIR), 0o666);
         Self::write_node(&format!("{}/sw_jeita", MTK_DIR), "1");
-        Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), "33");
+        if let Some(baseline_pdc) = Self::get_session_baseline_value(&format!("{}/pdc_max_watt", MTK_DIR)) {
+            Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), &baseline_pdc);
+        } else {
+            let cur = Self::read_i64(&format!("{}/pdc_max_watt", MTK_DIR)).unwrap_or(0);
+            if cur == 0 || cur > 120 {
+                Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), "33");
+            }
+        }
         Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
         Self::write_node(&format!("{}/pe40", MTK_DIR), "1");
         Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
@@ -1461,6 +1467,12 @@ impl ChargingRegulator {
         }
 
         let _ = fs::remove_dir_all(DIR);
+    }
+
+    fn get_session_baseline_value(node: &str) -> Option<String> {
+        let index = CHARGING_SESSION_NODES.iter().position(|&n| n == node)?;
+        let path = format!("/dev/lynx_charging_baseline/{}.value", index);
+        fs::read_to_string(path).ok().map(|s| s.trim().to_string())
     }
 
     /// Periodic tick called inside `DaemonRunner::run()` every cycle.

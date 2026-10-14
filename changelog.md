@@ -1,3 +1,24 @@
+# Lynx Universal [Dynamic Wattage Resolution & Hardware Charging Limit Decoupling Architecture] 7.0.0-RC49
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC49** (Lynx Kernel Manager v3.1.10): **Audit Arsitektur Pengisian Daya Silikon & Eliminasi Mutlak Hardcoded 33W: Penyelarasan Negosiasi Daya Dinamis (33W, 45W, 68W+), Pemulihan Preservasi Session Baseline `pdc_max_watt`, dan Resolusi Otomatis Protokol Transsion Super Charge pada Seluruh Antarmuka & Daemon**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC49)
+
+### 1. Eliminasi Total Hardcoded 33W pada Daemon & Skrip Pengontrol
+- **Pemulihan Baseline Preservasi (`pdc_max_watt`)**: Menghapus penulisan statis `"33"` pada `DISCONNECT_CHARGING_RESETS` dan `apply_standard_mode()` di `native/lynxd`. Sistem kini mempertahankan nilai baseline asli perangkat (`CHARGING_SESSION_NODES`) saat kabel dicabut atau kembali ke Standard Mode, mencegah pemangkasan daya tidak disengaja pada perangkat berkemampuan 45W/68W/120W+.
+- **Penyelarasan Dinamis Shell Fallback (`Charging-Controller.sh`)**: Mengintegrasikan pencatatan state `/dev/lynx_orig_pdc_watt` sebelum penguncian Mode Hyper 120W, menjamin pemulihan akurat ke nilai bawaan pabrik saat disconnect tanpa memaksakan nilai 33.
+
+### 2. Resolusi Protokol & Wattage Adaptif pada Antarmuka Aplikasi (Lynx Companion v3.1.10)
+- **Pelabelan Daya Real-Time Adaptif**: Memperbarui algoritma pemetaan protokol pengisian cepat (`ChargingHeroDisplayCard`, `LynxBatteryTelemetryRepository`, dan `LynxTelemetryMapper`) agar mengkalkulasi daya nyata berdasarkan tegangan dan arus listrik:
+  - $\ge 55\text{W}$ -> `Transsion 68W (PE+)`
+  - $\ge 38\text{W}$ -> `Transsion 45W (PE+)`
+  - $\ge 22\text{W}$ -> `Transsion 33W (PE+)`
+  - $\ge 12\text{W}$ -> `Transsion 18W (PE+)`
+  - Tegangan tinggi awal / idle -> `Transsion Super Charge (PE+)` (nama resmi yang elegan dan netral tanpa memaksakan angka 33W saat terhubung ke adaptor 45W/68W).
+- **Eliminasi Fallback Statis**: Menghapus seluruh residu string `"Transsion 33W (PE+)"` statis pada kartu dashboard banner.
+
+---
+
 # Lynx Universal [Unconstrained Hyper Charging & Full Hardware Thermal Bypass Architecture] 7.0.0-RC46
 Released on: 2026-10-14
 > **Lynx Universal v7.0.0-RC46**: **Implementasi Penuh Unconstrained Hyper Charging Mode Tanpa Pembatasan Suhu: Eliminasi Mutlak Software JEITA (`sw_jeita = 0` locked), Penguncian BCCT/ABCCT Thermal Throttling ke 0, Bypass Otomatis Emergency Thermal & Night Sleep Guards, Uncap Wattage 120W, serta Pendorongan Arus Maksimum 12,000 mA pada MediaTek & Qualcomm**.
