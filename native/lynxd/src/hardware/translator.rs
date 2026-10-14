@@ -114,7 +114,7 @@ impl HardwareTranslator {
                     format!("Policy {} ({}) governor", pol.index, pol.role),
                     pol.path.join("scaling_governor"),
                     target_gov,
-                    true,
+                    false,
                 );
             }
 
@@ -164,7 +164,7 @@ impl HardwareTranslator {
                     format!("Policy {} ({}) governor", pol.index, pol.role),
                     pol.path.join("scaling_governor"),
                     target_gov,
-                    true,
+                    false,
                 );
             }
 

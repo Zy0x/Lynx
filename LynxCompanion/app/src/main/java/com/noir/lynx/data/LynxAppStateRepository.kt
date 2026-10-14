@@ -37,8 +37,10 @@ internal object LynxAppStateRepository {
     private fun getLynxdBinaryPath(): String? {
         cachedLynxdPath?.let { return it }
         val candidatePaths = listOf(
+            "/data/adb/modules_update/Lynx/system/bin/lynxd",
             "$MODULE_DIR/system/bin/lynxd",
-            "/data/adb/modules/Lynx/system/bin/lynxd"
+            "/data/adb/modules/Lynx/system/bin/lynxd",
+            "/system/bin/lynxd"
         )
         for (p in candidatePaths) {
             val check = Shell.cmd("[ -x '$p' ] && echo 1 || echo 0").exec()
@@ -249,12 +251,18 @@ internal object LynxAppStateRepository {
                 ?.takeIf { it in allowedProfiles }
                 ?: readState().activeProfile
         }
+        val lynxdPath = getLynxdBinaryPath()
+        val safeLynxd = lynxdPath ?: LYNXD_PATH
         if (isManualSelection) {
-            Shell.cmd("mkdir -p /data/adb/lynx 2>/dev/null; echo '$profile' > /data/adb/lynx/active_profile; setprop lynx.mode '$profile'").exec()
-            writeStateKey("active_profile", profile, "str")
-            writeStateKey("kernel_profile_id", profile, "str")
-            if (profile != "auto") writeStateKey("baseline_profile", profile, "str")
-            writeStateKey("profile_overrides", "", "str")
+            val baselineCmd = if (profile != "auto") "'$safeLynxd' state set baseline_profile '$profile' str 2>/dev/null; " else ""
+            val batchSetup = "mkdir -p /data/adb/lynx 2>/dev/null; " +
+                "echo '$profile' > /data/adb/lynx/active_profile; " +
+                "setprop lynx.mode '$profile'; " +
+                "'$safeLynxd' state set active_profile '$profile' str 2>/dev/null; " +
+                "'$safeLynxd' state set kernel_profile_id '$profile' str 2>/dev/null; " +
+                baselineCmd +
+                "'$safeLynxd' state set profile_overrides '' str 2>/dev/null"
+            Shell.cmd(batchSetup).exec()
         } else {
             // Publish only the transient effective mode; keep the persisted master intact.
             Shell.cmd("setprop lynx.mode '$profile' 2>/dev/null").exec()
@@ -263,7 +271,6 @@ internal object LynxAppStateRepository {
 
         try {
             var applied = false
-            val lynxdPath = getLynxdBinaryPath()
             if (lynxdPath != null) {
                 val cmd = when (profile) {
                     "auto" -> "killall lynxd 2>/dev/null; '$lynxdPath' daemon run >> /data/adb/lynx/lynxd.log 2>&1 &"

@@ -20,6 +20,9 @@ impl ModeLock {
     pub fn lock_path() -> PathBuf {
         #[cfg(target_os = "android")]
         {
+            if std::path::Path::new("/data/adb/lynx").exists() {
+                return PathBuf::from("/data/adb/lynx/lynx_mode.lock");
+            }
             if std::path::Path::new("/dev").exists() {
                 return PathBuf::from("/dev/lynx_mode.lock");
             }

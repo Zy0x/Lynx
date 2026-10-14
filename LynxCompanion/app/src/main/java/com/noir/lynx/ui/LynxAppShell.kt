@@ -176,7 +176,7 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
 
         // Success snackbar overlay (hanya untuk aksi selain mode performa kernel yang sudah ditangani oleh Toast HUD)
         uiState.successMessage?.let { msg ->
-            val isProfileSwitchMsg = msg.contains("Profil", ignoreCase = true) && msg.contains("diterapkan", ignoreCase = true)
+            val isProfileSwitchMsg = (msg.contains("Profil", ignoreCase = true) || msg.contains("Mode", ignoreCase = true)) && msg.contains("diterapkan", ignoreCase = true)
             if (!isProfileSwitchMsg) {
                 Snackbar(
                     modifier = Modifier

@@ -189,6 +189,22 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
         }
         val previousOverrides = _uiState.value.state.profileOverrides
         val previousState = _uiState.value.state
+        val previousActiveProfile = previousState.activeProfile
+        val previousCatalogActiveId = _uiState.value.kernelProfileCatalog.activeId
+
+        // ── Phase 1: Instant Optimistic UI Update (0 ms / <16 ms recomposition) ──
+        val overrides = if (clearOverrides) emptyMap() else previousOverrides
+        _uiState.update { current ->
+            current.copy(
+                state = current.state.copy(
+                    activeProfile = id,
+                    profileOverrides = overrides
+                ),
+                kernelProfileCatalog = catalog.copy(activeId = id),
+                errorMessage = null
+            )
+        }
+
         val savedCustomClusters = if (!clearOverrides && previousOverrides[ProfileDomain.CPU] == KernelProfileSelection.CUSTOM_OVERRIDE) {
             LynxRepository.readClusters()
         } else emptyList()
@@ -196,12 +212,24 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
             LynxRepository.readGpuInfo()
         } else null
         if (!clearOverrides && previousOverrides[ProfileDomain.CPU] == KernelProfileSelection.CUSTOM_OVERRIDE && savedCustomClusters.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "Override CPU kustom tidak dapat dibaca; pilih hapus override untuk mengganti profil dengan aman") }
+            _uiState.update { current ->
+                current.copy(
+                    state = current.state.copy(activeProfile = previousActiveProfile, profileOverrides = previousOverrides),
+                    kernelProfileCatalog = catalog.copy(activeId = previousCatalogActiveId),
+                    errorMessage = "Override CPU kustom tidak dapat dibaca; pilih hapus override untuk mengganti profil dengan aman"
+                )
+            }
             return@launch
         }
         if (!clearOverrides && previousOverrides[ProfileDomain.GPU] == KernelProfileSelection.CUSTOM_OVERRIDE &&
             (savedCustomGpu == null || savedCustomGpu.platform == "generic" || savedCustomGpu.maxFreqMhz <= 0)) {
-            _uiState.update { it.copy(errorMessage = "Override GPU kustom tidak dapat dibaca; pilih hapus override untuk mengganti profil dengan aman") }
+            _uiState.update { current ->
+                current.copy(
+                    state = current.state.copy(activeProfile = previousActiveProfile, profileOverrides = previousOverrides),
+                    kernelProfileCatalog = catalog.copy(activeId = previousCatalogActiveId),
+                    errorMessage = "Override GPU kustom tidak dapat dibaca; pilih hapus override untuk mengganti profil dengan aman"
+                )
+            }
             return@launch
         }
         val base = profile.baseProfile
@@ -213,7 +241,14 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
             baselineWritten && overridesWritten
         }
         if (!profileApplied) {
-            _uiState.update { it.copy(errorMessage = "Profil dasar $base gagal diterapkan") }
+            // ── Phase 3 Rollback: Revert to previous profile if kernel application fails ──
+            _uiState.update { current ->
+                current.copy(
+                    state = current.state.copy(activeProfile = previousActiveProfile, profileOverrides = previousOverrides),
+                    kernelProfileCatalog = catalog.copy(activeId = previousCatalogActiveId),
+                    errorMessage = "Profil dasar $base gagal diterapkan. Mengembalikan ke mode $previousActiveProfile."
+                )
+            }
             return@launch
         }
 
@@ -223,7 +258,7 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
         } else {
             val cpuPreset = cpuOverride ?: profile.domainProfiles[ProfileDomain.CPU] ?: base
             applyComprehensiveCpuProfile(cpuPreset, context, asMasterProfile = false, recordDomainOverride = false)
-            cpuProfileJob?.join()
+            // Non-blocking: cpuProfileJob executes in background without stalling UI transition
         }
         val gpuOverride = if (clearOverrides) null else previousOverrides[ProfileDomain.GPU]
         if (gpuOverride == KernelProfileSelection.CUSTOM_OVERRIDE) {
@@ -232,11 +267,10 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
             val gpuPreset = (gpuOverride ?: profile.domainProfiles[ProfileDomain.GPU])?.let(::normalizeGpuPreset)
                 ?: when (base) { "powersave" -> "battery"; "performance" -> "esports"; "extreme" -> "extreme"; else -> "balanced" }
             applyGpuProfile(gpuPreset, context, fromMasterProfile = true)
-            gpuProfileJob?.join()
+            // Non-blocking: gpuProfileJob executes in background without stalling UI transition
         }
 
         val skipped = mutableListOf<String>()
-        val overrides = if (clearOverrides) emptyMap() else previousOverrides
         val settingsDomains = mapOf(
             "memory" to ProfileDomain.MEMORY,
             "display_touch" to ProfileDomain.DISPLAY,
@@ -245,13 +279,15 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
             "charging" to ProfileDomain.BATTERY,
             "thermal" to ProfileDomain.THERMAL,
         )
-        profile.settings.forEach { (key, value) ->
-            val permitted = key in KernelPerformanceProfile.SAFE_SETTING_KEYS &&
-                (key !in KernelPerformanceProfile.SENSITIVE_SETTING_KEYS || key in profile.includedSensitiveSettings) &&
-                key !in setOf("charging.bypass_enabled", "charging.extreme_charging_enabled", "charging.thermal_lockout_bypass_enabled", "thermal.full_bypass") &&
-                settingsDomains[key.substringBefore('.')] !in overrides
-            if (permitted && LynxRepository.writeStateKey(key, value, valueType(value))) Unit
-            else skipped += key.substringBefore('.')
+        if (profile.settings.isNotEmpty()) {
+            profile.settings.forEach { (key, value) ->
+                val permitted = key in KernelPerformanceProfile.SAFE_SETTING_KEYS &&
+                    (key !in KernelPerformanceProfile.SENSITIVE_SETTING_KEYS || key in profile.includedSensitiveSettings) &&
+                    key !in setOf("charging.bypass_enabled", "charging.extreme_charging_enabled", "charging.thermal_lockout_bypass_enabled", "thermal.full_bypass") &&
+                    settingsDomains[key.substringBefore('.')] !in overrides
+                if (permitted && LynxRepository.writeStateKey(key, value, valueType(value))) Unit
+                else skipped += key.substringBefore('.')
+            }
         }
 
         val runtimeAppliedKeys = mutableSetOf<String>()
@@ -292,11 +328,16 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
             it !in runtimeAppliedKeys && settingsDomains[it.substringBefore('.')] !in overrides
         }.map { it.substringBefore('.') }.toSet()
         val note = (skipped + unhandledSettings).distinct().joinToString()
+
+        // ── Phase 3: Hardware Ground Truth Reconciliation (Asynchronous read) ──
         val refreshed = LynxRepository.readState()
-        _uiState.update {
-            it.copy(state = refreshed.copy(activeProfile = id, profileOverrides = overrides), kernelProfileCatalog = catalog.copy(activeId = id), successMessage =
-                if (note.isBlank()) "Profil ${profile.name} diterapkan"
-                else "${profile.name} diterapkan; domain perlu adaptasi: $note")
+        _uiState.update { current ->
+            current.copy(
+                state = refreshed.copy(activeProfile = id, profileOverrides = overrides),
+                kernelProfileCatalog = catalog.copy(activeId = id),
+                successMessage = if (note.isBlank()) "Profil ${profile.name} diterapkan"
+                    else "${profile.name} diterapkan; domain perlu adaptasi: $note"
+            )
         }
     }
 }

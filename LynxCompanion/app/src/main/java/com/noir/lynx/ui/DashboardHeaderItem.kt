@@ -345,6 +345,16 @@ internal fun LazyListScope.dashboardHeaderItem(
                 ) {
                     standardProfiles.forEach { item ->
                         val isSelected = state.activeProfile.equals(item.id, ignoreCase = true)
+                        val animatedBgColor by animateColorAsState(
+                            targetValue = if (isSelected) item.accentColor.copy(alpha = 0.18f) else BgElevated,
+                            animationSpec = tween(durationMillis = 150),
+                            label = "mode_bg_${item.id}"
+                        )
+                        val animatedBorderColor by animateColorAsState(
+                            targetValue = if (isSelected) item.accentColor else BorderSubtle,
+                            animationSpec = tween(durationMillis = 150),
+                            label = "mode_border_${item.id}"
+                        )
                         Surface(
                             onClick = {
                                 if (!isSelected) {
@@ -361,10 +371,10 @@ internal fun LazyListScope.dashboardHeaderItem(
                                 }
                             },
                             shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) item.accentColor.copy(alpha = 0.18f) else BgElevated,
+                            color = animatedBgColor,
                             border = BorderStroke(
                                 width = if (isSelected) 1.4.dp else 0.8.dp,
-                                color = if (isSelected) item.accentColor else BorderSubtle
+                                color = animatedBorderColor
                             ),
                             modifier = Modifier
                                 .weight(1f)
