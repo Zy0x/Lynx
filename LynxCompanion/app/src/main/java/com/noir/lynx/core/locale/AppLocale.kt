@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.LocaleList
 import java.util.Locale
+import androidx.annotation.StringRes
 
 /** Stores the Companion-only language override and applies it to Activity resources. */
 object AppLocale {
@@ -25,6 +26,9 @@ object AppLocale {
             .putString(KEY_OVERRIDE, if (languageTag == INDONESIAN || languageTag == ENGLISH) languageTag else SYSTEM)
             .apply()
     }
+
+    fun getString(context: Context, @StringRes resourceId: Int, vararg formatArgs: Any): String =
+        wrap(context).getString(resourceId, *formatArgs)
 
     fun wrap(context: Context): Context {
         val languageTag = selected(context)

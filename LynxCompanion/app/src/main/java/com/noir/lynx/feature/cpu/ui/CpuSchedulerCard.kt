@@ -1,5 +1,7 @@
 package com.noir.lynx.feature.cpu.ui
 
+import com.noir.lynx.core.locale.localizedUiText
+
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
@@ -139,7 +141,7 @@ fun KernelSchedulerCard(
             ) {
                 Icon(
                     imageVector = Icons.Default.Info,
-                    contentDescription = "Info Teknis",
+                    contentDescription = localizedUiText("Info Teknis"),
                     tint = TextTertiary,
                     modifier = Modifier.size(15.dp)
                 )

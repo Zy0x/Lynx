@@ -1,5 +1,7 @@
 package com.noir.lynx.ui
 
+import com.noir.lynx.core.locale.localizedUiText
+
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
@@ -151,7 +153,7 @@ fun BenchmarkStudioDialog(
                     }
                 }
                 IconButton(onClick = { viewModel.closeBenchmarkDialog() }) {
-                    Icon(Icons.Default.Close, contentDescription = "Tutup", tint = TextSecondary, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Close, contentDescription = localizedUiText("Tutup"), tint = TextSecondary, modifier = Modifier.size(20.dp))
                 }
             }
         },

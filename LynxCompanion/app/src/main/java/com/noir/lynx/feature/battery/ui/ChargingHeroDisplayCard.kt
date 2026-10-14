@@ -1,5 +1,7 @@
 package com.noir.lynx.feature.battery.ui
 
+import com.noir.lynx.core.locale.localizedUiText
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -1114,7 +1116,7 @@ private fun QuickChargingModeModal(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Tutup",
+                            contentDescription = localizedUiText("Tutup"),
                             tint = TextTertiary,
                             modifier = Modifier.size(18.dp)
                         )

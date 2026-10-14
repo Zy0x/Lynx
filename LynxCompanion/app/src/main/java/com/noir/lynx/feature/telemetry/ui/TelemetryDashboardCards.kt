@@ -1,5 +1,7 @@
 package com.noir.lynx.feature.telemetry.ui
 
+import com.noir.lynx.core.locale.localizedUiText
+
 import java.util.Locale
 import android.content.Context
 import android.hardware.display.DisplayManager
@@ -340,7 +342,7 @@ fun TelemetryMemoryCard(
                     } else {
                         Icon(
                             imageVector = Icons.Default.DeleteSweep,
-                            contentDescription = "Bersihkan RAM",
+                            contentDescription = localizedUiText("Bersihkan RAM"),
                             tint = AccentCyan,
                             modifier = Modifier.size(13.dp)
                         )
@@ -367,7 +369,7 @@ fun TelemetryMemoryCard(
             )
         }
 
-        // ── 2. BAR ZRAM DISK SWAP (Kecerdasan Dinamis) ────────
+        // ── 2. ZRAM disk swap bar (dynamic calculation) ────────
         val isZramActive = tel.zramTotalMb > 0
         if (isZramActive) {
             Spacer(modifier = Modifier.height(10.dp))
@@ -490,7 +492,7 @@ fun TelemetryMemoryCard(
             }
         }
 
-        // ── 3. BAR SWAP MEMORY (Kecerdasan Dinamis Disk Swap) ──
+        // ── 3. Swap memory bar (dynamic disk swap calculation) ─
         val hasDedicatedDiskSwap = (tel.swapTotalMb > tel.zramTotalMb && (tel.swapTotalMb - tel.zramTotalMb) >= 64) ||
                 (tel.swapTotalMb > 0 && !isZramActive)
         if (hasDedicatedDiskSwap) {

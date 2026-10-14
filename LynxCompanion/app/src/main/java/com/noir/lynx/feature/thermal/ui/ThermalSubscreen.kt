@@ -1,4 +1,6 @@
 package com.noir.lynx.feature.thermal.ui
+
+import com.noir.lynx.core.locale.localizedUiText
 import com.noir.lynx.ui.*
 
 import androidx.compose.foundation.BorderStroke
@@ -12,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.R
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,7 +79,7 @@ fun ThermalSubscreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${validZones.size} Sensor Terdeteksi",
+                    text = androidx.compose.ui.res.pluralStringResource(R.plurals.thermal_sensor_count, validZones.size, validZones.size),
                     color = TextPrimary,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 12.5.sp
@@ -87,7 +90,7 @@ fun ThermalSubscreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
-                        contentDescription = "Muat Ulang Sensor",
+                        contentDescription = localizedUiText("Muat Ulang Sensor"),
                         tint = AccentRed,
                         modifier = Modifier.size(18.dp)
                     )
@@ -260,7 +263,7 @@ fun ThermalSubscreen(
                 }
             }
 
-            // Batas Suhu Thermal Custom slider tile
+            // Custom thermal temperature limit slider tile.
             var tempLimitValue by remember {
                 mutableFloatStateOf(state.thermal.customTempLimitC.toFloat())
             }
@@ -302,7 +305,7 @@ fun ThermalSubscreen(
                 onCheckedChange = { viewModel.setOverclockEnabled(it) },
             )
 
-            // Ambang Bawah Frekuensi CPU (Clock Floor) slider tile
+            // CPU frequency floor slider tile.
             var floorValue by remember {
                 mutableFloatStateOf(state.overclock.cpuFloorRatio.toFloat())
             }
@@ -371,7 +374,7 @@ fun ThermalSubscreen(
             }
         }
 
-        // ── 5. Preset Termal Cepat (Quick Profiles) ─────────────
+        // ── 5. Quick thermal profiles ──────────────────────────
         LynxCard(
             title = "Preset Termal Cepat",
             icon = Icons.Default.Tune,

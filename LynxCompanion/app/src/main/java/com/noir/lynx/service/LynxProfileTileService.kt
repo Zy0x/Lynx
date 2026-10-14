@@ -1,10 +1,13 @@
 package com.noir.lynx.service
 
+import com.noir.lynx.core.locale.AppLocale
+
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import androidx.annotation.RequiresApi
 import com.noir.lynx.data.LynxRepository
+import com.noir.lynx.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -47,14 +50,20 @@ class LynxProfileTileService : TileService() {
             val profile = state.activeProfile.lowercase()
             launch(Dispatchers.Main) {
                 tile.state = if (profile == "dormant") Tile.STATE_INACTIVE else Tile.STATE_ACTIVE
-                tile.label = "Lynx: ${profile.replaceFirstChar { it.uppercase() }}"
+                val profileName = AppLocale.getString(this@LynxProfileTileService, when (profile) {
+                    "performance" -> R.string.profile_name_performance
+                    "extreme" -> R.string.profile_name_extreme
+                    "powersave" -> R.string.profile_name_powersave
+                    else -> R.string.profile_name_balance
+                })
+                tile.label = AppLocale.getString(this@LynxProfileTileService, R.string.tile_profile_label_format, profileName)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    tile.subtitle = when (profile) {
-                        "performance" -> "High Perf Mode"
-                        "extreme" -> "Max Clock / No Limit"
-                        "powersave" -> "Battery Saver"
-                        else -> "Balanced Daily"
-                    }
+                    tile.subtitle = AppLocale.getString(this@LynxProfileTileService, when (profile) {
+                        "performance" -> R.string.tile_profile_performance
+                        "extreme" -> R.string.tile_profile_extreme
+                        "powersave" -> R.string.tile_profile_powersave
+                        else -> R.string.tile_profile_balance
+                    })
                 }
                 tile.updateTile()
             }

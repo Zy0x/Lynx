@@ -1,5 +1,7 @@
 package com.noir.lynx.feature.cpu.ui.cluster.dialogs
 
+import com.noir.lynx.core.locale.localizedUiText
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -337,7 +339,7 @@ fun QuickTunablesBottomSheet(
                                                 )
                                                 Icon(
                                                     imageVector = Icons.Default.Edit,
-                                                    contentDescription = "Edit",
+                                                    contentDescription = localizedUiText("Edit"),
                                                     tint = clusterAccent.copy(alpha = 0.7f),
                                                     modifier = Modifier.size(12.dp)
                                                 )

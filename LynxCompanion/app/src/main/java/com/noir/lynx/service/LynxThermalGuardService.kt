@@ -1,5 +1,7 @@
 package com.noir.lynx.service
 
+import com.noir.lynx.core.locale.AppLocale
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -11,6 +13,7 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import com.noir.lynx.R
 import com.noir.lynx.data.LynxRepository
 import com.noir.lynx.safety.OEMRestoreManager
 import kotlinx.coroutines.*
@@ -56,7 +59,7 @@ class LynxThermalGuardService : Service() {
         }
         registerReceiver(screenReceiver, filter)
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildForegroundNotification("Thermal Safety Guard Aktif"))
+        startForeground(NOTIFICATION_ID, buildForegroundNotification(AppLocale.getString(this@LynxThermalGuardService, R.string.thermal_guard_notification_status)))
         startWatchdog()
     }
 
@@ -124,10 +127,10 @@ class LynxThermalGuardService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Lynx Thermal Guard",
+                AppLocale.getString(this@LynxThermalGuardService, R.string.thermal_guard_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Pemantauan keselamatan termal perangkat real-time"
+                description = AppLocale.getString(this@LynxThermalGuardService, R.string.thermal_guard_channel_description)
                 setShowBadge(false)
             }
             val nm = getSystemService(NotificationManager::class.java)
@@ -143,7 +146,7 @@ class LynxThermalGuardService : Service() {
             Notification.Builder(this)
         }
         return builder
-            .setContentTitle("Lynx Thermal Guard")
+            .setContentTitle(AppLocale.getString(this@LynxThermalGuardService, R.string.thermal_guard_channel_name))
             .setContentText(statusText)
             .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
             .setOngoing(true)

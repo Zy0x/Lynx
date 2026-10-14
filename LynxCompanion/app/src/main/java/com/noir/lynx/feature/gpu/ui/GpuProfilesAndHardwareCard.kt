@@ -8,6 +8,8 @@ import android.os.Handler
 import android.os.Looper
 import android.view.WindowManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.noir.lynx.R
 import kotlin.math.roundToInt
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -201,7 +203,7 @@ fun AdaptiveGpuHardwareCard(
                             val workingCount = gpu.hardwareFeatures.count { it.accessState == FeatureAccessState.VERIFIED_WORKING }
                             val totalCount = gpu.hardwareFeatures.size
                             Text(
-                                text = "$workingCount dari $totalCount Parameter Siap Dikonfigurasi",
+                                text = stringResource(R.string.gpu_configurable_parameters, workingCount, totalCount),
                                 color = AccentGreen,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold

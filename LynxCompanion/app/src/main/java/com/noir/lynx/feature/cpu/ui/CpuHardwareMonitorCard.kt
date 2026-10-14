@@ -378,7 +378,6 @@ fun CpuHardwareMonitorCard(
     // Hotplug Confirmation Dialog
     if (pendingHotplugCore != null) {
         val core = pendingHotplugCore!!
-        val actionText = if (core.isOnline) "mematikan (Offline)" else "mengaktifkan (Online)"
         AlertDialog(
             onDismissRequest = { pendingHotplugCore = null },
             containerColor = BgCard,
@@ -392,7 +391,7 @@ fun CpuHardwareMonitorCard(
             },
             text = {
                 Text(
-                    text = "Apakah Anda yakin ingin $actionText Core ${core.coreId}?",
+                    text = androidx.compose.ui.res.stringResource(if (core.isOnline) com.noir.lynx.R.string.cpu_core_disable_confirmation else com.noir.lynx.R.string.cpu_core_enable_confirmation, core.coreId),
                     fontSize = 12.sp,
                     color = TextSecondary
                 )

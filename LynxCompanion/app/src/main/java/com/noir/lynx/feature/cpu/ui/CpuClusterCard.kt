@@ -1,4 +1,6 @@
 package com.noir.lynx.feature.cpu.ui
+
+import com.noir.lynx.core.locale.localizedUiText
 import com.noir.lynx.feature.cpu.ui.CompactClusterRow
 
 import com.noir.lynx.designsystem.theme.*
@@ -282,7 +284,7 @@ fun CompactClusterRow(
                         ) {
                             Icon(
                                 imageVector = if (cluster.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                                contentDescription = "Kunci Frekuensi",
+                                contentDescription = localizedUiText("Kunci Frekuensi"),
                                 tint = if (cluster.isLocked) AccentRed else TextTertiary,
                                 modifier = Modifier.size(16.dp)
                             )

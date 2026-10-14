@@ -1,5 +1,7 @@
 package com.noir.lynx.ui
 
+import com.noir.lynx.core.locale.localizedUiText
+
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
@@ -325,7 +327,7 @@ fun TuningTabContent(
                                                 Box(contentAlignment = Alignment.Center) {
                                                     Icon(
                                                         imageVector = Icons.Default.ArrowBack,
-                                                        contentDescription = "Kembali ke Pusat Tuning",
+                                                        contentDescription = localizedUiText("Kembali ke Pusat Tuning"),
                                                         tint = TextPrimary,
                                                         modifier = Modifier.size(20.dp)
                                                     )

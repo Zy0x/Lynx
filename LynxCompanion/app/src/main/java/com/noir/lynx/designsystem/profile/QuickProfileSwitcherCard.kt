@@ -1,5 +1,7 @@
 package com.noir.lynx.designsystem.profile
 
+import com.noir.lynx.core.locale.localizedUiText
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -77,7 +79,7 @@ fun QuickProfileSwitcherCard(
                     Spacer(Modifier.width(3.dp))
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
-                        contentDescription = "Buka Profil Kustom",
+                        contentDescription = localizedUiText("Buka Profil Kustom"),
                         tint = AccentOrange,
                         modifier = Modifier.size(12.dp)
                     )

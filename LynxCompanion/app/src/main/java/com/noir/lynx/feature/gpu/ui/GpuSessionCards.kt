@@ -1,5 +1,9 @@
 package com.noir.lynx.feature.gpu.ui
 
+import com.noir.lynx.core.locale.AppLocale
+
+import com.noir.lynx.R
+
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
@@ -312,10 +316,10 @@ fun LabRecordCard(
             onClick = {
                 if (isRecording) {
                     onStopRecording()
-                    Toast.makeText(context, "Menganalisis sesi perekaman...", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, AppLocale.getString(context, R.string.toast_session_analyzing), Toast.LENGTH_SHORT).show()
                 } else {
                     onStartRecording(null)
-                    Toast.makeText(context, "Perekaman dimulai. Buka game/aplikasi Anda.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, AppLocale.getString(context, R.string.toast_recording_started), Toast.LENGTH_SHORT).show()
                 }
             },
             colors = ButtonDefaults.buttonColors(

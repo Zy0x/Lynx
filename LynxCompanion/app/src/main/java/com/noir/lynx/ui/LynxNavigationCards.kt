@@ -1,5 +1,8 @@
 package com.noir.lynx.ui
 
+import com.noir.lynx.R
+import androidx.compose.ui.res.stringResource
+
 import java.util.Locale
 import android.content.Context
 import android.hardware.display.DisplayManager
@@ -169,7 +172,7 @@ fun SubsystemCategoryCard(
             // Right Chevron (Indicating navigable into sub-screen)
             Icon(
                 imageVector = Icons.Default.ChevronRight,
-                contentDescription = "Buka ${category.title}",
+                contentDescription = stringResource(R.string.accessibility_open_category, category.title),
                 tint = TextTertiary,
                 modifier = Modifier.size(20.dp)
             )

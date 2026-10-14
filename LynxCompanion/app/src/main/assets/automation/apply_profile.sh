@@ -299,9 +299,9 @@ case "$PROFILE" in
             write_node "100" "/sys/module/ged/parameters/boost_upper_bound"
             # Disable Mali DVFS — freq dikunci via hardware PLL
             write_node "0" "/proc/mali/dvfs_enable"
-            # CPU response lebih cepat untuk render thread (240Hz budget)
+            # Improve CPU response for the render thread (240 Hz budget).
             write_node "4166666" "/sys/module/ged/parameters/target_t_cpu_remained"
-            # Route Mali/GPU IRQ ke big cores secara dinamis
+            # Dynamically route Mali/GPU IRQs to the big cores.
             big_mask=0
             max_cap=0
             for c in /sys/devices/system/cpu/cpu[0-9]*; do
@@ -345,7 +345,7 @@ case "$PROFILE" in
         write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
 
 
-        # MediaTek FPSGO — dimatikan di extreme (no FPS cap), aktif di performance
+        # Disable MediaTek FPSGO in extreme mode (no FPS cap); enable it in performance mode.
         if [ "$PROFILE" = "extreme" ]; then
             write_node "0" "/sys/kernel/fpsgo/common/fpsgo_enable"
             write_node "0" "/sys/kernel/fpsgo/fbt/thrm_limit_cpu"

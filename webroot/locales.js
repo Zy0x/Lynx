@@ -44,6 +44,11 @@
             [/^Menerapkan preset governor schedutil: (.+)\.\.\.$/, 'Applying schedutil governor preset: $1…'],
             [/^Governor preset (.+) diterapkan$/, 'Governor preset $1 applied'],
             [/^Deep Scan: Menemukan (.+) parameter hardware\/kernel yang dapat diatur!$/, 'Deep Scan: Found $1 configurable hardware/kernel parameters!']
+            ,[/^\+(.+) game lainnya$/, '+$1 more games']
+            ,[/^Laporan Diagnostik Berhasil Diekspor!\s+Lokasi file: (.+)$/, 'Diagnostic report exported successfully!\nFile location: $1']
+            ,[/^PERINGATAN FLASHING KERNEL:\s+Apakah Anda yakin ingin mem-flash kernel dari:\s+(.+)\?\s+Boot image saat ini akan otomatis dicadangkan terlebih dahulu\.$/, 'KERNEL FLASH WARNING:\nAre you sure you want to flash the kernel from:\n$1?\n\nThe current boot image will be backed up first.']
+            ,[/^PERINGATAN RESTORE BOOT:\s+Apakah Anda yakin ingin memulihkan partisi dari backup:\s+(.+)\?$/, 'BOOT RESTORE WARNING:\nAre you sure you want to restore the partition from this backup:\n$1?']
+            ,[/^Tidak ada parameter dalam kategori "(.+)"\.$/, 'No parameters in category "$1".']
         ];
         for (const [pattern, replacement] of dynamic) {
             if (pattern.test(source)) return source.replace(pattern, replacement);
@@ -56,9 +61,10 @@
         const source = originals.get(node);
         const clean = normalize(source);
         const key = sourceToKey[clean];
-        if (!clean || !key) return;
+        if (!clean) return;
         const match = String(source).match(/^(\s*)([\s\S]*?)(\s*)$/);
-        const replacement = catalogs[locale][key] || clean;
+        const replacement = (key && catalogs[locale][key]) || text(clean);
+        if (replacement === clean) return;
         const next = `${match[1]}${replacement}${match[3]}`;
         if (node.nodeValue !== next) node.nodeValue = next;
     }
@@ -73,9 +79,9 @@
         const source = values.get(name);
         if (!source) return;
         const key = sourceToKey[normalize(source)];
-        const translated = key ? catalogs[locale][key] : null;
+        const translated = (key && catalogs[locale][key]) || text(source);
         if (translated) {
-            const next = locale === 'en' ? translated : source;
+            const next = translated;
             if (element.getAttribute(name) !== next) element.setAttribute(name, next);
         }
     }

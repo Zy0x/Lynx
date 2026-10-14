@@ -1,4 +1,6 @@
 package com.noir.lynx.feature.cpu.ui
+
+import com.noir.lynx.core.locale.localizedUiText
 import com.noir.lynx.feature.cpu.ui.CompactClusterRow
 
 import com.noir.lynx.designsystem.theme.*
@@ -496,7 +498,7 @@ fun CpuSmartRecommendationBanner(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Tutup",
+                        contentDescription = localizedUiText("Tutup"),
                         tint = TextTertiary,
                         modifier = Modifier.size(13.dp)
                     )

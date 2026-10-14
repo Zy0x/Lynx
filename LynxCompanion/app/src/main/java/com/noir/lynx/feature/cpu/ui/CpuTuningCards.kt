@@ -1,5 +1,7 @@
 package com.noir.lynx.feature.cpu.ui
 
+import com.noir.lynx.core.locale.localizedUiText
+
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
@@ -212,7 +214,7 @@ fun CpuUnifiedPerformanceCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.LocalFireDepartment,
-                            contentDescription = "Ekstrem",
+                            contentDescription = localizedUiText("Ekstrem"),
                             tint = if (isExtremeSelected) AccentRed else TextSecondary,
                             modifier = Modifier.size(15.dp)
                         )
@@ -288,7 +290,7 @@ fun CpuUnifiedPerformanceCard(
 
             }
         }
-        // Standalone Level 2 Trigger: "Pengaturan Lanjutan"
+        // Standalone level 2 trigger: "Advanced settings".
         Surface(
             onClick = { isAdvancedExpanded = !isAdvancedExpanded },
             shape = RoundedCornerShape(16.dp),

@@ -1,5 +1,11 @@
 package com.noir.lynx.feature.gpu.ui
 
+import com.noir.lynx.core.locale.AppLocale
+
+import com.noir.lynx.R
+
+import com.noir.lynx.core.locale.localizedUiText
+
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
@@ -396,7 +402,7 @@ fun KernelNodesInspectorCard(
                 }
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Toggle",
+                    contentDescription = localizedUiText("Toggle"),
                     tint = cardAccent,
                     modifier = Modifier.size(18.dp)
                 )
@@ -419,7 +425,7 @@ fun KernelNodesInspectorCard(
                             .fillMaxWidth()
                             .clickable {
                                 clipboard.setText(AnnotatedString(node.path))
-                                Toast.makeText(context, "Path disalin: ${node.path}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, AppLocale.getString(context, R.string.toast_path_copied, node.path), Toast.LENGTH_SHORT).show()
                             }
                     ) {
                         Row(

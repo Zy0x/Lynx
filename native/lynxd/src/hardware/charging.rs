@@ -152,9 +152,34 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower.contains("bcct") {
+                        if t_lower.contains("bcct") || t_lower.contains("abcct") {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
-                            Self::write_node(&cur_path, val);
+                            if throttle {
+                                Self::set_perm(&cur_path, 0o666);
+                                Self::write_node(&cur_path, val);
+                            } else {
+                                Self::write_node_lock(&cur_path, val);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Restores write permissions to BCCT cooling devices so the kernel can manage them.
+    pub fn unlock_bcct() {
+        if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("cooling_device") {
+                    let type_path = format!("/sys/class/thermal/{}/type", name_str);
+                    if let Ok(t) = fs::read_to_string(&type_path) {
+                        let t_lower = t.trim().to_lowercase();
+                        if t_lower.contains("bcct") || t_lower.contains("abcct") {
+                            let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
+                            Self::set_perm(&cur_path, 0o666);
                         }
                     }
                 }
@@ -261,7 +286,7 @@ impl ChargingRegulator {
     pub fn probe_hardware_ceiling_ma() -> u32 {
         let cache_file = "/dev/lynx_orig_chg_max";
         if let Some(cached) = Self::read_i64(cache_file) {
-            if (2000..=30000).contains(&cached) {
+            if (3500..=30000).contains(&cached) {
                 return cached as u32;
             }
         }
@@ -271,7 +296,6 @@ impl ChargingRegulator {
             "/sys/class/power_supply/main/constant_charge_current_max",
             "/sys/class/power_supply/usb/hw_current_max",
             "/sys/devices/platform/charger/chg1_current",
-            "/sys/devices/platform/charger/sc_ibat_limit",
             "/sys/devices/platform/charger/input_current",
         ] {
             if let Some(val) = Self::read_i64(node) {
@@ -294,7 +318,7 @@ impl ChargingRegulator {
         let volt_mv = if volt_raw > 100_000 { volt_raw / 1000 } else { volt_raw };
         let is_dual_cell = volt_mv >= 7000 && volt_mv <= 12000;
 
-        let resolved = if max_ma >= 2000 {
+        let resolved = if max_ma >= 3500 {
             max_ma
         } else if is_dual_cell {
             12000
@@ -391,7 +415,6 @@ impl ChargingRegulator {
 
         Self::write_node("/sys/devices/platform/charger/BN_TestMode", "0");
         Self::write_node("/sys/devices/platform/charger/BatteryNotify", "1");
-        Self::write_node("/sys/devices/platform/charger/sw_jeita", "1");
     }
 
     /// Mode 1: True Hardware Bypass Charging (Zero Battery Current, Vsys powered by Adapter)
@@ -483,9 +506,9 @@ impl ChargingRegulator {
 
         let hw_ceiling = Self::probe_hardware_ceiling_ma();
         let target_peak_ma = if requested_ma >= 2000 {
-            requested_ma.min(hw_ceiling)
+            requested_ma.max(hw_ceiling)
         } else {
-            hw_ceiling
+            hw_ceiling.max(12000)
         };
 
         let effective_ma = if Self::is_laptop_port() {
@@ -508,22 +531,22 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/fast_charge", BATT_DIR), "1");
         Self::write_node(&format!("{}/boost_current", BATT_DIR), "1");
 
-        // 2. MediaTek Platform Enforcements & Dual Pump
-        for node in [
-            format!("{}/pe20", MTK_DIR),
-            format!("{}/pe40", MTK_DIR),
-            format!("{}/enable_sc", MTK_DIR),
-            format!("{}/BatteryNotify", MTK_DIR),
-            format!("{}/sw_jeita", MTK_DIR),
-        ] {
-            Self::write_node(&node, "1");
-        }
+        // 2. MediaTek Platform Enforcements & Dual Pump (Thermal & JEITA completely bypassed!)
+        Self::set_bcct_throttle(false);
+
+        Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
+        Self::write_node(&format!("{}/pe40", MTK_DIR), "1");
+        Self::write_node(&format!("{}/enable_sc", MTK_DIR), "1");
+        Self::write_node(&format!("{}/BatteryNotify", MTK_DIR), "1");
+        Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "0");
+        Self::write_node_lock(&format!("{}/sw_jeita", MTK_DIR), "0");
 
         // Active Maximum Push to MediaTek hardware registers with permission lock
-        Self::write_node_lock(&format!("{}/input_current", MTK_DIR), &effective_ma_str);
+        let mtk_input_str = if effective_ma > 33170 { effective_ma_str.clone() } else { "33170".to_string() };
+        Self::write_node_lock(&format!("{}/input_current", MTK_DIR), &mtk_input_str);
         Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
-        Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), &effective_ma_str);
-        Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), &effective_ma_str);
+        Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), &mtk_input_str);
+        Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), &mtk_input_str);
 
         // Dynamically uncap pdc_max_watt (never choke to 68W if device supports 120W+)
         let current_pdc = Self::read_i64(&format!("{}/pdc_max_watt", MTK_DIR)).unwrap_or(0);
@@ -543,8 +566,7 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/direct_charging", QC_DIR), "1");
         Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
         Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
-
-        // OEM thermal policy remains active in every fast-charge mode.
+        Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
     }
 
     /// Reasserts fast-charge negotiation and locks.
@@ -659,13 +681,14 @@ impl ChargingRegulator {
         let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
         Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
-        Self::set_bcct_throttle(false);
+        Self::unlock_bcct();
 
         // Restore standard charging flags
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
         Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
         Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "0");
         Self::write_node(&format!("{}/BatteryNotify", MTK_DIR), "1");
+        Self::set_perm(&format!("{}/sw_jeita", MTK_DIR), 0o666);
         Self::write_node(&format!("{}/sw_jeita", MTK_DIR), "1");
         Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), "33");
         Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
@@ -703,7 +726,7 @@ impl ChargingRegulator {
     pub fn apply_hyper_mode() {
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
         let _ = fs::write("/dev/lynx_charging_state", format!("state=hyper cap={}\n", cur_cap));
-        Self::apply_extreme_charging(100, true, 0);
+        Self::apply_extreme_charging(100, true, 12000);
     }
 
     /// Mode 4: Custom Mode (User-defined exact limit in mA)
@@ -821,18 +844,24 @@ impl ChargingRegulator {
         let cur_stat = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_else(|| "Unknown".to_string());
         let real_dc = Self::read_real_battery_temp_dc();
 
-        // Tier 1: Emergency Thermal & Cold Guards
-        if cfg.emergency_temp_guard_enabled && real_dc >= 490 {
-            let _ = fs::write("/dev/lynx_charging_guard", format!("guard_active=true temp={}\n", real_dc));
-            let _ = fs::remove_file("/dev/lynx_extreme_charging");
-            Self::apply_regulated_charging(750);
-            return;
-        } else if real_dc < 150 && real_dc > 0 {
-            // Cold Battery (< 15.0°C) Lithium Plating Guard
-            let _ = fs::write("/dev/lynx_charging_guard", format!("cold_guard_active=true temp={}\n", real_dc));
-            Self::apply_regulated_charging(1500);
-            return;
-        } else if real_dc <= 430 {
+        let is_hyper = cfg.charging_mode == "hyper" || cfg.extreme_charging_enabled;
+
+        // Tier 1: Emergency Thermal & Cold Guards (Bypassed if Hyper Mode is active)
+        if !is_hyper {
+            if cfg.emergency_temp_guard_enabled && real_dc >= 490 {
+                let _ = fs::write("/dev/lynx_charging_guard", format!("guard_active=true temp={}\n", real_dc));
+                let _ = fs::remove_file("/dev/lynx_extreme_charging");
+                Self::apply_regulated_charging(750);
+                return;
+            } else if real_dc < 150 && real_dc > 0 {
+                // Cold Battery (< 15.0°C) Lithium Plating Guard
+                let _ = fs::write("/dev/lynx_charging_guard", format!("cold_guard_active=true temp={}\n", real_dc));
+                Self::apply_regulated_charging(1500);
+                return;
+            } else if real_dc <= 430 {
+                let _ = fs::remove_file("/dev/lynx_charging_guard");
+            }
+        } else {
             let _ = fs::remove_file("/dev/lynx_charging_guard");
         }
 
@@ -850,7 +879,7 @@ impl ChargingRegulator {
             return;
         }
 
-        // Tier 4: Batas Pengisian Cerdas (Smart Battery Limit: 50% - 99%)
+        // Tier 4: Smart battery limit (50%–99%).
         // With 3% hysteresis buffer to prevent continuous flapping
         let smart_limit = cfg.max_battery_percent.clamp(0, 100) as u32;
         if smart_limit > 0 && smart_limit < 100 {
@@ -885,18 +914,18 @@ impl ChargingRegulator {
             }
         }
 
-        // Tier 5: Pengisian Sejuk Malam Hari (Overnight Gentle Charging: 23:00 - 06:00, 1500mA)
+        // Tier 5: Gentle overnight charging (23:00–06:00, 1500 mA).
         let is_night_time = {
             let h = Self::get_local_hour();
             h >= 23 || h < 6
         };
-        if cfg.night_sleep_guard_enabled && is_night_time {
+        if !is_hyper && cfg.night_sleep_guard_enabled && is_night_time {
             let _ = fs::write("/dev/lynx_charging_state", format!("state=night_gentle cap={}\n", cur_cap));
             Self::apply_regulated_charging(1500);
             return;
         }
 
-        if cfg.extreme_charging_enabled {
+        if is_hyper {
             Self::apply_hyper_mode();
             return;
         }
@@ -990,7 +1019,8 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_standard_charging");
         let _ = fs::remove_file("/dev/lynx_bypass_active");
         let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
-        Self::set_bcct_throttle(false);
+        Self::unlock_bcct();
+        Self::set_perm(&format!("{}/sw_jeita", MTK_DIR), 0o666);
         Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
         if !needs_session_cleanup {

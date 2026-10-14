@@ -1,5 +1,11 @@
 package com.noir.lynx.feature.gpu.ui
 
+import com.noir.lynx.core.locale.AppLocale
+
+import com.noir.lynx.R
+
+import com.noir.lynx.core.locale.localizedUiText
+
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
@@ -225,7 +231,7 @@ fun SessionSummaryCard(
             Surface(
                 onClick = {
                     onExportCsv()
-                    Toast.makeText(context, "Sesi diexport ke Download/Lynx/", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, AppLocale.getString(context, R.string.toast_session_exported), Toast.LENGTH_SHORT).show()
                 },
                 shape = RoundedCornerShape(8.dp),
                 color = BgElevated,
@@ -239,7 +245,7 @@ fun SessionSummaryCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.FileDownload,
-                        contentDescription = "Export CSV",
+                        contentDescription = localizedUiText("Export CSV"),
                         tint = cardAccent,
                         modifier = Modifier.size(16.dp)
                     )

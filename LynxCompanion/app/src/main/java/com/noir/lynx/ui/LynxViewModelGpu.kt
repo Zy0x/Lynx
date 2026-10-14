@@ -1,5 +1,9 @@
 package com.noir.lynx.ui
 
+import com.noir.lynx.core.locale.AppLocale
+
+import com.noir.lynx.R
+
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -495,9 +499,9 @@ fun LynxViewModel.clearShaderCache(context: android.content.Context) {
     viewModelScope.launch {
         val ok = LynxRepository.clearShaderCache()
         if (ok) {
-            android.widget.Toast.makeText(context, "Shader Cache Grafis Berhasil Dibersihkan", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, AppLocale.getString(context, R.string.toast_shader_cache_cleaned), android.widget.Toast.LENGTH_SHORT).show()
         } else {
-            android.widget.Toast.makeText(context, "Gagal membersihkan cache shader", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, AppLocale.getString(context, R.string.toast_shader_cache_failed), android.widget.Toast.LENGTH_SHORT).show()
         }
         delay(300L)
         refreshGraphicsHwui()
@@ -506,12 +510,12 @@ fun LynxViewModel.clearShaderCache(context: android.content.Context) {
 
 fun LynxViewModel.prewarmShaderCache(context: android.content.Context) {
     viewModelScope.launch {
-        android.widget.Toast.makeText(context, "Memulai pra-kompilasi shader AOT...", android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(context, AppLocale.getString(context, R.string.toast_shader_precompile_started), android.widget.Toast.LENGTH_SHORT).show()
         val ok = LynxRepository.prewarmShaderCache()
         if (ok) {
-            android.widget.Toast.makeText(context, "Pra-kompilasi Shader Selesai (Anti-Stutter Aktif)", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, AppLocale.getString(context, R.string.toast_shader_precompile_antistutter), android.widget.Toast.LENGTH_SHORT).show()
         } else {
-            android.widget.Toast.makeText(context, "Pra-kompilasi Shader Selesai", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, AppLocale.getString(context, R.string.toast_shader_precompile_done), android.widget.Toast.LENGTH_SHORT).show()
         }
         delay(300L)
         refreshGraphicsHwui()

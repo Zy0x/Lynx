@@ -368,7 +368,7 @@ fun MainDashboard(
                         )
                     )
 
-                    // Filter category chips (Semua, Game, Belum Dikonfigurasi)
+                    // Filter category chips (All, Games, Not Configured).
                     val allApps = uiState.installedAppList
                     val configuredPkgs = remember(uiState.appProfileRules) {
                         uiState.appProfileRules.map { it.packageName }.toSet()

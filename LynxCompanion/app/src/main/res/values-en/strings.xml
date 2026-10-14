@@ -6,6 +6,49 @@
     <string name="language_system" formatted="false">System</string>
     <string name="language_indonesian" formatted="false">Bahasa Indonesia</string>
     <string name="language_english" formatted="false">English</string>
+    <string name="accessibility_open_category">Open %1$s</string>
+    <string name="toast_hbm_unsupported" formatted="false">HBM is not supported by this display panel</string>
+    <string name="toast_overlay_permission_required" formatted="false">Display over other apps permission is required</string>
+    <string name="toast_path_copied">Path copied: %1$s</string>
+    <string name="toast_driver_path_copied" formatted="false">Driver path copied to clipboard</string>
+    <string name="toast_session_exported" formatted="false">Session exported to Download/Lynx/</string>
+    <string name="toast_session_analyzing" formatted="false">Analyzing recording session…</string>
+    <string name="toast_recording_started" formatted="false">Recording started. Open your game or app.</string>
+    <string name="toast_shader_cache_cleaned" formatted="false">Graphics shader cache cleaned successfully</string>
+    <string name="toast_shader_cache_failed" formatted="false">Failed to clean shader cache</string>
+    <string name="toast_shader_precompile_started" formatted="false">Starting AOT shader precompilation…</string>
+    <string name="toast_shader_precompile_antistutter" formatted="false">Shader precompilation complete (Anti-Stutter active)</string>
+    <string name="toast_shader_precompile_done" formatted="false">Shader precompilation complete</string>
+    <string name="tile_hbm_unsupported" formatted="false">HBM: Unsupported</string>
+    <string name="tile_hbm_subtitle_unsupported" formatted="false">Unsupported</string>
+    <string name="tile_hbm_subtitle_active" formatted="false">Outdoor Boost Active</string>
+    <string name="tile_hbm_subtitle_normal" formatted="false">Normal</string>
+    <string name="tile_hud_overlay_active" formatted="false">Overlay Active</string>
+    <string name="tile_hud_off" formatted="false">Off</string>
+    <string name="thermal_guard_channel_description" formatted="false">Real-time device thermal safety monitoring</string>
+    <string name="thermal_guard_notification_status" formatted="false">Thermal Safety Guard Active</string>
+    <string name="floating_hud_notification_title" formatted="false">Lynx Floating Game HUD Active</string>
+    <string name="floating_hud_notification_tap_close" formatted="false">Tap to open Lynx or close the overlay</string>
+    <string name="floating_hud_notification_tap" formatted="false">Tap to open Lynx</string>
+    <string name="automation_channel_description" formatted="false">Lynx Universal active performance profile status</string>
+    <string name="automation_standby_active" formatted="false">Standby Mode Active</string>
+    <string name="automation_game_active" formatted="false">Active Game / App</string>
+    <string name="thermal_guard_channel_name" formatted="false">Lynx Thermal Guard</string>
+    <string name="automation_channel_name" formatted="false">Lynx Universal Mode</string>
+    <string name="floating_hud_channel_name" formatted="false">Lynx Game HUD Overlay</string>
+    <string name="tile_profile_label_format">Lynx: %1$s</string>
+    <string name="profile_name_balance" formatted="false">Balance</string>
+    <string name="profile_name_performance" formatted="false">Performance</string>
+    <string name="profile_name_extreme" formatted="false">Extreme</string>
+    <string name="profile_name_powersave" formatted="false">Power Saver</string>
+    <string name="tile_profile_performance" formatted="false">High Performance</string>
+    <string name="tile_profile_extreme" formatted="false">Maximum Clock / Unrestricted</string>
+    <string name="tile_profile_powersave" formatted="false">Battery Saver</string>
+    <string name="tile_profile_balance" formatted="false">Balanced Daily</string>
+    <plurals name="thermal_sensor_count">
+        <item quantity="one">%1$d thermal sensor detected</item>
+        <item quantity="other">%1$d thermal sensors detected</item>
+    </plurals>
     <string name="tile_profile_label" formatted="false">Lynx Profile</string>
     <string name="tile_hbm_label" formatted="false">Lynx HBM</string>
     <string name="tile_hud_label" formatted="false">Lynx HUD</string>
@@ -263,7 +306,7 @@
     <string name="legacy_ui_fecedd0f96843a" formatted="false"># Write your shell script here…</string>
     <string name="legacy_ui_a318c24216defe" formatted="false">+</string>
     <string name="legacy_ui_3973e022e93220" formatted="false">-</string>
-    <string name="legacy_ui_6e4d59e534440e" formatted="false">/proc/sys/... atau /sys/...</string>
+    <string name="legacy_ui_6e4d59e534440e" formatted="false">/proc/sys/... or /sys/...</string>
     <string name="legacy_ui_d6db87a0890b88" formatted="false">/sdcard/Download/kernel.zip</string>
     <string name="legacy_ui_daf4a2d0387050" formatted="false">0.1% LOW FPS</string>
     <string name="legacy_ui_81d15aa18fa325" formatted="false">1% LOW FPS</string>
@@ -288,7 +331,7 @@
     <string name="legacy_ui_26d545922c53b4" formatted="false">BAT</string>
     <string name="legacy_ui_97c54cafc0491f" formatted="false">CPU LOAD</string>
     <string name="legacy_ui_5f52f732645aee" formatted="false">Cancel</string>
-    <string name="legacy_ui_c99f238aa541d9" formatted="false">Batalkan</string>
+    <string name="legacy_ui_c99f238aa541d9" formatted="false">Cancel</string>
     <string name="legacy_ui_92b265b88e52db" formatted="false">Current Limit (mA)</string>
     <string name="legacy_ui_f7c4b78e7fa2a1" formatted="false">Trip Limit</string>
     <string name="legacy_ui_2ba5d6c74e9ab0" formatted="false">Battery Guard</string>
@@ -351,7 +394,7 @@
     <string name="legacy_ui_3fc391cbe2f215" formatted="false">HUD active! Swipe the side rail or tap the HUD header for quick controls in a game.</string>
     <string name="legacy_ui_f3102b70ab5e6b" formatted="false">Pages Shared</string>
     <string name="legacy_ui_5c34c9dfb1282a" formatted="false">Shared Pages</string>
-    <string name="legacy_ui_10725a56892ea5" formatted="false">Hapus</string>
+    <string name="legacy_ui_10725a56892ea5" formatted="false">Delete</string>
     <string name="legacy_ui_d6620c8152dfa9" formatted="false">Delete Rule</string>
     <string name="legacy_ui_2ef57196e39785" formatted="false">Clear Overrides</string>
     <string name="legacy_ui_352b5905e31ced" formatted="false">Delete Profile?</string>
@@ -408,7 +451,7 @@
     <string name="legacy_ui_fa2d1d8d1a0437" formatted="false">MEDIAN FRAMETIME</string>
     <string name="legacy_ui_fde54abd49b386" formatted="false">MEM &amp; POWER</string>
     <string name="legacy_ui_3a656920cb56af" formatted="false">MHz</string>
-    <string name="legacy_ui_89654072314e89" formatted="false">MODE KERNEL</string>
+    <string name="legacy_ui_89654072314e89" formatted="false">KERNEL MODE</string>
     <string name="legacy_ui_9f3a7ed9f96ca4" formatted="false">CHIPSET MODEL</string>
     <string name="legacy_ui_869457d3611de2" formatted="false">Mali GED DVFS Margin (Boost Sensitivity)</string>
     <string name="legacy_ui_15f50112a6abd3" formatted="false">Immediately disable all CPU interventions without rebooting.</string>
@@ -512,7 +555,7 @@
     <string name="legacy_ui_1822aed79826b0" formatted="false">CPU TEMPERATURE</string>
     <string name="legacy_ui_735159687ac42a" formatted="false">SUCCESS (Read-back Verified)</string>
     <string name="legacy_ui_36b24972c48aa5" formatted="false">CORE LAYOUT</string>
-    <string name="legacy_ui_c56b3c6c123243" formatted="false">Salin</string>
+    <string name="legacy_ui_c56b3c6c123243" formatted="false">Copy</string>
     <string name="legacy_ui_3895d383699911" formatted="false">Worst Frame Drop Samples</string>
     <string name="legacy_ui_42a9e662aa21b3" formatted="false">Display Saturation</string>
     <string name="legacy_ui_d3a27d96cd0791" formatted="false">Scheduler</string>
@@ -569,7 +612,7 @@
     <string name="legacy_ui_170058a361e8b1" formatted="false">Trustzone TZ Governor Target Load</string>
     <string name="legacy_ui_d2050538981012" formatted="false">Write your own custom sysfs or shell commands. The script is saved to /data/adb/modules/Lynx/custom_rules.sh and runs automatically at boot through service.sh.</string>
     <string name="legacy_ui_1ec5bf5c8b038e" formatted="false">Tunables</string>
-    <string name="legacy_ui_c2321fe2ff9c12" formatted="false">Tutup</string>
+    <string name="legacy_ui_c2321fe2ff9c12" formatted="false">Close</string>
     <string name="legacy_ui_00a68defeb9a40" formatted="false">Close Customization</string>
     <string name="legacy_ui_d19f1bd59c4d02" formatted="false">Close Verification</string>
     <string name="legacy_ui_7532de338fbef5" formatted="false">UI Rendering Engine (HWUI)</string>
@@ -581,7 +624,7 @@
     <string name="legacy_ui_4466bc08ffa517" formatted="false">VENDOR IMPLEMENTER</string>
     <string name="legacy_ui_b1bf5c78730845" formatted="false">VPROC / VSRAM</string>
     <string name="legacy_ui_acf57be3a40ab9" formatted="false">Frame Time Variance (Deviation)</string>
-    <string name="legacy_ui_cfdd5274ddbe55" formatted="false">Verifikasi Pengembang (Sysfs)</string>
+    <string name="legacy_ui_cfdd5274ddbe55" formatted="false">Developer Verification (Sysfs)</string>
     <string name="legacy_ui_dc3cba824f654e" formatted="false">Writable Zones</string>
     <string name="legacy_ui_b4edcb99068877" formatted="false">Yes, Clear</string>
     <string name="legacy_ui_cbe5cfdf7c2118" formatted="false">|</string>
@@ -590,348 +633,348 @@
 
     <string name="legacy_ui_83364869d8fb74" formatted="false"> MHz</string>
     <string name="legacy_ui_bbf3f11cb5b43e" formatted="false">%</string>
-    <string name="legacy_ui_6ef0d427be3356" formatted="false">(Lihat)</string>
-    <string name="legacy_ui_5a27cb0237fde3" formatted="false">100% Akurat Kernel</string>
-    <string name="legacy_ui_50c7d394aed918" formatted="false">5 Engine Pipeline</string>
-    <string name="legacy_ui_140e9b43e2e516" formatted="false">6 Proses Sistem Kritis Dilindungi</string>
+    <string name="legacy_ui_6ef0d427be3356" formatted="false">(View)</string>
+    <string name="legacy_ui_5a27cb0237fde3" formatted="false">100% Kernel Accurate</string>
+    <string name="legacy_ui_50c7d394aed918" formatted="false">5 Engine Pipelines</string>
+    <string name="legacy_ui_140e9b43e2e516" formatted="false">6 Critical System Processes Protected</string>
     <string name="legacy_ui_7112922ab0cb16" formatted="false">ADB Wireless Keep-Alive &amp; Port Lock</string>
-    <string name="legacy_ui_e3acbcc5368ba5" formatted="false">AKTIVITAS CPU REAL-TIME</string>
+    <string name="legacy_ui_e3acbcc5368ba5" formatted="false">REAL-TIME CPU ACTIVITY</string>
     <string name="legacy_ui_b24985aed62433" formatted="false">ANGLE Vulkan</string>
     <string name="legacy_ui_6ef0e30638ab3b" formatted="false">API OPENGL ES</string>
     <string name="legacy_ui_2b23b5fa2166da" formatted="false">API VULKAN</string>
     <string name="legacy_ui_c3c4c57865ff2f" formatted="false">ARM PLL Hardware Power-Down</string>
     <string name="legacy_ui_5fda56e3db9e53" formatted="false">ARMv8.2-A</string>
-    <string name="legacy_ui_09febade9331ae" formatted="false">ARSITEKTUR SOC</string>
-    <string name="legacy_ui_2ae8c06530843c" formatted="false">Abaikan pembatasan pwrlevel &amp; throttling termal driver KGSL Qualcomm</string>
+    <string name="legacy_ui_09febade9331ae" formatted="false">SOC ARCHITECTURE</string>
+    <string name="legacy_ui_2ae8c06530843c" formatted="false">Ignore Qualcomm KGSL pwrlevel limits and driver thermal throttling</string>
     <string name="legacy_ui_51cae0ff619465" formatted="false">Adreno Force Rail Active</string>
-    <string name="legacy_ui_df2659c12f9ee0" formatted="false">Aggressive Doze (Paksa Idle)</string>
-    <string name="legacy_ui_01a812ee4f756a" formatted="false">Akselerasi Respons Sentuhan (Touch Boost)</string>
-    <string name="legacy_ui_e521b256bbe1d3" formatted="false">Akselerasi frekuensi instan jika frame terancam drop di bawah target FPS</string>
-    <string name="legacy_ui_4f2881f4d7431f" formatted="false">Akses Superuser Diperlukan</string>
-    <string name="legacy_ui_51f360c06ce1f7" formatted="false">Aktifkan algoritma prediksi beban cerdas GED untuk akselerasi clock GPU proaktif</string>
-    <string name="legacy_ui_ab1b2c79a6d5c9" formatted="false">Aktifkan jalur eksekusi prioritas tinggi GED GX khusus skenario beban grafis game</string>
-    <string name="legacy_ui_428c7d4e46863b" formatted="false">Algoritma penempatan tugas antar kluster (/sys/devices/system/cpu/eas/enable)</string>
-    <string name="legacy_ui_67b9d1a47f0408" formatted="false">Algoritma penskalaan frekuensi perangkat keras GPU Qualcomm Adreno</string>
-    <string name="legacy_ui_ae86c0579ebe9a" formatted="false">Algoritma penskalaan frekuensi standar /sys/kernel/gpu</string>
-    <string name="legacy_ui_0bcb87de314aad" formatted="false">Algoritma scaling frekuensi devfreq Linux kernel</string>
-    <string name="legacy_ui_15500cdd8c9773" formatted="false">Alokasi Memori, ZRAM &amp; Swap</string>
-    <string name="legacy_ui_57c8ad8761e7d0" formatted="false">Always-on meniadakan jeda latensi tidur/bangun GPU antar frame render</string>
-    <string name="legacy_ui_e118bc94502a54" formatted="false">Always-on menjaga shader core selalu aktif tanpa jeda bangun/tidur antar frame</string>
-    <string name="legacy_ui_630c23c5148cc7" formatted="false">Ambang Bawah Frekuensi CPU (Clock Floor)</string>
-    <string name="legacy_ui_c4d92d3807a0dc" formatted="false">Ambang batas temperatur trip point sebelum thermal daemon melakukan mitigasi</string>
-    <string name="legacy_ui_276cda13c6e1c0" formatted="false">Ambang batas temperatur trip point termal SoC sebelum thermal daemon mengambil tindakan perlindungan atau pemotongan performa clock.</string>
-    <string name="legacy_ui_3ef20fdea3eff9" formatted="false">Analisis Akar Penyebab Frame Drop</string>
+    <string name="legacy_ui_df2659c12f9ee0" formatted="false">Aggressive Doze (Force Idle)</string>
+    <string name="legacy_ui_01a812ee4f756a" formatted="false">Touch Response Acceleration (Touch Boost)</string>
+    <string name="legacy_ui_e521b256bbe1d3" formatted="false">Instantly boost frequency when a frame is at risk of dropping below the target FPS</string>
+    <string name="legacy_ui_4f2881f4d7431f" formatted="false">Superuser Access Required</string>
+    <string name="legacy_ui_51f360c06ce1f7" formatted="false">Enable the GED smart load prediction algorithm for proactive GPU clock boosting</string>
+    <string name="legacy_ui_ab1b2c79a6d5c9" formatted="false">Enable the high-priority GED GX execution path for gaming graphics workloads</string>
+    <string name="legacy_ui_428c7d4e46863b" formatted="false">Cross-cluster task placement algorithm (/sys/devices/system/cpu/eas/enable)</string>
+    <string name="legacy_ui_67b9d1a47f0408" formatted="false">Qualcomm Adreno GPU hardware frequency scaling algorithm</string>
+    <string name="legacy_ui_ae86c0579ebe9a" formatted="false">Standard frequency scaling algorithm /sys/kernel/gpu</string>
+    <string name="legacy_ui_0bcb87de314aad" formatted="false">Linux kernel devfreq frequency scaling algorithm</string>
+    <string name="legacy_ui_15500cdd8c9773" formatted="false">Memory Allocation, ZRAM &amp; Swap</string>
+    <string name="legacy_ui_57c8ad8761e7d0" formatted="false">Always-on removes GPU sleep/wake latency between rendered frames</string>
+    <string name="legacy_ui_e118bc94502a54" formatted="false">Always-on keeps shader cores active without sleep and wake delays between frames</string>
+    <string name="legacy_ui_630c23c5148cc7" formatted="false">CPU Minimum Frequency Threshold (Clock Floor)</string>
+    <string name="legacy_ui_c4d92d3807a0dc" formatted="false">Trip point temperature threshold before the thermal daemon applies mitigation</string>
+    <string name="legacy_ui_276cda13c6e1c0" formatted="false">SoC thermal trip point threshold before the thermal daemon applies protection or reduces clock performance.</string>
+    <string name="legacy_ui_3ef20fdea3eff9" formatted="false">Frame Drop Root Cause Analysis</string>
     <string name="legacy_ui_8e9e4fa63a8f36" formatted="false">Anti-Flicker DC Dimming (OLED)</string>
-    <string name="legacy_ui_d5ce0d8d91802d" formatted="false">Antrean Tugas Kernel Hemat Daya (Power-Efficient WQ)</string>
+    <string name="legacy_ui_d5ce0d8d91802d" formatted="false">Power-Efficient Kernel Work Queue (Power-Efficient WQ)</string>
     <string name="legacy_ui_e128b19a57be0d" formatted="false">AnyKernel3 Kernel Flasher</string>
-    <string name="legacy_ui_02250a9c0c8656" formatted="false">Aplikasi harmonis clock, boost, bus memori, dan pipeline render</string>
-    <string name="legacy_ui_51006d60406a99" formatted="false">Aplikasi sedang berjalan dalam Standalone Root Mode. Seluruh Telemetri, CPU Cluster Tuner, dan AnyKernel Flasher aktif mandiri! Untuk mengaktifkan Smart-AI foreground daemon dan Charging Bypass, Anda dapat memasang modul root Lynx.</string>
-    <string name="legacy_ui_f81b361d2e100a" formatted="false">Arsitektur Penjadwalan Inti</string>
-    <string name="legacy_ui_466ea38b1e6065" formatted="false">Arus</string>
-    <string name="legacy_ui_272e042b2f1e95" formatted="false">BINARY DRIVER FISIK</string>
-    <string name="legacy_ui_483cf064f1c7ef" formatted="false">Batas Suhu Thermal Custom</string>
-    <string name="legacy_ui_d090a0fa7bc5f2" formatted="false">Batas Suhu Thermal Custom (Trip Point)</string>
-    <string name="legacy_ui_7ef17ae0476f67" formatted="false">Beban Komputasi GPU</string>
-    <string name="legacy_ui_9a92110efb7fbc" formatted="false">Beban Sistem Total</string>
-    <string name="legacy_ui_de48b7549fa225" formatted="false">Belum ada backup partisi tersimpan.</string>
-    <string name="legacy_ui_994be64fdba8b0" formatted="false">Belum ada konfigurasi game/aplikasi. Tambahkan game favorit Anda untuk mengaktifkan Game Driver AOSP atau translasi ANGLE Vulkan.</string>
-    <string name="legacy_ui_ba3436df3fd371" formatted="false">Belum ada rekaman sesi. Mulai rekam pada panel di atas.</string>
-    <string name="legacy_ui_d17e92f4b8dc1f" formatted="false">Bersihkan Proses Latar Aman</string>
-    <string name="legacy_ui_673654fa0d5f10" formatted="false">Bersihkan RAM</string>
-    <string name="legacy_ui_d6867f5640c7fc" formatted="false">Buat Backup Boot Baru</string>
-    <string name="legacy_ui_4478bc7de67a4a" formatted="false">Buka Profil Kustom</string>
-    <string name="legacy_ui_a24bb342267faa" formatted="false">Bypass Baterai</string>
+    <string name="legacy_ui_02250a9c0c8656" formatted="false">Apply coordinated clock, boost, memory bus, and render pipeline settings</string>
+    <string name="legacy_ui_51006d60406a99" formatted="false">The app is running in Standalone Root Mode. Telemetry, CPU Cluster Tuner, and AnyKernel Flasher work independently. Install the Lynx root module to enable the Smart-AI foreground daemon and charging bypass.</string>
+    <string name="legacy_ui_f81b361d2e100a" formatted="false">Core Scheduling Architecture</string>
+    <string name="legacy_ui_466ea38b1e6065" formatted="false">Current</string>
+    <string name="legacy_ui_272e042b2f1e95" formatted="false">PHYSICAL DRIVER BINARY</string>
+    <string name="legacy_ui_483cf064f1c7ef" formatted="false">Custom Thermal Temperature Limit</string>
+    <string name="legacy_ui_d090a0fa7bc5f2" formatted="false">Custom Thermal Temperature Limit (Trip Point)</string>
+    <string name="legacy_ui_7ef17ae0476f67" formatted="false">GPU Compute Load</string>
+    <string name="legacy_ui_9a92110efb7fbc" formatted="false">Total System Load</string>
+    <string name="legacy_ui_de48b7549fa225" formatted="false">No partition backups saved yet.</string>
+    <string name="legacy_ui_994be64fdba8b0" formatted="false">No game or app rules yet. Add a favorite game to enable the AOSP Game Driver or ANGLE Vulkan translation.</string>
+    <string name="legacy_ui_ba3436df3fd371" formatted="false">No session recordings yet. Start recording in the panel above.</string>
+    <string name="legacy_ui_d17e92f4b8dc1f" formatted="false">Safely Clean Background Processes</string>
+    <string name="legacy_ui_673654fa0d5f10" formatted="false">Clean Memory</string>
+    <string name="legacy_ui_d6867f5640c7fc" formatted="false">Create New Boot Backup</string>
+    <string name="legacy_ui_4478bc7de67a4a" formatted="false">Open Custom Profile</string>
+    <string name="legacy_ui_a24bb342267faa" formatted="false">Battery Bypass</string>
     <string name="legacy_ui_ea98f60ff40d78" formatted="false">Bypass GPU Thermal Throttling</string>
     <string name="legacy_ui_8e9c95bf445d90" formatted="false">Bypass SurfaceFlinger Backpressure</string>
     <string name="legacy_ui_51843d0426d9a9" formatted="false">C-States</string>
-    <string name="legacy_ui_88f358aa4720ea" formatted="false">CPU (Prosesor)</string>
-    <string name="legacy_ui_379a427918dc78" formatted="false">CPU Anti-Throttling (Max Clock Lock)</string>
+    <string name="legacy_ui_88f358aa4720ea" formatted="false">CPU (Processor)</string>
+    <string name="legacy_ui_379a427918dc78" formatted="false">CPU Anti-Throttling (Maximum Clock Lock)</string>
     <string name="legacy_ui_e4abf9d0806067" formatted="false">CPU CONTROL CENTER</string>
     <string name="legacy_ui_1f87d85bae1c2a" formatted="false">CPU RESPONSE (GOVERNOR)</string>
     <string name="legacy_ui_5ea6a0f4e24411" formatted="false">CPU Sets &amp; Task Shield</string>
-    <string name="legacy_ui_b9e4ee975edb9a" formatted="false">Cadangan Partisi Boot</string>
-    <string name="legacy_ui_f847bf4a04063f" formatted="false">Cadangkan dan pulihkan partisi boot dan init_boot perangkat Anda kapan saja.</string>
+    <string name="legacy_ui_b9e4ee975edb9a" formatted="false">Boot Partition Backup</string>
+    <string name="legacy_ui_f847bf4a04063f" formatted="false">Back up and restore your device\'s boot and init_boot partitions at any time.</string>
     <string name="legacy_ui_45a9ee2c7eb266" formatted="false">Cluster 0: Efficiency (6x Cortex-A55)</string>
     <string name="legacy_ui_1a0b0bc7f2bd57" formatted="false">Codename: Deity</string>
-    <string name="legacy_ui_4f68b0dc084293" formatted="false">Contoh: 8000 (8A), 12000 (12A), 18000 (18A)</string>
+    <string name="legacy_ui_4f68b0dc084293" formatted="false">Example: 8000 (8A), 12000 (12A), 18000 (18A)</string>
     <string name="legacy_ui_26f1c771f29ff0" formatted="false">Core Efficiency &amp; C-States</string>
     <string name="legacy_ui_bbf2de02cbcaa4" formatted="false">Custom Shell Script Manager</string>
     <string name="legacy_ui_c37e097cad62cd" formatted="false">Custom Sysfs Rules &amp; Boot Tweaks</string>
     <string name="legacy_ui_89dbf710488016" formatted="false">DEFAULT</string>
-    <string name="legacy_ui_6caf8f680d8071" formatted="false">DIAGRAM ALOKASI INTI</string>
-    <string name="legacy_ui_6b1d7273ee0d71" formatted="false">DISTRIBUSI FREKUENSI DOMINAN (TIME-IN-STATE)</string>
-    <string name="legacy_ui_17c56df0e075bc" formatted="false">DISTRIBUSI KOMPOSISI BUFFER</string>
-    <string name="legacy_ui_8ea39cf81d0c57" formatted="false">Daftar dipotret saat Monitor dibuka; grafik CPU tetap live</string>
-    <string name="legacy_ui_cd847c02ec3f4a" formatted="false">Daftar histori benchmark frame pacing yang tersimpan secara lokal</string>
-    <string name="legacy_ui_f65142bc9c74e5" formatted="false">Daya ke motherboard (0 mA)</string>
+    <string name="legacy_ui_6caf8f680d8071" formatted="false">CORE ALLOCATION DIAGRAM</string>
+    <string name="legacy_ui_6b1d7273ee0d71" formatted="false">DOMINANT FREQUENCY DISTRIBUTION (TIME-IN-STATE)</string>
+    <string name="legacy_ui_17c56df0e075bc" formatted="false">BUFFER COMPOSITION DISTRIBUTION</string>
+    <string name="legacy_ui_8ea39cf81d0c57" formatted="false">The list is captured when the monitor opens; the CPU graph remains live</string>
+    <string name="legacy_ui_cd847c02ec3f4a" formatted="false">Locally stored frame pacing benchmark history</string>
+    <string name="legacy_ui_f65142bc9c74e5" formatted="false">Power to motherboard (0 mA)</string>
     <string name="legacy_ui_6717f5529455c0" formatted="false">Deep Kernel &amp; System Tunables</string>
     <string name="legacy_ui_1fe9e0317f3144" formatted="false">Discharging</string>
-    <string name="legacy_ui_973b32667ce77f" formatted="false">Disimpan dari konfigurasi Lynx</string>
+    <string name="legacy_ui_973b32667ce77f" formatted="false">Saved from Lynx configuration</string>
     <string name="legacy_ui_48694b47e10da8" formatted="false">Display HBM</string>
     <string name="legacy_ui_5da3844178cc9f" formatted="false">Display Refresh Rate &amp; Touch</string>
-    <string name="legacy_ui_ef4e9e3f43d29f" formatted="false">Distribusi SurfaceFlinger dan HWUI Canvas</string>
-    <string name="legacy_ui_d3bb00f0b01019" formatted="false">Diterapkan langsung ke kernel tanpa restart</string>
-    <string name="legacy_ui_ddb9712f719c26" formatted="false">Driver Grafis &amp; HWUI Engine</string>
-    <string name="legacy_ui_91f10e17fcfd08" formatted="false">Driver cpuidle kernel tidak mengekspos C-states pada perangkat ini.</string>
-    <string name="legacy_ui_25168ea5638375" formatted="false">Edit Aturan</string>
-    <string name="legacy_ui_bea7d5271236f2" formatted="false">Ekspor Laporan Diagnostik 1-Klik (.ZIP)</string>
-    <string name="legacy_ui_5f2f5f6c7e27d4" formatted="false">Ekspor Log Lengkap ke /sdcard/Debug/</string>
-    <string name="legacy_ui_c5956899bee0af" formatted="false">Ekstrem</string>
+    <string name="legacy_ui_ef4e9e3f43d29f" formatted="false">SurfaceFlinger and HWUI Canvas distribution</string>
+    <string name="legacy_ui_d3bb00f0b01019" formatted="false">Applied directly to the kernel without a restart</string>
+    <string name="legacy_ui_ddb9712f719c26" formatted="false">Graphics Driver &amp; HWUI Engine</string>
+    <string name="legacy_ui_91f10e17fcfd08" formatted="false">The kernel cpuidle driver does not expose C-states on this device.</string>
+    <string name="legacy_ui_25168ea5638375" formatted="false">Edit Rule</string>
+    <string name="legacy_ui_bea7d5271236f2" formatted="false">Export Diagnostic Report in One Click (.ZIP)</string>
+    <string name="legacy_ui_5f2f5f6c7e27d4" formatted="false">Export Full Log to /sdcard/Debug/</string>
+    <string name="legacy_ui_c5956899bee0af" formatted="false">Extreme</string>
     <string name="legacy_ui_91f71c14c8d6cc" formatted="false">Export CSV</string>
-    <string name="legacy_ui_dae23767c69036" formatted="false">FPSGO Ultra Rescue (Penyelamat Frame)</string>
+    <string name="legacy_ui_dae23767c69036" formatted="false">FPSGO Ultra Rescue (Frame Recovery)</string>
     <string name="legacy_ui_d769b458e1bd7b" formatted="false">FREQUENCY LEVELS (OPP)</string>
-    <string name="legacy_ui_192f5f482134d7" formatted="false">Flash Kernel Sekarang</string>
-    <string name="legacy_ui_45c16378a66ef5" formatted="false">Flash kernel kustom (ZIP) langsung dari sistem. Kernel lama akan otomatis dicadangkan sebelum proses penulisan.</string>
+    <string name="legacy_ui_192f5f482134d7" formatted="false">Flash Kernel Now</string>
+    <string name="legacy_ui_45c16378a66ef5" formatted="false">Flash a custom kernel (ZIP) from the system. The current kernel is backed up before writing.</string>
     <string name="legacy_ui_47389b24691e6a" formatted="false">Floating Game HUD (In-Game OSD)</string>
-    <string name="legacy_ui_1ddf10bdc368c9" formatted="false">Frekuensi Bus Memori &amp; Interkoneksi</string>
+    <string name="legacy_ui_1ddf10bdc368c9" formatted="false">Memory Bus &amp; Interconnect Frequency</string>
     <string name="legacy_ui_de187d5dfc6800" formatted="false">Full Thermal Bypass (Hardware Safety Dominant)</string>
-    <string name="legacy_ui_655de2e95b8e63" formatted="false">GAMUT &amp; RUANG WARNA</string>
-    <string name="legacy_ui_4d1fab2c9edd8f" formatted="false">GPU (Grafis)</string>
+    <string name="legacy_ui_655de2e95b8e63" formatted="false">GAMUT &amp; COLOR SPACE</string>
+    <string name="legacy_ui_4d1fab2c9edd8f" formatted="false">GPU (Graphics)</string>
     <string name="legacy_ui_0fadfa22881467" formatted="false">Gaming</string>
-    <string name="legacy_ui_5a8169fe00930a" formatted="false">Gaya Notifikasi &amp; Feedback Mode</string>
+    <string name="legacy_ui_5a8169fe00930a" formatted="false">Notification &amp; Mode Feedback Style</string>
     <string name="legacy_ui_ea65c4c5851eeb" formatted="false">HARDWARE COMPOSER</string>
     <string name="legacy_ui_656aa5b7bee5ba" formatted="false">HBM: Unsupported</string>
-    <string name="legacy_ui_fcd6a7c5067053" formatted="false">Hardware Asli Terverifikasi</string>
+    <string name="legacy_ui_fcd6a7c5067053" formatted="false">Verified Physical Hardware</string>
     <string name="legacy_ui_babf1c50d3277b" formatted="false">HeaderSubtitleMorph</string>
-    <string name="legacy_ui_ffb5ffa7f40b8f" formatted="false">Hemat</string>
-    <string name="legacy_ui_8abf331164b586" formatted="false">Hemat Daya</string>
+    <string name="legacy_ui_ffb5ffa7f40b8f" formatted="false">Power Saver</string>
+    <string name="legacy_ui_8abf331164b586" formatted="false">Power Saver</string>
     <string name="legacy_ui_15e4910c9b91cd" formatted="false">I/O Scheduler Manager</string>
-    <string name="legacy_ui_c31b1991638fa8" formatted="false">Identitas Silikon &amp; Driver</string>
-    <string name="legacy_ui_da10877ec315c5" formatted="false">Info Teknis</string>
-    <string name="legacy_ui_bdf3a4d21483e2" formatted="false">Informasi Kernel Hardware</string>
-    <string name="legacy_ui_d33c2d51f49d9e" formatted="false">Integritas Hardware</string>
-    <string name="legacy_ui_e7edc197219574" formatted="false">Interval evaluasi beban frekuensi driver Mali (nilai rendah = respons clock lebih cepat)</string>
-    <string name="legacy_ui_bd1c0b3eaad124" formatted="false">Interval evaluasi beban frekuensi driver Mali dalam milidetik (ms)</string>
-    <string name="legacy_ui_562beb693404da" formatted="false">Interval sampling beban GPU dalam milidetik (ms)</string>
-    <string name="legacy_ui_b2f9224243e1a5" formatted="false">Inti Prosesor</string>
-    <string name="legacy_ui_d1b3bc6fea37c9" formatted="false">Isolasi thread &amp; penugasan core per-grup cgroup</string>
-    <string name="legacy_ui_b5c722fc025ebc" formatted="false">Isolasi thread kernel &amp; prioritas inti</string>
-    <string name="legacy_ui_28f26f50cdc029" formatted="false">Jalankan CCleaner (Memory Purge)</string>
-    <string name="legacy_ui_66d70d6bcdf05d" formatted="false">Jika didukung perangkat, daya adaptor dialirkan ke sistem tanpa mengisi baterai.</string>
-    <string name="legacy_ui_f387e58b047d7a" formatted="false">KEMAMPUAN HARDWARE TERVERIFIKASI</string>
-    <string name="legacy_ui_d4af3ce086d4f1" formatted="false">KEPADATAN PIKSEL</string>
-    <string name="legacy_ui_eeb014aa80d9b8" formatted="false">KESEHATAN BUFFER FRAME</string>
+    <string name="legacy_ui_c31b1991638fa8" formatted="false">Silicon &amp; Driver Identity</string>
+    <string name="legacy_ui_da10877ec315c5" formatted="false">Technical Information</string>
+    <string name="legacy_ui_bdf3a4d21483e2" formatted="false">Hardware Kernel Information</string>
+    <string name="legacy_ui_d33c2d51f49d9e" formatted="false">Hardware Integrity</string>
+    <string name="legacy_ui_e7edc197219574" formatted="false">Mali driver frequency load evaluation interval (lower values = faster clock response)</string>
+    <string name="legacy_ui_bd1c0b3eaad124" formatted="false">Mali driver frequency load evaluation interval in milliseconds (ms)</string>
+    <string name="legacy_ui_562beb693404da" formatted="false">GPU load sampling interval in milliseconds (ms)</string>
+    <string name="legacy_ui_b2f9224243e1a5" formatted="false">Processor Cores</string>
+    <string name="legacy_ui_d1b3bc6fea37c9" formatted="false">Thread isolation and per-group cgroup core assignment</string>
+    <string name="legacy_ui_b5c722fc025ebc" formatted="false">Kernel thread isolation &amp; core priority</string>
+    <string name="legacy_ui_28f26f50cdc029" formatted="false">Run CCleaner (Memory Purge)</string>
+    <string name="legacy_ui_66d70d6bcdf05d" formatted="false">When supported by the device, adapter power is routed to the system without charging the battery.</string>
+    <string name="legacy_ui_f387e58b047d7a" formatted="false">VERIFIED HARDWARE CAPABILITIES</string>
+    <string name="legacy_ui_d4af3ce086d4f1" formatted="false">PIXEL DENSITY</string>
+    <string name="legacy_ui_eeb014aa80d9b8" formatted="false">FRAME BUFFER HEALTH</string>
     <string name="legacy_ui_1ac59ab29d3923" formatted="false">KGSL Memory Bus Always-On</string>
-    <string name="legacy_ui_cc27ae0d49b8ea" formatted="false">KONTROL KLUSTER CPU</string>
+    <string name="legacy_ui_cc27ae0d49b8ea" formatted="false">CPU CLUSTER CONTROLS</string>
     <string name="legacy_ui_ecb41acbd4eff8" formatted="false">KSM — Kernel Memory Merging</string>
-    <string name="legacy_ui_65fdd8c99d040b" formatted="false">Kalibrasi Warna Layar (Universal RGB)</string>
-    <string name="legacy_ui_08b7863c781726" formatted="false">Karakteristik fisik panel, resolusi, dan gamut warna</string>
-    <string name="legacy_ui_cddfe3ffb4f7da" formatted="false">Katalog &amp; Editor Preset Performa</string>
-    <string name="legacy_ui_6b33fc86db1328" formatted="false">Katalog Profil Kernel</string>
-    <string name="legacy_ui_df71b33a246f47" formatted="false">Kecepatan pengisian maksimal dengan daya penuh</string>
-    <string name="legacy_ui_50186d1f9cc3ba" formatted="false">Kecepatan refresh layar dinamis, sentuhan touchboost, dan panel</string>
-    <string name="legacy_ui_5663420ab034bf" formatted="false">Kembali ke Pusat Tuning</string>
+    <string name="legacy_ui_65fdd8c99d040b" formatted="false">Display Color Calibration (Universal RGB)</string>
+    <string name="legacy_ui_08b7863c781726" formatted="false">Physical panel characteristics, resolution, and color gamut</string>
+    <string name="legacy_ui_cddfe3ffb4f7da" formatted="false">Performance Preset Catalog &amp; Editor</string>
+    <string name="legacy_ui_6b33fc86db1328" formatted="false">Kernel Profile Catalog</string>
+    <string name="legacy_ui_df71b33a246f47" formatted="false">Maximum charging speed at full power</string>
+    <string name="legacy_ui_50186d1f9cc3ba" formatted="false">Dynamic display refresh rate, touch boost, and panel controls</string>
+    <string name="legacy_ui_5663420ab034bf" formatted="false">Back to Tuning Center</string>
     <string name="legacy_ui_b6ea647a156af9" formatted="false">Kernel Capability Matrix &amp; Node Inspector</string>
     <string name="legacy_ui_dfc7144003c972" formatted="false">Kernel Printk Silent Mode (Zero Overhead)</string>
     <string name="legacy_ui_cac647e72b86a8" formatted="false">Kernel dmesg Ring Buffer Viewer</string>
-    <string name="legacy_ui_01279482df25e7" formatted="false">Keseimbangan cerdas kecepatan dan suhu perangkat</string>
-    <string name="legacy_ui_189f46178aaec6" formatted="false">Kluster 1: Performa (2x Cortex-A76)</string>
-    <string name="legacy_ui_34e8209249bdc1" formatted="false">Kompositor grafis layar utama. Menjamin frame rate rendering tetap mulus.</string>
-    <string name="legacy_ui_2feb54f07ddbe3" formatted="false">Kompresi RAM Kernel</string>
-    <string name="legacy_ui_a9c85bbe0d7ebf" formatted="false">Konfigurasi Game Driver (ANGLE &amp; Refresh Rate) khusus per judul game</string>
-    <string name="legacy_ui_d358a51737b5ee" formatted="false">Konfigurasi telah disesuaikan di luar baseline master. Anda dapat mereset parameter agar kembali selaras.</string>
-    <string name="legacy_ui_d1c7528d957038" formatted="false">Konfirmasi CPU Hotplug</string>
-    <string name="legacy_ui_8c1ae0307876cb" formatted="false">Konfirmasi Mode Ekstrem</string>
-    <string name="legacy_ui_2169f6591cb973" formatted="false">Kontrol cpuset kernel (/dev/cpuset) tidak tersedia atau tidak diaktifkan pada sistem ini.</string>
-    <string name="legacy_ui_0ccdfe73dc761c" formatted="false">Kontrol frekuensi dual-pill, lock clock, dan grafik beban OPP</string>
-    <string name="legacy_ui_701c0ffd91d456" formatted="false">Korelasi timestamp frame drop terhadap clock, thermal, &amp; CPU queue</string>
-    <string name="legacy_ui_730dffc0315ab4" formatted="false">Kunci Afinitas Kluster Core (Taskset Seluruh Thread)</string>
-    <string name="legacy_ui_e42e9eab9ea1f8" formatted="false">Kunci Frekuensi</string>
-    <string name="legacy_ui_3133b87f039cbd" formatted="false">Kunci jalur DDR memory bus Adreno tetap aktif mencegah micro-stutter saat game</string>
-    <string name="legacy_ui_5dbf28b63d4434" formatted="false">Kustom</string>
-    <string name="legacy_ui_c7fe7df4d23244" formatted="false">Kustomisasi C-States &amp; Latensi</string>
+    <string name="legacy_ui_01279482df25e7" formatted="false">Smart balance between speed and device temperature</string>
+    <string name="legacy_ui_189f46178aaec6" formatted="false">Cluster 1: Performance (2x Cortex-A76)</string>
+    <string name="legacy_ui_34e8209249bdc1" formatted="false">Main display graphics compositor. Keeps rendering frame rates smooth.</string>
+    <string name="legacy_ui_2feb54f07ddbe3" formatted="false">Kernel RAM Compression</string>
+    <string name="legacy_ui_a9c85bbe0d7ebf" formatted="false">Per-game configuration for Game Driver (ANGLE &amp; refresh rate)</string>
+    <string name="legacy_ui_d358a51737b5ee" formatted="false">The configuration differs from the master baseline. Reset parameters to restore alignment.</string>
+    <string name="legacy_ui_d1c7528d957038" formatted="false">Confirm CPU Hotplug</string>
+    <string name="legacy_ui_8c1ae0307876cb" formatted="false">Confirm Extreme Mode</string>
+    <string name="legacy_ui_2169f6591cb973" formatted="false">Kernel cpuset controls (/dev/cpuset) are unavailable or disabled on this system.</string>
+    <string name="legacy_ui_0ccdfe73dc761c" formatted="false">Dual-pill frequency controls, clock lock, and OPP load graph</string>
+    <string name="legacy_ui_701c0ffd91d456" formatted="false">Correlate frame drop timestamps with clocks, thermals, and CPU queues</string>
+    <string name="legacy_ui_730dffc0315ab4" formatted="false">Lock Core Cluster Affinity (Taskset All Threads)</string>
+    <string name="legacy_ui_e42e9eab9ea1f8" formatted="false">Lock Frequency</string>
+    <string name="legacy_ui_3133b87f039cbd" formatted="false">Keep the Adreno DDR memory bus active to prevent gaming micro-stutter</string>
+    <string name="legacy_ui_5dbf28b63d4434" formatted="false">Custom</string>
+    <string name="legacy_ui_c7fe7df4d23244" formatted="false">C-State &amp; Latency Customization</string>
     <string name="legacy_ui_e169522d058357" formatted="false">LIVE PRECISION</string>
     <string name="legacy_ui_e7fc8c74ef76b9" formatted="false">LMK Minfree &amp; Entropy Tuner</string>
     <string name="legacy_ui_45b3ae4638a29e" formatted="false">LMK — Low Memory Killer</string>
     <string name="legacy_ui_bfc160483cb0e2" formatted="false">LOCKED</string>
-    <string name="legacy_ui_fba3e2dcfd9f0f" formatted="false">Layar utama perangkat. Diizinkan tuning dengan peringatan stabilitas.</string>
-    <string name="legacy_ui_d25f8d1510a838" formatted="false">Level akselerasi driver GED: 0=Mati (Hemat), 1=Normal Boost, 2=Hardcore Boost</string>
+    <string name="legacy_ui_fba3e2dcfd9f0f" formatted="false">The device\'s main display. Tuning is available with a stability warning.</string>
+    <string name="legacy_ui_d25f8d1510a838" formatted="false">GED driver acceleration level: 0=Off (Power Saver), 1=Normal Boost, 2=Hardcore Boost</string>
     <string name="legacy_ui_71f877a462792c" formatted="false">Live Benchmark &amp; Hardware Frame Profiler</string>
     <string name="legacy_ui_84b4a6bf814133" formatted="false">Live Hardware Benchmark &amp; Frame Pacing</string>
     <string name="legacy_ui_7975f2a611d0a2" formatted="false">Live Stream</string>
     <string name="legacy_ui_772988171935ff" formatted="false">Low-Latency Audio MMAP</string>
-    <string name="legacy_ui_ef7e5c6f054db6" formatted="false">Lumpuhkan software throttling • Proteksi silikon &amp; baterai tetap aktif (Phone Cooler Disarankan)</string>
+    <string name="legacy_ui_ef7e5c6f054db6" formatted="false">Disable software throttling • Silicon and battery protection remain active (phone cooler recommended)</string>
     <string name="legacy_ui_ecd3f4b5ec296f" formatted="false">Lynx App Icon</string>
     <string name="legacy_ui_5eb514816c8065" formatted="false">Lynx HUD</string>
     <string name="legacy_ui_42be3c3801a9d8" formatted="false">Lynx Kernel</string>
-    <string name="legacy_ui_23bfe1edbd7de9" formatted="false">Lynx Performance Lab mengukur frame presentation timestamps langsung dari SurfaceFlinger untuk mendeteksi micro-stutter, jank, variansi frame-time, serta korelasi drop frekuensi GPU dan thermal throttling secara presisi.</string>
-    <string name="legacy_ui_9e5f5b73830b15" formatted="false">MODE PENGISIAN DAYA</string>
-    <string name="legacy_ui_a70238c6eadc26" formatted="false">MODEL GPU</string>
-    <string name="legacy_ui_eb968d576bab9f" formatted="false">Maksimal</string>
-    <string name="legacy_ui_911067ab926380" formatted="false">Manajemen Rendering Per-Aplikasi</string>
-    <string name="legacy_ui_a0c60423ac47d0" formatted="false">Manajemen Warna Layar (Color Engine)</string>
-    <string name="legacy_ui_1f447097eff4e9" formatted="false">Manajer inti layanan Android (ActivityManager, WindowManager, PowerManager).</string>
-    <string name="legacy_ui_f325fcfbe2b460" formatted="false">Manipulasi Identitas SoC / GPU Terdeteksi</string>
-    <string name="legacy_ui_bcf65bac9db0b6" formatted="false">Master GPU Tuner &amp; Telemetri</string>
-    <string name="legacy_ui_8b7e8d765a0ce0" formatted="false">Master Sakelar Game HUD</string>
-    <string name="legacy_ui_e008b49696271c" formatted="false">Matikan PLL clock generator saat seluruh core dalam kluster berada di status idle.</string>
-    <string name="legacy_ui_8fbd3633b62c5c" formatted="false">Matriks Alokasi Core (CPU Sets)</string>
-    <string name="legacy_ui_f635ea316c7b4f" formatted="false">Matriks Core</string>
-    <string name="legacy_ui_0927aabc3ea603" formatted="false">Matriks Sensor Termal Hardware</string>
+    <string name="legacy_ui_23bfe1edbd7de9" formatted="false">Lynx Performance Lab reads frame presentation timestamps from SurfaceFlinger to detect micro-stutter, jank, frame-time variance, and correlations with GPU frequency drops and thermal throttling.</string>
+    <string name="legacy_ui_9e5f5b73830b15" formatted="false">CHARGING MODE</string>
+    <string name="legacy_ui_a70238c6eadc26" formatted="false">GPU MODEL</string>
+    <string name="legacy_ui_eb968d576bab9f" formatted="false">Maximum</string>
+    <string name="legacy_ui_911067ab926380" formatted="false">Per-App Rendering Management</string>
+    <string name="legacy_ui_a0c60423ac47d0" formatted="false">Display Color Management (Color Engine)</string>
+    <string name="legacy_ui_1f447097eff4e9" formatted="false">Core Android service managers (ActivityManager, WindowManager, PowerManager).</string>
+    <string name="legacy_ui_f325fcfbe2b460" formatted="false">SoC / GPU Identity Spoofing Detected</string>
+    <string name="legacy_ui_bcf65bac9db0b6" formatted="false">GPU Master Tuner &amp; Telemetry</string>
+    <string name="legacy_ui_8b7e8d765a0ce0" formatted="false">Game HUD Master Switch</string>
+    <string name="legacy_ui_e008b49696271c" formatted="false">Turn off the PLL clock generator when every core in the cluster is idle.</string>
+    <string name="legacy_ui_8fbd3633b62c5c" formatted="false">Core Allocation Matrix (CPU Sets)</string>
+    <string name="legacy_ui_f635ea316c7b4f" formatted="false">Core Matrix</string>
+    <string name="legacy_ui_0927aabc3ea603" formatted="false">Hardware Thermal Sensor Matrix</string>
     <string name="legacy_ui_61ff98848cb850" formatted="false">MediaTek FPSGO Frame Pacing</string>
-    <string name="legacy_ui_ff683e5cb4c7d5" formatted="false">Memindai thread render SurfaceFlinger &amp; HWUI...</string>
-    <string name="legacy_ui_f04412dd8723d6" formatted="false">Memori Fisik Utama</string>
+    <string name="legacy_ui_ff683e5cb4c7d5" formatted="false">Scanning SurfaceFlinger &amp; HWUI render threads...</string>
+    <string name="legacy_ui_f04412dd8723d6" formatted="false">Primary Physical Memory</string>
     <string name="legacy_ui_da1186f803010d" formatted="false">Memory &amp; Swappiness Cache</string>
-    <string name="legacy_ui_48d7b0f8ca5b29" formatted="false">Menahan frekuensi CPU agar tidak drop di bawah persentase ini saat game aktif</string>
-    <string name="legacy_ui_d2a4256ac8e2e5" formatted="false">Menahan frekuensi CPU agar tidak turun di bawah persentase ini saat aplikasi atau game sedang berjalan di foreground.</string>
-    <string name="legacy_ui_d868f0e770d430" formatted="false">Menaikkan sensitivitas GPU agar instan melompat ke clock tinggi saat beban naik</string>
-    <string name="legacy_ui_eaf701ce362cae" formatted="false">Mencegah GPU masuk ke status nap/slumber di sela komposisi frame</string>
-    <string name="legacy_ui_633ff1e329826d" formatted="false">Mencegah penurunan clock GPU tiba-tiba saat jeda frame antar render</string>
-    <string name="legacy_ui_8dadeaea1fef75" formatted="false">Mengaktifkan akselerasi sentuhan langsung di tingkat driver kernel. Pada MediaTek mengonfigurasi PerfMgr Touch Boost (/proc/perfmgr/tchbst/user/usrtch: eas_boost=100, touch_opp=0, deboost_when_render=0) serta mengaktifkan Game Mode pada IC digitizer layar (goodix_ts/tp_wake_switch). Pada Snapdragon mengaktifkan MSM Performance Touchboost, CPU Input Boost, serta devfreq bus wake.</string>
-    <string name="legacy_ui_886aa62136a4ad" formatted="false">Mengatur arsitektur penjadwalan inti, batas bawah kapasitas CPU (Uclamp/Schedtune), dan distribusi antrean kernel.</string>
-    <string name="legacy_ui_7db77a9dbe12e7" formatted="false">Mengatur kebijakan bandwidth interkoneksi antara GPU Adreno dan RAM LPDDR</string>
-    <string name="legacy_ui_47216f64453609" formatted="false">Menggunakan daya baterai</string>
-    <string name="legacy_ui_d5494ad46f2986" formatted="false">Menginisialisasi Kernel Root Engine...</string>
-    <string name="legacy_ui_817e9c33e7b14a" formatted="false">Menjaga perangkat tetap dingin untuk keawetan baterai</string>
-    <string name="legacy_ui_4b546aa5d57d7d" formatted="false">Menonaktifkan status tidur dalam (Deep C-States) akan memangkas micro-stuttering dan latensi bangun prosesor, namun sedikit meningkatkan konsumsi daya siaga.</string>
-    <string name="legacy_ui_c7731a043dabaa" formatted="false">Merekam Presentation Timestamps...</string>
-    <string name="legacy_ui_d817db976ab5ca" formatted="false">Mesin Anti-Throttling &amp; Trip Points</string>
-    <string name="legacy_ui_a44021e828a893" formatted="false">Mode Daya Silikon (Hardware DVFS)</string>
-    <string name="legacy_ui_ffedeb36596ad6" formatted="false">Mode Ekstrem akan mengunci seluruh core CPU pada frekuensi clock tertinggi dan menonaktifkan idle downclock. Suhu baterai dan SoC akan meningkat cepat. Disarankan menggunakan pendingin eksternal (phone cooler). Apakah Anda yakin?</string>
-    <string name="legacy_ui_fb2381592c0624" formatted="false">Mode Hyper</string>
-    <string name="legacy_ui_1f2fc640be93e4" formatted="false">Mode Interaksi OSD</string>
-    <string name="legacy_ui_230d1ec320f059" formatted="false">Mode Kontrol CPU</string>
-    <string name="legacy_ui_48c85f78db5c46" formatted="false">Mode Pengisian Daya</string>
-    <string name="legacy_ui_eedd784de630b3" formatted="false">Mode Performa Kernel</string>
-    <string name="legacy_ui_50f3e918abe1da" formatted="false">Mode Refresh Rate Panel (Kontrol di Tab Tuning)</string>
-    <string name="legacy_ui_a4c3761e5e39d8" formatted="false">Mode Sejuk</string>
-    <string name="legacy_ui_65a0a326112e17" formatted="false">Mode Standar</string>
-    <string name="legacy_ui_7221cd57c20908" formatted="false">Mode Tidur Daya</string>
-    <string name="legacy_ui_0768febb968cc3" formatted="false">Modul Lynx Deity Belum Terpasang</string>
-    <string name="legacy_ui_1aa0e15674bc4e" formatted="false">Modul eksternal memalsukan getprop userspace. Lynx secara otomatis mengisolasi driver kernel fisik demi menjaga kestabilan dan keamanan hardware.</string>
-    <string name="legacy_ui_317206e766912a" formatted="false">Monitor Sensor Thermal Hardware</string>
-    <string name="legacy_ui_059cd1205a3db5" formatted="false">Muat Ulang Sensor</string>
-    <string name="legacy_ui_cf8b42b327a521" formatted="false">Navigasi gesture, status bar, quick settings, dan notifikasi.</string>
-    <string name="legacy_ui_52e1f4893a7070" formatted="false">Netralisasi Daemon Termal OEM</string>
-    <string name="legacy_ui_0f92ecd8fa2eac" formatted="false">Netralkan Joyose / GOS Throttling</string>
-    <string name="legacy_ui_27d92bebbd3427" formatted="false">Node Kernel GPU &amp; Sysfs</string>
-    <string name="legacy_ui_dccd8214c5fb92" formatted="false">Nonaktif (0 MB)</string>
-    <string name="legacy_ui_10fa390c898387" formatted="false">Nonaktifkan penurunan paksa OPP GPU oleh tabel limiter THERMAL, BATT_LOW, dan PBM</string>
-    <string name="legacy_ui_1db912011ca127" formatted="false">Notifikasi status overlay Game HUD Lynx</string>
-    <string name="legacy_ui_bf8fafef76b5df" formatted="false">OEM Locked (Tidak didukung hardware/kernel ini)</string>
+    <string name="legacy_ui_48d7b0f8ca5b29" formatted="false">Keep CPU frequency above this percentage while a game is active</string>
+    <string name="legacy_ui_d2a4256ac8e2e5" formatted="false">Keep CPU frequency above this percentage while an app or game is in the foreground.</string>
+    <string name="legacy_ui_d868f0e770d430" formatted="false">Increase GPU sensitivity so it jumps to a higher clock as soon as load rises</string>
+    <string name="legacy_ui_eaf701ce362cae" formatted="false">Prevent the GPU from entering nap or slumber between frame composition cycles</string>
+    <string name="legacy_ui_633ff1e329826d" formatted="false">Prevent sudden GPU clock drops during gaps between rendered frames</string>
+    <string name="legacy_ui_8dadeaea1fef75" formatted="false">Enables touch acceleration in the kernel driver. On MediaTek, configures PerfMgr Touch Boost (/proc/perfmgr/tchbst/user/usrtch: eas_boost=100, touch_opp=0, deboost_when_render=0) and Game Mode on the display digitizer IC (goodix_ts/tp_wake_switch). On Snapdragon, enables MSM Performance Touchboost, CPU Input Boost, and devfreq bus wake.</string>
+    <string name="legacy_ui_886aa62136a4ad" formatted="false">Configure core scheduling, CPU capacity floors (Uclamp/Schedtune), and kernel queue distribution.</string>
+    <string name="legacy_ui_7db77a9dbe12e7" formatted="false">Configure interconnect bandwidth policy between the Adreno GPU and LPDDR RAM</string>
+    <string name="legacy_ui_47216f64453609" formatted="false">Using battery power</string>
+    <string name="legacy_ui_d5494ad46f2986" formatted="false">Initializing the kernel root engine...</string>
+    <string name="legacy_ui_817e9c33e7b14a" formatted="false">Keeps the device cool to extend battery life</string>
+    <string name="legacy_ui_4b546aa5d57d7d" formatted="false">Disabling deep sleep states (Deep C-States) can reduce micro-stuttering and processor wake latency, but slightly increases standby power use.</string>
+    <string name="legacy_ui_c7731a043dabaa" formatted="false">Recording presentation timestamps...</string>
+    <string name="legacy_ui_d817db976ab5ca" formatted="false">Anti-Throttling Engine &amp; Trip Points</string>
+    <string name="legacy_ui_a44021e828a893" formatted="false">Silicon Power Mode (Hardware DVFS)</string>
+    <string name="legacy_ui_ffedeb36596ad6" formatted="false">Extreme Mode locks all CPU cores at their highest clock frequency and disables idle downclocking. Battery and SoC temperatures will rise quickly. An external phone cooler is recommended. Are you sure?</string>
+    <string name="legacy_ui_fb2381592c0624" formatted="false">Hyper Mode</string>
+    <string name="legacy_ui_1f2fc640be93e4" formatted="false">OSD Interaction Mode</string>
+    <string name="legacy_ui_230d1ec320f059" formatted="false">CPU Control Mode</string>
+    <string name="legacy_ui_48c85f78db5c46" formatted="false">Charging Mode</string>
+    <string name="legacy_ui_eedd784de630b3" formatted="false">Kernel Performance Mode</string>
+    <string name="legacy_ui_50f3e918abe1da" formatted="false">Panel Refresh Rate Mode (controls are in the Tuning tab)</string>
+    <string name="legacy_ui_a4c3761e5e39d8" formatted="false">Cool Mode</string>
+    <string name="legacy_ui_65a0a326112e17" formatted="false">Standard Mode</string>
+    <string name="legacy_ui_7221cd57c20908" formatted="false">Power Sleep Mode</string>
+    <string name="legacy_ui_0768febb968cc3" formatted="false">Lynx Deity Module Not Installed</string>
+    <string name="legacy_ui_1aa0e15674bc4e" formatted="false">An external module is spoofing userspace getprop. Lynx isolates the physical kernel driver to protect hardware stability and safety.</string>
+    <string name="legacy_ui_317206e766912a" formatted="false">Hardware Thermal Sensor Monitor</string>
+    <string name="legacy_ui_059cd1205a3db5" formatted="false">Reload Sensors</string>
+    <string name="legacy_ui_cf8b42b327a521" formatted="false">Gesture navigation, status bar, quick settings, and notifications.</string>
+    <string name="legacy_ui_52e1f4893a7070" formatted="false">Neutralize OEM Thermal Daemon</string>
+    <string name="legacy_ui_0f92ecd8fa2eac" formatted="false">Neutralize Joyose / GOS Throttling</string>
+    <string name="legacy_ui_27d92bebbd3427" formatted="false">GPU Kernel &amp; Sysfs Nodes</string>
+    <string name="legacy_ui_dccd8214c5fb92" formatted="false">Disabled (0 MB)</string>
+    <string name="legacy_ui_10fa390c898387" formatted="false">Disable forced GPU OPP reductions by the THERMAL, BATT_LOW, and PBM limiter tables</string>
+    <string name="legacy_ui_1db912011ca127" formatted="false">Lynx Game HUD overlay status notifications</string>
+    <string name="legacy_ui_bf8fafef76b5df" formatted="false">OEM Locked (not supported by this hardware or kernel)</string>
     <string name="legacy_ui_daaa10bb848865" formatted="false">Octa-Core SoC Topology</string>
-    <string name="legacy_ui_d290a777a63dba" formatted="false">Optimasi SQLite &amp; FSTRIM Storage</string>
-    <string name="legacy_ui_538b21db8b70cc" formatted="false">Optimasi driver produksi game, backend Vulkan, dan latency render</string>
-    <string name="legacy_ui_77cdd2a46775f7" formatted="false">Overlay performa mengambang real-time di atas game fullscreen</string>
-    <string name="legacy_ui_6d332de0d68104" formatted="false">PERFORMA CPU &amp; KLUSTER</string>
-    <string name="legacy_ui_cb4c9843ef7518" formatted="false">PILIH PROFIL PERFORMA</string>
-    <string name="legacy_ui_7cd7554f6bb0ef" formatted="false">PRESET EFISIENSI TERPADU</string>
-    <string name="legacy_ui_05333cfad85c8d" formatted="false">PROFIL ISOLASI CORE</string>
-    <string name="legacy_ui_1dbea56b79890d" formatted="false">PROFIL PERFORMA CPU</string>
-    <string name="legacy_ui_002ba4269ddbfc" formatted="false">PROSES CPU AKTIF (SNAPSHOT)</string>
+    <string name="legacy_ui_d290a777a63dba" formatted="false">SQLite &amp; FSTRIM Storage Optimization</string>
+    <string name="legacy_ui_538b21db8b70cc" formatted="false">Game driver production optimization, Vulkan backend, and render latency</string>
+    <string name="legacy_ui_77cdd2a46775f7" formatted="false">Real-time performance overlay over fullscreen games</string>
+    <string name="legacy_ui_6d332de0d68104" formatted="false">CPU &amp; CLUSTER PERFORMANCE</string>
+    <string name="legacy_ui_cb4c9843ef7518" formatted="false">SELECT PERFORMANCE PROFILE</string>
+    <string name="legacy_ui_7cd7554f6bb0ef" formatted="false">INTEGRATED EFFICIENCY PRESET</string>
+    <string name="legacy_ui_05333cfad85c8d" formatted="false">CORE ISOLATION PROFILE</string>
+    <string name="legacy_ui_1dbea56b79890d" formatted="false">CPU PERFORMANCE PROFILE</string>
+    <string name="legacy_ui_002ba4269ddbfc" formatted="false">ACTIVE CPU PROCESSES (SNAPSHOT)</string>
     <string name="legacy_ui_53b6d9cb3e765a" formatted="false">Pages to Scan per Cycle</string>
     <string name="legacy_ui_72a332c8aac20c" formatted="false">Paging Disk File</string>
-    <string name="legacy_ui_5f39ec0bc9adc2" formatted="false">Pakar</string>
-    <string name="legacy_ui_f6d6a260c02cbb" formatted="false">Paksa 4x Multisample Anti-Aliasing (MSAA)</string>
-    <string name="legacy_ui_d3cf3e9cdd8c72" formatted="false">Paksa jalur daya power rail GPU aktif bertenaga selama gaming</string>
-    <string name="legacy_ui_42a8cab1dec058" formatted="false">Paksa seluruh unit komputasi shader core aktif tanpa pemadaman termal OEM</string>
-    <string name="legacy_ui_d52c1f8f543f2f" formatted="false">Panel Layar &amp; Engine Visual</string>
-    <string name="legacy_ui_5790bf37439be3" formatted="false">Pangkas jeda penantian sinkronisasi 3D fence untuk latensi antrean frame lebih cepat</string>
-    <string name="legacy_ui_45fe1cb8224b45" formatted="false">Pantau FPS hardware, clock CPU/GPU, daya baterai (Watt), dan pengalih profil instan langsung di atas game Anda.</string>
-    <string name="legacy_ui_89554ce3c0393b" formatted="false">Pasang Modul Lynx Deity Sekarang</string>
-    <string name="legacy_ui_dd89e5b365e975" formatted="false">Pemantauan keselamatan termal perangkat real-time</string>
-    <string name="legacy_ui_8abdc9e91b4641" formatted="false">Pemeliharaan &amp; Diagnostik 1-Klik</string>
-    <string name="legacy_ui_d6588dc8ee5b61" formatted="false">Pemeriksaan node kernel langsung, status perizinan, dan kendali clock</string>
-    <string name="legacy_ui_092f4f97ea4ab0" formatted="false">Pengaturan Lanjutan</string>
-    <string name="legacy_ui_5c821297861f6e" formatted="false">Pengontrol driver sentuhan layar dan responsivitas touch input.</string>
-    <string name="legacy_ui_bf02168a08dec4" formatted="false">Penyesuaian kanal warna Red, Green, Blue tingkat sistem Android</string>
-    <string name="legacy_ui_7468eeafb00a94" formatted="false">Perekam frame-pacing real-time untuk game &amp; aplikasi aktif</string>
+    <string name="legacy_ui_5f39ec0bc9adc2" formatted="false">Expert</string>
+    <string name="legacy_ui_f6d6a260c02cbb" formatted="false">Force 4x Multisample Anti-Aliasing (MSAA)</string>
+    <string name="legacy_ui_d3cf3e9cdd8c72" formatted="false">Keep the GPU power rail active during gaming</string>
+    <string name="legacy_ui_42a8cab1dec058" formatted="false">Keep all shader compute units active without OEM thermal shutdown</string>
+    <string name="legacy_ui_d52c1f8f543f2f" formatted="false">Display Panel &amp; Visual Engine</string>
+    <string name="legacy_ui_5790bf37439be3" formatted="false">Reduce 3D fence synchronization waits for lower frame queue latency</string>
+    <string name="legacy_ui_45fe1cb8224b45" formatted="false">Monitor hardware FPS, CPU/GPU clocks, battery power (watts), and switch profiles over your game in real time.</string>
+    <string name="legacy_ui_89554ce3c0393b" formatted="false">Install Lynx Deity Module Now</string>
+    <string name="legacy_ui_dd89e5b365e975" formatted="false">Real-time device thermal safety monitoring</string>
+    <string name="legacy_ui_8abdc9e91b4641" formatted="false">One-Click Maintenance &amp; Diagnostics</string>
+    <string name="legacy_ui_d6588dc8ee5b61" formatted="false">Direct kernel node checks, permission status, and clock controls</string>
+    <string name="legacy_ui_092f4f97ea4ab0" formatted="false">Advanced Settings</string>
+    <string name="legacy_ui_5c821297861f6e" formatted="false">Touchscreen driver control and touch input responsiveness.</string>
+    <string name="legacy_ui_bf02168a08dec4" formatted="false">System-wide Android Red, Green, and Blue channel adjustment</string>
+    <string name="legacy_ui_7468eeafb00a94" formatted="false">Real-time frame pacing recorder for active games and apps</string>
     <string name="legacy_ui_116eb77f982796" formatted="false">Performance Lab — Frame Recorder</string>
-    <string name="legacy_ui_b2ce871ed02569" formatted="false">Peringatan Konflik</string>
-    <string name="legacy_ui_a828417740961f" formatted="false">Pertahankan Plafon Clock Puncak (Anti-Throttling)</string>
-    <string name="legacy_ui_0a25520273d052" formatted="false">Pertahankan Port ADB Saat Layar Mati</string>
-    <string name="legacy_ui_86a7a93b9e59cb" formatted="false">Pilih Respon CPU (Governor)</string>
-    <string name="legacy_ui_b7a376dbdf29b1" formatted="false">Pilih Tema Aksen</string>
-    <string name="legacy_ui_a53aec4690a725" formatted="false">Pilih gaya umpan balik visual saat profil performa kernel diubah melalui header, katalog, atau otomasi aplikasi.</string>
-    <string name="legacy_ui_091b4fd79c6f38" formatted="false">Pilih prioritas kecepatan dan kontrol termal</string>
-    <string name="legacy_ui_e8cdf22fd02a82" formatted="false">Pilihan Gaya Tampilan OSD</string>
-    <string name="legacy_ui_e1d3b23b1d6f65" formatted="false">Pipeline Komposisi Grafis</string>
-    <string name="legacy_ui_200abce372b738" formatted="false">Pre-Warm mengompilasi Ahead-of-Time shader game untuk mencegah micro-stutter saat bermain. Bersihkan menghapus cache shader yang bengkak atau korup.</string>
-    <string name="legacy_ui_2e66d2ad34782e" formatted="false">Preset Cepat 1-Klik</string>
-    <string name="legacy_ui_0015b1958aa2d4" formatted="false">Preset Cepat GPU (One-Click Profiles)</string>
-    <string name="legacy_ui_5092731272dadd" formatted="false">Preset Termal Cepat</string>
-    <string name="legacy_ui_50c55c444989fc" formatted="false">Prioritas Core Menganggur (Top-App Prefer Idle)</string>
-    <string name="legacy_ui_7f312f220ea8f4" formatted="false">Prioritas Penjadwalan CPU (Renice Seluruh Thread)</string>
-    <string name="legacy_ui_67a82fe309d777" formatted="false">Prioritaskan alokasi resource frame buffer FBT untuk aplikasi atau game aktif di layar</string>
-    <string name="legacy_ui_9ce1f0c5361eee" formatted="false">Profil bawaan Lynx</string>
-    <string name="legacy_ui_7a974e9ef3c769" formatted="false">Proporsi Gabungan Waktu Berjalan</string>
-    <string name="legacy_ui_f049f881a999fb" formatted="false">Proses Render Grafis Aktif</string>
-    <string name="legacy_ui_ba69dbba92f92c" formatted="false">Proses induk yang melahirkan seluruh aplikasi di ekosistem Android.</string>
-    <string name="legacy_ui_5659eacfcd18bb" formatted="false">Proses-proses berikut diproteksi secara permanen oleh Lynx Safety Guard. Mereka tidak dapat dibatasi ke Little Core saja demi mencegah crash, lag gesture, atau freeze UI.</string>
-    <string name="legacy_ui_de66944d2aa034" formatted="false">Pulihkan snapshot trip point cold-boot • Driver proteksi pabrik aktif</string>
-    <string name="legacy_ui_b9feccc0ffd43c" formatted="false">Pusat Pemulihan CPU</string>
-    <string name="legacy_ui_b1073c70b215fd" formatted="false">RAM Fisik</string>
+    <string name="legacy_ui_b2ce871ed02569" formatted="false">Conflict Warning</string>
+    <string name="legacy_ui_a828417740961f" formatted="false">Maintain Peak Clock Ceiling (Anti-Throttling)</string>
+    <string name="legacy_ui_0a25520273d052" formatted="false">Keep ADB Port Active When the Screen Is Off</string>
+    <string name="legacy_ui_86a7a93b9e59cb" formatted="false">Choose CPU Response (Governor)</string>
+    <string name="legacy_ui_b7a376dbdf29b1" formatted="false">Choose Accent Theme</string>
+    <string name="legacy_ui_a53aec4690a725" formatted="false">Choose the visual feedback shown when the kernel performance profile changes from the header, catalog, or app automation.</string>
+    <string name="legacy_ui_091b4fd79c6f38" formatted="false">Choose a speed priority and thermal control level</string>
+    <string name="legacy_ui_e8cdf22fd02a82" formatted="false">OSD Display Style Options</string>
+    <string name="legacy_ui_e1d3b23b1d6f65" formatted="false">Graphics Composition Pipeline</string>
+    <string name="legacy_ui_200abce372b738" formatted="false">Pre-Warm compiles game shaders ahead of time to prevent in-game micro-stutter. Clean removes bloated or corrupted shader caches.</string>
+    <string name="legacy_ui_2e66d2ad34782e" formatted="false">One-Click Quick Presets</string>
+    <string name="legacy_ui_0015b1958aa2d4" formatted="false">Quick GPU Presets (One-Click Profiles)</string>
+    <string name="legacy_ui_5092731272dadd" formatted="false">Quick Thermal Presets</string>
+    <string name="legacy_ui_50c55c444989fc" formatted="false">Idle Core Priority (Top-App Prefer Idle)</string>
+    <string name="legacy_ui_7f312f220ea8f4" formatted="false">CPU Scheduling Priority (Renice All Threads)</string>
+    <string name="legacy_ui_67a82fe309d777" formatted="false">Prioritize FBT frame buffer allocation for the app or game currently on screen</string>
+    <string name="legacy_ui_9ce1f0c5361eee" formatted="false">Lynx default profile</string>
+    <string name="legacy_ui_7a974e9ef3c769" formatted="false">Combined Runtime Proportion</string>
+    <string name="legacy_ui_f049f881a999fb" formatted="false">Active Graphics Render Process</string>
+    <string name="legacy_ui_ba69dbba92f92c" formatted="false">The parent process that launches apps in the Android ecosystem.</string>
+    <string name="legacy_ui_5659eacfcd18bb" formatted="false">Lynx Safety Guard permanently protects the following processes. They cannot be restricted to Little Cores, which could cause crashes, gesture lag, or UI freezes.</string>
+    <string name="legacy_ui_de66944d2aa034" formatted="false">Restore cold-boot trip point snapshot • Factory protection driver active</string>
+    <string name="legacy_ui_b9feccc0ffd43c" formatted="false">CPU Recovery Center</string>
+    <string name="legacy_ui_b1073c70b215fd" formatted="false">Physical RAM</string>
     <string name="legacy_ui_edaaae94f3dbbd" formatted="false">REAL-TIME</string>
-    <string name="legacy_ui_3e361aa53ffcf8" formatted="false">RENDERER KANVAS HWUI</string>
-    <string name="legacy_ui_4f68c5760d8450" formatted="false">RENTANG DINAMIS (HDR)</string>
-    <string name="legacy_ui_33f58a75c46fed" formatted="false">RESOLUSI FISIK PANEL</string>
-    <string name="legacy_ui_f77b892ed677ed" formatted="false">RIWAYAT BACKUP TERSIMPAN</string>
+    <string name="legacy_ui_3e361aa53ffcf8" formatted="false">HWUI CANVAS RENDERER</string>
+    <string name="legacy_ui_4f68c5760d8450" formatted="false">DYNAMIC RANGE (HDR)</string>
+    <string name="legacy_ui_33f58a75c46fed" formatted="false">PHYSICAL PANEL RESOLUTION</string>
+    <string name="legacy_ui_f77b892ed677ed" formatted="false">SAVED BACKUP HISTORY</string>
     <string name="legacy_ui_8bc50188c28a45" formatted="false">Read-Ahead Buffer</string>
     <string name="legacy_ui_6ad7db30fad490" formatted="false">Real-Time Gaming Telemetry &amp; OSD</string>
     <string name="legacy_ui_48f6a8d5688b0c" formatted="false">Recovery</string>
     <string name="legacy_ui_f427b4ab3283ac" formatted="false">Recovery Center &amp; Safety Layer</string>
     <string name="legacy_ui_d0a96441ca3a8d" formatted="false">Recovery Point:</string>
     <string name="legacy_ui_daee7606b339f3" formatted="false">Reset</string>
-    <string name="legacy_ui_ca51a267c21e57" formatted="false">Reset Aman Kernel ke Bawaan (Stock Safe)</string>
+    <string name="legacy_ui_ca51a267c21e57" formatted="false">Safely reset kernel settings to stock defaults</string>
     <string name="legacy_ui_a76e13b9839270" formatted="false">Restore</string>
     <string name="legacy_ui_56938e9f52081d" formatted="false">SELinux &amp; Kernel Printk Logging</string>
-    <string name="legacy_ui_f4e0b8f6feb99a" formatted="false">STATUS PERFORMA &amp; DAYA</string>
-    <string name="legacy_ui_72ee2dcca0ebdf" formatted="false">STATUS PROFIL SISTEM</string>
-    <string name="legacy_ui_cd7fd81246e4ae" formatted="false">Satukan alokasi bandwidth bus GPU-DDR penuh tanpa pemisahan kanal hemat daya</string>
-    <string name="legacy_ui_a96e9f52cb114b" formatted="false">Segarkan</string>
-    <string name="legacy_ui_2c5bf5b63d987e" formatted="false">Seimbang</string>
-    <string name="legacy_ui_89c2344e27f93a" formatted="false">Sesuaikan domain CPU, GPU, Thermal, dan Pengisian Daya per-profil serta tautkan ke game/aplikasi favorit Anda.</string>
-    <string name="legacy_ui_6258f8f7e2a75f" formatted="false">Setelah menekan Mulai, beralihlah ke game dan gerakkan karakter untuk menguji kestabilan frame pacing nyata.</string>
-    <string name="legacy_ui_e398ba056b5396" formatted="false">Siklus tidur inti &amp; latensi bangun</string>
-    <string name="legacy_ui_79abeb7290155c" formatted="false">Silakan beralih ke game dan gerakkan kamera 3D, eksplorasi, atau rotasi layar secara intensif.</string>
-    <string name="legacy_ui_e226096976e585" formatted="false">Simpan Pengaturan Gain Audio</string>
-    <string name="legacy_ui_188d1e31a3b6f2" formatted="false">Sinkronisasi Morpher Header Bersamaan</string>
-    <string name="legacy_ui_4bfa6d7ea6fb30" formatted="false">Sinkronisasi Thermal Policy Hardware</string>
-    <string name="legacy_ui_0267f52f89df1e" formatted="false">Sinkronisasi buffer frame real-time untuk frametime gameplay datar</string>
+    <string name="legacy_ui_f4e0b8f6feb99a" formatted="false">PERFORMANCE &amp; POWER STATUS</string>
+    <string name="legacy_ui_72ee2dcca0ebdf" formatted="false">SYSTEM PROFILE STATUS</string>
+    <string name="legacy_ui_cd7fd81246e4ae" formatted="false">Use the full GPU-DDR bus bandwidth without power-saving channel partitioning</string>
+    <string name="legacy_ui_a96e9f52cb114b" formatted="false">Refresh</string>
+    <string name="legacy_ui_2c5bf5b63d987e" formatted="false">Balanced</string>
+    <string name="legacy_ui_89c2344e27f93a" formatted="false">Customize CPU, GPU, thermal, and charging settings for each profile, then assign them to your favorite games or apps.</string>
+    <string name="legacy_ui_6258f8f7e2a75f" formatted="false">After tapping Start, switch to a game and move the character to test real frame pacing stability.</string>
+    <string name="legacy_ui_e398ba056b5396" formatted="false">Core sleep cycles &amp; wake latency</string>
+    <string name="legacy_ui_79abeb7290155c" formatted="false">Switch to a game and move the 3D camera, explore, or rotate the screen intensively.</string>
+    <string name="legacy_ui_e226096976e585" formatted="false">Save Audio Gain Settings</string>
+    <string name="legacy_ui_188d1e31a3b6f2" formatted="false">Synchronized Header Morph Transition</string>
+    <string name="legacy_ui_4bfa6d7ea6fb30" formatted="false">Hardware Thermal Policy Synchronization</string>
+    <string name="legacy_ui_0267f52f89df1e" formatted="false">Real-time frame buffer synchronization for consistent gameplay frame times</string>
     <string name="legacy_ui_c2a099f2f0e21f" formatted="false">Sound Control (Audio Gain Booster)</string>
-    <string name="legacy_ui_91eeb4246a8f5d" formatted="false">Spoofer Terdeteksi</string>
-    <string name="legacy_ui_e1abbb50567f09" formatted="false">Status CPU:</string>
-    <string name="legacy_ui_042c860cbc8454" formatted="false">Status profil performa aktif Lynx Universal</string>
+    <string name="legacy_ui_91eeb4246a8f5d" formatted="false">Spoofer Detected</string>
+    <string name="legacy_ui_e1abbb50567f09" formatted="false">CPU Status:</string>
+    <string name="legacy_ui_042c860cbc8454" formatted="false">Lynx Universal active performance profile status</string>
     <string name="legacy_ui_8bb731c800d8c0" formatted="false">Subsystem Audio &amp; Wi-Fi Enhancer</string>
-    <string name="legacy_ui_8639cc19a7d4a9" formatted="false">Suhu Baterai</string>
+    <string name="legacy_ui_8639cc19a7d4a9" formatted="false">Battery Temperature</string>
     <string name="legacy_ui_f4cbbd500475ee" formatted="false">SurfaceFlinger BLAST</string>
     <string name="legacy_ui_6e4135f65ffb58" formatted="false">SurfaceFlinger Color Matrix 1015, D65 White Point, &amp; KCAL</string>
     <string name="legacy_ui_56d43aea959de5" formatted="false">SurfaceFlinger Latch Unsignaled</string>
     <string name="legacy_ui_572801245e92b3" formatted="false">Swap Virtual Disk</string>
-    <string name="legacy_ui_28537e11f1cddd" formatted="false">TASK PRIORITY BOOST (PENJADWAL EAS)</string>
+    <string name="legacy_ui_28537e11f1cddd" formatted="false">TASK PRIORITY BOOST (EAS SCHEDULER)</string>
     <string name="legacy_ui_212cd9975ccf94" formatted="false">TCP Congestion Control</string>
-    <string name="legacy_ui_4c448542911326" formatted="false">TEMA AKSEN</string>
-    <string name="legacy_ui_71ca3fc8ef682d" formatted="false">TOPOLOGI SILIKON &amp; LEVEL FREKUENSI</string>
-    <string name="legacy_ui_2f11dfcdec07d9" formatted="false">Tambah Aplikasi / Game</string>
-    <string name="legacy_ui_c32167a854dbd5" formatted="false">Tegangan</string>
-    <string name="legacy_ui_894f565f0286f5" formatted="false">Teks \'Codename: Deity\' ikut bertransisi serasi saat Jewel Toast aktif</string>
-    <string name="legacy_ui_ea64ba14587222" formatted="false">Telemetri &amp; Clock Hardware</string>
-    <string name="legacy_ui_9279427d632155" formatted="false">Terapkan KCAL</string>
-    <string name="legacy_ui_d1d9ef2c1a4ea7" formatted="false">Terapkan Saat Boot</string>
-    <string name="legacy_ui_659940ad936835" formatted="false">Terapkan Threshold Entropi</string>
-    <string name="legacy_ui_e8b72f2bd079e6" formatted="false">Terkustomisasi</string>
-    <string name="legacy_ui_d7961604e5fb08" formatted="false">Tidak Didukung</string>
-    <string name="legacy_ui_9942499166aa3f" formatted="false">Tidak ada status idle spesifik yang diekspos oleh driver kernel saat ini.</string>
-    <string name="legacy_ui_26b1568699d2c2" formatted="false">Tidak tersedia pada kernel ini.
-✓ CPU terdeteksi
-✕ Frequency override dibatasi kernel OEM.</string>
-    <string name="legacy_ui_7820854978e4e2" formatted="false">Tingkat agresivitas devfreq boost Adreno untuk transisi beban instan</string>
+    <string name="legacy_ui_4c448542911326" formatted="false">ACCENT THEME</string>
+    <string name="legacy_ui_71ca3fc8ef682d" formatted="false">SILICON TOPOLOGY &amp; FREQUENCY LEVELS</string>
+    <string name="legacy_ui_2f11dfcdec07d9" formatted="false">Add App / Game</string>
+    <string name="legacy_ui_c32167a854dbd5" formatted="false">Voltage</string>
+    <string name="legacy_ui_894f565f0286f5" formatted="false">The \'Codename: Deity\' text animates in sync when Jewel Toast is enabled</string>
+    <string name="legacy_ui_ea64ba14587222" formatted="false">Hardware Telemetry &amp; Clocks</string>
+    <string name="legacy_ui_9279427d632155" formatted="false">Apply KCAL</string>
+    <string name="legacy_ui_d1d9ef2c1a4ea7" formatted="false">Apply at Boot</string>
+    <string name="legacy_ui_659940ad936835" formatted="false">Apply Entropy Threshold</string>
+    <string name="legacy_ui_e8b72f2bd079e6" formatted="false">Customized</string>
+    <string name="legacy_ui_d7961604e5fb08" formatted="false">Unsupported</string>
+    <string name="legacy_ui_9942499166aa3f" formatted="false">The current kernel driver does not expose specific idle states.</string>
+    <string name="legacy_ui_26b1568699d2c2" formatted="false">Unavailable on this kernel.
+✓ CPU detected
+✕ Frequency override is restricted by the OEM kernel.</string>
+    <string name="legacy_ui_7820854978e4e2" formatted="false">Adreno devfreq boost aggressiveness for faster load transitions</string>
     <string name="legacy_ui_3d03a1dea561d0" formatted="false">Toggle</string>
-    <string name="legacy_ui_b43c1c39be10d5" formatted="false">Topologi Arsitektur Octa-Core</string>
-    <string name="legacy_ui_3e93efb4c2c56c" formatted="false">TouchBoost &amp; Responsivitas Sentuh</string>
-    <string name="legacy_ui_2a727a1349ff4b" formatted="false">Trip 52-55°C • Floor 70% OPP Table • Schedutil 10ms • Bebas Drop FPS</string>
-    <string name="legacy_ui_4420671513be1b" formatted="false">Trip 58°C • Floor 80% OPP • Kunci Clock Maksimal • Anti-Joyose</string>
+    <string name="legacy_ui_b43c1c39be10d5" formatted="false">Octa-Core Architecture Topology</string>
+    <string name="legacy_ui_3e93efb4c2c56c" formatted="false">TouchBoost &amp; Touch Responsiveness</string>
+    <string name="legacy_ui_2a727a1349ff4b" formatted="false">52–55°C trip • 70% OPP table floor • Schedutil 10 ms • No FPS drops</string>
+    <string name="legacy_ui_4420671513be1b" formatted="false">58°C trip • 80% OPP floor • Maximum clock lock • Anti-Joyose</string>
     <string name="legacy_ui_5db9d6c9b1ef66" formatted="false">TuningHubTransition</string>
-    <string name="legacy_ui_ddb8d357485edb" formatted="false">Uji Coba Animasi Toast (Live Test)</string>
+    <string name="legacy_ui_ddb8d357485edb" formatted="false">Toast Animation Preview (Live Test)</string>
     <string name="legacy_ui_a1280beea8bd77" formatted="false">Ultra-Low Touch Latency (VSync Early Offset)</string>
-    <string name="legacy_ui_57d46564a86eed" formatted="false">Unmask Semua Shader Cores</string>
+    <string name="legacy_ui_57d46564a86eed" formatted="false">Unmask All Shader Cores</string>
     <string name="legacy_ui_8667fe3ea5622d" formatted="false">VFS Cache Pressure (Reclaim Rate)</string>
     <string name="legacy_ui_8d1af397169b13" formatted="false">VM Dirty Background Ratio</string>
     <string name="legacy_ui_2a7fbea36fbf40" formatted="false">VM Dirty Expire Time</string>
-    <string name="legacy_ui_6dce8fa9ac9201" formatted="false">VM Dirty Ratio (Batas Writeback)</string>
+    <string name="legacy_ui_6dce8fa9ac9201" formatted="false">VM Dirty Ratio (Writeback Limit)</string>
     <string name="legacy_ui_3ea85b926157a7" formatted="false">VM Dirty Writeback Interval</string>
-    <string name="legacy_ui_a56d9bc18d4b25" formatted="false">VM Stat Interval (Pembaruan Statistik)</string>
-    <string name="legacy_ui_9e02fb2c27ac02" formatted="false">Verifikasi ground truth kernel dan subsistem grafis</string>
+    <string name="legacy_ui_a56d9bc18d4b25" formatted="false">VM Stat Interval (Statistics Update)</string>
+    <string name="legacy_ui_9e02fb2c27ac02" formatted="false">Verify kernel ground truth and graphics subsystems</string>
     <string name="legacy_ui_b1637d6ca38fbe" formatted="false">Virtual Memory Swappiness</string>
     <string name="legacy_ui_22558ed5931a31" formatted="false">Voltage Control (Undervolting)</string>
     <string name="legacy_ui_e04bfe6df5e530" formatted="false">Wakelock Blocker &amp; Deep Sleep Audit</string>
@@ -956,4 +999,53 @@
     <string name="legacy_ui_f00653079849b0" formatted="false">ring_pulse</string>
     <string name="legacy_ui_4f8865abeddbfa" formatted="false">•</string>
     <string name="legacy_ui_aefacda3d03efa" formatted="false">⚡ BYPASS CHARGING</string>
+    <string name="profile_override_status">%1$s override: %2$s · parent %3$s</string>
+    <string name="reset_section_title">Reset %1$s</string>
+    <string name="reset_section_message">Restore all %1$s parameters to OEM defaults?</string>
+    <string name="ksm_saved_memory">Merge identical memory pages, saving %1$s MB RAM</string>
+    <string name="gpu_configurable_parameters">%1$d of %2$d parameters ready to configure</string>
+    <string name="cpu_core_disable_confirmation">Are you sure you want to disable (offline) Core %1$d?</string>
+    <string name="cpu_core_enable_confirmation">Are you sure you want to enable (online) Core %1$d?</string>
+    <string name="dynamic_profile_base">Base profile: %1$s</string>
+    <string name="dynamic_profile_cpu">CPU: %1$s · change</string>
+    <string name="dynamic_profile_gpu">GPU: %1$s · change</string>
+    <string name="dynamic_profile_include_thermal">%1$s Include current thermal policy</string>
+    <string name="dynamic_profile_include_battery">%1$s Include current charge limit</string>
+    <string name="dynamic_profile_delete_confirmation">The customization for %1$s will be removed and Lynx defaults restored.</string>
+    <string name="dynamic_profile_overwrite_confirmation">You can overwrite %1$s or save the changes as a new profile.</string>
+    <string name="dynamic_profile_active">Active Custom Profile: %1$s</string>
+    <string name="dynamic_profile_base_description">Base: %1$s • %2$s</string>
+    <string name="dynamic_profile_parent_overrides">Parent %1$s · %2$s local overrides</string>
+    <string name="dynamic_mode_active">%1$s Mode Active</string>
+    <string name="dynamic_backup_restore_confirmation">Are you sure you want to restore the partition from backup &quot;%1$s&quot;?</string>
+    <string name="dynamic_cpu_cluster_summary">%1$s Cores (%2$s) • %3$s–%4$s MHz</string>
+    <string name="dynamic_cpu_frequency_picker">Select %1$s Frequency</string>
+    <string name="dynamic_cpu_policy">Policy %1$s (%2$s)</string>
+    <string name="dynamic_cpu_policy_tunables">Policy %1$s (%2$s tunables found)</string>
+    <string name="dynamic_cpu_value_unit">Value (%1$s)</string>
+    <string name="dynamic_cpu_idle_driver">Driver: %1$s • CPU core idle state control</string>
+    <string name="dynamic_cpu_core_instructions">Tap cores (C0–C%1$s) in each task group to allow or prevent threads from running on those physical cores.</string>
+    <string name="dynamic_cpu_frequency_table">COMPLETE FREQUENCY STEP TABLE (%1$s OPPs)</string>
+    <string name="dynamic_cpu_permissions">Permissions: %1$s</string>
+    <string name="dynamic_cpu_core_status">CPU CORE STATUS (%1$s CORES)</string>
+    <string name="dynamic_gpu_active_features">Active Kernel Features: %1$s</string>
+    <string name="dynamic_gpu_verified_nodes">%1$s verified kernel nodes • Direct I/O access</string>
+    <string name="dynamic_gpu_clock_steps">%1$s clock OPP steps available</string>
+    <string name="dynamic_count_in_parentheses">(%1$s)</string>
+    <string name="dynamic_memory_available">Available: %1$s MB</string>
+    <string name="dynamic_memory_free">Free: %1$s MB</string>
+    <string name="dynamic_load_more">Load More (%1$s remaining)</string>
+    <string name="dynamic_apply_value">Apply (%1$s)</string>
+    <string name="dynamic_benchmark_frame_distribution">FRAME TIME DISTRIBUTION (%1$s FRAMES)</string>
+    <string name="dynamic_current_value">Current value: %1$s</string>
+    <string name="dynamic_zram_allocation_scale">ZRAM Allocation Size (Physical RAM Scale: %1$s MB)</string>
+    <string name="dynamic_feature_current_value">%1$s (Current value: %2$s)</string>
+    <string name="dynamic_effect_description">Effect: %1$s</string>
+    <string name="dynamic_seconds_offset">Second %1$s</string>
+    <string name="dynamic_gpu_event_conditions">Conditions: %1$s MHz • %2$s%% Load • %3$s°C</string>
+    <string name="dynamic_recorded_session_history">Recorded Session History (%1$s/20)</string>
+    <string name="dynamic_session_metrics">Session Metrics: %1$s</string>
+    <string name="dynamic_session_time_summary">At %1$s • Duration %2$s s • %3$s Frames</string>
+    <string name="dynamic_reset_to_label">Reset to %1$s</string>
+    <string name="dynamic_apply_voltage_offset">Apply Voltage Offset (%1$s mV)</string>
 </resources>

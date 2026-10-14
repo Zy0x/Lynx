@@ -121,10 +121,10 @@ object LynxBatteryDiagnosticsRepository {
 
             val actualMah = if (rawFull > 100_000L) (rawFull / 1000L).toInt() else if (rawFull >= 1000L) rawFull.toInt() else 0
 
-            // Dynamic Qmax dari MTK/Qualcomm kernel fuel gauge logs atau hardware register
+            // Read dynamic Qmax from MTK/Qualcomm kernel fuel gauge logs or hardware registers.
             val dynamicQmaxMah = if (rawQmax > 10_000) rawQmax / 10 else rawQmax
 
-            // Ambil kapasitas desain asli pabrikan (OEM) via Android PowerProfile framework
+            // Read the OEM design capacity through the Android PowerProfile framework.
             var frameworkCap = 0
             try {
                 val powerProfileClass = Class.forName("com.android.internal.os.PowerProfile")
@@ -136,11 +136,11 @@ object LynxBatteryDiagnosticsRepository {
 
             val designMahRaw = if (rawDesign > 100_000L) (rawDesign / 1000L).toInt() else if (rawDesign >= 1000L) rawDesign.toInt() else 0
 
-            // Kapasitas Desain 100% DINAMIS tanpa ada angka hardcode:
-            // 1. Qmax hardware fuel gauge nyata dari kernel (e.g. 4885 mAh)
+            // Keep design capacity fully dynamic without hardcoded device values:
+            // 1. Read the actual Qmax from the kernel fuel gauge (for example, 4885 mAh).
             // 2. Framework PowerProfile OEM
             // 3. Sysfs charge_full_design
-            // 4. Jika semua node tidak tersedia, fallback murni ke actualMah
+            // 4. Fall back to actualMah if none of these nodes are available.
             val designMah = when {
                 dynamicQmaxMah in 1500..12000 -> dynamicQmaxMah
                 frameworkCap in 1500..12000 -> frameworkCap

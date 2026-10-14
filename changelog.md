@@ -1,3 +1,18 @@
+# Lynx Universal [Unconstrained Hyper Charging & Full Hardware Thermal Bypass Architecture] 7.0.0-RC46
+Released on: 2026-10-14
+> **Lynx Universal v7.0.0-RC46**: **Implementasi Penuh Unconstrained Hyper Charging Mode Tanpa Pembatasan Suhu: Eliminasi Mutlak Software JEITA (`sw_jeita = 0` locked), Penguncian BCCT/ABCCT Thermal Throttling ke 0, Bypass Otomatis Emergency Thermal & Night Sleep Guards, Uncap Wattage 120W, serta Pendorongan Arus Maksimum 12,000 mA pada MediaTek & Qualcomm**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC46)
+
+### 1. Unconstrained Hyper Charging Mode (Full Thermal Bypass)
+- **Bypass Mutlak Software JEITA**: Mematikan dan mengunci `sw_jeita` ke `0` (`0444` permission lock) pada Mode Hyper sehingga kernel MediaTek tidak memangkas arus pengisian saat suhu sel atau SoC meningkat.
+- **Bypass BCCT / ABCCT Cooling Devices**: Menonaktifkan dan mengunci seluruh cooling devices pengisian daya (`mtk-cl-bcct00/01/02` dan `abcct`) ke `0` secara atomik via `write_node_lock`.
+- **Eliminasi Emergency Guard Throttling pada Hyper Mode**: Mengecualikan Mode Hyper dari pemangkasan arus darurat 750 mA (`emergency_temp_guard`) dan pembatasan arus malam hari 1500 mA (`night_sleep_guard`), memberikan prioritas absolut kepada kecepatan penuh sesuai perintah pengguna.
+- **Uncap Wattage & Register Arus Puncak**: Membuka `pdc_max_watt = 120` (unconstrained USB-PD / Pump Express 120W), serta mendorong batas arus hardware register hingga 12,000 mA (`sc_ibat_limit = 12000`, `input_current = 33170/max`, `direct_charging = 1`, `restrict_cur = 12000`, `thermal_input_current_limit = -1`).
+- **Restorasi Otomatis saat Disconnect & Mode Standard**: Seluruh hak akses (`0666`), proteksi JEITA (`sw_jeita = 1`), dan kontrol kernel OEM dipulihkan secara aman saat kabel dicabut atau saat beralih ke Mode Standard.
+
+---
+
 # Lynx Universal [Universal Zero-Latency Controls & Universal Compact Toast HUD Architecture] 7.0.0-RC45
 Released on: 2026-10-14
 > **Lynx Universal v7.0.0-RC45** (Lynx Kernel Manager v3.1.7): **Ekspansi Menyeluruh Arsitektur Zero-Latency dan Feedback Kompak Elegan ke Seluruh Kontrol Aplikasi: Eliminasi Total Material Snackbar Menjadi Universal Toast HUD, Transisi Warna Halus 150 ms pada Seluruh Preset Profil Per Halaman (CPU, GPU, Dashboard, Profil Grid), serta Optimasi Respons Instan LynxSwitch**.

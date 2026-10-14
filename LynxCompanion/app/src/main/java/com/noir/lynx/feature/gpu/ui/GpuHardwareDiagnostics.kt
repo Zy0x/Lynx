@@ -1,5 +1,11 @@
 package com.noir.lynx.feature.gpu.ui
 
+import com.noir.lynx.core.locale.AppLocale
+
+import com.noir.lynx.R
+
+import com.noir.lynx.core.locale.localizedUiText
+
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
@@ -119,7 +125,7 @@ fun GpuSiliconIdentityCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
-                        contentDescription = "Segarkan",
+                        contentDescription = localizedUiText("Segarkan"),
                         tint = cardAccent,
                         modifier = Modifier.size(16.dp)
                     )
@@ -143,7 +149,7 @@ fun GpuSiliconIdentityCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Warning,
-                            contentDescription = "Spoofer Terdeteksi",
+                            contentDescription = localizedUiText("Spoofer Terdeteksi"),
                             tint = AccentRed,
                             modifier = Modifier.size(18.dp)
                         )
@@ -211,7 +217,7 @@ fun GpuSiliconIdentityCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Shield,
-                            contentDescription = "Integritas Hardware",
+                            contentDescription = localizedUiText("Integritas Hardware"),
                             tint = AccentGreen,
                             modifier = Modifier.size(16.dp)
                         )
@@ -300,7 +306,7 @@ fun GpuSiliconIdentityCard(
                     .fillMaxWidth()
                     .clickable {
                         clipboard.setText(AnnotatedString(caps.gpuDriverPath))
-                        Toast.makeText(context, "Path driver disalin ke clipboard", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, AppLocale.getString(context, R.string.toast_driver_path_copied), Toast.LENGTH_SHORT).show()
                     }
             ) {
                 Row(
@@ -329,7 +335,7 @@ fun GpuSiliconIdentityCard(
                     Spacer(Modifier.width(8.dp))
                     Icon(
                         imageVector = Icons.Default.ContentCopy,
-                        contentDescription = "Salin",
+                        contentDescription = localizedUiText("Salin"),
                         tint = TextSecondary,
                         modifier = Modifier.size(14.dp)
                     )

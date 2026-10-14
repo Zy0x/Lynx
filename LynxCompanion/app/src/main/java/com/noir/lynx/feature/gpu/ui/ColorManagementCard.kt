@@ -1,5 +1,7 @@
 package com.noir.lynx.feature.gpu.ui
 
+import com.noir.lynx.core.locale.localizedUiText
+
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
@@ -132,7 +134,7 @@ fun ColorManagementCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Warning,
-                        contentDescription = "Peringatan Konflik",
+                        contentDescription = localizedUiText("Peringatan Konflik"),
                         tint = AccentOrange,
                         modifier = Modifier.size(20.dp)
                     )
@@ -597,7 +599,7 @@ fun ColorManagementCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.RestartAlt,
-                                contentDescription = "Reset",
+                                contentDescription = localizedUiText("Reset"),
                                 tint = TextSecondary,
                                 modifier = Modifier.size(15.dp)
                             )

@@ -1,11 +1,14 @@
 package com.noir.lynx.service
 
+import com.noir.lynx.core.locale.AppLocale
+
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import com.noir.lynx.data.LynxRepository
+import com.noir.lynx.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,7 +33,7 @@ class LynxHbmTileService : TileService() {
             val disp = LynxRepository.readDisplayCalibration()
             if (!disp.isHbmSupported) {
                 launch(Dispatchers.Main) {
-                    Toast.makeText(this@LynxHbmTileService, "HBM tidak didukung oleh panel display ini", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@LynxHbmTileService, AppLocale.getString(this@LynxHbmTileService, R.string.toast_hbm_unsupported), Toast.LENGTH_SHORT).show()
                     updateTileState()
                 }
                 return@launch
@@ -51,15 +54,15 @@ class LynxHbmTileService : TileService() {
             launch(Dispatchers.Main) {
                 if (!disp.isHbmSupported) {
                     tile.state = Tile.STATE_UNAVAILABLE
-                    tile.label = "HBM: Unsupported"
+                    tile.label = AppLocale.getString(this@LynxHbmTileService, R.string.tile_hbm_unsupported)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        tile.subtitle = "Tidak Didukung"
+                        tile.subtitle = AppLocale.getString(this@LynxHbmTileService, R.string.tile_hbm_subtitle_unsupported)
                     }
                 } else {
                     tile.state = if (disp.hbmEnabled) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-                    tile.label = "Display HBM"
+                    tile.label = AppLocale.getString(this@LynxHbmTileService, R.string.tile_hbm_label)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        tile.subtitle = if (disp.hbmEnabled) "Outdoor Boost Aktif" else "Normal"
+                        tile.subtitle = AppLocale.getString(this@LynxHbmTileService, if (disp.hbmEnabled) R.string.tile_hbm_subtitle_active else R.string.tile_hbm_subtitle_normal)
                     }
                 }
                 tile.updateTile()

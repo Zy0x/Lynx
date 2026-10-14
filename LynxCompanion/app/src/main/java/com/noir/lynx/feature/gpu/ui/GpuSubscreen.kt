@@ -10,6 +10,8 @@ import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.noir.lynx.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
@@ -51,7 +53,7 @@ fun LazyListScope.tuningGpuCategoryItems(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "GPU override: ${overrideProfile.uppercase()} · induk ${state.activeProfile.uppercase()}",
+                                text = stringResource(R.string.profile_override_status, "GPU", overrideProfile.uppercase(), state.activeProfile.uppercase()),
                                 color = com.noir.lynx.designsystem.theme.TextSecondary,
                                 fontSize = 10.sp,
                                 modifier = Modifier.weight(1f)

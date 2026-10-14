@@ -8,6 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.noir.lynx.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,7 +56,7 @@ fun CpuSubscreen(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "CPU override: ${overrideProfile.uppercase()} · induk ${uiState.state.activeProfile.uppercase()}",
+                        text = stringResource(R.string.profile_override_status, "CPU", overrideProfile.uppercase(), uiState.state.activeProfile.uppercase()),
                         color = TextSecondary,
                         fontSize = 10.sp,
                         modifier = Modifier.weight(1f)
@@ -151,8 +153,8 @@ fun CpuSubscreen(
             AlertDialog(
                 onDismissRequest = { pendingResetSection = null },
                 containerColor = BgCard,
-                title = { Text("Reset $sectionTitle", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary) },
-                text = { Text("Kembalikan seluruh parameter $sectionTitle ke pengaturan default OEM?", fontSize = 12.5.sp, color = TextSecondary) },
+                title = { Text(stringResource(R.string.reset_section_title, sectionTitle), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary) },
+                text = { Text(stringResource(R.string.reset_section_message, sectionTitle), fontSize = 12.5.sp, color = TextSecondary) },
                 confirmButton = {
                     Button(
                         onClick = {

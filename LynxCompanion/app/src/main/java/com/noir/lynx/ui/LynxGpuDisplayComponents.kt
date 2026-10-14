@@ -1,5 +1,7 @@
 package com.noir.lynx.ui
 
+import com.noir.lynx.core.locale.localizedUiText
+
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
@@ -249,7 +251,7 @@ fun PerAppGraphicsHubCard(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Edit,
-                                            contentDescription = "Edit Aturan",
+                                            contentDescription = localizedUiText("Edit Aturan"),
                                             tint = cardAccent,
                                             modifier = Modifier.size(16.dp)
                                         )
@@ -260,7 +262,7 @@ fun PerAppGraphicsHubCard(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.DeleteOutline,
-                                            contentDescription = "Hapus Aturan",
+                                            contentDescription = localizedUiText("Hapus Aturan"),
                                             tint = AccentRed,
                                             modifier = Modifier.size(16.dp)
                                         )

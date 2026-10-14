@@ -1,4 +1,6 @@
 package com.noir.lynx.ui
+
+import com.noir.lynx.core.locale.localizedUiText
 import androidx.compose.foundation.lazy.LazyListScope
 
 import com.noir.lynx.designsystem.theme.*
@@ -129,7 +131,7 @@ internal fun LazyListScope.dashboardHeaderItem(
                     .fillMaxWidth()
                     .padding(14.dp)
             ) {
-                // ── BARIS 1: Brand Logo (Opsi 1), Status Codename: Deity, dan Aksi Kanan (Palette & Kustom) ──
+                // ── ROW 1: Brand logo (option 1), Deity codename status, and right-side actions (palette and custom). ──
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -147,7 +149,7 @@ internal fun LazyListScope.dashboardHeaderItem(
                         ) {
                             Image(
                                 painter = painterResource(id = R.drawable.ic_lynx_logo),
-                                contentDescription = "Lynx App Icon",
+                                contentDescription = localizedUiText("Lynx App Icon"),
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clip(RoundedCornerShape(12.dp)),
@@ -211,7 +213,7 @@ internal fun LazyListScope.dashboardHeaderItem(
                         }
                     }
 
-                    // Aksi Kanan: Tombol Palette Tema & Tombol Kustom
+                    // Right-side actions: theme palette and custom buttons.
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -226,7 +228,7 @@ internal fun LazyListScope.dashboardHeaderItem(
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Palette,
-                                    contentDescription = "Pilih Tema Aksen",
+                                    contentDescription = localizedUiText("Pilih Tema Aksen"),
                                     tint = currentAccent,
                                     modifier = Modifier.size(15.dp)
                                 )
@@ -254,7 +256,7 @@ internal fun LazyListScope.dashboardHeaderItem(
                                 Spacer(Modifier.width(3.dp))
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = "Buka Profil Kustom",
+                                    contentDescription = localizedUiText("Buka Profil Kustom"),
                                     tint = AccentOrange,
                                     modifier = Modifier.size(12.dp)
                                 )
@@ -417,7 +419,7 @@ internal fun LazyListScope.dashboardHeaderItem(
                     }
                 }
 
-                // Active Custom Profile Badge (jika profil kustom sedang aktif)
+                // Active custom profile badge.
                 val activeProfileObj = uiState.kernelProfileCatalog.profiles.firstOrNull { it.id == state.activeProfile }
                 val isCustomActive = activeProfileObj != null && !activeProfileObj.builtIn
                 if (isCustomActive && activeProfileObj != null) {

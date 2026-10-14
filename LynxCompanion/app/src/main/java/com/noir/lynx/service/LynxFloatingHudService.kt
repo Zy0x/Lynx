@@ -1,5 +1,7 @@
 package com.noir.lynx.service
 
+import com.noir.lynx.core.locale.AppLocale
+
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Speed
+import com.noir.lynx.R
 import androidx.compose.material.icons.filled.Style
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -363,10 +366,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 NOTIF_CHANNEL_ID,
-                "Lynx Game HUD Overlay",
+                AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Notifikasi status overlay Game HUD Lynx"
+                description = AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_notification_title)
                 setShowBadge(false)
             }
             val manager = getSystemService(NotificationManager::class.java)
@@ -393,8 +396,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, NOTIF_CHANNEL_ID)
-                .setContentTitle("Lynx Floating Game HUD Aktif")
-                .setContentText("Ketuk untuk membuka Lynx atau tutup overlay")
+                .setContentTitle(AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_notification_title))
+                .setContentText(AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_notification_tap_close))
                 .setSmallIcon(android.R.drawable.ic_menu_compass)
                 .setContentIntent(pOpenIntent)
                 .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Tutup HUD", pStopIntent)
@@ -403,8 +406,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
-                .setContentTitle("Lynx Floating Game HUD Aktif")
-                .setContentText("Ketuk untuk membuka Lynx")
+                .setContentTitle(AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_notification_title))
+                .setContentText(AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_notification_tap))
                 .setSmallIcon(android.R.drawable.ic_menu_compass)
                 .setContentIntent(pOpenIntent)
                 .build()

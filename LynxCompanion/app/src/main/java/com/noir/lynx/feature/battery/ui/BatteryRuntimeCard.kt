@@ -217,12 +217,12 @@ fun BatteryRuntimeCard(
 
                 Spacer(Modifier.height(10.dp))
 
-                // 3 Breakdown Columns: Layar Aktif, Deep Sleep, Siaga Bangun
+                // Three breakdown columns: screen on, deep sleep, and awake idle.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // 1. Layar Aktif (SOT)
+                    // 1. Screen on (SOT).
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = BgElevated.copy(alpha = 0.55f),

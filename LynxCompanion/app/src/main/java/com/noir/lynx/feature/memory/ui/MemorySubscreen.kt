@@ -12,6 +12,8 @@ import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.noir.lynx.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -354,7 +356,7 @@ fun MemorySubscreen(
                 Column {
                     Text("Kernel Same-page Merging", color = TextPrimary,
                         fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                    Text("Gabung halaman memori identik, hemat ${String.format("%.1f", ksm.savedMb)} MB RAM",
+                    Text(stringResource(R.string.ksm_saved_memory, String.format("%.1f", ksm.savedMb)),
                         color = TextSecondary, fontSize = 11.sp)
                 }
                 Switch(

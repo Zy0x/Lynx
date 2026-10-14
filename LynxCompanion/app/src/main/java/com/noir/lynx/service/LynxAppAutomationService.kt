@@ -1,5 +1,7 @@
 package com.noir.lynx.service
 
+import com.noir.lynx.core.locale.AppLocale
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -69,7 +71,7 @@ class LynxAppAutomationService : Service() {
                         LynxRepository.setProfile(base, caller = "watcher")
                         val (pct, tempC) = getLiveBatteryTelemetry()
                         withContext(Dispatchers.Main) {
-                            updateNotification(formatModeTitle(base), "Mode Standby Aktif${formatTelemetry(pct, tempC)}", base)
+                            updateNotification(formatModeTitle(base), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + formatTelemetry(pct, tempC), base)
                         }
                     }
                 }
@@ -148,7 +150,7 @@ class LynxAppAutomationService : Service() {
             }.ifBlank { "balance" }
         }
         baselineProfile = initialProfile
-        startForeground(NOTIF_ID, buildNotification(formatModeTitle(initialProfile), "Mode Standby Aktif", initialProfile))
+        startForeground(NOTIF_ID, buildNotification(formatModeTitle(initialProfile), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active), initialProfile))
         isRunning = true
 
         val filter = IntentFilter().apply {
@@ -188,7 +190,7 @@ class LynxAppAutomationService : Service() {
         baselineProfile = safeProfile
         if (activeCustomPkg == null) {
             val (pct, tempC) = getLiveBatteryTelemetry()
-            updateNotification(formatModeTitle(safeProfile), "Mode Standby Aktif${formatTelemetry(pct, tempC)}", safeProfile)
+            updateNotification(formatModeTitle(safeProfile), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + formatTelemetry(pct, tempC), safeProfile)
         }
     }
 
@@ -201,11 +203,11 @@ class LynxAppAutomationService : Service() {
             val title = formatModeTitle(profile)
             val sub = if (activeCustomPkg != null) {
                 val rule = rulesCache.firstOrNull { it.packageName.equals(activeCustomPkg, ignoreCase = true) }
-                val appName = rule?.appName ?: activeCustomPkg ?: "Game / App Aktif"
+                val appName = rule?.appName ?: activeCustomPkg ?: AppLocale.getString(this@LynxAppAutomationService, R.string.automation_game_active)
                 val hzStr = rule?.targetRefreshRate?.takeIf { it > 0 }?.let { " • ${it}Hz" } ?: ""
                 "$appName$hzStr$tele"
             } else {
-                "Mode Standby Aktif$tele"
+                AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + tele
             }
             updateNotification(title, sub, profile)
         }
@@ -264,11 +266,11 @@ class LynxAppAutomationService : Service() {
                     if (activeCustomPkg != null) {
                         val rule = rulesCache.firstOrNull { it.packageName.equals(activeCustomPkg, ignoreCase = true) }
                         val activeProfile = rule?.targetProfile ?: baselineProfile
-                        val appName = rule?.appName ?: activeCustomPkg ?: "Game / App Aktif"
+                        val appName = rule?.appName ?: activeCustomPkg ?: AppLocale.getString(this@LynxAppAutomationService, R.string.automation_game_active)
                         val hzInfo = rule?.targetRefreshRate?.takeIf { it > 0 }?.let { " • ${it}Hz" } ?: ""
                         updateNotification(formatModeTitle(activeProfile), "$appName$hzInfo$tele", activeProfile)
                     } else {
-                        updateNotification(formatModeTitle(baselineProfile), "Mode Standby Aktif$tele", baselineProfile)
+                        updateNotification(formatModeTitle(baselineProfile), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + tele, baselineProfile)
                     }
                 } catch (_: Exception) {}
             }
@@ -491,7 +493,7 @@ class LynxAppAutomationService : Service() {
                         activeCustomPkg = null
                         val (pct, tempC) = getLiveBatteryTelemetry()
                         val tele = formatTelemetry(pct, tempC)
-                        updateNotification(formatModeTitle(restoreTarget), "Mode Standby Aktif$tele", restoreTarget)
+                        updateNotification(formatModeTitle(restoreTarget), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + tele, restoreTarget)
                     }
                 }
             }
@@ -554,10 +556,10 @@ class LynxAppAutomationService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 NOTIF_CHANNEL_ID,
-                "Lynx Universal Mode",
+                AppLocale.getString(this@LynxAppAutomationService, R.string.automation_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Status profil performa aktif Lynx Universal"
+                description = AppLocale.getString(this@LynxAppAutomationService, R.string.automation_channel_description)
                 setShowBadge(false)
                 enableVibration(false)
                 enableLights(false)

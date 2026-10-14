@@ -127,10 +127,10 @@ object LynxCustomScriptRepository {
             val content = r.out.joinToString("\n").trim()
             if (content.isNotBlank()) content else """
 #!/system/bin/sh
-# Lynx Universal — Skrip Boot Kustom Pengguna (custom_rules.sh)
-# Dijalankan otomatis saat sistem selesai boot oleh service.sh
+# Lynx Universal — User Custom Boot Script (custom_rules.sh)
+# Run automatically after the system finishes booting, through service.sh.
 
-# Contoh sysfs tweak kustom:
+# Example custom sysfs tweaks:
 # echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse
 # echo 0 > /proc/sys/kernel/sched_schedstats
 """.trimIndent()
