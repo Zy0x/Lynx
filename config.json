@@ -4,6 +4,10 @@
   "release_type": "beta",
   "active_profile": "dormant",
   "setup_pending": true,
+  "media": {
+    "decoder_mode": "system",
+    "decoder_apply_on_boot": false
+  },
   "target_soc": "generic",
   "is_spoofed": false,
   "engine": {

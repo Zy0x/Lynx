@@ -1842,12 +1842,12 @@ impl ChargingRegulator {
 
     /// Ground Truth Hardware Platform Detection (Immune to User-Space Props Spoofing).
     ///
-    /// Modul spoofer (Game Unlocker 90/120 FPS, Play Integrity Fix, MagiskHide Props Config,
-    /// GLTools, Device Faker) yang memalsukan `ro.product.manufacturer` atau `ro.product.model`
-    /// TIDAK PERNAH bisa memalsukan driver fisik kernel Linux atau sysfs node yang dibuat dari DTB.
+    /// Spoofing modules (Game Unlocker, Play Integrity Fix, MagiskHide Props Config,
+    /// GLTools, Device Faker) can alter product manufacturer/model properties, but
+    /// cannot change the physical kernel drivers or DTB-derived sysfs nodes.
     ///
-    /// Tingkat 1: Hardware Ground Truth (Kernel Driver sysfs nodes) -> Otoritas Mutlak.
-    /// Tingkat 2: System Properties (`ro.product.*`) -> Hanya digunakan jika Tier 1 tidak konklusif.
+    /// Tier 1: Physical kernel driver nodes are authoritative.
+    /// Tier 2: Product properties are used only when kernel evidence is inconclusive.
     ///
     /// Returns: (Platform, is_spoofed, spoof_details)
     pub fn detect_charging_platform() -> (ChargingHardwarePlatform, bool, String) {

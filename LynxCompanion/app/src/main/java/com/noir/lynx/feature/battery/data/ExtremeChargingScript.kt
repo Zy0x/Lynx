@@ -16,82 +16,27 @@ object ExtremeChargingScript {
         isUnconstrainedMaxHw: Boolean = false,
         isLaptopPort: Boolean = false
     ): String {
-        val effectiveMa = when {
-            isLaptopPort -> 1500
-            isUnconstrainedMaxHw || targetMa >= 6000 -> 12000
-            else -> targetMa.coerceIn(500, 25000)
-        }
-        val effectiveUa = effectiveMa * 1000L
-
         return """
-            # Lynx Hyper Mode - Dynamic Hardware Ceiling Enforcement
-            chmod 666 /sys/class/power_supply/battery/input_suspend 2>/dev/null
-            echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/fast_charge 2>/dev/null
-            echo 1 > /sys/class/power_supply/battery/boost_current 2>/dev/null
-
-            # MediaTek / Transsion Super Charge Rails
+            # Standalone fallback: request OEM negotiation without replacing hardware limits.
+            applied=0
+            failed=0
             for node in /sys/devices/platform/charger/pe20 \
                         /sys/devices/platform/charger/pe40 \
                         /sys/devices/platform/charger/enable_sc \
+                        /sys/devices/platform/charger/sw_jeita \
                         /sys/devices/platform/charger/BatteryNotify \
-                        /sys/devices/platform/charger/sw_jeita; do
-                if [ -e "${'$'}node" ]; then
-                    chmod 666 "${'$'}node" 2>/dev/null
-                    echo 1 > "${'$'}node" 2>/dev/null
-                fi
+                        /sys/class/power_supply/battery/input_suspend \
+                        /sys/class/power_supply/battery/charging_enabled \
+                        /sys/class/power_supply/battery/fastcharge_mode \
+                        /sys/class/power_supply/battery/fast_charge; do
+                [ -e "${'$'}node" ] || continue
+                case "${'$'}node" in
+                    */input_suspend) echo 0 > "${'$'}node" 2>/dev/null ;;
+                    *) echo 1 > "${'$'}node" 2>/dev/null ;;
+                esac
+                if [ "${'$'}?" -eq 0 ]; then applied=1; else failed=1; fi
             done
-
-            for node in /sys/devices/platform/charger/input_current \
-                        /sys/devices/platform/charger/sc_ibat_limit \
-                        /sys/devices/platform/charger/chg1_current \
-                        /sys/devices/platform/charger/chg2_current; do
-                if [ -e "${'$'}node" ]; then
-                    chmod 666 "${'$'}node" 2>/dev/null
-                    echo $effectiveMa > "${'$'}node" 2>/dev/null
-                    chmod 444 "${'$'}node" 2>/dev/null
-                fi
-            done
-
-            # Universal Linux & Qualcomm Uncaps (Ugreen/Anker PD PPS uncap)
-            for node in /sys/class/power_supply/battery/constant_charge_current_max \
-                        /sys/class/power_supply/battery/constant_charge_current \
-                        /sys/class/power_supply/main/current_max \
-                        /sys/class/power_supply/usb/current_max; do
-                if [ -e "${'$'}node" ]; then
-                    chmod 666 "${'$'}node" 2>/dev/null
-                    echo $effectiveUa > "${'$'}node" 2>/dev/null
-                    chmod 444 "${'$'}node" 2>/dev/null
-                fi
-            done
-
-            # Qualcomm Direct Charging Uncap
-            if [ -e /sys/class/qcom-battery/direct_charging ]; then
-                echo 1 > /sys/class/qcom-battery/direct_charging 2>/dev/null
-                echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
-                echo $effectiveMa > /sys/class/qcom-battery/restrict_cur 2>/dev/null
-            fi
-
-            # Dynamically uncap pdc_max_watt to 120W+ if present
-            if [ -e /sys/devices/platform/charger/pdc_max_watt ]; then
-                cur_watt=${'$'}(cat /sys/devices/platform/charger/pdc_max_watt 2>/dev/null || echo 0)
-                if [ "${'$'}cur_watt" -lt 120 ] 2>/dev/null; then
-                    chmod 666 /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-                    echo 120 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-                fi
-            fi
-
-            # Freeze aggressive OEM thermal derater daemons
-            for p in thermalloadalgod com.xiaomi.joyose mi_thermald thermal-engine; do
-                pids=${'$'}(pgrep -f "${'$'}p" 2>/dev/null)
-                for pid in ${'$'}pids; do
-                    kill -STOP "${'$'}pid" 2>/dev/null
-                done
-            done
-
-            echo ok
+            [ "${'$'}failed" -eq 0 ] && [ "${'$'}applied" -eq 1 ]
         """.trimIndent()
     }
 }

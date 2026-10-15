@@ -1,5 +1,8 @@
 param(
-    [string]$Variant = "Release"
+    [ValidateSet("Release", "Debug")]
+    [string]$Variant = "Release",
+    [switch]$DisableBuildCache,
+    [switch]$RunUnitTests
 )
 
 $env:JAVA_HOME = "D:\temp\jdk-17"
@@ -19,24 +22,32 @@ if (-not (Test-Path "D:\temp\.build-cache\android-user-home")) {
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location "$repoRoot\LynxCompanion"
+$buildOptions = @("--no-configuration-cache")
+if ($DisableBuildCache) { $buildOptions += "--no-build-cache" }
+$unitTasks = @()
+if ($RunUnitTests) { $unitTasks += (":app:test" + $Variant + "UnitTest") }
 
 if ($Variant -eq "Debug") {
     Write-Host "[BUILD] Membangun varian DEBUG (Khusus troubleshooting)..." -ForegroundColor Yellow
-    & .\gradlew assembleDebug --no-configuration-cache
+    $taskArguments = @("assembleDebug") + $unitTasks + $buildOptions
+    & .\gradlew.bat @taskArguments
     if ($LASTEXITCODE -eq 0) {
         Copy-Item "app\build\outputs\apk\debug\app-debug.apk" "$repoRoot\LynxKernelManager.apk" -Force
         Write-Host "[OK] APK Debug berhasil disalin ke $repoRoot\LynxKernelManager.apk" -ForegroundColor Green
     } else {
-        Write-Error "[FAIL] Build Debug gagal dengan kode $LASTEXITCODE"
+        Set-Location $repoRoot
+        throw "Debug build failed: $LASTEXITCODE"
     }
 } else {
     Write-Host "[BUILD] Membangun varian RELEASE (Standar Wajib Lynx - Minifikasi R8 & Shrink)..." -ForegroundColor Cyan
-    & .\gradlew assembleRelease --no-configuration-cache
+    $taskArguments = @("assembleRelease") + $unitTasks + $buildOptions
+    & .\gradlew.bat @taskArguments
     if ($LASTEXITCODE -eq 0) {
         Copy-Item "app\build\outputs\apk\release\app-release.apk" "$repoRoot\LynxKernelManager.apk" -Force
         Write-Host "[OK] APK Release berhasil disalin ke $repoRoot\LynxKernelManager.apk" -ForegroundColor Green
     } else {
-        Write-Error "[FAIL] Build Release gagal dengan kode $LASTEXITCODE"
+        Set-Location $repoRoot
+        throw "Release build failed: $LASTEXITCODE"
     }
 }
 

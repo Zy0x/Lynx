@@ -1,3 +1,4 @@
+use crate::utils::json::quote;
 use std::path::Path;
 
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
@@ -15,7 +16,9 @@ impl CpuIdleController {
     }
 
     fn read_trimmed(path: impl AsRef<Path>) -> Option<String> {
-        SysfsReader::read_trimmed(path.as_ref()).ok().filter(|s| !s.is_empty())
+        SysfsReader::read_trimmed(path.as_ref())
+            .ok()
+            .filter(|s| !s.is_empty())
     }
 
     /// Emits JSON report of CPU idle states across all CPU cores.
@@ -29,7 +32,8 @@ impl CpuIdleController {
                 continue;
             }
 
-            let name = Self::read_trimmed(format!("{}/name", state_dir)).unwrap_or_else(|| format!("state{}", s_idx));
+            let name = Self::read_trimmed(format!("{}/name", state_dir))
+                .unwrap_or_else(|| format!("state{}", s_idx));
             let desc = Self::read_trimmed(format!("{}/desc", state_dir)).unwrap_or_default();
             let latency = Self::read_trimmed(format!("{}/latency", state_dir))
                 .and_then(|v| v.parse::<u64>().ok())
@@ -39,21 +43,28 @@ impl CpuIdleController {
                 .unwrap_or(false);
 
             states_json.push(format!(
-                "{{\"index\":{},\"name\":\"{}\",\"desc\":\"{}\",\"latency_us\":{},\"disabled\":{}}}",
-                s_idx, name, desc, latency, disabled
+                "{{\"index\":{},\"name\":{},\"desc\":{},\"latency_us\":{},\"disabled\":{}}}",
+                s_idx,
+                quote(&name),
+                quote(&desc),
+                latency,
+                disabled
             ));
         }
 
-        let armpll = Self::read_trimmed("/proc/cpuidle/control/armpll_mode").unwrap_or_else(|| "N/A".to_string());
-        let cstate_aware = Self::read_trimmed("/proc/sys/kernel/sched_cstate_aware").unwrap_or_else(|| "N/A".to_string());
-        let sleep_disabled = Self::read_trimmed("/sys/module/lpm_levels/parameters/sleep_disabled").unwrap_or_else(|| "N/A".to_string());
+        let armpll = Self::read_trimmed("/proc/cpuidle/control/armpll_mode")
+            .unwrap_or_else(|| "N/A".to_string());
+        let cstate_aware = Self::read_trimmed("/proc/sys/kernel/sched_cstate_aware")
+            .unwrap_or_else(|| "N/A".to_string());
+        let sleep_disabled = Self::read_trimmed("/sys/module/lpm_levels/parameters/sleep_disabled")
+            .unwrap_or_else(|| "N/A".to_string());
 
         format!(
-            "{{\"states\":[{}],\"armpll_mode\":\"{}\",\"sched_cstate_aware\":\"{}\",\"sleep_disabled\":\"{}\"}}",
+            "{{\"states\":[{}],\"armpll_mode\":{},\"sched_cstate_aware\":{},\"sleep_disabled\":{}}}",
             states_json.join(","),
-            armpll,
-            cstate_aware,
-            sleep_disabled
+            quote(&armpll),
+            quote(&cstate_aware),
+            quote(&sleep_disabled)
         )
     }
 
@@ -65,7 +76,10 @@ impl CpuIdleController {
                 // Zero Latency: Disable deeper states (2..9) across all CPUs
                 for s in 2..10 {
                     for cpu in 0..32 {
-                        let path = format!("/sys/devices/system/cpu/cpu{}/cpuidle/state{}/disable", cpu, s);
+                        let path = format!(
+                            "/sys/devices/system/cpu/cpu{}/cpuidle/state{}/disable",
+                            cpu, s
+                        );
                         Self::write_opt(&path, "1");
                     }
                 }
@@ -73,7 +87,10 @@ impl CpuIdleController {
                 // Shallow states (0: WFI, 1: cpuoff/ret) kept enabled
                 for s in 0..2 {
                     for cpu in 0..32 {
-                        let path = format!("/sys/devices/system/cpu/cpu{}/cpuidle/state{}/disable", cpu, s);
+                        let path = format!(
+                            "/sys/devices/system/cpu/cpu{}/cpuidle/state{}/disable",
+                            cpu, s
+                        );
                         Self::write_opt(&path, "0");
                     }
                 }
@@ -88,14 +105,18 @@ impl CpuIdleController {
                     Self::write_opt(&online_path, "1");
                 }
 
-                "CpuIdle Latency preset applied (Deep C-states 2-9 disabled, unparked all cores).".to_string()
+                "CpuIdle Latency preset applied (Deep C-states 2-9 disabled, unparked all cores)."
+                    .to_string()
             }
 
             "battery" | "powersave" => {
                 // Enable all C-states across all CPUs
                 for s in 0..10 {
                     for cpu in 0..32 {
-                        let path = format!("/sys/devices/system/cpu/cpu{}/cpuidle/state{}/disable", cpu, s);
+                        let path = format!(
+                            "/sys/devices/system/cpu/cpu{}/cpuidle/state{}/disable",
+                            cpu, s
+                        );
                         Self::write_opt(&path, "0");
                     }
                 }
@@ -112,7 +133,10 @@ impl CpuIdleController {
                 // Enable all C-states across all CPUs
                 for s in 0..10 {
                     for cpu in 0..32 {
-                        let path = format!("/sys/devices/system/cpu/cpu{}/cpuidle/state{}/disable", cpu, s);
+                        let path = format!(
+                            "/sys/devices/system/cpu/cpu{}/cpuidle/state{}/disable",
+                            cpu, s
+                        );
                         Self::write_opt(&path, "0");
                     }
                 }
@@ -126,10 +150,14 @@ impl CpuIdleController {
                     Self::write_opt(&online_path, "1");
                 }
 
-                "CpuIdle Balanced preset applied (All C-states active, all cores unparked).".to_string()
+                "CpuIdle Balanced preset applied (All C-states active, all cores unparked)."
+                    .to_string()
             }
 
-            unknown => format!("Error: Unknown cpuidle preset '{}'. Valid: latency, battery, balanced.", unknown),
+            unknown => format!(
+                "Error: Unknown cpuidle preset '{}'. Valid: latency, battery, balanced.",
+                unknown
+            ),
         }
     }
 
@@ -138,11 +166,19 @@ impl CpuIdleController {
         let val = if disabled { "1" } else { "0" };
         let mut count = 0;
         for cpu in 0..32 {
-            let path = format!("/sys/devices/system/cpu/cpu{}/cpuidle/state{}/disable", cpu, state_idx);
+            let path = format!(
+                "/sys/devices/system/cpu/cpu{}/cpuidle/state{}/disable",
+                cpu, state_idx
+            );
             if Self::write_opt(&path, val) {
                 count += 1;
             }
         }
-        format!("C-state {} updated to {} across {} CPU cores.", state_idx, if disabled { "DISABLED" } else { "ENABLED" }, count)
+        format!(
+            "C-state {} updated to {} across {} CPU cores.",
+            state_idx,
+            if disabled { "DISABLED" } else { "ENABLED" },
+            count
+        )
     }
 }

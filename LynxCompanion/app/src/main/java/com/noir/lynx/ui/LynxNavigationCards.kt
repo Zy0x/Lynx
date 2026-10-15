@@ -98,7 +98,7 @@ fun SubsystemCategoryCard(
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = category.icon,
-                        contentDescription = category.title,
+                        contentDescription = com.noir.lynx.core.locale.localizedUiText(category.title),
                         tint = category.accentColor,
                         modifier = Modifier.size(24.dp)
                     )
@@ -172,7 +172,7 @@ fun SubsystemCategoryCard(
             // Right Chevron (Indicating navigable into sub-screen)
             Icon(
                 imageVector = Icons.Default.ChevronRight,
-                contentDescription = category.title,
+                contentDescription = com.noir.lynx.core.locale.localizedUiText(category.title),
                 tint = TextTertiary,
                 modifier = Modifier.size(20.dp)
             )

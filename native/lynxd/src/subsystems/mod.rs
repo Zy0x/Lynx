@@ -10,12 +10,16 @@ pub mod gpu;
 pub mod io;
 pub mod lifecycle_hooks;
 pub mod maintenance;
+pub mod media;
+mod media_catalog;
+mod media_transaction;
 pub mod memory;
 pub mod network;
 pub mod swap;
 pub mod system;
 pub mod thermal;
 pub mod tui;
+pub mod zram;
 
 pub use adb::AdbController;
 pub use applist::ApplistController;

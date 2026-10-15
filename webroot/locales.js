@@ -147,7 +147,6 @@
         if (!clean) return;
         const match = String(source).match(/^(\s*)([\s\S]*?)(\s*)$/);
         const replacement = (key && catalogs[locale][key]) || text(clean);
-        if (replacement === clean) return;
         const next = `${match[1]}${replacement}${match[3]}`;
         if (node.nodeValue !== next) node.nodeValue = next;
     }
@@ -196,9 +195,16 @@
         else localStorage.setItem('lynx.locale', choice === 'en' ? 'en' : 'id');
         locale = selectedLocale();
         apply();
+        window.dispatchEvent(new Event('lynx:locale-changed'));
     }
 
-    window.LynxI18n = { text, apply, setLocale, get locale() { return locale; } };
+    function token(key, values = {}) {
+        const template = catalogs[locale][key] || catalogs.id[key] || key;
+        return template.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (match, name) =>
+            Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : match);
+    }
+
+    window.LynxI18n = { text, token, apply, setLocale, get locale() { return locale; } };
     window.setWebLocale = setLocale;
     const nativeAlert = window.alert.bind(window);
     const nativeConfirm = window.confirm.bind(window);

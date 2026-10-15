@@ -1,3 +1,4 @@
+mod config_lock;
 pub mod config_store;
 pub mod device_state;
 pub mod profile_state;

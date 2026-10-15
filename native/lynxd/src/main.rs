@@ -93,6 +93,7 @@ fn print_usage() {
         println!("  gpu info|set-freq|set-gov|set-boost");
         println!("  memory apply|zram-info|zram-set|zram-disable|clean|vm-info|vm-set|vm-preset");
         println!("  io apply|info|set-scheduler");
+        println!("  media status|set <mode> <true|false> [--restart-player]|restore  Preferensi decoder dan penerapan boot");
         println!("  network apply|game|balance|set-algo|info");
         println!("  adb status|enable|disable|set-port Kelola keep-alive ADB nirkabel dan port tetap");
         println!("  inspect scan|node <path>          Periksa parameter hardware sysfs/procfs");
@@ -136,6 +137,7 @@ fn print_usage() {
     println!("  gpu info|set-freq|set-gov|set-boost");
     println!("  memory apply|zram-info|zram-set|zram-disable|clean|vm-info|vm-set|vm-preset");
     println!("  io apply|info|set-scheduler");
+    println!("  media status|set <mode> <true|false> [--restart-player]|restore  Decoder preferences and boot persistence");
     println!("  network apply|game|balance|set-algo|info");
     println!("  adb status|enable|disable|set-port Manage wireless ADB keep-alive & persistent port lock");
     println!("  inspect scan|node <path>          Deep sysfs/procfs hardware tunable introspection (<40ms)");
@@ -1383,6 +1385,9 @@ fn main() {
                     println!("{}", MemoryController::apply_ram());
                 }
             }
+        }
+        "media" => {
+            std::process::exit(crate::subsystems::media::MediaController::cli(&args[2..]));
         }
         "io" => {
             let sub = args.get(2).map(|s| s.as_str()).unwrap_or("apply");

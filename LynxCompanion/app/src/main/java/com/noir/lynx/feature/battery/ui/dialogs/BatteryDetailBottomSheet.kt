@@ -101,7 +101,7 @@ fun BatteryDetailBottomSheet(
             }
 
             // Section 0: Hardware Ground Truth & Anti-Spoof
-            Text("VERIFIKASI GROUND TRUTH HARDWARE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentGreen)
+            Text(androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_soc_ground_truth), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentGreen)
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = BgCard,
@@ -114,7 +114,7 @@ fun BatteryDetailBottomSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Platform Fisik Kernel", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
+                        Text(androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_physical_platform), style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
                         Text(battDetails.hardwarePlatform.ifBlank { "Generic Linux" }, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentGreen, fontFamily = FontFamily.Monospace)
                     }
                     if (battDetails.isPropsSpoofed) {
@@ -123,8 +123,8 @@ fun BatteryDetailBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Status SoC Spoofer", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = AccentOrange)
-                            Text("Terdeteksi Aktif (Bypassed)", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentOrange, fontFamily = FontFamily.Monospace)
+                            Text(androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_spoofer_status), style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = AccentOrange)
+                            Text(androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_spoofer_active), style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentOrange, fontFamily = FontFamily.Monospace)
                         }
                         if (battDetails.spoofDetails.isNotBlank()) {
                             Text(battDetails.spoofDetails, style = MaterialTheme.typography.bodySmall, fontSize = 10.sp, color = TextSecondary)
@@ -135,8 +135,8 @@ fun BatteryDetailBottomSheet(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Integritas Brand Props", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
-                            Text("Otentik / Asli", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentCyan, fontFamily = FontFamily.Monospace)
+                            Text(androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_brand_integrity), style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
+                            Text(androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_brand_original), style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentCyan, fontFamily = FontFamily.Monospace)
                         }
                     }
                 }

@@ -116,13 +116,13 @@ fun TuningProfilesCategory(
                         "extreme" -> 0xFFFF3D00L
                         else -> 0xFF00E5FFL
                     }
-                    val label = when (id.lowercase()) {
-                        "powersave" -> "Hemat"
-                        "balance" -> "Seimbang"
-                        "performance" -> "Performa"
-                        "extreme" -> "Extreme"
-                        else -> id.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                    }
+                    val labelResource = mapOf(
+                        "powersave" to com.noir.lynx.R.string.audit_mode_powersave,
+                        "balance" to com.noir.lynx.R.string.audit_mode_balance,
+                        "performance" to com.noir.lynx.R.string.audit_mode_performance,
+                        "extreme" to com.noir.lynx.R.string.audit_mode_extreme
+                    )[id.lowercase()]
+                    val label = labelResource?.let(context::getString) ?: id
                     viewModel.triggerModeFeedback(id, label, colorHex)
                     viewModel.selectKernelPerformanceProfile(id, context, clearOverrides)
                 },
@@ -378,7 +378,7 @@ fun TuningProfilesCategory(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "Durasi Penahanan Mode (Exit Buffer Cooldown)",
+                        text = androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_title),
                         color = TextPrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
@@ -386,7 +386,7 @@ fun TuningProfilesCategory(
                 }
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Tahan mode performa saat keluar aplikasi sementara (chatting, panduan, download data) agar tidak stutter/drop saat kembali ke game.",
+                    text = androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_description),
                     color = TextSecondary,
                     fontSize = 10.5.sp,
                     lineHeight = 14.sp,
@@ -394,11 +394,11 @@ fun TuningProfilesCategory(
                 )
 
                 val cooldownOptions = listOf(
-                    Triple(5, "5 Detik", "Cepat • Hemat Baterai"),
-                    Triple(30, "30 Detik", "Optimal • Rekomendasi"),
-                    Triple(60, "1 Menit", "Multitasking Ringan"),
-                    Triple(180, "3 Menit", "Multitasking Berat"),
-                    Triple(0, "Persistent", "Selama Game Aktif di RAM")
+                    Triple(5, androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_five_seconds), androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_fast)),
+                    Triple(30, androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_thirty_seconds), androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_optimal)),
+                    Triple(60, androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_one_minute), androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_light)),
+                    Triple(180, androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_three_minutes), androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_heavy)),
+                    Triple(0, androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_persistent), androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_in_ram))
                 )
 
                 cooldownOptions.forEach { (sec, label, desc) ->
@@ -434,7 +434,7 @@ fun TuningProfilesCategory(
                                             border = BorderStroke(0.5.dp, AccentGreen.copy(alpha = 0.4f))
                                         ) {
                                             Text(
-                                                text = "REKOMENDASI",
+                                                text = androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_recommended),
                                                 color = AccentGreen,
                                                 fontSize = 8.sp,
                                                 fontWeight = FontWeight.ExtraBold,
@@ -535,10 +535,10 @@ fun TuningProfilesCategory(
                         else -> AccentCyan
                     }
                     val profLabel = when (rule.targetProfile.lowercase()) {
-                        "extreme" -> "Extreme"
-                        "performance" -> "Performa"
-                        "powersave" -> "Hemat"
-                        else -> "Seimbang"
+                        "extreme" -> context.getString(com.noir.lynx.R.string.audit_mode_extreme)
+                        "performance" -> context.getString(com.noir.lynx.R.string.audit_mode_performance)
+                        "powersave" -> context.getString(com.noir.lynx.R.string.audit_mode_powersave)
+                        else -> context.getString(com.noir.lynx.R.string.audit_mode_balance)
                     }
 
                     Surface(

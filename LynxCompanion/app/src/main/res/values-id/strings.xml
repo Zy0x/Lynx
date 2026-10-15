@@ -1257,7 +1257,7 @@
     <string name="dynamic_feedback_wakelock_unblocked" formatted="false">Wakelock \'%1$s\' dibuka</string>
     <string name="dynamic_feedback_tunable_updated" formatted="false">Parameter %1$s diperbarui (Mode Kustom)</string>
     <string name="dynamic_feedback_tunable_update_failed" formatted="false">Gagal memperbarui %1$s</string>
-    <string name="dynamic_feedback_migration_hysteresis" formatted="false">Hysteresis migrasi diperbarui (%1$s% / %2$s% - Mode Kustom)</string>
+    <string name="dynamic_feedback_migration_hysteresis" formatted="false">Hysteresis migrasi diperbarui (%1$s%% / %2$s%% - Mode Kustom)</string>
     <string name="dynamic_feedback_arch_mode_enabled" formatted="false">Mode arsitektur %1$s aktif (Mode Kustom)</string>
     <string name="dynamic_feedback_arch_mode_failed" formatted="false">Gagal mengubah mode ke %1$s</string>
     <string name="dynamic_feedback_scheduler_preset_applied" formatted="false">Preset Penjadwal \'%1$s\' berhasil diterapkan</string>
@@ -1283,8 +1283,8 @@
     <string name="dynamic_feedback_peak_clock_disabled" formatted="false">Pertahankan Plafon Clock Puncak dinonaktifkan</string>
     <string name="dynamic_feedback_zram_algorithm_applied" formatted="false">Algoritma ZRAM berhasil diubah ke %1$s</string>
     <string name="dynamic_feedback_zram_algorithm_failed" formatted="false">Gagal mengubah algoritma ZRAM ke %1$s</string>
-    <string name="dynamic_feedback_vm_dirty_ratio" formatted="false">VM Dirty Ratio diatur ke %1$s%</string>
-    <string name="dynamic_feedback_vm_dirty_background" formatted="false">VM Dirty Background: %1$s%</string>
+    <string name="dynamic_feedback_vm_dirty_ratio" formatted="false">VM Dirty Ratio diatur ke %1$s%%</string>
+    <string name="dynamic_feedback_vm_dirty_background" formatted="false">VM Dirty Background: %1$s%%</string>
     <string name="dynamic_feedback_vfs_cache_pressure" formatted="false">VFS Cache Pressure diatur ke %1$s</string>
     <string name="dynamic_feedback_vm_expire_time" formatted="false">VM Expire Time: %1$ss</string>
     <string name="dynamic_feedback_vm_writeback_interval" formatted="false">VM Writeback Interval: %1$ss</string>
@@ -1739,8 +1739,8 @@
     <string name="dynamic_network_port_restoring" formatted="false">⚡ MEMULIHKAN: %1$s</string>
     <string name="dynamic_gpu_mtk_title" formatted="false">Akselerasi MediaTek (%1$s &amp; FPSGO)</string>
     <string name="dynamic_gpu_generic_title" formatted="false">Akselerasi Hardware GPU (%1$s)</string>
-    <string name="dynamic_gpu_percent_plus" formatted="false">+%1$s%</string>
-    <string name="dynamic_gpu_percent" formatted="false">%1$s%</string>
+    <string name="dynamic_gpu_percent_plus" formatted="false">+%1$s%%</string>
+    <string name="dynamic_gpu_percent" formatted="false">%1$s%%</string>
     <string name="dynamic_gpu_milliseconds" formatted="false">%1$s ms</string>
     <string name="dynamic_cpu_mid_cluster" formatted="false">Kluster %1$s Mid</string>
     <string name="dynamic_cpu_cluster" formatted="false">Kluster %1$s</string>
@@ -1853,7 +1853,7 @@
     <string name="dynamic_process_nice_priority" formatted="false">%1$s (%2$s)</string>
 
     <string name="dynamic_thermal_zone_label" formatted="false">Zona %1$s</string>
-    <string name="dynamic_hud_stability_percentile" formatted="false">Stabilitas %1$s% • 1%L %2$s</string>
+    <string name="dynamic_hud_stability_percentile" formatted="false">Stabilitas %1$s%% • 1%%L %2$s</string>
     <string name="dynamic_wakelock_prevent_suspend" formatted="false">%1$s ms mencegah tidur</string>
     <string name="dynamic_resolution_pixels" formatted="false">%1$s piksel</string>
     <string name="dynamic_gpu_hal_architecture" formatted="false">HAL: %1$s</string>
@@ -1868,7 +1868,7 @@
     <string name="dynamic_cpu_core_status_count" formatted="false">STATUS INTI CPU (%1$s CORE)</string>
     <string name="dynamic_frequency_step_table_count" formatted="false">TABEL LENGKAP STEPPING FREKUENSI (%1$s OPP)</string>
     <string name="dynamic_physical_gpu_driver" formatted="false">Driver Fisik • %1$s</string>
-    <string name="dynamic_gpu_session_condition" formatted="false">Kondisi: %1$s MHz • %2$s% Beban • %3$s</string>
+    <string name="dynamic_gpu_session_condition" formatted="false">Kondisi: %1$s MHz • %2$s%% Beban • %3$s</string>
     <string name="dynamic_load_more_tunables" formatted="false">Muat Lebih Banyak (%1$s tersisa)</string>
     <string name="floating_hud_action_close">Tutup HUD</string>
     <string name="transient_feedback_channel_name">Umpan Balik Profil Lynx</string>
@@ -1898,4 +1898,66 @@
     <string name="storage_policy_restored">Read-ahead yang dicadangkan berhasil dipulihkan.</string>
     <string name="storage_policy_unchanged">Tidak diperlukan perubahan pada kebijakan I/O.</string>
     <string name="storage_policy_applied">Default I/O adaptif diterapkan dan nilai tulis diverifikasi.</string>
+    <string name="media_decoder_title">Media &amp; Decoder</string>
+    <string name="media_decoder_description">Atur preferensi decoder video global. Aplikasi tetap memilih komponen akhirnya; profil ini tidak memperbaiki kebocoran memori sistem.</string>
+    <string name="media_mode_system">Sistem / Pulihkan Awal</string>
+    <string name="media_mode_omx">Kompatibilitas OMX</string>
+    <string name="media_mode_hardware">Preferensi Hardware OMX</string>
+    <string name="media_mode_software">Preferensi Software OMX</string>
+    <string name="media_desc_system">Pulihkan properti awal sesi boot yang dicadangkan Lynx. Tidak memaksa komponen tertentu.</string>
+    <string name="media_desc_omx">Nonaktifkan daftar Codec2 dan gunakan OMX yang tersedia. Membantu beberapa ROM dengan decoder software rusak, tetapi dapat menghilangkan format seperti AV1 dan mengubah jalur audio.</string>
+    <string name="media_desc_hardware">Utamakan implementasi hardware OMX yang tersedia sambil mempertahankan Codec2. Efek bergantung pada ranking ROM dan pilihan aplikasi; komponen OMX lain juga dapat terpengaruh.</string>
+    <string name="media_desc_software">Utamakan decoder video software OMX sambil mempertahankan Codec2. Beberapa encoder non-audio juga terpengaruh; penggunaan CPU, daya, dan suhu dapat meningkat.</string>
+    <string name="media_native_unavailable">Mesin media native belum tersedia. Gunakan versi modul yang mendukung kontrol ini.</string>
+    <string name="media_mode_unavailable">Dukungan properti atau kandidat decoder tidak ditemukan pada ROM ini.</string>
+    <string name="media_apply_boot">Terapkan pilihan saat boot</string>
+    <string name="media_boot_note">Pilihan disimpan setelah Terapkan ditekan. Penerapan boot memerlukan modul Lynx dan hanya aktif jika diizinkan pengguna.</string>
+    <string name="media_pending_restart">Properti sudah berubah, tetapi daftar decoder masih perlu dimuat ulang. Terapkan kembali atau buka ulang aplikasi setelah layanan media dimulai ulang.</string>
+    <string name="media_properties_verified">Properti runtime sesuai dengan profil yang diterapkan Lynx pada sesi ini.</string>
+    <string name="media_properties_unmanaged">Properti sesi ini belum dikelola Lynx atau telah berubah. Periksa decoder aktif untuk mengetahui jalur pemutaran sebenarnya.</string>
+    <string name="media_applied">Properti diterapkan dan diperiksa. Buka ulang aplikasi pemutar; periksa decoder aktif untuk memastikan jalur yang digunakan.</string>
+    <string name="media_action_failed">Perubahan tidak selesai: %1$s. Periksa status terbaru sebelum mencoba lagi.</string>
+    <string name="media_apply">Terapkan &amp; Muat Ulang Media</string>
+    <string name="media_busy">Memproses…</string>
+    <string name="media_refresh">Segarkan Status Decoder</string>
+    <string name="media_active_decoders">Komponen media aktif</string>
+    <string name="media_no_active">Belum ada komponen aktif yang dilaporkan. Putar video lalu segarkan status.</string>
+    <string name="media_registry_note">Daftar framework bukan hasil uji decode. Dukungan format, DRM, resolusi, serta pilihan aplikasi dapat berbeda. Buka ulang Companion setelah perubahan jika daftar masih tersimpan di cache.</string>
+    <string name="media_decoder_entry">%1$s · %2$s · %3$s</string>
+    <string name="media_kind_hardware">Hardware</string>
+    <string name="media_kind_software">Software</string>
+    <string name="media_kind_vendor">Vendor / tidak diklasifikasikan</string>
+    <string name="media_confirm_title">Muat ulang layanan media?</string>
+    <string name="media_confirm_message">Audio/video dapat terputus sesaat dan aplikasi pemutar perlu dibuka ulang. Kompatibilitas OMX dapat menonaktifkan format Codec2 seperti AV1. Ini mengatur preferensi global, bukan memilih decoder per aplikasi. Lynx hanya memulai ulang layanan pemutar media; zygote dan system_server tidak dimulai ulang.</string>
+    <string name="media_confirm_apply">Terapkan dan Muat Ulang</string>
+    <string name="media_cancel">Batal</string>
+    <plurals name="media_registered_count">
+        <item quantity="one">%1$d entri decoder video terdaftar</item>
+        <item quantity="other">%1$d entri decoder video terdaftar</item>
+    </plurals>
+    <string name="audit_soc_ground_truth">VERIFIKASI HARDWARE FISIK</string>
+    <string name="audit_physical_platform">Platform fisik kernel</string>
+    <string name="audit_spoofer_status">Status SoC Spoofer</string>
+    <string name="audit_spoofer_active">Terdeteksi aktif (diabaikan)</string>
+    <string name="audit_brand_integrity">Integritas properti merek</string>
+    <string name="audit_brand_original">Otentik / asli</string>
+    <string name="audit_cooldown_title">Durasi penahanan mode</string>
+    <string name="audit_cooldown_description">Pertahankan mode performa saat keluar sementara dari aplikasi agar pergantian mode tidak mengganggu saat kembali ke game.</string>
+    <string name="audit_recommended">REKOMENDASI</string>
+    <string name="audit_persistent">Persisten selama game di RAM</string>
+    <string name="audit_cooldown_feedback">Durasi penahanan performa diatur ke: %1$s</string>
+    <string name="audit_five_seconds">5 detik</string>
+    <string name="audit_thirty_seconds">30 detik</string>
+    <string name="audit_one_minute">1 menit</string>
+    <string name="audit_three_minutes">3 menit</string>
+    <string name="audit_cooldown_fast">Cepat • hemat baterai</string>
+    <string name="audit_cooldown_optimal">Optimal • direkomendasikan</string>
+    <string name="audit_cooldown_light">Multitasking ringan</string>
+    <string name="audit_cooldown_heavy">Multitasking berat</string>
+    <string name="audit_in_ram">Selama game aktif di RAM</string>
+    <string name="audit_mode_powersave">Hemat daya</string>
+    <string name="audit_mode_balance">Seimbang</string>
+    <string name="audit_mode_performance">Performa</string>
+    <string name="audit_mode_extreme">Ekstrem</string>
+    <plurals name="audit_cooldown_seconds"><item quantity="one">%1$d detik</item><item quantity="other">%1$d detik</item></plurals>
 </resources>

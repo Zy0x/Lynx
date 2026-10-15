@@ -499,6 +499,19 @@ async function pollNativeStatus() {
     }
 }
 
+// Linux CPU lists may contain spaces, commas, ranges, or combinations.
+function cpuIdsFromList(value) {
+    const ids = new Set();
+    String(value).trim().split(/[\s,]+/).forEach(part => {
+        if (!/^\d+(?:-\d+)?$/.test(part)) return;
+        const [start, last] = part.split('-').map(Number);
+        const end = last === undefined ? start : last;
+        if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end < start || end > 4096) return;
+        for (let cpu = start; cpu <= end; cpu++) ids.add(cpu);
+    });
+    return [...ids].sort((a, b) => a - b);
+}
+
 async function loadClusterTopology(forceRebuild = false) {
     const container = document.getElementById('clusters-container');
     if (!container) return;
@@ -512,17 +525,14 @@ async function loadClusterTopology(forceRebuild = false) {
                 // Cache max freqs for core meter bar calculations
                 data.clusters.forEach(c => {
                     if (c.cpus) {
-                        const parts = c.cpus.split('-');
-                        const start = parseInt(parts[0], 10);
-                        const end = parts.length > 1 ? parseInt(parts[1], 10) : start;
-                        for (let i = start; i <= end; i++) {
-                            clusterMaxFreqs[i] = c.cur_max || 2500000;
-                        }
+                        cpuIdsFromList(c.cpus).forEach(cpu => {
+                            clusterMaxFreqs[cpu] = c.cur_max || 2500000;
+                        });
                     }
                 });
 
                 // In-place 2-way update if already rendered and not forced
-                if (container.children.length > 0 && !forceRebuild) {
+                if (container.querySelector('.cluster-item') && !forceRebuild) {
                     data.clusters.forEach(c => {
                         const item = document.getElementById(`cluster-item-${c.id}`);
                         if (!item) return;
@@ -599,7 +609,7 @@ async function loadClusterTopology(forceRebuild = false) {
                                 </select>
                             </div>
                             <button class="btn-lock-cluster" 
-                                style="cursor:pointer; width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:${c.is_locked ? 'rgba(0,230,118,0.2)' : 'rgba(255,255,255,0.08)'}; color:${c.is_locked ? '#00e676' : 'var(--text-secondary)'}; border: 1px solid ${c.is_locked ? '#00e676' : 'var(--border-subtle)'}; border-radius:8px; font-size:16px;"
+                                style="cursor:pointer; width:48px; height:48px; display:flex; align-items:center; justify-content:center; background:${c.is_locked ? 'rgba(0,230,118,0.2)' : 'rgba(255,255,255,0.08)'}; color:${c.is_locked ? '#00e676' : 'var(--text-secondary)'}; border: 1px solid ${c.is_locked ? '#00e676' : 'var(--border-subtle)'}; border-radius:8px; font-size:16px;"
                                 title="${c.is_locked ? 'Terkunci (Proteksi Aktif)' : 'Buka Kunci'}"
                                 onclick="toggleClusterLock(${c.id}, ${!c.is_locked})">
                                 ${lockSvg}

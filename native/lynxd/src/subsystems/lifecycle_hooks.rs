@@ -100,6 +100,11 @@ impl LifecycleHooks {
             return 0;
         }
 
+        // Media compatibility is independent of performance profiles and requires explicit opt-in.
+        if let Err(error) = crate::subsystems::media::MediaController::apply_boot() {
+            Self::log_msg(&format!("media_boot_apply: {}", error));
+        }
+
         let _ = fs::create_dir_all("/storage/emulated/0/Lynx");
         let _ = fs::create_dir_all(format!("{}/logs/archive", MODPATH));
 
@@ -279,6 +284,9 @@ impl LifecycleHooks {
         // 1. Terminate Background Daemons
         let _ = DaemonLifecycle::stop_running();
         let _ = crate::subsystems::AdbController::disable();
+        if let Err(error) = crate::subsystems::media::MediaController::restore_session() {
+            Self::log_msg(&format!("media_uninstall_restore: {}", error));
+        }
 
         // 2. Unfreeze any OEM Throttler Processes
         ThermalController::unfreeze_oem_throttlers();

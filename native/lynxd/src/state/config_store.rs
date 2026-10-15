@@ -1,8 +1,6 @@
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::thread::sleep;
-use std::time::{Duration, SystemTime};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -74,46 +72,6 @@ impl ConfigStore {
             PathBuf::from("/dev/lynx_config.lock")
         } else {
             PathBuf::from("/data/local/tmp/lynx_config.lock")
-        }
-    }
-
-    fn acquire_lock() -> Option<PathBuf> {
-        let lock = Self::lock_path();
-        // Clean up stale lock older than 3 seconds
-        if let Ok(meta) = fs::metadata(&lock) {
-            if let Ok(modified) = meta.modified() {
-                if let Ok(elapsed) = SystemTime::now().duration_since(modified) {
-                    if elapsed > Duration::from_secs(3) {
-                        let _ = fs::remove_file(&lock);
-                    }
-                }
-            }
-        }
-
-        for _ in 0..80 {
-            if fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&lock)
-                .is_ok()
-            {
-                return Some(lock);
-            }
-            sleep(Duration::from_millis(5));
-        }
-        // Force break stale lock after 400ms
-        let _ = fs::remove_file(&lock);
-        let _ = fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&lock);
-        Some(lock)
-    }
-
-    fn release_lock(lock: Option<PathBuf>) {
-        if let Some(p) = lock {
-            let _ = fs::remove_file(p);
         }
     }
 
@@ -227,10 +185,8 @@ impl ConfigStore {
             return Ok(());
         }
 
-        let lock = Self::acquire_lock();
-        let res = Self::set_batch_locked(updates);
-        Self::release_lock(lock);
-        res
+        let _lock = super::config_lock::ConfigLock::acquire(&Self::lock_path())?;
+        Self::set_batch_locked(updates)
     }
 
     fn set_batch_locked(updates: &[(String, String, Option<String>)]) -> Result<(), String> {

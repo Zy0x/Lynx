@@ -10,7 +10,11 @@ relevant = [l for l in lines if 'PCA' in l or 'LynxKPM' in l or 'dv2' in l]
 for l in relevant[-35:]:
     print(l)
 
-print("\n=== POWER SUPPLY CURRENT STATUS ===")
-print("Battery Current:", run_adb('cat /sys/class/power_supply/battery/current_now'))
-print("Battery Voltage:", run_adb('cat /sys/class/power_supply/battery/voltage_now'))
-print("Battery Temp:", run_adb('cat /sys/class/power_supply/battery/temp'))
+print("\n=== SCREEN STATE & ITA LIMIT ===")
+for l in run_adb('dumpsys power').splitlines():
+    if 'Display Power: state=' in l:
+        print(l)
+for l in run_adb('dmesg').splitlines():
+    if '__dv2_get_ita_lmt' in l:
+        print(l)
+

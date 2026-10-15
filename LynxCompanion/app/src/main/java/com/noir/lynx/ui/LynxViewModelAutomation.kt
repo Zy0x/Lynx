@@ -221,8 +221,9 @@ import kotlinx.coroutines.flow.update
             "echo '$seconds' > /data/adb/lynx/cooldown_duration 2>/dev/null; chmod 644 /data/adb/lynx/cooldown_duration 2>/dev/null"
         ).submit()
 
-        val label = if (seconds == 0) "Persistent (Selama di RAM)" else "${seconds} Detik"
-        _uiState.update { it.copy(successMessage = "Durasi penahanan performa diatur ke: $label") }
+        val label = if (seconds == 0) context.getString(R.string.audit_persistent)
+            else context.resources.getQuantityString(R.plurals.audit_cooldown_seconds, seconds, seconds)
+        _uiState.update { it.copy(successMessage = context.getString(R.string.audit_cooldown_feedback, label)) }
     }
 
     fun LynxViewModel.loadAppAutomationCooldown(context: android.content.Context) {

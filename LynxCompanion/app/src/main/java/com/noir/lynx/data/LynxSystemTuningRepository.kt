@@ -455,6 +455,10 @@ internal object LynxSystemTuningRepository {
         try {
             val safe = algo.replace(Regex("[^a-zA-Z0-9_-]"), "")
             if (safe.isEmpty() || zramSizeMb <= 0) return@withContext false
+            val capability = Shell.cmd("[ -x '$LYNXD_PATH' ] && '$LYNXD_PATH' memory zram-info").exec()
+            val guarded = runCatching { JSONObject(capability.out.joinToString("\n"))
+                .optBoolean("live_reconfigure_requires_unused", false) }.getOrDefault(false)
+            if (!capability.isSuccess || !guarded) return@withContext false
             // Keep live-page checks and reset sequencing inside the native controller.
             val result = Shell.cmd("""
                 [ -x '$LYNXD_PATH' ] || exit 1

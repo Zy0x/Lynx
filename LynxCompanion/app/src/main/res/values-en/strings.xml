@@ -1233,7 +1233,7 @@
     <string name="dynamic_feedback_wakelock_unblocked" formatted="false">Wakelock \'%1$s\' unblocked</string>
     <string name="dynamic_feedback_tunable_updated" formatted="false">Parameter %1$s updated (custom mode)</string>
     <string name="dynamic_feedback_tunable_update_failed" formatted="false">Failed to update %1$s</string>
-    <string name="dynamic_feedback_migration_hysteresis" formatted="false">Migration hysteresis updated (%1$s% / %2$s% - custom mode)</string>
+    <string name="dynamic_feedback_migration_hysteresis" formatted="false">Migration hysteresis updated (%1$s%% / %2$s%% - custom mode)</string>
     <string name="dynamic_feedback_arch_mode_enabled" formatted="false">Architecture mode %1$s enabled (custom mode)</string>
     <string name="dynamic_feedback_arch_mode_failed" formatted="false">Failed to change mode to %1$s</string>
     <string name="dynamic_feedback_scheduler_preset_applied" formatted="false">Scheduler preset \'%1$s\' applied successfully</string>
@@ -1259,8 +1259,8 @@
     <string name="dynamic_feedback_peak_clock_disabled" formatted="false">Peak clock ceiling hold disabled</string>
     <string name="dynamic_feedback_zram_algorithm_applied" formatted="false">ZRAM algorithm changed to %1$s</string>
     <string name="dynamic_feedback_zram_algorithm_failed" formatted="false">Failed to change the ZRAM algorithm to %1$s</string>
-    <string name="dynamic_feedback_vm_dirty_ratio" formatted="false">VM dirty ratio set to %1$s%</string>
-    <string name="dynamic_feedback_vm_dirty_background" formatted="false">VM dirty background ratio: %1$s%</string>
+    <string name="dynamic_feedback_vm_dirty_ratio" formatted="false">VM dirty ratio set to %1$s%%</string>
+    <string name="dynamic_feedback_vm_dirty_background" formatted="false">VM dirty background ratio: %1$s%%</string>
     <string name="dynamic_feedback_vfs_cache_pressure" formatted="false">VFS cache pressure set to %1$s</string>
     <string name="dynamic_feedback_vm_expire_time" formatted="false">VM expire time: %1$s s</string>
     <string name="dynamic_feedback_vm_writeback_interval" formatted="false">VM writeback interval: %1$s s</string>
@@ -1715,8 +1715,8 @@
     <string name="dynamic_network_port_restoring" formatted="false">⚡ RESTORING: %1$s</string>
     <string name="dynamic_gpu_mtk_title" formatted="false">MediaTek Acceleration (%1$s &amp; FPSGO)</string>
     <string name="dynamic_gpu_generic_title" formatted="false">GPU Hardware Acceleration (%1$s)</string>
-    <string name="dynamic_gpu_percent_plus" formatted="false">+%1$s%</string>
-    <string name="dynamic_gpu_percent" formatted="false">%1$s%</string>
+    <string name="dynamic_gpu_percent_plus" formatted="false">+%1$s%%</string>
+    <string name="dynamic_gpu_percent" formatted="false">%1$s%%</string>
     <string name="dynamic_gpu_milliseconds" formatted="false">%1$s ms</string>
     <string name="dynamic_cpu_mid_cluster" formatted="false">%1$s Mid Cluster</string>
     <string name="dynamic_cpu_cluster" formatted="false">%1$s Cluster</string>
@@ -1829,7 +1829,7 @@
     <string name="dynamic_process_nice_priority" formatted="false">%1$s (%2$s)</string>
 
     <string name="dynamic_thermal_zone_label" formatted="false">Zone %1$s</string>
-    <string name="dynamic_hud_stability_percentile" formatted="false">Stability %1$s% • 1%L %2$s</string>
+    <string name="dynamic_hud_stability_percentile" formatted="false">Stability %1$s%% • 1%%L %2$s</string>
     <string name="dynamic_wakelock_prevent_suspend" formatted="false">%1$s ms preventing sleep</string>
     <string name="dynamic_resolution_pixels" formatted="false">%1$s pixels</string>
     <string name="dynamic_gpu_hal_architecture" formatted="false">HAL: %1$s</string>
@@ -1844,7 +1844,7 @@
     <string name="dynamic_cpu_core_status_count" formatted="false">CPU CORE STATUS (%1$s CORES)</string>
     <string name="dynamic_frequency_step_table_count" formatted="false">COMPLETE FREQUENCY STEP TABLE (%1$s OPP)</string>
     <string name="dynamic_physical_gpu_driver" formatted="false">Physical Driver • %1$s</string>
-    <string name="dynamic_gpu_session_condition" formatted="false">Condition: %1$s MHz • %2$s% Load • %3$s</string>
+    <string name="dynamic_gpu_session_condition" formatted="false">Condition: %1$s MHz • %2$s%% Load • %3$s</string>
     <string name="dynamic_load_more_tunables" formatted="false">Load More (%1$s remaining)</string>
     <string name="floating_hud_action_close">Close HUD</string>
     <string name="transient_feedback_channel_name">Lynx Profile Feedback</string>
@@ -1874,4 +1874,66 @@
     <string name="storage_policy_restored">The backed-up read-ahead value was restored.</string>
     <string name="storage_policy_unchanged">No I/O policy changes were needed.</string>
     <string name="storage_policy_applied">The adaptive I/O default was applied and writes were verified.</string>
+    <string name="media_decoder_title">Media &amp; Decoders</string>
+    <string name="media_decoder_description">Set global video decoder preferences. Apps still choose the final component; these profiles do not fix system memory leaks.</string>
+    <string name="media_mode_system">System / Restore Original</string>
+    <string name="media_mode_omx">OMX Compatibility</string>
+    <string name="media_mode_hardware">Prefer OMX Hardware</string>
+    <string name="media_mode_software">Prefer OMX Software</string>
+    <string name="media_desc_system">Restore the original properties backed up by Lynx for this boot. Does not force a particular component.</string>
+    <string name="media_desc_omx">Disable Codec2 listings and use available OMX components. Helps some ROMs with broken software decoding, but may remove formats such as AV1 and change audio paths.</string>
+    <string name="media_desc_hardware">Prioritize available OMX hardware implementations while retaining Codec2. Results depend on ROM ranking and app selection; other OMX components may also be affected.</string>
+    <string name="media_desc_software">Prioritize OMX software video decoders while retaining Codec2. Some non-audio encoders are also affected; CPU use, power consumption, and temperature may increase.</string>
+    <string name="media_native_unavailable">The native media engine is unavailable. Use a module version that supports these controls.</string>
+    <string name="media_mode_unavailable">Required property support or decoder candidates were not found on this ROM.</string>
+    <string name="media_apply_boot">Apply selection at boot</string>
+    <string name="media_boot_note">The selection is saved when Apply is pressed. Boot application requires the Lynx module and is enabled only by user choice.</string>
+    <string name="media_pending_restart">Properties changed, but the codec list still needs reloading. Apply again or reopen apps after the media player service restarts.</string>
+    <string name="media_properties_verified">Runtime properties match the profile applied by Lynx in this session.</string>
+    <string name="media_properties_unmanaged">Session properties are unmanaged by Lynx or have changed. Inspect the active decoder to identify the actual playback path.</string>
+    <string name="media_applied">Properties were applied and checked. Reopen player apps; inspect the active decoder to confirm the actual path.</string>
+    <string name="media_action_failed">The change did not complete: %1$s. Check the latest status before retrying.</string>
+    <string name="media_apply">Apply &amp; Reload Media</string>
+    <string name="media_busy">Working…</string>
+    <string name="media_refresh">Refresh Decoder Status</string>
+    <string name="media_active_decoders">Active media components</string>
+    <string name="media_no_active">No active component was reported. Play a video, then refresh the status.</string>
+    <string name="media_registry_note">The framework registry is not a decode test. Format, DRM, resolution support, and app choices can differ. Reopen Companion after changes if the list is still cached.</string>
+    <string name="media_decoder_entry">%1$s · %2$s · %3$s</string>
+    <string name="media_kind_hardware">Hardware</string>
+    <string name="media_kind_software">Software</string>
+    <string name="media_kind_vendor">Vendor / unclassified</string>
+    <string name="media_confirm_title">Reload the media player service?</string>
+    <string name="media_confirm_message">Audio/video may be interrupted briefly and player apps need reopening. OMX compatibility may disable Codec2 formats such as AV1. This sets global preferences rather than per-app decoder choices. Lynx restarts only the media player service; it does not restart zygote or system_server.</string>
+    <string name="media_confirm_apply">Apply and Reload</string>
+    <string name="media_cancel">Cancel</string>
+    <plurals name="media_registered_count">
+        <item quantity="one">%1$d registered video decoder entry</item>
+        <item quantity="other">%1$d registered video decoder entries</item>
+    </plurals>
+    <string name="audit_soc_ground_truth">PHYSICAL HARDWARE VERIFICATION</string>
+    <string name="audit_physical_platform">Physical kernel platform</string>
+    <string name="audit_spoofer_status">SoC spoofer status</string>
+    <string name="audit_spoofer_active">Detected active (bypassed)</string>
+    <string name="audit_brand_integrity">Brand property integrity</string>
+    <string name="audit_brand_original">Authentic / original</string>
+    <string name="audit_cooldown_title">Mode retention duration</string>
+    <string name="audit_cooldown_description">Retain performance mode during brief app switches to avoid mode transitions when returning to the game.</string>
+    <string name="audit_recommended">RECOMMENDED</string>
+    <string name="audit_persistent">Persistent while the game is in RAM</string>
+    <string name="audit_cooldown_feedback">Performance retention duration set to: %1$s</string>
+    <string name="audit_five_seconds">5 seconds</string>
+    <string name="audit_thirty_seconds">30 seconds</string>
+    <string name="audit_one_minute">1 minute</string>
+    <string name="audit_three_minutes">3 minutes</string>
+    <string name="audit_cooldown_fast">Fast • battery saving</string>
+    <string name="audit_cooldown_optimal">Optimal • recommended</string>
+    <string name="audit_cooldown_light">Light multitasking</string>
+    <string name="audit_cooldown_heavy">Heavy multitasking</string>
+    <string name="audit_in_ram">While the game remains in RAM</string>
+    <string name="audit_mode_powersave">Power saving</string>
+    <string name="audit_mode_balance">Balanced</string>
+    <string name="audit_mode_performance">Performance</string>
+    <string name="audit_mode_extreme">Extreme</string>
+    <plurals name="audit_cooldown_seconds"><item quantity="one">%1$d second</item><item quantity="other">%1$d seconds</item></plurals>
 </resources>
