@@ -10,6 +10,7 @@
 #include <compiler.h>
 #include <kpmodule.h>
 #include <hook.h>
+#include <kallsyms.h>
 #include <linux/printk.h>
 
 KPM_NAME("lynx_oc_uv");
@@ -100,7 +101,9 @@ static long lynx_oc_uv_init(const char *args, const char *event, void *__user re
     logkd(LOG_TAG "Initializing Lynx Adaptive OC & UV Engine...\n");
 
     // 1. Hook regulator_set_voltage for CPU VCore UV
-    target_regulator_set_voltage = (void *)kallsyms_lookup_name_by_suffix("regulator_set_voltage");
+    if (kallsyms_lookup_name) {
+        target_regulator_set_voltage = (void *)kallsyms_lookup_name("regulator_set_voltage");
+    }
     if (target_regulator_set_voltage) {
         hook_err_t err = hook_wrap3(target_regulator_set_voltage, before_regulator_set_voltage, after_regulator_set_voltage, 0);
         if (err == HOOK_NO_ERR) {
@@ -111,7 +114,9 @@ static long lynx_oc_uv_init(const char *args, const char *event, void *__user re
     }
 
     // 2. Hook ged_dvfs_vcore for Mali GPU UV
-    target_ged_dvfs_vcore = (void *)kallsyms_lookup_name_by_suffix("ged_dvfs_vcore");
+    if (kallsyms_lookup_name) {
+        target_ged_dvfs_vcore = (void *)kallsyms_lookup_name("ged_dvfs_vcore");
+    }
     if (target_ged_dvfs_vcore) {
         hook_err_t err = hook_wrap1(target_ged_dvfs_vcore, before_ged_dvfs_vcore, after_ged_dvfs_vcore, 0);
         if (err == HOOK_NO_ERR) {
@@ -120,7 +125,9 @@ static long lynx_oc_uv_init(const char *args, const char *event, void *__user re
     }
 
     // 3. Hook dev_pm_opp_set_rate for OPP frequency scaling
-    target_dev_pm_opp_set_rate = (void *)kallsyms_lookup_name_by_suffix("dev_pm_opp_set_rate");
+    if (kallsyms_lookup_name) {
+        target_dev_pm_opp_set_rate = (void *)kallsyms_lookup_name("dev_pm_opp_set_rate");
+    }
     if (target_dev_pm_opp_set_rate) {
         hook_err_t err = hook_wrap2(target_dev_pm_opp_set_rate, before_opp_set_rate, after_opp_set_rate, 0);
         if (err == HOOK_NO_ERR) {

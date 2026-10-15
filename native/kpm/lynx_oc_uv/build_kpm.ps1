@@ -35,6 +35,7 @@ $IncFlags = @(
 $CompileArgs = @(
     "-target", "aarch64-linux-android",
     "-c", "-O2",
+    "-fno-pic",
     "-fno-builtin",
     "-ffreestanding",
     "-Wall"

@@ -10,6 +10,7 @@
 #include <compiler.h>
 #include <kpmodule.h>
 #include <hook.h>
+#include <kallsyms.h>
 #include <linux/printk.h>
 
 KPM_NAME("lynx_thermal_unthrottle");
@@ -25,6 +26,26 @@ static void *target_dv2_check_thermal = NULL;
 
 // Maximum allowed physical PCB temperature before emergency safety fallback (degrees Celsius)
 #define HARD_MAX_SAFE_PCB_TEMP 52
+
+// Custom string comparison (zero external dependency)
+static int k_strcmp(const char *s1, const char *s2)
+{
+    if (!s1 || !s2) return -1;
+    while (*s1 && (*s1 == *s2)) {
+        s1++;
+        s2++;
+    }
+    return *(const unsigned char *)s1 - *(const unsigned char *)s2;
+}
+
+static int find_dv2_sym_cb(void *data, const char *name, struct module *mod, unsigned long addr)
+{
+    if (name && (k_strcmp(name, "__dv2_check_thermal_level") == 0 || k_strcmp(name, "dv2_check_thermal_level") == 0)) {
+        *(void **)data = (void *)addr;
+        return 1;
+    }
+    return 0;
+}
 
 // Before Hook for __dv2_check_thermal_level
 void before_dv2_check(hook_fargs3_t *args, void *udata)
@@ -60,10 +81,17 @@ static long lynx_thermal_init(const char *args, const char *event, void *__user 
 {
     logkd(LOG_TAG "Initializing Lynx Thermal Unthrottle KPM...\n");
 
-    // Dynamic symbol resolution using KernelPatch internal kallsyms
-    target_dv2_check_thermal = (void *)kallsyms_lookup_name_by_suffix("__dv2_check_thermal_level");
-    if (!target_dv2_check_thermal) {
-        target_dv2_check_thermal = (void *)kallsyms_lookup_name_by_suffix("dv2_check_thermal_level");
+    // Dynamic symbol resolution using KernelPatch kallsyms
+    if (kallsyms_lookup_name) {
+        target_dv2_check_thermal = (void *)kallsyms_lookup_name("__dv2_check_thermal_level");
+        if (!target_dv2_check_thermal) {
+            target_dv2_check_thermal = (void *)kallsyms_lookup_name("dv2_check_thermal_level");
+        }
+    }
+
+    // Fallback: iterate symbols if lookup by name failed
+    if (!target_dv2_check_thermal && kallsyms_on_each_symbol) {
+        kallsyms_on_each_symbol(find_dv2_sym_cb, &target_dv2_check_thermal);
     }
 
     if (target_dv2_check_thermal) {
