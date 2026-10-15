@@ -454,20 +454,16 @@ internal object LynxSystemTuningRepository {
     suspend fun setZramCompAlgorithm(algo: String, zramSizeMb: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             val safe = algo.replace(Regex("[^a-zA-Z0-9_-]"), "")
-            val sizeBytes = zramSizeMb.toLong() * 1024L * 1024L
-            val script = """
-                swapoff /dev/block/zram0 2>/dev/null
-                echo 1 > /sys/block/zram0/reset 2>/dev/null
-                echo '$safe' > /sys/block/zram0/comp_algorithm 2>/dev/null
-                if [ $sizeBytes -gt 0 ]; then
-                    echo $sizeBytes > /sys/block/zram0/disksize 2>/dev/null
-                    mkswap /dev/block/zram0 2>/dev/null
-                    swapon /dev/block/zram0 2>/dev/null
-                fi
-                echo ok
-            """.trimIndent()
-            LynxRepository.writeStateKey("memory.comp_algorithm", safe, "str")
-            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+            if (safe.isEmpty() || zramSizeMb <= 0) return@withContext false
+            // Keep live-page checks and reset sequencing inside the native controller.
+            val result = Shell.cmd("""
+                [ -x '$LYNXD_PATH' ] || exit 1
+                '$LYNXD_PATH' memory zram-set 'size=${zramSizeMb}M' 'algo=$safe'
+            """.trimIndent()).exec()
+            if (result.isSuccess) {
+                LynxRepository.writeStateKey("memory.comp_algorithm", safe, "str")
+            }
+            result.isSuccess
         } catch (e: Exception) { false }
     }
 

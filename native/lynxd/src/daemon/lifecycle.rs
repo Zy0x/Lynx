@@ -166,14 +166,14 @@ impl DaemonLifecycle {
         #[cfg(unix)]
         {
             extern "C" {
-                fn signal(sig: std::os::raw::c_int, handler: extern "C" fn(std::os::raw::c_int)) -> usize;
+                fn signal(sig: std::os::raw::c_int, handler: usize) -> usize;
             }
             extern "C" fn sig_handler(_sig: std::os::raw::c_int) {
                 RUNNING.store(false, Ordering::SeqCst);
             }
             unsafe {
-                signal(2, sig_handler);  // SIGINT (Ctrl+C)
-                signal(15, sig_handler); // SIGTERM (kill)
+                signal(2, sig_handler as *const () as usize);  // SIGINT (Ctrl+C)
+                signal(15, sig_handler as *const () as usize); // SIGTERM (kill)
             }
         }
     }

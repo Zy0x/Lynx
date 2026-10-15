@@ -17,3 +17,5 @@ docs/android-improvement-plans/
 archive/local_backups/
 # Local device traces, screenshots, and downloaded analysis dependencies.
 /tools/extreme_trial_*/
+# Private diagnostic captures remain local; share only redacted reports.
+/tools/video_memory_audit_*/

@@ -800,6 +800,25 @@ fn handle_charging(args: &[String]) {
         "status" => {
             println!("{}", ChargingRegulator::status_json());
         }
+        "scan" | "topology" => {
+            let topology = ChargingRegulator::scan_charging_hardware_chips();
+            let dynamic_nodes = ChargingRegulator::crawl_dynamic_power_supply_nodes();
+            println!("{}", ui("=== TOPOLOGI PERANGKAT KERAS PENGISIAN LYNX ===", "=== LYNX CHARGING HARDWARE TOPOLOGY ==="));
+            println!("  • {}: {}", ui("Ringkasan Hardware", "Hardware Summary"), topology.summary);
+            if let Some(buck) = &topology.primary_buck {
+                println!("  • {}: {}", ui("Primary Buck Converter", "Primary Buck Converter"), buck);
+            }
+            if !topology.charge_pumps.is_empty() {
+                println!("  • {}: {}", ui("Direct Charge Pump", "Direct Charge Pump"), topology.charge_pumps.join(", "));
+            }
+            if !topology.vendor_controllers.is_empty() {
+                println!("  • {}: {}", ui("Vendor Controller Engine", "Vendor Controller Engine"), topology.vendor_controllers.join(", "));
+            }
+            println!("  • {}: {}", ui("Node Sysfs Dinamis Terpindai", "Dynamic Sysfs Nodes Scanned"), dynamic_nodes.len());
+            for node in &dynamic_nodes {
+                println!("      - {}", node);
+            }
+        }
         "disconnect" | "reset" => {
             ChargingRegulator::handle_disconnect();
             println!("[OK] {}", ui("Pengisian cepat dihentikan, node direset, dan batas termal dipulihkan.", "Fast charging stopped, nodes reset, and thermal baseline restored."));

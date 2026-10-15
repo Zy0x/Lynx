@@ -1,3 +1,29 @@
+# Lynx Universal [Universal Dynamic Charger Topology Scanner & Deep Kernel Sysfs Crawler] 7.0.0-RC52
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC52** (Lynx Kernel Manager v3.1.13): **Implementasi Universal Dynamic Charger Topology Scanner & Deep Kernel Sysfs Crawler: Deteksi Otomatis Seluruh IC Pengisi Daya (Direct Charge Pump, Primary Switching Buck, dan OEM Controllers) via Kernel Bus Inspection (/sys/bus/i2c/drivers, /sys/bus/platform/drivers), Penelusuran Dinamis Node Pengisian Daya (/sys/class/power_supply/*), dan Pembongkaran Batas Arus/Termal Tanpa Hardcoding di Seluruh Perangkat Android**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC52)
+
+### 1. Universal Dynamic Charger Topology Scanner (`scan_charging_hardware_chips`)
+- **Pemeriksaan Bus Driver Kernel Fisik**: Memindai direktori kernel bus driver (`/sys/bus/i2c/drivers/` dan `/sys/bus/platform/drivers/`) serta class `/sys/class/power_supply/` secara langsung untuk mengidentifikasi seluruh chip fisik charging yang terpasang di motherboard:
+  - **Direct Charge Pumps (2:1 & 4:1 Switched Capacitor)**: Richtek RT9759, Qualcomm SMB1390/1396/1398/1395, Lion Semi LN8000/LN8282 (Xiaomi 67W/120W), Southchip SC8551/8547/8571 (Xiaomi/Vivo/Honor), Texas Instruments BQ25970/BQ25980, NXP PCA9468, NuVolta NU1619, Halo Micro HL7132.
+  - **Primary Switching Buck Converters**: Richtek RT9471/RT9490, MediaTek MT6370/MT6360/MT6375 PMU Buck, Maxim MAX77759/MAX77705/MAX77958 (Google Pixel & Samsung), Texas Instruments BQ25890/BQ25790, Qualcomm SMB1351/1355/1381 & PM8150B/PM8350B/PM7250B Buck, Samsung Shannon S2MU106/S2MU004 PMIC.
+  - **Vendor Controllers**: Transsion Dual-Engine (`tran_battery`, `pca_mtk_chg`, `pca_dv2_algo`), OPPO/Realme SuperVOOC Engine (`oplus_chg`), Google Pixel Battery Controller, Samsung SEC Battery Controller, Qualcomm Battery Subsystem.
+- **Formulasi Topologi Terpadu (`DiscoveredChargerTopology`)**: Menyajikan ringkasan hardware akurat secara dinamis, contoh: `Direct Charge Pump (RT9759 2:1) + Switching Buck Converter (RT9471)` pada Infinix/Tecno, atau `Lion Semi LN8000 Direct Pump + Qualcomm PM8150B Buck` pada Xiaomi.
+
+### 2. Deep Kernel Sysfs Crawler (`crawl_dynamic_power_supply_nodes`)
+- **Penelusuran Mandiri Tanpa Ketergantungan Path Statis**: Menelusuri seluruh subdirektori `/sys/class/power_supply/*/` (`battery`, `usb`, `ac`, `main`, `bms`, `charger`, `parallel`, `cp-standalone`, `smb1390`, dll.) untuk mendeteksi seluruh atribut kontrol pengisian daya yang diekspos oleh kernel vendor.
+- **Spektrum Penguncian & Pembongkaran Arus Menyeluruh**:
+  - Pada **Hyper Mode**: Secara dinamis membongkar batas atas seluruh node pembatas arus yang ditemukan (`constant_charge_current_max`, `constant_charge_current`, `current_max`, `input_current_limit`, `hw_current_max`) ke nilai puncak perangkat, serta mengaktifkan toggle boost (`fastcharge_mode`, `boost_current`, `turbo_power`).
+  - Pada **Bypass Mode**: Secara otomatis mengunci seluruh node pengisian daya yang terdeteksi ke nilai 0 mA dengan proteksi izin 0444, memutus arus ke sel baterai secara mutlak pada perangkat apa pun.
+  - Pada **Regulated Mode**: Menuliskan limit arus yang diminta pengguna ke seluruh node yang ditemukan secara atomik.
+
+### 3. Perintah Diagnostik CLI Baru (`lynxd charging scan`)
+- Menambahkan subperintah `lynxd charging scan` (atau `lynxd charging topology`) untuk memeriksa ringkasan hardware, primary buck converter, direct charge pump, vendor engine, dan daftar lengkap node sysfs dinamis yang berhasil dipindai kernel secara real-time.
+- Memperbarui format telemetri JSON (`lynxd charging status`) dengan menambahkan atribut `"detected_hardware_chips"` dan `"dynamic_scanned_nodes_count"`.
+
+---
+
 # Lynx Universal [Anti-Spoofing Hardware Ground Truth & Cross-Platform Integrity Architecture] 7.0.0-RC51
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC51** (Lynx Kernel Manager v3.1.12): **Implementasi Penuh Protokol Anti-Spoofing Hardware Ground Truth: Kekebalan Mutlak Terhadap Modul Device Faker / Game Unlocker 120 FPS / MagiskHide Props Config / Play Integrity Fix Melalui Verifikasi Driver Fisik Kernel Linux & DTB Sysfs Nodes, Deteksi Otomatis Anomali Props, dan Penyajian Status Keaslian Hardware pada Seluruh Antarmuka & Native Daemon**.

@@ -280,6 +280,10 @@ impl AdbController {
                             kill(pid as i32, 15);
                         }
                     }
+                    #[cfg(not(unix))]
+                    {
+                        let _ = pid;
+                    }
                 }
             }
             let _ = fs::remove_file(pid_path);
