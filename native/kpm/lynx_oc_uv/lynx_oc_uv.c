@@ -36,21 +36,53 @@ static int oc_boost_enabled = 1;
 #define MIN_SAFE_CPU_UV 700000 // 0.70 V floor for CPU
 #define MIN_SAFE_GPU_UV 550000 // 0.55 V floor for GPU
 
+typedef const char *(*fn_rdev_get_name)(void *rdev);
+static fn_rdev_get_name p_rdev_get_name = NULL;
+
+static int k_str_contains(const char *haystack, const char *needle);
+
 // Before Hook for regulator_set_voltage(struct regulator *reg, int min_uV, int max_uV)
 void before_regulator_set_voltage(hook_fargs3_t *args, void *udata)
 {
+    void *reg = (void *)args->arg0;
     int min_uV = (int)args->arg1;
     int max_uV = (int)args->arg2;
 
-    // Only apply offset if valid voltage range (> 600mV)
-    if (min_uV > 650000 && uv_cpu_offset_uv < 0) {
-        int new_min = min_uV + uv_cpu_offset_uv;
-        int new_max = max_uV + uv_cpu_offset_uv;
+    if (!reg) return;
+
+    void *rdev = *(void **)reg; // struct regulator_dev *rdev is at offset 0
+    const char *name = (p_rdev_get_name && rdev) ? p_rdev_get_name(rdev) : NULL;
+
+    // Check if target is CPU (vproc11, vproc12) or GPU (vgpu)
+    int offset = 0;
+    if (name) {
+        if (k_str_contains(name, "vproc")) {
+            offset = uv_cpu_offset_uv;
+        } else if (k_str_contains(name, "vgpu")) {
+            offset = uv_gpu_offset_uv;
+        } else {
+            // Not CPU or GPU regulator, do not touch!
+            return;
+        }
+    } else {
+        // Fallback: only if voltage is in strict CPU/GPU range (700mV - 1150mV)
+        if (min_uV >= 700000 && min_uV <= 1150000) {
+            offset = uv_cpu_offset_uv;
+        } else {
+            return;
+        }
+    }
+
+    if (offset < 0) {
+        int new_min = min_uV + offset;
+        int new_max = max_uV + offset;
 
         // Enforce safety floor
         if (new_min >= MIN_SAFE_CPU_UV && new_max >= MIN_SAFE_CPU_UV) {
             args->arg1 = (uint64_t)new_min;
             args->arg2 = (uint64_t)new_max;
+            logkd(LOG_TAG "UV applied to '%s': %d uV -> %d uV (offset %d uV)\n",
+                  name ? name : "vproc", min_uV, new_min, offset);
         }
     }
 }
@@ -103,6 +135,7 @@ static long lynx_oc_uv_init(const char *args, const char *event, void *__user re
     // 1. Hook regulator_set_voltage for CPU VCore UV
     if (kallsyms_lookup_name) {
         target_regulator_set_voltage = (void *)kallsyms_lookup_name("regulator_set_voltage");
+        p_rdev_get_name = (fn_rdev_get_name)kallsyms_lookup_name("rdev_get_name");
     }
     if (target_regulator_set_voltage) {
         hook_err_t err = hook_wrap3(target_regulator_set_voltage, before_regulator_set_voltage, after_regulator_set_voltage, 0);
