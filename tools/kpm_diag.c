@@ -37,6 +37,16 @@ int main(int argc, char **argv) {
         long ret = syscall(__NR_supercall, "su", make_cmd(SUPERCALL_KPM_UNLOAD), name, NULL);
         printf("Unload syscall return: %ld (errno=%d: %s)\n", ret, errno, strerror(errno));
         return ret == 0 ? 0 : 1;
+    } else if (strcmp(action, "ctl") == 0) {
+        const char *name = (argc > 2) ? argv[2] : "lynx_oc_uv";
+        const char *ctl_args = (argc > 3) ? argv[3] : "help";
+        char out_msg[256];
+        memset(out_msg, 0, sizeof(out_msg));
+        printf("Sending CTL to KPM %s: '%s'\n", name, ctl_args);
+        long ret = syscall(__NR_supercall, "su", make_cmd(SUPERCALL_KPM_CONTROL), name, ctl_args, out_msg, sizeof(out_msg));
+        printf("Control syscall return: %ld (errno=%d: %s)\n", ret, errno, strerror(errno));
+        printf("Out message: '%s'\n", out_msg);
+        return ret == 0 ? 0 : 1;
     } else if (strcmp(action, "list") == 0) {
         char buf[1024];
         memset(buf, 0, sizeof(buf));

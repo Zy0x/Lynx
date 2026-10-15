@@ -27,10 +27,10 @@ static void *target_ged_dvfs_vcore = NULL;
 static void *target_dev_pm_opp_set_rate = NULL;
 
 // Runtime Configurable Offsets (in microvolts, uV)
-// Default conservative undervolt: -25000 uV (-25 mV)
-static int uv_cpu_offset_uv = -25000;
-static int uv_gpu_offset_uv = -25000;
-static int oc_boost_enabled = 1;
+// Default to 0 uV (monitoring & safety stage on initial load)
+static int uv_cpu_offset_uv = 0;
+static int uv_gpu_offset_uv = 0;
+static int oc_boost_enabled = 0;
 
 // Absolute safety floor voltages (uV) to prevent instability/freezes
 #define MIN_SAFE_CPU_UV 700000 // 0.70 V floor for CPU
@@ -42,6 +42,7 @@ static fn_rdev_get_name p_rdev_get_name = NULL;
 static int k_str_contains(const char *haystack, const char *needle);
 
 // Before Hook for regulator_set_voltage(struct regulator *reg, int min_uV, int max_uV)
+// Before Hook for regulator_set_voltage(struct regulator *reg, int min_uV, int max_uV)
 void before_regulator_set_voltage(hook_fargs3_t *args, void *udata)
 {
     void *reg = (void *)args->arg0;
@@ -50,7 +51,8 @@ void before_regulator_set_voltage(hook_fargs3_t *args, void *udata)
 
     if (!reg) return;
 
-    void *rdev = *(void **)reg; // struct regulator_dev *rdev is at offset 0
+    // From disassembly: ldr x22, [x0, #0x50] -> rdev is at offset 0x50
+    void *rdev = *(void **)((char *)reg + 0x50);
     const char *name = (p_rdev_get_name && rdev) ? p_rdev_get_name(rdev) : NULL;
 
     // Check if target is CPU (vproc11, vproc12) or GPU (vgpu)
@@ -65,31 +67,30 @@ void before_regulator_set_voltage(hook_fargs3_t *args, void *udata)
             return;
         }
     } else {
-        // Fallback: only if voltage is in strict CPU/GPU range (700mV - 1150mV)
-        if (min_uV >= 700000 && min_uV <= 1150000) {
-            offset = uv_cpu_offset_uv;
-        } else {
-            return;
-        }
+        return; // Only modify verified named rails
     }
 
     if (offset < 0) {
         int new_min = min_uV + offset;
         int new_max = max_uV + offset;
+        int floor_uv = k_str_contains(name, "vgpu") ? MIN_SAFE_GPU_UV : MIN_SAFE_CPU_UV;
 
         // Enforce safety floor
-        if (new_min >= MIN_SAFE_CPU_UV && new_max >= MIN_SAFE_CPU_UV) {
+        if (new_min >= floor_uv && new_max >= floor_uv) {
             args->arg1 = (uint64_t)new_min;
             args->arg2 = (uint64_t)new_max;
             logkd(LOG_TAG "UV applied to '%s': %d uV -> %d uV (offset %d uV)\n",
-                  name ? name : "vproc", min_uV, new_min, offset);
+                  name, min_uV, new_min, offset);
         }
+    } else {
+        // Monitor mode: log requests for CPU & GPU
+        logkd(LOG_TAG "regulator_set_voltage: rail='%s', req=%d..%d uV\n",
+              name, min_uV, max_uV);
     }
 }
 
 void after_regulator_set_voltage(hook_fargs3_t *args, void *udata)
 {
-    // Return value inspection
 }
 
 // Before Hook for ged_dvfs_vcore(int vcore)
@@ -103,6 +104,8 @@ void before_ged_dvfs_vcore(hook_fargs1_t *args, void *udata)
         int new_vcore = vcore + (offset_step * 100);
         if (new_vcore >= (MIN_SAFE_GPU_UV / 10)) {
             args->arg0 = (uint64_t)new_vcore;
+            logkd(LOG_TAG "ged_dvfs_vcore: %d -> %d (offset %d uV)\n",
+                  vcore, new_vcore, uv_gpu_offset_uv);
         }
     }
 }
@@ -138,9 +141,19 @@ static long lynx_oc_uv_init(const char *args, const char *event, void *__user re
         p_rdev_get_name = (fn_rdev_get_name)kallsyms_lookup_name("rdev_get_name");
     }
     if (target_regulator_set_voltage) {
+        logkd(LOG_TAG "Found regulator_set_voltage at %px, rdev_get_name at %px\n",
+              target_regulator_set_voltage, p_rdev_get_name);
+
+        uint32_t *code = (uint32_t *)target_regulator_set_voltage;
+        logkd(LOG_TAG "code regulator_set_voltage:\n");
+        for (int i = 0; i < 16; i += 4) {
+            logkd(LOG_TAG "  [%02d..%02d] %08x %08x %08x %08x\n",
+                  i, i+3, code[i], code[i+1], code[i+2], code[i+3]);
+        }
+
         hook_err_t err = hook_wrap3(target_regulator_set_voltage, before_regulator_set_voltage, after_regulator_set_voltage, 0);
         if (err == HOOK_NO_ERR) {
-            logkd(LOG_TAG "Hooked regulator_set_voltage (CPU UV offset: %d uV)\n", uv_cpu_offset_uv);
+            logkd(LOG_TAG "Hooked regulator_set_voltage (Safe Monitor Mode: offset %d uV)\n", uv_cpu_offset_uv);
         } else {
             logke(LOG_TAG "Failed to hook regulator_set_voltage, err=%d\n", err);
         }
