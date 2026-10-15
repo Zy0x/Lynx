@@ -332,7 +332,7 @@ fun ChargingHeroDisplayCard(
                             rawMode.startsWith("hyper") -> "hyper"
                             rawMode.startsWith("custom") -> "custom"
                             rawMode.startsWith("standard") -> "standard"
-                            else -> rawMode
+                            else -> ""
                         }
                         liveBypassActive = rawMode.startsWith("bypass")
                     }
@@ -608,9 +608,11 @@ fun ChargingHeroDisplayCard(
     // Active Lynx Charging Mode Resolution (Single Source of Truth)
     val activeChargingMode = remember(liveChargingStateMode, chargingConfig.chargingMode, chargingConfig.extremeChargingEnabled, chargingConfig.limitCurrentMa) {
         when {
+            chargingConfig.chargingMode.equals("hyper", ignoreCase = true) || chargingConfig.extremeChargingEnabled -> "hyper"
+            chargingConfig.chargingMode.equals("cool", ignoreCase = true) -> "cool"
+            chargingConfig.chargingMode.equals("custom", ignoreCase = true) -> "custom"
             liveChargingStateMode.isNotBlank() && !liveChargingStateMode.startsWith("bypass") -> liveChargingStateMode
             chargingConfig.chargingMode.isNotBlank() -> chargingConfig.chargingMode.lowercase()
-            chargingConfig.extremeChargingEnabled -> "hyper"
             chargingConfig.limitCurrentMa in 500..2500 -> "cool"
             chargingConfig.limitCurrentMa > 2500 && chargingConfig.limitCurrentMa != 6000 -> "custom"
             else -> "standard"

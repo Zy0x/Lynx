@@ -840,16 +840,19 @@ impl ChargingRegulator {
 
     /// Evaluates electrochemical CC to CV boundaries and tapering thresholds:
     /// - >= 100% SoC: Bypass AutoCut ("bypass_100", 0 mA)
-    /// - 95% to 99% SoC: Saturation trickle step-down ("tapering_95", 750 mA)
-    /// - 80% to 94% SoC (or V_BAT >= 4470 mV): CV phase step-down ("tapering_80", 3500 mA, V_BAT <= 4.50V)
-    /// - < 80% SoC and V_BAT < 4470 mV: Constant Current (CC) phase peak ("hyper", 12000 mA)
-    pub fn determine_taper_state(soc: u32, vbat_mv: u32) -> (&'static str, u32) {
+    /// - 95% to 99% SoC: Saturation trickle step-down ("tapering_95", 1000 mA)
+    /// - 90% to 94% SoC: Moderate step-down ("tapering_90", 2200 mA)
+    /// - 80% to 89% SoC: High sustained ~80% speed ("tapering_80", 3200 mA, Direct Pump active)
+    /// - 0% to 79% SoC: Full Max Watt unconstrained peak ("hyper", 12000 mA)
+    pub fn determine_taper_state(soc: u32, _vbat_mv: u32) -> (&'static str, u32) {
         if soc >= 100 {
             ("bypass_100", 0)
         } else if soc >= 95 {
-            ("tapering_95", 750)
-        } else if soc >= 80 || vbat_mv >= 4470 {
-            ("tapering_80", 3500)
+            ("tapering_95", 1000)
+        } else if soc >= 90 {
+            ("tapering_90", 2200)
+        } else if soc >= 80 {
+            ("tapering_80", 3200)
         } else {
             ("hyper", 12000)
         }
@@ -880,14 +883,18 @@ impl ChargingRegulator {
             hw_ceiling.max(12000)
         };
 
-        // Utilize target_soc and cell voltage to prevent over-voltage when entering hyper mode at high SoC
+        // Utilize target_soc: 0-80% full max, 80-90% ~80% speed (3200mA), 90-95% 2200mA, 95%+ 1000mA
         let effective_ma = if Self::is_laptop_port() {
             1500
-        } else if cur_cap >= 95 {
-            750
-        } else if (target_soc > 0 && cur_cap >= target_soc) || cur_cap >= 80 || v_clean_mv >= 4470 {
+        } else if target_soc > 0 && cur_cap >= target_soc {
             let (_, taper_ma) = Self::determine_taper_state(cur_cap, v_clean_mv);
             target_peak_ma.min(taper_ma)
+        } else if cur_cap >= 95 {
+            1000
+        } else if cur_cap >= 90 {
+            2200
+        } else if cur_cap >= 80 {
+            3200
         } else {
             target_peak_ma
         };
@@ -906,9 +913,10 @@ impl ChargingRegulator {
         // 2. MediaTek Platform Enforcements & Dual Pump (Thermal & JEITA completely bypassed!)
         Self::set_bcct_throttle(false);
 
-        let is_tapered = effective_ma <= 3500;
-        let pump_enable = if is_tapered { "0" } else { "1" };
-        let pe_protocol = if is_tapered { "0" } else { "1" };
+        let is_tapered = effective_ma <= 2200;
+        let is_trickle = effective_ma < 1500;
+        let pump_enable = if is_trickle { "0" } else { "1" };
+        let pe_protocol = if is_trickle { "0" } else { "1" };
 
         Self::write_node_lock(&format!("{}/pe20", MTK_DIR), pe_protocol);
         Self::write_node_lock(&format!("{}/pe40", MTK_DIR), pe_protocol);
@@ -1201,20 +1209,20 @@ impl ChargingRegulator {
     /// 7. Suspends aggressive OEM thermal daemons (thermalloadalgod, joyose, mi_thermald, thermal-engine).
     /// 8. Overrides Android framework thermal status to 0 (THERMAL_STATUS_NONE).
     pub fn apply_charger_thermal_neutralization() {
-        // 1. Transsion Motherboard PCB Thermal Throttling Calibrated 3-Stage Curve
+        // 1. Transsion Motherboard PCB Thermal Throttling Calibrated 3-Stage Curve (<55C: 33W, 55-58C: 25W, >58C: 18W)
         for node in &[
             format!("{}/pcb_thermal_debug", TRAN_BATTERY_ODM_DIR),
             format!("{}/pcb_thermal_debug", TRAN_BATTERY_DIR),
         ] {
             if Path::new(node).exists() {
-                Self::write_node_lock(node, "[48,4000,50,2500,1500]");
+                Self::write_node_lock(node, "[55,4500,58,3200,2500]");
             }
         }
 
         // 2. Transsion Direct Charge Pump DV2 In-Memory Thermal Table Calibrated 3-Stage Curve
         let dv2_debug = format!("{}/dv2_debug", PCA_DV2_DIR);
         if Path::new(&dv2_debug).exists() {
-            Self::write_node_lock(&dv2_debug, "[101,48,50,52,4000,2500,1500]");
+            Self::write_node_lock(&dv2_debug, "[101,55,58,60,4500,3200,2500]");
             Self::write_node_lock(&dv2_debug, "[102,75,80,85,600,900,1200]");
         }
 
@@ -1231,6 +1239,26 @@ impl ChargingRegulator {
 
         // 5. Freeze BCCT & ABCCT Cooling Devices (53-57) to state 0 locked
         Self::set_bcct_throttle(false);
+
+        // Disable MediaTek AP Thermal Zones that trigger ABCCT throttling
+        if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("thermal_zone") {
+                    let type_path = format!("/sys/class/thermal/{}/type", name_str);
+                    if let Ok(t) = fs::read_to_string(&type_path) {
+                        let t_lower = t.trim().to_lowercase();
+                        if t_lower == "mtktsap" || t_lower == "battery" {
+                            let mode_path = format!("/sys/class/thermal/{}/mode", name_str);
+                            if Path::new(&mode_path).exists() {
+                                Self::write_node_lock(&mode_path, "disabled");
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // 6. Qualcomm Snapdragon Platform Thermal Uncaps
         Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
@@ -1290,6 +1318,28 @@ impl ChargingRegulator {
 
         // 5. Unlock cooling devices permissions so kernel can modulate them
         Self::unlock_bcct();
+
+        // Re-enable MediaTek AP Thermal Zones
+        if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("thermal_zone") {
+                    let type_path = format!("/sys/class/thermal/{}/type", name_str);
+                    if let Ok(t) = fs::read_to_string(&type_path) {
+                        let t_lower = t.trim().to_lowercase();
+                        if t_lower == "mtktsap" || t_lower == "battery" {
+                            let mode_path = format!("/sys/class/thermal/{}/mode", name_str);
+                            if Path::new(&mode_path).exists() {
+                                Self::set_perm(&mode_path, 0o666);
+                                let _ = fs::write(&mode_path, "enabled");
+                                Self::set_perm(&mode_path, 0o644);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // 6. Resume suspended userspace thermal daemons via SIGCONT
         Self::signal_processes(
@@ -1571,7 +1621,7 @@ impl ChargingRegulator {
         let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
         let v_clean_mv = if volt_raw.abs() >= 10_000 { volt_raw.abs() / 1000 } else { volt_raw.abs() } as u32;
 
-        if cfg.smart_tapering_enabled && (cur_cap >= 80 || v_clean_mv >= 4470) {
+        if !is_hyper && cfg.smart_tapering_enabled && (cur_cap >= 80 || v_clean_mv >= 4470) {
             let (state_tag, target_ma) = Self::determine_taper_state(cur_cap, v_clean_mv);
             let effective_target = if cfg.charging_mode == "cool" && cfg.limit_current_ma > 0 {
                 (cfg.limit_current_ma as u32).min(target_ma)
@@ -2268,27 +2318,29 @@ mod tests {
 
     #[test]
     fn test_cc_cv_soc_boundaries_and_tapering_thresholds() {
-        // Deeply discharged / low SoC CC phase (< 80%, V_BAT < 4470 mV)
+        // Deeply discharged / low SoC CC phase (< 80% SoC: Full Max Watt unconstrained peak)
         assert_eq!(ChargingRegulator::determine_taper_state(3, 3400), ("hyper", 12000));
         assert_eq!(ChargingRegulator::determine_taper_state(15, 3800), ("hyper", 12000));
         assert_eq!(ChargingRegulator::determine_taper_state(45, 3950), ("hyper", 12000));
         assert_eq!(ChargingRegulator::determine_taper_state(65, 4150), ("hyper", 12000));
-        assert_eq!(ChargingRegulator::determine_taper_state(79, 4400), ("hyper", 12000));
+        assert_eq!(ChargingRegulator::determine_taper_state(78, 4470), ("hyper", 12000));
+        assert_eq!(ChargingRegulator::determine_taper_state(79, 4480), ("hyper", 12000));
 
-        // Voltage ceiling trigger in CC phase (V_BAT >= 4470 mV even if SoC < 80)
-        assert_eq!(ChargingRegulator::determine_taper_state(78, 4470), ("tapering_80", 3500));
-        assert_eq!(ChargingRegulator::determine_taper_state(79, 4480), ("tapering_80", 3500));
+        // High Sustained Phase: 80% to 89% SoC -> 3200 mA (~80% speed with Direct Pump active)
+        assert_eq!(ChargingRegulator::determine_taper_state(80, 4450), ("tapering_80", 3200));
+        assert_eq!(ChargingRegulator::determine_taper_state(85, 4450), ("tapering_80", 3200));
+        assert_eq!(ChargingRegulator::determine_taper_state(88, 4460), ("tapering_80", 3200));
+        assert_eq!(ChargingRegulator::determine_taper_state(89, 4470), ("tapering_80", 3200));
 
-        // CV Phase 1: 80% to 94% SoC (or V_BAT >= 4470 mV) -> 3500 mA
-        assert_eq!(ChargingRegulator::determine_taper_state(80, 4450), ("tapering_80", 3500));
-        assert_eq!(ChargingRegulator::determine_taper_state(85, 4450), ("tapering_80", 3500));
-        assert_eq!(ChargingRegulator::determine_taper_state(88, 4460), ("tapering_80", 3500));
-        assert_eq!(ChargingRegulator::determine_taper_state(94, 4470), ("tapering_80", 3500));
+        // Moderate Step-down: 90% to 94% SoC -> 2200 mA
+        assert_eq!(ChargingRegulator::determine_taper_state(90, 4470), ("tapering_90", 2200));
+        assert_eq!(ChargingRegulator::determine_taper_state(92, 4475), ("tapering_90", 2200));
+        assert_eq!(ChargingRegulator::determine_taper_state(94, 4480), ("tapering_90", 2200));
 
-        // CV Phase 2: 95% to 99% SoC -> 750 mA
-        assert_eq!(ChargingRegulator::determine_taper_state(95, 4480), ("tapering_95", 750));
-        assert_eq!(ChargingRegulator::determine_taper_state(98, 4490), ("tapering_95", 750));
-        assert_eq!(ChargingRegulator::determine_taper_state(99, 4495), ("tapering_95", 750));
+        // Saturation Trickle: 95% to 99% SoC -> 1000 mA
+        assert_eq!(ChargingRegulator::determine_taper_state(95, 4480), ("tapering_95", 1000));
+        assert_eq!(ChargingRegulator::determine_taper_state(98, 4490), ("tapering_95", 1000));
+        assert_eq!(ChargingRegulator::determine_taper_state(99, 4495), ("tapering_95", 1000));
 
         // Full battery AutoCut: 100% SoC -> bypass 0 mA
         assert_eq!(ChargingRegulator::determine_taper_state(100, 4500), ("bypass_100", 0));

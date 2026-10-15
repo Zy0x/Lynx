@@ -72,8 +72,8 @@ internal object LynxBatteryTelemetryRepository {
                         cst="state=discharging cap=${'$'}cap"
                         rm -f /dev/lynx_extreme_charging 2>/dev/null
                     else
-                        adpv=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null)
-                        [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null)
+                        adpv=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null)
+                        [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null)
                         [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/usb/voltage_now 2>/dev/null)
                         [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/battery/charger_voltage 2>/dev/null)
                         [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/class/power_supply/main/voltage_now 2>/dev/null)
@@ -81,31 +81,24 @@ internal object LynxBatteryTelemetryRepository {
 
                         chgtyp=${'$'}(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || cat /sys/class/power_supply/usb/type 2>/dev/null || echo "")
 
-                        # Read only true live ADC current sensors (never static limit nodes like charger/input_current)
-                        raw_ibus=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_ICharger 2>/dev/null)
-                        # Filter out unsigned 32-bit wrap around (e.g. 4294967249 for small negative/discharging current)
-                        if [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -gt 4000000000 ] 2>/dev/null; then
-                            raw_ibus=0
-                        fi
-                        pe_ibus=0
-                        if [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -gt 0 ] 2>/dev/null; then pe_ibus=1; fi
-                        [ "${'$'}pe_ibus" = "1" ] || raw_ibus=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1)
+                        # Read live ADC current sensor (input_current / Ibus / usb/current_now)
+                        raw_ibus=${'$'}(cat /sys/devices/platform/charger/input_current 2>/dev/null)
+                        [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1)
                         [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/current_now 2>/dev/null)
                         [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/input_current_now 2>/dev/null)
                         [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/main/current_now 2>/dev/null)
-                        [ -z "${'$'}raw_ibus" ] && raw_ibus=0
 
-                        # Scaling heuristic: µA values are always > 100000, mA values are ≤ 9000.
-                        if [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -gt 100000 ] 2>/dev/null; then
+                        # Scaling heuristic: Length >= 10 is 32-bit wrap around; > 500k is uA; > 50k is 10uA; else mA
+                        if [ "${'$'}{#raw_ibus}" -ge 10 ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null; then
+                            ibus=0
+                        elif [ "${'$'}raw_ibus" -gt 500000 ] 2>/dev/null; then
                             ibus=${'$'}(( raw_ibus / 1000 ))
-                        elif [ "${'$'}pe_ibus" = "1" ] && [ "${'$'}raw_ibus" -gt 10 ] && [ "${'$'}raw_ibus" -lt 1000 ] 2>/dev/null; then
-                            ibus=${'$'}(( raw_ibus * 10 ))
+                        elif [ "${'$'}raw_ibus" -gt 50000 ] 2>/dev/null; then
+                            ibus=${'$'}(( raw_ibus / 100 ))
                         else
                             ibus="${'$'}raw_ibus"
                         fi
-                        if [ -n "${'$'}ibus" ] && [ "${'$'}ibus" -gt 15000 ] 2>/dev/null; then
-                            ibus=0
-                        fi
+                        [ -n "${'$'}ibus" ] && [ "${'$'}ibus" -gt 15000 ] 2>/dev/null && ibus=0
                     fi
 
                     rfc=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/rfc_dcp_ta 2>/dev/null | head -n 1)

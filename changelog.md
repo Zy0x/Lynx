@@ -1,3 +1,31 @@
+# Lynx Universal [Unconstrained 0-80% Hyper Curve & Sustained Direct Pump] 7.0.0-RC60
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC60** (Lynx Kernel Manager v3.1.21): **Implementasi Kurva Pengisian Hyper Mode Bebas Hambatan (0–80% Geber Penuh Watt Maksimal ~3900–4500 mA, 80–90% Kecepatan Tinggi Bertahan di ~3200 mA dengan Direct Charge Pump Tetap Aktif), Netralisasi Throttle Termal Kernel OEM (`mtktsAP` & `cooling_device56 abcct`), Perbaikan Resolusi Konflik Pill Mode (`⚡ HYPER` Single Source of Truth), serta Verifikasi Telemetri Sensor ADC Presisi**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC60)
+
+### 1. Kurva Pengisian Daya Hyper Mode 0–80% Full Max & 80–90% Sustained Speed (`charging.rs`)
+- **Fase Constant Current (CC) Penuh 0–80% SoC**: Menggeber arus pengisian daya maksimal tanpa pembatasan dini (`hyper`, target 12,000 mA / hingga batas hardware PMIC ~3900–4500 mA pada 18W–33W).
+- **Fase Kecepatan Tinggi Bertahan 80–90% SoC (`tapering_80`)**: Menjaga arus pengisian pada kecepatan ~80% dari batas maksimal (**3,200 mA**), secara tegas **TIDAK** anjlok ke separuh (1500–1600 mA).
+- **Direct Charge Pump Tetap Aktif di 80–90%**: Memperbaiki ambang `is_trickle = effective_ma < 1500`. Pompa muatan ganda (`enable_sc=1`, `pe20=1`, `pe40=1`) tetap dipertahankan aktif pada rentang 80–90% sehingga pengisian cepat 9V/10V tetap bekerja.
+- **Transisi Halus Pasca-90%**: Penurunan bertahap yang aman pada rentang 90–94% (2,200 mA) dan 95–99% (1,000 mA), serta AutoCut/Bypass hardware penuh pada 100% SoC (0 mA).
+
+### 2. Netralisasi Throttling Termal Kernel MediaTek (`mtktsAP` & `abcct`)
+- **Penonaktifan Trip Point OEM Pengganggu**: Menetralisir `thermal_zone1` (`mtktsAP`) dan mendinginkan derater cooling device 56 (`abcct`) yang sebelumnya mengunci target arus baterai ke 600–750 mA saat suhu menyentuh 41–42°C.
+- **Penyelarasan Ambang Termal Toleransi Tinggi**: Mengangkat kurva termal PCB dan DV2 in-memory ke level aman toleransi tinggi (`[55,4500,58,3200,2500]` pada `pcb_thermal_debug` dan `[101,55,58,60,4500,3200,2500]` pada `dv2_debug`) di mesin native `lynxd` dan skrip fallback `Charging-Controller.sh`.
+- **Restorasi Otomatis**: Semua trip point dan mode termal kernel dipulihkan ke setelan default OEM saat pengisian selesai atau kabel dilepas.
+
+### 3. Perbaikan Resolusi Konflik Pill Mode UI (`ChargingHeroDisplayCard.kt`)
+- **Sanitasi Status Internal**: Memastikan sub-status internal (`tapering_80`, `night_gentle`, dll.) tidak menimpa mode pengisian utama yang dipilih pengguna.
+- **Single Source of Truth**: Menetapkan prioritas mode `hyper` saat `chargingConfig.chargingMode == "hyper"` atau `extremeChargingEnabled == true`, meniadakan masalah pill yang sebelumnya keliru menampilkan `⚡ STANDARD`.
+
+### 4. Perbaikan Skala Register Arus Bus Adaptor (`LynxBatteryTelemetryRepository.kt`)
+- **Akurasi Sensor ADC Hardware Murni**: Memperbaiki pemetaan node tegangan bus ke `/sys/devices/platform/charger/ADC_Charger_Voltage` dan arus bus ke `/sys/devices/platform/charger/input_current`.
+- **Heuristik Skala Multi-Satuan**: Mendukung deteksi presisi untuk register berformat 10 µA (seperti `209264` -> `2092 mA`), microampere (uA), dan milliampere (mA).
+- **Proteksi Overflow 32-Bit Berbasis Panjang String**: Menggunakan proteksi `${#raw_val} >= 10` untuk mencegah integer wrap-around 32-bit tanpa terkena limitasi `strtol` pada shell Android.
+
+---
+
 # Lynx Universal [Gesture Pager Charging Bento & Authentic Hardware Telemetry] 7.0.0-RC59
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC59** (Lynx Kernel Manager v3.1.20): **Perombakan Total Sistem Telemetri Bento Grid Pengisian Daya Menggunakan Gesture-Driven Horizontal Pager dengan Dot Indicator Ultra-Compact (Hanya Berpindah Saat Digeser, Tanpa Kedipan Otomatis), Standardisasi Angka Putih Netral Monospace Tabular (Meniadakan Bias Warna Kuning), serta Audit Ketat Akurasi Sensor Hardware ADC Murni (Eliminasi Mutlak Rumus Perkiraan Buatan)**.

@@ -88,10 +88,10 @@ fallback_hyper() {
     write_node_lock "$MTK_DIR/bypass_charger" "0"
     write_node_lock "$MTK_DIR/sw_jeita" "0"
 
-    # 3. R2 Thermal Calibrated 3-Stage Curve (<48C: 33W, 48-50C: 18W, >50C: 10W)
-    write_node_lock "$TRAN_ODM/pcb_thermal_debug" "[48,4000,50,2500,1500]"
-    write_node_lock "$TRAN_DIR/pcb_thermal_debug" "[48,4000,50,2500,1500]"
-    write_node_lock "$PCA_DIR/dv2_debug" "[101,48,50,52,4000,2500,1500]"
+    # 3. R2 Thermal Calibrated 3-Stage Curve (<55C: 33W, 55-58C: 25W, >58C: 18W)
+    write_node_lock "$TRAN_ODM/pcb_thermal_debug" "[55,4500,58,3200,2500]"
+    write_node_lock "$TRAN_DIR/pcb_thermal_debug" "[55,4500,58,3200,2500]"
+    write_node_lock "$PCA_DIR/dv2_debug" "[101,55,58,60,4500,3200,2500]"
     write_node_lock "$PCA_DIR/dv2_debug" "[102,75,80,85,600,900,1200]"
     chmod 644 "/sys/devices/platform/battery/Battery_Temperature" 2>/dev/null
     write_node_lock "/proc/driver/thermal/clabcct" "0"
@@ -99,6 +99,7 @@ fallback_hyper() {
     for i in 53 54 55 56 57; do
         write_node_lock "/sys/class/thermal/cooling_device$i/cur_state" "0"
     done
+    write_node_lock "/sys/class/thermal/thermal_zone1/mode" "disabled"
 
     # 4. R3 Continuous Maximum Pump Current Enforcement (>6A Battery Current)
     write_node_lock "$MTK_DIR/pe20" "1"
