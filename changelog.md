@@ -1,3 +1,30 @@
+# Lynx Universal [Zero-Touch Handshake Reset & Voltage-Gated Pump Activation] 7.0.0-RC61
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC61** (Lynx Kernel Manager v3.1.22): **Integrasi Mekanisme Voltage-Gated Switched-Capacitor Pump (Mencegah Fault Arus Balik UVLO Saat Adaptor di 5V), Sistem Zero-Touch Soft Reconnect (Reset Handshake BC1.2/PE Tanpa Cabut Kabel), dan Audit Ketat Pemulihan Zero-Leakage Pasca-Cabut Charger Serta Skalabilitas Multi-Vendor (Qualcomm SPMI vs MediaTek I2C vs Dual-Cell 2S)**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC61)
+
+### 1. Voltage-Gated Switched-Capacitor Pump Activation (`charging.rs` & `Charging-Controller.sh`)
+- **Eliminasi Masalah Colok-Cabut 2-3 Kali**: Menganalisis penyebab fisis kegagalan handshake pada konverter 2:1 (RT9759). Jika `enable_sc=1` aktif saat VBUS masih 5V, pompa menghasilkan 2.5V yang lebih rendah dari baterai (4.2V), memicu *Reverse Current Protection* dan mengunci adaptor di mode 5V lambat.
+- **Gating Voltase Adaptor (Threshold $\ge 6.5\text{V}$)**: Register `enable_sc` kini secara ketat hanya diaktifkan jika sensor `ADC_Charger_Voltage` membaca $\ge 6500\text{ mV}$ (setelah negosiasi PE berhasil menaikkan VBUS ke 9V/10V). Pada 5V awal, pengisian ditangani aman oleh buck converter tanpa risiko UVLO trip.
+
+### 2. Zero-Touch Soft Reconnect Watchdog (`charging.rs`)
+- **Automated Handshake Kick**: Menyediakan fungsi `trigger_charger_soft_reconnect()` yang secara otomatis memutus sesaat FET input charging (`input_suspend` 150 ms) atau memicu `Pump_Express` / `rerun_aicl`.
+- **Deteksi Adaptor Macet**: Jika dalam mode Hyper terdeteksi adaptor macet di mode 5V standar USB selama $\ge 4$ detik berturut-turut pada SoC $< 80\%$, sistem secara otomatis mengeksekusi *soft-reconnect* untuk memulai ulang handshake tanpa mengharuskan pengguna mencabut kabel secara fisik.
+
+### 3. Pemulihan Penuh Pasca-Cabut Charger & Zero Battery Leakage
+- **Audit Ground-Truth Hardware Nyata**: Terverifikasi secara empiris di kernel bahwa saat charger dicabut:
+  - `enable_sc` seketika menjadi `0` (pompa dimatikan).
+  - `BN_TestMode` kembali ke `0` dan `BatteryNotify` kembali ke `1`.
+  - `thermal_zone1/mode` kembali ke `enabled` dan `pcb_thermal_debug` serta `clabcct` kembali ke setpoint pabrik OEM.
+  - Seluruh lockfile RAM dibersihkan dan OS wakelock dilepas via `dumpsys battery reset` sehingga konsumsi daya idle baterai terlindungi dari kebocoran (*zero leakage*).
+
+### 4. Skalabilitas Multi-Vendor Bebas Hardcode (Qualcomm vs MediaTek vs 2S Dual-Cell)
+- **Lapisan Abstraksi HAL**: Mendukung pemetaan dinamis kelas `power_supply` Qualcomm berbasis SPMI (satuan mikroampere µA, `rerun_aicl`, `system_temp_level`) dan MediaTek I2C (satuan milliampere mA, direct pump).
+- **Deteksi Baterai Seri Dual-Cell (2S)**: Arsitektur 65W–240W dideteksi melalui $V_{bat} \ge 7.0\text{V}$ untuk menyesuaikan batas arus PMIC hingga 20,000 mA tanpa keliru membatasi daya.
+
+---
+
 # Lynx Universal [Unconstrained 0-80% Hyper Curve & Sustained Direct Pump] 7.0.0-RC60
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC60** (Lynx Kernel Manager v3.1.21): **Implementasi Kurva Pengisian Hyper Mode Bebas Hambatan (0–80% Geber Penuh Watt Maksimal ~3900–4500 mA, 80–90% Kecepatan Tinggi Bertahan di ~3200 mA dengan Direct Charge Pump Tetap Aktif), Netralisasi Throttle Termal Kernel OEM (`mtktsAP` & `cooling_device56 abcct`), Perbaikan Resolusi Konflik Pill Mode (`⚡ HYPER` Single Source of Truth), serta Verifikasi Telemetri Sensor ADC Presisi**.

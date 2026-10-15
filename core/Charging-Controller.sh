@@ -104,7 +104,15 @@ fallback_hyper() {
     # 4. R3 Continuous Maximum Pump Current Enforcement (>6A Battery Current)
     write_node_lock "$MTK_DIR/pe20" "1"
     write_node_lock "$MTK_DIR/pe40" "1"
-    write_node_lock "$MTK_DIR/enable_sc" "1"
+
+    # Voltage-Gated Pump: Only enable switched capacitor pump when adapter has stepped up to >= 6.5V
+    local adpv=$(cat "$MTK_DIR/ADC_Charger_Voltage" 2>/dev/null || cat "$USB_DIR/voltage_now" 2>/dev/null || echo 0)
+    [ "$adpv" -gt 100000 ] 2>/dev/null && adpv=$((adpv / 1000))
+    if [ "$adpv" -ge 6500 ] 2>/dev/null; then
+        write_node_lock "$MTK_DIR/enable_sc" "1"
+    else
+        write_node_lock "$MTK_DIR/enable_sc" "0"
+    fi
     write_node_lock "$MTK_DIR/input_current" "33170"
     write_node_lock "$MTK_DIR/sc_ibat_limit" "12000"
     write_node_lock "$MTK_DIR/chg1_current" "33170"
@@ -179,6 +187,9 @@ fallback_disconnect() {
         echo "$local_temp" > "/sys/devices/platform/battery/Battery_Temperature" 2>/dev/null
     fi
     [ -e "/sys/class/thermal/cooling_device56/cur_state" ] && echo "1" > "/sys/class/thermal/cooling_device56/cur_state" 2>/dev/null
+    [ -e "/sys/class/thermal/thermal_zone1/mode" ] && echo "enabled" > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+    [ -e "/proc/driver/thermal/clabcct" ] && echo "1 42000 1000 200000 5 2000 0" > "/proc/driver/thermal/clabcct" 2>/dev/null
+    [ -e "/proc/driver/thermal/clabcct_lcmoff" ] && echo "1 43000 1000 200000 5 2000 0" > "/proc/driver/thermal/clabcct_lcmoff" 2>/dev/null
 
     # Reset Android battery framework state
     dumpsys battery reset 2>/dev/null
