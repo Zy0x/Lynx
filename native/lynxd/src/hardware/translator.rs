@@ -517,7 +517,9 @@ impl HardwareTranslator {
 
         // Dynamic RAM-proportional VM parameters
         let ram_mb = cap.memory.total_ram_mb;
-        let (swappiness, vfs_pressure) = if is_perf_or_ext {
+        let (swappiness, vfs_pressure) = if is_extreme {
+            ("30", "50")
+        } else if is_perf_or_ext {
             if ram_mb <= 4500 {
                 ("100", "80")
             } else if ram_mb <= 6500 {
@@ -545,6 +547,15 @@ impl HardwareTranslator {
             let (s_boost, s_min) = if is_perf_or_ext { ("50", "30") } else { ("0", "0") };
             Self::push_op(&mut ops, "Scheduler", "Schedtune top-app boost", stune_top.join("schedtune.boost"), s_boost, false);
             Self::push_op(&mut ops, "Scheduler", "Schedtune top-app util min", stune_top.join("schedtune.util.min"), s_min, false);
+        }
+
+        if is_perf_or_ext {
+            for block_name in &["sda", "sdb", "sdc", "mmcblk0"] {
+                let ra_path = PathBuf::from(format!("/sys/block/{}/queue/read_ahead_kb", block_name));
+                if ra_path.exists() {
+                    Self::push_op(&mut ops, "Storage", format!("Internal {} read-ahead boost", block_name), ra_path, "512", false);
+                }
+            }
         }
 
         for dev in &cap.storage.devices {
