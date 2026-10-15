@@ -47,32 +47,56 @@ static int find_dv2_sym_cb(void *data, const char *name, struct module *mod, uns
     return 0;
 }
 
+static void *target_dv2_check_tpcb = NULL;
+
 // Before Hook for __dv2_check_thermal_level
+// Kernel signature: int __dv2_check_thermal_level(struct dv2_algo_info *info, struct dv2_thermal_sensor *sensor)
+// Disassembly:
+//   ldr x9, [x1, #0x18]    ; table pointer
+//   ldr w3, [x1, #0x8]     ; current sensor temperature
+//   cmp w3, w4             ; compare temp with max table entry
+//   b.ge trip_label        ; if temp >= max, fail check
+//   b.le ok_label          ; if temp <= min, level 0 ok
 void before_dv2_check(hook_fargs3_t *args, void *udata)
 {
-    // args->arg0: name/pointer
-    // args->arg1: current temperature
-    // args->arg2: level pointer or mode
+    uint64_t sensor = args->arg1;
+    args->local.data[0] = 0;
+    args->local.data[1] = sensor;
+
+    if (sensor > 0xffffff8000000000ULL && ((sensor & 7) == 0)) {
+        int orig_temp = *(volatile int *)(sensor + 8);
+        const char *name = *(const char **)sensor;
+
+        args->local.data[0] = (uint64_t)orig_temp;
+
+        if (orig_temp > 32 && orig_temp < HARD_MAX_SAFE_PCB_TEMP) {
+            logkd(LOG_TAG "Sensor '%s' temp=%d C -> clamped to 28 C (Thermal Unthrottled!)\n",
+                  name ? name : "unknown", orig_temp);
+            // Clamp temp to 28 C while check function evaluates!
+            *(volatile int *)(sensor + 8) = 28;
+        } else if (orig_temp >= HARD_MAX_SAFE_PCB_TEMP) {
+            logkd(LOG_TAG "EMERGENCY: Sensor '%s' temp=%d C >= %d C safe limit! Allowing hardware emergency trip.\n",
+                  name ? name : "unknown", orig_temp, HARD_MAX_SAFE_PCB_TEMP);
+        }
+    }
 }
 
 // After Hook for __dv2_check_thermal_level
 void after_dv2_check(hook_fargs3_t *args, void *udata)
 {
-    int orig_level = (int)args->ret;
+    int orig_temp = (int)args->local.data[0];
+    uint64_t sensor = args->local.data[1];
 
-    // If kernel decided to throttle charging current (Level > 0)
-    if (orig_level > 0) {
-        // Temperature safety check:
-        // args->arg1 contains the current temperature in degrees C
-        int temp = (int)args->arg1;
-        if (temp > 0 && temp < HARD_MAX_SAFE_PCB_TEMP) {
-            logkd(LOG_TAG "Overriding thermal level %d -> 0 (temp=%d C < %d C safe limit)\n",
-                  orig_level, temp, HARD_MAX_SAFE_PCB_TEMP);
-            args->ret = 0; // Force Level 0 (Full unthrottled fast charging)
-        } else if (temp >= HARD_MAX_SAFE_PCB_TEMP) {
-            logkd(LOG_TAG "Emergency PCB safety threshold reached (temp=%d C >= %d C), allowing hardware throttle (level %d)\n",
-                  temp, HARD_MAX_SAFE_PCB_TEMP, orig_level);
-        }
+    // Restore real physical temperature in sensor struct
+    if (sensor > 0xffffff8000000000ULL && orig_temp > 0) {
+        *(volatile int *)(sensor + 8) = orig_temp;
+    }
+
+    // Ensure ret remains 1 (true = thermal check passed) as long as temp is below emergency limit
+    if (orig_temp > 0 && orig_temp < HARD_MAX_SAFE_PCB_TEMP && args->ret == 0) {
+        logkd(LOG_TAG "Overriding ret 0 -> 1 (preventing emergency stop, temp=%d C < %d C)\n",
+              orig_temp, HARD_MAX_SAFE_PCB_TEMP);
+        args->ret = 1;
     }
 }
 
@@ -87,6 +111,7 @@ static long lynx_thermal_init(const char *args, const char *event, void *__user 
         if (!target_dv2_check_thermal) {
             target_dv2_check_thermal = (void *)kallsyms_lookup_name("dv2_check_thermal_level");
         }
+        target_dv2_check_tpcb = (void *)kallsyms_lookup_name("__dv2_check_tpcb_level");
     }
 
     // Fallback: iterate symbols if lookup by name failed
@@ -96,6 +121,15 @@ static long lynx_thermal_init(const char *args, const char *event, void *__user 
 
     if (target_dv2_check_thermal) {
         logkd(LOG_TAG "Found __dv2_check_thermal_level at %px\n", target_dv2_check_thermal);
+
+        // Dump first 16 instructions of __dv2_check_thermal_level
+        uint32_t *code = (uint32_t *)target_dv2_check_thermal;
+        logkd(LOG_TAG "code __dv2_check_thermal_level:\n");
+        for (int i = 0; i < 16; i += 4) {
+            logkd(LOG_TAG "  [%02d..%02d] %08x %08x %08x %08x\n",
+                  i, i+3, code[i], code[i+1], code[i+2], code[i+3]);
+        }
+
         hook_err_t err = hook_wrap3(target_dv2_check_thermal, before_dv2_check, after_dv2_check, 0);
         if (err == HOOK_NO_ERR) {
             logkd(LOG_TAG "Successfully installed inline hook on __dv2_check_thermal_level!\n");
@@ -104,6 +138,16 @@ static long lynx_thermal_init(const char *args, const char *event, void *__user 
         }
     } else {
         logke(LOG_TAG "Symbol __dv2_check_thermal_level not found in kallsyms\n");
+    }
+
+    if (target_dv2_check_tpcb) {
+        logkd(LOG_TAG "Found __dv2_check_tpcb_level at %px\n", target_dv2_check_tpcb);
+        uint32_t *code_tpcb = (uint32_t *)target_dv2_check_tpcb;
+        logkd(LOG_TAG "code __dv2_check_tpcb_level:\n");
+        for (int i = 0; i < 16; i += 4) {
+            logkd(LOG_TAG "  [%02d..%02d] %08x %08x %08x %08x\n",
+                  i, i+3, code_tpcb[i], code_tpcb[i+1], code_tpcb[i+2], code_tpcb[i+3]);
+        }
     }
 
     return 0;
