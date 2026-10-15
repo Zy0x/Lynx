@@ -328,9 +328,21 @@ impl HardwareTranslator {
                     ("/sys/module/ged/parameters/gx_game_mode", "GED GX game mode"),
                     ("/sys/module/ged/parameters/gx_boost_on", "GED GX boost"),
                     ("/sys/kernel/fpsgo/common/fpsgo_enable", "MediaTek FPSGO frame pacer"),
+                    ("/sys/kernel/fpsgo/fbt/boost_ta", "FPSGO top-app boost"),
+                    ("/sys/kernel/fpsgo/fbt/ultra_rescue", "FPSGO emergency ultra rescue"),
                 ] {
                     Self::push_op(&mut ops, "GPU", *desc, *node, ged_flag, false);
                 }
+
+                // MediaTek GED GPU Boost Amplitude (0=stock, 2=perf, 3=extreme)
+                let boost_amp = if is_extreme { "3" } else if is_perf_or_ext { "2" } else { "0" };
+                Self::push_op(&mut ops, "GPU", "GED boost amplitude", "/sys/module/ged/parameters/boost_amp", boost_amp, false);
+
+                // MediaTek CoreLink Interconnect (CCI) & Power Mode
+                let power_mode = if is_perf_or_ext { "3" } else if is_powersave { "1" } else { "0" };
+                let cci_mode = if is_perf_or_ext { "1" } else { "0" };
+                Self::push_op(&mut ops, "MTK-CCI", "MediaTek CPU frequency power mode", "/proc/cpufreq/cpufreq_power_mode", power_mode, false);
+                Self::push_op(&mut ops, "MTK-CCI", "MediaTek CCI interconnect mode", "/proc/cpufreq/cpufreq_cci_mode", cci_mode, false);
             }
             Vendor::Qualcomm => {
                 let target_b = if profile.cpu.boost { "1" } else { "0" };

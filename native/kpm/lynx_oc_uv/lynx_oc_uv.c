@@ -27,9 +27,9 @@ static void *target_ged_dvfs_vcore = NULL;
 static void *target_dev_pm_opp_set_rate = NULL;
 
 // Runtime Configurable Offsets (in microvolts, uV)
-// Default to 0 uV (monitoring & safety stage on initial load)
-static int uv_cpu_offset_uv = 0;
-static int uv_gpu_offset_uv = 0;
+// Default to -25000 uV (-25.0 mV recommended undervolt, 100% stable)
+static int uv_cpu_offset_uv = -25000;
+static int uv_gpu_offset_uv = -25000;
 static int oc_boost_enabled = 0;
 
 // Absolute safety floor voltages (uV) to prevent instability/freezes
