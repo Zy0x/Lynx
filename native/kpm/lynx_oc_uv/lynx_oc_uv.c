@@ -114,6 +114,24 @@ void after_ged_dvfs_vcore(hook_fargs1_t *args, void *udata)
 {
 }
 
+static void *target_cpufreq_driver_target = NULL;
+
+// Before Hook for cpufreq_driver_target(struct cpufreq_policy *policy, unsigned int target_freq, unsigned int relation)
+void before_cpufreq_driver_target(hook_fargs3_t *args, void *udata)
+{
+    if (!oc_boost_enabled) return;
+
+    unsigned int target = (unsigned int)args->arg1;
+    // Boost any frequency request to maximum hardware frequency (2.05GHz Big / 2.0GHz Little)
+    if (target < 2050000) {
+        args->arg1 = 2050000;
+    }
+}
+
+void after_cpufreq_driver_target(hook_fargs3_t *args, void *udata)
+{
+}
+
 // Before Hook for dev_pm_opp_set_rate(struct device *dev, unsigned long target_freq)
 void before_opp_set_rate(hook_fargs2_t *args, void *udata)
 {
@@ -121,8 +139,7 @@ void before_opp_set_rate(hook_fargs2_t *args, void *udata)
 
     // If OC / Peak Mode is enabled, prevent aggressive downclocking during load
     if (oc_boost_enabled && freq < 1000000000 && freq > 500000000) {
-        // Boost mid-range requests to high performance tier
-        // args->arg1 = 1800000000;
+        args->arg1 = 2050000000UL;
     }
 }
 
@@ -181,6 +198,17 @@ static long lynx_oc_uv_init(const char *args, const char *event, void *__user re
         }
     }
 
+    // 4. Hook cpufreq_driver_target for CPU OC clock locking
+    if (kallsyms_lookup_name) {
+        target_cpufreq_driver_target = (void *)kallsyms_lookup_name("cpufreq_driver_target");
+    }
+    if (target_cpufreq_driver_target) {
+        hook_err_t err = hook_wrap3(target_cpufreq_driver_target, before_cpufreq_driver_target, after_cpufreq_driver_target, 0);
+        if (err == HOOK_NO_ERR) {
+            logkd(LOG_TAG "Hooked cpufreq_driver_target (CPU OC Engine Ready)\n");
+        }
+    }
+
     logkd(LOG_TAG "Lynx Adaptive OC & UV Engine successfully loaded!\n");
     return 0;
 }
@@ -208,12 +236,17 @@ static long lynx_oc_uv_control0(const char *args, char *__user out_msg, int outl
     logkd(LOG_TAG "Control message received: %s\n", args);
 
     // Support dynamic runtime reconfiguration:
-    // e.g. "uv_cpu=-12500" or "uv_cpu=-25000" or "reset"
     if (k_str_contains(args, "reset")) {
         uv_cpu_offset_uv = 0;
         uv_gpu_offset_uv = 0;
         oc_boost_enabled = 0;
-        logkd(LOG_TAG "Reset all offsets to 0 (stock defaults)\n");
+        logkd(LOG_TAG "Reset all offsets to 0 & disabled OC (stock defaults)\n");
+    } else if (k_str_contains(args, "oc=1")) {
+        oc_boost_enabled = 1;
+        logkd(LOG_TAG "CPU & GPU OC Boost ENABLED (2.05GHz / 2.0GHz lock)\n");
+    } else if (k_str_contains(args, "oc=0")) {
+        oc_boost_enabled = 0;
+        logkd(LOG_TAG "CPU & GPU OC Boost DISABLED (dynamic scaling)\n");
     } else if (k_str_contains(args, "uv=-12.5")) {
         uv_cpu_offset_uv = -12500;
         uv_gpu_offset_uv = -12500;
@@ -244,6 +277,9 @@ static long lynx_oc_uv_exit(void *__user reserved)
     }
     if (target_dev_pm_opp_set_rate) {
         unhook(target_dev_pm_opp_set_rate);
+    }
+    if (target_cpufreq_driver_target) {
+        unhook(target_cpufreq_driver_target);
     }
 
     logkd(LOG_TAG "All hooks removed. Voltages and clocks restored to stock.\n");
