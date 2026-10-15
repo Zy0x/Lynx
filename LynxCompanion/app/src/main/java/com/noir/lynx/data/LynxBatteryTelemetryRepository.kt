@@ -83,6 +83,10 @@ internal object LynxBatteryTelemetryRepository {
 
                         # Read only true live ADC current sensors (never static limit nodes like charger/input_current)
                         raw_ibus=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_ICharger 2>/dev/null)
+                        # Filter out unsigned 32-bit wrap around (e.g. 4294967249 for small negative/discharging current)
+                        if [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -gt 4000000000 ] 2>/dev/null; then
+                            raw_ibus=0
+                        fi
                         pe_ibus=0
                         if [ -n "${'$'}raw_ibus" ] && [ "${'$'}raw_ibus" -gt 0 ] 2>/dev/null; then pe_ibus=1; fi
                         [ "${'$'}pe_ibus" = "1" ] || raw_ibus=${'$'}(cat /sys/bus/i2c/drivers/rt9759/*/Ibus 2>/dev/null | head -n 1)
@@ -98,6 +102,9 @@ internal object LynxBatteryTelemetryRepository {
                             ibus=${'$'}(( raw_ibus * 10 ))
                         else
                             ibus="${'$'}raw_ibus"
+                        fi
+                        if [ -n "${'$'}ibus" ] && [ "${'$'}ibus" -gt 15000 ] 2>/dev/null; then
+                            ibus=0
                         fi
                     fi
 
@@ -412,18 +419,17 @@ internal object LynxBatteryTelemetryRepository {
                         else -> if (isTranssion && isCharging) "Transsion Super Charge (PE+)" else "Adaptor Standar (DCP)"
                     }
 
-                    val adapterWatt = if (isPlugged && adpMv > 1000 && ibusMa > 50) {
+                    val adapterWatt = if (isPlugged && adpMv in 4000..25000 && ibusMa in 100..15000) {
                         (adpMv.toFloat() * ibusMa.toFloat()) / 1_000_000f
-                    } else if (isCharging && watt > 0.1f) {
-                        val effFactor = if (rfcAuth || pmicSig == "rt9759" || pmicSig == "smb1390" || pmicSig == "mi_pump" || voocSig == "1") 0.96f else 0.88f
-                        watt / effFactor
-                    } else 0f
+                    } else {
+                        0f
+                    }
 
-                    val effectiveIbusMa = if (isPlugged && ibusMa > 50) {
+                    val effectiveIbusMa = if (isPlugged && ibusMa in 100..15000) {
                         ibusMa
-                    } else if (isPlugged && adpMv > 1000 && adapterWatt > 0.1f) {
-                        ((adapterWatt * 1_000_000f) / adpMv.toFloat()).toInt()
-                    } else 0
+                    } else {
+                        0
+                    }
 
                     val efficiency = if (isPlugged && adapterWatt > 0.5f && watt > 0.5f) {
                         ((watt / adapterWatt) * 100f).toInt().coerceIn(60, 99)

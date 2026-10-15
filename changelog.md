@@ -1,3 +1,25 @@
+# Lynx Universal [Gesture Pager Charging Bento & Authentic Hardware Telemetry] 7.0.0-RC59
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC59** (Lynx Kernel Manager v3.1.20): **Perombakan Total Sistem Telemetri Bento Grid Pengisian Daya Menggunakan Gesture-Driven Horizontal Pager dengan Dot Indicator Ultra-Compact (Hanya Berpindah Saat Digeser, Tanpa Kedipan Otomatis), Standardisasi Angka Putih Netral Monospace Tabular (Meniadakan Bias Warna Kuning), serta Audit Ketat Akurasi Sensor Hardware ADC Murni (Eliminasi Mutlak Rumus Perkiraan Buatan)**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC59)
+
+### 1. Gesture-Driven Horizontal Pager & Ultra-Compact Dot Indicator (`ChargingHeroDisplayCard.kt`)
+- **Kendali Geser Manual Murni (No Auto-Flicker)**: Mengeliminasi siklus timer otomatis yang melelahkan mata. Transisi antara perspektif *Input Adaptor* dan *Sel Baterai* kini 100% berada di bawah kendali pengguna melalui gestur geser horizontal (*horizontal swipe*) yang mulus dan tenang.
+- **Indikator Titik Kompak (Space-Saving Dot Indicator)**: Menampilkan indikator titik minimalis (`● ○` / `○ ●`, tinggi 3.5 dp) di bawah ubin Bento Grid yang hanya aktif saat charging terhubung dengan data adaptor valid. Menghemat ruang vertikal dan menjaga estetika antarmuka tetap bersih.
+- **Header Pill Subtitle Real-Time**: Subtitle pada banner protokol (`Input adaptor • 34.0 W` vs `Daya baterai • 17.0 W`) tersinkronisasi secara dinamis mengikuti halaman pager yang aktif.
+
+### 2. Standardisasi Angka Putih Netral Berstandar Instrumen EV (`ChargingHeroDisplayCard.kt`)
+- **Meniadakan Bias Warna Kuning/Emas**: Seluruh angka pembacaan daya, tegangan, dan arus distandardisasi menggunakan warna putih bersih (`TextPrimary` / `#FFFFFF`) dengan tipografi tabular monospace.
+- **Pencegahan Ambiguitas UX**: Menghilangkan persepsi negatif pengguna yang mengasosiasikan warna kuning dengan status peringatan/warning, sehingga tampilan selaras dengan instrumen dashboard profesional.
+
+### 3. Akurasi Sensor Hardware Ground-Truth (`LynxBatteryTelemetryRepository.kt` & `LynxTelemetryMapper.kt`)
+- **Eliminasi Formula Estimasi Buatan**: Menghapus seluruh rumus kalkulasi perkiraan buatan (`watt / effFactor`) yang sebelumnya memicu kesalahan beruntun saat register arus kernel tidak terpetakan.
+- **Pembacaan Murni Sensor ADC Fisik**: Daya adaptor ($P_{adaptor}$) hanya dihitung jika tegangan bus ($V_{bus} \ge 4.0\text{V}$) dan arus bus ($I_{bus} \ge 100\text{mA}$) terdeteksi secara fisik dari sensor hardware kernel (`ADC_Charger_Voltage` & `Pump_Express_ICharger`). Jika sensor arus tidak tersedia, modul secara transparan menyajikan telemetri Fuel Gauge baterai murni tanpa rekayasa.
+- **Perbaikan Unsigned 32-Bit Overflow**: Menangani overflow negatif register arus (nilai `4294967249` pada Transsion battery) agar tidak salah terbaca sebagai arus pengisian daya positif.
+
+---
+
 # Lynx Universal [Dual-Mode Crossfade Charging Telemetry Engine] 7.0.0-RC58
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC58** (Lynx Kernel Manager v3.1.19): **Integrasi Animasi Sinkron Dual-Mode Telemetri (Crossfade Fade In/Out) pada Bento Grid Dashboard Pengisian Daya (Bergantian antara Input Adaptor Charger 34W Emas & Daya Bersih Baterai 17W Hijau Neon), Dukungan Interaksi Instan Tap-to-Toggle, dan Subtitle Pill Status Dinamis**.

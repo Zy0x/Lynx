@@ -211,24 +211,18 @@ internal object LynxTelemetryMapper {
 
             val adpVoltMv = existingBatt?.adapterVoltageMv ?: 0
 
-            val liveAdapterWatt = if (isPlugged && tel.battWatt > 0.1f) {
-
-                tel.battWatt / (effPct / 100f)
-
+            val liveAdapterWatt = if (isPlugged && existingBatt != null && existingBatt.adapterWatt > 0.5f) {
+                existingBatt.adapterWatt
+            } else if (isPlugged && adpVoltMv in 4000..25000 && (existingBatt?.adapterCurrentMa ?: 0) in 100..15000) {
+                (adpVoltMv.toFloat() * existingBatt!!.adapterCurrentMa.toFloat()) / 1_000_000f
             } else {
-
-                existingBatt?.adapterWatt ?: 0f
-
+                0f
             }
 
-            val liveAdapterCurrentMa = if (isPlugged && adpVoltMv > 1000 && liveAdapterWatt > 0.1f) {
-
-                ((liveAdapterWatt * 1_000_000f) / adpVoltMv.toFloat()).toInt()
-
+            val liveAdapterCurrentMa = if (isPlugged && (existingBatt?.adapterCurrentMa ?: 0) in 100..15000) {
+                existingBatt!!.adapterCurrentMa
             } else {
-
-                existingBatt?.adapterCurrentMa ?: 0
-
+                0
             }
 
             val isTranssionDevice = android.os.Build.MANUFACTURER.contains("INFINIX", ignoreCase = true) ||
