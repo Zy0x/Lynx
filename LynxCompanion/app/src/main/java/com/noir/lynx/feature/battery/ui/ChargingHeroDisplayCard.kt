@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -481,6 +483,32 @@ fun ChargingHeroDisplayCard(
     val liveWatts = if (isBypass) 0.0f else if (tel.battWatt > 0.05f) tel.battWatt else {
         ((liveVolts * (if (isCharging) effectiveCurrentMa else kotlin.math.abs(rawCurrentMa.toFloat()))) / 1000f)
     }
+
+    val hasAdapterData = isCharging && (batt.adapterWatt > 1f || batt.chargerWatt > 1f || batt.adapterVoltageMv > 5000)
+    val adapterWatts = if (batt.adapterWatt > 0.05f) batt.adapterWatt else batt.chargerWatt
+    val adapterVolts = if (batt.adapterVoltageMv > 1000) batt.adapterVoltageMv / 1000f else (if (batt.chargerVoltageMv > 1000) batt.chargerVoltageMv / 1000f else liveVolts)
+    val adapterCurrentMa = if (batt.adapterCurrentMa > 50) batt.adapterCurrentMa else if (adapterVolts > 1f && adapterWatts > 0.5f) ((adapterWatts * 1000f) / adapterVolts).roundToInt() else effectiveCurrentMa.roundToInt()
+
+    var manualTelemetryMode by remember { mutableStateOf<Boolean?>(null) }
+    var autoTelemetryMode by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isCharging, hasAdapterData) {
+        if (isCharging && hasAdapterData) {
+            while (true) {
+                delay(2500L)
+                autoTelemetryMode = !autoTelemetryMode
+            }
+        } else {
+            autoTelemetryMode = false
+        }
+    }
+
+    val showingAdapter = hasAdapterData && (manualTelemetryMode ?: autoTelemetryMode)
+    val toggleTelemetry: () -> Unit = {
+        if (hasAdapterData) {
+            manualTelemetryMode = !showingAdapter
+        }
+    }
     val tempFloat = when {
         liveHardwareTempC > 0f -> liveHardwareTempC
         tel.temp.toFloatOrNull() != null -> tel.temp.toFloat()
@@ -632,7 +660,10 @@ fun ChargingHeroDisplayCard(
                     "custom" -> AccentPurple.copy(alpha = 0.15f)
                     else -> AccentGreenDim
                 }
-                val baseDesc = if (liveWatts > 0.5f) "Daya masuk • ${String.format(Locale.US, "%.1f", liveWatts)} W" else "Daya terhubung"
+                val baseDesc = if (liveWatts > 0.5f) {
+                    if (showingAdapter) "Input adaptor • ${String.format(Locale.US, "%.1f", adapterWatts)} W"
+                    else "Daya baterai • ${String.format(Locale.US, "%.1f", liveWatts)} W"
+                } else "Daya terhubung"
                 val desc = if (isPropsSpoofed) "$baseDesc • 🛡️ Anti-Spoof" else baseDesc
                 ChargingDisplayMode(
                     title = detectedProtocolName,
@@ -1015,46 +1046,132 @@ fun ChargingHeroDisplayCard(
                         }
                     }
 
-                    // 2x2 Hardware Telemetry Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        MetricMiniTile(
-                            label = if (isCharging) "Daya Masuk" else "Konsumsi",
-                            value = "${String.format(Locale.US, "%.1f", liveWatts)} W",
-                            color = if (isCharging) modeInfo.badgeColor else TextPrimary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        MetricMiniTile(
-                            label = "Suhu Baterai",
-                            value = "${String.format(Locale.US, "%.1f", tempFloat)} °C",
-                            color = tempColor,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    // 2x2 Hardware Telemetry Bento Grid
+                    if (hasAdapterData) {
+                        Crossfade(
+                            targetState = showingAdapter,
+                            animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                            label = "telemetry_bento_grid_fade",
+                            modifier = Modifier.fillMaxWidth()
+                        ) { isAdp ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(onClick = toggleTelemetry),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    if (isAdp) {
+                                        MetricMiniTile(
+                                            label = "Daya Adaptor",
+                                            value = "${String.format(Locale.US, "%.1f", adapterWatts)} W",
+                                            color = Color(0xFFFFB800),
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    } else {
+                                        MetricMiniTile(
+                                            label = "Daya Baterai",
+                                            value = "${String.format(Locale.US, "%.1f", liveWatts)} W",
+                                            color = if (isCharging) modeInfo.badgeColor else TextPrimary,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    MetricMiniTile(
+                                        label = "Suhu Baterai",
+                                        value = "${String.format(Locale.US, "%.1f", tempFloat)} °C",
+                                        color = tempColor,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        MetricMiniTile(
-                            label = "Tegangan",
-                            value = "${String.format(Locale.US, "%.2f", liveVolts)} V",
-                            color = TextPrimary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        MetricMiniTile(
-                            label = "Arus",
-                            value = when {
-                                isBypass -> "0 mA (Bypass)"
-                                isCharging -> "+${effectiveCurrentMa.roundToInt()} mA"
-                                rawCurrentMa > 0 -> "+${rawCurrentMa} mA"
-                                else -> "${rawCurrentMa} mA"
-                            },
-                            color = if (isBypass) AccentCyan else if (isCharging) AccentGreen else TextSecondary,
-                            modifier = Modifier.weight(1f)
-                        )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    if (isAdp) {
+                                        MetricMiniTile(
+                                            label = "Tegangan Charger",
+                                            value = "${String.format(Locale.US, "%.2f", adapterVolts)} V",
+                                            color = Color(0xFFFFB800),
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        MetricMiniTile(
+                                            label = "Arus Charger",
+                                            value = "+$adapterCurrentMa mA",
+                                            color = Color(0xFFFFB800),
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    } else {
+                                        MetricMiniTile(
+                                            label = "Tegangan Sel",
+                                            value = "${String.format(Locale.US, "%.2f", liveVolts)} V",
+                                            color = TextPrimary,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        MetricMiniTile(
+                                            label = "Arus Baterai",
+                                            value = when {
+                                                isBypass -> "0 mA (Bypass)"
+                                                isCharging -> "+${effectiveCurrentMa.roundToInt()} mA"
+                                                rawCurrentMa > 0 -> "+${rawCurrentMa} mA"
+                                                else -> "${rawCurrentMa} mA"
+                                            },
+                                            color = if (isBypass) AccentCyan else if (isCharging) AccentGreen else TextSecondary,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                MetricMiniTile(
+                                    label = if (isCharging) "Daya Masuk" else "Konsumsi",
+                                    value = "${String.format(Locale.US, "%.1f", liveWatts)} W",
+                                    color = if (isCharging) modeInfo.badgeColor else TextPrimary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                MetricMiniTile(
+                                    label = "Suhu Baterai",
+                                    value = "${String.format(Locale.US, "%.1f", tempFloat)} °C",
+                                    color = tempColor,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                MetricMiniTile(
+                                    label = "Tegangan",
+                                    value = "${String.format(Locale.US, "%.2f", liveVolts)} V",
+                                    color = TextPrimary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                MetricMiniTile(
+                                    label = "Arus",
+                                    value = when {
+                                        isBypass -> "0 mA (Bypass)"
+                                        isCharging -> "+${effectiveCurrentMa.roundToInt()} mA"
+                                        rawCurrentMa > 0 -> "+${rawCurrentMa} mA"
+                                        else -> "${rawCurrentMa} mA"
+                                    },
+                                    color = if (isBypass) AccentCyan else if (isCharging) AccentGreen else TextSecondary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1318,21 +1435,25 @@ private fun MetricMiniTile(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
         color = BgSurfaceLowest,
         border = BorderStroke(0.6.dp, BorderSubtle)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 7.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp, vertical = 7.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = label,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Medium,
                 color = TextTertiary,
-                maxLines = 1
+                maxLines = 1,
+                textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(2.dp))
             Text(
@@ -1341,7 +1462,8 @@ private fun MetricMiniTile(
                 fontWeight = FontWeight.Bold,
                 color = color,
                 fontFamily = FontFamily.Monospace,
-                maxLines = 1
+                maxLines = 1,
+                textAlign = TextAlign.Center
             )
         }
     }

@@ -1,3 +1,26 @@
+# Lynx Universal [Dual-Mode Crossfade Charging Telemetry Engine] 7.0.0-RC58
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC58** (Lynx Kernel Manager v3.1.19): **Integrasi Animasi Sinkron Dual-Mode Telemetri (Crossfade Fade In/Out) pada Bento Grid Dashboard Pengisian Daya (Bergantian antara Input Adaptor Charger 34W Emas & Daya Bersih Baterai 17W Hijau Neon), Dukungan Interaksi Instan Tap-to-Toggle, dan Subtitle Pill Status Dinamis**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC58)
+
+### 1. Dual-Mode Crossfade Telemetry pada Charging Hero Card (`ChargingHeroDisplayCard.kt`)
+- **Animasi Sinkron Tiga Ubin (3-Tile Synchronized Fade)**: Mengintegrasikan animasi `Crossfade` (350 ms) yang berputar otomatis setiap 2,5 detik saat pengisian daya aktif, menampilkan dua perspektif kelistrikan secara transparan:
+  - **Mode 1: Sumber Daya Masuk (Input Adaptor Charger - Kuning Emas / Electric Gold `#FFB800`)**:
+    - Ubin Daya: `Daya Adaptor` (misal **34.0 W**)
+    - Ubin Tegangan: `Tegangan Charger` (misal **8.88 V**)
+    - Ubin Arus: `Arus Charger` (misal **+3770 mA**)
+  - **Mode 2: Penyerapan Sel Baterai (Net Battery Inflow - Hijau Neon `#00FF9D`)**:
+    - Ubin Daya: `Daya Baterai` (misal **17.0 W**)
+    - Ubin Tegangan: `Tegangan Sel` (misal **4.34 V**)
+    - Ubin Arus: `Arus Baterai` (misal **+3816 mA**)
+  - Ubin Suhu: Tetap konstan memantau temperatur fisik hardware baterai (`tempFloat °C`).
+- **Dukungan Interaksi Instan (Tap-to-Toggle)**: Pengguna dapat mengetuk ubin mana pun untuk langsung beralih mode tampilan secara seketika tanpa harus menunggu siklus animasi otomatis.
+- **Header Pill Subtitle Dinamis**: Mengalihkan deskripsi protokol antara `Input adaptor • 34.0 W` dan `Daya baterai • 17.0 W` sesuai status tampilan aktif.
+- **Presisi Geometri Bento Grid 2x2 Simetris**: Memastikan keempat kotak telemetri (Daya, Suhu, Tegangan, Arus) beroperasi dalam struktur grid kontainer 2x2 yang terpadu dengan bobot `Modifier.weight(1f)` dan `fillMaxWidth()`, meniadakan penyusutan lebar ubin (narrow box wrapping) saat animasi maupun saat tidak mengisi daya sehingga tampilan 100% konsisten, simetris, dan rapi.
+
+---
+
 # Lynx Universal [Native 3-Stage Calibrated Charging Thermal Engine] 7.0.0-RC57
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC57** (Lynx Kernel Manager v3.1.18): **Integrasi Native 3-Stage Calibrated Charging Thermal Curve (<48°C: 33W Penuh, 48°C–50°C: 18W Sweet Spot, >50°C: 10W Proteksi Darurat OEM), Eliminasi Mutlak Ketergantungan KPM Thermal via Direct Sysfs Engine (`pcb_thermal_debug` & `dv2_debug`), dan Penyelarasan Suhu Otentik Baterai**.
