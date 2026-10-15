@@ -1,6 +1,8 @@
 package com.noir.lynx.ui
 
 import android.content.Context
+import com.noir.lynx.R
+import com.noir.lynx.core.locale.AppLocale
 import androidx.lifecycle.viewModelScope
 import com.noir.lynx.data.*
 import kotlinx.coroutines.launch
@@ -255,7 +257,8 @@ import kotlinx.coroutines.flow.update
                         currentScheduler = json.optString("current_scheduler", ""),
                         dirtyBackgroundBytes = json.optLong("dirty_background_bytes", 0L),
                         dirtyBytes = json.optLong("dirty_bytes", 0L),
-                        isOptimized = json.optBoolean("is_optimized", false)
+                        isOptimized = json.optBoolean("is_optimized", false),
+                        targetReadAheadKb = if (json.isNull("target_read_ahead_kb")) null else json.optInt("target_read_ahead_kb")
                     )
                     _uiState.update { it.copy(mountXStorageInfo = info) }
                 } catch (e: Exception) {
@@ -265,7 +268,7 @@ import kotlinx.coroutines.flow.update
         }
     }
 
-    fun LynxViewModel.triggerMountXBoost(boost: Boolean) {
+    fun LynxViewModel.triggerMountXBoost(context: Context, boost: Boolean) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val cmd = if (boost) {
                 "/data/adb/modules/Lynx/system/bin/lynxd io mountx-tune"
@@ -273,9 +276,16 @@ import kotlinx.coroutines.flow.update
                 "/data/adb/modules/Lynx/system/bin/lynxd io mountx-restore"
             }
             val res = com.topjohnwu.superuser.Shell.cmd(cmd).exec()
-            val msg = res.out.firstOrNull() ?: if (boost) "Boost Aktif" else "Mode Seimbang"
+            val result = runCatching { org.json.JSONObject(res.out.joinToString("\n")) }.getOrNull()
+            val ok = res.isSuccess && result?.optBoolean("ok", false) == true
+            val message = when {
+                !ok -> AppLocale.getString(context, R.string.storage_policy_failed)
+                !boost -> AppLocale.getString(context, R.string.storage_policy_restored)
+                result?.optInt("changed", 0) == 0 -> AppLocale.getString(context, R.string.storage_policy_unchanged)
+                else -> AppLocale.getString(context, R.string.storage_policy_applied)
+            }
             refreshMountXStorageInfo()
-            _uiState.update { it.copy(successMessage = msg) }
+            _uiState.update { if (ok) it.copy(successMessage = message) else it.copy(errorMessage = message) }
         }
     }
 

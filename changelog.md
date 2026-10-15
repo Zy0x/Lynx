@@ -1,3 +1,31 @@
+# Lynx Universal [Anti-Spoofing Hardware Ground Truth & Cross-Platform Integrity Architecture] 7.0.0-RC51
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC51** (Lynx Kernel Manager v3.1.12): **Implementasi Penuh Protokol Anti-Spoofing Hardware Ground Truth: Kekebalan Mutlak Terhadap Modul Device Faker / Game Unlocker 120 FPS / MagiskHide Props Config / Play Integrity Fix Melalui Verifikasi Driver Fisik Kernel Linux & DTB Sysfs Nodes, Deteksi Otomatis Anomali Props, dan Penyajian Status Keaslian Hardware pada Seluruh Antarmuka & Native Daemon**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC51)
+
+### 1. Protokol Anti-Spoofing Hardware Ground Truth (Tingkat 1 - Otoritas Mutlak)
+- **Kekebalan Mutlak Terhadap Manipulasi User-Space**: Modul pengubah props di Android (Game Unlocker 90/120 FPS, Play Integrity Fix, MagiskHide Props Config, GLTools, Device Faker, atau Custom ROM/GSI) yang memanipulasi `ro.product.manufacturer`, `ro.product.model`, dan `ro.product.brand` **tidak akan pernah bisa memalsukan driver fisik kernel Linux** maupun *Device Tree Blob (DTB)* yang dimuat saat cold-boot.
+- **Hierarki Deteksi Hardware Multi-Tier (`detect_charging_platform`)**:
+  - **Tier 1 (Ground Truth Fisik)**:
+    - Transsion (Infinix/Tecno/Itel): Keberadaan node driver `/sys/devices/platform/odm/odm:tran_battery`, `/sys/devices/platform/tran_battery`, `/sys/bus/i2c/drivers/rt9759`, atau `/sys/devices/platform/charger/BN_TestMode`. Jika node ini terdeteksi, arsitektur hardware **100% dipastikan Transsion**, mengabaikan nilai `getprop` yang dipalsukan ke Xiaomi/ASUS/Google Pixel.
+    - Xiaomi (Xiaomi/Redmi/POCO): Keberadaan node driver `/sys/class/power_supply/battery/fastcharge_mode`, `/sys/class/thermal/thermal_message`, `/sys/class/power_supply/battery/turbo_power`, `/sys/bus/i2c/drivers/ln8000`, atau `/sys/bus/i2c/drivers/sc8551`.
+    - OPPO / Realme / OnePlus: Keberadaan `/sys/class/power_supply/battery/vooc_charging` atau `/sys/class/oplus_chg`.
+    - Samsung: Keberadaan `/sys/class/power_supply/sec-battery` atau `/sys/class/sec/sec-battery`.
+    - Google Pixel: Keberadaan `/sys/devices/platform/google,battery` atau `/sys/bus/i2c/drivers/max77759`.
+    - Qualcomm Snapdragon Generic: Keberadaan `/sys/class/qcom-battery`, `/sys/class/power_supply/smb1390`, atau `/sys/class/power_supply/smb1355`.
+  - **Tier 2 (Advisory Fallback)**: `ro.product.manufacturer` dan `ro.product.brand` hanya dikonsultasikan jika seluruh node kernel fisik Tier 1 tidak ditemukan (perangkat generik tertutup).
+- **Deteksi Otomatis & Peringatan Anomali Props (`is_props_spoofed`)**:
+  - Jika perangkat keras fisik terverifikasi sebagai **Infinix/Tecno (RT9759)**, namun props melaporkan **Xiaomi (Redmi K70 Pro)**, **ASUS (ROG Phone)**, atau **Google Pixel**: sistem mencatat status spoofing aktif, mengabaikan props palsu, dan tetap mengeksekusi direct pump RT9759 secara aman.
+  - Jika perangkat keras fisik terverifikasi sebagai **Xiaomi (Snapdragon/Qualcomm)**, namun props dimanipulasi: sistem **dilarang keras** mengeksekusi perintah khusus Transsion (`BN_TestMode`, `odm:tran_battery/Charging_CallState`), melindungi perangkat dari error kernel.
+
+### 2. Integrasi Telemetri & Tampilan Antarmuka (Lynx Companion v3.1.12)
+- **Indikator Perlindungan Anti-Spoof pada Hero Card**: Jika modul spoofer aktif, kartu pengisian daya secara elegan menampilkan badge `[🛡️ Anti-Spoof]` di samping daya watt.
+- **Seksi Verifikasi Hardware Ground Truth pada Modal Detail**: Menambahkan seksi *"VERIFIKASI GROUND TRUTH HARDWARE"* pada `BatteryDetailBottomSheet`, menampilkan platform fisik kernel riil, status deteksi SoC Spoofer, serta integritas brand props.
+- **Penyelarasan Mutlak Status Protokol & IC**: Protokol pengisian daya dan identitas IC driver dijamin selalu akurat mencerminkan komponen fisik yang terpasang di motherboard tanpa risiko tertukar akibat spoofing identitas perangkat.
+
+---
+
 # Lynx Universal [Universal Multi-OEM Charging Protocol & Cross-Brand Telemetry Architecture] 7.0.0-RC50
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC50** (Lynx Kernel Manager v3.1.11): **Implementasi Penuh Multi-OEM Brand-Awareness & Eliminasi Kebocoran Label Transsion pada Perangkat Non-Transsion (Xiaomi, Redmi, POCO, Samsung, OPPO, OnePlus, Realme, dan Google Pixel): Resolusi Akurat IC Daya (Qualcomm SMB1390/PMIC vs RT9759), Isolasi Ketat Protokol Cepat Sesuai Manufaktur Riil, dan Sanitasi Otomatis Antarmuka Pengguna**.

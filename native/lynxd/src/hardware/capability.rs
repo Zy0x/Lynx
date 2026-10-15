@@ -102,6 +102,9 @@ pub struct MemoryCapability {
 pub enum BlockDeviceType {
     Ufs,
     Emmc,
+    Sd,
+    Usb,
+    Unknown,
     Nvme,
     Loop,
     Virtual,
@@ -112,6 +115,9 @@ impl BlockDeviceType {
         match self {
             Self::Ufs => "ufs",
             Self::Emmc => "emmc",
+            Self::Sd => "sd",
+            Self::Usb => "usb",
+            Self::Unknown => "unknown",
             Self::Nvme => "nvme",
             Self::Loop => "loop",
             Self::Virtual => "virtual",
@@ -804,19 +810,7 @@ impl HardwareCapability {
                     continue;
                 }
 
-                let device_type = if name.starts_with("sd") {
-                    BlockDeviceType::Ufs
-                } else if name.starts_with("mmcblk") {
-                    BlockDeviceType::Emmc
-                } else if name.starts_with("nvme") {
-                    BlockDeviceType::Nvme
-                } else if name.starts_with("loop") {
-                    BlockDeviceType::Loop
-                } else if name.starts_with("zram") || name.starts_with("dm-") || name.starts_with("ram") {
-                    BlockDeviceType::Virtual
-                } else {
-                    continue;
-                };
+                let device_type = super::storage::StoragePolicy::classify(&entry.path());
 
                 let mut available_schedulers = Vec::new();
                 let mut current_scheduler = String::new();

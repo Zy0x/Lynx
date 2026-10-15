@@ -100,6 +100,48 @@ fun BatteryDetailBottomSheet(
                 }
             }
 
+            // Section 0: Hardware Ground Truth & Anti-Spoof
+            Text("VERIFIKASI GROUND TRUTH HARDWARE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentGreen)
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BgCard,
+                border = BorderStroke(0.8.dp, if (battDetails.isPropsSpoofed) AccentOrange.copy(alpha = 0.5f) else BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Platform Fisik Kernel", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
+                        Text(battDetails.hardwarePlatform.ifBlank { "Generic Linux" }, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentGreen, fontFamily = FontFamily.Monospace)
+                    }
+                    if (battDetails.isPropsSpoofed) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Status SoC Spoofer", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = AccentOrange)
+                            Text("Terdeteksi Aktif (Bypassed)", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentOrange, fontFamily = FontFamily.Monospace)
+                        }
+                        if (battDetails.spoofDetails.isNotBlank()) {
+                            Text(battDetails.spoofDetails, style = MaterialTheme.typography.bodySmall, fontSize = 10.sp, color = TextSecondary)
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Integritas Brand Props", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
+                            Text("Otentik / Asli", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentCyan, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+                }
+            }
+
             // Section 1: Raw ADC Registers
             Text("REGISTER CHARGER & ADC PHYSICAL", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentCyan)
             if (battDetails.rawAdcDetails.isNotEmpty()) {

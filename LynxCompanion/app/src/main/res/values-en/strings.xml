@@ -1857,4 +1857,21 @@
         <item quantity="one">%1$.1f MiB detected (%2$d cache location)</item>
         <item quantity="other">%1$.1f MiB detected (%2$d cache locations)</item>
     </plurals>
+    <string name="storage_policy_title">Adaptive I/O Policy</string>
+    <string name="storage_policy_description">The kernel identifies each storage medium. SD read-ahead is capped at 256 KiB when previously higher; smaller values and the settings for eMMC, UFS, NVMe, USB, and other media are preserved.</string>
+    <string name="storage_policy_device">SD: %1$s · %2$s (%3$s)</string>
+    <string name="storage_policy_conforms">SD policy satisfied</string>
+    <string name="storage_policy_pending">SD policy pending or unavailable</string>
+    <string name="storage_policy_read_ahead">Current read-ahead: %1$d KiB</string>
+    <string name="storage_policy_target">Policy target: %1$d KiB</string>
+    <string name="storage_policy_scheduler">Current scheduler: %1$s</string>
+    <string name="storage_policy_unavailable">Unavailable</string>
+    <string name="storage_policy_no_sd">No mounted SD filesystem found. Settings for other media are preserved.</string>
+    <string name="storage_policy_apply">Apply Adaptive Default</string>
+    <string name="storage_policy_restore">Restore Original Read-ahead</string>
+    <string name="storage_policy_restore_note">Restore uses a backup for the same card and boot session. Selecting a profile reapplies the adaptive default. This policy does not guarantee stutter-free operation or faster performance on every medium.</string>
+    <string name="storage_policy_failed">I/O failed or no matching backup exists. The device may be busy, writes may be unsupported, or another controller may have changed the value.</string>
+    <string name="storage_policy_restored">The backed-up read-ahead value was restored.</string>
+    <string name="storage_policy_unchanged">No I/O policy changes were needed.</string>
+    <string name="storage_policy_applied">The adaptive I/O default was applied and writes were verified.</string>
 </resources>

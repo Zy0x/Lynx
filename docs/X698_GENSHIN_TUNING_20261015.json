@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "kind": "lab_decision_record_not_module_configuration",
+  "device": {
+    "product_device_contains": "X698",
+    "board_platform": "mt6781",
+    "game_package": "com.miHoYo.GenshinImpact"
+  },
+  "retained_extreme_settings": {
+    "gpu_requested_floor_mhz": 950,
+    "gpu_requested_ceiling_mhz": 950,
+    "gpu_power_policy": "coarse_demand",
+    "top_app_prefer_idle": 0,
+    "sched_wakeup_granularity_ns": 2000000,
+    "sched_migration_cost_ns": 50000,
+    "egl_multifile_debug_override": null
+  },
+  "storage_candidate": {
+    "mount": "/data/sdext2",
+    "media_type": "SD",
+    "read_ahead_kib": 256,
+    "script": "tools/genshin_sd_io_profile.sh",
+    "evidence": "Lower request waiting observed during file verification at similar throughput; gameplay benefit not established.",
+    "persistence": "Opt-in runtime setting only. Another profile or reboot may replace it."
+  },
+  "not_promoted": {
+    "gpu_800_850_900_mhz": "Lower fixed clocks did not consistently beat the retained 950 MHz configuration in controlled frame pacing and GPU job timing.",
+    "sched_wakeup_1ms": "Small FPS increases in short samples; changing thermal ceilings and comparable tail pacing prevent a firm causal claim.",
+    "sched_migration_500us": "No repeatable advantage established.",
+    "prefer_idle_1": "No clear frame-pacing advantage in the surrounding camera trials.",
+    "gpu_always_on": "Trial crossed scene and thermal changes; no valid improvement claim.",
+    "egl_multifile_32mib": "Functionality verified with the old cache preserved, but a startup or gameplay speedup was not established. Original overrides restored."
+  },
+  "deployment": {
+    "automatic_boot_application": false,
+    "universal_preset_change": false,
+    "module_installed_or_modified": false,
+    "apk_built_or_installed": false
+  },
+  "report": "docs/GENSHIN_EXTREME_TRIAL_20261015.md",
+  "limitations": [
+    "The observations are device, workload, and thermal-state specific.",
+    "Presentation intervals do not measure touch-to-photon latency.",
+    "No zero-stuttering or bottleneck-free guarantee is supported by these measurements."
+  ]
+}

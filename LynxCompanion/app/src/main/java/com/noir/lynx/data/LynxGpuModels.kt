@@ -164,7 +164,7 @@ data class IoDeviceInfo(
     val device: String = "",
     val currentScheduler: String = "",
     val availableSchedulers: List<String> = emptyList(),
-    val readAheadKb: Int = 128,
+    val readAheadKb: Int = 0,
 )
 
 data class MountXStorageInfo(
@@ -179,7 +179,8 @@ data class MountXStorageInfo(
     val currentScheduler: String = "",
     val dirtyBackgroundBytes: Long = 0L,
     val dirtyBytes: Long = 0L,
-    val isOptimized: Boolean = false
+    val isOptimized: Boolean = false,
+    val targetReadAheadKb: Int? = null
 )
 
 // ============================================================

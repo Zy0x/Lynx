@@ -469,7 +469,7 @@ fun MemorySubscreen(
             }
         )
 
-        // ── MountX & MicroSD Ultra Storage Engine Card ───────────
+        // ── Adaptive SD I/O Policy ──────────────────────────────
         MountXStorageCard(uiState = uiState, viewModel = viewModel)
 
         // ── I/O Scheduler Card ───────────────────────────────────

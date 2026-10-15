@@ -349,6 +349,12 @@ internal object LynxTelemetryMapper {
 
                 isNightGentleActive = existingBatt?.isNightGentleActive ?: false,
 
+                isPropsSpoofed = existingBatt?.isPropsSpoofed ?: false,
+
+                spoofDetails = existingBatt?.spoofDetails ?: "",
+
+                hardwarePlatform = existingBatt?.hardwarePlatform ?: "",
+
             )
 
         }

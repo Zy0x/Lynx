@@ -1,6 +1,7 @@
 pub mod config_store;
 pub mod device_state;
 pub mod profile_state;
+pub mod storage_state;
 
 pub use config_store::{ChargingConfigState, ConfigStore};
 pub use device_state::{

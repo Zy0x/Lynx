@@ -1381,7 +1381,7 @@ fn main() {
                     println!("{}", IoController::apply_flash_streaming_boost(false));
                 }
                 "set-scheduler" | "set_scheduler" => {
-                    let blk = args.get(3).map(|s| s.as_str()).unwrap_or("sd");
+                    let blk = args.get(3).map(|s| s.as_str()).unwrap_or("");
                     let sched = args.get(4).map(|s| s.as_str()).unwrap_or("none");
                     println!("{}", IoController::set_scheduler(blk, sched));
                 }

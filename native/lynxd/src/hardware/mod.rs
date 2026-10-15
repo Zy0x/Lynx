@@ -3,6 +3,7 @@ pub mod charging;
 pub mod detector;
 pub mod mtk;
 pub mod qcom;
+pub mod storage;
 pub mod translator;
 
 pub use capability::{

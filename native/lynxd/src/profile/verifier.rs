@@ -3,7 +3,8 @@ use std::fs;
 use std::path::Path;
 use std::time::Instant;
 
-use crate::hardware::capability::{BlockDeviceType, GpuDriver, HardwareCapability};
+use crate::hardware::capability::{GpuDriver, HardwareCapability};
+use crate::hardware::storage::StoragePolicy;
 use crate::hardware::detector::Vendor;
 use crate::hardware::{HardwareTranslator, MtkHardware};
 use crate::profile::get_profile_by_name;
@@ -208,17 +209,19 @@ impl ProfileVerifier {
 
         // 4. Audit Storage I/O
         for dev in &cap.storage.devices {
-            if dev.device_type == BlockDeviceType::Virtual {
-                continue;
+            if let Some(target) = StoragePolicy::read_ahead_target(dev) {
+                let path = dev.queue_path.join("read_ahead_kb");
+                let actual = SysfsReader::read_trimmed(&path).unwrap_or_default();
+                let status = if actual.parse::<u32>().ok() == Some(target) { "VERIFIED" } else { "MISMATCH" };
+                items.push(AuditItem {
+                    subsystem: "Storage",
+                    parameter: format!("Block {} SD prefetch ceiling", dev.name),
+                    path: path.display().to_string(),
+                    expected: target.to_string(),
+                    actual,
+                    status,
+                });
             }
-            let iostats_path = dev.queue_path.join("iostats");
-            Self::audit_exact(
-                &mut items,
-                "Storage",
-                &format!("Block {} iostats", dev.name),
-                &iostats_path.display().to_string(),
-                "0",
-            );
         }
 
         // 5. Audit Network TCP

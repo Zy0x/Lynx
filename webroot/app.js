@@ -1150,23 +1150,32 @@ async function loadIoDevices() {
             if (data.devices && data.devices.length > 0) {
                 container.innerHTML = '';
                 data.devices.forEach(d => {
-                    const scheds = d.avail.trim().split(/\s+/).filter(Boolean);
-                    const chipsHtml = scheds.map(s => {
-                        const isActive = s === d.cur;
-                        return `<button class="io-chip ${isActive ? 'active' : ''}" onclick="setWebIoSched('${d.device}', '${s}')">${s}</button>`;
-                    }).join('');
-
+                    const device = String(d.name || d.device || '');
+                    const current = d.current_scheduler || d.cur || '';
+                    const scheds = Array.isArray(d.available_schedulers)
+                        ? d.available_schedulers : String(d.avail || '').trim().split(/\s+/).filter(Boolean);
                     const card = document.createElement('div');
                     card.className = 'io-device-card';
-                    card.innerHTML = `
-                        <div class="io-device-header">
-                            <span class="io-device-name">/dev/block/${d.device}</span>
-                            <span class="io-device-ra">Read-Ahead: ${d.ra_kb} KB</span>
-                        </div>
-                        <div class="io-sched-chips">
-                            ${chipsHtml}
-                        </div>
-                    `;
+                    const header = document.createElement('div');
+                    header.className = 'io-device-header';
+                    const name = document.createElement('span');
+                    name.className = 'io-device-name';
+                    name.textContent = `/dev/block/${device}`;
+                    const readAhead = document.createElement('span');
+                    readAhead.className = 'io-device-ra';
+                    const kb = d.current_read_ahead_kb ?? d.ra_kb;
+                    readAhead.textContent = Number.isFinite(kb) ? `${kb} KiB` : '—';
+                    header.append(name, readAhead);
+                    const chips = document.createElement('div');
+                    chips.className = 'io-sched-chips';
+                    scheds.forEach(scheduler => {
+                        const button = document.createElement('button');
+                        button.className = `io-chip ${scheduler === current ? 'active' : ''}`;
+                        button.textContent = scheduler;
+                        button.onclick = () => setWebIoSched(device, scheduler);
+                        chips.appendChild(button);
+                    });
+                    card.append(header, chips);
                     container.appendChild(card);
                 });
             } else {
@@ -1179,9 +1188,16 @@ async function loadIoDevices() {
 }
 
 async function setWebIoSched(dev, sched) {
+    if (!/^[A-Za-z0-9_-]+$/.test(dev) || !/^[A-Za-z0-9_-]+$/.test(sched)) return;
     logToConsole(`Menyetel scheduler ${dev} ke ${sched}...`);
     const res = await execCmd(`${LYNXD} io set_scheduler "${dev}" "${sched}"`);
-    logToConsole(res.stdout || `Scheduler ${sched} diterapkan pada ${dev}`, 'success');
+    let result = null;
+    try { result = JSON.parse(res.stdout); } catch (_) { /* Older engines have no verified result contract. */ }
+    if (res.errno === 0 && result?.ok === true && result.updated > 0) {
+        logToConsole(`Scheduler ${sched} diterapkan pada ${dev}`, 'success');
+    } else {
+        logToConsole('Gagal mengubah scheduler storage.', 'error');
+    }
     loadIoDevices();
 }
 

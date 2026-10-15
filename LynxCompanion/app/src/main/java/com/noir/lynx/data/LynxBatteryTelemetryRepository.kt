@@ -116,14 +116,14 @@ internal object LynxBatteryTelemetryRepository {
 
                     # Multi-vendor PMIC detection
                     pmic_sig=""
-                    if [ -d /sys/class/power_supply/smb1390 ] || [ -d /sys/bus/i2c/drivers/smb1390 ]; then
+                    if [ -d /sys/bus/i2c/drivers/rt9759 ] || [ -d /sys/devices/platform/odm/odm:tran_battery ] || [ -d /sys/devices/platform/tran_battery ]; then
+                        pmic_sig="rt9759"
+                    elif [ -d /sys/class/power_supply/smb1390 ] || [ -d /sys/bus/i2c/drivers/smb1390 ]; then
                         pmic_sig="smb1390"
                     elif [ -d /sys/class/power_supply/smb1355 ] || [ -d /sys/bus/i2c/drivers/smb1355 ]; then
                         pmic_sig="smb1355"
                     elif [ -d /sys/class/power_supply/bms ] || [ -d /sys/class/qcom-battery ]; then
                         pmic_sig="qcom_pmic"
-                    elif [ -d /sys/bus/i2c/drivers/rt9759 ]; then
-                        pmic_sig="rt9759"
                     elif [ -e /sys/class/power_supply/sec-direct-charger ]; then
                         pmic_sig="sec_direct"
                     elif [ -d /sys/bus/i2c/drivers/max77705 ] || [ -d /sys/bus/i2c/drivers/max77854 ] || [ -d /sys/class/power_supply/sec-charger ]; then
@@ -299,16 +299,56 @@ internal object LynxBatteryTelemetryRepository {
 
                     val ptypUpper = rawPtyp.uppercase(java.util.Locale.US)
                     val qcUpper = qcSig.uppercase(java.util.Locale.US)
-                    val isTranssion = android.os.Build.MANUFACTURER.contains("INFINIX", ignoreCase = true) ||
-                            android.os.Build.MANUFACTURER.contains("TECNO", ignoreCase = true) ||
-                            android.os.Build.BRAND.contains("INFINIX", ignoreCase = true) ||
-                            android.os.Build.BRAND.contains("TECNO", ignoreCase = true) ||
-                            android.os.Build.MANUFACTURER.contains("TRANSSION", ignoreCase = true)
 
-                    val isXiaomi = android.os.Build.MANUFACTURER.contains("XIAOMI", ignoreCase = true) ||
-                            android.os.Build.BRAND.contains("XIAOMI", ignoreCase = true) ||
-                            android.os.Build.BRAND.contains("REDMI", ignoreCase = true) ||
-                            android.os.Build.BRAND.contains("POCO", ignoreCase = true)
+                    val hasTranHw = pmicSig == "rt9759" ||
+                            File("/sys/devices/platform/odm/odm:tran_battery").exists() ||
+                            File("/sys/devices/platform/tran_battery").exists() ||
+                            File("/sys/bus/i2c/drivers/rt9759").exists() ||
+                            File("/sys/devices/platform/charger/BN_TestMode").exists()
+
+                    val hasXiaomiHw = pmicSig == "mi_pump" ||
+                            File("/sys/class/power_supply/battery/fastcharge_mode").exists() ||
+                            File("/sys/class/thermal/thermal_message").exists() ||
+                            File("/sys/class/power_supply/battery/turbo_power").exists() ||
+                            File("/sys/bus/i2c/drivers/ln8000").exists() ||
+                            File("/sys/bus/i2c/drivers/sc8551").exists()
+
+                    val hasOplusHw = pmicSig == "vooc_pump" ||
+                            File("/sys/class/power_supply/battery/vooc_charging").exists() ||
+                            File("/sys/class/oplus_chg").exists()
+
+                    val hasSamsungHw = pmicSig == "sec_direct" || pmicSig == "sec_max" ||
+                            File("/sys/class/power_supply/sec-battery").exists() ||
+                            File("/sys/class/sec/sec-battery").exists()
+
+                    val mfgUpper = android.os.Build.MANUFACTURER.uppercase(java.util.Locale.US)
+                    val brandUpper = android.os.Build.BRAND.uppercase(java.util.Locale.US)
+
+                    // Hardware Ground Truth Tier 1: Hardware physical nodes ALWAYS override software props
+                    val isTranssion = hasTranHw || (!hasXiaomiHw && !hasOplusHw && !hasSamsungHw &&
+                            (mfgUpper.contains("INFINIX") || mfgUpper.contains("TECNO") || mfgUpper.contains("TRANSSION") ||
+                             brandUpper.contains("INFINIX") || brandUpper.contains("TECNO")))
+
+                    val isXiaomi = (hasXiaomiHw && !hasTranHw) || (!hasTranHw && !hasOplusHw && !hasSamsungHw &&
+                            (mfgUpper.contains("XIAOMI") || brandUpper.contains("XIAOMI") || brandUpper.contains("REDMI") || brandUpper.contains("POCO")))
+
+                    val isPropsSpoofed = (hasTranHw && (mfgUpper.contains("XIAOMI") || brandUpper.contains("XIAOMI") || brandUpper.contains("REDMI") || brandUpper.contains("POCO") || mfgUpper.contains("GOOGLE") || brandUpper.contains("GOOGLE") || mfgUpper.contains("ASUS") || brandUpper.contains("ASUS"))) ||
+                            (hasXiaomiHw && (mfgUpper.contains("INFINIX") || brandUpper.contains("INFINIX") || mfgUpper.contains("GOOGLE") || brandUpper.contains("GOOGLE") || mfgUpper.contains("ASUS") || brandUpper.contains("ASUS")))
+
+                    val hwPlatformStr = when {
+                        hasTranHw -> "Transsion"
+                        hasXiaomiHw -> "Xiaomi"
+                        hasOplusHw -> "OPPO/Realme"
+                        hasSamsungHw -> "Samsung"
+                        pmicSig == "smb1390" || pmicSig == "qcom_pmic" -> "Qualcomm"
+                        isTranssion -> "Transsion"
+                        isXiaomi -> "Xiaomi"
+                        else -> "Generic Linux"
+                    }
+
+                    val spoofDetailStr = if (isPropsSpoofed) {
+                        "Props: ${android.os.Build.MANUFACTURER} (${android.os.Build.MODEL}) | Hardware: $hwPlatformStr"
+                    } else ""
 
                     val protocol = when {
                         !isPlugged -> "Battery Power"
@@ -422,7 +462,10 @@ internal object LynxBatteryTelemetryRepository {
                         isSmartLimitLatched = isLimitLatched,
                         isBypassActive = isBypassActive,
                         isSmartTaperingActive = isTapering,
-                        isNightGentleActive = isNightGentle
+                        isNightGentleActive = isNightGentle,
+                        isPropsSpoofed = isPropsSpoofed,
+                        spoofDetails = spoofDetailStr,
+                        hardwarePlatform = hwPlatformStr
                     )
                 } else null
             } catch (e: Exception) { null }

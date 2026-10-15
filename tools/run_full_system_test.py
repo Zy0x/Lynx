@@ -222,19 +222,19 @@ def main():
     if cluster0 and cluster1:
         print("  [OK] CPU Clusters verified (Policy 0 & Policy 6)!", flush=True)
 
-    # Test "Pengaturan Lanjutan" Accordion
+    # Test the "Advanced Settings" accordion.
     print("[+] Testing 'Pengaturan Lanjutan' Accordion...", flush=True)
     if tap_node("Pengaturan Lanjutan", wait_sec=1.2):
         all_passed &= check_logcat("CPU Pengaturan Lanjutan Expand")
 
-        # Check Governor Picker Bottom Sheet
+        # Check the governor picker bottom sheet.
         if tap_node("schedutil", wait_sec=1.2):
             all_passed &= check_logcat("Governor Bottom Sheet Open")
-            # Dismiss bottom sheet with Back
+            # Dismiss the bottom sheet with Back.
             adb("shell input keyevent 4")
             time.sleep(0.8)
 
-    # Switch to CPU Tab 1: Sistem
+    # Switch to CPU tab 1: System.
     print("[+] Switching to CPU Tab 1 (Sistem)...", flush=True)
     tap_node("Sistem", exact=True, wait_sec=1.2)
     all_passed &= check_logcat("CPU Tab 1 (Sistem)")
@@ -244,7 +244,7 @@ def main():
     tap_node("Monitor", exact=True, wait_sec=1.2)
     all_passed &= check_logcat("CPU Tab 2 (Monitor)")
 
-    # Return to CPU Tab 0: Performa
+    # Return to CPU tab 0: Performance.
     tap_node("Performa", exact=True, wait_sec=1.0)
 
     # Return to Hub

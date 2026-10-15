@@ -105,6 +105,31 @@ const CHARGING_SESSION_NODES: &[&str] = &[
     "/sys/class/qcom-battery/restrict_cur",
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChargingHardwarePlatform {
+    Transsion,
+    Xiaomi,
+    QualcommGeneric,
+    Oplus,
+    Samsung,
+    GooglePixel,
+    GenericLinux,
+}
+
+impl ChargingHardwarePlatform {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Transsion => "Transsion",
+            Self::Xiaomi => "Xiaomi",
+            Self::QualcommGeneric => "Qualcomm",
+            Self::Oplus => "OPPO/Realme/OnePlus",
+            Self::Samsung => "Samsung",
+            Self::GooglePixel => "Google Pixel",
+            Self::GenericLinux => "Generic Linux",
+        }
+    }
+}
+
 pub struct ChargingRegulator;
 
 impl ChargingRegulator {
@@ -1495,6 +1520,106 @@ impl ChargingRegulator {
         (brand, mfg)
     }
 
+    /// Ground Truth Hardware Platform Detection (Immune to User-Space Props Spoofing).
+    ///
+    /// Modul spoofer (Game Unlocker 90/120 FPS, Play Integrity Fix, MagiskHide Props Config,
+    /// GLTools, Device Faker) yang memalsukan `ro.product.manufacturer` atau `ro.product.model`
+    /// TIDAK PERNAH bisa memalsukan driver fisik kernel Linux atau sysfs node yang dibuat dari DTB.
+    ///
+    /// Tingkat 1: Hardware Ground Truth (Kernel Driver sysfs nodes) -> Otoritas Mutlak.
+    /// Tingkat 2: System Properties (`ro.product.*`) -> Hanya digunakan jika Tier 1 tidak konklusif.
+    ///
+    /// Returns: (Platform, is_spoofed, spoof_details)
+    pub fn detect_charging_platform() -> (ChargingHardwarePlatform, bool, String) {
+        let (brand, mfg) = Self::get_device_brand();
+
+        // 1. Tier 1: Ground Truth Hardware Nodes
+        let has_tran_hw = Path::new("/sys/devices/platform/odm/odm:tran_battery").exists()
+            || Path::new("/sys/devices/platform/tran_battery").exists()
+            || Path::new("/sys/bus/i2c/drivers/rt9759").exists()
+            || Path::new("/sys/devices/platform/charger/BN_TestMode").exists();
+
+        let has_xiaomi_hw = Path::new("/sys/class/power_supply/battery/fastcharge_mode").exists()
+            || Path::new("/sys/class/thermal/thermal_message").exists()
+            || Path::new("/sys/class/power_supply/battery/turbo_power").exists()
+            || Path::new("/sys/bus/i2c/drivers/ln8000").exists()
+            || Path::new("/sys/bus/i2c/drivers/sc8551").exists();
+
+        let has_oplus_hw = Path::new("/sys/class/power_supply/battery/vooc_charging").exists()
+            || Path::new("/sys/class/oplus_chg").exists()
+            || Path::new("/sys/class/power_supply/battery/fast_charge_user_type").exists();
+
+        let has_samsung_hw = Path::new("/sys/class/power_supply/sec-battery").exists()
+            || Path::new("/sys/class/sec/sec-battery").exists()
+            || Path::new("/sys/class/power_supply/battery/afc_result").exists();
+
+        let has_pixel_hw = Path::new("/sys/devices/platform/google,battery").exists()
+            || Path::new("/sys/devices/platform/google,charger").exists()
+            || Path::new("/sys/bus/i2c/drivers/max77759").exists();
+
+        let has_qcom_hw = Path::new("/sys/class/qcom-battery").exists()
+            || Path::new("/sys/class/power_supply/smb1390").exists()
+            || Path::new("/sys/class/power_supply/smb1355").exists()
+            || Path::new("/sys/class/power_supply/smb1351").exists();
+
+        let platform = if has_tran_hw {
+            ChargingHardwarePlatform::Transsion
+        } else if has_xiaomi_hw {
+            ChargingHardwarePlatform::Xiaomi
+        } else if has_oplus_hw {
+            ChargingHardwarePlatform::Oplus
+        } else if has_samsung_hw {
+            ChargingHardwarePlatform::Samsung
+        } else if has_pixel_hw {
+            ChargingHardwarePlatform::GooglePixel
+        } else if has_qcom_hw {
+            ChargingHardwarePlatform::QualcommGeneric
+        } else {
+            // Tier 2: System Properties Fallback
+            if brand.contains("INFINIX") || brand.contains("TECNO") || brand.contains("ITEL")
+                || mfg.contains("INFINIX") || mfg.contains("TECNO") || mfg.contains("TRANSSION")
+            {
+                ChargingHardwarePlatform::Transsion
+            } else if brand.contains("XIAOMI") || brand.contains("REDMI") || brand.contains("POCO")
+                || mfg.contains("XIAOMI")
+            {
+                ChargingHardwarePlatform::Xiaomi
+            } else if brand.contains("OPPO") || brand.contains("REALME") || brand.contains("ONEPLUS")
+                || mfg.contains("OPPO") || mfg.contains("REALME")
+            {
+                ChargingHardwarePlatform::Oplus
+            } else if brand.contains("SAMSUNG") || mfg.contains("SAMSUNG") {
+                ChargingHardwarePlatform::Samsung
+            } else if brand.contains("GOOGLE") || mfg.contains("GOOGLE") {
+                ChargingHardwarePlatform::GooglePixel
+            } else {
+                ChargingHardwarePlatform::GenericLinux
+            }
+        };
+
+        // Detect if props are spoofed
+        let mut is_spoofed = false;
+        let mut spoof_details = String::new();
+
+        let prop_is_xiaomi = brand.contains("XIAOMI") || brand.contains("REDMI") || brand.contains("POCO") || mfg.contains("XIAOMI");
+        let prop_is_transsion = brand.contains("INFINIX") || brand.contains("TECNO") || brand.contains("ITEL") || mfg.contains("INFINIX") || mfg.contains("TECNO") || mfg.contains("TRANSSION");
+        let prop_is_pixel = brand.contains("GOOGLE") || mfg.contains("GOOGLE");
+        let prop_is_asus = brand.contains("ASUS") || mfg.contains("ASUS");
+
+        if platform == ChargingHardwarePlatform::Transsion && (prop_is_xiaomi || prop_is_pixel || prop_is_asus) {
+            is_spoofed = true;
+            spoof_details = format!("Props spoofed to {} / {}, verified physical hardware: Transsion (RT9759 / tran_battery)", mfg, brand);
+        } else if platform == ChargingHardwarePlatform::Xiaomi && (prop_is_transsion || prop_is_pixel || prop_is_asus) {
+            is_spoofed = true;
+            spoof_details = format!("Props spoofed to {} / {}, verified physical hardware: Xiaomi (mi_thermald / fastcharge_mode)", mfg, brand);
+        } else if platform != ChargingHardwarePlatform::Transsion && prop_is_transsion {
+            is_spoofed = true;
+            spoof_details = format!("Props spoofed to Transsion, verified physical hardware: {}", platform.as_str());
+        }
+
+        (platform, is_spoofed, spoof_details)
+    }
+
     /// Periodic tick called inside `DaemonRunner::run()` every cycle.
     pub fn tick() {
         if !Self::is_hardware_plugged() {
@@ -1565,20 +1690,19 @@ impl ChargingRegulator {
 
         let is_chg = c_clean > 50 || stat == "Charging";
 
-        let (active_ic, protocol) = if is_chg {
-            let (brand, mfg) = Self::get_device_brand();
-            let is_transsion = brand.contains("INFINIX") || brand.contains("TECNO") || brand.contains("ITEL")
-                || mfg.contains("INFINIX") || mfg.contains("TECNO") || mfg.contains("TRANSSION");
-            let is_xiaomi = brand.contains("XIAOMI") || brand.contains("REDMI") || brand.contains("POCO")
-                || mfg.contains("XIAOMI");
-            let is_oppo_realme = brand.contains("OPPO") || brand.contains("REALME") || brand.contains("ONEPLUS")
-                || mfg.contains("OPPO") || mfg.contains("REALME");
-            let is_samsung = brand.contains("SAMSUNG") || mfg.contains("SAMSUNG");
+        let (platform, is_spoofed, spoof_details) = Self::detect_charging_platform();
+        let is_transsion = platform == ChargingHardwarePlatform::Transsion;
+        let is_xiaomi = platform == ChargingHardwarePlatform::Xiaomi;
+        let is_oppo_realme = platform == ChargingHardwarePlatform::Oplus;
+        let is_samsung = platform == ChargingHardwarePlatform::Samsung;
 
-            let ic = if is_transsion && (rfc_auth || chgtyp == "9" || Path::new("/sys/bus/i2c/drivers/rt9759").exists()) {
+        let (active_ic, protocol) = if is_chg {
+            let ic = if is_transsion && (rfc_auth || chgtyp == "9" || Path::new("/sys/bus/i2c/drivers/rt9759").exists() || Path::new("/sys/devices/platform/odm/odm:tran_battery").exists()) {
                 "Direct Charge Pump (RT9759 2:1)"
             } else if Path::new("/sys/class/power_supply/smb1390").exists() || Path::new("/sys/class/power_supply/charge_pump").exists() {
                 "Qualcomm SMB1390 Dual-Pump"
+            } else if is_xiaomi && (Path::new("/sys/bus/i2c/drivers/ln8000").exists() || Path::new("/sys/bus/i2c/drivers/sc8551").exists()) {
+                "Xiaomi HyperCharge Dual-Pump (LN8000/SC8551)"
             } else if is_xiaomi && Path::new("/sys/class/qcom-battery").exists() {
                 "Xiaomi Quick Charge PMIC"
             } else if Path::new("/sys/class/qcom-battery").exists() {
@@ -1648,7 +1772,7 @@ impl ChargingRegulator {
         let effective_temp_dc = if temp_raw > 0 { temp_raw } else { real_dc };
 
         format!(
-            "{{\n  \"capacity\": {},\n  \"status\": \"{}\",\n  \"health\": \"{}\",\n  \"temperature_c\": {:.1},\n  \"real_physical_temp_c\": {:.1},\n  \"voltage_mv\": {},\n  \"current_ma\": {},\n  \"adapter_voltage_mv\": {},\n  \"adapter_current_ma\": {},\n  \"active_ic\": \"{}\",\n  \"fast_charge_protocol\": \"{}\",\n  \"rfc_authenticated\": {},\n  \"emergency_guard_active\": {},\n  \"overnight_bypass_latched\": {},\n  \"smart_limit_latched\": {},\n  \"bypass_active\": {},\n  \"smart_tapering_active\": {},\n  \"charging_mode\": \"{}\",\n  \"bypass_enabled\": {},\n  \"extreme_charging_enabled\": {},\n  \"limit_current_ma\": {},\n  \"max_battery_percent\": {},\n  \"high_current_target_percent\": {},\n  \"temp_cutoff_c\": {},\n  \"thermal_lockout_bypass_enabled\": {},\n  \"smart_tapering_enabled\": {},\n  \"emergency_temp_guard_enabled\": {},\n  \"night_sleep_guard_enabled\": {}\n}}",
+            "{{\n  \"capacity\": {},\n  \"status\": \"{}\",\n  \"health\": \"{}\",\n  \"temperature_c\": {:.1},\n  \"real_physical_temp_c\": {:.1},\n  \"voltage_mv\": {},\n  \"current_ma\": {},\n  \"adapter_voltage_mv\": {},\n  \"adapter_current_ma\": {},\n  \"active_ic\": \"{}\",\n  \"fast_charge_protocol\": \"{}\",\n  \"rfc_authenticated\": {},\n  \"hardware_platform\": \"{}\",\n  \"is_props_spoofed\": {},\n  \"spoof_detail\": \"{}\",\n  \"emergency_guard_active\": {},\n  \"overnight_bypass_latched\": {},\n  \"smart_limit_latched\": {},\n  \"bypass_active\": {},\n  \"smart_tapering_active\": {},\n  \"charging_mode\": \"{}\",\n  \"bypass_enabled\": {},\n  \"extreme_charging_enabled\": {},\n  \"limit_current_ma\": {},\n  \"max_battery_percent\": {},\n  \"high_current_target_percent\": {},\n  \"temp_cutoff_c\": {},\n  \"thermal_lockout_bypass_enabled\": {},\n  \"smart_tapering_enabled\": {},\n  \"emergency_temp_guard_enabled\": {},\n  \"night_sleep_guard_enabled\": {}\n}}",
             cap,
             stat,
             hlth,
@@ -1661,6 +1785,9 @@ impl ChargingRegulator {
             active_ic,
             protocol,
             rfc_auth,
+            platform.as_str(),
+            is_spoofed,
+            spoof_details.replace('\"', "\\\""),
             guard_state,
             is_overnight_latch,
             is_limit_latched,
@@ -1696,7 +1823,7 @@ impl ChargingRegulator {
 
 #[cfg(test)]
 mod tests {
-    use super::{ChargingRegulator, CHARGING_SESSION_NODES, DISCONNECT_CHARGING_RESETS};
+    use super::{ChargingHardwarePlatform, ChargingRegulator, CHARGING_SESSION_NODES, DISCONNECT_CHARGING_RESETS};
 
     #[test]
     fn disconnect_resets_only_charging_protocol_nodes() {
@@ -1898,4 +2025,23 @@ mod tests {
         let c_critical = (critical / 10).clamp(15, 50);
         assert_eq!(c_critical, 50);
     }
+
+    #[test]
+    fn test_charging_hardware_platform_and_anti_spoofing() {
+        assert_eq!(ChargingHardwarePlatform::Transsion.as_str(), "Transsion");
+        assert_eq!(ChargingHardwarePlatform::Xiaomi.as_str(), "Xiaomi");
+        assert_eq!(ChargingHardwarePlatform::QualcommGeneric.as_str(), "Qualcomm");
+        assert_eq!(ChargingHardwarePlatform::Oplus.as_str(), "OPPO/Realme/OnePlus");
+        assert_eq!(ChargingHardwarePlatform::Samsung.as_str(), "Samsung");
+        assert_eq!(ChargingHardwarePlatform::GooglePixel.as_str(), "Google Pixel");
+        assert_eq!(ChargingHardwarePlatform::GenericLinux.as_str(), "Generic Linux");
+
+        let (platform, is_spoofed, detail) = ChargingRegulator::detect_charging_platform();
+        // The test environment should not panic and produce a valid platform
+        assert!(!platform.as_str().is_empty());
+        if is_spoofed {
+            assert!(!detail.is_empty());
+        }
+    }
 }
+

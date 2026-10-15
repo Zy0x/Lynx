@@ -325,7 +325,7 @@ fun TuningProfilesCategory(
             }
         }
 
-        // ── 3. MountX & MicroSD Ultra Storage Engine Card ──────
+        // ── 3. Adaptive SD I/O Policy ─────────────────────────
         MountXStorageCard(uiState = uiState, viewModel = viewModel)
 
         // ── 4. Per-App Profile Automation Card ─────────────────

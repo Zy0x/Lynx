@@ -79,7 +79,8 @@ internal object LynxSystemTuningRepository {
                                 if (availJson != null) {
                                     for (j in 0 until availJson.length()) avail.add(availJson.optString(j))
                                 }
-                                list.add(IoDeviceInfo(device = name, currentScheduler = cur, availableSchedulers = avail, readAheadKb = 128))
+                                list.add(IoDeviceInfo(device = name, currentScheduler = cur, availableSchedulers = avail,
+                                    readAheadKb = d.optInt("current_read_ahead_kb", 0)))
                             }
                             return@withContext list
                         }
@@ -87,8 +88,10 @@ internal object LynxSystemTuningRepository {
                 }
             }
             val r = Shell.cmd("""
-                for dev in mmcblk0 sda sdb nvme0n1 vda; do
-                  q=/sys/block/${'$'}dev/queue
+                for block in /sys/block/*; do
+                  [ -d "${'$'}block" ] || continue
+                  dev=${'$'}{block##*/}
+                  q=${'$'}block/queue
                   [ -f "${'$'}q/scheduler" ] || continue
                   sched=$(cat "${'$'}q/scheduler" 2>/dev/null)
                   ra=$(cat "${'$'}q/read_ahead_kb" 2>/dev/null)
@@ -101,7 +104,7 @@ internal object LynxSystemTuningRepository {
                 val parts = t.split("|")
                 val dev = parts.getOrNull(0)?.removePrefix("dev:") ?: continue
                 val schedRaw = parts.getOrNull(1)?.removePrefix("sched:") ?: ""
-                val ra = parts.getOrNull(2)?.removePrefix("ra:")?.toIntOrNull() ?: 128
+                val ra = parts.getOrNull(2)?.removePrefix("ra:")?.toIntOrNull() ?: 0
                 val avail = schedRaw.replace("[", "").replace("]", "").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
                 val cur = Regex("\\[([^]]+)]").find(schedRaw)?.groupValues?.getOrNull(1) ?: avail.firstOrNull() ?: "none"
                 list.add(IoDeviceInfo(device = dev, currentScheduler = cur, availableSchedulers = avail, readAheadKb = ra))
@@ -112,12 +115,14 @@ internal object LynxSystemTuningRepository {
 
     suspend fun setIoScheduler(device: String, scheduler: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val d = device.replace(Regex("[^a-zA-Z0-9]"), "")
+            val d = device.replace(Regex("[^a-zA-Z0-9_-]"), "")
             val s = scheduler.replace(Regex("[^a-zA-Z0-9\\-]"), "")
             if (LynxRepository.isModuleInstalled()) {
                 val cmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' io set-scheduler '$d' '$s' && echo ok; fi"
                 val res = Shell.cmd(cmd).exec()
-                if (res.out.any { it.contains("ok") || it.contains("Scheduler") }) return@withContext true
+                val json = res.out.firstOrNull { it.trim().startsWith("{") }
+                    ?.let { runCatching { JSONObject(it) }.getOrNull() }
+                if (json != null) return@withContext json.optBoolean("ok", false) && json.optInt("updated", 0) > 0
             }
             val cmd = "if [ -f '/sys/block/$d/queue/scheduler' ]; then echo '$s' > '/sys/block/$d/queue/scheduler' 2>/dev/null && grep -q '\\[$s\\]' '/sys/block/$d/queue/scheduler' && echo ok; fi"
             Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
@@ -127,7 +132,7 @@ internal object LynxSystemTuningRepository {
 
     suspend fun setReadAheadKb(device: String, kb: Int): Boolean = withContext(Dispatchers.IO) {
         try {
-            val d = device.replace(Regex("[^a-zA-Z0-9]"), "")
+            val d = device.replace(Regex("[^a-zA-Z0-9_-]"), "")
             val cmd = "if [ -f '/sys/block/$d/queue/read_ahead_kb' ]; then echo $kb > '/sys/block/$d/queue/read_ahead_kb' 2>/dev/null && [ \"$(cat /sys/block/$d/queue/read_ahead_kb 2>/dev/null)\" = \"$kb\" ] && echo ok; fi"
             Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }

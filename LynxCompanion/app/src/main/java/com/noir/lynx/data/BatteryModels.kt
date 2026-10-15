@@ -33,6 +33,9 @@ data class BatteryDetails(
     val isBypassActive: Boolean = false,
     val isSmartTaperingActive: Boolean = false,
     val isNightGentleActive: Boolean = false,
+    val isPropsSpoofed: Boolean = false,
+    val spoofDetails: String = "",
+    val hardwarePlatform: String = "",
 ) {
     val isCharging: Boolean get() = isPlugged && (status.equals("Charging", ignoreCase = true) || currentMa > 50)
 }

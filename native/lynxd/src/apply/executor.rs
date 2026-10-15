@@ -136,7 +136,16 @@ impl ProfileExecutor {
         let mut commit_failed_at = None;
 
         for (idx, op) in plan.operations.iter().enumerate() {
-            match SysfsWriter::write(&op.path, &op.target_value, WriteMode::ForcePermission) {
+            let is_storage_prefetch = op.subsystem == "Storage"
+                && op.path.file_name().and_then(|n| n.to_str()) == Some("read_ahead_kb");
+            if is_storage_prefetch {
+                if crate::state::storage_state::StorageState::remember_read_ahead(&op.path, &op.target_value).is_err() {
+                    Logger::warn(ui("I/O dilewati: cadangan nilai awal tidak tersedia.", "I/O skipped: the original value could not be saved."));
+                    continue;
+                }
+            }
+            let mode = if is_storage_prefetch { WriteMode::Direct } else { WriteMode::ForcePermission };
+            match SysfsWriter::write(&op.path, &op.target_value, mode) {
                 Ok(_) => {
                     committed_count += 1;
                 }

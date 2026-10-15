@@ -15,3 +15,5 @@ native/lynxd/target/
 native/lynxd/state/
 docs/android-improvement-plans/
 archive/local_backups/
+# Local device traces, screenshots, and downloaded analysis dependencies.
+/tools/extreme_trial_*/

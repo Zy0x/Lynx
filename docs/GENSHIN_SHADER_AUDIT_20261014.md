@@ -110,3 +110,10 @@ No full-repository validation or APK runtime-success claim is made.
 Vulkan documentation explains the cache reuse principle; the observed active
 descriptor in this session was an OpenGL cache. These APIs are engine/driver
 facilities, not substitutes for a generic shell `cmd package compile` command.
+
+## Follow-up: 2026-10-15
+
+The later live Extreme and EGL cache trials are documented in
+`docs/GENSHIN_EXTREME_TRIAL_20261015.md`. Multifile functionality was verified,
+but a startup performance gain was not established and the original cache
+overrides were restored. Do not treat the candidate above as an adopted preset.

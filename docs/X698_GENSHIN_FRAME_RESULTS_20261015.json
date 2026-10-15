@@ -1,0 +1,132 @@
+[
+  {
+    "phase": "controlled800_b3",
+    "fps": 33.771,
+    "frame_p95_ms": 58.1559,
+    "frame_p99_ms": 104.1375,
+    "frames": 834,
+    "intervals_gt_50ms": 48,
+    "cpu_cap_khz": {
+      "min": 1002000,
+      "median": 1530000.0,
+      "max": 1860000
+    }
+  },
+  {
+    "phase": "controlled800_b4",
+    "fps": 37.508,
+    "frame_p95_ms": 41.5984,
+    "frame_p99_ms": 76.7861,
+    "frames": 923,
+    "intervals_gt_50ms": 26,
+    "cpu_cap_khz": {
+      "min": 1419000,
+      "median": 1670000.0,
+      "max": 2050000
+    }
+  },
+  {
+    "phase": "controlled850_c4",
+    "fps": 38.855,
+    "frame_p95_ms": 41.5569,
+    "frame_p99_ms": 58.1794,
+    "frames": 953,
+    "intervals_gt_50ms": 13,
+    "cpu_cap_khz": {
+      "min": 1308000,
+      "median": 1530000.0,
+      "max": 1733000
+    }
+  },
+  {
+    "phase": "controlled900_d2",
+    "fps": 41.755,
+    "frame_p95_ms": 33.2485,
+    "frame_p99_ms": 41.5828,
+    "frames": 1035,
+    "intervals_gt_50ms": 6,
+    "cpu_cap_khz": {
+      "min": 1419000,
+      "median": 1419000.0,
+      "max": 1860000
+    }
+  },
+  {
+    "phase": "controlled950_a5",
+    "fps": 40.952,
+    "frame_p95_ms": 33.2506,
+    "frame_p99_ms": 41.556,
+    "frames": 1009,
+    "intervals_gt_50ms": 2,
+    "cpu_cap_khz": {
+      "min": 1419000,
+      "median": 1419000.0,
+      "max": 1860000
+    }
+  },
+  {
+    "phase": "controlled950_a6",
+    "fps": 40.334,
+    "frame_p95_ms": 33.2506,
+    "frame_p99_ms": 33.2791,
+    "frames": 994,
+    "intervals_gt_50ms": 0,
+    "cpu_cap_khz": {
+      "min": 1419000,
+      "median": 1419000.0,
+      "max": 1419000
+    }
+  },
+  {
+    "phase": "controlled950_a7",
+    "fps": 39.187,
+    "frame_p95_ms": 33.2559,
+    "frame_p99_ms": 33.2945,
+    "frames": 969,
+    "intervals_gt_50ms": 0,
+    "cpu_cap_khz": {
+      "min": 1169000,
+      "median": 1308000.0,
+      "max": 1419000
+    }
+  },
+  {
+    "phase": "controlled_wakeup_e1",
+    "fps": 41.883,
+    "frame_p95_ms": 33.2453,
+    "frame_p99_ms": 33.271,
+    "frames": 1037,
+    "intervals_gt_50ms": 0,
+    "cpu_cap_khz": {
+      "min": 1419000,
+      "median": 1419000.0,
+      "max": 1419000
+    }
+  },
+  {
+    "phase": "controlled_wakeup_e2",
+    "fps": 41.518,
+    "frame_p95_ms": 33.2477,
+    "frame_p99_ms": 33.2738,
+    "frames": 1019,
+    "intervals_gt_50ms": 0,
+    "cpu_cap_khz": {
+      "min": 1419000,
+      "median": 1419000.0,
+      "max": 1419000
+    }
+  },
+  {
+    "phase": "controlled_migration_f1",
+    "fps": 38.023,
+    "frame_p95_ms": 33.2566,
+    "frame_p99_ms": 41.5763,
+    "frames": 933,
+    "intervals_gt_50ms": 4,
+    "cpu_cap_khz": {
+      "min": 1419000,
+      "median": 1419000.0,
+      "max": 2050000
+    }
+  }
+]
