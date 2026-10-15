@@ -1,3 +1,20 @@
+# Lynx Universal [Universal Multi-OEM Charging Protocol & Cross-Brand Telemetry Architecture] 7.0.0-RC50
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC50** (Lynx Kernel Manager v3.1.11): **Implementasi Penuh Multi-OEM Brand-Awareness & Eliminasi Kebocoran Label Transsion pada Perangkat Non-Transsion (Xiaomi, Redmi, POCO, Samsung, OPPO, OnePlus, Realme, dan Google Pixel): Resolusi Akurat IC Daya (Qualcomm SMB1390/PMIC vs RT9759), Isolasi Ketat Protokol Cepat Sesuai Manufaktur Riil, dan Sanitasi Otomatis Antarmuka Pengguna**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC50)
+
+### 1. Multi-OEM Brand-Awareness pada Native Daemon (lynxd)
+- **Otentikasi Brand Hardware Real-Time**: `lynxd` kini menginspeksi identitas manufaktur asli (`ro.product.brand` dan `ro.product.manufacturer`) secara langsung saat mengevaluasi status pengisian daya.
+- **Isolasi IC Pengisi Daya (`active_ic`)**: Menghilangkan kesalahan di mana perangkat Xiaomi/Qualcomm yang mengisi daya pada 9V salah terdeteksi sebagai `RT9759 2:1 Charge Pump`. Perangkat non-Transsion kini secara tepat dilaporkan sebagai `Qualcomm SMB1390 Dual-Pump`, `Xiaomi Quick Charge PMIC`, `Qualcomm PMIC Buck`, atau `Samsung PMIC Buck`.
+- **Resolusi Protokol Sesuai Manufaktur**: Protokol Transsion (`Transsion Super Charge`) kini **100% terkunci hanya untuk perangkat Infinix, Tecno, dan Itel**. Jika Lynx berjalan di perangkat Xiaomi, protokol akan dilaporkan sebagai `Xiaomi TurboCharge` / `Xiaomi HyperCharge` / `Qualcomm QC`, pada Samsung sebagai `Samsung Super Fast Charging`, dan pada OPPO/Realme sebagai `SuperVOOC / Dart`.
+
+### 2. Sanitasi & Penyelarasan Antarmuka Aplikasi (Lynx Companion v3.1.11)
+- **Brand Guard pada Dashboard Hero Card**: `ChargingHeroDisplayCard`, `LynxBatteryTelemetryRepository`, dan `LynxTelemetryMapper` dilengkapi filter manufaktur berlapis (`isTranssionBrand`, `isXiaomiBrand`, `isSamsungBrand`, `isOppoRealmeBrand`).
+- **Pembersihan Otomatis String Asing**: Mencegah teks bertuliskan "Transsion" muncul di ponsel Xiaomi, Redmi, POCO, atau Samsung dalam kondisi apa pun, baik saat initial handshake, status kalkulasi, maupun fallback adaptor standar.
+
+---
+
 # Lynx Universal [Dynamic Wattage Resolution & Hardware Charging Limit Decoupling Architecture] 7.0.0-RC49
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC49** (Lynx Kernel Manager v3.1.10): **Audit Arsitektur Pengisian Daya Silikon & Eliminasi Mutlak Hardcoded 33W: Penyelarasan Negosiasi Daya Dinamis (33W, 45W, 68W+), Pemulihan Preservasi Session Baseline `pdc_max_watt`, dan Resolusi Otomatis Protokol Transsion Super Charge pada Seluruh Antarmuka & Daemon**.

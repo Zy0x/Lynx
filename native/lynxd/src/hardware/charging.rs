@@ -1475,6 +1475,26 @@ impl ChargingRegulator {
         fs::read_to_string(path).ok().map(|s| s.trim().to_string())
     }
 
+    fn get_device_brand() -> (String, String) {
+        let brand = std::process::Command::new("getprop")
+            .arg("ro.product.brand")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_uppercase();
+        let mfg = std::process::Command::new("getprop")
+            .arg("ro.product.manufacturer")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .unwrap_or_default()
+            .trim()
+            .to_uppercase();
+        (brand, mfg)
+    }
+
     /// Periodic tick called inside `DaemonRunner::run()` every cycle.
     pub fn tick() {
         if !Self::is_hardware_plugged() {
@@ -1546,21 +1566,60 @@ impl ChargingRegulator {
         let is_chg = c_clean > 50 || stat == "Charging";
 
         let (active_ic, protocol) = if is_chg {
-            let ic = if rfc_auth || chgtyp == "9" || Path::new("/sys/bus/i2c/drivers/rt9759").exists() || (adpv > 7000 && c_clean >= 1500) {
+            let (brand, mfg) = Self::get_device_brand();
+            let is_transsion = brand.contains("INFINIX") || brand.contains("TECNO") || brand.contains("ITEL")
+                || mfg.contains("INFINIX") || mfg.contains("TECNO") || mfg.contains("TRANSSION");
+            let is_xiaomi = brand.contains("XIAOMI") || brand.contains("REDMI") || brand.contains("POCO")
+                || mfg.contains("XIAOMI");
+            let is_oppo_realme = brand.contains("OPPO") || brand.contains("REALME") || brand.contains("ONEPLUS")
+                || mfg.contains("OPPO") || mfg.contains("REALME");
+            let is_samsung = brand.contains("SAMSUNG") || mfg.contains("SAMSUNG");
+
+            let ic = if is_transsion && (rfc_auth || chgtyp == "9" || Path::new("/sys/bus/i2c/drivers/rt9759").exists()) {
                 "Direct Charge Pump (RT9759 2:1)"
-            } else if Path::new("/sys/class/power_supply/smb1390").exists() {
+            } else if Path::new("/sys/class/power_supply/smb1390").exists() || Path::new("/sys/class/power_supply/charge_pump").exists() {
                 "Qualcomm SMB1390 Dual-Pump"
+            } else if is_xiaomi && Path::new("/sys/class/qcom-battery").exists() {
+                "Xiaomi Quick Charge PMIC"
             } else if Path::new("/sys/class/qcom-battery").exists() {
                 "Qualcomm PMIC (PM8150/PM6150 Buck)"
+            } else if is_samsung {
+                "Samsung PMIC Buck (Shannon/Maxim)"
             } else {
                 "Switching Buck Converter (RT9471/Universal)"
             };
 
-            let proto = if rfc_auth || (chgtyp == "9" && adpv > 9800) {
-                "Transsion Super Charge (33W/45W/68W RFC)"
+            let proto = if is_transsion && (rfc_auth || (chgtyp == "9" && adpv > 8000)) {
+                if adpv > 9500 && c_clean >= 4000 {
+                    "Transsion 45W / 68W Super Charge (PE+)"
+                } else if adpv > 8500 && c_clean >= 2000 {
+                    "Transsion 33W Super Charge (PE+)"
+                } else {
+                    "Transsion Super Charge (PE+)"
+                }
+            } else if is_xiaomi && (adpv > 8000 || Path::new("/sys/class/power_supply/battery/fastcharge_mode").exists()) {
+                if c_clean >= 4500 || adpv > 15000 {
+                    "Xiaomi 67W / 120W HyperCharge"
+                } else if c_clean >= 2500 || adpv > 9500 {
+                    "Xiaomi 33W TurboCharge"
+                } else if adpv > 8000 {
+                    "Xiaomi Fast Charge (QC / PD)"
+                } else {
+                    "Xiaomi TurboCharge"
+                }
+            } else if is_oppo_realme && Path::new("/sys/class/power_supply/battery/vooc_charging").exists() {
+                "SuperVOOC / Dart Charge"
+            } else if is_samsung && adpv > 8000 {
+                if c_clean >= 3500 {
+                    "Samsung Super Fast Charging 2.0 (45W)"
+                } else {
+                    "Samsung Super Fast Charging (25W)"
+                }
+            } else if Path::new("/sys/class/qcom-battery").exists() && adpv > 8000 {
+                "Qualcomm Quick Charge (QC 3.0 / 4+)"
             } else if adpv > 8500 {
                 "USB Power Delivery / PPS"
-            } else if adpv > 8000 || chgtyp == "4" || chgtyp == "7" || (chgtyp == "9" && !rfc_auth) {
+            } else if adpv > 8000 || chgtyp == "4" || chgtyp == "7" {
                 "USB Power Delivery / PPS"
             } else if adpv > 4500 && c_clean >= 2000 {
                 "Fast Charge (High Current 5V)"

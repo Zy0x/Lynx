@@ -305,11 +305,16 @@ internal object LynxBatteryTelemetryRepository {
                             android.os.Build.BRAND.contains("TECNO", ignoreCase = true) ||
                             android.os.Build.MANUFACTURER.contains("TRANSSION", ignoreCase = true)
 
+                    val isXiaomi = android.os.Build.MANUFACTURER.contains("XIAOMI", ignoreCase = true) ||
+                            android.os.Build.BRAND.contains("XIAOMI", ignoreCase = true) ||
+                            android.os.Build.BRAND.contains("REDMI", ignoreCase = true) ||
+                            android.os.Build.BRAND.contains("POCO", ignoreCase = true)
+
                     val protocol = when {
                         !isPlugged -> "Battery Power"
 
-                        // 1. Genuine Transsion Fast Charge (Infinix / Tecno 33W/45W/68W PE+ Direct Pump)
-                        (rfcAuth || chgTyp == "9" || rawPtyp == "MTK_9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC")) && pdSig.isBlank() && !ptypUpper.contains("PD") -> {
+                        // 1. Genuine Transsion Fast Charge (ONLY on genuine Infinix / Tecno hardware)
+                        isTranssion && (rfcAuth || chgTyp == "9" || rawPtyp == "MTK_9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC")) && pdSig.isBlank() && !ptypUpper.contains("PD") -> {
                             val wLabel = when {
                                 watt >= 55f -> "68W"
                                 watt >= 38f -> "45W"
@@ -332,8 +337,17 @@ internal object LynxBatteryTelemetryRepository {
                         // 3. SuperVOOC / Dart (OPPO / Realme / OnePlus)
                         voocSig == "1" || voocSig == "2" || ptypUpper.contains("VOOC") || ptypUpper.contains("DART") -> "SuperVOOC / Dart"
 
-                        // 4. Xiaomi TurboCharge / HyperCharge
-                        miSig == "1" && adpMv > 8000 -> "Xiaomi TurboCharge"
+                        // 4. Xiaomi TurboCharge / HyperCharge (Xiaomi / Redmi / POCO)
+                        isXiaomi && (miSig == "1" || miSig == "2" || ptypUpper.contains("TURBO") || ptypUpper.contains("HYPER") || (adpMv > 8000 && !ptypUpper.contains("PD"))) -> {
+                            val wLabel = when {
+                                watt >= 100f -> "120W HyperCharge"
+                                watt >= 55f -> "67W TurboCharge"
+                                watt >= 28f -> "33W TurboCharge"
+                                watt >= 15f -> "TurboCharge"
+                                else -> "Fast Charge"
+                            }
+                            "Xiaomi $wLabel"
+                        }
 
                         // 5. Samsung SFC / AFC
                         secSig == "1" || secSig.contains("AFC", ignoreCase = true) -> if (adpMv > 8000) "Samsung SFC (25W/45W)" else "Samsung AFC"

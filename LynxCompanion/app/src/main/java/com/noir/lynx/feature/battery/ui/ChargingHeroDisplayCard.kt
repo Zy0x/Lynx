@@ -500,13 +500,55 @@ fun ChargingHeroDisplayCard(
         b.contains("INFINIX") || b.contains("TECNO")
     }
 
+    val isXiaomiBrand = remember {
+        val m = android.os.Build.MANUFACTURER.uppercase(Locale.US)
+        val b = android.os.Build.BRAND.uppercase(Locale.US)
+        m.contains("XIAOMI") || b.contains("XIAOMI") || b.contains("REDMI") || b.contains("POCO")
+    }
+
+    val isSamsungBrand = remember {
+        val m = android.os.Build.MANUFACTURER.uppercase(Locale.US)
+        val b = android.os.Build.BRAND.uppercase(Locale.US)
+        m.contains("SAMSUNG") || b.contains("SAMSUNG")
+    }
+
+    val isOppoRealmeBrand = remember {
+        val m = android.os.Build.MANUFACTURER.uppercase(Locale.US)
+        val b = android.os.Build.BRAND.uppercase(Locale.US)
+        m.contains("OPPO") || m.contains("REALME") || m.contains("ONEPLUS") ||
+        b.contains("OPPO") || b.contains("REALME") || b.contains("ONEPLUS")
+    }
+
     // Resolved Hardware Protocol Name for Banner
-    val detectedProtocolName = remember(isPlugged, batt.fastChargeProtocol, liveHardwareProtocol, isTranssionBrand) {
+    val detectedProtocolName = remember(isPlugged, batt.fastChargeProtocol, liveHardwareProtocol, isTranssionBrand, isXiaomiBrand, isSamsungBrand, isOppoRealmeBrand) {
         when {
             !isPlugged -> "Baterai Internal (Li-Ion)"
-            batt.fastChargeProtocol.isNotBlank() && !batt.fastChargeProtocol.contains("Battery", true) -> batt.fastChargeProtocol
-            liveHardwareProtocol.isNotBlank() && !liveHardwareProtocol.contains("Standar") -> liveHardwareProtocol
+            batt.fastChargeProtocol.isNotBlank() && !batt.fastChargeProtocol.contains("Battery", true) -> {
+                if (isXiaomiBrand && batt.fastChargeProtocol.contains("Transsion", ignoreCase = true)) {
+                    "Xiaomi TurboCharge"
+                } else if (isSamsungBrand && batt.fastChargeProtocol.contains("Transsion", ignoreCase = true)) {
+                    "Samsung Fast Charging"
+                } else if (isOppoRealmeBrand && batt.fastChargeProtocol.contains("Transsion", ignoreCase = true)) {
+                    "SuperVOOC / Fast Charge"
+                } else {
+                    batt.fastChargeProtocol
+                }
+            }
+            liveHardwareProtocol.isNotBlank() && !liveHardwareProtocol.contains("Standar") -> {
+                if (isXiaomiBrand && liveHardwareProtocol.contains("Transsion", ignoreCase = true)) {
+                    "Xiaomi TurboCharge"
+                } else if (isSamsungBrand && liveHardwareProtocol.contains("Transsion", ignoreCase = true)) {
+                    "Samsung Fast Charging"
+                } else if (isOppoRealmeBrand && liveHardwareProtocol.contains("Transsion", ignoreCase = true)) {
+                    "SuperVOOC / Fast Charge"
+                } else {
+                    liveHardwareProtocol
+                }
+            }
             isTranssionBrand -> "Transsion Super Charge (PE+)"
+            isXiaomiBrand -> "Xiaomi Fast Charging"
+            isSamsungBrand -> "Samsung Fast Charging"
+            isOppoRealmeBrand -> "Fast Charging"
             else -> "Adaptor Daya Eksternal"
         }
     }
@@ -1278,11 +1320,20 @@ private fun resolveHardwareProtocolDirect(
 ): String {
     val ptypUpper = rawPtyp.uppercase(Locale.US)
     val qcUpper = qcSig.uppercase(Locale.US)
+    val mfgUpper = android.os.Build.MANUFACTURER.uppercase(Locale.US)
+    val brandUpper = android.os.Build.BRAND.uppercase(Locale.US)
+    val isTranssion = mfgUpper.contains("INFINIX") || mfgUpper.contains("TECNO") || mfgUpper.contains("TRANSSION") ||
+            brandUpper.contains("INFINIX") || brandUpper.contains("TECNO")
+    val isXiaomi = mfgUpper.contains("XIAOMI") || brandUpper.contains("XIAOMI") || brandUpper.contains("REDMI") || brandUpper.contains("POCO")
 
     return when {
-        // Transsion Fast Charge (Infinix / Tecno 33W/45W/68W PE+ Direct Pump)
-        mtkChgType == "9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC") -> {
+        // Transsion Fast Charge (ONLY on genuine Infinix / Tecno hardware)
+        isTranssion && (mtkChgType == "9" || ptypUpper.contains("TRAN") || ptypUpper.contains("RFC")) -> {
             "Transsion Super Charge (PE+)"
+        }
+        // Xiaomi Turbo / HyperCharge
+        isXiaomi && (miSig == "1" || miSig == "2" || ptypUpper.contains("TURBO") || ptypUpper.contains("HYPER")) -> {
+            "Xiaomi TurboCharge"
         }
         // Qualcomm Quick Charge (HVDCP, HVDCP_3, HVDCP_3P5, QC 2.0/3.0/4.0/5.0)
         ptypUpper.contains("HVDCP_3P5") || qcUpper.contains("4") || qcUpper.contains("5") -> {
@@ -1303,7 +1354,7 @@ private fun resolveHardwareProtocolDirect(
         voocSig == "1" || voocSig == "2" || ptypUpper.contains("VOOC") || ptypUpper.contains("DART") -> {
             "SuperVOOC / Dart"
         }
-        // Xiaomi Turbo / HyperCharge
+        // Generic Xiaomi fallback
         miSig == "1" || miSig == "2" || ptypUpper.contains("TURBO") || ptypUpper.contains("HYPER") -> {
             "Xiaomi TurboCharge"
         }

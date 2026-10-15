@@ -237,8 +237,25 @@ internal object LynxTelemetryMapper {
                     android.os.Build.BRAND.contains("TECNO", ignoreCase = true) ||
                     android.os.Build.MANUFACTURER.contains("TRANSSION", ignoreCase = true)
 
+            val isXiaomiDevice = android.os.Build.MANUFACTURER.contains("XIAOMI", ignoreCase = true) ||
+                    android.os.Build.BRAND.contains("XIAOMI", ignoreCase = true) ||
+                    android.os.Build.BRAND.contains("REDMI", ignoreCase = true) ||
+                    android.os.Build.BRAND.contains("POCO", ignoreCase = true)
+
+            val isSamsungDevice = android.os.Build.MANUFACTURER.contains("SAMSUNG", ignoreCase = true) ||
+                    android.os.Build.BRAND.contains("SAMSUNG", ignoreCase = true)
+
             val mappedProtocol = when {
-                !existingBatt?.fastChargeProtocol.isNullOrBlank() -> existingBatt!!.fastChargeProtocol
+                !existingBatt?.fastChargeProtocol.isNullOrBlank() -> {
+                    val p = existingBatt!!.fastChargeProtocol
+                    if (!isTranssionDevice && p.contains("Transsion", ignoreCase = true)) {
+                        if (isXiaomiDevice) "Xiaomi TurboCharge"
+                        else if (isSamsungDevice) "Samsung Fast Charging"
+                        else "Fast Charge (PD / QC)"
+                    } else {
+                        p
+                    }
+                }
                 isTranssionDevice && (tel.battWatt > 4f || tel.battCurrentMa > 1000) -> {
                     val wLabel = when {
                         tel.battWatt >= 55f -> "68W"
@@ -249,6 +266,19 @@ internal object LynxTelemetryMapper {
                         else -> "Flash"
                     }
                     if (wLabel == "Super Charge") "Transsion Super Charge (PE+)" else "Transsion $wLabel (PE+)"
+                }
+                isXiaomiDevice && (tel.battWatt > 4f || tel.battCurrentMa > 1000) -> {
+                    val wLabel = when {
+                        tel.battWatt >= 100f -> "120W HyperCharge"
+                        tel.battWatt >= 55f -> "67W TurboCharge"
+                        tel.battWatt >= 28f -> "33W TurboCharge"
+                        tel.battWatt >= 15f -> "TurboCharge"
+                        else -> "Fast Charge"
+                    }
+                    "Xiaomi $wLabel"
+                }
+                isSamsungDevice && (tel.battWatt > 4f || tel.battCurrentMa > 1000) -> {
+                    if (tel.battWatt >= 35f) "Samsung SFC 2.0 (45W)" else "Samsung SFC (25W)"
                 }
                 else -> ""
             }
