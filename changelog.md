@@ -1,3 +1,30 @@
+# Lynx Universal [Zero-Loophole Mode Guard & Dynamic Voltage-Scaled Bounding] 7.0.0-RC62
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC62** (Lynx Kernel Manager v3.1.23): **Audit Menyeluruh Celah Semua Mode Pengisian Daya: Penutupan Celah Lonjakan Arus Mode Cool Melalui Skalasi Dinamis Arus Input Berbasis Voltase Adaptor (Mencegah Penggandaan Arus Baterai di 9V/10V), Resolusi Total Celah Mode Standar Lebih Cepat Dibanding Mode Hyper dengan Menjaga Kestabilan Timing Pulsa Negosiasi Pump Express Tanpa Interupsi Loop Setiap Detik, Penghapusan Subproses Redundan `dumpsys battery reset` Berkala, Serta Penyelarasan Penuh Skrip Shell Fallback**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC62)
+
+### 1. Penutupan Celah Lonjakan Arus Mode Cool (`calculate_regulated_input_current_ma`)
+- **Akar Masalah Lonjakan Arus**: Ketika pengguna beralih dari Hyper ke Cool (atau saat mode Sejuk diaktifkan), adaptor tetap mempertahankan voltase tinggi 9V/10V (Pump Express/USB-PD). Menulis batas `input_current=1000 mA` pada PMIC buck converter menghasilkan daya masuk $9\text{V} \times 1\text{A} = 9\text{W}$, yang ketika dikonversi ke baterai 4.0V melipatgandakan arus menjadi $\approx 2025\text{ mA}$ (dua kali lipat target 1000 mA!).
+- **Skalasi Daya Berbasis Voltase Real-time**: Mengimplementasikan formula transfer daya fisis:
+  $$I_{in\_bus} = \frac{I_{bat\_target} \times 4200}{V_{bus}}$$
+  Jika $V_{bus} \ge 6000\text{ mV}$ (misal 9.0V), batas arus input ke PMIC otomatis dikurangi ke $\approx 466\text{ mA}$ sehingga daya adaptor tidak melebihi 4.2W dan arus ke baterai dijamin mutlak $\le 1000\text{ mA}$.
+- **Soft-Pulse Reset ke 5V**: Mode Sejuk secara otomatis memutus sesaat FET input untuk memaksa adaptor menurunkan rel daya ke 5V standar USB murni.
+
+### 2. Resolusi Total Celah Mode Standar Lebih Cepat Dibanding Mode Hyper
+- **Akar Masalah Interupsi Pulsa**: Pada versi lawas, evaluasi `invariants_intact` memeriksa `enable_sc == "1"`. Karena saat baru dicolok voltase adaptor masih 5V (`enable_sc="0"`), kondisi invariant selalu bernilai `false`, menyebabkan `apply_hyper_mode()` dijalankan ulang setiap 1 detik. Penulisan sysfs berkala ini memotong dan mereset kereta pulsa kernel Pump Express (`pe_work_func`), menjebak adaptor di 5V / 1.5A (7.5W). Sebaliknya, pada mode Standar, skrip tidak berjalan setiap detik sehingga kernel dapat menyelesaikan negosiasi pulsa tanpa gangguan dan melesat ke 33W.
+- **Stabilisasi Timing Handshake Negosiasi**: Invariant kini memverifikasi kesesuaian status `enable_sc` dengan voltase aktual (`adpv_clean >= 6500`). Selama fase negosiasi awal di 5V, register kernel dibiarkan hening tanpa interupsi, memberikan ruang waktu 3–4 detik bagi driver hardware untuk menyelesaikan handshake dan melesat ke voltase maksimal.
+- **Relaksasi Batas Invariant Tapering**: Mengubah syarat `sc_limit >= 8000` menjadi `sc_limit >= 1000` sehingga fase tapering 80–90% (3,200 mA) dan 90–94% (2,200 mA) tidak memicu perulangan re-injeksi berkala.
+
+### 3. Eliminasi Eksekusi Subproses Redundan pada Mode Standar
+- Menghapus eksekusi subproses `dumpsys battery reset` yang sebelumnya berjalan setiap siklus 1 detik saat mode standar terpilih. Pemanggilan hanya dieksekusi secara selektif saat transisi keluar dari status hardware bypass.
+- Evaluasi state marker `/dev/lynx_standard_charging` memastikan eksekusi mode standar dan sejuk bersifat atomik dan bebas dari overhead CPU.
+
+### 4. Sinkronisasi Penuh Shell Fallback (`Charging-Controller.sh`)
+- Menambahkan implementasi lengkap `fallback_cool()`, `fallback_standard()`, dan `fallback_custom()` dengan mitigasi soft-reconnect dan batas daya 5W yang identik dengan mesin native Rust `lynxd`.
+
+---
+
 # Lynx Universal [Zero-Touch Handshake Reset & Voltage-Gated Pump Activation] 7.0.0-RC61
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC61** (Lynx Kernel Manager v3.1.22): **Integrasi Mekanisme Voltage-Gated Switched-Capacitor Pump (Mencegah Fault Arus Balik UVLO Saat Adaptor di 5V), Sistem Zero-Touch Soft Reconnect (Reset Handshake BC1.2/PE Tanpa Cabut Kabel), dan Audit Ketat Pemulihan Zero-Leakage Pasca-Cabut Charger Serta Skalabilitas Multi-Vendor (Qualcomm SPMI vs MediaTek I2C vs Dual-Cell 2S)**.

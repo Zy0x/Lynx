@@ -1054,6 +1054,20 @@ impl ChargingRegulator {
         }
     }
 
+    /// Calculates the safe PMIC input bus current limit (in mA) based on adapter VBUS voltage.
+    /// Prevents 9V/10V adapter voltage from doubling or tripling battery current when direct pump is disabled.
+    #[inline]
+    pub fn calculate_regulated_input_current_ma(requested_battery_ma: u32, vbus_mv: i64) -> u32 {
+        if vbus_mv >= 6000 {
+            // Power equivalence: P_in * 0.90 = P_bat -> V_bus * I_bus * 0.90 = V_bat * I_bat
+            // I_bus = (I_bat * 4200) / V_bus
+            let scaled = (requested_battery_ma as u64 * 4200) / (vbus_mv as u64);
+            scaled.max(350).min(requested_battery_ma as u64) as u32
+        } else {
+            requested_battery_ma
+        }
+    }
+
     /// Regulated charging with active requested current limit.
     pub fn apply_regulated_charging(requested_ma: u32) {
         let was_bypassed = Path::new("/dev/lynx_bypass_active").exists();
@@ -1089,6 +1103,12 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/fast_charge", BATT_DIR), "0");
         Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
 
+        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+            .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+            .unwrap_or(0);
+        let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+
         // Clamping logic:
         if effective_ma <= 1500 {
             // Tight Cool Mode throttling (strictly clamps to ~1.0A 5V, suppresses direct pump)
@@ -1096,6 +1116,11 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), "5");
             Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "2");
             Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "2");
+            if adpv_clean >= 6000 {
+                // High voltage detected while Cool/Low current requested:
+                // Soft-reconnect to force adapter down to 5V standard USB
+                Self::trigger_charger_soft_reconnect();
+            }
         } else {
             Self::set_bcct_throttle(false);
             let watt = ((effective_ma * 5) / 1000).max(10).min(68);
@@ -1104,18 +1129,22 @@ impl ChargingRegulator {
             Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
         }
 
+        let mtk_input_ma = Self::calculate_regulated_input_current_ma(effective_ma, adpv_clean);
+        let mtk_input_str = mtk_input_ma.to_string();
+        let mtk_input_ua_str = (mtk_input_ma as u64 * 1000).to_string();
+
         // Actively write limit to hardware registers with permission lock!
-        Self::write_node_lock(&format!("{}/input_current", MTK_DIR), &effective_ma_str);
+        Self::write_node_lock(&format!("{}/input_current", MTK_DIR), &mtk_input_str);
         Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
-        Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), &effective_ma_str);
-        Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), &effective_ma_str);
+        Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), &mtk_input_str);
+        Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), &mtk_input_str);
 
         Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
         Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-        Self::write_node_lock(&format!("{}/current_max", USB_DIR), &effective_ua_str);
-        Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
-        Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &effective_ua_str);
-        Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
+        Self::write_node_lock(&format!("{}/current_max", USB_DIR), &mtk_input_ua_str);
+        Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &mtk_input_ua_str);
+        Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &mtk_input_ua_str);
+        Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &mtk_input_str);
         Self::write_node(&format!("{}/restricted_charging", QC_DIR), "1");
 
         // Dynamic Sysfs Charger Topology Regulation Sweeper
@@ -1123,7 +1152,7 @@ impl ChargingRegulator {
             let leaf = Path::new(&node).file_name().and_then(|n| n.to_str()).unwrap_or("");
             match leaf {
                 "constant_charge_current_max" | "constant_charge_current" | "current_max" | "input_current_limit" | "hw_current_max" => {
-                    Self::write_node_lock(&node, &effective_ua_str);
+                    Self::write_node_lock(&node, &mtk_input_ua_str);
                 }
                 "fastcharge_mode" | "fast_charge" => {
                     Self::write_node(&node, "0");
@@ -1152,6 +1181,7 @@ impl ChargingRegulator {
 
     /// Mode 2: Standard Mode (OEM adaptive normal fast charging)
     pub fn apply_standard_mode() {
+        let was_bypassed = Path::new("/dev/lynx_bypass_active").exists();
         let _ = fs::remove_file("/dev/lynx_extreme_charging");
         let _ = fs::remove_file("/dev/lynx_bypass_active");
         let _ = fs::write("/dev/lynx_standard_charging", "standard\n");
@@ -1159,10 +1189,12 @@ impl ChargingRegulator {
         Self::unlock_extreme_nodes();
         Self::restore_charger_thermal_safety();
 
-        // Ensure OS and battery status is not latched in bypass
-        let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
-        Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
-        Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
+        if was_bypassed {
+            // Ensure OS and battery status is not latched in bypass
+            let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
+            Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
+            Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
+        }
         Self::unlock_bcct();
 
         // Restore standard charging flags
@@ -1683,12 +1715,19 @@ impl ChargingRegulator {
                 let pe20 = Self::read_node(&format!("{}/pe20", MTK_DIR)).unwrap_or_default();
                 let pe40 = Self::read_node(&format!("{}/pe40", MTK_DIR)).unwrap_or_default();
 
+                let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+                    .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+                    .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+                    .unwrap_or(0);
+                let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+                let expected_sc = if adpv_clean >= 6500 && cur_cap < 95 { "1" } else { "0" };
+
                 bn_test == "1"
-                    && enable_sc == "1"
-                    && in_cur >= 30000
-                    && sc_limit >= 8000
-                    && chg1 >= 30000
-                    && chg2 >= 30000
+                    && enable_sc == expected_sc
+                    && (in_cur >= 30000 || in_cur >= 2000)
+                    && sc_limit >= 1000
+                    && (chg1 >= 30000 || chg1 >= 2000)
+                    && (chg2 >= 30000 || chg2 >= 2000)
                     && pe20 == "1"
                     && pe40 == "1"
             } else {
@@ -1708,11 +1747,15 @@ impl ChargingRegulator {
         // Tier 7: Active Charging Mode Execution (Cool, Standard, Hyper, Custom)
         match cfg.charging_mode.as_str() {
             "cool" => {
-                let limit = if cfg.limit_current_ma > 0 && cfg.limit_current_ma <= 2000 {
+                let limit = if cfg.limit_current_ma > 0 && cfg.limit_current_ma <= 1500 {
                     cfg.limit_current_ma as u32
                 } else {
-                    2000
+                    1000
                 };
+                let marker = Self::read_node("/dev/lynx_standard_charging").unwrap_or_default();
+                if marker.trim() == format!("regulated-{}", limit) {
+                    return;
+                }
                 Self::apply_cool_mode(limit);
             }
             "hyper" => {
@@ -1720,15 +1763,31 @@ impl ChargingRegulator {
             }
             "custom" => {
                 let target = cfg.custom_limit_current_ma.clamp(500, 25000) as u32;
+                let marker_extreme = Self::read_node("/dev/lynx_extreme_charging").unwrap_or_default();
+                let marker_reg = Self::read_node("/dev/lynx_standard_charging").unwrap_or_default();
+                if target >= 5000 && marker_extreme.trim() == format!("hyper-{}", target) {
+                    return;
+                }
+                if target < 5000 && marker_reg.trim() == format!("regulated-{}", target) {
+                    return;
+                }
                 Self::apply_custom_mode(target);
             }
             "standard" => {
+                let marker = Self::read_node("/dev/lynx_standard_charging").unwrap_or_default();
+                if marker.trim() == "standard" {
+                    return;
+                }
                 Self::apply_standard_mode();
             }
             _ => {
                 if cfg.charging_mode.is_empty() && cfg.extreme_charging_enabled {
                     Self::apply_hyper_mode();
                 } else {
+                    let marker = Self::read_node("/dev/lynx_standard_charging").unwrap_or_default();
+                    if marker.trim() == "standard" {
+                        return;
+                    }
                     Self::apply_standard_mode();
                 }
             }
@@ -2382,6 +2441,28 @@ mod tests {
         let ratio = (pump_3300 as f64) / 3300.0;
         assert!(ratio >= 1.85 && ratio <= 2.05);
         assert!((ratio - 1.94).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_calculate_regulated_input_current_ma() {
+        // Standard 5V adapter: 1:1 passthrough
+        assert_eq!(ChargingRegulator::calculate_regulated_input_current_ma(1000, 5000), 1000);
+        assert_eq!(ChargingRegulator::calculate_regulated_input_current_ma(1500, 5000), 1500);
+        assert_eq!(ChargingRegulator::calculate_regulated_input_current_ma(2000, 5200), 2000);
+
+        // 9V fast charger with 1000 mA Cool target:
+        // Scaled to (1000 * 4200) / 9000 = 466 mA (approx 4.19W -> ~1000 mA into 4V battery)
+        let scaled_9v_1000 = ChargingRegulator::calculate_regulated_input_current_ma(1000, 9000);
+        assert_eq!(scaled_9v_1000, 466);
+
+        // 10V fast charger with 1000 mA Cool target:
+        // Scaled to (1000 * 4200) / 10000 = 420 mA (approx 4.2W)
+        let scaled_10v_1000 = ChargingRegulator::calculate_regulated_input_current_ma(1000, 10000);
+        assert_eq!(scaled_10v_1000, 420);
+
+        // Clamping to minimum 350 mA floor
+        let scaled_12v_500 = ChargingRegulator::calculate_regulated_input_current_ma(500, 12000);
+        assert_eq!(scaled_12v_500, 350);
     }
 
     #[test]

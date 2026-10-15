@@ -18,7 +18,7 @@ if [ -x "$LYNXD" ]; then
             exec "$LYNXD" charging mode standard 2>/dev/null
             ;;
         cool)
-            exec "$LYNXD" charging mode cool 2000 2>/dev/null
+            exec "$LYNXD" charging mode cool 1000 2>/dev/null
             ;;
         hyper|extreme)
             exec "$LYNXD" charging mode hyper 2>/dev/null
@@ -200,9 +200,98 @@ fallback_disconnect() {
     done
 }
 
+fallback_cool() {
+    mkdir -p /dev 2>/dev/null
+    echo "regulated-1000" > /dev/lynx_standard_charging 2>/dev/null
+    echo "state=cool cap=50" > /dev/lynx_charging_state 2>/dev/null
+    rm -f /dev/lynx_extreme_charging /dev/lynx_bypass_active 2>/dev/null
+
+    local adpv=$(cat "$MTK_DIR/ADC_Charger_Voltage" 2>/dev/null || cat "$USB_DIR/voltage_now" 2>/dev/null || echo 0)
+    [ "$adpv" -gt 100000 ] 2>/dev/null && adpv=$((adpv / 1000))
+    if [ "$adpv" -ge 6000 ] 2>/dev/null; then
+        chmod 666 "$BATT_DIR/input_suspend" 2>/dev/null
+        echo "1" > "$BATT_DIR/input_suspend" 2>/dev/null
+        sleep 0.15 2>/dev/null || usleep 150000 2>/dev/null
+        echo "0" > "$BATT_DIR/input_suspend" 2>/dev/null
+        in_cur=$(( 1000 * 4200 / adpv ))
+        [ "$in_cur" -lt 350 ] && in_cur=350
+        [ "$in_cur" -gt 1000 ] && in_cur=1000
+    else
+        in_cur=1000
+    fi
+
+    write_node_lock "$MTK_DIR/pe20" "0"
+    write_node_lock "$MTK_DIR/pe40" "0"
+    write_node_lock "$MTK_DIR/enable_sc" "0"
+    write_node_lock "$MTK_DIR/input_current" "$in_cur"
+    write_node_lock "$MTK_DIR/sc_ibat_limit" "1000"
+    write_node_lock "$MTK_DIR/chg1_current" "$in_cur"
+    write_node_lock "$MTK_DIR/chg2_current" "$in_cur"
+    write_node_lock "$MTK_DIR/pdc_max_watt" "5"
+    write_node_lock "$MTK_DIR/BN_TestMode" "0"
+    write_node_lock "$MTK_DIR/BatteryNotify" "1"
+    write_node_lock "$MTK_DIR/sw_jeita" "1"
+    write_node_lock "$BATT_DIR/constant_charge_current_max" "1000000"
+    write_node_lock "$BATT_DIR/constant_charge_current" "1000000"
+    write_node_lock "$USB_DIR/current_max" "$((in_cur * 1000))"
+}
+
+fallback_standard() {
+    rm -f /dev/lynx_extreme_charging /dev/lynx_bypass_active 2>/dev/null
+    echo "standard" > /dev/lynx_standard_charging 2>/dev/null
+    echo "state=standard cap=50" > /dev/lynx_charging_state 2>/dev/null
+
+    for node in "$MTK_DIR/input_current" "$MTK_DIR/sc_ibat_limit" "$MTK_DIR/chg1_current" "$MTK_DIR/chg2_current" \
+        "$MTK_DIR/enable_sc" "$MTK_DIR/pe20" "$MTK_DIR/pe40" "$MTK_DIR/pdc_max_watt" \
+        "$BATT_DIR/constant_charge_current_max" "$BATT_DIR/constant_charge_current" "$USB_DIR/current_max"; do
+        unlock_node "$node"
+    done
+
+    write_node_lock "$MTK_DIR/BN_TestMode" "0"
+    write_node_lock "$MTK_DIR/BatteryNotify" "1"
+    write_node_lock "$MTK_DIR/sw_jeita" "1"
+    write_node_lock "$MTK_DIR/pe20" "1"
+    write_node_lock "$MTK_DIR/pe40" "1"
+    [ -e "$MTK_DIR/pdc_max_watt" ] && write_node_lock "$MTK_DIR/pdc_max_watt" "33"
+}
+
+fallback_custom() {
+    local target="${1:-2000}"
+    [ "$target" -lt 500 ] && target=500
+    [ "$target" -gt 25000 ] && target=25000
+    if [ "$target" -ge 5000 ]; then
+        fallback_hyper
+    else
+        mkdir -p /dev 2>/dev/null
+        echo "regulated-$target" > /dev/lynx_standard_charging 2>/dev/null
+        echo "state=custom_${target} cap=50" > /dev/lynx_charging_state 2>/dev/null
+        rm -f /dev/lynx_extreme_charging /dev/lynx_bypass_active 2>/dev/null
+
+        write_node_lock "$MTK_DIR/pe20" "0"
+        write_node_lock "$MTK_DIR/pe40" "0"
+        write_node_lock "$MTK_DIR/enable_sc" "0"
+        write_node_lock "$MTK_DIR/input_current" "$target"
+        write_node_lock "$MTK_DIR/sc_ibat_limit" "$target"
+        write_node_lock "$MTK_DIR/chg1_current" "$target"
+        write_node_lock "$MTK_DIR/chg2_current" "$target"
+        write_node_lock "$BATT_DIR/constant_charge_current_max" "$((target * 1000))"
+        write_node_lock "$BATT_DIR/constant_charge_current" "$((target * 1000))"
+        write_node_lock "$USB_DIR/current_max" "$((target * 1000))"
+    fi
+}
+
 case "$1" in
     hyper|extreme)
         fallback_hyper
+        ;;
+    cool)
+        fallback_cool
+        ;;
+    standard)
+        fallback_standard
+        ;;
+    custom)
+        fallback_custom "$2"
         ;;
     disconnect|reset)
         fallback_disconnect
