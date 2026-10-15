@@ -1,3 +1,28 @@
+# Lynx Universal [Zero-Throttle GPU & MediaTek CCI Performance Synchronization] 7.0.0-RC55
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC55** (Lynx Kernel Manager v3.1.16): **Sinkronisasi Menyeluruh Profil Eksekusi Daemon (`ProfileExecutor`) dengan Subkomponen Termal & Cpuset, Pembongkaran Pembatas Termal GPU MediaTek (`gpufreq_limit_table` unthrottle ID 3–7 pada Extreme Mode), Integrasi MediaTek CoreLink Interconnect (CCI Sports Mode), dan DVFS Aggressive Frame Tracking**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC55)
+
+### 1. Sinkronisasi Otomatis ProfileExecutor dengan Subkomponen Termal & Cpuset
+- **Eliminasi Celah Transisi Profil**: Sebelumnya pengubahan profil melalui WebUI atau CLI hanya mengatur parameter umum tanpa menyinkronkan subsistem termal kernel dan cpuset. Pada versi ini, setiap kali profil `extreme` dipilih, sistem secara otomatis mengeksekusi `ThermalController::set_mode("extreme")` dan `CpusetController::apply_preset("gaming")`.
+- **Dukungan Profil Berjenjang**:
+  - `extreme`: Thermal bypass penuh + GPU unthrottle mutlak + isolasi Big Cores 6–7 untuk `top-app`.
+  - `performance`: Thermal gaming mode + unthrottle terukur + cpuset gaming.
+  - `powersave`: Mode konservatif termal + cpuset battery.
+  - `balanced`: Pemulihan governor seimbang + cpuset seimbang.
+
+### 2. Pembongkaran Limitasi Termal GPU MediaTek pada Extreme Mode (`thermal.rs`)
+- **Penetapan Zero-Throttle Table**: Menyuntikkan konfigurasi `0 0` pada seluruh indeks thermal throttling GPU MediaTek (`/proc/gpufreq/gpufreq_limit_table` ID 3 sampai 7) pada profil `extreme`, mencegah kernel mengunci frekuensi GPU Mali-G57 ke 316 MHz saat suhu meningkat.
+- **Bypass Driver Proteksi Termal**: Mengaktifkan `ignore_thermal_protect 1`, `ignore_pbm_limited 1`, menonaktifkan `thrm_limit_cpu`, dan mematikan `eara_thermal` saat mode performa tinggi aktif.
+
+### 3. MediaTek CoreLink Interconnect (CCI) & DVFS Aggressive Frame Tracking (`translator.rs`)
+- **CCI Sports Mode**: Mengunci `cpufreq_cci_mode=1` saat performa tinggi untuk memangkas latensi transfer data antar-cluster CPU dan GPU.
+- **Power Mode 3**: Mengaktifkan `cpufreq_power_mode=3` (Sports Mode) pada MediaTek DVFS.
+- **Aggressive Frame Tracking**: Mengaktifkan `dvfs_loading_mode=1` dan menaikkan `boost_amp=3` pada GED HAL agar GPU merespons lonjakan beban frame game dalam < 1 ms.
+
+---
+
 # Lynx Universal [Adaptive Undervolt & Overclock Engine KPM] 7.0.0-RC54
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC54** (Lynx Kernel Manager v3.1.15): **Implementasi KernelPatch Module (KPM) Lynx Adaptive Undervolt (UV) & Overclock (OC) Engine: Pemetaan 9 Power Rails Hardware PMIC (MT6358 vproc11, vproc12, vgpu, vsram, vcore), Ring-0 Hooking pada regulator_set_voltage & ged_dvfs_vcore untuk Pemotongan Panas Kuadratik (P = C·V²·f), Eliminasi Latensi Transisi OPP via dev_pm_opp_set_rate, dan Batas Pengaman Hardware Floor 700mV/550mV**.

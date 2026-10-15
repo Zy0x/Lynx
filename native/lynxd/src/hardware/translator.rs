@@ -338,6 +338,9 @@ impl HardwareTranslator {
                 let boost_amp = if is_extreme { "3" } else if is_perf_or_ext { "2" } else { "0" };
                 Self::push_op(&mut ops, "GPU", "GED boost amplitude", "/sys/module/ged/parameters/boost_amp", boost_amp, false);
 
+                let loading_mode = if is_perf_or_ext { "1" } else { "0" };
+                Self::push_op(&mut ops, "GPU", "GED DVFS loading mode", "/sys/kernel/ged/hal/dvfs_loading_mode", loading_mode, false);
+
                 // MediaTek CoreLink Interconnect (CCI) & Power Mode
                 let power_mode = if is_perf_or_ext { "3" } else if is_powersave { "1" } else { "0" };
                 let cci_mode = if is_perf_or_ext { "1" } else { "0" };

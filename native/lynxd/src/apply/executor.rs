@@ -196,6 +196,27 @@ impl ProfileExecutor {
             &["mi_thermald", "thermal-engine", "thermal-engine-v2", "ituxd"],
             is_perf_or_ext,
         );
+
+        // Synchronize Thermal Controller & Hardware Bypass with Profile
+        match plan.base_profile {
+            "extreme" => {
+                crate::subsystems::thermal::ThermalController::set_mode("extreme");
+                crate::subsystems::cpuset::CpusetController::apply_preset("gaming");
+            }
+            "performance" => {
+                crate::subsystems::thermal::ThermalController::set_mode("gaming");
+                crate::subsystems::cpuset::CpusetController::apply_preset("gaming");
+            }
+            "powersave" => {
+                crate::subsystems::thermal::ThermalController::set_mode("conservative");
+                crate::subsystems::cpuset::CpusetController::apply_preset("battery");
+            }
+            _ => {
+                crate::subsystems::thermal::ThermalController::set_mode("balanced");
+                crate::subsystems::cpuset::CpusetController::apply_preset("balanced");
+            }
+        }
+
         let _ = fs::create_dir_all("/data/adb/lynx");
         let _ = fs::write("/data/adb/lynx/active_profile", &plan.profile_name);
 

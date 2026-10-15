@@ -254,6 +254,18 @@ impl ThermalController {
                 Self::write_opt("/proc/ppm/policy_status", "5 0");
                 Self::write_opt("/proc/ppm/cpi/cpi_enabled", "0");
 
+                // Unthrottle MediaTek GPU & FPSGO limits
+                if Path::new("/proc/gpufreq/gpufreq_limit_table").exists() {
+                    for id in 3..=7 {
+                        Self::write_opt("/proc/gpufreq/gpufreq_limit_table", format!("{} 0 0", id));
+                    }
+                }
+                Self::write_opt("/proc/gpufreqv2/gpufreq_power_limited", "ignore_thermal_protect 1");
+                Self::write_opt("/proc/gpufreqv2/gpufreq_power_limited", "ignore_pbm_limited 1");
+                Self::write_opt("/sys/module/fbt_cpu/parameters/thrm_limit_cpu", "0");
+                Self::write_opt("/sys/kernel/fpsgo/fbt/thrm_limit_cpu", "0");
+                Self::write_opt("/sys/kernel/eara_thermal/enable", "0");
+
                 Self::write_opt("/sys/class/kgsl/kgsl-3d0/throttling", "0");
                 Self::write_opt("/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel", "0");
 
