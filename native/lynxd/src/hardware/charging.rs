@@ -1186,36 +1186,40 @@ impl ChargingRegulator {
     }
 
     /// Neutralizes all charging thermal throttling stages and trip points (R2):
-    /// 1. Overrides Transsion PCB thermal derating (pcb_thermal_debug -> [95,6000,100,6000,6000], locked 0444).
-    /// 2. Overrides DV2 direct pump in-memory thermal tables (dv2_debug -> commands 101 & 102, locked 0444).
-    /// 3. Spoofs Battery_Temperature to 28°C (locked 0444) to neutralize Level 6 tbat throttling.
+    /// 1. Overrides Transsion PCB thermal derating with calibrated 3-stage curve:
+    ///    - < 48°C: Full 33W pump (6000mA)
+    ///    - 48°C - 50°C: 18W Sweet Spot (4000mA)
+    ///    - > 50°C: 10W OEM Protection fallback (2500mA / 1500mA)
+    ///    Format: [48,4000,50,2500,1500]
+    /// 2. Overrides DV2 direct pump in-memory thermal tables:
+    ///    - [101,48,50,52,4000,2500,1500]
+    ///    - [102,75,80,85,600,900,1200]
+    /// 3. Synchronizes authentic Battery_Temperature for accurate stage transitions.
     /// 4. Neutralizes MediaTek ABCCT PID controllers (clabcct & clabcct_lcmoff -> policy 0, locked 0444).
     /// 5. Locks cooling devices 53-57 (abcct, mtk-cl-bcct00..02) cur_state to 0 (locked 0444).
     /// 6. Overrides Qualcomm system_temp_level and thermal_input_current_limit.
     /// 7. Suspends aggressive OEM thermal daemons (thermalloadalgod, joyose, mi_thermald, thermal-engine).
     /// 8. Overrides Android framework thermal status to 0 (THERMAL_STATUS_NONE).
     pub fn apply_charger_thermal_neutralization() {
-        // 1. Transsion Motherboard PCB Thermal Throttling Neutralization
+        // 1. Transsion Motherboard PCB Thermal Throttling Calibrated 3-Stage Curve
         for node in &[
             format!("{}/pcb_thermal_debug", TRAN_BATTERY_ODM_DIR),
             format!("{}/pcb_thermal_debug", TRAN_BATTERY_DIR),
         ] {
             if Path::new(node).exists() {
-                Self::write_node_lock(node, "[95,6000,100,6000,6000]");
+                Self::write_node_lock(node, "[48,4000,50,2500,1500]");
             }
         }
 
-        // 2. Transsion Direct Charge Pump DV2 In-Memory Thermal Table Neutralization
+        // 2. Transsion Direct Charge Pump DV2 In-Memory Thermal Table Calibrated 3-Stage Curve
         let dv2_debug = format!("{}/dv2_debug", PCA_DV2_DIR);
         if Path::new(&dv2_debug).exists() {
-            Self::write_node_lock(&dv2_debug, "[101,85,88,90,6000,6000,6000]");
-            Self::write_node_lock(&dv2_debug, "[102,85,88,90,6000,6000,6000]");
+            Self::write_node_lock(&dv2_debug, "[101,48,50,52,4000,2500,1500]");
+            Self::write_node_lock(&dv2_debug, "[102,75,80,85,600,900,1200]");
         }
 
-        // 3. Battery Temperature Spoofing to 28°C locked 0444
-        if Path::new(BATT_TEMP_NODE).exists() {
-            Self::write_node_lock(BATT_TEMP_NODE, "28");
-        }
+        // 3. Synchronize authentic Battery_Temperature for accurate stage transitions
+        Self::sync_authentic_battery_temp();
 
         // 4. MediaTek ABCCT PID Thermal Derater Neutralization
         if Path::new(CLABCCT_LCMOFF_NODE).exists() {

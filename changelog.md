@@ -1,3 +1,27 @@
+# Lynx Universal [Native 3-Stage Calibrated Charging Thermal Engine] 7.0.0-RC57
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC57** (Lynx Kernel Manager v3.1.18): **Integrasi Native 3-Stage Calibrated Charging Thermal Curve (<48°C: 33W Penuh, 48°C–50°C: 18W Sweet Spot, >50°C: 10W Proteksi Darurat OEM), Eliminasi Mutlak Ketergantungan KPM Thermal via Direct Sysfs Engine (`pcb_thermal_debug` & `dv2_debug`), dan Penyelarasan Suhu Otentik Baterai**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC57)
+
+### 1. 3-Stage Calibrated Charging Thermal Engine (`charging.rs` & `Charging-Controller.sh`)
+- **Implementasi Kurva Cerdas Tiga Tingkat**: Menggantikan skema unconstrained biner 95°C/100°C dengan kurva bergradasi halus yang terkalibrasi presisi pada hardware:
+  - **Tingkat 1 (< 48°C)**: Mengalirkan daya puncak penuh **33 Watt** (hingga 6.000 mA pump current). Memperpanjang durasi fast charging hingga baterai terisi ~65%–70% tanpa terpotong dini di 45°C.
+  - **Tingkat 2 (48°C – 50°C)**: Menahan arus secara elegan di **18 Watt** (~4.000 mA). Mencegah daya anjlok drastis ke 10W, sekaligus menstabilkan temperatur PCB agar tidak terus merangkak naik.
+  - **Tingkat 3 (> 50°C)**: Mengaktifkan proteksi darurat OEM **10 Watt** (2.500 mA / 1.500 mA) demi perlindungan absolut sel baterai dan sirkuit motherboard.
+- **Konfigurasi Node Kernel Transsion**:
+  - `pcb_thermal_debug` $\rightarrow$ `[48,4000,50,2500,1500]`
+  - `dv2_debug` (Perintah 101) $\rightarrow$ `[101,48,50,52,4000,2500,1500]`
+  - `dv2_debug` (Perintah 102) $\rightarrow$ `[102,75,80,85,600,900,1200]`
+
+### 2. Eliminasi Ketergantungan KPM Thermal (100% Native Lynx)
+- **Kompatibilitas Universal Seluruh Root**: Karena kernel Transsion MediaTek mengekspos gerbang sysfs yang sepenuhnya dapat ditulis (`-rw-rw-rw-`), seluruh logika kontrol termal pengisian daya kini dijalankan secara murni oleh daemon `lynxd` dan skrip kontrol. Pengguna Magisk, KernelSU, maupun APatch dapat menikmati fitur ini tanpa perlu memuat modul KPM khusus.
+
+### 3. Penyelarasan Pembacaan Suhu Otentik (`Battery_Temperature`)
+- **Eliminasi Hard Spoofing Statis 28°C**: Mengganti pemalsuan temperatur statis dengan pembacaan sensor otentik yang diselaraskan dengan tabel ambang batas bertingkat, menjamin transisi otomatis dari 33W ke 18W dan sebaliknya berlangsung mulus secara real-time.
+
+---
+
 # Lynx Universal [Extreme Storage Prefetch & VM Swappiness Tuning] 7.0.0-RC56
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC56** (Lynx Kernel Manager v3.1.17): **Integrasi Permanen Internal Storage Read-Ahead Prefetch (512 KB) untuk Penyimpanan UFS/eMMC pada Profil Performance & Extreme, Penyetelan Agresif VM Swappiness (30) pada Mode Extreme untuk Mengeliminasi ZRAM Thrashing, dan Verifikasi Lapangan Gameplay Aktif Genshin Impact**.
