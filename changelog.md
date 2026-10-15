@@ -1,3 +1,21 @@
+# Lynx Universal [TPCB Thermal Unthrottle KernelPatch Module] 7.0.0-RC53
+Released on: 2026-10-15
+> **Lynx Universal v7.0.0-RC53** (Lynx Kernel Manager v3.1.14): **Implementasi KernelPatch Module (KPM) Lynx TPCB Thermal Unthrottle: Ring-0 Kernel Inline Hooking untuk Membongkar Pembatasan Suhu Motherboard (TPCB 45°C) pada Pengisian Daya Cepat MediaTek / Transsion (Helio G96 / MTK DV2 Algorithm), Integrasi Toolchain LLVM Clang aarch64, Guardrail Keselamatan Darurat 52°C, dan Pemuatan Otomatis via APatch**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC53)
+
+### 1. Lynx TPCB Thermal Unthrottle KPM (`lynx_thermal.c`)
+- **Penyelesaian Simbol Runtime (`kallsyms_lookup_name_by_suffix`)**: Menemukan fungsi evaluasi termal kernel `__dv2_check_thermal_level` dan `dv2_check_thermal_level` secara dinamis di RAM kernel tanpa memerlukan full kernel source code OEM.
+- **Ring-0 Inline Hooking (`hook_wrap3`)**: Memasang inline hook pada fungsi `__dv2_check_thermal_level` untuk mencegat penurunan status termal ke Level 7 (1.500 mA input) saat PCB mencapai 45°C.
+- **Override Arus Penuh ke Level 0**: Mengembalikan nilai status termal `args->ret = 0` (Level 0 / Normal Unthrottled) selama suhu PCB berada dalam batas operasional aman (< 52°C), memungkinkan arus pengisian 3.3A–4.0A mengalir bebas ke Direct Pump RT9759 (2:1).
+- **Hard Safety Guardrail (`HARD_MAX_SAFE_PCB_TEMP 52°C`)**: Jika suhu motherboard fisik menyentuh 52°C, modul secara otomatis membatalkan override dan mengembalikan kendali ke proteksi pabrikan untuk menjaga keselamatan fisik sirkuit.
+
+### 2. Toolchain Kompilasi Mandiri (`build_kpm.ps1`)
+- Menyediakan skrip kompilasi otomatis berbasis Android NDK Clang (`aarch64-linux-android`) yang menghasilkan biner relocatable ELF standalone: `native/kpm/lynx_thermal/build/lynx_thermal.kpm` (~5.5 KB).
+- Menghilangkan ketergantungan pada kernel tree penuh atau penyesuaian string vermagic berkat dukungan arsitektur KernelPatch / APatch.
+
+---
+
 # Lynx Universal [Universal Dynamic Charger Topology Scanner & Deep Kernel Sysfs Crawler] 7.0.0-RC52
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC52** (Lynx Kernel Manager v3.1.13): **Implementasi Universal Dynamic Charger Topology Scanner & Deep Kernel Sysfs Crawler: Deteksi Otomatis Seluruh IC Pengisi Daya (Direct Charge Pump, Primary Switching Buck, dan OEM Controllers) via Kernel Bus Inspection (/sys/bus/i2c/drivers, /sys/bus/platform/drivers), Penelusuran Dinamis Node Pengisian Daya (/sys/class/power_supply/*), dan Pembongkaran Batas Arus/Termal Tanpa Hardcoding di Seluruh Perangkat Android**.
