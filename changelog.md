@@ -1,3 +1,22 @@
+# Lynx Universal [Dynamic Mali-G57 GPU Overclocking Engine & OPP In-Memory Elevation] 7.0.0-RC65
+Released on: 2026-10-17
+> **Lynx Universal v7.0.0-RC65** (Lynx Kernel Manager v3.1.18): **Implementasi Modul Overclocking Hardware Kernel (KPM v2.0 `lynx_oc`) Khusus ARM Mali-G57 pada MediaTek Helio G96 (MT6781): Penargetan Frekuensi 960 MHz (+10 MHz di Atas Batas Bawaan Pabrik 950 MHz) Melalui Dekode Dinamis Pointer Live OPP Table di Ring-0 Kernel Memory, Penyesuaian Headroom Voltase Silikon (+6.25 mV), Hook DVFS Target & GED Boost, Serta Mekanisme Pemulihan Cepat Bebas Bootloop**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC65)
+
+### 1. Injeksi Frekuensi GPU Ring-0 (Mali-G57 @ 960 MHz)
+- **Live Kernel OPP Decoding**: Mendekode instruksi mesin ARM64 `ADRP` + `LDR` dari fungsi `mt_gpufreq_get_freq_by_idx` untuk melacak lokasi fisik pointer tabel `mt_gpufreq_opp_table` di RAM kernel.
+- **Elevasi Clock & Voltage Step**:
+  - Entry OPP[0] dinaikkan dari bawaan 950.000 kHz menjadi **`960.000 kHz` (960 MHz)**.
+  - Voltase inti GPU (`vgpu`) disesuaikan ke **`856.25 mV`** (+6.25 mV / satu step regulasi PMIC MT6358/6366) dan rail SRAM (`vsram`) ke **`956.25 mV`** guna menjaga integritas silikon dari bahaya undervoltage crash saat komputasi grafis intensif.
+- **Intersepsi Scheduler DVFS**: Mengaitkan (*hook*) fungsi `mt_gpufreq_target` dan `ged_dvfs_boost_gpu_freq` agar GPU scheduler MediaTek langsung memprioritaskan frekuensi 960 MHz saat aplikasi/game memerlukan performa puncak.
+
+### 2. Keamanan & Reversibilitas Penuh (Zero-Bootloop Guard)
+- **Tanpa Resiko Bootloop**: Operasi overclocking dilakukan sepenuhnya di memori RAM kernel saat sistem berjalan tanpa mengubah partisi `boot.img` fisik.
+- **Fail-Safe Stock Recovery**: Mendukung perintah `reset` atau `stock` via KPM Control untuk mengembalikan seluruh tabel OPP seketika ke 950 MHz @ 850 mV.
+
+---
+
 # Lynx Universal [Multi-Domain Kernel Thermal Unthrottle & Hyper-Aware Disconnect Safety] 7.0.0-RC64
 Released on: 2026-10-17
 > **Lynx Universal v7.0.0-RC64** (Lynx Kernel Manager v3.1.17): **Penyempurnaan Arsitektur KernelPatch Module (KPM v2.0) dengan Batas Suhu Multi-Domain yang Presisi (tbat 45°C, tpcb 58°C, tdvchg 68°C, tta 65°C), Pengaktifan Bersyarat Eksklusif untuk Mode Hyper Charging (`store_BN_TestMode`), Serta Pemulihan Total Otomatis Saat Kabel Pengisi Daya Dilepas (`dv2_stop_algo`) Guna Mencegah Arus Bocor dan Menjaga Integritas Komponen Motherboard**.

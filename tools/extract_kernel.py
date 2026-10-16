@@ -1,7 +1,7 @@
 import struct
 import gzip
 
-with open("tools/boot_head.img", "rb") as f:
+with open("tools/ori.img", "rb") as f:
     data = f.read()
 
 # Check magic "ANDROID!"
