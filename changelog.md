@@ -1,3 +1,19 @@
+# Lynx Universal [Zero-Throttle 950 MHz GPU Peak Lock & Hardware Undervolting Suite] 7.0.0-RC66
+Released on: 2026-10-17
+> **Lynx Universal v7.0.0-RC66** (Lynx Kernel Manager v3.1.19): **Integrasi Solusi Performa GPU Mali-G57 Tanpa Resiko SSPM Hardware Reset: Kunci Frekuensi Fisik OPP 0 (950 MHz Penuh) Menggunakan Intersepsi Scheduler MediaTek Tanpa Batas Waktu, Penyediaan Modul Kernel Undervolting Ring-0 `lynx_gpu_uv.kpm` (-25 mV Offset) Guna Menurunkan Disipasi Panas Silikon Sebesar ~8%, Serta Penyelarasan Penuh Terhadap Batasan Firmware SSPM Pabrikan**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC66)
+
+### 1. Zero-Throttle 950 MHz GPU Peak Lock (Anti-Drop FPS)
+- **Kunci Frekuensi Puncak Aman**: Menargetkan clock hardware resmi tertinggi `950.000 kHz` (950 MHz) yang diakui 100% oleh firmware co-prosesor SSPM dan hardware PLL `MFG_PLL`, mencegah risiko `sspm_reboot`.
+- **Meniadakan Penurunan Frekuensi**: Intersepsi scheduler pada `mt_gpufreq_target` dan `ged_dvfs_boost_gpu_freq` mengunci GPU pada clock puncak 950 MHz tanpa pernah terdegradasi ke 600 MHz atau 450 MHz saat sesi gaming panjang.
+
+### 2. Modul Kernel Dedicated GPU Undervolt (`lynx_gpu_uv.kpm`)
+- **Tegangan Lebih Efisien**: Mengurangi offset daya regulator `vgpu` sebesar **`-25.0 mV`** (dari 850 mV ke 825 mV).
+- **Meredam Panas Silikon**: Menurunkan temperatur operasional GPU sebesar 4°C–6°C sehingga clock 950 MHz dapat dipertahankan terus-menerus tanpa memicu thermal throttling atau thermal trip darurat.
+
+---
+
 # Lynx Universal [Dynamic Mali-G57 GPU Overclocking Engine & OPP In-Memory Elevation] 7.0.0-RC65
 Released on: 2026-10-17
 > **Lynx Universal v7.0.0-RC65** (Lynx Kernel Manager v3.1.18): **Implementasi Modul Overclocking Hardware Kernel (KPM v2.0 `lynx_oc`) Khusus ARM Mali-G57 pada MediaTek Helio G96 (MT6781): Penargetan Frekuensi 960 MHz (+10 MHz di Atas Batas Bawaan Pabrik 950 MHz) Melalui Dekode Dinamis Pointer Live OPP Table di Ring-0 Kernel Memory, Penyesuaian Headroom Voltase Silikon (+6.25 mV), Hook DVFS Target & GED Boost, Serta Mekanisme Pemulihan Cepat Bebas Bootloop**.

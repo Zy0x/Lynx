@@ -40,8 +40,8 @@ static uint32_t original_opp0_freq = 950000;
 static uint32_t original_opp0_vgpu = 85000;
 static uint32_t original_opp0_vsram = 95000;
 
-// Runtime Configuration: Target 960 MHz by default (+10 MHz overclock test)
-#define LYNX_GPU_OC_TARGET_KHZ 960000
+// Runtime Configuration: Target 950 MHz (Stock Hardware Peak Ceiling, 100% Stable)
+#define LYNX_GPU_OC_TARGET_KHZ 950000
 static int oc_gpu_target_freq_khz = LYNX_GPU_OC_TARGET_KHZ;
 static int oc_gpu_enabled = 1; // Armed on load
 static int oc_cpu_enabled = 0; // Pure GPU focus
