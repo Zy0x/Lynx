@@ -100,16 +100,30 @@ impl ThermalController {
 
     /// Freezes aggressive OEM thermal daemons with SIGSTOP.
     pub fn freeze_oem_throttlers() {
-        const TARGETS: &[&str] = &[
-            "mi_thermald",
-            "thermal-engine",
-            "thermal-engine-v2",
-            "ituxd",
-            "thermalloadalgod",
-            "com.samsung.android.game.gos",
-            "com.xiaomi.joyose",
-        ];
-        for target in TARGETS {
+        let (vendor, _) = crate::hardware::detector::ScoreBoard::evaluate();
+        let targets: &[&str] = if vendor == crate::hardware::Vendor::Qualcomm {
+            // On Qualcomm (like Sony Xperia, Xiaomi Snapdragon), thermal-engine provides
+            // android.hardware.thermal@1.0-service HIDL HAL.
+            // Do NOT freeze it with SIGSTOP, or system_server and charge_service IPC calls will hang!
+            &[
+                "mi_thermald",
+                "ituxd",
+                "thermalloadalgod",
+                "com.samsung.android.game.gos",
+                "com.xiaomi.joyose",
+            ]
+        } else {
+            &[
+                "mi_thermald",
+                "thermal-engine",
+                "thermal-engine-v2",
+                "ituxd",
+                "thermalloadalgod",
+                "com.samsung.android.game.gos",
+                "com.xiaomi.joyose",
+            ]
+        };
+        for target in targets {
             let _ = Command::new("killall").arg("-STOP").arg(target).output();
         }
         let _ = Command::new("cmd").args(&["thermalservice", "override-status", "0"]).output();

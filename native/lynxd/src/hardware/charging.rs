@@ -186,6 +186,10 @@ impl ChargingRegulator {
             for entry in entries.flatten() {
                 let p = entry.path();
                 if p.is_dir() {
+                    let dir_name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if dir_name == "pc_port" {
+                        continue;
+                    }
                     for &attr in PS_LEAF_ATTRS {
                         let node_path = p.join(attr);
                         if node_path.exists() {
@@ -1006,34 +1010,62 @@ impl ChargingRegulator {
         }
 
         // 3. Universal Linux & Qualcomm Uncaps (Ugreen / Anker PD PPS 5A uncap)
-        let usb_current_cap_ua = if effective_ma > 5000 { effective_ua_str.clone() } else { "5000000".to_string() };
-        Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
-        Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
-        Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
-        Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-        Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &effective_ua_str);
+        let usb_current_cap_ua = if is_qcom {
+            // Qualcomm USB-PD contract bounds:
+            // Do NOT force 5A on a 3A charger contract (causes trigger_tx_msg timeout & Hard Reset).
+            // Cap to effective_ma (max 3000mA for standard single-cell Type-C PHY) in uA:
+            (effective_ma.min(3000) as u64 * 1000).to_string()
+        } else if effective_ma > 5000 {
+            effective_ua_str.clone()
+        } else {
+            "5000000".to_string()
+        };
 
-        // Qualcomm direct & restricted charging
-        Self::write_node(&format!("{}/direct_charging", QC_DIR), "1");
-        Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-        Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
-        Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+        if is_qcom {
+            Self::write_node(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
+            Self::write_node(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+            Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+            Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+            Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &effective_ua_str);
+
+            Self::write_node(&format!("{}/direct_charging", QC_DIR), "1");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
+        } else {
+            Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
+            Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &effective_ua_str);
+
+            Self::write_node(&format!("{}/direct_charging", QC_DIR), "1");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
+            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+        }
 
         // 4. Dynamic Sysfs Charger Topology Uncap Sweeper (Universally unthrottles ANY unknown chip or node)
         for node in Self::crawl_dynamic_power_supply_nodes() {
+            if is_qcom && node.contains("pc_port") {
+                continue;
+            }
             let leaf = Path::new(&node).file_name().and_then(|n| n.to_str()).unwrap_or("");
             match leaf {
                 "constant_charge_current_max" | "constant_charge_current" | "current_max" | "input_current_limit" | "hw_current_max" => {
-                    Self::write_node_lock(&node, &effective_ua_str);
+                    if is_qcom {
+                        Self::write_node(&node, &effective_ua_str);
+                    } else {
+                        Self::write_node_lock(&node, &effective_ua_str);
+                    }
                 }
                 "fastcharge_mode" | "fast_charge" | "boost_current" | "turbo_power" => {
                     Self::write_node_lock(&node, "1");
                 }
                 "charging_enabled" => {
-                    Self::write_node_lock(&node, "1");
+                    Self::write_node(&node, "1");
                 }
                 "input_suspend" => {
-                    Self::write_node_lock(&node, "0");
+                    Self::write_node(&node, "0");
                 }
                 "thermal_input_current_limit" => {
                     Self::write_node_lock(&node, "-1");
@@ -1404,8 +1436,12 @@ impl ChargingRegulator {
         Self::write_node_lock(&format!("{}/temp_state", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
 
-        // 8. Suspend aggressive userspace thermal throttlers via SIGSTOP (including Transsion /vendor/bin/thermal)
-        Self::signal_processes(Self::THERMAL_PROCESS_NAMES, true);
+        // 8. Suspend aggressive userspace thermal throttlers via SIGSTOP (Transsion/Xiaomi/etc.)
+        // Qualcomm generic uses thermal-engine for android.hardware.thermal@1.0-service HIDL, do NOT freeze!
+        let (platform, _, _) = Self::detect_charging_platform();
+        if platform != ChargingHardwarePlatform::QualcommGeneric {
+            Self::signal_processes(Self::THERMAL_PROCESS_NAMES, true);
+        }
 
         // 9. Override Android framework thermal status to 0 (THERMAL_STATUS_NONE)
         let _ = std::process::Command::new("cmd")
@@ -1822,8 +1858,15 @@ impl ChargingRegulator {
                     && pe20 == "1"
                     && pe40 == "1"
             } else {
-                let direct_chg = Self::read_node(&format!("{}/direct_charging", QC_DIR)).unwrap_or_default();
-                direct_chg == "1"
+                let susp = Self::read_node(&format!("{}/input_suspend", BATT_DIR)).unwrap_or_else(|| "0".to_string());
+                let en = Self::read_node(&format!("{}/charging_enabled", BATT_DIR)).unwrap_or_else(|| "1".to_string());
+                let direct_node = format!("{}/direct_charging", QC_DIR);
+                let direct_ok = if Path::new(&direct_node).exists() {
+                    Self::read_node(&direct_node).unwrap_or_default() == "1"
+                } else {
+                    true
+                };
+                susp == "0" && en == "1" && direct_ok
             };
 
             // If hyper mode is already active and critical invariants are intact, skip heavy re-init
