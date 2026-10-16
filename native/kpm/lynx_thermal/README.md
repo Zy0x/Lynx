@@ -1,6 +1,6 @@
-# ⚡ Lynx TPCB Thermal Unthrottle KPM (KernelPatch Module)
+# ⚡ Lynx TPCB Thermal Unthrottle KPM v2.0 (KernelPatch Module)
 
-> **Modul Kernel Native untuk Bypass Throttling Suhu PCB (TPCB 45°C) pada Pengisian Daya Cepat MediaTek / Transsion (Helio G96 / MTK DV2)**  
+> **Modul Kernel Native untuk Bypass Throttling Suhu PCB (TPCB 45°C) & Multi-Domain Thermal Gating pada Pengisian Daya Cepat MediaTek / Transsion (Helio G96 / MTK DV2)**  
 > **Arsitektur**: ARM64 (`aarch64`)  
 > **Framework**: KernelPatch / APatch  
 > **Target Kernel**: Android Linux 4.14+ (Infinix X698 / Helio G96)
@@ -17,13 +17,18 @@ Dampaknya:
 
 ---
 
-## 🔬 2. Solusi Teknis: KernelPatch Module (KPM)
+## 🔬 2. Solusi Teknis: KernelPatch Module (KPM v2.0)
 Modul ini memanfaatkan framework **KernelPatch (APatch)** untuk melakukan *Inline Hooking* di tingkat Ring-0 kernel memory:
-1. **Dynamic Symbol Resolution**: Menggunakan `kallsyms_lookup_name_by_suffix` untuk menemukan fungsi `__dv2_check_thermal_level` tanpa ketergantungan pada source code kernel OEM.
-2. **Safe Clamping (Level 0 Override)**: Saat `__dv2_check_thermal_level` mengembalikan Level > 0 (throttled), modul meng-override nilai balik (`args->ret = 0`), menjaga pengisian daya tetap berada di Level 0 (Unthrottled 33W–45W penuh).
-3. **Hardware Safety Guardrail**:
-   - Jika suhu fisik PCB masih berada di bawah **`52°C`**, modul mengizinkan pengisian daya puncak.
-   - Jika suhu PCB menyentuh ambang batas darurat **`52°C`** (`HARD_MAX_SAFE_PCB_TEMP`), modul secara otomatis menghentikan override dan membiarkan proteksi asli pabrikan mengambil alih untuk mencegah kerusakan fisik sirkuit.
+1. **Dynamic Symbol Resolution**: Menggunakan `kallsyms_lookup_name` untuk menemukan fungsi `__dv2_check_thermal_level`, `store_BN_TestMode`, dan `dv2_stop_algo`.
+2. **Domain-Aware Safety Thresholds**:
+   - `tbat` (Baterai): Batas aman ketat **`45°C`** (mencegah degradasi elektrokimia & lithium plating).
+   - `tpcb` (Motherboard): Dinaikkan hingga **`58°C`** (komponen PCB aman beroperasi hingga 60°C).
+   - `tdvchg_master` (RT9759 IC): Dinaikkan hingga **`68°C`** (silicon OTP pabrikan adalah 85°C).
+   - `tta` (Travel Adapter / Kabel): Dinaikkan hingga **`65°C`** (spesifikasi adapter Transsion derating pada 70°C).
+   - `tusb` (Port Type-C): Batas aman **`52°C`**.
+3. **Hyper-Charging Auto-Gating & Fail-Safe Disconnect Restoration**:
+   - Hook pada `store_BN_TestMode`: Ketika pengguna mengaktifkan mode Hyper di Lynx, `BN_TestMode=1` memicu KPM unthrottle aktif. Saat beralih ke mode Standard/Cool/Eco, KPM otomatis kembali ke proteksi OEM (`g_hyper_enabled=0`).
+   - Hook pada `dv2_stop_algo`: Ketika kabel charger dicabut, KPM seketika menonaktifkan seluruh unthrottle override (`g_hyper_enabled=0`), mencegah arus bocor, baterai panas, atau anomali kernel saat ponsel digunakan normal tanpa charger.
 
 ---
 
@@ -33,7 +38,7 @@ Modul dikompilasi menggunakan Android NDK LLVM Clang:
 .\native\kpm\lynx_thermal\build_kpm.ps1
 ```
 Hasil kompilasi berupa file biner relocatable ELF:
-`native/kpm/lynx_thermal/build/lynx_thermal.kpm` (~5.5 KB).
+`native/kpm/lynx_thermal/build/lynx_thermal.kpm` (~10 KB).
 
 ---
 

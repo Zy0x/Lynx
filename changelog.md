@@ -1,3 +1,23 @@
+# Lynx Universal [Multi-Domain Kernel Thermal Unthrottle & Hyper-Aware Disconnect Safety] 7.0.0-RC64
+Released on: 2026-10-17
+> **Lynx Universal v7.0.0-RC64** (Lynx Kernel Manager v3.1.17): **Penyempurnaan Arsitektur KernelPatch Module (KPM v2.0) dengan Batas Suhu Multi-Domain yang Presisi (tbat 45°C, tpcb 58°C, tdvchg 68°C, tta 65°C), Pengaktifan Bersyarat Eksklusif untuk Mode Hyper Charging (`store_BN_TestMode`), Serta Pemulihan Total Otomatis Saat Kabel Pengisi Daya Dilepas (`dv2_stop_algo`) Guna Mencegah Arus Bocor dan Menjaga Integritas Komponen Motherboard**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC64)
+
+### 1. Batas Termal Multi-Domain Dinamis (KPM v2.0)
+- **Domain-Specific Thermal Ceilings**: Menggantikan batas statis 52°C tunggal dengan ambang batas adaptif sesuai karakteristik fisik masing-masing komponen:
+  - `tbat` (Sel Baterai Li-Po): Batas darurat dipertahankan pada **45°C** ketat demi mencegah degradasi elektrokimia dan bahaya lithium plating.
+  - `tpcb` (Motherboard PCB): Batas aman ditingkatkan ke **58°C** (suhu operasional aman PCB hingga 60°C).
+  - `tdvchg_master` (RT9759 IC Die): Batas dinaikkan ke **68°C** (ambang batas OTP fisik chip adalah 85°C).
+  - `tta` (Travel Adapter / Ujung Kabel): Batas dinaikkan ke **65°C** (sesuai spesifikasi derating adaptor Transsion pada 70°C, meniadakan false alarm emergency trip).
+  - `tusb` (Konektor USB-C): Batas aman diatur pada **52°C**.
+
+### 2. Gating Bersyarat Mode Hyper & Pemulihan Pasif Saat Cabut Kabel
+- **Aktivasi Khusus Mode Hyper**: KPM mengaitkan (*hook*) fungsi `store_BN_TestMode` pada kernel; modul hanya memanipulasi suhu saat `BN_TestMode=1` (Hyper mode). Saat pengguna memilih mode Standar, Sejuk, atau Hemat, sistem kembali ke kurva termal OEM tanpa kompromi.
+- **Deteksi Pelepasan Kabel Otomatis**: KPM mengaitkan (*hook*) fungsi kernel `dv2_stop_algo`; saat kabel pengisi daya dicabut, seluruh unthrottle override seketika di-reset ke nilai asli (0 / Standby Dormant), memastikan tidak ada arus bocor, penumpukan panas, atau intervensi kernel saat ponsel digunakan normal.
+
+---
+
 # Lynx Universal [Bidirectional Qualcomm & MediaTek Hardware Abstraction & Zero-Loophole Driver Unification] 7.0.0-RC63
 Released on: 2026-10-17
 > **Lynx Universal v7.0.0-RC63** (Lynx Kernel Manager v3.1.16): **Perluasan dan Harmonisasi Menyeluruh Hardware Abstraction Layer (HAL) Dua Arah pada Qualcomm Snapdragon (SM8150 / Adreno 640) dan MediaTek (MT6781 / Mali-G57): Pengenalan Penuh Driver Adreno KGSL (8/8 Parameter Aktif), Qualcomm WALT Scheduler Ordering Safety, Core Control CPU Unparking, Sanitasi Batas Frekuensi OPP GPU & Multi-Cluster WALT Parsing pada UI Companion, Serta Penyempurnaan MediaTek PPM & Perfmgr EAS Tanpa Pengecualian Driver**.
