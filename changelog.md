@@ -13,10 +13,14 @@ Released on: 2026-10-17
 - **Aturan Ketat Urutan Migrasi WALT (Ordering Safety)**: Mengimplementasikan transactional ordering pada `HardwareTranslator` di mana nilai `sched_downmigrate` diturunkan terlebih dahulu sebelum `sched_upmigrate` saat boost performa, dan sebaliknya saat kembali ke seimbang. Menghilangkan kernel error `EINVAL` (os error 22).
 - **Core Control CPU Unparking**: Mengaktifkan kontrol unparking cluster CPU Big dan Prime pada Qualcomm Snapdragon (`cpu4/core_ctl` dan `cpu7/core_ctl`) saat mode performa tinggi.
 - **Parsing Multi-Cluster WALT**: Memperluas parser Kotlin Companion App agar mendukung pembacaan dan penulisan multi-cluster token WALT Qualcomm (`"65 85"`, `"85 95"`).
-
 ### 3. Pengoptimalan Engine Game & Deteksi Foreground Cerdas
 - **Pembersihan Log Berulang Game Subsystem**: Menetralkan spam peringatan pada aplikasi yang tidak memiliki data cache runtime khusus, mempercepat loop evaluasi deteksi top activity ke sub-30ms.
 - **Preservasi Stabilitas TempRoot**: Seluruh eksekusi dan pembaruan daemon terisolasi tanpa memicu gangguan pada mount Magisk TempRoot pada perangkat Sony Xperia 5.
+
+### 4. Resolusi Total Celah Charger Mati-Nyala & Perbaikan Skalasi Arus ADC
+- **Penghapusan Loop Soft-Reconnect pada Qualcomm**: Menetralkan pemicu `trigger_charger_soft_reconnect` pada arsitektur Qualcomm / USB-PD. Sebelumnya, deteksi stall 5V memutus rail daya (`input_suspend=1`) setiap 4 detik, menyebabkan charger mati-nyala berulang. Soft-reconnect kini hanya aktif maksimal satu kali per sesi khusus untuk MediaTek Pump Express.
+- **Koreksi Presisi Heuristik Arus ADC**: Memperbaiki pembagian nilai sensor mikroampere ($\mu\text{A}$) ke milliampere ($\text{mA}$) pada rentang 50,000–500,000 $\mu\text{A}$ (sebelumnya keliru dibagi 100 sehingga arus 485 mA terbaca sebagai +4859 mA dan 23.4W). Telemetri kini presisi ke satu milliampere (+885 mA / 4.1W).
+- **Pengaman Batas Arus Qualcomm Single-Cell**: Membatasi arus puncak mode ekstrem Qualcomm single-cell ke batas aman hardware (maks 4.5A) untuk melindungi baterai yang mengalami degradasi/pembengkakan (high internal resistance) dari overcurrent/overheat PMIC.
 
 ---
 

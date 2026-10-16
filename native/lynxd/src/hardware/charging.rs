@@ -913,8 +913,15 @@ impl ChargingRegulator {
         let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
         let v_clean_mv = if volt_raw.abs() >= 10_000 { volt_raw.abs() / 1000 } else { volt_raw.abs() } as u32;
 
+        let (platform, _, _) = Self::detect_charging_platform();
+        let is_qcom = platform == ChargingHardwarePlatform::QualcommGeneric;
+
         let hw_ceiling = Self::probe_hardware_ceiling_ma();
-        let target_peak_ma = if requested_ma >= 2000 {
+        let target_peak_ma = if is_qcom && !Path::new("/sys/class/power_supply/smb1390").exists() && !Path::new("/sys/class/power_supply/charge_pump").exists() {
+            // Qualcomm single-cell without dual charge pump (e.g. Sony PM8150B):
+            // bound to hardware capability (max 3500-4500mA) to protect battery health and prevent PMIC overheat fault
+            requested_ma.min(hw_ceiling).min(4500)
+        } else if requested_ma >= 2000 {
             requested_ma.max(hw_ceiling)
         } else {
             hw_ceiling.max(12000)
@@ -1069,7 +1076,14 @@ impl ChargingRegulator {
     /// Momentarily toggles input charging FET or kicks Pump_Express / rerun_aicl
     /// to reset PMIC Type-C / BC1.2 state machine without physical cable replugging.
     pub fn trigger_charger_soft_reconnect() {
-        // 1. Kick Qualcomm rerun_aicl if present
+        let (platform, _, _) = Self::detect_charging_platform();
+        if platform == ChargingHardwarePlatform::QualcommGeneric {
+            // NEVER pulse input_suspend or kick AICL blindly on Qualcomm:
+            // USB-PD Type-C PHY handles negotiation in hardware, and pulsing input_suspend drops the PD contract!
+            return;
+        }
+
+        // 1. Kick Qualcomm rerun_aicl if present (non-Qualcomm fallback if node somehow present)
         let rerun_node = format!("{}/rerun_aicl", USB_DIR);
         if Path::new(&rerun_node).exists() {
             Self::write_node(&rerun_node, "1");
@@ -1081,7 +1095,7 @@ impl ChargingRegulator {
             Self::write_node(&pe_node, "1");
         }
 
-        // 3. Universal Linux VBUS FET Soft-Pulse
+        // 3. Universal Linux VBUS FET Soft-Pulse (ONLY for MediaTek/Transsion)
         let suspend_node = format!("{}/input_suspend", BATT_DIR);
         if Path::new(&suspend_node).exists() {
             Self::set_perm(&suspend_node, 0o666);
@@ -1967,6 +1981,7 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_bypass_active");
         let _ = fs::remove_file("/dev/lynx_orig_chg_max");
         let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
+        let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
 
         // Unlock all candidate sysfs nodes so vendor HALs and kernel have write access
         Self::unlock_extreme_nodes();
@@ -2186,21 +2201,28 @@ impl ChargingRegulator {
         let is_hyper = cfg.charging_mode == "hyper" || cfg.extreme_charging_enabled;
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
 
-        if is_hyper && cur_cap < 80 {
+        let (platform, _, _) = Self::detect_charging_platform();
+        let is_pe_platform = platform == ChargingHardwarePlatform::Transsion
+            || Path::new(MTK_DIR).exists()
+            || Path::new("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger").exists();
+        let reconnect_already_done = Path::new("/dev/lynx_soft_reconnect_done").exists();
+
+        if is_hyper && is_pe_platform && !reconnect_already_done && cur_cap < 80 {
             let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
                 .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
                 .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
                 .unwrap_or(0);
             let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
 
-            // If plugged, hyper mode active, battery < 80%, but adapter stuck in standard 5V USB (< 6000 mV)
-            // check if soft reconnect should be triggered to auto-kick fast charge negotiation
+            // If plugged, hyper mode active, battery < 80%, but PE adapter stuck in standard 5V USB (< 6000 mV)
+            // check if soft reconnect should be triggered to auto-kick fast charge negotiation (ONCE per session)
             if adpv_clean > 3500 && adpv_clean < 6000 {
                 let marker_path = "/dev/lynx_stalled_5v_count";
                 let count = Self::read_i64(marker_path).unwrap_or(0);
                 if count >= 4 {
-                    // Stalled at 5V for 4+ seconds: trigger automated software reconnect!
+                    // Stalled at 5V for 4+ seconds: trigger automated software reconnect ONCE per cable session!
                     let _ = fs::remove_file(marker_path);
+                    let _ = fs::write("/dev/lynx_soft_reconnect_done", "1");
                     Self::trigger_charger_soft_reconnect();
                 } else {
                     let _ = fs::write(marker_path, (count + 1).to_string());
@@ -2250,7 +2272,7 @@ impl ChargingRegulator {
         if ibus_val > 4_000_000_000 {
             ibus_val = (ibus_val as u32 as i32) as i64;
         }
-        if ibus_val > 100_000 {
+        if ibus_val > 10_000 {
             ibus_val /= 1000;
         }
         if ibus_val < 0 || adpv == 0 {

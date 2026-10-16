@@ -71,16 +71,21 @@ fallback_hyper() {
     rm -f /dev/lynx_bypass_active /dev/lynx_standard_charging 2>/dev/null
 
     # 1. Native Battery & Linux Charge Rails Uncap
+    local qcom_cur="12000000"
+    if [ ! -d /sys/class/power_supply/smb1390 ] && [ ! -d /sys/class/power_supply/charge_pump ] && { [ -d "$QC_DIR" ] || [ -d /sys/class/power_supply/bms ]; }; then
+        qcom_cur="4500000"
+    fi
+
     write_node_lock "$BATT_DIR/input_suspend" "0"
     write_node_lock "$BATT_DIR/charging_enabled" "1"
     write_node_lock "$BATT_DIR/fastcharge_mode" "1"
     write_node_lock "$BATT_DIR/fast_charge" "1"
     write_node_lock "$BATT_DIR/boost_current" "1"
-    write_node_lock "$BATT_DIR/constant_charge_current_max" "12000000"
-    write_node_lock "$BATT_DIR/constant_charge_current" "12000000"
-    write_node_lock "$BATT_DIR/input_current_limit" "12000000"
+    write_node_lock "$BATT_DIR/constant_charge_current_max" "$qcom_cur"
+    write_node_lock "$BATT_DIR/constant_charge_current" "$qcom_cur"
+    write_node_lock "$BATT_DIR/input_current_limit" "$qcom_cur"
     write_node_lock "$USB_DIR/current_max" "5000000"
-    write_node_lock "$MAIN_DIR/current_max" "12000000"
+    write_node_lock "$MAIN_DIR/current_max" "$qcom_cur"
 
     # 2. R1 Screen-On Charging Throttle Bypass & CallState Lock
     write_node_lock "$MTK_DIR/BatteryNotify" "0"

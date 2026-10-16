@@ -88,13 +88,11 @@ internal object LynxBatteryTelemetryRepository {
                         [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/usb/input_current_now 2>/dev/null)
                         [ -z "${'$'}raw_ibus" ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null && raw_ibus=${'$'}(cat /sys/class/power_supply/main/current_now 2>/dev/null)
 
-                        # Scaling heuristic: Length >= 10 is 32-bit wrap around; > 500k is uA; > 50k is 10uA; else mA
+                        # Scaling heuristic: Length >= 10 is 32-bit wrap around; > 10000 is uA (divide by 1000); else mA
                         if [ "${'$'}{#raw_ibus}" -ge 10 ] || [ "${'$'}raw_ibus" -le 0 ] 2>/dev/null; then
                             ibus=0
-                        elif [ "${'$'}raw_ibus" -gt 500000 ] 2>/dev/null; then
+                        elif [ "${'$'}raw_ibus" -gt 10000 ] 2>/dev/null; then
                             ibus=${'$'}(( raw_ibus / 1000 ))
-                        elif [ "${'$'}raw_ibus" -gt 50000 ] 2>/dev/null; then
-                            ibus=${'$'}(( raw_ibus / 100 ))
                         else
                             ibus="${'$'}raw_ibus"
                         fi
