@@ -322,28 +322,46 @@ internal object LynxBatteryTelemetryRepository {
                             File("/sys/class/power_supply/sec-battery").exists() ||
                             File("/sys/class/sec/sec-battery").exists()
 
+                    val hasQcomHw = pmicSig == "smb1390" || pmicSig == "smb1355" || pmicSig == "qcom_pmic" ||
+                            File("/sys/class/qcom-battery").exists() ||
+                            File("/sys/class/power_supply/bms").exists() ||
+                            File("/sys/devices/soc0").exists() ||
+                            File("/sys/class/kgsl").exists() ||
+                            File("/sys/bus/platform/drivers/pm8150b_charger").exists()
+
                     val mfgUpper = android.os.Build.MANUFACTURER.uppercase(java.util.Locale.US)
                     val brandUpper = android.os.Build.BRAND.uppercase(java.util.Locale.US)
 
                     // Hardware Ground Truth Tier 1: Hardware physical nodes ALWAYS override software props
-                    val isTranssion = hasTranHw || (!hasXiaomiHw && !hasOplusHw && !hasSamsungHw &&
+                    val isTranssion = hasTranHw || (!hasXiaomiHw && !hasOplusHw && !hasSamsungHw && !hasQcomHw &&
                             (mfgUpper.contains("INFINIX") || mfgUpper.contains("TECNO") || mfgUpper.contains("TRANSSION") ||
                              brandUpper.contains("INFINIX") || brandUpper.contains("TECNO")))
 
-                    val isXiaomi = (hasXiaomiHw && !hasTranHw) || (!hasTranHw && !hasOplusHw && !hasSamsungHw &&
+                    val isXiaomi = (hasXiaomiHw && !hasTranHw) || (!hasTranHw && !hasOplusHw && !hasSamsungHw && !hasQcomHw &&
                             (mfgUpper.contains("XIAOMI") || brandUpper.contains("XIAOMI") || brandUpper.contains("REDMI") || brandUpper.contains("POCO")))
 
-                    val isPropsSpoofed = (hasTranHw && (mfgUpper.contains("XIAOMI") || brandUpper.contains("XIAOMI") || brandUpper.contains("REDMI") || brandUpper.contains("POCO") || mfgUpper.contains("GOOGLE") || brandUpper.contains("GOOGLE") || mfgUpper.contains("ASUS") || brandUpper.contains("ASUS"))) ||
-                            (hasXiaomiHw && (mfgUpper.contains("INFINIX") || brandUpper.contains("INFINIX") || mfgUpper.contains("GOOGLE") || brandUpper.contains("GOOGLE") || mfgUpper.contains("ASUS") || brandUpper.contains("ASUS")))
+                    val isQualcommBrand = (!hasTranHw && !hasXiaomiHw && !hasOplusHw && !hasSamsungHw) &&
+                            (hasQcomHw || mfgUpper.contains("SONY") || brandUpper.contains("SONY") ||
+                             mfgUpper.contains("QUALCOMM") || brandUpper.contains("QUALCOMM") ||
+                             mfgUpper.contains("MOTOROLA") || brandUpper.contains("MOTO") ||
+                             android.os.Build.HARDWARE.contains("qcom", ignoreCase = true) ||
+                             android.os.Build.BOARD.contains("msm", ignoreCase = true) ||
+                             android.os.Build.BOARD.contains("kona", ignoreCase = true) ||
+                             android.os.Build.BOARD.contains("taro", ignoreCase = true))
+
+                    val isPropsSpoofed = (hasTranHw && (mfgUpper.contains("XIAOMI") || brandUpper.contains("XIAOMI") || brandUpper.contains("REDMI") || brandUpper.contains("POCO") || mfgUpper.contains("GOOGLE") || brandUpper.contains("GOOGLE") || mfgUpper.contains("ASUS") || brandUpper.contains("ASUS") || mfgUpper.contains("SONY") || brandUpper.contains("SONY"))) ||
+                            (hasXiaomiHw && (mfgUpper.contains("INFINIX") || brandUpper.contains("INFINIX") || mfgUpper.contains("GOOGLE") || brandUpper.contains("GOOGLE") || mfgUpper.contains("ASUS") || brandUpper.contains("ASUS") || mfgUpper.contains("SONY") || brandUpper.contains("SONY"))) ||
+                            (hasQcomHw && (mfgUpper.contains("INFINIX") || brandUpper.contains("INFINIX") || mfgUpper.contains("TECNO") || brandUpper.contains("TECNO")))
 
                     val hwPlatformStr = when {
                         hasTranHw -> "Transsion"
                         hasXiaomiHw -> "Xiaomi"
                         hasOplusHw -> "OPPO/Realme"
                         hasSamsungHw -> "Samsung"
-                        pmicSig == "smb1390" || pmicSig == "qcom_pmic" -> "Qualcomm"
+                        hasQcomHw -> "Qualcomm"
                         isTranssion -> "Transsion"
                         isXiaomi -> "Xiaomi"
+                        isQualcommBrand -> "Qualcomm"
                         else -> "Generic Linux"
                     }
 

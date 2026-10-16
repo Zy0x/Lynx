@@ -2107,6 +2107,8 @@ impl ChargingRegulator {
             || Path::new("/sys/class/power_supply/smb1390").exists()
             || Path::new("/sys/class/power_supply/smb1355").exists()
             || Path::new("/sys/class/power_supply/smb1351").exists()
+            || Path::new("/sys/devices/soc0").exists()
+            || Path::new("/sys/class/kgsl").exists()
             || Path::new("/sys/bus/platform/drivers/pm8150b_charger").exists();
 
         let platform = if has_tran_hw {
@@ -2139,6 +2141,8 @@ impl ChargingRegulator {
                 ChargingHardwarePlatform::Samsung
             } else if brand.contains("GOOGLE") || mfg.contains("GOOGLE") {
                 ChargingHardwarePlatform::GooglePixel
+            } else if brand.contains("SONY") || mfg.contains("SONY") || brand.contains("MOTO") || mfg.contains("MOTOROLA") || brand.contains("ASUS") || mfg.contains("ASUS") {
+                ChargingHardwarePlatform::QualcommGeneric
             } else {
                 ChargingHardwarePlatform::GenericLinux
             }
@@ -2152,13 +2156,17 @@ impl ChargingRegulator {
         let prop_is_transsion = brand.contains("INFINIX") || brand.contains("TECNO") || brand.contains("ITEL") || mfg.contains("INFINIX") || mfg.contains("TECNO") || mfg.contains("TRANSSION");
         let prop_is_pixel = brand.contains("GOOGLE") || mfg.contains("GOOGLE");
         let prop_is_asus = brand.contains("ASUS") || mfg.contains("ASUS");
+        let prop_is_sony = brand.contains("SONY") || mfg.contains("SONY");
 
-        if platform == ChargingHardwarePlatform::Transsion && (prop_is_xiaomi || prop_is_pixel || prop_is_asus) {
+        if platform == ChargingHardwarePlatform::Transsion && (prop_is_xiaomi || prop_is_pixel || prop_is_asus || prop_is_sony) {
             is_spoofed = true;
             spoof_details = format!("Props spoofed to {} / {}, verified physical hardware: Transsion (RT9759 / tran_battery)", mfg, brand);
-        } else if platform == ChargingHardwarePlatform::Xiaomi && (prop_is_transsion || prop_is_pixel || prop_is_asus) {
+        } else if platform == ChargingHardwarePlatform::Xiaomi && (prop_is_transsion || prop_is_pixel || prop_is_asus || prop_is_sony) {
             is_spoofed = true;
-            spoof_details = format!("Props spoofed to {} / {}, verified physical hardware: Xiaomi (mi_thermald / fastcharge_mode)", mfg, brand);
+            spoof_details = format!("Props spoofed to {} / {}, verified physical hardware: Xiaomi (mi_pump / turbo_power)", mfg, brand);
+        } else if platform == ChargingHardwarePlatform::QualcommGeneric && (prop_is_transsion || prop_is_xiaomi) {
+            is_spoofed = true;
+            spoof_details = format!("Props spoofed to {} / {}, verified physical hardware: Qualcomm Snapdragon (PMIC BMS)", mfg, brand);
         } else if platform != ChargingHardwarePlatform::Transsion && prop_is_transsion {
             is_spoofed = true;
             spoof_details = format!("Props spoofed to Transsion, verified physical hardware: {}", platform.as_str());

@@ -43,6 +43,8 @@ MTK_DIR="/sys/devices/platform/charger"
 TRAN_ODM="/sys/devices/platform/odm/odm:tran_battery"
 TRAN_DIR="/sys/devices/platform/tran_battery"
 BATT_DIR="/sys/class/power_supply/battery"
+BMS_DIR="/sys/class/power_supply/bms"
+QC_DIR="/sys/class/qcom-battery"
 USB_DIR="/sys/class/power_supply/usb"
 MAIN_DIR="/sys/class/power_supply/main"
 PCA_DIR="/sys/devices/platform/pca_dv2_algo"
@@ -91,7 +93,19 @@ fallback_hyper() {
     write_node_lock "$TRAN_ODM/Charging_CallState" "0"
     write_node_lock "$TRAN_DIR/Charging_CallState" "0"
 
-    # 3. R2 Thermal Uncapped (Peak 6000mA at all temperatures)
+    # 3. Qualcomm & Universal Charge Controls
+    write_node_lock "$QC_DIR/restricted_charging" "0"
+    write_node_lock "$QC_DIR/restrict_cur" "0"
+    write_node_lock "$QC_DIR/direct_charging" "1"
+    write_node_lock "$QC_DIR/system_temp_level" "0"
+    write_node_lock "$BATT_DIR/system_temp_level" "0"
+    write_node_lock "$BATT_DIR/temp_state" "0"
+    write_node_lock "$BATT_DIR/thermal_input_current_limit" "-1"
+    write_node_lock "$BATT_DIR/step_charging_enabled" "0"
+    write_node_lock "$BATT_DIR/current_max" "12000000"
+    write_node_lock "$BATT_DIR/charge_control_limit_max" "0"
+
+    # 4. Thermal Uncapped (Peak 6000mA at all temperatures)
     write_node_lock "$TRAN_ODM/pcb_thermal_debug" "[95,6000,100,6000,6000000]"
     write_node_lock "$TRAN_DIR/pcb_thermal_debug" "[95,6000,100,6000,6000000]"
     write_node_lock "$PCA_DIR/dv2_debug" "[101,85,88,90,6000,6000,6000]"
@@ -99,19 +113,37 @@ fallback_hyper() {
     write_node_lock "/sys/devices/platform/battery/Battery_Temperature" "25"
     write_node_lock "/proc/driver/thermal/clabcct" "70000 1000 200000 6000 6000 0 1 1 0"
     write_node_lock "/proc/driver/thermal/clabcct_lcmoff" "1 70000 1000 200000 6000 6000 0 6000 0"
-    for i in 53 54 55 56 57; do
-        write_node_lock "/sys/class/thermal/cooling_device$i/cur_state" "0"
+
+    # Dynamic Cooling Device Detection: only touch battery charge cooling devices (bcct / abcct)
+    for cd in /sys/class/thermal/cooling_device*; do
+        if [ -f "$cd/type" ]; then
+            cd_t=$(cat "$cd/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            case "$cd_t" in
+                *bcct*|*abcct*) write_node_lock "$cd/cur_state" "0" ;;
+            esac
+        fi
     done
-    for i in 0 1 2 3 4; do
-        write_node_lock "/sys/class/thermal/thermal_zone1/trip_point_${i}_temp" "99000"
+
+    # Dynamic Thermal Zone Detection: only disable battery thermal zones, never touch CPU/GPU
+    for tz in /sys/class/thermal/thermal_zone*; do
+        if [ -f "$tz/type" ]; then
+            tz_t=$(cat "$tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            case "$tz_t" in
+                battery|mtktsbattery|mtktsap)
+                    write_node_lock "$tz/mode" "disabled"
+                    for trip in "$tz"/trip_point_*_temp; do
+                        [ -f "$trip" ] && write_node_lock "$trip" "99000"
+                    done
+                    ;;
+            esac
+        fi
     done
-    write_node_lock "/sys/class/thermal/thermal_zone1/mode" "disabled"
 
     for daemon in thermalloadalgod com.xiaomi.joyose mi_thermald thermal-engine thermal-engine-v2; do
         killall -STOP "$daemon" 2>/dev/null
     done
 
-    # 4. R3 Continuous Maximum Pump Current Enforcement (>6A Battery Current)
+    # 5. Continuous Maximum Pump Current Enforcement (>6A Battery Current)
     write_node_lock "$MTK_DIR/pe20" "1"
     write_node_lock "$MTK_DIR/pe40" "1"
 
@@ -137,8 +169,12 @@ fallback_disconnect() {
     rm -f /dev/lynx_extreme_charging /dev/lynx_standard_charging /dev/lynx_charging_guard /dev/lynx_bypass_active 2>/dev/null
     echo "state=disconnect" > /dev/lynx_charging_state 2>/dev/null
 
-    # Unlock all locked sysfs nodes
+    # Unlock all locked sysfs nodes (MTK, QCOM, Universal Linux)
     for node in \
+        "$QC_DIR/restricted_charging" "$QC_DIR/restrict_cur" "$QC_DIR/direct_charging" \
+        "$QC_DIR/system_temp_level" "$BATT_DIR/system_temp_level" "$BATT_DIR/temp_state" \
+        "$BATT_DIR/thermal_input_current_limit" "$BATT_DIR/step_charging_enabled" \
+        "$BATT_DIR/current_max" "$BATT_DIR/charge_control_limit_max" \
         "$MTK_DIR/input_current" "$MTK_DIR/sc_ibat_limit" "$MTK_DIR/chg1_current" "$MTK_DIR/chg2_current" \
         "$MTK_DIR/enable_sc" "$MTK_DIR/pe20" "$MTK_DIR/pe40" "$MTK_DIR/pdc_max_watt" \
         "$MTK_DIR/BN_TestMode" "$MTK_DIR/BatteryNotify" "$MTK_DIR/tran_charger_full" "$MTK_DIR/tran_game_mode" \
@@ -149,9 +185,34 @@ fallback_disconnect() {
         "$TRAN_ODM/pcb_thermal_debug" "$TRAN_DIR/pcb_thermal_debug" "$PCA_DIR/dv2_debug" \
         "$TRAN_ODM/Charging_CallState" "$TRAN_DIR/Charging_CallState" \
         "/sys/devices/platform/battery/Battery_Temperature" \
-        "/proc/driver/thermal/clabcct" "/proc/driver/thermal/clabcct_lcmoff" \
-        /sys/class/thermal/cooling_device*/cur_state; do
+        "/proc/driver/thermal/clabcct" "/proc/driver/thermal/clabcct_lcmoff"; do
         unlock_node "$node"
+    done
+
+    # Unlock BCCT cooling devices
+    for cd in /sys/class/thermal/cooling_device*; do
+        if [ -f "$cd/type" ]; then
+            cd_t=$(cat "$cd/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            case "$cd_t" in
+                *bcct*|*abcct*) unlock_node "$cd/cur_state" ;;
+            esac
+        fi
+    done
+
+    # Unlock & restore battery thermal zones
+    for tz in /sys/class/thermal/thermal_zone*; do
+        if [ -f "$tz/type" ]; then
+            tz_t=$(cat "$tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+            case "$tz_t" in
+                battery|mtktsbattery|mtktsap)
+                    unlock_node "$tz/mode"
+                    echo "enabled" > "$tz/mode" 2>/dev/null
+                    for trip in "$tz"/trip_point_*_temp; do
+                        [ -f "$trip" ] && unlock_node "$trip"
+                    done
+                    ;;
+            esac
+        fi
     done
 
     # Revert to safe OEM baselines
@@ -191,22 +252,12 @@ fallback_disconnect() {
                 [ "$local_temp" -lt 20 ] && local_temp=25
                 [ "$local_temp" -gt 50 ] && local_temp=45
             fi
-        elif [ -f "/sys/class/thermal/thermal_zone1/temp" ]; then
-            local_tz1=$(cat "/sys/class/thermal/thermal_zone1/temp" 2>/dev/null)
-            if [ -n "$local_tz1" ] && [ "$local_tz1" -gt 10000 ] 2>/dev/null; then
-                local_temp=$(( local_tz1 / 1000 ))
-            fi
+        elif [ -f "/sys/class/power_supply/battery/temp" ]; then
+            local_raw=$(cat "/sys/class/power_supply/battery/temp" 2>/dev/null)
+            [ -n "$local_raw" ] && [ "$local_raw" -gt 100 ] 2>/dev/null && local_temp=$(( local_raw / 10 ))
         fi
         echo "$local_temp" > "/sys/devices/platform/battery/Battery_Temperature" 2>/dev/null
     fi
-    [ -e "/sys/class/thermal/cooling_device56/cur_state" ] && echo "1" > "/sys/class/thermal/cooling_device56/cur_state" 2>/dev/null
-    [ -e "/sys/class/thermal/thermal_zone1/mode" ] && echo "enabled" > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
-    echo "100000" > /sys/class/thermal/thermal_zone1/trip_point_0_temp 2>/dev/null
-    echo "90000" > /sys/class/thermal/thermal_zone1/trip_point_1_temp 2>/dev/null
-    echo "54000" > /sys/class/thermal/thermal_zone1/trip_point_2_temp 2>/dev/null
-    echo "42000" > /sys/class/thermal/thermal_zone1/trip_point_3_temp 2>/dev/null
-    echo "41000" > /sys/class/thermal/thermal_zone1/trip_point_4_temp 2>/dev/null
-    chmod 644 /sys/class/thermal/thermal_zone1/trip_point_* 2>/dev/null
     [ -e "/proc/driver/thermal/clabcct" ] && echo "1 42000 1000 200000 5 2000 0" > "/proc/driver/thermal/clabcct" 2>/dev/null
     [ -e "/proc/driver/thermal/clabcct_lcmoff" ] && echo "1 43000 1000 200000 5 2000 0" > "/proc/driver/thermal/clabcct_lcmoff" 2>/dev/null
 
@@ -250,6 +301,9 @@ fallback_cool() {
     write_node_lock "$MTK_DIR/BN_TestMode" "0"
     write_node_lock "$MTK_DIR/BatteryNotify" "1"
     write_node_lock "$MTK_DIR/sw_jeita" "1"
+    write_node_lock "$QC_DIR/restricted_charging" "1"
+    write_node_lock "$QC_DIR/restrict_cur" "1000000"
+    write_node_lock "$BATT_DIR/current_max" "1000000"
     write_node_lock "$BATT_DIR/constant_charge_current_max" "1000000"
     write_node_lock "$BATT_DIR/constant_charge_current" "1000000"
     write_node_lock "$USB_DIR/current_max" "$((in_cur * 1000))"
@@ -262,10 +316,13 @@ fallback_standard() {
 
     for node in "$MTK_DIR/input_current" "$MTK_DIR/sc_ibat_limit" "$MTK_DIR/chg1_current" "$MTK_DIR/chg2_current" \
         "$MTK_DIR/enable_sc" "$MTK_DIR/pe20" "$MTK_DIR/pe40" "$MTK_DIR/pdc_max_watt" \
+        "$QC_DIR/restricted_charging" "$QC_DIR/restrict_cur" "$BATT_DIR/current_max" \
         "$BATT_DIR/constant_charge_current_max" "$BATT_DIR/constant_charge_current" "$USB_DIR/current_max"; do
         unlock_node "$node"
     done
 
+    write_node_lock "$QC_DIR/restricted_charging" "0"
+    write_node_lock "$QC_DIR/restrict_cur" "0"
     write_node_lock "$MTK_DIR/BN_TestMode" "0"
     write_node_lock "$MTK_DIR/BatteryNotify" "1"
     write_node_lock "$MTK_DIR/sw_jeita" "1"
@@ -293,6 +350,9 @@ fallback_custom() {
         write_node_lock "$MTK_DIR/sc_ibat_limit" "$target"
         write_node_lock "$MTK_DIR/chg1_current" "$target"
         write_node_lock "$MTK_DIR/chg2_current" "$target"
+        write_node_lock "$QC_DIR/restricted_charging" "1"
+        write_node_lock "$QC_DIR/restrict_cur" "$((target * 1000))"
+        write_node_lock "$BATT_DIR/current_max" "$((target * 1000))"
         write_node_lock "$BATT_DIR/constant_charge_current_max" "$((target * 1000))"
         write_node_lock "$BATT_DIR/constant_charge_current" "$((target * 1000))"
         write_node_lock "$USB_DIR/current_max" "$((target * 1000))"

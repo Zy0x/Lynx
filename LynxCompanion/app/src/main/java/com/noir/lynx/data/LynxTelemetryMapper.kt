@@ -239,12 +239,20 @@ internal object LynxTelemetryMapper {
             val isSamsungDevice = android.os.Build.MANUFACTURER.contains("SAMSUNG", ignoreCase = true) ||
                     android.os.Build.BRAND.contains("SAMSUNG", ignoreCase = true)
 
+            val isQualcommOrSony = android.os.Build.MANUFACTURER.contains("SONY", ignoreCase = true) ||
+                    android.os.Build.BRAND.contains("SONY", ignoreCase = true) ||
+                    android.os.Build.HARDWARE.contains("qcom", ignoreCase = true) ||
+                    android.os.Build.BOARD.contains("msm", ignoreCase = true) ||
+                    android.os.Build.BOARD.contains("kona", ignoreCase = true) ||
+                    android.os.Build.BOARD.contains("taro", ignoreCase = true)
+
             val mappedProtocol = when {
                 !existingBatt?.fastChargeProtocol.isNullOrBlank() -> {
                     val p = existingBatt!!.fastChargeProtocol
                     if (!isTranssionDevice && p.contains("Transsion", ignoreCase = true)) {
                         if (isXiaomiDevice) "Xiaomi TurboCharge"
                         else if (isSamsungDevice) "Samsung Fast Charging"
+                        else if (isQualcommOrSony) "Qualcomm Quick Charge"
                         else "Fast Charge (PD / QC)"
                     } else {
                         p
@@ -274,6 +282,10 @@ internal object LynxTelemetryMapper {
                 isSamsungDevice && (tel.battWatt > 4f || tel.battCurrentMa > 1000) -> {
                     if (tel.battWatt >= 35f) "Samsung SFC 2.0 (45W)" else "Samsung SFC (25W)"
                 }
+                isQualcommOrSony && (tel.battWatt > 4f || tel.battCurrentMa > 1000) -> {
+                    if (adpVoltMv > 8000 || tel.battWatt >= 15f) "USB-PD / QC Rapid Charge" else "Qualcomm Quick Charge"
+                }
+                tel.battWatt > 4f || tel.battCurrentMa > 1000 -> "Fast Charge (USB-PD / QC)"
                 else -> ""
             }
 

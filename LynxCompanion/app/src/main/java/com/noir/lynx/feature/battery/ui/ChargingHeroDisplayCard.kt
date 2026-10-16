@@ -533,18 +533,26 @@ fun ChargingHeroDisplayCard(
         File("/sys/class/sec/sec-battery").exists()
     }
 
-    val isTranssionBrand = remember(hasTranHw, hasXiaomiHw, hasOplusHw, hasSamsungHw) {
+    val hasQcomHw = remember {
+        File("/sys/class/qcom-battery").exists() ||
+        File("/sys/class/power_supply/bms").exists() ||
+        File("/sys/devices/soc0").exists() ||
+        File("/sys/class/kgsl").exists() ||
+        File("/sys/bus/platform/drivers/pm8150b_charger").exists()
+    }
+
+    val isTranssionBrand = remember(hasTranHw, hasXiaomiHw, hasOplusHw, hasSamsungHw, hasQcomHw) {
         val m = android.os.Build.MANUFACTURER.uppercase(Locale.US)
         val b = android.os.Build.BRAND.uppercase(Locale.US)
-        hasTranHw || (!hasXiaomiHw && !hasOplusHw && !hasSamsungHw &&
+        hasTranHw || (!hasXiaomiHw && !hasOplusHw && !hasSamsungHw && !hasQcomHw &&
                 (m.contains("INFINIX") || m.contains("TECNO") || m.contains("TRANSSION") ||
                  b.contains("INFINIX") || b.contains("TECNO")))
     }
 
-    val isXiaomiBrand = remember(hasTranHw, hasXiaomiHw, hasOplusHw, hasSamsungHw) {
+    val isXiaomiBrand = remember(hasTranHw, hasXiaomiHw, hasOplusHw, hasSamsungHw, hasQcomHw) {
         val m = android.os.Build.MANUFACTURER.uppercase(Locale.US)
         val b = android.os.Build.BRAND.uppercase(Locale.US)
-        (hasXiaomiHw && !hasTranHw) || (!hasTranHw && !hasOplusHw && !hasSamsungHw &&
+        (hasXiaomiHw && !hasTranHw) || (!hasTranHw && !hasOplusHw && !hasSamsungHw && !hasQcomHw &&
                 (m.contains("XIAOMI") || b.contains("XIAOMI") || b.contains("REDMI") || b.contains("POCO")))
     }
 
@@ -563,16 +571,30 @@ fun ChargingHeroDisplayCard(
                  b.contains("OPPO") || b.contains("REALME") || b.contains("ONEPLUS")))
     }
 
-    val isPropsSpoofed = remember(hasTranHw, hasXiaomiHw) {
+    val isQualcommBrand = remember(hasTranHw, hasXiaomiHw, hasOplusHw, hasSamsungHw, hasQcomHw) {
+        val m = android.os.Build.MANUFACTURER.uppercase(Locale.US)
+        val b = android.os.Build.BRAND.uppercase(Locale.US)
+        (!hasTranHw && !hasXiaomiHw && !hasOplusHw && !hasSamsungHw) &&
+                (hasQcomHw || m.contains("SONY") || b.contains("SONY") ||
+                 m.contains("QUALCOMM") || b.contains("QUALCOMM") ||
+                 m.contains("MOTOROLA") || b.contains("MOTO") ||
+                 android.os.Build.HARDWARE.contains("qcom", ignoreCase = true) ||
+                 android.os.Build.BOARD.contains("msm", ignoreCase = true) ||
+                 android.os.Build.BOARD.contains("kona", ignoreCase = true) ||
+                 android.os.Build.BOARD.contains("taro", ignoreCase = true))
+    }
+
+    val isPropsSpoofed = remember(hasTranHw, hasXiaomiHw, hasQcomHw) {
         val m = android.os.Build.MANUFACTURER.uppercase(Locale.US)
         val b = android.os.Build.BRAND.uppercase(Locale.US)
         batt.isPropsSpoofed ||
-        (hasTranHw && (m.contains("XIAOMI") || b.contains("XIAOMI") || b.contains("REDMI") || b.contains("POCO") || m.contains("GOOGLE") || b.contains("GOOGLE") || m.contains("ASUS") || b.contains("ASUS"))) ||
-        (hasXiaomiHw && (m.contains("INFINIX") || b.contains("INFINIX") || m.contains("GOOGLE") || b.contains("GOOGLE") || m.contains("ASUS") || b.contains("ASUS")))
+        (hasTranHw && (m.contains("XIAOMI") || b.contains("XIAOMI") || b.contains("REDMI") || b.contains("POCO") || m.contains("GOOGLE") || b.contains("GOOGLE") || m.contains("ASUS") || b.contains("ASUS") || m.contains("SONY") || b.contains("SONY"))) ||
+        (hasXiaomiHw && (m.contains("INFINIX") || b.contains("INFINIX") || m.contains("GOOGLE") || b.contains("GOOGLE") || m.contains("ASUS") || b.contains("ASUS") || m.contains("SONY") || b.contains("SONY"))) ||
+        (hasQcomHw && (m.contains("INFINIX") || b.contains("INFINIX") || m.contains("TECNO") || b.contains("TECNO")))
     }
 
     // Resolved Hardware Protocol Name for Banner
-    val detectedProtocolName = remember(isPlugged, batt.fastChargeProtocol, liveHardwareProtocol, isTranssionBrand, isXiaomiBrand, isSamsungBrand, isOppoRealmeBrand) {
+    val detectedProtocolName = remember(isPlugged, batt.fastChargeProtocol, liveHardwareProtocol, isTranssionBrand, isXiaomiBrand, isSamsungBrand, isOppoRealmeBrand, isQualcommBrand) {
         when {
             !isPlugged -> "Baterai Internal (Li-Ion)"
             batt.fastChargeProtocol.isNotBlank() && !batt.fastChargeProtocol.contains("Battery", true) -> {
@@ -582,6 +604,8 @@ fun ChargingHeroDisplayCard(
                     "Samsung Fast Charging"
                 } else if (isOppoRealmeBrand && !isTranssionBrand && batt.fastChargeProtocol.contains("Transsion", ignoreCase = true)) {
                     "SuperVOOC / Fast Charge"
+                } else if (isQualcommBrand && !isTranssionBrand && batt.fastChargeProtocol.contains("Transsion", ignoreCase = true)) {
+                    "Qualcomm Quick Charge"
                 } else {
                     batt.fastChargeProtocol
                 }
@@ -593,6 +617,8 @@ fun ChargingHeroDisplayCard(
                     "Samsung Fast Charging"
                 } else if (isOppoRealmeBrand && !isTranssionBrand && liveHardwareProtocol.contains("Transsion", ignoreCase = true)) {
                     "SuperVOOC / Fast Charge"
+                } else if (isQualcommBrand && !isTranssionBrand && liveHardwareProtocol.contains("Transsion", ignoreCase = true)) {
+                    "Qualcomm Quick Charge"
                 } else {
                     liveHardwareProtocol
                 }
@@ -601,6 +627,7 @@ fun ChargingHeroDisplayCard(
             isXiaomiBrand -> "Xiaomi Fast Charging"
             isSamsungBrand -> "Samsung Fast Charging"
             isOppoRealmeBrand -> "Fast Charging"
+            isQualcommBrand -> "Qualcomm Quick Charge"
             else -> "Adaptor Daya Eksternal"
         }
     }
@@ -1531,12 +1558,27 @@ private fun resolveHardwareProtocolDirect(
     val hasSamsungHw = File("/sys/class/power_supply/sec-battery").exists() ||
             File("/sys/class/sec/sec-battery").exists()
 
-    val isTranssion = hasTranHw || (!hasXiaomiHw && !hasOplusHw && !hasSamsungHw &&
+    val hasQcomHw = File("/sys/class/qcom-battery").exists() ||
+            File("/sys/class/power_supply/bms").exists() ||
+            File("/sys/devices/soc0").exists() ||
+            File("/sys/class/kgsl").exists() ||
+            File("/sys/bus/platform/drivers/pm8150b_charger").exists()
+
+    val isTranssion = hasTranHw || (!hasXiaomiHw && !hasOplusHw && !hasSamsungHw && !hasQcomHw &&
             (mfgUpper.contains("INFINIX") || mfgUpper.contains("TECNO") || mfgUpper.contains("TRANSSION") ||
              brandUpper.contains("INFINIX") || brandUpper.contains("TECNO")))
 
-    val isXiaomi = (hasXiaomiHw && !hasTranHw) || (!hasTranHw && !hasOplusHw && !hasSamsungHw &&
+    val isXiaomi = (hasXiaomiHw && !hasTranHw) || (!hasTranHw && !hasOplusHw && !hasSamsungHw && !hasQcomHw &&
             (mfgUpper.contains("XIAOMI") || brandUpper.contains("XIAOMI") || brandUpper.contains("REDMI") || brandUpper.contains("POCO")))
+
+    val isQualcomm = (!hasTranHw && !hasXiaomiHw && !hasOplusHw && !hasSamsungHw) &&
+            (hasQcomHw || mfgUpper.contains("SONY") || brandUpper.contains("SONY") ||
+             mfgUpper.contains("QUALCOMM") || brandUpper.contains("QUALCOMM") ||
+             mfgUpper.contains("MOTOROLA") || brandUpper.contains("MOTO") ||
+             android.os.Build.HARDWARE.contains("qcom", ignoreCase = true) ||
+             android.os.Build.BOARD.contains("msm", ignoreCase = true) ||
+             android.os.Build.BOARD.contains("kona", ignoreCase = true) ||
+             android.os.Build.BOARD.contains("taro", ignoreCase = true))
 
     return when {
         // Transsion Fast Charge (ONLY on genuine Infinix / Tecno hardware)
@@ -1578,6 +1620,8 @@ private fun resolveHardwareProtocolDirect(
         ptypUpper.contains("SDP") || ptypUpper.contains("CDP") || ptypUpper.contains("PC") -> {
             "USB PC / Laptop"
         }
+        // Qualcomm default fallback
+        isQualcomm -> "Qualcomm Quick Charge"
         // Standard Adapter
         else -> "Adaptor Standar (DCP)"
     }
