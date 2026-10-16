@@ -16,7 +16,7 @@ enum class TuningCategory(
     PROFILES("profiles", "Profil Performa Kernel", "Katalog Profil & Otomasi Per-Aplikasi", Icons.Default.Speed, AccentOrange),
     HUD("hud", "Floating Game HUD", "Overlay FPS, OSD Real-Time & Gaya Layout", Icons.Default.Visibility, AccentCyan),
     CPU("cpu", "CPU Performa", "Kluster, Respon Daya & Penjadwal", Icons.Default.Memory, AccentCyan),
-    GPU("gpu", "GPU & Display", "Clock GPU, GED Boost & Refresh Rate", Icons.Default.SportsEsports, AccentOrange),
+    GPU("gpu", "GPU & Display", "Clock GPU, Driver Boost & Refresh Rate", Icons.Default.SportsEsports, AccentOrange),
     THERMAL("thermal", "Thermal & Anti-Throttling", "Live Matrix, Trip Points & Bypass", Icons.Default.LocalFireDepartment, AccentRed),
     CHARGING("charging", "Battery & Charging", "Bypass Charging & Extreme Fast Charge", Icons.Default.BatteryChargingFull, AccentGreen),
     MEMORY("memory", "Memory & Storage", "ZRAM, Swappiness, LMK & I/O", Icons.Default.Storage, AccentPurple),

@@ -267,9 +267,17 @@ internal object LynxGpuTelemetryRepository {
                                 else "DVFS Thermal Clamping Aktif"
                             } else "Normal (Bebas Throttling)"
 
+                            var safeMin = minMhz
+                            var safeMax = maxMhz
+                            if (safeMin > safeMax && safeMax > 0) {
+                                val t = safeMin
+                                safeMin = safeMax
+                                safeMax = t
+                            }
+
                             return@withContext GpuInfo(
-                                minFreqMhz = minMhz,
-                                maxFreqMhz = maxMhz,
+                                minFreqMhz = safeMin,
+                                maxFreqMhz = safeMax,
                                 curFreqMhz = curMhz,
                                 availFreqsMhz = freqs.distinct().sorted(),
                                 adrenoBoostLevel = adrenoBoost,
@@ -555,8 +563,15 @@ internal object LynxGpuTelemetryRepository {
             val maxAvailVal = availFreqs.maxOrNull() ?: 0
             val rawMinMhz = if (minHz > 0) toMhz(minHz) else minAvailVal
             val rawMaxMhz = if (maxHz > 0) toMhz(maxHz) else maxAvailVal
-            val finalMin = if (minAvailVal > 0 && (rawMinMhz < minAvailVal || rawMinMhz > maxAvailVal)) minAvailVal else rawMinMhz
-            val finalMax = if (maxAvailVal > 0 && (rawMaxMhz < minAvailVal || rawMaxMhz > maxAvailVal)) maxAvailVal else rawMaxMhz
+            var safeMin = if (minAvailVal > 0 && (rawMinMhz < minAvailVal || rawMinMhz > maxAvailVal)) minAvailVal else rawMinMhz
+            var safeMax = if (maxAvailVal > 0 && (rawMaxMhz < minAvailVal || rawMaxMhz > maxAvailVal)) maxAvailVal else rawMaxMhz
+            if (safeMin > safeMax && safeMax > 0) {
+                val t = safeMin
+                safeMin = safeMax
+                safeMax = t
+            }
+            val finalMin = safeMin
+            val finalMax = safeMax
             val isLocked = (finalMin > 0 && finalMin == finalMax)
             val isThrottled = (rawGpuTemp >= 65f) || (platform == "adreno" && !thrmBypass && gpuLoad > 85 && toMhz(curHz) < finalMax / 2)
 

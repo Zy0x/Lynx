@@ -3,6 +3,7 @@ use std::path::Path;
 use std::process::Command;
 
 use crate::hardware::capability::HardwareCapability;
+use crate::hardware::{MtkHardware, QcomHardware};
 use crate::state::ConfigStore;
 use crate::subsystems::thermal::ThermalController;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
@@ -97,19 +98,46 @@ impl GameController {
             Self::write_opt(node, "1");
         }
 
-        // 7. MediaTek GED & FPSGO Hooks
-        Self::write_opt("/sys/module/ged/parameters/gx_game_mode", "1");
-        Self::write_opt("/sys/module/ged/parameters/gx_boost_on", "1");
-        Self::write_opt("/sys/module/ged/parameters/gx_force_cpu_boost", "1");
+        // 7. MediaTek Platform Game Boost (GED, FPSGO, PPM, Perfmgr)
+        Self::write_opt(MtkHardware::GED_GX_GAME_MODE, "1");
+        Self::write_opt(MtkHardware::GED_GX_BOOST_ON, "1");
+        Self::write_opt(MtkHardware::GED_GX_FORCE_CPU_BOOST, "1");
         Self::write_opt("/sys/module/ged/parameters/target_t_cpu_remained", "4166666");
+        Self::write_opt(MtkHardware::FPSGO_ENABLE, "1");
+        Self::write_opt(MtkHardware::FPSGO_BOOST_TA, "1");
+        Self::write_opt(MtkHardware::FPSGO_ULTRA_RESCUE, "1");
         Self::write_opt("/sys/kernel/fpsgo/fbt/switch_idleprefer", "0");
         Self::write_opt("/sys/kernel/fpsgo/fbt/enable_switch_down_throttle", "0");
-        Self::write_opt("/sys/kernel/fpsgo/fbt/ultra_rescue", "1");
         Self::write_opt("/sys/kernel/fpsgo/common/gpu_block_boost", "1 1 -1");
         Self::write_opt("/sys/kernel/fpsgo/common/force_onoff", "1");
+        Self::write_opt(MtkHardware::PPM_POLICY_STATUS, "9 1");
+        Self::write_opt(MtkHardware::PERFMGR_TA_BOOST, "50");
+        Self::write_opt(MtkHardware::PERFMGR_BIG_TASK_ROTATION, "1");
 
-        // 8. Qualcomm KGSL Boost
-        Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/adreno_boost", "3");
+        // 8. Qualcomm Snapdragon Platform Game Boost (KGSL, WALT, Core Control, CPU Boost)
+        Self::write_opt(QcomHardware::KGSL_IDLE_TIMER, "120");
+        Self::write_opt(QcomHardware::KGSL_THROTTLING, "0");
+        Self::write_opt(QcomHardware::KGSL_THERMAL_PWRLEVEL, "0");
+        Self::write_opt(QcomHardware::KGSL_PMQOS_ACTIVE_LATENCY, "0");
+        Self::write_opt(QcomHardware::KGSL_ADRENOBOOST, "2");
+        Self::write_opt("/sys/class/kgsl/kgsl-3d0/adrenoboost", "2");
+
+        // Qualcomm WALT Scheduler Gaming Latency (downmigrate first to comply with kernel down < up rule)
+        Self::write_opt(QcomHardware::SCHED_BOOST, "1");
+        Self::write_opt(QcomHardware::SCHED_DOWNMIGRATE, "50 70");
+        Self::write_opt(QcomHardware::SCHED_UPMIGRATE, "65 85");
+        Self::write_opt(QcomHardware::SCHED_WALT_ROTATE_BIG_TASKS, "1");
+        Self::write_opt(QcomHardware::SCHED_MIN_TASK_UTIL_FOR_BOOST, "10");
+
+        // Qualcomm Core Control Active Core Unparking (Gold cores 4-6 & Prime core 7)
+        Self::write_opt(format!("{}/min_cpus", QcomHardware::CORE_CTL_DIR_CPU4), "3");
+        Self::write_opt(format!("{}/busy_up_thres", QcomHardware::CORE_CTL_DIR_CPU4), "40 40 40");
+        Self::write_opt(format!("{}/min_cpus", QcomHardware::CORE_CTL_DIR_CPU7), "1");
+        Self::write_opt(format!("{}/busy_up_thres", QcomHardware::CORE_CTL_DIR_CPU7), "40");
+
+        // Qualcomm CPU Boost
+        Self::write_opt(QcomHardware::CPU_BOOST_INPUT_MS, "80");
+        Self::write_opt(QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT, "1");
 
         // 9. Active Game Flag
         let _ = fs::write("/dev/lynx_active_game", "1\n");
@@ -177,12 +205,39 @@ impl GameController {
             Self::write_opt(node, "0");
         }
 
-        // 6. Reset MediaTek GED Hooks
+        // 6. Reset MediaTek GED, FPSGO, and PPM Hooks
         Self::write_opt("/sys/module/ged/parameters/gx_top_app_pid", "0");
-        Self::write_opt("/sys/module/ged/parameters/gx_game_mode", "0");
-        Self::write_opt("/sys/module/ged/parameters/gx_boost_on", "0");
+        Self::write_opt(MtkHardware::GED_GX_GAME_MODE, "0");
+        Self::write_opt(MtkHardware::GED_GX_BOOST_ON, "0");
+        Self::write_opt(MtkHardware::GED_GX_FORCE_CPU_BOOST, "0");
+        Self::write_opt(MtkHardware::PPM_POLICY_STATUS, "9 0");
+        Self::write_opt(MtkHardware::PERFMGR_TA_BOOST, "0");
+        Self::write_opt(MtkHardware::PERFMGR_BIG_TASK_ROTATION, "0");
 
-        // 7. Remove Active Game Flag
+        // 7. Reset Qualcomm Snapdragon KGSL, WALT, and Core Control Hooks
+        Self::write_opt(QcomHardware::KGSL_IDLE_TIMER, "80");
+        Self::write_opt(QcomHardware::KGSL_THROTTLING, "1");
+        Self::write_opt(QcomHardware::KGSL_THERMAL_PWRLEVEL, "1");
+        Self::write_opt(QcomHardware::KGSL_ADRENOBOOST, "0");
+        Self::write_opt("/sys/class/kgsl/kgsl-3d0/adrenoboost", "0");
+
+        // Qualcomm WALT Scheduler Balanced Baseline (upmigrate first when raising thresholds)
+        Self::write_opt(QcomHardware::SCHED_UPMIGRATE, "85 95");
+        Self::write_opt(QcomHardware::SCHED_DOWNMIGRATE, "65 85");
+        Self::write_opt(QcomHardware::SCHED_BOOST, "0");
+        Self::write_opt(QcomHardware::SCHED_MIN_TASK_UTIL_FOR_BOOST, "15");
+
+        // Qualcomm Core Control Reset
+        Self::write_opt(format!("{}/min_cpus", QcomHardware::CORE_CTL_DIR_CPU4), "1");
+        Self::write_opt(format!("{}/busy_up_thres", QcomHardware::CORE_CTL_DIR_CPU4), "60 60 60");
+        Self::write_opt(format!("{}/min_cpus", QcomHardware::CORE_CTL_DIR_CPU7), "1");
+        Self::write_opt(format!("{}/busy_up_thres", QcomHardware::CORE_CTL_DIR_CPU7), "60");
+
+        // Qualcomm CPU Boost Reset
+        Self::write_opt(QcomHardware::CPU_BOOST_INPUT_MS, "40");
+        Self::write_opt(QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT, "0");
+
+        // 8. Remove Active Game Flag
         let _ = fs::remove_file("/dev/lynx_active_game");
 
         "Game Mode disengaged (Restored Balanced EAS, Audio, and Touch profiles).".to_string()

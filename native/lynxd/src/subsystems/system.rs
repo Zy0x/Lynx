@@ -136,10 +136,7 @@ impl SystemController {
                     Self::write_opt(format!("{}/log_level_pwr", dbg), "0");
                 }
                 Self::write_opt("/sys/module/cpu_boost/parameters/sched_boost_on_input", "0");
-                Self::write_opt("/sys/module/cpu_boost/parameters/input_boost_ms", "0");
-                for i in 0..8 {
-                    Self::write_opt("/sys/module/cpu_boost/parameters/input_boost_freq", format!("{}:0", i));
-                }
+                Self::write_opt("/sys/module/cpu_boost/parameters/input_boost_ms", "40");
                 Self::write_opt("/proc/sys/kernel/sched_walt_io_is_busy", "1");
                 Self::write_opt("/proc/sys/kernel/sched_walt_cross_window_migration", "1");
                 Self::write_opt("/d/dri/0/debug/core_perf/perf_mode", "1");

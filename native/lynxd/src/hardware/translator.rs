@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use crate::hardware::capability::{GpuDriver, HardwareCapability};
 use crate::hardware::storage::StoragePolicy;
 use crate::hardware::detector::Vendor;
-use crate::hardware::MtkHardware;
+use crate::hardware::{MtkHardware, QcomHardware};
 use crate::profile::profile::Profile;
 use crate::state::ConfigStore;
 use crate::sysfs::SysfsReader;
@@ -374,42 +374,148 @@ impl HardwareTranslator {
 
                 let ged_flag = if is_perf_or_ext { "1" } else { "0" };
                 for (node, desc) in &[
+                    (MtkHardware::GED_GX_GAME_MODE, "GED GX game mode"),
+                    (MtkHardware::GED_GX_BOOST_ON, "GED GX boost"),
+                    (MtkHardware::GED_GX_FORCE_CPU_BOOST, "GED GX force CPU boost"),
                     ("/sys/module/ged/parameters/ged_smart_boost", "GED smart boost"),
                     ("/sys/module/ged/parameters/boost_gpu_enable", "GED boost GPU enable"),
                     ("/sys/module/ged/parameters/enable_gpu_boost", "GED GPU boost"),
-                    ("/sys/module/ged/parameters/gx_game_mode", "GED GX game mode"),
-                    ("/sys/module/ged/parameters/gx_boost_on", "GED GX boost"),
-                    ("/sys/kernel/fpsgo/common/fpsgo_enable", "MediaTek FPSGO frame pacer"),
-                    ("/sys/kernel/fpsgo/fbt/boost_ta", "FPSGO top-app boost"),
-                    ("/sys/kernel/fpsgo/fbt/ultra_rescue", "FPSGO emergency ultra rescue"),
+                    (MtkHardware::FPSGO_ENABLE, "MediaTek FPSGO frame pacer"),
+                    (MtkHardware::FPSGO_BOOST_TA, "FPSGO top-app boost"),
+                    (MtkHardware::FPSGO_ULTRA_RESCUE, "FPSGO emergency ultra rescue"),
                 ] {
-                    Self::push_op(&mut ops, "GPU", *desc, *node, ged_flag, false);
+                    Self::push_op(&mut ops, "MTK-GPU", *desc, *node, ged_flag, false);
                 }
 
                 // MediaTek GED GPU Boost Amplitude (0=stock, 2=perf, 3=extreme)
                 let boost_amp = if is_extreme { "3" } else if is_perf_or_ext { "2" } else { "0" };
-                Self::push_op(&mut ops, "GPU", "GED boost amplitude", "/sys/module/ged/parameters/boost_amp", boost_amp, false);
+                Self::push_op(&mut ops, "MTK-GPU", "GED boost amplitude", MtkHardware::GED_BOOST_AMP, boost_amp, false);
 
                 let loading_mode = if is_perf_or_ext { "1" } else { "0" };
-                Self::push_op(&mut ops, "GPU", "GED DVFS loading mode", "/sys/kernel/ged/hal/dvfs_loading_mode", loading_mode, false);
+                Self::push_op(&mut ops, "MTK-GPU", "GED DVFS loading mode", MtkHardware::GED_HAL_DVFS, loading_mode, false);
 
                 // MediaTek CoreLink Interconnect (CCI) & Power Mode
                 let power_mode = if is_perf_or_ext { "3" } else if is_powersave { "1" } else { "0" };
                 let cci_mode = if is_perf_or_ext { "1" } else { "0" };
-                Self::push_op(&mut ops, "MTK-CCI", "MediaTek CPU frequency power mode", "/proc/cpufreq/cpufreq_power_mode", power_mode, false);
-                Self::push_op(&mut ops, "MTK-CCI", "MediaTek CCI interconnect mode", "/proc/cpufreq/cpufreq_cci_mode", cci_mode, false);
+                Self::push_op(&mut ops, "MTK-CCI", "MediaTek CPU frequency power mode", MtkHardware::CPUFREQ_POWER_MODE, power_mode, false);
+                Self::push_op(&mut ops, "MTK-CCI", "MediaTek CCI interconnect mode", MtkHardware::CPUFREQ_CCI_MODE, cci_mode, false);
+
+                // MediaTek PPM Policy 9 (PPM_POLICY_SYS_BOOST) & Policy 3 (PPM_POLICY_PWR_THRO)
+                let ppm_sys_boost = if is_perf_or_ext { "9 1" } else { "9 0" };
+                Self::push_op(&mut ops, "MTK-PPM", "MediaTek PPM System Boost Policy", MtkHardware::PPM_POLICY_STATUS, ppm_sys_boost, false);
+                if is_extreme {
+                    Self::push_op(&mut ops, "MTK-PPM", "MediaTek PPM Power Throttling Disable", MtkHardware::PPM_POLICY_STATUS, "3 0", false);
+                } else if is_powersave {
+                    Self::push_op(&mut ops, "MTK-PPM", "MediaTek PPM Power Throttling Restore", MtkHardware::PPM_POLICY_STATUS, "3 1", false);
+                }
+
+                // MediaTek Perfmgr EAS Boosting (Top-App & Foreground)
+                let (ta_boost, fg_boost, uclamp_min_perf, big_task_rot) = if is_extreme {
+                    ("100", "50", "1024", "1")
+                } else if is_perf_or_ext {
+                    ("50", "25", "512", "1")
+                } else {
+                    ("0", "0", "0", "0")
+                };
+                Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr top-app boost", MtkHardware::PERFMGR_TA_BOOST, ta_boost, false);
+                Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr foreground boost", MtkHardware::PERFMGR_FG_BOOST, fg_boost, false);
+                Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr uclamp min", MtkHardware::PERFMGR_UCLAMP_MIN, uclamp_min_perf, false);
+                Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr big task rotation", MtkHardware::PERFMGR_BIG_TASK_ROTATION, big_task_rot, false);
             }
             Vendor::Qualcomm => {
-                let target_b = if profile.cpu.boost { "1" } else { "0" };
+                // ── A. Qualcomm CPU Boost Driver ────────────────────────────
+                let target_input_boost_ms = match profile.name {
+                    "extreme" => "120",
+                    "performance" => "80",
+                    "powersave" => "0",
+                    _ => "40",
+                };
+                let target_sched_boost_input = if is_perf_or_ext || profile.cpu.boost { "1" } else { "0" };
+
+                Self::push_op(
+                    &mut ops,
+                    "Qualcomm",
+                    "Qualcomm CPU input boost duration",
+                    QcomHardware::CPU_BOOST_INPUT_MS,
+                    target_input_boost_ms,
+                    false,
+                );
                 Self::push_op(
                     &mut ops,
                     "Qualcomm",
                     "Qualcomm sched boost on input",
-                    "/sys/module/cpu_boost/parameters/sched_boost_on_input",
-                    target_b,
+                    QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT,
+                    target_sched_boost_input,
                     false,
                 );
 
+                // ── B. Qualcomm WALT Scheduler (Safe Migration Ordering) ────
+                let sched_boost_val = if is_perf_or_ext { "1" } else { "0" };
+                Self::push_op(
+                    &mut ops,
+                    "Qualcomm",
+                    "Qualcomm WALT task placement sched_boost",
+                    QcomHardware::SCHED_BOOST,
+                    sched_boost_val,
+                    false,
+                );
+
+                let (qcom_up, qcom_down) = match profile.name {
+                    "extreme" => ("60 80", "40 60"),
+                    "performance" => ("65 85", "50 70"),
+                    "powersave" => ("90 95", "75 85"),
+                    _ => ("85 95", "65 85"), // Balanced OEM baseline for 3-cluster SM8150
+                };
+
+                // Critical Linux WALT rule: downmigrate must strictly be <= upmigrate.
+                // When lowering thresholds (performance/extreme), lower downmigrate FIRST!
+                // When raising thresholds (powersave/balance), raise upmigrate FIRST!
+                if is_perf_or_ext {
+                    Self::push_op(&mut ops, "Qualcomm", "Qualcomm WALT task downmigrate threshold", QcomHardware::SCHED_DOWNMIGRATE, qcom_down, false);
+                    Self::push_op(&mut ops, "Qualcomm", "Qualcomm WALT task upmigrate threshold", QcomHardware::SCHED_UPMIGRATE, qcom_up, false);
+                } else {
+                    Self::push_op(&mut ops, "Qualcomm", "Qualcomm WALT task upmigrate threshold", QcomHardware::SCHED_UPMIGRATE, qcom_up, false);
+                    Self::push_op(&mut ops, "Qualcomm", "Qualcomm WALT task downmigrate threshold", QcomHardware::SCHED_DOWNMIGRATE, qcom_down, false);
+                }
+
+                let min_task_util = match profile.name {
+                    "extreme" => "0",
+                    "performance" => "10",
+                    "powersave" => "25",
+                    _ => "15",
+                };
+                Self::push_op(&mut ops, "Qualcomm", "Qualcomm WALT min task util for boost", QcomHardware::SCHED_MIN_TASK_UTIL_FOR_BOOST, min_task_util, false);
+                Self::push_op(&mut ops, "Qualcomm", "Qualcomm WALT rotate big tasks", QcomHardware::SCHED_WALT_ROTATE_BIG_TASKS, "1", false);
+
+                let coloc_fmin = if is_perf_or_ext { "1000000" } else if is_powersave { "0" } else { "800000" };
+                Self::push_op(&mut ops, "Qualcomm", "Qualcomm little cluster colocation fmin", QcomHardware::SCHED_LITTLE_CLUSTER_COLOC_FMIN_KHZ, coloc_fmin, false);
+
+                let cstate_aware = if is_extreme { "0" } else { "1" };
+                Self::push_op(&mut ops, "Qualcomm", "Qualcomm WALT C-state power awareness", QcomHardware::SCHED_CSTATE_AWARE, cstate_aware, false);
+
+                // ── C. Qualcomm Core Control (Big & Prime Cluster Unparking) ─
+                let (c4_min, c4_up, c4_down) = match profile.name {
+                    "extreme" => ("3", "40 40 40", "20 20 20"),
+                    "performance" => ("2", "50 50 50", "30 30 30"),
+                    "powersave" => ("0", "80 80 80", "40 40 40"),
+                    _ => ("1", "60 60 60", "30 30 30"),
+                };
+                let (c7_min, c7_up, c7_down) = match profile.name {
+                    "extreme" => ("1", "40", "20"),
+                    "performance" => ("1", "50", "30"),
+                    "powersave" => ("0", "80", "40"),
+                    _ => ("1", "60", "30"),
+                };
+
+                Self::push_op(&mut ops, "Qualcomm", "Qualcomm CPU4-6 Gold core_ctl min_cpus", format!("{}/min_cpus", QcomHardware::CORE_CTL_DIR_CPU4), c4_min, false);
+                Self::push_op(&mut ops, "Qualcomm", "Qualcomm CPU4-6 Gold core_ctl busy_up_thres", format!("{}/busy_up_thres", QcomHardware::CORE_CTL_DIR_CPU4), c4_up, false);
+                Self::push_op(&mut ops, "Qualcomm", "Qualcomm CPU4-6 Gold core_ctl busy_down_thres", format!("{}/busy_down_thres", QcomHardware::CORE_CTL_DIR_CPU4), c4_down, false);
+
+                Self::push_op(&mut ops, "Qualcomm", "Qualcomm CPU7 Prime core_ctl min_cpus", format!("{}/min_cpus", QcomHardware::CORE_CTL_DIR_CPU7), c7_min, false);
+                Self::push_op(&mut ops, "Qualcomm", "Qualcomm CPU7 Prime core_ctl busy_up_thres", format!("{}/busy_up_thres", QcomHardware::CORE_CTL_DIR_CPU7), c7_up, false);
+                Self::push_op(&mut ops, "Qualcomm", "Qualcomm CPU7 Prime core_ctl busy_down_thres", format!("{}/busy_down_thres", QcomHardware::CORE_CTL_DIR_CPU7), c7_down, false);
+
+                // ── D. Qualcomm Adreno KGSL GPU Acceleration ────────────────
                 if cap.gpu.driver == GpuDriver::QcomKgsl {
                     let max_idx = cap.gpu.num_pwrlevels.saturating_sub(1);
                     let target_max_pwr = match profile.name {
@@ -424,12 +530,19 @@ impl HardwareTranslator {
                         _ => "0",
                     };
                     let target_throttling = if is_perf_or_ext { "0" } else { "1" };
+                    let target_thermal_pwr = if is_extreme { "0" } else { "1" };
+                    let target_idle_timer = match profile.name {
+                        "extreme" => "250",
+                        "performance" => "120",
+                        "powersave" => "64",
+                        _ => "80",
+                    };
 
                     Self::push_op(
                         &mut ops,
                         "GPU",
                         "Adreno KGSL max_pwrlevel (lowest clock bound)",
-                        "/sys/class/kgsl/kgsl-3d0/max_pwrlevel",
+                        QcomHardware::KGSL_MAX_PWRLEVEL,
                         target_max_pwr.to_string(),
                         false,
                     );
@@ -437,7 +550,7 @@ impl HardwareTranslator {
                         &mut ops,
                         "GPU",
                         "Adreno KGSL min_pwrlevel (highest clock bound)",
-                        "/sys/class/kgsl/kgsl-3d0/min_pwrlevel",
+                        QcomHardware::KGSL_MIN_PWRLEVEL,
                         target_min_pwr.to_string(),
                         false,
                     );
@@ -445,18 +558,48 @@ impl HardwareTranslator {
                         &mut ops,
                         "GPU",
                         "Adreno KGSL thermal throttling",
-                        "/sys/class/kgsl/kgsl-3d0/throttling",
+                        QcomHardware::KGSL_THROTTLING,
                         target_throttling,
                         false,
                     );
                     Self::push_op(
                         &mut ops,
                         "GPU",
+                        "Adreno KGSL thermal power level clamp",
+                        QcomHardware::KGSL_THERMAL_PWRLEVEL,
+                        target_thermal_pwr,
+                        false,
+                    );
+                    Self::push_op(
+                        &mut ops,
+                        "GPU",
+                        "Adreno KGSL idle clock downscale timer",
+                        QcomHardware::KGSL_IDLE_TIMER,
+                        target_idle_timer,
+                        false,
+                    );
+                    Self::push_op(
+                        &mut ops,
+                        "GPU",
                         "Adreno devfreq boost level",
-                        "/sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost",
+                        QcomHardware::KGSL_ADRENOBOOST,
                         target_adrenoboost,
                         false,
                     );
+
+                    // Extreme hardware rails & zero-latency PMQoS
+                    if is_extreme {
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL bus split disable", QcomHardware::KGSL_BUS_SPLIT, "0", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL force bus always on", QcomHardware::KGSL_FORCE_BUS_ON, "1", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL force clk always on", QcomHardware::KGSL_FORCE_CLK_ON, "1", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL force power rail on", QcomHardware::KGSL_FORCE_RAIL_ON, "1", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL active latency PMQoS", QcomHardware::KGSL_PMQOS_ACTIVE_LATENCY, "0", false);
+                    } else if !is_perf_or_ext {
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL bus split restore", QcomHardware::KGSL_BUS_SPLIT, "1", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL force bus auto restore", QcomHardware::KGSL_FORCE_BUS_ON, "0", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL force clk auto restore", QcomHardware::KGSL_FORCE_CLK_ON, "0", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL force power rail auto restore", QcomHardware::KGSL_FORCE_RAIL_ON, "0", false);
+                    }
                 }
             }
             Vendor::Generic => {}

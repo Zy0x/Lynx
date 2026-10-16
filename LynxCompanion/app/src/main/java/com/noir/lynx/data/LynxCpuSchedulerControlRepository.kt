@@ -124,11 +124,11 @@ internal object LynxCpuSchedulerControlRepository {
                 }
                 "sched_upmigrate" -> {
                     val safe = value.coerceIn(40L, 100L)
-                    "[ -f /proc/sys/kernel/sched_upmigrate ] && echo $safe > /proc/sys/kernel/sched_upmigrate 2>/dev/null; echo ok"
+                    "if [ -f /proc/sys/kernel/sched_upmigrate ]; then cur=\$(cat /proc/sys/kernel/sched_upmigrate 2>/dev/null); if [ \$(echo \"\$cur\" | wc -w) -gt 1 ]; then sec=\$(echo \"\$cur\" | awk '{print \$2}'); [ \"$safe\" -ge \"\$sec\" ] && sec=\$((safe + 10)); echo \"$safe \$sec\" > /proc/sys/kernel/sched_upmigrate 2>/dev/null; else echo $safe > /proc/sys/kernel/sched_upmigrate 2>/dev/null; fi; fi; echo ok"
                 }
                 "sched_downmigrate" -> {
                     val safe = value.coerceIn(20L, 95L)
-                    "[ -f /proc/sys/kernel/sched_downmigrate ] && echo $safe > /proc/sys/kernel/sched_downmigrate 2>/dev/null; echo ok"
+                    "if [ -f /proc/sys/kernel/sched_downmigrate ]; then cur=\$(cat /proc/sys/kernel/sched_downmigrate 2>/dev/null); if [ \$(echo \"\$cur\" | wc -w) -gt 1 ]; then sec=\$(echo \"\$cur\" | awk '{print \$2}'); [ \"$safe\" -ge \"\$sec\" ] && sec=\$((safe + 15)); echo \"$safe \$sec\" > /proc/sys/kernel/sched_downmigrate 2>/dev/null; else echo $safe > /proc/sys/kernel/sched_downmigrate 2>/dev/null; fi; fi; echo ok"
                 }
                 "sched_init_task_load" -> {
                     val safe = value.coerceIn(5L, 100L)

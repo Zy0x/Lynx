@@ -357,6 +357,9 @@ impl HardwareCapability {
             if max_freq_mhz == 0 {
                 max_freq_mhz = available_freqs_mhz.last().copied().unwrap_or(0);
             }
+            if min_freq_mhz > max_freq_mhz && max_freq_mhz > 0 {
+                std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
+            }
 
             let mut available_governors = Vec::new();
             if let Ok(govs_raw) = SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/devfreq/available_governors") {
@@ -434,6 +437,9 @@ impl HardwareCapability {
             if max_freq_mhz == 0 {
                 max_freq_mhz = available_freqs_mhz.last().copied().unwrap_or(0);
             }
+            if min_freq_mhz > max_freq_mhz && max_freq_mhz > 0 {
+                std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
+            }
 
             let cur_governor = SysfsReader::read_trimmed("/sys/kernel/ged/hal/dvfs_loading_mode")
                 .or_else(|_| SysfsReader::read_trimmed("/sys/module/ged/parameters/cpu_boost_policy"))
@@ -485,12 +491,15 @@ impl HardwareCapability {
             let cur_freq_mhz = SysfsReader::read_int::<u64>(devpath.join("cur_freq"))
                 .map(Self::normalize_freq_to_mhz)
                 .unwrap_or(0);
-            let min_freq_mhz = SysfsReader::read_int::<u64>(devpath.join("min_freq"))
+            let mut min_freq_mhz = SysfsReader::read_int::<u64>(devpath.join("min_freq"))
                 .map(Self::normalize_freq_to_mhz)
                 .unwrap_or(0);
-            let max_freq_mhz = SysfsReader::read_int::<u64>(devpath.join("max_freq"))
+            let mut max_freq_mhz = SysfsReader::read_int::<u64>(devpath.join("max_freq"))
                 .map(Self::normalize_freq_to_mhz)
                 .unwrap_or(0);
+            if min_freq_mhz > max_freq_mhz && max_freq_mhz > 0 {
+                std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
+            }
             let cur_governor = SysfsReader::read_trimmed(devpath.join("governor"))
                 .unwrap_or_else(|_| "simple_ondemand".to_string());
             let load_pct = SysfsReader::read_int::<u32>(devpath.join("load")).unwrap_or(0);

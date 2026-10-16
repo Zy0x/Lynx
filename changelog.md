@@ -1,3 +1,25 @@
+# Lynx Universal [Bidirectional Qualcomm & MediaTek Hardware Abstraction & Zero-Loophole Driver Unification] 7.0.0-RC63
+Released on: 2026-10-17
+> **Lynx Universal v7.0.0-RC63** (Lynx Kernel Manager v3.1.16): **Perluasan dan Harmonisasi Menyeluruh Hardware Abstraction Layer (HAL) Dua Arah pada Qualcomm Snapdragon (SM8150 / Adreno 640) dan MediaTek (MT6781 / Mali-G57): Pengenalan Penuh Driver Adreno KGSL (8/8 Parameter Aktif), Qualcomm WALT Scheduler Ordering Safety, Core Control CPU Unparking, Sanitasi Batas Frekuensi OPP GPU & Multi-Cluster WALT Parsing pada UI Companion, Serta Penyempurnaan MediaTek PPM & Perfmgr EAS Tanpa Pengecualian Driver**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC63)
+
+### 1. Lapisan Abstraksi Hardware GPU Dua Arah (Qualcomm Adreno KGSL & MediaTek GED/GPUFreq)
+- **Harmonisasi Parameter Adreno KGSL**: Mengintegrasikan kontrol mendalam untuk driver grafis Qualcomm Adreno 640 (`idle_timer`, `throttling`, `thermal_pwrlevel`, `bus_split`, `force_bus_on`, `force_clk_on`, `force_rail_on`, `pmqos_active_latency`). 8 dari 8 parameter kini berstatus `VERIFIED_WORKING` tanpa pesan "driver tidak dikenali".
+- **Sanitasi Inversi Frekuensi Min/Max OPP**: Menambahkan pengaman inversi frekuensi otomatis pada mesin Rust `capability.rs` dan Kotlin `LynxGpuTelemetryRepository.kt` (`min <= max`), mencegah bug slider terbalik saat driver Adreno menerapkan thermal clamp dinamis.
+- **Dukungan Penuh MediaTek Mali-G57**: Mempertahankan resolusi 49 discrete OPP levels (300 MHz hingga 950 MHz) pada Helio G96 secara simultan.
+
+### 2. Harmonisasi CPU Scheduler & Core Control (Qualcomm WALT vs MediaTek PPM/EAS)
+- **Aturan Ketat Urutan Migrasi WALT (Ordering Safety)**: Mengimplementasikan transactional ordering pada `HardwareTranslator` di mana nilai `sched_downmigrate` diturunkan terlebih dahulu sebelum `sched_upmigrate` saat boost performa, dan sebaliknya saat kembali ke seimbang. Menghilangkan kernel error `EINVAL` (os error 22).
+- **Core Control CPU Unparking**: Mengaktifkan kontrol unparking cluster CPU Big dan Prime pada Qualcomm Snapdragon (`cpu4/core_ctl` dan `cpu7/core_ctl`) saat mode performa tinggi.
+- **Parsing Multi-Cluster WALT**: Memperluas parser Kotlin Companion App agar mendukung pembacaan dan penulisan multi-cluster token WALT Qualcomm (`"65 85"`, `"85 95"`).
+
+### 3. Pengoptimalan Engine Game & Deteksi Foreground Cerdas
+- **Pembersihan Log Berulang Game Subsystem**: Menetralkan spam peringatan pada aplikasi yang tidak memiliki data cache runtime khusus, mempercepat loop evaluasi deteksi top activity ke sub-30ms.
+- **Preservasi Stabilitas TempRoot**: Seluruh eksekusi dan pembaruan daemon terisolasi tanpa memicu gangguan pada mount Magisk TempRoot pada perangkat Sony Xperia 5.
+
+---
+
 # Lynx Universal [Zero-Loophole Mode Guard & Dynamic Voltage-Scaled Bounding] 7.0.0-RC62
 Released on: 2026-10-15
 > **Lynx Universal v7.0.0-RC62** (Lynx Kernel Manager v3.1.23): **Audit Menyeluruh Celah Semua Mode Pengisian Daya: Penutupan Celah Lonjakan Arus Mode Cool Melalui Skalasi Dinamis Arus Input Berbasis Voltase Adaptor (Mencegah Penggandaan Arus Baterai di 9V/10V), Resolusi Total Celah Mode Standar Lebih Cepat Dibanding Mode Hyper dengan Menjaga Kestabilan Timing Pulsa Negosiasi Pump Express Tanpa Interupsi Loop Setiap Detik, Penghapusan Subproses Redundan `dumpsys battery reset` Berkala, Serta Penyelarasan Penuh Skrip Shell Fallback**.

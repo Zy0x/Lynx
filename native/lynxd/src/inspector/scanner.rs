@@ -232,7 +232,7 @@ impl TunableScanner {
         };
 
         let lower_path = path_str.to_lowercase();
-        let category = if ["cpu", "sched", "ppm", "eara", "cpufreq", "hps", "core_ctl", "eas"]
+        let category = if ["cpu", "sched", "ppm", "eara", "cpufreq", "hps", "core_ctl", "eas", "perfmgr"]
             .iter()
             .any(|k| lower_path.contains(k))
         {
@@ -242,6 +242,11 @@ impl TunableScanner {
             .any(|k| lower_path.contains(k))
         {
             "GPU & Graphics"
+        } else if ["devfreq", "bus", "cci", "llcc", "ddr", "cpubw", "gpubw", "snoc"]
+            .iter()
+            .any(|k| lower_path.contains(k))
+        {
+            "Interconnect & Bus"
         } else if ["vm", "ksm", "zram", "lru", "swap", "hugepage", "lowmemorykiller", "process_reclaim"]
             .iter()
             .any(|k| lower_path.contains(k))
@@ -346,9 +351,26 @@ impl TunableScanner {
             "/sys/module/klapse/parameters",
             "/sys/kernel/sound_control",
             "/sys/class/misc/soundcontrol",
+            "/proc/perfmgr/boost_ctrl/eas_ctrl",
+            "/proc/perfmgr/syslimiter",
         ] {
             if Path::new(dir).is_dir() {
                 Self::add_dir_files(&mut candidates, dir);
+            }
+        }
+
+        // Devfreq Interconnect Buses (Qualcomm & MediaTek)
+        if let Ok(entries) = fs::read_dir("/sys/class/devfreq") {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    for node in &["governor", "min_freq", "max_freq", "polling_interval"] {
+                        let np = p.join(node);
+                        if np.is_file() {
+                            candidates.insert(np.to_string_lossy().to_string());
+                        }
+                    }
+                }
             }
         }
 
