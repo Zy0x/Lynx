@@ -97,8 +97,9 @@ class LynxViewModel : ViewModel() {
                             lastSyncedAt = System.currentTimeMillis(),
                         )
                     }
-
-                    // Stage 2: Deep subsystem hydration (non-blocking UI)
+                    if (nativeStatus?.daemonRunning != true) {
+                        LynxRepository.ensureDaemonRunning()
+                    }
                     val backups = LynxRepository.listBackups()
                     val ksmStats = LynxRepository.readKsmStats()
                     val ioDevices = LynxRepository.readIoDevices()

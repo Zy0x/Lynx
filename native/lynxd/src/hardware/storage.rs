@@ -76,8 +76,8 @@ impl StoragePolicy {
         if SysfsReader::read_trimmed(block.join("ro")).ok()?.as_str() != "0" {
             return None;
         }
-        let current = SysfsReader::read_int::<u32>(dev.queue_path.join("read_ahead_kb")).ok()?;
-        Some(current.min(256))
+        let _current = SysfsReader::read_int::<u32>(dev.queue_path.join("read_ahead_kb")).ok()?;
+        Some(1024)
     }
 
     /// Resolve partitions and stacked mappings using sysfs relationships, not name slicing.

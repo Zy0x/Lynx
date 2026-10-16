@@ -18,13 +18,25 @@ impl Default for SwitchingPolicy {
 
 impl SwitchingPolicy {
     /// Validates hardware envelope safety before allowing a boost transition to performance/extreme.
-    pub fn can_boost(&self, telemetry: &DeviceState) -> Result<(), &'static str> {
+    pub fn can_boost_profile(&self, target_profile: &str, telemetry: &DeviceState) -> Result<(), &'static str> {
+        // Mode Extreme: True Unrestricted Mode (Bypass thermal limiter 48°C!)
+        if target_profile == "extreme" {
+            if telemetry.raw.battery.capacity <= 5 {
+                return Err("Battery level <= 5% (Emergency critical battery protection)");
+            }
+            if telemetry.derived.temp_celsius_float >= 60.0 {
+                return Err("Battery temperature >= 60°C (Emergency thermal runaway protection)");
+            }
+            return Ok(());
+        }
+
+        // Standard Performance / Auto Mode:
         // Guard 1: Battery level safety (prevents sudden battery shutdown at low voltage)
         if telemetry.raw.battery.capacity <= self.min_battery_percent {
             return Err("Battery level <= 15% (Low battery guard prevents performance boost)");
         }
 
-        // Guard 2: Thermal throttling safety
+        // Guard 2: Thermal throttling safety (48°C comfort threshold)
         if self.block_boost_on_throttling
             && telemetry.derived.thermal_level == ThermalLevel::Throttling
         {
@@ -32,6 +44,10 @@ impl SwitchingPolicy {
         }
 
         Ok(())
+    }
+
+    pub fn can_boost(&self, telemetry: &DeviceState) -> Result<(), &'static str> {
+        self.can_boost_profile("performance", telemetry)
     }
 }
 

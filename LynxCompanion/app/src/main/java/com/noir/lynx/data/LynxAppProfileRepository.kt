@@ -73,7 +73,7 @@ internal object LynxAppProfileRepository {
             Shell.cmd(
                 "if [ -x '$lynxdPath' ]; then " +
                 "  pkill -f lynx_watcher.sh 2>/dev/null; " +
-                "  $lynxdPath daemon status >/dev/null 2>&1 || nohup $lynxdPath daemon run >/dev/null 2>&1 & " +
+                "  $lynxdPath daemon start >/dev/null 2>&1; " +
                 "elif ! pgrep -f lynx_watcher.sh >/dev/null 2>&1; then " +
                 "  nohup /system/bin/sh /data/adb/lynx/lynx_watcher.sh >/dev/null 2>&1 & " +
                 "fi"

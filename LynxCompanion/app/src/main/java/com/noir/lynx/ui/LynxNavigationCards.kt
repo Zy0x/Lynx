@@ -56,6 +56,7 @@ import com.noir.lynx.designsystem.controls.*
 import com.noir.lynx.designsystem.tweak.*
 import com.noir.lynx.designsystem.profile.*
 import com.noir.lynx.feature.navigation.model.TuningCategory
+import com.noir.lynx.feature.navigation.model.ToolsCategory
 
 // ============================================================
 //  Live Hardware Telemetry Card — Luxury Bento-Box Layout
@@ -197,6 +198,123 @@ fun TuningBentoCard(
         onClick = onClick,
         modifier = modifier
     )
+}
+
+@Composable
+fun ToolCategoryCard(
+    category: ToolsCategory,
+    badgeText: String,
+    detailText1: String,
+    detailText2: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 88.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = BgCard,
+        border = BorderStroke(0.8.dp, BorderSubtle),
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Left Icon Tile (min 48x48 touch visual)
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = category.icon,
+                        contentDescription = com.noir.lynx.core.locale.localizedUiText(category.title),
+                        tint = category.accentColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            // Middle Info Column
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Title + Subtle Badge Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = category.title,
+                        color = TextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+
+                    if (badgeText.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.8.dp, BorderSubtle)
+                        ) {
+                            Text(
+                                text = badgeText,
+                                color = category.accentColor,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(3.dp))
+
+                Text(
+                    text = category.subtitle,
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 15.sp,
+                    maxLines = 1
+                )
+
+                val statusItems = listOfNotNull(
+                    detailText1.takeIf { it.isNotBlank() },
+                    detailText2.takeIf { it.isNotBlank() }
+                )
+                if (statusItems.isNotEmpty()) {
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        text = statusItems.joinToString("  •  "),
+                        color = TextTertiary,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            // Right Chevron
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = com.noir.lynx.core.locale.localizedUiText(category.title),
+                tint = TextTertiary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
 }
 
 // ============================================================

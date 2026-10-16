@@ -113,12 +113,26 @@ fun MainDashboard(
     val toolsFling = rememberFluidFlingBehavior()
     val subscreenFling = rememberFluidFlingBehavior()
     var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
+
+    var selectedToolsCategory by rememberSaveable { mutableStateOf<String?>(null) }
+    val toolsHubLazyState = rememberLazyListState()
+    val toolsSubscreenLazyState = rememberLazyListState()
+    val toolsHubFling = rememberFluidFlingBehavior()
+    val toolsSubscreenFling = rememberFluidFlingBehavior()
+
     LaunchedEffect(Unit) {
         viewModel.syncHudPrefs(context)
     }
     BackHandler(enabled = uiState.currentTab == 1 && selectedCategory != null) {
         android.util.Log.i("LynxNavigation", "system-back category=$selectedCategory scrolling=${subscreenLazyState.isScrollInProgress}")
         selectedCategory = null
+    }
+    BackHandler(enabled = (uiState.currentTab == 2 || uiState.currentTab == 3) && selectedToolsCategory != null) {
+        android.util.Log.i("LynxNavigation", "system-back toolsCategory=$selectedToolsCategory")
+        selectedToolsCategory = null
+    }
+    LaunchedEffect(selectedToolsCategory) {
+        toolsSubscreenLazyState.scrollToItem(0)
     }
     LaunchedEffect(selectedCategory) {
         subscreenLazyState.scrollToItem(0)
@@ -586,8 +600,21 @@ fun MainDashboard(
                 onExtremeConfirmRequired = onExtremeConfirmRequired
             )
 
-            // ── TAB 2 & 3: TOOLS & FLASHER ──────────────────────────────
-            2, 3 -> ToolsTabContent(uiState, viewModel, toolsLazyState, toolsFling)
+            // ── TAB 2 & 3: TOOLS & FLASHER (CATEGORIZED TOOLS & LAB HUB) ─
+            2, 3 -> ToolsTabContent(
+                uiState = uiState,
+                viewModel = viewModel,
+                selectedCategory = selectedToolsCategory,
+                onSelectedCategoryChange = { selectedToolsCategory = it },
+                toolsHubLazyState = toolsHubLazyState,
+                toolsHubFling = toolsHubFling,
+                toolsSubscreenLazyState = toolsSubscreenLazyState,
+                toolsSubscreenFling = toolsSubscreenFling,
+                onNavigateToTuning = { targetCategory ->
+                    selectedCategory = targetCategory
+                    viewModel.switchTab(1)
+                }
+            )
         }
 
         // ── 2. Subtle Bottom Atmospheric Vignette (Soft content pass-through) ──

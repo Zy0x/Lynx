@@ -55,6 +55,48 @@ impl GpuController {
         let (vendor, _) = ScoreBoard::evaluate();
         let gpu = HardwareCapability::resolve_gpu(vendor);
 
+        if target_min == 0 && target_max == 0 {
+            match gpu.driver {
+                GpuDriver::QcomKgsl => {
+                    let min_f = gpu.available_freqs_mhz.first().copied().unwrap_or(160);
+                    let max_f = gpu.available_freqs_mhz.last().copied().unwrap_or(710);
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_clock_mhz", min_f.to_string());
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_clock_mhz", max_f.to_string());
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", (min_f * 1_000_000).to_string());
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/max_freq", (max_f * 1_000_000).to_string());
+                    return "Adreno GPU clock reset to Auto DVFS.".to_string();
+                }
+                GpuDriver::MtkGed | GpuDriver::MtkGpufreq => {
+                    Self::write_opt("/proc/gpufreq/gpufreq_opp_freq", "0");
+                    Self::write_opt("/proc/gpufreqv2/gpufreq_opp_freq", "0");
+                    let min_khz = gpu.available_freqs_mhz.first().copied().unwrap_or(300) * 1000;
+                    let max_khz = gpu.available_freqs_mhz.last().copied().unwrap_or(950) * 1000;
+                    Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", min_khz.to_string());
+                    Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", min_khz.to_string());
+                    Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", max_khz.to_string());
+                    if let Some(min_opp) = gpu.opp_table.last() {
+                        Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", min_opp.index.to_string());
+                    }
+                    if let Some(max_opp) = gpu.opp_table.first() {
+                        Self::write_opt("/sys/kernel/ged/hal/custom_upbound_gpu_freq", max_opp.index.to_string());
+                    }
+                    return "MediaTek Mali GPU clock reset to Auto DVFS (0).".to_string();
+                }
+                GpuDriver::GenericDevfreq => {
+                    if let (Some(ref devpath), Some(&min_mhz), Some(&max_mhz)) = (
+                        &gpu.devfreq_path,
+                        gpu.available_freqs_mhz.first(),
+                        gpu.available_freqs_mhz.last(),
+                    ) {
+                        Self::write_opt(devpath.join("min_freq"), (min_mhz * 1_000_000).to_string());
+                        Self::write_opt(devpath.join("max_freq"), (max_mhz * 1_000_000).to_string());
+                    }
+                    return "Devfreq GPU clock reset to Auto DVFS.".to_string();
+                }
+                GpuDriver::Unsupported => return "GPU frequency control is not exposed on this kernel.".to_string(),
+            }
+        }
+
         // Snap to real hardware OPP frequencies if available
         if !gpu.available_freqs_mhz.is_empty() {
             target_min = gpu

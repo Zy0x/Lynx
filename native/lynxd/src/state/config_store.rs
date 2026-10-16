@@ -75,9 +75,133 @@ impl ConfigStore {
         }
     }
 
+pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
+  "version": 1,
+  "module_version": "3.0.0",
+  "release_type": "beta",
+  "active_profile": "balance",
+  "setup_pending": false,
+  "media": {
+    "decoder_mode": "system",
+    "decoder_apply_on_boot": false
+  },
+  "target_soc": "generic",
+  "is_spoofed": false,
+  "engine": {
+    "native_enabled": true,
+    "legacy_fallback": true,
+    "failure_threshold": 3,
+    "consecutive_failures": 0,
+    "last_failure_reason": "",
+    "failure_history": []
+  },
+  "hardware": {
+    "soc_type": "generic",
+    "soc_name": "Generic Linux",
+    "is_overclocked": false
+  },
+  "overclock": {
+    "enabled": false,
+    "cpu_floor_ratio": 85,
+    "zram_size_mb": 2048,
+    "swappiness": 80,
+    "custom_scaling_min": 0,
+    "custom_scaling_max": 0
+  },
+  "memory": {
+    "zram_enabled": true,
+    "zram_size_mb": 2048,
+    "comp_algorithm": "auto",
+    "swappiness": 80,
+    "mglru_enabled": true
+  },
+  "charging": {
+    "charging_mode": "standard",
+    "bypass_enabled": false,
+    "extreme_charging_enabled": false,
+    "temp_cutoff_c": 45,
+    "limit_current_ma": 2000,
+    "max_battery_percent": 80,
+    "auto_cut_enabled": true
+  },
+  "uclamp": {
+    "game_min_ratio": 70,
+    "game_max_ratio": 100,
+    "balance_min_ratio": 20,
+    "schedutil_up_rate_us": 500,
+    "schedutil_down_rate_us": 20000
+  },
+  "display_touch": {
+    "touchboost": true,
+    "refresh_rate_lock": 120,
+    "surfaceflinger_offset_ns": 2000000,
+    "skia_vulkan_enabled": false
+  },
+  "network": {
+    "wifi_ping_stabilizer": true,
+    "tcp_congestion": "bbr",
+    "fq_codel_enabled": true,
+    "wifi_power_save_in_game": false
+  },
+  "adb_keepalive": {
+    "enabled": false,
+    "port": 5555
+  },
+  "audio": {
+    "low_latency_mmap": true,
+    "fast_track_enabled": true,
+    "bt_crackle_guard": true
+  },
+  "oem_neutralizer": {
+    "joyose_neutralize": true,
+    "gos_neutralize": true,
+    "freeze_method": "sigstop"
+  },
+  "thermal": {
+    "full_bypass": false,
+    "custom_temp_limit_c": 50,
+    "trip_point_override_c": 150
+  },
+  "game_manager": {
+    "auto_detect_games": true,
+    "custom_apps": []
+  },
+  "features": {
+    "touchboost": true,
+    "network_boost": true,
+    "audio_mmap": true,
+    "oem_neutralizer": true,
+    "unity_trick": false,
+    "sched_features": true
+  },
+  "diagnostics": {
+    "log_level": "verbose",
+    "last_bugreport": ""
+  }
+}
+"#;
+
     pub fn read_raw() -> Result<String, String> {
         let path = Self::resolve_config_path();
-        fs::read_to_string(&path).map_err(|e| format!("Failed to read {}: {}", path.display(), e))
+        let content = match fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(_) => {
+                let fallback = Self::DEFAULT_CONFIG_TEMPLATE.to_string();
+                if let Some(parent) = path.parent() {
+                    let _ = fs::create_dir_all(parent);
+                }
+                let _ = fs::write(&path, &fallback);
+                return Ok(fallback);
+            }
+        };
+
+        if content.contains('\0') || content.trim().is_empty() || !content.trim().starts_with('{') {
+            let fallback = Self::DEFAULT_CONFIG_TEMPLATE.to_string();
+            let _ = fs::write(&path, &fallback);
+            Ok(fallback)
+        } else {
+            Ok(content)
+        }
     }
 
     /// Fast O(N) single-pass lookup of a top-level or `section.field` key in `config.json`.
@@ -191,8 +315,14 @@ impl ConfigStore {
 
     fn set_batch_locked(updates: &[(String, String, Option<String>)]) -> Result<(), String> {
         let path = Self::resolve_config_path();
-        let mut content = fs::read_to_string(&path)
-            .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+        let mut content = match fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(_) => Self::DEFAULT_CONFIG_TEMPLATE.to_string(),
+        };
+
+        if content.contains('\0') || content.trim().is_empty() || !content.trim().starts_with('{') {
+            content = Self::DEFAULT_CONFIG_TEMPLATE.to_string();
+        }
 
         for (key, raw_val, hint) in updates {
             let formatted_val = Self::format_json_value(raw_val, hint.as_deref());
@@ -212,6 +342,7 @@ impl ConfigStore {
             file.write_all(content.as_bytes())
                 .map_err(|e| format!("Failed to write temp config: {}", e))?;
             let _ = file.flush();
+            let _ = file.sync_all();
         }
 
         #[cfg(unix)]

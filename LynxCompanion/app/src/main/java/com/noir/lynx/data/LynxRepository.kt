@@ -164,6 +164,11 @@ object LynxRepository {
      */
     suspend fun readNativeStatus(): NativeEngineStatus? = LynxNativeStatusRepository.readNativeStatus()
 
+    suspend fun ensureDaemonRunning(): Boolean = withContext(Dispatchers.IO) {
+        if (!isModuleInstalled()) return@withContext false
+        com.topjohnwu.superuser.Shell.cmd("[ -x '$MODULE_DIR/system/bin/lynxd' ] && '$MODULE_DIR/system/bin/lynxd' daemon start >/dev/null 2>&1").exec().isSuccess
+    }
+
     val lockedClusterBounds = java.util.concurrent.ConcurrentHashMap<Int, Pair<Long, Long>>()
     val explicitlyUnlockedClusters = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
 

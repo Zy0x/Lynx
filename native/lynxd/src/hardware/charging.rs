@@ -389,8 +389,13 @@ impl ChargingRegulator {
         #[cfg(unix)]
         {
             if let Ok(meta) = fs::metadata(path) {
+                let effective_mode = if meta.is_dir() {
+                    (mode & 0o777) | 0o111
+                } else {
+                    mode
+                };
                 let mut perms = meta.permissions();
-                perms.set_mode(mode);
+                perms.set_mode(effective_mode);
                 return fs::set_permissions(path, perms).is_ok();
             }
             false
@@ -399,6 +404,26 @@ impl ChargingRegulator {
         {
             let _ = (path, mode);
             true
+        }
+    }
+
+    /// Guarantees that Android Health HAL and BatteryService can always traverse and inspect power_supply sysfs nodes.
+    pub fn ensure_power_supply_traversal() {
+        const CRITICAL_DIRS: &[&str] = &[
+            "/sys/class/power_supply",
+            "/sys/devices/platform/battery",
+            "/sys/devices/platform/battery/power_supply",
+            "/sys/devices/platform/battery/power_supply/battery",
+            "/sys/devices/platform/charger",
+            "/sys/devices/platform/mt_charger",
+            "/sys/devices/platform/mt_charger/power_supply",
+            "/sys/devices/platform/odm/odm:tran_battery",
+            "/sys/devices/platform/odm/odm:tran_battery/power_supply",
+        ];
+        for &dir in CRITICAL_DIRS {
+            if Path::new(dir).is_dir() {
+                Self::set_perm(dir, 0o755);
+            }
         }
     }
 
@@ -511,9 +536,10 @@ impl ChargingRegulator {
                             continue;
                         }
                         let mut matches = false;
+                        let mut cmd = String::new();
                         let cmdline_path = format!("/proc/{}/cmdline", pid);
                         if let Ok(bytes) = fs::read(&cmdline_path) {
-                            let cmd = String::from_utf8_lossy(&bytes).to_lowercase();
+                            cmd = String::from_utf8_lossy(&bytes).to_lowercase();
                             if patterns.iter().any(|p| cmd.contains(p)) {
                                 matches = true;
                             }
@@ -528,6 +554,15 @@ impl ChargingRegulator {
                             }
                         }
                         if matches {
+                            // Critical Guard: NEVER stop system server, Android hardware thermal HAL, or core services
+                            if stop
+                                && (cmd.contains("hardware.thermal")
+                                    || cmd.contains("thermal@")
+                                    || cmd.contains("system_server")
+                                    || cmd.contains("init"))
+                            {
+                                continue;
+                            }
                             unsafe {
                                 let _ = kill(pid, sig);
                             }
@@ -714,6 +749,8 @@ impl ChargingRegulator {
             "/sys/class/power_supply/battery/charging_limit_mode",
             "/sys/class/power_supply/battery/mmi_charging_enable",
             "/sys/class/power_supply/battery/factory_mode",
+            "/sys/devices/platform/odm/odm:tran_battery/Charging_CallState",
+            "/sys/devices/platform/tran_battery/Charging_CallState",
             "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug",
             "/sys/devices/platform/tran_battery/pcb_thermal_debug",
             "/sys/devices/platform/pca_dv2_algo/dv2_debug",
@@ -883,18 +920,15 @@ impl ChargingRegulator {
             hw_ceiling.max(12000)
         };
 
-        // Utilize target_soc: 0-80% full max, 80-90% ~80% speed (3200mA), 90-95% 2200mA, 95%+ 1000mA
+        // Utilize target_soc: In Hyper mode, do NOT clamp to 3200mA at 80% or 2200mA at 90%!
+        // Unrestricted maximum peak current until 99% or AutoCut!
         let effective_ma = if Self::is_laptop_port() {
             1500
-        } else if target_soc > 0 && cur_cap >= target_soc {
+        } else if cur_cap >= 99 {
+            1500
+        } else if target_soc > 0 && target_soc < 100 && cur_cap >= target_soc {
             let (_, taper_ma) = Self::determine_taper_state(cur_cap, v_clean_mv);
             target_peak_ma.min(taper_ma)
-        } else if cur_cap >= 95 {
-            1000
-        } else if cur_cap >= 90 {
-            2200
-        } else if cur_cap >= 80 {
-            3200
         } else {
             target_peak_ma
         };
@@ -938,6 +972,9 @@ impl ChargingRegulator {
         Self::write_node_lock(&format!("{}/tran_game_mode", MTK_DIR), "0");
         Self::write_node_lock(&format!("{}/bypass_charger", MTK_DIR), "0");
         Self::write_node_lock(&format!("{}/sw_jeita", MTK_DIR), "0");
+        Self::write_node_lock(&format!("{}/sc_tuisoc", MTK_DIR), "100");
+        Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
+        Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "0");
 
         // R2 Thermal Neutralization
         Self::apply_charger_thermal_neutralization();
@@ -1277,39 +1314,51 @@ impl ChargingRegulator {
     /// 6. Overrides Qualcomm system_temp_level and thermal_input_current_limit.
     /// 7. Suspends aggressive OEM thermal daemons (thermalloadalgod, joyose, mi_thermald, thermal-engine).
     /// 8. Overrides Android framework thermal status to 0 (THERMAL_STATUS_NONE).
+    pub const THERMAL_PROCESS_NAMES: &[&str] = &[
+        "thermalloadalgod",
+        "com.xiaomi.joyose",
+        "mi_thermald",
+        "thermal-engine",
+        "thermal-engine-v2",
+    ];
+
     pub fn apply_charger_thermal_neutralization() {
-        // 1. Transsion Motherboard PCB Thermal Throttling Calibrated 3-Stage Curve (<55C: 33W, 55-58C: 25W, >58C: 18W)
+        // 1. Transsion Motherboard PCB Thermal Throttling: In Hyper Mode, allow full 6000mA at all temps
         for node in &[
             format!("{}/pcb_thermal_debug", TRAN_BATTERY_ODM_DIR),
             format!("{}/pcb_thermal_debug", TRAN_BATTERY_DIR),
         ] {
             if Path::new(node).exists() {
-                Self::write_node_lock(node, "[55,4500,58,3200,2500]");
+                Self::write_node_lock(node, "[95,6000,100,6000,6000000]");
             }
         }
 
-        // 2. Transsion Direct Charge Pump DV2 In-Memory Thermal Table Calibrated 3-Stage Curve
+        // 2. Transsion Direct Charge Pump DV2 In-Memory Thermal Table: Override thresholds & currents to 6000mA
         let dv2_debug = format!("{}/dv2_debug", PCA_DV2_DIR);
         if Path::new(&dv2_debug).exists() {
-            Self::write_node_lock(&dv2_debug, "[101,55,58,60,4500,3200,2500]");
-            Self::write_node_lock(&dv2_debug, "[102,75,80,85,600,900,1200]");
+            Self::write_node_lock(&dv2_debug, "[101,85,88,90,6000,6000,6000]");
+            Self::write_node_lock(&dv2_debug, "[102,85,88,90,6000,6000,6000]");
         }
 
-        // 3. Synchronize authentic Battery_Temperature for accurate stage transitions
-        Self::sync_authentic_battery_temp();
+        // 3. Lock Charging_CallState to 0 to prevent dv2_algo_task screen-on clamp (1500mA)
+        Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
+        Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "0");
 
-        // 4. MediaTek ABCCT PID Thermal Derater Neutralization
+        // 4. In Hyper Mode, lock Battery_Temperature to 25°C with 0444 so kernel battery driver never derates current
+        Self::write_node_lock(BATT_TEMP_NODE, "25");
+
+        // 5. MediaTek ABCCT PID Thermal Derater Neutralization: verified syntax
         if Path::new(CLABCCT_LCMOFF_NODE).exists() {
-            Self::write_node_lock(CLABCCT_LCMOFF_NODE, "0 70000 1000 200000 5 6000 0");
+            Self::write_node_lock(CLABCCT_LCMOFF_NODE, "1 70000 1000 200000 6000 6000 0 6000 0");
         }
         if Path::new(CLABCCT_NODE).exists() {
-            Self::write_node_lock(CLABCCT_NODE, "0 70000 1000 200000 5 6000 0");
+            Self::write_node_lock(CLABCCT_NODE, "70000 1000 200000 6000 6000 0 1 1 0");
         }
 
-        // 5. Freeze BCCT & ABCCT Cooling Devices (53-57) to state 0 locked
+        // 6. Freeze BCCT & ABCCT Cooling Devices (53-57) to state 0 locked
         Self::set_bcct_throttle(false);
 
-        // Disable MediaTek AP Thermal Zones that trigger ABCCT throttling
+        // Raise trip points and disable MediaTek AP / battery thermal zones that trip ABCCT
         if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
             for entry in entries.flatten() {
                 let name = entry.file_name();
@@ -1318,10 +1367,16 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower == "mtktsap" || t_lower == "battery" {
+                        if t_lower == "mtktsap" || t_lower == "battery" || t_lower == "mtktsbattery" {
                             let mode_path = format!("/sys/class/thermal/{}/mode", name_str);
                             if Path::new(&mode_path).exists() {
                                 Self::write_node_lock(&mode_path, "disabled");
+                            }
+                            for trip_idx in 0..5 {
+                                let trip_path = format!("/sys/class/thermal/{}/trip_point_{}_temp", name_str, trip_idx);
+                                if Path::new(&trip_path).exists() {
+                                    Self::write_node_lock(&trip_path, "99000");
+                                }
                             }
                         }
                     }
@@ -1329,19 +1384,16 @@ impl ChargingRegulator {
             }
         }
 
-        // 6. Qualcomm Snapdragon Platform Thermal Uncaps
+        // 7. Qualcomm Snapdragon Platform Thermal Uncaps
         Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
         Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/temp_state", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
 
-        // 7. Suspend aggressive userspace thermal throttlers via SIGSTOP
-        Self::signal_processes(
-            &["thermalloadalgod", "com.xiaomi.joyose", "mi_thermald", "thermal-engine", "thermal-engine-v2"],
-            true,
-        );
+        // 8. Suspend aggressive userspace thermal throttlers via SIGSTOP (including Transsion /vendor/bin/thermal)
+        Self::signal_processes(Self::THERMAL_PROCESS_NAMES, true);
 
-        // 8. Override Android framework thermal status to 0 (THERMAL_STATUS_NONE)
+        // 9. Override Android framework thermal status to 0 (THERMAL_STATUS_NONE)
         let _ = std::process::Command::new("cmd")
             .args(["thermalservice", "override-status", "0"])
             .output();
@@ -1370,10 +1422,17 @@ impl ChargingRegulator {
             Self::set_perm(&dv2_debug, 0o644);
         }
 
-        // 3. Restore Battery_Temperature to genuine physical battery temperature
+        // 3. Unlock Charging_CallState
+        Self::set_perm("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", 0o666);
+        Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
+        Self::set_perm("/sys/devices/platform/tran_battery/Charging_CallState", 0o666);
+        Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
+
+        // 4. Restore Battery_Temperature to genuine physical battery temperature
+        Self::set_perm(BATT_TEMP_NODE, 0o666);
         Self::sync_authentic_battery_temp();
 
-        // 4. Restore MediaTek ABCCT PID controllers to OEM setpoints
+        // 5. Restore MediaTek ABCCT PID controllers to OEM setpoints
         if Path::new(CLABCCT_LCMOFF_NODE).exists() {
             Self::set_perm(CLABCCT_LCMOFF_NODE, 0o666);
             let _ = fs::write(CLABCCT_LCMOFF_NODE, "1 43000 1000 200000 5 2000 0");
@@ -1385,10 +1444,10 @@ impl ChargingRegulator {
             Self::set_perm(CLABCCT_NODE, 0o644);
         }
 
-        // 5. Unlock cooling devices permissions so kernel can modulate them
+        // 6. Unlock cooling devices permissions so kernel can modulate them
         Self::unlock_bcct();
 
-        // Re-enable MediaTek AP Thermal Zones
+        // Re-enable MediaTek AP Thermal Zones and restore OEM trip points
         if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
             for entry in entries.flatten() {
                 let name = entry.file_name();
@@ -1397,12 +1456,29 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower == "mtktsap" || t_lower == "battery" {
+                        if t_lower == "mtktsap" || t_lower == "battery" || t_lower == "mtktsbattery" {
                             let mode_path = format!("/sys/class/thermal/{}/mode", name_str);
                             if Path::new(&mode_path).exists() {
                                 Self::set_perm(&mode_path, 0o666);
                                 let _ = fs::write(&mode_path, "enabled");
                                 Self::set_perm(&mode_path, 0o644);
+                            }
+                            if t_lower == "mtktsap" {
+                                const OEM_TRIP_POINTS: &[(&str, &str)] = &[
+                                    ("trip_point_0_temp", "100000"),
+                                    ("trip_point_1_temp", "90000"),
+                                    ("trip_point_2_temp", "54000"),
+                                    ("trip_point_3_temp", "42000"),
+                                    ("trip_point_4_temp", "41000"),
+                                ];
+                                for (tp, val) in OEM_TRIP_POINTS {
+                                    let tp_path = format!("/sys/class/thermal/{}/{}", name_str, tp);
+                                    if Path::new(&tp_path).exists() {
+                                        Self::set_perm(&tp_path, 0o666);
+                                        let _ = fs::write(&tp_path, val);
+                                        Self::set_perm(&tp_path, 0o644);
+                                    }
+                                }
                             }
                         }
                     }
@@ -1410,13 +1486,10 @@ impl ChargingRegulator {
             }
         }
 
-        // 6. Resume suspended userspace thermal daemons via SIGCONT
-        Self::signal_processes(
-            &["thermalloadalgod", "com.xiaomi.joyose", "mi_thermald", "thermal-engine", "thermal-engine-v2"],
-            false,
-        );
+        // 7. Resume suspended userspace thermal daemons via SIGCONT
+        Self::signal_processes(Self::THERMAL_PROCESS_NAMES, false);
 
-        // 7. Reset Android framework thermal status
+        // 8. Reset Android framework thermal status
         let _ = std::process::Command::new("cmd")
             .args(["thermalservice", "reset"])
             .output();
@@ -1578,6 +1651,7 @@ impl ChargingRegulator {
 
     /// Evaluates `config.json` and live battery state, applying the appropriate charging mode immediately.
     pub fn apply_from_config() {
+        Self::ensure_power_supply_traversal();
         if !Self::is_hardware_plugged() {
             Self::handle_disconnect();
             return;
@@ -1597,25 +1671,28 @@ impl ChargingRegulator {
 
         let is_hyper = cfg.charging_mode == "hyper" || cfg.extreme_charging_enabled;
 
-        // Tier 1: Critical Hardware Thermal Guard (Active in ALL modes, including Hyper)
-        // Genuine physical cell safety ceiling is 50.0°C (500 dC).
-        // Software trip points (41°C/43°C/45°C) are bypassed, but physical cell integrity is non-negotiable.
-        const EMERGENCY_CUTOFF_DC: i64 = 500;   // 50.0°C
-        const EMERGENCY_RECOVERY_DC: i64 = 450; // 45.0°C hysteresis buffer
+        // Tier 1: Critical Hardware Thermal Guard (Active in Non-Hyper modes).
+        // In Hyper Mode, all restrictions are released so charging stays at peak speed.
+        if !is_hyper {
+            const EMERGENCY_CUTOFF_DC: i64 = 500;   // 50.0°C
+            const EMERGENCY_RECOVERY_DC: i64 = 450; // 45.0°C hysteresis buffer
 
-        let is_emergency_latched = Path::new("/dev/lynx_charging_guard").exists();
+            let is_emergency_latched = Path::new("/dev/lynx_charging_guard").exists();
 
-        if real_dc >= EMERGENCY_CUTOFF_DC || (is_emergency_latched && real_dc > EMERGENCY_RECOVERY_DC) {
-            let _ = fs::write(
-                "/dev/lynx_charging_guard",
-                format!("guard_active=true emergency_cutoff=true temp={}\n", real_dc),
-            );
-            let _ = fs::remove_file("/dev/lynx_extreme_charging");
-            // Drop charge pump and clamp input current to 750 mA safe cooling level
-            Self::apply_regulated_charging(750);
-            return;
-        } else if is_emergency_latched && real_dc <= EMERGENCY_RECOVERY_DC {
-            // Temperature safely recovered below 45.0°C: clear emergency latch
+            if real_dc >= EMERGENCY_CUTOFF_DC || (is_emergency_latched && real_dc > EMERGENCY_RECOVERY_DC) {
+                let _ = fs::write(
+                    "/dev/lynx_charging_guard",
+                    format!("guard_active=true emergency_cutoff=true temp={}\n", real_dc),
+                );
+                let _ = fs::remove_file("/dev/lynx_extreme_charging");
+                // Drop charge pump and clamp input current to 750 mA safe cooling level
+                Self::apply_regulated_charging(750);
+                return;
+            } else if is_emergency_latched && real_dc <= EMERGENCY_RECOVERY_DC {
+                // Temperature safely recovered below 45.0°C: clear emergency latch
+                let _ = fs::remove_file("/dev/lynx_charging_guard");
+            }
+        } else {
             let _ = fs::remove_file("/dev/lynx_charging_guard");
         }
 
@@ -1916,10 +1993,7 @@ impl ChargingRegulator {
         }
 
         Self::restore_charger_thermal_safety();
-        Self::signal_processes(
-            &["thermalloadalgod", "com.xiaomi.joyose", "mi_thermald", "thermal-engine", "thermal-engine-v2"],
-            false,
-        );
+        Self::signal_processes(Self::THERMAL_PROCESS_NAMES, false);
     }
 
     fn capture_charging_session_baseline() {
@@ -2029,9 +2103,11 @@ impl ChargingRegulator {
             || Path::new("/sys/bus/i2c/drivers/max77759").exists();
 
         let has_qcom_hw = Path::new("/sys/class/qcom-battery").exists()
+            || Path::new("/sys/class/power_supply/bms").exists()
             || Path::new("/sys/class/power_supply/smb1390").exists()
             || Path::new("/sys/class/power_supply/smb1355").exists()
-            || Path::new("/sys/class/power_supply/smb1351").exists();
+            || Path::new("/sys/class/power_supply/smb1351").exists()
+            || Path::new("/sys/bus/platform/drivers/pm8150b_charger").exists();
 
         let platform = if has_tran_hw {
             ChargingHardwarePlatform::Transsion

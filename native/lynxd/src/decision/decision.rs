@@ -123,7 +123,7 @@ impl DecisionEngine {
 
             // B. If current profile does not match requested_profile, switch!
             if self.current_profile != requested_profile {
-                match self.policy.can_boost(telemetry) {
+                match self.policy.can_boost_profile(requested_profile, telemetry) {
                     Ok(_) => {
                         self.adaptive.reset();
                         return DecisionAction::ApplyProfile {

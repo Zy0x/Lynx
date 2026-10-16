@@ -39,6 +39,7 @@
     "mglru_enabled": true
   },
   "charging": {
+    "charging_mode": "standard",
     "bypass_enabled": false,
     "extreme_charging_enabled": false,
     "temp_cutoff_c": 45,

@@ -127,7 +127,14 @@ internal object LynxAppStateRepository {
                 } else ""
             }
             val baseProf = LynxRepository.readCurrentProfileFast()
-            if (raw.isBlank()) return@withContext LynxState(activeProfile = baseProf)
+            if (raw.isBlank() || raw.contains('\u0000') || !raw.trim().startsWith("{")) {
+                Log.w(STATE_TAG, "Config corrupted or invalid, attempting self-heal via lynxd...")
+                val healed = Shell.cmd("'$LYNXD_PATH' state list 2>/dev/null").exec().out.joinToString("\n")
+                if (healed.isNotBlank() && healed.trim().startsWith("{") && !healed.contains('\u0000')) {
+                    return@withContext LynxStateParser.parseStateJson(healed, readTargetSocFile(), LynxRepository.readCurrentProfileFast())
+                }
+                return@withContext LynxState(activeProfile = baseProf)
+            }
 
             LynxStateParser.parseStateJson(raw, readTargetSocFile(), LynxRepository.readCurrentProfileFast())
         } catch (e: Exception) {

@@ -142,6 +142,12 @@
                         <option value="">Memuat governor...</option>
                     </select>
                 </div>
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 11.5px; color: var(--text-secondary);">Kunci Frekuensi GPU (Target OPP Hardware):</label>
+                    <select id="web-gpu-freq-select" onchange="setWebGpuFreq(this.value)" style="width: 100%; margin-top: 4px; padding: 6px 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-primary); border-radius: 6px; font-size: 12px;">
+                        <option value="0">Auto (Dynamic DVFS / Hemat Idle)</option>
+                    </select>
+                </div>
                 <div>
                     <label style="font-size: 11.5px; color: var(--text-secondary);">Tingkat MTK GED / Adreno Boost:</label>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px;">
@@ -186,6 +192,19 @@
                     <span class="switch-label">Mode Kernel Overclock (OC)</span>
                     <label class="switch">
                         <input type="checkbox" id="oc-toggle" onchange="updateStateKey('overclock.enabled', this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="switch-row" style="margin-top: 10px;">
+                    <div>
+                        <span class="switch-label">Mode Gaming Dingin (Anti-Overheat)</span>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">
+                            Mencegah HP cepat panas & menjaga FPS tetap stabil dengan optimasi kluster prosesor cerdas.
+                        </div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="thermal-shield-toggle" checked onchange="updateStateKey('cpu.anti_heat_mode', this.checked)">
                         <span class="slider"></span>
                     </label>
                 </div>

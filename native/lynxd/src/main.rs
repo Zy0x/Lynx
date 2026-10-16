@@ -486,6 +486,38 @@ fn handle_daemon_run() {
     }
 }
 
+fn handle_daemon_start() {
+    if let Some(pid) = DaemonLifecycle::check_status() {
+        println!("{}", ui(&format!("Daemon Lynx sudah berjalan (PID: {})", pid), &format!("Lynx Daemon is already running (PID: {})", pid)));
+        return;
+    }
+    let lynxd_bin = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("/data/adb/modules/Lynx/system/bin/lynxd"));
+    let log_path = "/data/adb/modules/Lynx/logs/lynxd.log";
+    let _ = std::fs::create_dir_all("/data/adb/modules/Lynx/logs");
+    let log_file = std::fs::OpenOptions::new().create(true).append(true).open(log_path);
+    if let Ok(file) = log_file {
+        let err_file = file.try_clone().unwrap_or_else(|_| std::fs::OpenOptions::new().create(true).append(true).open(log_path).unwrap());
+        match std::process::Command::new(&lynxd_bin)
+            .args(["daemon", "run"])
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::from(file))
+            .stderr(std::process::Stdio::from(err_file))
+            .spawn()
+        {
+            Ok(child) => {
+                println!("{}", ui(&format!("Daemon Lynx berhasil diluncurkan di latar belakang (PID: {})", child.id()), &format!("Lynx Daemon launched successfully in background (PID: {})", child.id())));
+            }
+            Err(e) => {
+                eprintln!("{}", ui(&format!("Gagal meluncurkan daemon di latar belakang: {}", e), &format!("Failed to launch daemon in background: {}", e)));
+                std::process::exit(1);
+            }
+        }
+    } else {
+        eprintln!("{}", ui("Gagal membuka file log daemon", "Failed to open daemon log file"));
+        std::process::exit(1);
+    }
+}
+
 fn handle_daemon_status() {
     match DaemonLifecycle::check_status() {
         Some(pid) => {
@@ -495,6 +527,7 @@ fn handle_daemon_status() {
         }
         None => {
             println!("{}", ui("Status Daemon Lynx: BERHENTI (Tidak ada proses latar aktif)", "Lynx Daemon Status: STOPPED (No active background process)"));
+            std::process::exit(1);
         }
     }
 }
@@ -1604,7 +1637,8 @@ fn main() {
                 return;
             }
             match args[2].as_str() {
-                "run" | "start" => handle_daemon_run(),
+                "run" => handle_daemon_run(),
+                "start" => handle_daemon_start(),
                 "status" => handle_daemon_status(),
                 "stop" => handle_daemon_stop(),
                 other => {

@@ -101,10 +101,25 @@ impl SysfsWriter {
             return Err(SysfsError::NotRoot);
         }
 
+        let val_buf = if val_str.ends_with('\n') {
+            val_str.to_string()
+        } else {
+            format!("{}\n", val_str)
+        };
+        let write_bytes = val_buf.as_bytes();
+
+        let is_proc = p.starts_with("/proc");
+
         // Try direct open and write
-        match fs::OpenOptions::new().write(true).truncate(true).open(p) {
+        let mut open_opts = fs::OpenOptions::new();
+        open_opts.write(true);
+        if !is_proc {
+            open_opts.truncate(true);
+        }
+
+        match open_opts.open(p) {
             Ok(mut file) => {
-                if let Err(write_err) = file.write_all(val_str.as_bytes()) {
+                if let Err(write_err) = file.write_all(write_bytes) {
                     return Err(SysfsError::IoError {
                         path: path_buf,
                         source: write_err,
@@ -119,10 +134,17 @@ impl SysfsWriter {
                     if mode == WriteMode::ForcePermission {
                         #[cfg(unix)]
                         {
-                            let perm = fs::Permissions::from_mode(0o666);
+                            let is_dir = p.is_dir();
+                            let effective_mode = if is_dir { 0o755 } else { 0o666 };
+                            let perm = fs::Permissions::from_mode(effective_mode);
                             let _ = fs::set_permissions(p, perm);
-                            if let Ok(mut retry_file) = fs::OpenOptions::new().write(true).truncate(true).open(p) {
-                                if let Err(write_err) = retry_file.write_all(val_str.as_bytes()) {
+                            let mut retry_opts = fs::OpenOptions::new();
+                            retry_opts.write(true);
+                            if !is_proc {
+                                retry_opts.truncate(true);
+                            }
+                            if let Ok(mut retry_file) = retry_opts.open(p) {
+                                if let Err(write_err) = retry_file.write_all(write_bytes) {
                                     return Err(SysfsError::IoError {
                                         path: path_buf,
                                         source: write_err,

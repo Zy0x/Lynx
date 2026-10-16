@@ -285,7 +285,7 @@ internal object LynxBatteryTelemetryRepository {
 
                     val activeIC = when {
                         !isPlugged -> "Standby / Baterai"
-                        rfcAuth || chgTyp == "9" || pmicSig == "rt9759" || (adpMv > 7000 && curMa >= 1500 && pmicSig.isBlank()) -> "Direct Charge Pump (RT9759 2:1)"
+                        rfcAuth || chgTyp == "9" || pmicSig == "rt9759" -> "Direct Charge Pump (RT9759 2:1)"
                         pmicSig == "smb1390" || (qcSig.contains("QC", ignoreCase = true) && adpMv > 7000) -> "Qualcomm SMB1390 Dual-Pump"
                         pmicSig == "smb1355" -> "Qualcomm SMB1355 Companion PMIC"
                         pmicSig == "qcom_pmic" -> "Qualcomm PMIC (PM8150/PM6150 Buck)"
@@ -294,7 +294,8 @@ internal object LynxBatteryTelemetryRepository {
                         pmicSig == "mi_pump" -> "Xiaomi HyperCharge Dual-Pump (LN8000/SC8551)"
                         pmicSig == "vooc_pump" || voocSig == "1" -> "SuperVOOC / Warp Charge Pump"
                         pmicSig == "pixel_pmic" -> "Google Tensor PMIC (MAX77759)"
-                        else -> "Switching Buck Converter (RT9471/Universal)"
+                        pmicSig.isNotBlank() -> "Switching Buck Converter ($pmicSig)"
+                        else -> "Switching Buck Converter (Universal PMIC)"
                     }
 
                     val ptypUpper = rawPtyp.uppercase(java.util.Locale.US)

@@ -149,8 +149,6 @@ esac
 
 # ── 4. Conditional Hardware Abstraction Layer Injection ────────────
 ui_print "$(lynx_t inject_hal "$TARGET_SOC")"
-mkdir -p "$MODPATH/system/vendor"
-
 if [ "$TARGET_SOC" = "qcom" ]; then
     if [ -d "$MODPATH/platforms/qcom/system" ]; then
         cp -af "$MODPATH/platforms/qcom/system/"* "$MODPATH/system/" 2>/dev/null
@@ -172,6 +170,7 @@ elif [ "$TARGET_SOC" = "mtk" ]; then
 else
     ui_print "$(lynx_t generic_vendor)"
 fi
+[ -d "$MODPATH/system/vendor" ] && rmdir "$MODPATH/system/vendor" 2>/dev/null
 
 # ── 5. Non-Intrusive Selective BusyBox Installation ────────────────
 ui_print "$(lynx_t setup_busybox)"
@@ -245,6 +244,7 @@ if [ -f "$MODPATH/LynxKernelManager.apk" ]; then
         ui_print "$(lynx_t companion_installed)"
     else
         ui_print "$(lynx_t companion_staged)"
+    fi
     rm -f /data/local/tmp/LynxKernelManager.apk 2>/dev/null
 
     # Grant seamless overlay and background execution privileges for Lynx Visual Feedback HUD

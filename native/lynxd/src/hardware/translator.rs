@@ -5,6 +5,7 @@ use crate::hardware::storage::StoragePolicy;
 use crate::hardware::detector::Vendor;
 use crate::hardware::MtkHardware;
 use crate::profile::profile::Profile;
+use crate::state::ConfigStore;
 use crate::sysfs::SysfsReader;
 
 #[derive(Debug, Clone)]
@@ -37,9 +38,20 @@ impl HardwareTranslator {
         let target: String = target_value.into();
         let cur = SysfsReader::read_trimmed(&p).unwrap_or_default();
 
-        // Handle bracketed active choice strings like "mq-deadline [kyber] none"
-        if cur.contains(&format!("[{}]", target)) || cur == target {
-            return;
+        // Handle MediaTek fixed OPP status node explicitly
+        if p.ends_with("gpufreq_opp_freq") {
+            if target == "0" && cur.contains("fixed OPP is disabled") {
+                return;
+            }
+            if target != "0" && cur.contains(&format!("freq = {}", target)) && cur.contains("fixed OPP is enabled") {
+                return;
+            }
+        } else {
+            // Handle bracketed active choice strings like "mq-deadline [kyber] none"
+            let is_choice_node = p.ends_with("scheduler") || p.ends_with("scaling_governor") || p.ends_with("current_governor");
+            if (is_choice_node && cur.contains(&format!("[{}]", target))) || cur == target {
+                return;
+            }
         }
 
         ops.push(PlannedOperation {
@@ -59,44 +71,69 @@ impl HardwareTranslator {
         let is_perf_or_ext = matches!(profile.name, "extreme" | "performance");
         let is_extreme = profile.name == "extreme";
         let is_powersave = profile.name == "powersave";
+        let anti_heat_enabled = ConfigStore::get("cpu.anti_heat_mode")
+            .map(|s| s != "false" && s != "0")
+            .unwrap_or(true);
 
         // ── 1. CPU Policies, Governor Sub-Tunables & PPM Sync ───────────────
         for pol in &cap.cpu.policies {
-            // A. Dynamic Governor Resolution
-            let gov_str = profile.cpu.governor.as_str();
-            let target_gov = if is_extreme && pol.available_governors.iter().any(|g| g == "performance") {
-                "performance"
-            } else if pol.available_governors.iter().any(|g| g == gov_str) {
-                gov_str
+            let is_little = pol.role.contains("Little")
+                || pol.role.contains("Efisiensi")
+                || (cap.cpu.policies.len() > 1 && pol.index == 0);
+
+            // A. Dynamic Governor Resolution & Mode Gaming Anti-Panas
+            let (target_gov, min_pct, max_pct) = if profile.name == "performance" && is_little && anti_heat_enabled {
+                // Mode Gaming Dingin / Anti-Panas (Thermal Shield):
+                // Little cores run on schedutil/walt with 80% Fmax ceiling to prevent thermal runaway
+                let picked_gov = ["schedutil", "walt", "sugov_ext", "interactive"]
+                    .iter()
+                    .find(|&&g| pol.available_governors.iter().any(|ag| ag == g))
+                    .copied()
+                    .unwrap_or("schedutil");
+                (picked_gov, 60, 80)
+            } else if is_extreme {
+                // Mode Extreme: Unrestricted maximum power on all cores!
+                let picked_gov = if pol.available_governors.iter().any(|g| g == "performance") {
+                    "performance"
+                } else {
+                    profile.cpu.governor.as_str()
+                };
+                (picked_gov, profile.cpu.min_percent, 100)
             } else {
-                // Dynamic priority chain: walt -> sugov_ext -> schedutil -> interactive -> first available
-                let mut picked = gov_str;
-                for candidate in &["walt", "sugov_ext", "schedutil", "energy_step", "interactive", "ondemand"] {
-                    if pol.available_governors.iter().any(|g| g == candidate) {
-                        picked = candidate;
-                        break;
+                let gov_str = profile.cpu.governor.as_str();
+                let picked_gov = if pol.available_governors.iter().any(|g| g == gov_str) {
+                    gov_str
+                } else {
+                    // Dynamic priority chain: walt -> sugov_ext -> schedutil -> interactive -> first available
+                    let mut picked = gov_str;
+                    for candidate in &["walt", "sugov_ext", "schedutil", "energy_step", "interactive", "ondemand"] {
+                        if pol.available_governors.iter().any(|g| g == candidate) {
+                            picked = candidate;
+                            break;
+                        }
                     }
-                }
-                if !pol.available_governors.iter().any(|g| g == picked) {
-                    if let Some(first) = pol.available_governors.first() {
-                        picked = first.as_str();
+                    if !pol.available_governors.iter().any(|g| g == picked) {
+                        if let Some(first) = pol.available_governors.first() {
+                            picked = first.as_str();
+                        }
                     }
-                }
-                picked
+                    picked
+                };
+                (picked_gov, profile.cpu.min_percent, profile.cpu.max_percent)
             };
 
             // B. Min & Max Frequency Percentage Snapping into Real OPP Table
             let raw_min_hz = Self::snap_frequency(
                 pol.min_freq,
                 pol.max_freq,
-                profile.cpu.min_percent,
+                min_pct,
                 &pol.available_freqs,
                 true,
             );
             let target_max_hz = Self::snap_frequency(
                 pol.min_freq,
                 pol.max_freq,
-                profile.cpu.max_percent,
+                max_pct,
                 &pol.available_freqs,
                 false,
             );
@@ -316,6 +353,21 @@ impl HardwareTranslator {
                         format!("MediaTek GED HAL upbound OPP index ({})", target_max_opp.index),
                         "/sys/kernel/ged/hal/custom_upbound_gpu_freq",
                         target_max_opp.index.to_string(),
+                        false,
+                    );
+
+                    // Fixed OPP frequency lock for gaming (Performance & Extreme), released on Balance/Powersave
+                    let mtk_opp_val = if is_perf_or_ext {
+                        target_max_opp.freq_khz.to_string()
+                    } else {
+                        "0".to_string()
+                    };
+                    Self::push_op(
+                        &mut ops,
+                        "GPU",
+                        "MediaTek GPUFreq Fixed OPP Lock/Release",
+                        "/proc/gpufreq/gpufreq_opp_freq",
+                        mtk_opp_val,
                         false,
                     );
                 }
@@ -549,11 +601,25 @@ impl HardwareTranslator {
             Self::push_op(&mut ops, "Scheduler", "Schedtune top-app util min", stune_top.join("schedtune.util.min"), s_min, false);
         }
 
-        if is_perf_or_ext {
-            for block_name in &["sda", "sdb", "sdc", "mmcblk0"] {
-                let ra_path = PathBuf::from(format!("/sys/block/{}/queue/read_ahead_kb", block_name));
-                if ra_path.exists() {
-                    Self::push_op(&mut ops, "Storage", format!("Internal {} read-ahead boost", block_name), ra_path, "512", false);
+        let (ra_kb, sched, read_exp, writes_starv) = match profile.name {
+            "extreme" | "performance" => ("1024", "deadline", "100", "4"),
+            "powersave" => ("256", "deadline", "500", "2"),
+            _ => ("512", "deadline", "250", "3"), // Balance: responsive & smooth 512KB for daily use
+        };
+
+        for block_name in &["sda", "sdb", "sdc", "mmcblk0", "mmcblk1"] {
+            let dev_dir = format!("/sys/block/{}", block_name);
+            let q_dir = format!("{}/queue", dev_dir);
+            if Path::new(&q_dir).is_dir() {
+                Self::push_op(&mut ops, "Storage", format!("Block {} {}KB read-ahead", block_name, ra_kb), PathBuf::from(format!("{}/read_ahead_kb", q_dir)), ra_kb, false);
+                Self::push_op(&mut ops, "Storage", format!("Block {} {} scheduler", block_name, sched), PathBuf::from(format!("{}/scheduler", q_dir)), sched, false);
+                let read_exp_path = PathBuf::from(format!("{}/iosched/read_expire", q_dir));
+                if read_exp_path.exists() {
+                    Self::push_op(&mut ops, "Storage", format!("Block {} read expire", block_name), read_exp_path, read_exp, false);
+                }
+                let writes_starv_path = PathBuf::from(format!("{}/iosched/writes_starved", q_dir));
+                if writes_starv_path.exists() {
+                    Self::push_op(&mut ops, "Storage", format!("Block {} writes starved", block_name), writes_starv_path, writes_starv, false);
                 }
             }
         }

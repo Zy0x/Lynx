@@ -80,26 +80,36 @@ fallback_hyper() {
     write_node_lock "$USB_DIR/current_max" "5000000"
     write_node_lock "$MAIN_DIR/current_max" "12000000"
 
-    # 2. R1 Screen-On Charging Throttle Bypass
+    # 2. R1 Screen-On Charging Throttle Bypass & CallState Lock
     write_node_lock "$MTK_DIR/BatteryNotify" "0"
     write_node_lock "$MTK_DIR/BN_TestMode" "1"
     write_node_lock "$MTK_DIR/tran_charger_full" "0"
     write_node_lock "$MTK_DIR/tran_game_mode" "0"
     write_node_lock "$MTK_DIR/bypass_charger" "0"
     write_node_lock "$MTK_DIR/sw_jeita" "0"
+    write_node_lock "$MTK_DIR/sc_tuisoc" "100"
+    write_node_lock "$TRAN_ODM/Charging_CallState" "0"
+    write_node_lock "$TRAN_DIR/Charging_CallState" "0"
 
-    # 3. R2 Thermal Calibrated 3-Stage Curve (<55C: 33W, 55-58C: 25W, >58C: 18W)
-    write_node_lock "$TRAN_ODM/pcb_thermal_debug" "[55,4500,58,3200,2500]"
-    write_node_lock "$TRAN_DIR/pcb_thermal_debug" "[55,4500,58,3200,2500]"
-    write_node_lock "$PCA_DIR/dv2_debug" "[101,55,58,60,4500,3200,2500]"
-    write_node_lock "$PCA_DIR/dv2_debug" "[102,75,80,85,600,900,1200]"
-    chmod 644 "/sys/devices/platform/battery/Battery_Temperature" 2>/dev/null
-    write_node_lock "/proc/driver/thermal/clabcct" "0"
-    write_node_lock "/proc/driver/thermal/clabcct_lcmoff" "0"
+    # 3. R2 Thermal Uncapped (Peak 6000mA at all temperatures)
+    write_node_lock "$TRAN_ODM/pcb_thermal_debug" "[95,6000,100,6000,6000000]"
+    write_node_lock "$TRAN_DIR/pcb_thermal_debug" "[95,6000,100,6000,6000000]"
+    write_node_lock "$PCA_DIR/dv2_debug" "[101,85,88,90,6000,6000,6000]"
+    write_node_lock "$PCA_DIR/dv2_debug" "[102,85,88,90,6000,6000,6000]"
+    write_node_lock "/sys/devices/platform/battery/Battery_Temperature" "25"
+    write_node_lock "/proc/driver/thermal/clabcct" "70000 1000 200000 6000 6000 0 1 1 0"
+    write_node_lock "/proc/driver/thermal/clabcct_lcmoff" "1 70000 1000 200000 6000 6000 0 6000 0"
     for i in 53 54 55 56 57; do
         write_node_lock "/sys/class/thermal/cooling_device$i/cur_state" "0"
     done
+    for i in 0 1 2 3 4; do
+        write_node_lock "/sys/class/thermal/thermal_zone1/trip_point_${i}_temp" "99000"
+    done
     write_node_lock "/sys/class/thermal/thermal_zone1/mode" "disabled"
+
+    for daemon in thermalloadalgod com.xiaomi.joyose mi_thermald thermal-engine thermal-engine-v2; do
+        killall -STOP "$daemon" 2>/dev/null
+    done
 
     # 4. R3 Continuous Maximum Pump Current Enforcement (>6A Battery Current)
     write_node_lock "$MTK_DIR/pe20" "1"
@@ -137,6 +147,7 @@ fallback_disconnect() {
         "$BATT_DIR/boost_current" "$BATT_DIR/constant_charge_current_max" "$BATT_DIR/constant_charge_current" \
         "$BATT_DIR/input_current_limit" "$USB_DIR/current_max" "$MAIN_DIR/current_max" \
         "$TRAN_ODM/pcb_thermal_debug" "$TRAN_DIR/pcb_thermal_debug" "$PCA_DIR/dv2_debug" \
+        "$TRAN_ODM/Charging_CallState" "$TRAN_DIR/Charging_CallState" \
         "/sys/devices/platform/battery/Battery_Temperature" \
         "/proc/driver/thermal/clabcct" "/proc/driver/thermal/clabcct_lcmoff" \
         /sys/class/thermal/cooling_device*/cur_state; do
@@ -151,6 +162,8 @@ fallback_disconnect() {
     [ -e "$MTK_DIR/sc_ibat_limit" ] && echo "2000" > "$MTK_DIR/sc_ibat_limit" 2>/dev/null
     [ -e "$MTK_DIR/chg1_current" ] && echo "24576" > "$MTK_DIR/chg1_current" 2>/dev/null
     [ -e "$MTK_DIR/chg2_current" ] && echo "24576" > "$MTK_DIR/chg2_current" 2>/dev/null
+    echo "0" > "$TRAN_ODM/Charging_CallState" 2>/dev/null
+    echo "0" > "$TRAN_DIR/Charging_CallState" 2>/dev/null
     if [ -f /dev/lynx_orig_pdc_watt ]; then
         orig_pdc=$(cat /dev/lynx_orig_pdc_watt 2>/dev/null)
         [ -n "$orig_pdc" ] && [ -e "$MTK_DIR/pdc_max_watt" ] && echo "$orig_pdc" > "$MTK_DIR/pdc_max_watt" 2>/dev/null
@@ -188,6 +201,12 @@ fallback_disconnect() {
     fi
     [ -e "/sys/class/thermal/cooling_device56/cur_state" ] && echo "1" > "/sys/class/thermal/cooling_device56/cur_state" 2>/dev/null
     [ -e "/sys/class/thermal/thermal_zone1/mode" ] && echo "enabled" > "/sys/class/thermal/thermal_zone1/mode" 2>/dev/null
+    echo "100000" > /sys/class/thermal/thermal_zone1/trip_point_0_temp 2>/dev/null
+    echo "90000" > /sys/class/thermal/thermal_zone1/trip_point_1_temp 2>/dev/null
+    echo "54000" > /sys/class/thermal/thermal_zone1/trip_point_2_temp 2>/dev/null
+    echo "42000" > /sys/class/thermal/thermal_zone1/trip_point_3_temp 2>/dev/null
+    echo "41000" > /sys/class/thermal/thermal_zone1/trip_point_4_temp 2>/dev/null
+    chmod 644 /sys/class/thermal/thermal_zone1/trip_point_* 2>/dev/null
     [ -e "/proc/driver/thermal/clabcct" ] && echo "1 42000 1000 200000 5 2000 0" > "/proc/driver/thermal/clabcct" 2>/dev/null
     [ -e "/proc/driver/thermal/clabcct_lcmoff" ] && echo "1 43000 1000 200000 5 2000 0" > "/proc/driver/thermal/clabcct_lcmoff" 2>/dev/null
 

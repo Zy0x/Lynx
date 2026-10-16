@@ -90,6 +90,10 @@ function renderUI(state) {
     if (ocToggle && !ocToggle.matches(':focus')) {
         ocToggle.checked = !!(state.overclock && state.overclock.enabled);
     }
+    const shieldToggle = document.getElementById('thermal-shield-toggle');
+    if (shieldToggle && !shieldToggle.matches(':focus')) {
+        shieldToggle.checked = (state.cpu && state.cpu.anti_heat_mode !== undefined) ? !!state.cpu.anti_heat_mode : true;
+    }
     const ocFloor = document.getElementById('oc-floor-slider');
     const ocFloorVal = document.getElementById('oc-floor-val');
     if (ocFloor && !ocFloor.matches(':active')) {
@@ -1013,8 +1017,42 @@ async function pollGpuInfo() {
                     govSel.value = data.cur_gov;
                 }
             }
+
+            // Populate GPU Target OPP Frequency selector
+            const freqSel = document.getElementById('web-gpu-freq-select');
+            if (freqSel && data.avail_freqs && data.avail_freqs.length > 0) {
+                if (freqSel.options.length <= 1 || freqSel.dataset.loaded !== 'true') {
+                    freqSel.innerHTML = '<option value="0">Auto (Dynamic DVFS / Hemat Idle)</option>';
+                    // Sort descending for gamer intuition: highest clock first!
+                    const sortedFreqs = [...data.avail_freqs].sort((a, b) => b - a);
+                    const maxFreq = sortedFreqs[0];
+                    sortedFreqs.forEach(f => {
+                        const opt = document.createElement('option');
+                        opt.value = f;
+                        const isMax = f === maxFreq;
+                        opt.textContent = `${f} MHz ${isMax ? '⚡ Peak Gaming (Max OPP)' : ''}`;
+                        if (f === curMhz) opt.selected = true;
+                        freqSel.appendChild(opt);
+                    });
+                    freqSel.dataset.loaded = 'true';
+                }
+            }
         }
     } catch (e) {}
+}
+
+async function setWebGpuFreq(freqMhz) {
+    const freq = parseInt(freqMhz, 10);
+    if (isNaN(freq)) return;
+    if (freq <= 0) {
+        logToConsole("Melepas kuncian frekuensi GPU (Auto DVFS)...");
+        const res = await execCmd(`${LYNXD} gpu set_freq 0 0`);
+        logToConsole(res.stdout || "GPU dikembalikan ke Auto Dynamic DVFS", 'success');
+    } else {
+        logToConsole(`Mengunci frekuensi GPU ke ${freq} MHz...`);
+        const res = await execCmd(`${LYNXD} gpu set_freq ${freq} ${freq}`);
+        logToConsole(res.stdout || `GPU OPP ${freq} MHz berhasil dikunci`, 'success');
+    }
 }
 
 async function setWebGpuGov(gov) {
