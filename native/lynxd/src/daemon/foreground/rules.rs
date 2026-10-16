@@ -203,16 +203,25 @@ impl RulesEngine {
     /// Deterministically categorizes an application package.
     pub fn categorize(&self, package: &str) -> ForegroundApp {
         let pkg_lower = package.to_lowercase();
-        let custom_target_profile = self
+        // 1. Exact match takes absolute priority
+        let exact_rule = self.app_rules.iter().find(|(p, _)| p == &pkg_lower);
+        // 2. Substring match finds the longest matching pattern (most specific match)
+        let substring_rule = self
             .app_rules
             .iter()
-            .find(|(p, _)| p == &pkg_lower || pkg_lower.contains(p))
+            .filter(|(p, _)| pkg_lower.contains(p.as_str()))
+            .max_by_key(|(p, _)| p.len());
+
+        let custom_target_profile = exact_rule
+            .or(substring_rule)
             .map(|(_, prof)| prof.clone());
 
         // ── Tier 1: Exact Benchmark Signatures ──────────────────────────────
         const BENCHMARKS: &[&str] = &[
             "com.antutu.abenchmark",
             "com.antutu.benchmark.full",
+            "com.antutu.benchmark.full.lite",
+            "com.antutu.benchmark",
             "com.primatelabs.geekbench5",
             "com.primatelabs.geekbench6",
             "com.futuremark.pcmark.android.benchmark",
@@ -222,12 +231,26 @@ impl RulesEngine {
             "skynet.cputhrottlingtest",
             "com.greenecomputing.flint",
         ];
-        if BENCHMARKS.contains(&pkg_lower.as_str()) {
+        let is_benchmark = BENCHMARKS.contains(&pkg_lower.as_str())
+            || BENCHMARKS.iter().any(|b| pkg_lower.starts_with(b));
+        if is_benchmark {
+            // If the user configured an EXACT rule for this benchmark package, respect it.
+            // Otherwise, default to "extreme" so generic substring rules (like legacy "antutu|performance")
+            // never downgrade a recognized benchmark!
+            let target = exact_rule
+                .map(|(_, prof)| prof.clone())
+                .or(custom_target_profile)
+                .unwrap_or_else(|| "extreme".to_string());
+            let final_target = if target == "performance" && exact_rule.is_none() {
+                "extreme".to_string()
+            } else {
+                target
+            };
             return ForegroundApp {
                 package: package.to_string(),
                 category: AppCategory::Benchmark,
                 confidence: Confidence::High,
-                target_profile: custom_target_profile.or_else(|| Some("extreme".to_string())),
+                target_profile: Some(final_target),
             };
         }
 
@@ -441,5 +464,26 @@ mod tests {
 
         let _ = std::fs::remove_file(&tsv_path);
         let _ = std::fs::remove_file(&cfg_path);
+    }
+
+    #[test]
+    fn test_benchmark_exact_match_over_substring_rule() {
+        let mut engine = RulesEngine::new();
+        engine.app_rules.push(("antutu".to_string(), "performance".to_string()));
+        engine.app_rules.push(("com.antutu.abenchmark".to_string(), "extreme".to_string()));
+
+        let app = engine.categorize("com.antutu.ABenchMark");
+        assert_eq!(app.category, AppCategory::Benchmark);
+        assert_eq!(app.target_profile, Some("extreme".to_string()));
+    }
+
+    #[test]
+    fn test_benchmark_generic_substring_never_downgrades_to_performance() {
+        let mut engine = RulesEngine::new();
+        engine.app_rules.push(("antutu".to_string(), "performance".to_string()));
+
+        let app = engine.categorize("com.antutu.ABenchMark");
+        assert_eq!(app.category, AppCategory::Benchmark);
+        assert_eq!(app.target_profile, Some("extreme".to_string()));
     }
 }

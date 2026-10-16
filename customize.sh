@@ -246,11 +246,11 @@ if [ -f "$MODPATH/LynxKernelManager.apk" ]; then
         ui_print "$(lynx_t companion_staged)"
     fi
     rm -f /data/local/tmp/LynxKernelManager.apk 2>/dev/null
-
-    # Grant seamless overlay and background execution privileges for Lynx Visual Feedback HUD
-    appops set com.noir.lynx SYSTEM_ALERT_WINDOW allow 2>/dev/null
-    dumpsys deviceidle whitelist +com.noir.lynx 2>/dev/null
 fi
+
+# Grant seamless overlay and background execution privileges for Lynx Visual Feedback HUD
+appops set com.noir.lynx SYSTEM_ALERT_WINDOW allow 2>/dev/null
+dumpsys deviceidle whitelist +com.noir.lynx 2>/dev/null
 
 mkdir -p /data/adb/lynx 2>/dev/null
 if [ ! -f /data/adb/lynx/feedback_style ]; then

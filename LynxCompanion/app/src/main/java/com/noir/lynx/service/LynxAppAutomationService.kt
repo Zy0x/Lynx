@@ -332,6 +332,14 @@ class LynxAppAutomationService : Service() {
 
     private fun resolveAppCategoryProfile(pkg: String): String {
         categoryProfileCache[pkg]?.let { return it }
+        val lower = pkg.lowercase()
+        // 1. Benchmarks always default to extreme profile
+        if (lower.contains("antutu") || lower.contains("benchmark") || lower.contains("geekbench") ||
+            lower.contains("3dmark") || lower.contains("androbench") || lower.contains("cputhrottlingtest") ||
+            lower.contains("futuremark") || lower.contains("pcmark")) {
+            categoryProfileCache[pkg] = "extreme"
+            return "extreme"
+        }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val appInfo = packageManager.getApplicationInfo(pkg, 0)
@@ -339,7 +347,6 @@ class LynxAppAutomationService : Service() {
                     (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0) {
                     "performance"
                 } else {
-                    val lower = pkg.lowercase()
                     if (lower.contains("game") || lower.contains("genshin") || lower.contains("honkai") ||
                         lower.contains("pubg") || lower.contains("codm") || lower.contains("mobilelegends") ||
                         lower.contains("freefire") || lower.contains("roblox") || lower.contains("minecraft")) {
@@ -352,7 +359,6 @@ class LynxAppAutomationService : Service() {
                 return resolved
             }
         } catch (_: Exception) {}
-        val lower = pkg.lowercase()
         val fallback = if (lower.contains("game") || lower.contains("genshin") || lower.contains("honkai") ||
             lower.contains("pubg") || lower.contains("codm") || lower.contains("mobilelegends") ||
             lower.contains("freefire") || lower.contains("roblox") || lower.contains("minecraft")) {

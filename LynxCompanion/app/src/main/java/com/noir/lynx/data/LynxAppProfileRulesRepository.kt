@@ -54,10 +54,17 @@ internal object LynxAppProfileRulesRepository {
             val allApps = LynxRepository.readInstalledAppInfos()
             val initialRules = perfList.map { pkg ->
                 val info = allApps.firstOrNull { it.packageName == pkg }
+                val isBench = pkg.contains("antutu", ignoreCase = true) ||
+                    pkg.contains("benchmark", ignoreCase = true) ||
+                    pkg.contains("geekbench", ignoreCase = true) ||
+                    pkg.contains("3dmark", ignoreCase = true) ||
+                    pkg.contains("androbench", ignoreCase = true) ||
+                    pkg.contains("cputhrottlingtest", ignoreCase = true) ||
+                    pkg.contains("futuremark", ignoreCase = true)
                 AppProfileRule(
                     packageName = pkg,
                     appName = info?.label ?: pkg.substringAfterLast("."),
-                    targetProfile = "performance",
+                    targetProfile = if (isBench) "extreme" else "performance",
                     enabled = true,
                     targetRefreshRate = null,
                     autoFloatingHud = false,

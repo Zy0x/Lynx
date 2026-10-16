@@ -144,22 +144,14 @@ fallback_hyper() {
         fi
     done
 
-    for daemon in thermalloadalgod com.xiaomi.joyose mi_thermald thermal-engine thermal-engine-v2; do
+    for daemon in com.xiaomi.joyose mi_thermald thermal-engine thermal-engine-v2; do
         killall -STOP "$daemon" 2>/dev/null
     done
 
     # 5. Continuous Maximum Pump Current Enforcement (>6A Battery Current)
     write_node_lock "$MTK_DIR/pe20" "1"
     write_node_lock "$MTK_DIR/pe40" "1"
-
-    # Voltage-Gated Pump: Only enable switched capacitor pump when adapter has stepped up to >= 6.5V
-    local adpv=$(cat "$MTK_DIR/ADC_Charger_Voltage" 2>/dev/null || cat "$USB_DIR/voltage_now" 2>/dev/null || echo 0)
-    [ "$adpv" -gt 100000 ] 2>/dev/null && adpv=$((adpv / 1000))
-    if [ "$adpv" -ge 6500 ] 2>/dev/null; then
-        write_node_lock "$MTK_DIR/enable_sc" "1"
-    else
-        write_node_lock "$MTK_DIR/enable_sc" "0"
-    fi
+    write_node_lock "$MTK_DIR/enable_sc" "1"
     write_node_lock "$MTK_DIR/input_current" "33170"
     write_node_lock "$MTK_DIR/sc_ibat_limit" "12000"
     write_node_lock "$MTK_DIR/chg1_current" "33170"

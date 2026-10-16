@@ -41,7 +41,6 @@ $items = @(
     "uninstall.sh",
     "system.prop",
     "config.json",
-    "Toast.apk",
     "LynxKernelManager.apk",
     "README.md",
     "LICENSE",

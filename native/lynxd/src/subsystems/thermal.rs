@@ -108,17 +108,17 @@ impl ThermalController {
             &[
                 "mi_thermald",
                 "ituxd",
-                "thermalloadalgod",
                 "com.samsung.android.game.gos",
                 "com.xiaomi.joyose",
             ]
         } else {
+            // On MediaTek Transsion, thermalloadalgod is the travel adapter (TA) netlink listener.
+            // Do NOT freeze it with SIGSTOP, or ta_nl_send_to_user fails (-11) and halts fast charging!
             &[
                 "mi_thermald",
                 "thermal-engine",
                 "thermal-engine-v2",
                 "ituxd",
-                "thermalloadalgod",
                 "com.samsung.android.game.gos",
                 "com.xiaomi.joyose",
             ]

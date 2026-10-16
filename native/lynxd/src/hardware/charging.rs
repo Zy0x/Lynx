@@ -961,18 +961,7 @@ impl ChargingRegulator {
         let is_tapered = effective_ma <= 2200;
         let is_trickle = effective_ma < 1500;
         let pe_protocol = if is_trickle { "0" } else { "1" };
-
-        // Voltage Gating for Switched-Capacitor Pump (RT9759 2:1):
-        // If enabled when VBUS is at 5V, pump output is 2.5V (< V_BAT ~ 4.2V),
-        // triggering reverse current / UVLO fault which kills Pump Express handshake.
-        // Therefore, enable_sc is gated: ONLY activate pump when adapter voltage has stepped up to >= 6.5V.
-        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
-            .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
-            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
-            .unwrap_or(0);
-        let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
-        let is_voltage_boosted = adpv_clean >= 6500;
-        let pump_enable = if !is_trickle && is_voltage_boosted { "1" } else { "0" };
+        let pump_enable = if is_trickle { "0" } else { "1" };
 
         Self::write_node_lock(&format!("{}/pe20", MTK_DIR), pe_protocol);
         Self::write_node_lock(&format!("{}/pe40", MTK_DIR), pe_protocol);
@@ -986,6 +975,7 @@ impl ChargingRegulator {
         Self::write_node_lock(&format!("{}/sc_tuisoc", MTK_DIR), "100");
         Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "0");
+        Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/OTG_CTL", "0");
 
         // R2 Thermal Neutralization
         Self::apply_charger_thermal_neutralization();
@@ -1358,10 +1348,10 @@ impl ChargingRegulator {
     /// 4. Neutralizes MediaTek ABCCT PID controllers (clabcct & clabcct_lcmoff -> policy 0, locked 0444).
     /// 5. Locks cooling devices 53-57 (abcct, mtk-cl-bcct00..02) cur_state to 0 (locked 0444).
     /// 6. Overrides Qualcomm system_temp_level and thermal_input_current_limit.
-    /// 7. Suspends aggressive OEM thermal daemons (thermalloadalgod, joyose, mi_thermald, thermal-engine).
+    /// 7. Suspends aggressive OEM thermal daemons (joyose, mi_thermald, thermal-engine).
+    ///    Note: thermalloadalgod is intentionally excluded on Transsion to keep the TA netlink socket alive.
     /// 8. Overrides Android framework thermal status to 0 (THERMAL_STATUS_NONE).
     pub const THERMAL_PROCESS_NAMES: &[&str] = &[
-        "thermalloadalgod",
         "com.xiaomi.joyose",
         "mi_thermald",
         "thermal-engine",
@@ -1842,15 +1832,11 @@ impl ChargingRegulator {
                 let pe20 = Self::read_node(&format!("{}/pe20", MTK_DIR)).unwrap_or_default();
                 let pe40 = Self::read_node(&format!("{}/pe40", MTK_DIR)).unwrap_or_default();
 
-                let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
-                    .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
-                    .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
-                    .unwrap_or(0);
-                let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
-                let expected_sc = if adpv_clean >= 6500 && cur_cap < 95 { "1" } else { "0" };
+                let is_trickle = cur_cap >= 99;
+                let expected_sc = if !is_trickle && cur_cap < 95 { "1" } else { "0" };
 
                 bn_test == "1"
-                    && enable_sc == expected_sc
+                    && (enable_sc == expected_sc || enable_sc == "1")
                     && (in_cur >= 30000 || in_cur >= 2000)
                     && sc_limit >= 1000
                     && (chg1 >= 30000 || chg1 >= 2000)

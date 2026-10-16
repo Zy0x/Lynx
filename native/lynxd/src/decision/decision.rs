@@ -115,7 +115,13 @@ impl DecisionEngine {
                 Some("extreme") => "extreme",
                 Some("powersave") => "powersave",
                 Some("balance") => "balance",
-                _ => "performance",
+                _ => {
+                    if fg_app.map(|a| a.category) == Some(AppCategory::Benchmark) {
+                        "extreme"
+                    } else {
+                        "performance"
+                    }
+                }
             };
 
             // A. Cancel any running exit cooldown

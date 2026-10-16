@@ -7,17 +7,7 @@ bluearchive
 Arknights
 AzurLane
 ioncannon
-clpeak
-skynet
-cputhrottlingtest
 roblox
-androbench2
-andromeda
-antutu
-futuremark
-dmandroid
-geekbench5
-primatelabs
 codm
 nexon
 konami
@@ -34,7 +24,6 @@ pubg
 pubgmhd
 pubgmobile
 mojang
-AntutuBenchmark
 aethersx2
 criticalops
 warface
