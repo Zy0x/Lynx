@@ -8,7 +8,7 @@
 ## 📌 1. Visi & Identitas Proyek
 
 ### 1.1 Visi Utama
-Menyatukan **Lynx** (berbasis Qualcomm Snapdragon) dan **Chimera** (berbasis MediaTek) menjadi **satu modul root terpadu (Unified Hybrid Module)** yang cerdas, efisien, aman, dan berdaya guna tinggi. Pengguna cukup mengunduh satu berkas modul ZIP yang sama, dan sistem akan secara otomatis mengidentifikasi arsitektur chipset perangkat, mengonfigurasi parameter kernel yang tepat, serta menyediakan kontrol penuh melalui antarmuka web modern (**WebUI**).
+Menyatukan **Lynx** (berbasis Qualcomm Snapdragon) dan **Chimera** (berbasis MediaTek) menjadi **satu modul root terpadu (Unified Hybrid Module)** yang cerdas, efisien, aman, dan berdaya guna tinggi. Pengguna cukup mengunduh satu berkas modul ZIP yang sama, dan sistem akan secara otomatis mengidentifikasi arsitektur chipset perangkat, mengonfigurasi parameter kernel yang tepat, serta menyediakan kontrol penuh, tuning mendalam, dan pemantauan real-time terutama melalui **Aplikasi Native Android (`LynxCompanion` / Jetpack Compose)** sebagai **prioritas utama pengembangan, inovasi UI/UX, dan laboratorium eksperimen perangkat**, dengan antarmuka web modern (**WebUI** di `webroot/`) dipertahankan sebagai antarmuka pendamping sekunder (*secondary fallback*).
 
 ### 1.2 Konvensi Branding & Metadata Modul (`module.prop`)
 Untuk menjaga kompatibilitas ekosistem OTA update, riwayat modul, dan transparansi informasi pengguna:
@@ -72,7 +72,7 @@ Lynx/
 │       └── system/              # Berkas overlay vendor MediaTek (HANYA di-mount jika MTK)
 │           └── vendor/          # .tp/thermal.conf, firmware/wifi.cfg, Mali EGL configs
 │
-├── webroot/                     # 🌐 ANTARMUKA WEB (WebUI Dashboard Pasca-Instalasi)
+├── webroot/                     # 🌐 ANTARMUKA WEB SEKUNDER (WebUI Secondary Fallback / KSU WebView)
 │   ├── index.html               # Antarmuka SPA Modern (Mobile-First, Dark Theme, Touch-First)
 │   ├── app.js / script.js       # Logika interaksi & ksu.exec() bridge
 │   ├── style.css                # Sistem token desain modern & responsif
@@ -112,7 +112,7 @@ Banyak gamer dan power user menggunakan modul **SoC Spoofer** (seperti *Game Unl
    - Jika Hardware Kernel = **MediaTek**, namun `getprop` melaporkan **Qualcomm**:
      - Sistem mencatat: `SPOOF_DETECTED=true`
      - Sistem **mengabaikan nilai `getprop`** dan secara paksa mengunci target ke arsitektur **MediaTek**.
-     - Tampilkan peringatan visual di terminal dan WebUI:
+     - Tampilkan peringatan visual di terminal, Native Companion App, dan WebUI:
        `⚠️ Terdeteksi SoC Spoofer aktif! Mengunci engine ke MediaTek demi keamanan hardware.`
 
 3. **Tingkat 3: System Properties (Hanya Digunakan Jika Node Kernel Terproteksi/Tertutup)**
@@ -246,33 +246,44 @@ Modul harus menyediakan spektrum profil performa yang fleksibel untuk berbagai k
 | **Extreme (Unrestricted)** | Benchmark & Hardcore Gaming | Kunci frekuensi maksimum (CPU + GPU), disable PPM / Devfreq latency 0 | **Bypass Penuh** (Thermal zones disabled, override trip points 150°C) | **Unrestricted Charge / Bypass Charging** (hingga 4500mA jika kabel & charger mendukung) |
 
 > [!WARNING]
-> Mode **Extreme (Unrestricted)** wajib dilengkapi *disclaimer* visual yang jelas di WebUI bahwa mode ini diperuntukkan bagi pengguna tingkat lanjut dengan pendingin eksternal (*phone cooler*) guna menghindari degradasi baterai dan komponen SoC.
+> Mode **Extreme (Unrestricted)** wajib dilengkapi *disclaimer* visual yang jelas di Aplikasi Native Companion (dan WebUI) bahwa mode ini diperuntukkan bagi pengguna tingkat lanjut dengan pendingin eksternal (*phone cooler*) guna menghindari degradasi baterai dan komponen SoC.
 
 ---
 
-## 🎨 7. Standar Desain & Interaksi WebUI (`webroot/`)
+## 🎨 7. Standar Antarmuka: Prioritas Utama Native Android App (`LynxCompanion`) & Tier Sekunder WebUI (`webroot/`)
 
-WebUI adalah **antarmuka kontrol utama** pasca-instalasi bagi pengguna (diakses via KernelSU Manager / APatch WebUI, dengan roadmap masa depan ke aplikasi native Android). WebUI wajib mematuhi standar desain tingkat profesional:
+### 7.1 Paradigma "Native-First" — LynxCompanion Sebagai Episentrum Utama Pengembangan
+Aplikasi **Native Android Companion (`LynxCompanion` / `LynxKernelManager.apk`)** adalah **prioritas tertinggi dan episentrum utama** dari seluruh siklus perancangan, eksperimen fitur baru, validasi tuning kernel/hardware, inovasi UI/UX, serta telemetri real-time Lynx Universal.
 
-### 7.1 Ketentuan Teknis UI/UX
-- **Mobile-First & Touch-First**:
-  - Ukuran target sentuh tombol dan elemen interaktif minimal **48×48 px** (bebas miss-click).
+- **Hierarki & Peran Antarmuka Proyek**:
+  1. **Tier 1 (Utama & Prioritas Mutlak)**: **Aplikasi Native Android (`LynxCompanion`)**. Seluruh fitur baru, inovasi kontrol kernel, desain kartu Bento/Material 3, animasi responsif, logika interaksi, dan eksperimen performa di perangkat fisik wajib diimplementasikan, diuji, dan dimatangkan di aplikasi native terlebih dahulu.
+  2. **Tier 2 (Sekunder & Fallback)**: **WebUI (`webroot/`)**. Berfungsi murni sebagai antarmuka pendamping/cadangan bagi manajer modul berbasis WebView (KernelSU/APatch WebUI). Perubahan atau sinkronisasi fitur ke WebUI hanya dilakukan setelah implementasi di native Android stabil dan terbukti valid di perangkat fisik.
+
+### 7.2 Ketentuan Teknis & Desain Native Android (Kotlin Jetpack Compose)
+Aplikasi native dibangun menggunakan **Kotlin + Jetpack Compose + Material 3** dengan standar:
+- **Mobile-First & Touch-First Presisi**:
+  - Ukuran target sentuh tombol, switch, dan slider minimal **48×48 dp** (bebas miss-touch).
   - Tampilan stabil pada berbagai rasio layar non-reguler (1080×2400, 1080×2460, 20:9, 21:9) hingga resolusi tablet dan layar lipat.
-  - Bebas dari ketergantungan *hover-only* (seluruh interaksi berbasis sentuhan).
-- **Estetika & Keterbacaan (Readability First)**:
-  - Skema warna: **Modern Cyberpunk / Deep Dark Theme** (latar belakang OLED `#0a0a0a` / `#121212`, kartu kontras `#1a1a1a`, aksen visual Cyan `#00ffaa` atau Biru Modern `#0099ff`).
+  - Bebas dari ketergantungan hover-only; seluruh interaksi dirancang untuk sentuhan tangan satu jari yang ergonomis.
+- **Estetika Cyberpunk OLED Dark & Readability First**:
+  - Skema warna: **Modern Cyberpunk / Deep Dark Theme** (latar belakang OLED `#0a0a0a` / `#121212`, kartu kontras `#1a1a1a`, aksen visual Cyan `#00ffaa` atau Biru Modern `#0099ff`, serta aksen status semantik).
   - Kontras teks tinggi dan konsisten, tidak melelahkan mata.
-  - Tipografi semantik (*system-ui, sans-serif*) dengan hierarki informasi yang tegas.
-- **Interaksi & Animasi Ringan**:
-  - Animasi transisi halus dan fungsional dengan durasi **150–300 ms** (tidak membebani WebView).
-  - Feedback visual instan saat tombol ditekan (indikator loading, pesan status, atau toast visual).
-- **Integrasi Backend KernelSU (`ksu.exec`)**:
-  - Semua eksekusi shell dilakukan melalui antarmuka `ksu.exec(cmd)` secara asinkron (`async/await`).
-  - Penanganan error (*error boundary*) yang tangguh jika perintah gagal dieksekusi.
-  - Sanitasi input untuk mencegah injeksi perintah shell yang merusak sistem.
+  - Tipografi semantik (*system-ui, sans-serif*) dengan hierarki visual yang tegas dan bersih.
+- **Kinerja 60/120 FPS & Efisiensi Compose**:
+  - Optimasi recomposition (state stabil/immutable, `derivedStateOf`, remembered lambdas) guna mencegah jank saat scroll atau pembaruan telemetri live.
+  - Animasi transisi halus dan fungsional dengan durasi **150–300 ms** tanpa memicu lonjakan Garbage Collection (GC).
+- **Akses Root Universal (`libsu`)**:
+  - Eksekusi cepat melalui pustaka resmi `com.github.topjohnwu.libsu:core` pada KernelSU, APatch, dan Magisk.
+  - Pemuatan data asinkron berbasis Kotlin Coroutines / Flow tanpa memblokir Main Thread (UI Thread).
 
-### 7.2 Tata Kelola Batas Domain & Single Source of Truth (GPU & Display Tuning)
-Untuk mencegah komplikasi dan redundansi kontrol di masa mendatang, seluruh pengembang dan AI Agent **WAJIB** mematuhi pembagian domain tanggung jawab berikut:
+### 7.3 Ketentuan WebUI (`webroot/` — Secondary Fallback Interface)
+Sebagai antarmuka sekunder, WebUI tetap mematuhi keselarasan visual dengan aplikasi native:
+- Mengikuti token desain Cyberpunk Dark yang selaras dengan tema native.
+- Eksekusi asinkron via `ksu.exec(cmd)` dengan error boundary tangguh dan sanitasi input.
+- Sinkronisasi status dua arah berbasis `config.json` agar konsisten dengan status native app.
+
+### 7.4 Tata Kelola Batas Domain & Single Source of Truth (GPU & Display Tuning)
+Untuk mencegah komplikasi dan redundansi kontrol di masa mendatang, seluruh pengembang dan AI Agent **WAJIB** mematuhi pembagian domain tanggung jawab berikut (berlaku langsung pada kartu Compose di `LynxCompanion` maupun komponen WebUI):
 1. **Domain Macro Preset (`GpuQuickProfilesCard`)**: Murni 1-click harmonized presets (Battery, Balanced, Esports, Extreme).
 2. **Domain Clock OPP & Telemetri (`GpuMasterTunerCard`)**: Murni bertanggung jawab atas frekuensi clock fisik (Min/Max MHz picker), lock clock, grafik real-time load bezier waveform, dan proses render aktif. **DILARANG** menambahkan kontrol kernel sysfs, toggle governor, atau bypass termal di kartu ini.
 3. **Domain Kernel Hardware Abstraction (`AdaptiveGpuHardwareCard`)**: Menjadi **satu-satunya Single Source of Truth** untuk seluruh parameter sysfs driver GPU (Adreno KGSL, MTK GED/FPSGO, ARM Mali Kbase, Generic Linux Devfreq). Wajib diverifikasi via permission probe (`VERIFIED_WORKING` vs `READ_ONLY_LOCKED`) dan transaction write verification. Dilarang menduplikasi tweak ini di kartu lain.
@@ -296,11 +307,11 @@ Instalasi modul di Magisk, KernelSU, maupun APatch menerapkan protokol **Semi-Ot
    - Jika `Vol -`: Sistem menampilkan menu pemilihan manual (1. Qualcomm, 2. MediaTek, 3. Generic).
 2. **Preservasi Aset Platform Cadangan**:
    - Berkas vendor platform terpilih disalin ke `$MODPATH/system/`.
-   - Folder platform mentah (`platforms/qcom/`, `platforms/mtk/`, `platforms/generic/`) tetap disimpan di `$MODPATH/platforms/` (<150 KB). Hal ini memungkinkan pengguna beralih arsitektur langsung via WebUI atau Native APK jika terjadi kesalahan tanpa perlu flash ulang di recovery.
+   - Folder platform mentah (`platforms/qcom/`, `platforms/mtk/`, `platforms/generic/`) tetap disimpan di `$MODPATH/platforms/` (<150 KB). Hal ini memungkinkan pengguna beralih arsitektur langsung via Native APK (`LynxCompanion`) atau WebUI jika terjadi kesalahan tanpa perlu flash ulang di recovery.
    - Beralih platform via UI wajib dilindungi dengan dialog peringatan keras (*Critical Danger Warning Modal*).
 3. **Status Aman Awal (Dormant / Standby First-Boot)**:
    - Modul diinstal dalam status `"active_profile": "dormant"` pada `config.json`.
-   - Modul **DILARANG** langsung menerapkan clock ekstrem saat boot pertama sebelum pengguna membuka WebUI atau Native APK untuk memilih profil dan konfigurasi yang diinginkan.
+   - Modul **DILARANG** langsung menerapkan clock ekstrem saat boot pertama sebelum pengguna membuka Native APK (`LynxCompanion`) atau WebUI untuk memilih profil dan konfigurasi yang diinginkan.
 
 ---
 
@@ -308,10 +319,18 @@ Instalasi modul di Magisk, KernelSU, maupun APatch menerapkan protokol **Semi-Ot
 
 Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman operasional berikut:
 
-1. **Local-First Staging (No Unsolicited Commits)**:
+1. **Mandat "Native-First" — Seluruh Eksperimen, Uji Coba, & Inovasi Terpusat pada Native Android App**:
+   - **Target Utama Laboratorium & Eksperimen**: Seluruh uji coba fitur baru, tuning kernel/sysfs (CPU, GPU, Battery, Charging, Display, I/O, dsb.), perancangan kartu UI Bento/Material 3, dan pengujian performa WAJIB difokuskan serta divalidasi langsung pada **Aplikasi Native Android (`LynxCompanion` / `LynxKernelManager.apk`)** di perangkat uji aktif (**Infinix X698**) terlebih dahulu.
+   - **Status WebUI Sekunder / Follower**: WebUI (`webroot/`) berstatus murni sebagai antarmuka pendamping sekunder. Agen DILARANG mendahulukan atau mengalihkan fokus pengujian ke WebUI sebelum implementasi di native Android selesai, stabil, dan terbukti bekerja optimal di perangkat nyata, kecuali bila ada instruksi khusus tertulis dari pengguna.
+   - **Siklus Iterasi Uji Coba Standar**:
+     1. Terapkan logika/fitur pada kode Kotlin (`LynxCompanion/app/...`) atau modul Rust (`native/lynxd/...`).
+     2. Kompilasi APK varian Release (`tools/build_apk.ps1` atau `./gradlew :app:assembleRelease`).
+     3. Pasang langsung ke perangkat uji aktif Infinix X698 via ADB (`adb -s <X698_SERIAL> install -r LynxKernelManager.apk`).
+     4. Jalankan pengujian fungsionalitas, rendering UI Compose, dan respon hardware langsung pada perangkat fisik.
+2. **Local-First Staging (No Unsolicited Commits)**:
    - Dilarang melakukan `git commit` atau `git push` kecuali jika pengguna secara eksplisit memberikan perintah untuk commit/push.
    - Seluruh perubahan, restrukturisasi, dan pengujian file harus dilakukan pada *local working tree*.
-2. **Pengujian Nyata via ADB & Dynamic Connection Protocol (Dual-Device Laboratory Matrix)**:
+3. **Pengujian Nyata via ADB & Dynamic Connection Protocol (Dual-Device Laboratory Matrix)**:
    - Laboratorium pengembangan memiliki **2 perangkat fisik** dengan otoritas yang **berbeda secara mutlak**:
      1. **Perangkat Uji Utama (Active Read-Write Test Device)**: **Infinix Note 11S (`X698`, MediaTek Helio G96 / `mt6781`, Android 14, Magisk Root)** pada port tetap **`5555`**. Satu-satunya perangkat yang diizinkan menerima instalasi APK uji, penulisan sysfs live, dan penyimpanan berkas di `/storage/emulated/0/Debug/`.
      2. **Perangkat Referensi & Sampel (Strict Read-Only Daily Driver — ZERO-TOUCH)**: **Xiaomi Redmi Note 7 (`lavender`, Qualcomm Snapdragon 660 / `sdm660`, Rooted)** via Wireless ADB (Port **`5555`**) atau Kabel USB. Perangkat krusial *daily driver* pengguna yang **HANYA** boleh dibaca (`cat`, `ls`, `find`, `getprop`) via stdout ADB ke PC lokal dan **HARAM** dimodifikasi sedikit pun (lihat Sub-bab 9.3).
@@ -327,23 +346,23 @@ Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman oper
        4. Pemindaian paralel multi-subnet kecepatan tinggi (.NET Async Sockets, <1 detik di semua subnet lokal aktif).
      - **Selalu Gunakan Flag Target (`-s <SERIAL>`)**: Karena host PC dapat memiliki beberapa perangkat/emulator sekaligus, seluruh perintah adb wajib menyertakan flag serial perangkat target (contoh: `adb -s 192.168.1.5:5555 shell ...`).
      - **Dilarang Keras**: Menebak IP secara acak, melakukan perulangan `Test-Connection` lambat, atau menyimpulkan daemon adbd mati sebelum menjalankan utilitas `connect_device`.
-3. **Lokasi Penyimpanan Berkas Pengujian & Debugging di Perangkat (Khusus Infinix X698 — Mandatory)**:
+4. **Lokasi Penyimpanan Berkas Pengujian & Debugging di Perangkat (Khusus Infinix X698 — Mandatory)**:
    - Setiap kali melakukan remote testing, inspeksi, atau penulisan berkas uji ke perangkat uji aktif (**Infinix X698**) via ADB, seluruh berkas luaran (seperti hasil screenshot `.png`, dump UI `.xml`, log tes, berkas sementara, maupun binary pengujian) **WAJIB** diletakkan terpusat di direktori:
      `/storage/emulated/0/Debug/` (atau alias `/sdcard/Debug/`).
    - **Dilarang Keras** meletakkan berkas di luar folder tersebut, termasuk di root storage (`/sdcard/`, `/storage/emulated/0/`) maupun menumpuk berkas di folder temp sistem (`/data/local/tmp/`), karena menyebabkan penyimpanan berantakan dan sulit dibersihkan oleh pengguna.
    - Sebelum mengeksekusi penulisan atau penyimpanan berkas pada **Infinix X698**, selalu pastikan folder telah dibuat:
      `mkdir -p /storage/emulated/0/Debug 2>/dev/null`
    - ⚠️ **Pengecualian Mutlak untuk Redmi Note 7 (`lavender`)**: Dilarang membuat folder `/storage/emulated/0/Debug/` atau menulis berkas apapun di Redmi Note 7! Seluruh sampel dari Redmi Note 7 wajib dialirkan via stdout ADB langsung ke PC lokal di `archive/device_reference/redmi_note_7_sdm660/`.
-4. **Kompatibilitas Shell Android**:
+5. **Kompatibilitas Shell Android**:
    - Seluruh skrip shell (`.sh`) wajib kompatibel dengan shell standar Android (`/system/bin/sh` / Toybox / BusyBox ash).
    - Hindari dependensi bash-eksklusif yang tidak didukung secara *native* oleh shell Android murni.
-5. **Dokumentasi & Integritas Kode**:
+6. **Dokumentasi & Integritas Kode**:
    - Pertahankan struktur komentar yang informatif pada setiap skrip.
    - Catat setiap perubahan arsitektur pada dokumentasi dan hindari paparan data sensitif.
-6. **Larangan Keras Menginstall / Mem-flash Modul Tanpa Perintah Eksplisit (Strict No-Install Policy)**:
+7. **Larangan Keras Menginstall / Mem-flash Modul Tanpa Perintah Eksplisit (Strict No-Install Policy)**:
    - **DILARANG KERAS** menginstall, mem-flash berkas modul ZIP (`Lynx-Deity-*.zip`), memodifikasi folder modul root (`/data/adb/modules/Lynx/`), atau mengeksekusi installer modul ke perangkat target pengguna via ADB maupun shell root, **KECUALI** jika pengguna secara EKSPLISIT memberikan instruksi tertulis untuk menginstallnya.
    - Pengujian aplikasi (Native Companion APK `LynxKernelManager.apk`) dan inspeksi sistem harus mampu berjalan secara independen dan aman dengan graceful fallback tanpa mengasumsikan modul root telah terpasang di sistem.
-7. **Kewajiban Mutlak Build APK Versi Release (Strict Release-Only Build Policy)**:
+8. **Kewajiban Mutlak Build APK Versi Release (Strict Release-Only Build Policy)**:
    - **Wajib Selalu Varian Release**: Seluruh proses kompilasi, build, pengujian, dan pemasangan APK Lynx Companion (`LynxKernelManager.apk`) **WAJIB SELALU** menggunakan varian **Release** (`assembleRelease` / `:app:assembleRelease`), **BUKAN** varian Debug!
    - **Alasan Teknis & Kinerja**: Varian Release mengaktifkan optimasi penuh R8, ProGuard shrinking, dead-code elimination, dan resource minification (menghasilkan ukuran APK ramping ~2.8 MB dibanding ~19.5 MB pada Debug, 7x lebih hemat memori). Ini memastikan setiap pengujian mencerminkan stabilitas dan performa produksi nyata serta mencegah bug/crash tersembunyi akibat minifikasi R8.
    - **Larangan Keras Varian Debug**: Dilarang keras mengompilasi atau memasang varian Debug (`assembleDebug`), **KECUALI** jika pengguna secara EKSPLISIT menginstruksikan varian debug atau kondisi troubleshooting darurat yang sangat memerlukan debug symbols.
@@ -432,9 +451,9 @@ Setiap subsistem wajib menggunakan **Universal Dynamic Capability Discovery**:
 
 ---
 
-## 📱 11. Arsitektur Native APK Companion (`app/`) & Two-Way Sync Engine
+## 📱 11. Arsitektur Native APK Companion (`LynxCompanion`) & Two-Way Sync Engine
 
-Lynx Universal tidak hanya bergantung pada WebUI, melainkan menyediakan **Aplikasi Android Native Companion** (`app/`) yang sinkron 2 arah secara real-time:
+Aplikasi **Native Android Companion (`LynxCompanion`)** adalah **pusat kendali dan fokus utama pengembangan** Lynx Universal, yang menghubungkan pengguna secara langsung dengan parameter kernel dan mesin Rust secara instan, dengan WebUI bertindak sebagai antarmuka pendamping yang sinkron 2 arah secara real-time:
 
 1. **Teknologi Native**:
    - Bahasa: **Kotlin + Jetpack Compose + Material 3** dengan estetika Cyberpunk OLED Dark (`#0a0a0a`, `#00ffaa`, `#0099ff`).
@@ -457,7 +476,7 @@ Untuk mencegah "log kosong" dan kehilangan jejak eksekusi:
    - `logs/fallback.log`: Mencatat setiap kejadian fallback kapabilitas (misal saat kernel tidak mendukung `zstd` dan turun ke `lz4`).
    - Rotasi otomatis: Log dibatasi maksimal 512 KB per berkas dan dirotasi otomatis untuk mencegah memori penuh.
 2. **1-Click Bug Report Export**:
-   - Tombol "Export Bug Report" di WebUI dan Native APK memanggil `Lxcore log export`.
+   - Tombol "Export Bug Report" di Native Companion APK (dan WebUI) memanggil `Lxcore log export`.
    - Menghasilkan berkas terkompresi `/sdcard/Lynx/lynx_diagnostic_<timestamp>.zip` berisi:
      - `config.json` aktif.
      - Ringkasan hardware (`dts`, GPU ID, OPP tables).
@@ -602,7 +621,7 @@ Seluruh teks yang ditampilkan kepada pengguna wajib dapat diterjemahkan. Bahasa 
 2. UI automation must check the foreground package and Companion process identity before dumps, taps, and swipes. Abort when Lynx loses focus; do not inspect or interact with another application's contents. Wait for initialization before asserting that navigation exists. Resume after a repair using a separate evidence directory.
 3. Empty logcat output does not establish that no crash occurred. Check process continuity, `dumpsys activity exit-info`, and the application's DropBox crash entry when the process disappears. Keep the exact Release mapping and tests associated with the artifact being inspected.
 4. Navigation, catalog/format checks, backend readbacks, guarded rejection tests, real decoder playback, and boot persistence are separate claims. Report each verified scope; never label destructive kernel flashing, uninstall, reboot, unsupported hardware, or unexercised controls as tested merely because the page opens.
-5. WebUI regression tests must cover locale round trips and saved overrides, first rendering over loading placeholders, and Linux CPU lists containing spaces, commas, and ranges. Keep fixtures read-only and distinguish captured-data browser checks from live hardware mutations.
+5. **WebUI (Secondary) regression tests**: While the Native Companion App is the primary development, experimentation, and test target, whenever secondary WebUI updates or parity synchronizations are performed, regression tests must cover locale round trips and saved overrides, first rendering over loading placeholders, and Linux CPU lists containing spaces, commas, and ranges. Keep fixtures read-only and distinguish captured-data browser checks from live hardware mutations.
 
 *Dokumen ini sah sebagai panduan teknis dan acuan implementasi resmi proyek Lynx Universal.*
 
