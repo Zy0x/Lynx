@@ -1160,11 +1160,11 @@ fun AutomationRulesCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val filterOptions = listOf(
-                            "all" to "Semua (${uiState.appProfileRules.size})",
-                            "game" to "Game (${uiState.appProfileRules.count { it.isGame }})",
-                            "active" to "Aktif (${uiState.appProfileRules.count { it.enabled }})"
+                            Triple("all", "Semua", uiState.appProfileRules.size),
+                            Triple("game", "Game", uiState.appProfileRules.count { it.isGame }),
+                            Triple("active", "Aktif", uiState.appProfileRules.count { it.enabled })
                         )
-                        filterOptions.forEach { (filterKey, label) ->
+                        filterOptions.forEach { (filterKey, label, count) ->
                             val isSelected = selectedFilter == filterKey
                             Surface(
                                 onClick = { onSelectFilter(filterKey) },
@@ -1176,16 +1176,31 @@ fun AutomationRulesCard(
                                 ),
                                 modifier = Modifier.height(30.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier.padding(horizontal = 10.dp),
-                                    contentAlignment = Alignment.Center
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
                                 ) {
                                     Text(
                                         text = label,
                                         color = if (isSelected) AccentCyan else TextSecondary,
-                                        fontSize = 11.5.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
+                                    Spacer(Modifier.width(4.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = if (isSelected) AccentCyan.copy(alpha = 0.22f) else BgDeepOled.copy(alpha = 0.7f),
+                                        border = BorderStroke(0.5.dp, if (isSelected) AccentCyan.copy(alpha = 0.45f) else BorderGlass.copy(alpha = 0.4f))
+                                    ) {
+                                        Text(
+                                            text = "$count",
+                                            color = if (isSelected) AccentCyan else TextSecondary.copy(alpha = 0.75f),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

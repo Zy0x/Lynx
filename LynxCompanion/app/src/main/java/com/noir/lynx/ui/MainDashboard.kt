@@ -69,6 +69,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
@@ -225,7 +228,10 @@ fun MainDashboard(
                                 text = rule.appName,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
-                                color = TextPrimary
+                                color = TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
                             )
                             if (rule.isGame) {
                                 Spacer(Modifier.width(6.dp))
@@ -249,7 +255,8 @@ fun MainDashboard(
                             text = rule.packageName,
                             fontSize = 11.sp,
                             color = TextSecondary.copy(alpha = 0.75f),
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -546,6 +553,9 @@ fun MainDashboard(
             uiState.appProfileRules.map { it.packageName }.toSet()
         }
         val gameCount = remember(allApps) { allApps.count { it.isGame } }
+        val unconfiguredCount = remember(allApps, configuredPkgs) {
+            allApps.count { !configuredPkgs.contains(it.packageName) }
+        }
 
         val q = customPkgText.trim().lowercase()
         val filteredApps = remember(allApps, q, addAppFilter, configuredPkgs) {
@@ -560,96 +570,110 @@ fun MainDashboard(
             }
         }
 
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showAddAppDialog = false },
-            containerColor = BgElevated,
-            shape = RoundedCornerShape(22.dp),
-            modifier = Modifier
-                .fillMaxWidth(0.96f)
-                .border(0.8.dp, BorderGlass, RoundedCornerShape(22.dp)),
-            title = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderGlass),
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .fillMaxHeight(0.82f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 16.dp)
                 ) {
+                    // Header Terpadu & Minimalis
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = BgDeepOled.copy(alpha = 0.7f),
+                                border = BorderStroke(0.8.dp, BorderGlass),
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.Apps,
+                                        contentDescription = null,
+                                        tint = AccentCyan,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            Column {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Pilih Aplikasi",
+                                        color = TextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                    if (allApps.isNotEmpty()) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = BgDeepOled.copy(alpha = 0.8f),
+                                            border = BorderStroke(0.6.dp, BorderGlass)
+                                        ) {
+                                            Text(
+                                                text = "${filteredApps.size}",
+                                                color = TextSecondary,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(1.dp))
+                                Text(
+                                    text = "Ketuk aplikasi untuk konfigurasi profil",
+                                    color = TextSecondary.copy(alpha = 0.7f),
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
+                            onClick = { showAddAppDialog = false },
+                            shape = CircleShape,
                             color = BgDeepOled.copy(alpha = 0.7f),
                             border = BorderStroke(0.8.dp, BorderGlass),
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Default.Apps,
-                                    contentDescription = null,
-                                    tint = AccentCyan,
-                                    modifier = Modifier.size(20.dp)
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Tutup",
+                                    tint = TextSecondary,
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
-                        }
-                        Column {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "Pilih Aplikasi",
-                                    color = TextPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
-                                )
-                                if (allApps.isNotEmpty()) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = BgDeepOled.copy(alpha = 0.8f),
-                                        border = BorderStroke(0.6.dp, BorderGlass)
-                                    ) {
-                                        Text(
-                                            text = "${allApps.size}",
-                                            color = TextSecondary,
-                                            fontSize = 10.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(1.dp))
-                            Text(
-                                text = "Daftarkan aturan optimasi per-aplikasi",
-                                color = TextSecondary.copy(alpha = 0.7f),
-                                fontSize = 11.sp
-                            )
                         }
                     }
 
-                    IconButton(
-                        onClick = { showAddAppDialog = false },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Tutup",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 520.dp)
-                ) {
+                    Spacer(Modifier.height(14.dp))
+
                     // Search Bar Kapsul OLED Gelap
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         color = BgDeepOled.copy(alpha = 0.7f),
                         border = BorderStroke(
                             0.8.dp,
@@ -696,7 +720,7 @@ fun MainDashboard(
                             if (customPkgText.isNotEmpty()) {
                                 IconButton(
                                     onClick = { customPkgText = "" },
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(24.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
@@ -711,16 +735,17 @@ fun MainDashboard(
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Filter Chips Kapsul Ramping
+                    // Filter Chips Kapsul Ramping dengan Badge Angka Terpisah (Anti-Glyph Glitch)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         listOf(
-                            Triple("ALL", "Semua (${allApps.size})", AccentCyan),
-                            Triple("GAME", "Game ($gameCount)", AccentCyan),
-                            Triple("UNCONFIGURED", "Belum Diatur", AccentCyan),
-                        ).forEach { (key, label, accent) ->
+                            Triple("ALL", "Semua" to allApps.size, AccentCyan),
+                            Triple("GAME", "Game" to gameCount, AccentOrange),
+                            Triple("UNCONFIGURED", "Belum Diatur" to unconfiguredCount, AccentCyan),
+                        ).forEach { (key, meta, accent) ->
+                            val (label, count) = meta
                             val isSel = addAppFilter == key
                             Surface(
                                 onClick = { addAppFilter = key },
@@ -731,17 +756,35 @@ fun MainDashboard(
                                     .weight(1f)
                                     .height(32.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
                                 ) {
                                     Text(
                                         text = label,
                                         color = if (isSel) accent else TextSecondary,
-                                        fontSize = 11.sp,
+                                        fontSize = 10.5.sp,
                                         fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                                        maxLines = 1
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
+                                    Spacer(Modifier.width(4.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = if (isSel) accent.copy(alpha = 0.22f) else BgDeepOled.copy(alpha = 0.7f),
+                                        border = BorderStroke(0.5.dp, if (isSel) accent.copy(alpha = 0.45f) else BorderGlass.copy(alpha = 0.4f))
+                                    ) {
+                                        Text(
+                                            text = "$count",
+                                            color = if (isSel) accent else TextSecondary.copy(alpha = 0.75f),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -790,7 +833,8 @@ fun MainDashboard(
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f)
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             items(
                                 count = filteredApps.size,
@@ -817,34 +861,47 @@ fun MainDashboard(
                                         }
                                         showAddAppDialog = false
                                     },
+                                    shape = RoundedCornerShape(10.dp),
                                     color = Color.Transparent,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Row(
                                         Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 8.dp, vertical = 9.dp),
+                                            .padding(horizontal = 6.dp, vertical = 7.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Row(
-                                            modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                            modifier = Modifier.weight(1f).padding(end = 10.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            AppIconImage(
-                                                packageName = app.packageName,
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
-                                            )
-                                            Spacer(Modifier.width(12.dp))
-                                            Column {
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = BgDeepOled.copy(alpha = 0.5f),
+                                                border = BorderStroke(0.6.dp, BorderGlass.copy(alpha = 0.4f)),
+                                                modifier = Modifier.size(40.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    AppIconImage(
+                                                        packageName = app.packageName,
+                                                        modifier = Modifier
+                                                            .size(34.dp)
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                    )
+                                                }
+                                            }
+                                            Spacer(Modifier.width(10.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(
                                                         text = app.label,
                                                         color = TextPrimary,
-                                                        fontSize = 13.5.sp,
-                                                        fontWeight = FontWeight.SemiBold
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.weight(1f, fill = false)
                                                     )
                                                     if (app.isGame) {
                                                         Spacer(Modifier.width(6.dp))
@@ -856,9 +913,9 @@ fun MainDashboard(
                                                             Text(
                                                                 "GAME",
                                                                 color = AccentOrange,
-                                                                fontSize = 8.5.sp,
+                                                                fontSize = 8.sp,
                                                                 fontWeight = FontWeight.ExtraBold,
-                                                                modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 1.dp)
+                                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                                             )
                                                         }
                                                     }
@@ -866,26 +923,60 @@ fun MainDashboard(
                                                 Spacer(Modifier.height(1.5.dp))
                                                 Text(
                                                     text = app.packageName,
-                                                    color = TextSecondary.copy(alpha = 0.75f),
+                                                    color = TextSecondary.copy(alpha = 0.7f),
                                                     fontSize = 10.5.sp,
-                                                    maxLines = 1
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
                                         }
 
                                         if (existingRule != null) {
+                                            val (profName, profColor) = when (existingRule.targetProfile.lowercase()) {
+                                                "extreme" -> "Ekstrem" to AccentRed
+                                                "performance" -> "Performa" to AccentOrange
+                                                "powersave" -> "Hemat" to AccentGreen
+                                                else -> "Seimbang" to AccentCyan
+                                            }
                                             Surface(
                                                 shape = RoundedCornerShape(6.dp),
-                                                color = BgDeepOled.copy(alpha = 0.7f),
-                                                border = BorderStroke(0.6.dp, BorderGlass)
+                                                color = profColor.copy(alpha = 0.14f),
+                                                border = BorderStroke(0.6.dp, profColor.copy(alpha = 0.45f))
                                             ) {
-                                                Text(
-                                                    text = existingRule.targetProfile.uppercase(),
-                                                    color = AccentCyan,
-                                                    fontSize = 9.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
-                                                )
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(5.dp)
+                                                            .background(profColor, CircleShape)
+                                                    )
+                                                    Text(
+                                                        text = profName,
+                                                        color = profColor,
+                                                        fontSize = 9.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = BgDeepOled.copy(alpha = 0.6f),
+                                                border = BorderStroke(0.6.dp, BorderGlass),
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Add,
+                                                        contentDescription = null,
+                                                        tint = TextSecondary.copy(alpha = 0.6f),
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -893,8 +984,8 @@ fun MainDashboard(
 
                                 if (i < filteredApps.size - 1) {
                                     HorizontalDivider(
-                                        color = BorderGlass.copy(alpha = 0.25f),
-                                        modifier = Modifier.padding(horizontal = 8.dp)
+                                        color = BorderGlass.copy(alpha = 0.2f),
+                                        modifier = Modifier.padding(horizontal = 6.dp)
                                     )
                                 }
                             }
@@ -943,36 +1034,15 @@ fun MainDashboard(
                                     color = AccentCyan,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.5.sp,
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                Surface(
-                    onClick = { showAddAppDialog = false },
-                    shape = RoundedCornerShape(10.dp),
-                    color = BgDeepOled.copy(alpha = 0.6f),
-                    border = BorderStroke(0.8.dp, BorderGlass),
-                    modifier = Modifier.height(38.dp)
-                ) {
-                    Box(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Tutup",
-                            color = TextSecondary,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
             }
-        )
+        }
     }
 
     Box(

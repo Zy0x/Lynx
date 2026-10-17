@@ -1,3 +1,24 @@
+# Lynx Universal [Pure Dialog Polish & Symmetrical Visual Balance] 7.0.0-RC76
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC76** (Lynx Kernel Manager v3.1.29): **Penyempurnaan Total Kerapian Overlay Tambah Aplikasi (Pilih Aplikasi): Migrasi Penuh dari AlertDialog ke Custom Dialog Tanpa Tombol Tutup Asimetris yang Lopsided di Sudut Kanan Bawah, Integrasi Tombol Tutup Bulat Ergonomis di Header, Keseimbangan Visual Kolom Kanan dengan Tombol Aksi Bulat pada Aplikasi Baru, Penanganan Pemotongan Teks (Ellipsis) Sempurna pada Nama Aplikasi dan Package, Serta Squircle Icon Container Terstandar**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC76)
+
+### 1. 🪟 Migrasi ke Custom Dialog Murni (Bebas Layout Lopsided)
+- **Eliminasi Tombol Tutup Asimetris**: Menghapus tombol *Tutup* usang yang berada di sudut kanan bawah AlertDialog yang menyisakan ruang kosong besar di kiri bawah, menggantikannya dengan tombol tutup lingkaran modern `(X)` di header.
+- **Proporsi Layar Ideal**: Menggunakan `Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.82f)` dengan padding internal presisi, memberikan ruang gulir aplikasi yang lega dan terbingkai proporsional.
+
+### 2. ⚖️ Keseimbangan Visual Kolom Kanan (Right-Side Symmetrical Balance)
+- **Indikator Aksi Aplikasi Belum Diatur**: Menambahkan tombol lingkaran subtil `(+)` pada baris aplikasi yang belum dikonfigurasi, menciptakan keseimbangan simetris di seluruh baris daftar aplikasi sehingga tidak ada lagi ruang hampa di sebelah kanan.
+- **Pill Status Profil Ringkas Berwarna**: Aplikasi yang telah diatur menampilkan pill status profil yang ringkas dengan titik status berwarna semantik (*Ekstrem*, *Performa*, *Seimbang*, *Hemat*) dan proteksi tipografi anti-ligatur HiOS/XOS.
+
+### 3. 🔤 Penanganan Teks & Ikon Presisi (Anti-Truncation & Uniform Squircle)
+- **Penanganan Ellipsis Sempurna**: Menambahkan `maxLines = 1` dan `overflow = TextOverflow.Ellipsis` pada nama aplikasi dan nama package di seluruh dialog (baik `showAddAppDialog` maupun `editingRule`), mencegah pemotongan teks secara mendadak.
+- **Kontainer Ikon Squircle Seragam**: Membungkus setiap ikon aplikasi ke dalam kontainer squircle `40.dp` dengan latar belakang lembut `BgDeepOled` dan border kaca, menjamin keseragaman visual bagi semua format ikon (lingkaran, kotak putih, atau transparan).
+- **Semua Chip Filter Dilengkapi Counter**: Menghitung counter untuk ketiga chip filter (*Semua*, *Game*, *Belum Diatur*) secara dinamis.
+
+---
+
 # Lynx Universal [Clean Anti-AI-Slop Add App & Profile Config Overhaul] 7.0.0-RC75
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC75** (Lynx Kernel Manager v3.1.28): **Perombakan Menyeluruh Overlay Tambah Aplikasi dan Modal Konfigurasi Profil: Mengeliminasi Gaya Boxy 'AI Slop' Menjadi Desain Monokromatis OLED Minimalis Elegan, Bilah Pencarian Kapsul Terintegrasi, Filter Kapsul Ramping Tanpa Pemotongan Teks, Baris Aplikasi Flat Minimalis dengan Pemisah Halus, Alur Transisi Instan ke Pengaturan Profil, Serta Penyelarasan Palet Cyberpunk Bersih Tanpa Warna-Warni Mencolok**.
