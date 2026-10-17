@@ -346,11 +346,25 @@ Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman oper
        4. Pemindaian paralel multi-subnet kecepatan tinggi (.NET Async Sockets, <1 detik di semua subnet lokal aktif).
      - **Selalu Gunakan Flag Target (`-s <SERIAL>`)**: Karena host PC dapat memiliki beberapa perangkat/emulator sekaligus, seluruh perintah adb wajib menyertakan flag serial perangkat target (contoh: `adb -s 192.168.1.5:5555 shell ...`).
      - **Dilarang Keras**: Menebak IP secara acak, melakukan perulangan `Test-Connection` lambat, atau menyimpulkan daemon adbd mati sebelum menjalankan utilitas `connect_device`.
-4. **Lokasi Penyimpanan Berkas Pengujian & Debugging di Perangkat (Khusus Infinix X698 — Mandatory)**:
-   - Setiap kali melakukan remote testing, inspeksi, atau penulisan berkas uji ke perangkat uji aktif (**Infinix X698**) via ADB, seluruh berkas luaran (seperti hasil screenshot `.png`, dump UI `.xml`, log tes, berkas sementara, maupun binary pengujian) **WAJIB** diletakkan terpusat di direktori:
-     `/storage/emulated/0/Debug/` (atau alias `/sdcard/Debug/`).
-   - **Dilarang Keras** meletakkan berkas di luar folder tersebut, termasuk di root storage (`/sdcard/`, `/storage/emulated/0/`) maupun menumpuk berkas di folder temp sistem (`/data/local/tmp/`), karena menyebabkan penyimpanan berantakan dan sulit dibersihkan oleh pengguna.
-   - Sebelum mengeksekusi penulisan atau penyimpanan berkas pada **Infinix X698**, selalu pastikan folder telah dibuat:
+4. **Lokasi Penyimpanan Berkas Pengujian & Protokol Zero-Trace / Pembersihan Seketika (Syarat Mutlak — Non-Negotiable)**:
+   - **Lokasi Tunggal yang Diizinkan**: Setiap kali melakukan remote testing, inspeksi, dump hierarki UI (`uiautomator dump`), tangkapan layar (`screencap`), log uji, maupun berkas sementara pada perangkat uji aktif (**Infinix X698**), seluruh berkas luaran **WAJIB** diletakkan secara terisolasi di folder:
+     `/storage/emulated/0/Debug/` (alias `/sdcard/Debug/`).
+   - **Larangan Keras Penulisan Liar**:
+     - **DILARANG KERAS** meletakkan berkas di luar folder tersebut, terutama langsung di root internal storage (`/sdcard/`, `/storage/emulated/0/`).
+     - **DILARANG KERAS** menumpuk atau meninggalkan berkas dump, gambar uji, skrip sementara, maupun log di folder temp sistem (`/data/local/tmp/`).
+   - **Protokol Pembersihan Seketika (Immediate Post-Pull Zero-Trace Cleanup — SYARAT MUTLAK)**:
+     - Begitu berkas selesai ditarik ke PC lokal/folder artifact melalui perintah `adb pull`, agen **WAJIB SEKETIKA ITU JUGA** menghapus berkas-berkas tersebut dari perangkat target tanpa menunda:
+       ```bash
+       # Pola standar penarikan dan pembersihan instan:
+       adb -s <SERIAL> pull /sdcard/Debug/screen_sample.png ./local_path/
+       adb -s <SERIAL> shell "rm -f /sdcard/Debug/screen_sample.png"
+       ```
+     - Jika rangkaian pengujian selesai, agen **WAJIB** memastikan direktori `/sdcard/Debug/`, root `/sdcard/`, dan `/data/local/tmp/` benar-benar bersih dari seluruh artefak uji:
+       ```bash
+       adb -s <SERIAL> shell "rm -rf /sdcard/Debug/* /data/local/tmp/*.png /data/local/tmp/*.xml 2>/dev/null"
+       ```
+     - **Toleransi Nol Terhadap Sampah Sisa Pengujian**: Tidak boleh ada satu pun berkas `.png`, `.xml`, `.log`, atau temporary artifacts yang tertinggal di `/sdcard/Debug/`, di root `/sdcard/`, maupun di `/data/local/tmp/`. Perangkat fisik pengguna wajib selalu dalam kondisi higienis dan bebas dari residu pengujian otomatis AI.
+   - Sebelum mengeksekusi penulisan atau penyimpanan berkas pada **Infinix X698**, selalu pastikan folder penampung sementara telah dibuat:
      `mkdir -p /storage/emulated/0/Debug 2>/dev/null`
    - ⚠️ **Pengecualian Mutlak untuk Redmi Note 7 (`lavender`)**: Dilarang membuat folder `/storage/emulated/0/Debug/` atau menulis berkas apapun di Redmi Note 7! Seluruh sampel dari Redmi Note 7 wajib dialirkan via stdout ADB langsung ke PC lokal di `archive/device_reference/redmi_note_7_sdm660/`.
 5. **Kompatibilitas Shell Android**:
@@ -380,7 +394,7 @@ Untuk memverifikasi stabilitas dan fungsionalitas Lynx Companion pada **Infinix 
    - VM & Jaringan: Pembebasan RAM cache (drop caches) dan TCP congestion control via `/proc/sys/`.
    - Layar: Kunci refresh rate panel diaplikasikan via Android system settings.
 5. **Dormant Background Daemons**: Fitur otomasi latar belakang yang bergantung pada modul (seperti Smart-AI foreground watcher dan Charging AutoCut) berstatus *Standby/Non-Aktif*.
-6. **Penyimpanan Berkas Uji & Tanpa Reboot**: Seluruh berkas diagnostik, log, dan tangkapan layar pengujian disimpan secara eksklusif di `/storage/emulated/0/Debug/` tanpa me-reboot perangkat pengguna.
+6. **Penyimpanan Berkas Uji & Protokol Zero-Trace**: Seluruh berkas diagnostik, log, dump UI, dan tangkapan layar pengujian disimpan secara eksklusif di `/storage/emulated/0/Debug/` dan **WAJIB LANGSUNG DIHAPUS** seketika setelah ditarik (`adb pull`), tanpa pernah meninggalkan jejak di internal storage maupun `/data/local/tmp/`.
 
 ### 9.2 Freeze Versioning — Penghentian Kenaikan Versi Otomatis (Mandatory)
 Sesuai arahan pengguna, siklus penomoran versi Lynx Universal saat ini **DIBEKUKAN (FROZEN)** pada versi:
@@ -405,7 +419,7 @@ Sesuai arahan pengguna, siklus penomoran versi Lynx Universal saat ini **DIBEKUK
 | **Peran & Otoritas** | **Active Read-Write Test Device** | **🔒 STRICT READ-ONLY REFERENCE (ZERO-TOUCH)** |
 | **Instalasi APK / UI Test** | ✅ Diizinkan (`adb install -r`) | ❌ **DILARANG KERAS** |
 | **Modifikasi Sysfs / Prop** | ✅ Diizinkan (Pengujian Tweak) | ❌ **DILARANG KERAS** |
-| **Penulisan File di Device** | ✅ Diizinkan hanya di `/sdcard/Debug/` | ❌ **DILARANG KERAS (0 Byte Written)** |
+| **Penulisan File di Device** | ✅ Diizinkan hanya di `/sdcard/Debug/` (Wajib langsung dibersihkan pasca-pull) | ❌ **DILARANG KERAS (0 Byte Written)** |
 | **Lokasi Simpan Sampel** | `/storage/emulated/0/Debug/` (Device) | `archive/device_reference/redmi_note_7_sdm660/` (PC Lokal) |
 
 #### Aturan Mutlak Interaksi dengan Redmi Note 7 (`lavender` / `sdm660`):
