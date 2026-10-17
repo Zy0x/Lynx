@@ -982,38 +982,9 @@ fun AutomationRulesCard(
                     }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Scan / Pindai Button (with active scanning state)
-                        Surface(
-                            onClick = { viewModel.autoDetectAndSyncInstalledRules(context) },
-                            enabled = !uiState.isScanningInstalledGames,
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (uiState.isScanningInstalledGames) AccentCyan.copy(alpha = 0.22f) else BgDeepOled.copy(alpha = 0.6f),
-                            border = BorderStroke(0.8.dp, if (uiState.isScanningInstalledGames) AccentCyan else BorderGlass),
-                            modifier = Modifier.height(38.dp)
-                        ) {
-                            Row(
-                                Modifier.padding(horizontal = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (uiState.isScanningInstalledGames) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(13.dp),
-                                        color = AccentCyan,
-                                        strokeWidth = 1.8.dp
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Memindai...", color = AccentCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                                } else {
-                                    Icon(Icons.Default.Refresh, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Pindai", color = AccentCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-
                         // Minimal Primary Add Button
                         Surface(
                             onClick = onAddAppClick,
@@ -1023,12 +994,12 @@ fun AutomationRulesCard(
                             modifier = Modifier.height(38.dp)
                         ) {
                             Row(
-                                Modifier.padding(horizontal = 10.dp),
+                                Modifier.padding(horizontal = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Add, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Tambah", color = AccentCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                Icon(Icons.Default.Add, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(5.dp))
+                                Text("Tambah", color = AccentCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -1042,12 +1013,20 @@ fun AutomationRulesCard(
                                 modifier = Modifier.size(38.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        Icons.Default.MoreVert,
-                                        contentDescription = "Opsi Lainnya",
-                                        tint = TextSecondary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    if (uiState.isScanningInstalledGames) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            color = AccentCyan,
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.MoreVert,
+                                            contentDescription = "Opsi Lainnya",
+                                            tint = TextSecondary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
 
@@ -1059,19 +1038,28 @@ fun AutomationRulesCard(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            "Pindai Ulang Game",
-                                            color = TextPrimary,
+                                            if (uiState.isScanningInstalledGames) "Memindai Game..." else "Pindai Game Terpasang",
+                                            color = if (uiState.isScanningInstalledGames) AccentCyan else TextPrimary,
                                             fontSize = 13.sp
                                         )
                                     },
                                     leadingIcon = {
-                                        Icon(
-                                            Icons.Default.Refresh,
-                                            contentDescription = null,
-                                            tint = AccentCyan,
-                                            modifier = Modifier.size(18.dp)
-                                        )
+                                        if (uiState.isScanningInstalledGames) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                color = AccentCyan,
+                                                strokeWidth = 2.dp
+                                            )
+                                        } else {
+                                            Icon(
+                                                Icons.Default.Refresh,
+                                                contentDescription = null,
+                                                tint = AccentCyan,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     },
+                                    enabled = !uiState.isScanningInstalledGames,
                                     onClick = {
                                         onOverflowMenuDismiss()
                                         viewModel.autoDetectAndSyncInstalledRules(context)

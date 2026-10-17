@@ -1,3 +1,19 @@
+# Lynx Universal [Header Action Streamlining & Redundancy Cleanup] 7.0.0-RC74
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC74** (Lynx Kernel Manager v3.1.27): **Pembersihan Redundansi Aksi Header Kartu Otomasi Aplikasi: Eliminasi Tombol Pindai Eksternal yang Redundan dengan Menu Titik Tiga (More Options), Integrasi Indikator Pemindaian Asinkron Terpadu pada Ikon Titik Tiga (Overflow Menu), dan Optimalisasi Ruang Header yang Lebih Rapi, Ergonomis, serta Anti-Clutter**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC74)
+
+### 1. 🧹 Eliminasi Redundansi Tombol Header (Header Action Streamlining)
+- Menghapus tombol `[ ⟳ Pindai ]` di bagian luar header kartu Aturan Aplikasi yang sebelumnya berdampingan dengan tombol Tambah dan Titik Tiga.
+- Mengembalikan hierarki aksi yang bersih dan teratur: header hanya menampilkan judul dengan badge jumlah aturan, tombol aksi utama **[ + Tambah ]**, dan tombol aksi sekunder **[ ⋮ ]** (*More Options*).
+
+### 2. ⚡ Indikator Status Pemindaian Real-Time pada Menu Titik Tiga
+- Tombol **[ ⋮ ]** kini memiliki status adaptif: saat proses pemindaian game terpasang sedang berjalan di latar belakang, ikon titik tiga bertransisi secara mulus menjadi `CircularProgressIndicator` berputar halus beraksen Cyan.
+- Pada dropdown menu, item *"Pindai Game Terpasang"* secara otomatis berubah menjadi *"Memindai Game..."* dan berada dalam status disabled sementara untuk mencegah klik berulang (*spam-tap*).
+
+---
+
 # Lynx Universal [Zero-Exit Navigation Guard, Dedicated Scan Game Button & Cyberpunk Clear-All Modal UX] 7.0.0-RC73
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC73** (Lynx Kernel Manager v3.1.26): **Perbaikan Total UX Tombol Pindai Game Terpasang dan Hapus Semua Aturan: Eliminasi Total Bug 'Terlempar Keluar Halaman' dengan Mengganti Root Loading Screen Menjadi In-Place Scanning State, Integrasi Tombol Pindai Dedicated di Header Kartu dengan Animasi Loading Real-Time, Pembuatan Modal Konfirmasi 'Hapus Semua' Mewah Bergaya Cyberpunk OLED dengan Ringkasan Aturan Terdaftar, Serta Proteksi State Navigasi Presisten (Navigation Guard)**.
