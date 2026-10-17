@@ -98,6 +98,19 @@ object LynxSystemControlRepository {
                         tc qdisc replace dev "${'$'}iface" root fq_codel 2>/dev/null || true
                     fi
                 done
+                echo 32768 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null
+                for rx in /sys/class/net/*/queues/rx-*; do
+                    [ -f "${'$'}rx/rps_flow_cnt" ] && echo 4096 > "${'$'}rx/rps_flow_cnt" 2>/dev/null
+                done
+                for tx in /sys/class/net/wlan0/queues/tx-*; do
+                    [ -f "${'$'}tx/xps_cpus" ] && echo 3f > "${'$'}tx/xps_cpus" 2>/dev/null
+                done
+                for tx in /sys/class/net/ccmni*/queues/tx-*; do
+                    [ -f "${'$'}tx/xps_cpus" ] && echo 3f > "${'$'}tx/xps_cpus" 2>/dev/null
+                done
+                for tx in /sys/class/net/rmnet*/queues/tx-*; do
+                    [ -f "${'$'}tx/xps_cpus" ] && echo ff > "${'$'}tx/xps_cpus" 2>/dev/null
+                done
                 echo ok
                 """.trimIndent()
             } else {
@@ -107,6 +120,10 @@ object LynxSystemControlRepository {
                     if [ -d "/sys/class/net/${'$'}iface" ]; then
                         tc qdisc del dev "${'$'}iface" root 2>/dev/null || true
                     fi
+                done
+                echo 0 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null
+                for rx in /sys/class/net/*/queues/rx-*; do
+                    [ -f "${'$'}rx/rps_flow_cnt" ] && echo 0 > "${'$'}rx/rps_flow_cnt" 2>/dev/null
                 done
                 echo ok
                 """.trimIndent()
@@ -162,6 +179,15 @@ object LynxSystemControlRepository {
                 echo 1 > /proc/sys/net/ipv4/tcp_dsack 2>/dev/null
                 echo 15 > /proc/sys/net/ipv4/tcp_fin_timeout 2>/dev/null
                 echo 10000 > /proc/sys/net/core/netdev_max_backlog 2>/dev/null
+                echo 1024 > /proc/sys/net/core/somaxconn 2>/dev/null
+                echo 16384 > /proc/sys/net/ipv4/tcp_notsent_lowat 2>/dev/null
+                echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
+                echo 1 > /proc/sys/net/ipv4/tcp_no_metrics_save 2>/dev/null
+                echo 1 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null
+                echo 2 > /proc/sys/net/ipv4/conf/all/arp_announce 2>/dev/null
+                echo 1 > /proc/sys/net/ipv4/conf/all/arp_ignore 2>/dev/null
+                setprop net.dns.cache_size 1024 2>/dev/null
+                setprop net.dns.cache_ttl 600 2>/dev/null
                 echo ok
                 """.trimIndent()
             } else {
@@ -169,6 +195,14 @@ object LynxSystemControlRepository {
                 echo 1 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null
                 echo 1 > /proc/sys/net/ipv4/tcp_autocorking 2>/dev/null
                 echo 60 > /proc/sys/net/ipv4/tcp_fin_timeout 2>/dev/null
+                echo 1000 > /proc/sys/net/core/netdev_max_backlog 2>/dev/null
+                echo 128 > /proc/sys/net/core/somaxconn 2>/dev/null
+                echo 4294967295 > /proc/sys/net/ipv4/tcp_notsent_lowat 2>/dev/null
+                echo 1 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
+                echo 0 > /proc/sys/net/ipv4/tcp_no_metrics_save 2>/dev/null
+                echo 0 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null
+                echo 0 > /proc/sys/net/ipv4/conf/all/arp_announce 2>/dev/null
+                echo 0 > /proc/sys/net/ipv4/conf/all/arp_ignore 2>/dev/null
                 echo ok
                 """.trimIndent()
             }

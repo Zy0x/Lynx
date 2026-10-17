@@ -301,8 +301,8 @@ fun NetworkSubscreen(
             accentColor = AccentPurple
         ) {
             LynxSwitch(
-                label = "FQ-CoDel Bufferbloat Killer",
-                subLabel = "Antrean adil FQ-CoDel memisahkan paket download vs game agar ping tidak melonjak",
+                label = "Multi-Queue RFS & Bufferbloat Guard",
+                subLabel = "Distribusikan IRQ paket via 32K Flow Steering & mitigasi bufferbloat antrean",
                 checked = state.network.fqCodelEnabled,
                 onCheckedChange = { viewModel.setFqCodelEnabled(it) },
             )
@@ -313,8 +313,8 @@ fun NetworkSubscreen(
                 onCheckedChange = { viewModel.setTcpBuffers16m(it) },
             )
             LynxSwitch(
-                label = "TCP Fast Open & Anti-Corking",
-                subLabel = "Kirim data instan pada paket jabat tangan awal tanpa jeda Nagle",
+                label = "TCP Fast Open & Anti-Stall Guard",
+                subLabel = "tcp_notsent_lowat 16KB, nonaktifkan slow-start idle, & kirim data instan di SYN",
                 checked = state.network.tcpFastOpen,
                 onCheckedChange = { viewModel.setTcpFastOpen(it) },
             )
