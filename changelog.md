@@ -1,3 +1,25 @@
+# Lynx Universal [Two-Tier Adaptive App Layout, In-Memory Quick Search & Multi-Criteria Filter Chips] 7.0.0-RC69
+Released on: 2026-10-17
+> **Lynx Universal v7.0.0-RC69** (Lynx Kernel Manager v3.1.22): **Penyempurnaan Total Tata Letak Aturan Otomasi Aplikasi dengan Arsitektur Dua Tingkat (Two-Tier Adaptive Layout) untuk Mengakomodasi Nama Aplikasi Panjang Tanpa Tumpang Tindih, Eliminasi Redundansi Tombol Edit/Hapus pada Baris Daftar, Integrasi Pencarian Cepat In-Memory (Quick Search), Serta Filter Chips Multi-Kriteria ('Semua', '🎮 Game', '⚡ Aktif') dan Status Pencarian Kosong**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC69)
+
+### 1. 📐 Two-Tier Adaptive App Row Layout (Zero Truncation & Zero Misstouch)
+- **Struktur Dua Tingkat yang Ergonomis**: Membagi setiap baris aturan aplikasi (`AppRuleEmbeddedRow`) menjadi dua tingkat terstruktur:
+  - **Tier 1 (Identitas & Kontrol Utama)**: Menempatkan ikon aplikasi (34dp), judul aplikasi dengan alokasi horizontal maksimal (~75% lebar layar) dan penanganan `TextOverflow.Ellipsis`, badge status game `[GAME]`, nama paket dalam teks sekunder yang rapi, serta saklar master aktif/nonaktif di sisi kanan.
+  - **Tier 2 (Strip Telemetri & Konfigurasi Ultra-Kompak)**: Diletakkan sejajar di bawah teks judul aplikasi (indentasi 43dp) yang merangkum badge konfigurasi murni: Target Profile Cycle Pill interaktif 1-sentuh (`Performa`), target refresh rate (`120 Hz`), serta floating HUD (`OSD`) tanpa panah dekoratif, menjaga antarmuka tetap bersih, padat, dan ringkas.
+- **Eliminasi Redundansi Tombol**: Menghapus tombol pensil Edit dan tempat sampah Hapus dari baris daftar aplikasi untuk menghilangkan risiko salah sentuh (*accidental deletion*). Seluruh baris kini dapat diketuk langsung untuk membuka dialog pengeditan komprehensif yang telah dilengkapi tombol "Hapus Aturan".
+
+### 2. 🔍 In-Memory Quick Search & Multi-Criteria Filter Chips
+- **Pencarian Cepat Responsif**: Menambahkan kolom pencarian ramping (36dp) bergaya OLED Cyberpunk dengan ikon pembersih cepat (`Close`) untuk memfilter game atau nama paket secara instan tanpa jeda.
+- **Filter Chips Interaktif**: Menyediakan chip filter multi-kriteria berbasis status riil:
+  - `Semua (X)`: Menampilkan seluruh aturan yang tersimpan.
+  - `🎮 Game (Y)`: Memfilter hanya aplikasi bertipe game.
+  - `⚡ Aktif (Z)`: Memfilter hanya aturan yang saklar layanannya sedang aktif.
+- **Empty Filter State**: Menampilkan antarmuka status pencarian kosong yang informatif dengan tombol "Reset Filter" jika tidak ada aplikasi yang cocok dengan kriteria pencarian atau filter aktif.
+
+---
+
 # Lynx Universal [Unified Bento Card, Smart Template Auto-Detection & Clean Application Rules Management] 7.0.0-RC68
 Released on: 2026-10-17
 > **Lynx Universal v7.0.0-RC68** (Lynx Kernel Manager v3.1.21): **Penyatuan Menyeluruh Tata Letak Aturan Profil Aplikasi ke dalam Satu Kartu Bento Terpadu (`UnifiedAppAutomationCard`), Implementasi Deteksi Cerdas Berbasis Template Referensi (Hanya Menambahkan Game/Aplikasi yang Benar-Benar Terpasang Tanpa Polusi Entri Dummy), Tombol Aksi Konfirmasi 'Hapus Semua' Seketika, Serta Resolusi Total Ligatur Karakter 'Performa' pada Seluruh Komponen Antarmuka**.
