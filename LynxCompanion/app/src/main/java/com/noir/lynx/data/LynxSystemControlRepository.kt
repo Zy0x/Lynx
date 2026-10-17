@@ -50,7 +50,11 @@ object LynxSystemControlRepository {
                 """
                 cmd wifi force-low-latency-mode enabled 2>/dev/null
                 cmd wifi set-wifi-verbose-logging disabled 2>/dev/null
+                cmd wifi set-power-save-mode 0 2>/dev/null
                 setprop net.tcp.delack 0 2>/dev/null
+                settings put global wifi_sleep_policy 2 2>/dev/null
+                settings put global wifi_watchdog_poor_network_test_enabled 0 2>/dev/null
+                settings put global wifi_networks_available_notification_on 0 2>/dev/null
                 echo 1 > /proc/sys/net/ipv4/tcp_low_latency 2>/dev/null
                 echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse 2>/dev/null
                 echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
@@ -63,6 +67,8 @@ object LynxSystemControlRepository {
             } else {
                 """
                 cmd wifi force-low-latency-mode disabled 2>/dev/null
+                cmd wifi set-power-save-mode 1 2>/dev/null
+                settings put global wifi_sleep_policy 2 2>/dev/null
                 echo 0 > /proc/sys/net/ipv4/tcp_low_latency 2>/dev/null
                 if [ -f /proc/net/wlan/setCAM ]; then
                     echo 0 > /proc/net/wlan/setCAM 2>/dev/null
@@ -77,7 +83,7 @@ object LynxSystemControlRepository {
     suspend fun applyAntiJitterScan(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
             val valStr = if (enabled) "0" else "1"
-            val cmd = "settings put global wifi_scan_always_enabled $valStr; echo ok"
+            val cmd = "settings put global wifi_scan_always_enabled $valStr; settings put global wifi_scan_throttle_enabled 0; echo ok"
             Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
         } catch (_: Exception) { false }
     }
@@ -87,12 +93,21 @@ object LynxSystemControlRepository {
             val script = if (enabled) {
                 """
                 echo fq_codel > /proc/sys/net/core/default_qdisc 2>/dev/null || echo fq > /proc/sys/net/core/default_qdisc 2>/dev/null
-                tc qdisc replace dev wlan0 root fq_codel 2>/dev/null || true
+                for iface in wlan0 ccmni0 ccmni1 rmnet_data0; do
+                    if [ -d "/sys/class/net/${'$'}iface" ]; then
+                        tc qdisc replace dev "${'$'}iface" root fq_codel 2>/dev/null || true
+                    fi
+                done
                 echo ok
                 """.trimIndent()
             } else {
                 """
                 echo pfifo_fast > /proc/sys/net/core/default_qdisc 2>/dev/null
+                for iface in wlan0 ccmni0 ccmni1 rmnet_data0; do
+                    if [ -d "/sys/class/net/${'$'}iface" ]; then
+                        tc qdisc del dev "${'$'}iface" root 2>/dev/null || true
+                    fi
+                done
                 echo ok
                 """.trimIndent()
             }
@@ -110,6 +125,11 @@ object LynxSystemControlRepository {
                 echo 262144 > /proc/sys/net/core/wmem_default 2>/dev/null
                 echo "4096 87380 16777216" > /proc/sys/net/ipv4/tcp_rmem 2>/dev/null
                 echo "4096 65536 16777216" > /proc/sys/net/ipv4/tcp_wmem 2>/dev/null
+                setprop net.tcp.buffersize.default "4096,87380,16777216,4096,65536,16777216" 2>/dev/null
+                setprop net.tcp.buffersize.wifi "524288,1048576,16777216,262144,524288,16777216" 2>/dev/null
+                setprop net.tcp.buffersize.lte "524288,1048576,16777216,262144,524288,16777216" 2>/dev/null
+                setprop net.tcp.buffersize.5g "524288,1048576,16777216,262144,524288,16777216" 2>/dev/null
+                setprop net.tcp.buffersize.hspa "4096,87380,16777216,4096,65536,16777216" 2>/dev/null
                 echo ok
                 """.trimIndent()
             } else {
@@ -120,6 +140,10 @@ object LynxSystemControlRepository {
                 echo 262144 > /proc/sys/net/core/wmem_default 2>/dev/null
                 echo "1730560 3461120 6922240" > /proc/sys/net/ipv4/tcp_rmem 2>/dev/null
                 echo "524288 1048576 4525824" > /proc/sys/net/ipv4/tcp_wmem 2>/dev/null
+                setprop net.tcp.buffersize.default "" 2>/dev/null
+                setprop net.tcp.buffersize.wifi "" 2>/dev/null
+                setprop net.tcp.buffersize.lte "" 2>/dev/null
+                setprop net.tcp.buffersize.5g "" 2>/dev/null
                 echo ok
                 """.trimIndent()
             }
@@ -134,12 +158,17 @@ object LynxSystemControlRepository {
                 echo 3 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null
                 echo 0 > /proc/sys/net/ipv4/tcp_autocorking 2>/dev/null
                 echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse 2>/dev/null
+                echo 1 > /proc/sys/net/ipv4/tcp_sack 2>/dev/null
+                echo 1 > /proc/sys/net/ipv4/tcp_dsack 2>/dev/null
+                echo 15 > /proc/sys/net/ipv4/tcp_fin_timeout 2>/dev/null
+                echo 10000 > /proc/sys/net/core/netdev_max_backlog 2>/dev/null
                 echo ok
                 """.trimIndent()
             } else {
                 """
                 echo 1 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null
                 echo 1 > /proc/sys/net/ipv4/tcp_autocorking 2>/dev/null
+                echo 60 > /proc/sys/net/ipv4/tcp_fin_timeout 2>/dev/null
                 echo ok
                 """.trimIndent()
             }

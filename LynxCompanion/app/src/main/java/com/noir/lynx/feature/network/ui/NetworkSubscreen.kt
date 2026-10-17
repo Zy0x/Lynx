@@ -607,13 +607,6 @@ fun NetworkSubscreen(
             }
         }
 
-        // ── Sound Control (Gain Booster) Card ────────────────────
-        SoundControlCard(
-            soundControl = uiState.soundControl,
-            onSetGain = { hpL, hpR, spk, mic, hpMode ->
-                viewModel.setSoundGain(hpL, hpR, spk, mic, hpMode)
-            }
-        )
     }
 }
 

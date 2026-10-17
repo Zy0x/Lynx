@@ -1,3 +1,33 @@
+# Lynx Universal [Two-Zone Pinned Service Architecture, In-Place Virtualized App Scroll & Standard Ergonomic Sizing] 7.0.0-RC72
+Released on: 2026-10-17
+> **Lynx Universal v7.0.0-RC72** (Lynx Kernel Manager v3.1.25): **Implementasi Arsitektur Dua Zona Vertikal (Two-Zone Layout) dengan Pinned Top Service Header & In-Place Virtualized App Rules Scroll, Peningkatan Standar Ukuran Tipografi (Judul 14sp, Subteks 11.5sp, Badge 10.5sp), Serta Optimalisasi Target Sentuh Ergonomis Bebas Miss-Touch (Slider & Tombol 38dp, Target Sentuh >=44dp)**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC72)
+
+### 1. 📌 Two-Zone Architecture: Pinned Service Header & In-Place Scrollable App Rules
+- **Zona Atas Tetap (Pinned Top Service Section)**: Kartu modular "Layanan Otomasi Profil" dan slider cooldown kini terkunci di posisi atas (*pinned*). Saat pengguna men-scroll puluhan aturan game/aplikasi, tombol master switch dan setelan cooldown tetap terlihat dan dapat dioperasikan seketika tanpa perlu men-scroll balik ke atas.
+- **Zona Bawah Fleksibel (In-Place Scrollable LazyColumn)**: Kontainer daftar aturan aplikasi memanfaatkan alokasi layar fleksibel (`Modifier.weight(1f)`), di mana header kartu (pencarian, chip filter kategori, tombol Tambah, dan menu overflow) berstatus tetap di dalam kartu, sementara daftar aturan aplikasi di-render menggunakan `LazyColumn` internal tervirtualisasi yang dapat di-scroll di tempat secara mulus (60/120 FPS).
+- **Modular Section Boundary**: Struktur zona atas dibatasi secara modular dengan batasan tinggi adaptif, memastikan ruang pandang daftar aplikasi selalu dominan (60%+ layar) dan siap menerima section konfigurasi baru di masa depan secara bersih.
+
+### 2. 🔤 Standar Tipografi Ergonomis (Anti-Teks Terlalu Kecil)
+- **Eliminasi Teks Mikroskopis**: Menghilangkan seluruh ukuran teks yang terlalu kecil (7sp–8.5sp) agar mematuhi standar kenyamanan visual dan aksesibilitas:
+  - **Judul Aplikasi**: Ditingkatkan dari 12sp ke **14sp** (Bold, kontras tinggi).
+  - **Nama Paket Aplikasi & Subtitle**: Ditingkatkan dari 8.5sp ke **11.5sp** (TextSecondary jelas).
+  - **Stealth Dot Profile Badge**: Ditingkatkan dari 8sp ke **10.5sp** (SemiBold dengan status dot 6dp).
+  - **Badge [GAME]**: Ditingkatkan dari 7sp ke **9.5sp** (SemiBold dengan padding proporsional).
+  - **Judul Section / Kartu**: Ditingkatkan ke **14.5sp** (Bold).
+  - **Label Slider Cooldown & Tombol**: Ditingkatkan dari 10sp ke **12sp** (Bold).
+  - **Kolom Input & Placeholder Pencarian**: Ditingkatkan ke **12.5sp**.
+
+### 3. 🎯 Standar Target Sentuh Ergonomis Bebas Miss-Touch (>=44dp Standard)
+- **Slider Cooldown Nothing OS 38dp**: Ketinggian slider ditingkatkan dari 30dp ke **38dp**, memberikan area sentuh jempol yang mantap dan responsif untuk setiap opsi (`5s`, `30s`, `1m`, `3m`, `Tetap`).
+- **Tombol Aksi Utama [ + Tambah ] 38dp**: Ditingkatkan dari 28dp ke **38dp** dengan padding horizontal 12dp (touch bounds >= 44dp).
+- **Tombol Menu Overflow [ ⋮ ] 38dp**: Ditingkatkan dari 28dp ke **38dp x 38dp** dengan ikon MoreVert 18dp yang mudah diketuk.
+- **Kolom Pencarian & Filter Chips**: Pencarian dinaikkan ke ketinggian **38dp**, dan chips kategori dinaikkan ke **30dp** dengan sudut melengkung 8dp.
+- **Baris Aplikasi Lebih Nyaman**: Padding vertikal baris dinaikkan ke 9dp, dan saklar master switch disesuaikan ke skala 0.82f yang seimbang dan presisi.
+
+---
+
 # Lynx Universal [Minimalist Stealth OLED Architecture, Nothing OS Segmented Slider & Header Overflow Menu] 7.0.0-RC71
 Released on: 2026-10-17
 > **Lynx Universal v7.0.0-RC71** (Lynx Kernel Manager v3.1.24): **Perombakan Estetika Menyeluruh Mengusung Filosofi 'Minimalist Stealth OLED & Anti AI-Slop': Eliminasi Eksplosi Warna Pelangi Menjadi Monokromatik Mewah dengan Stealth Dot Profile Pills, Penyeragaman Saklar Master Lynx Cyan, Segmented Control Slider Bergaya Nothing OS (30dp), Serta Integrasi Header Toolbar dengan Menu Overflow (⋮) dan Kolom Pencarian Full-Width**.

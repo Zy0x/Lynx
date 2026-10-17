@@ -467,69 +467,85 @@ fun TuningTabContent(
                                     ChargingScreenLifecycle(uiState, viewModel)
                                 }
 
-                                // 2. Scrollable Subscreen Content Area (Virtualized LazyColumn)
-                                LazyColumn(
-                                    state = subscreenLazyState,
-                                    flingBehavior = subscreenFling,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    item(key = "subscreen_top_spacer") {
-                                        Spacer(Modifier.height(8.dp))
-                                    }
-                                    when (currentCategory) {
-                                        "profiles" -> tuningProfilesCategoryItems(
-                                            uiState = uiState,
-                                            viewModel = viewModel,
-                                            context = context,
-                                            onAddAppClick = {
-                                                viewModel.refreshInstalledApps()
-                                                onAddAppClick()
-                                            },
-                                            onEditRuleClick = { onEditRuleClick(it) },
-                                            onExtremeConfirmRequired = onExtremeConfirmRequired
-                                        )
-                                        "hud" -> item(key = "subscreen_hud") {
-                                            TuningGameHudCategory(
-                                                uiState = uiState,
-                                                viewModel = viewModel
-                                            )
+                                if (currentCategory == "profiles" && uiState.selectedProfileTab == 1) {
+                                    ProfilesAutomationScreen(
+                                        uiState = uiState,
+                                        viewModel = viewModel,
+                                        context = context,
+                                        onAddAppClick = {
+                                            viewModel.refreshInstalledApps()
+                                            onAddAppClick()
+                                        },
+                                        onEditRuleClick = { onEditRuleClick(it) },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                    )
+                                } else {
+                                    // 2. Scrollable Subscreen Content Area (Virtualized LazyColumn)
+                                    LazyColumn(
+                                        state = subscreenLazyState,
+                                        flingBehavior = subscreenFling,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        item(key = "subscreen_top_spacer") {
+                                            Spacer(Modifier.height(8.dp))
                                         }
-                                        "gpu" -> tuningGpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context)
-                                        "cpu" -> item(key = "subscreen_cpu") { TuningCpuCategory(uiState = uiState, viewModel = viewModel) }
-                                        "thermal" -> item(key = "subscreen_thermal") { TuningThermalCategory(uiState = uiState, viewModel = viewModel) }
-                                        "memory" -> item(key = "subscreen_memory") { TuningMemoryCategory(uiState = uiState, viewModel = viewModel) }
-                                        "charging" -> if (uiState.batterySubTab == 1) {
-                                            batteryInformationItems(uiState, viewModel)
-                                        } else {
-                                            item(key = "subscreen_charging") {
-                                                TuningChargingCategory(uiState, viewModel, manageLifecycle = false)
-                                            }
-                                        }
-                                        "network", "audio" -> {
-                                            if (uiState.selectedNetworkTab == 0) {
-                                                item(key = "subscreen_network") { TuningNetworkCategory(uiState = uiState, viewModel = viewModel) }
-                                            } else {
-                                                item(key = "subscreen_audio") { TuningAudioCategory(uiState = uiState, viewModel = viewModel) }
-                                            }
-                                        }
-                                        "system" -> item(key = "subscreen_system") {
-                                            TuningSystemCategory(
+                                        when (currentCategory) {
+                                            "profiles" -> tuningProfilesCategoryItems(
                                                 uiState = uiState,
                                                 viewModel = viewModel,
+                                                context = context,
                                                 onAddAppClick = {
                                                     viewModel.refreshInstalledApps()
                                                     onAddAppClick()
                                                 },
-                                                onEditRuleClick = { onEditRuleClick(it) }
+                                                onEditRuleClick = { onEditRuleClick(it) },
+                                                onExtremeConfirmRequired = onExtremeConfirmRequired
                                             )
+                                            "hud" -> item(key = "subscreen_hud") {
+                                                TuningGameHudCategory(
+                                                    uiState = uiState,
+                                                    viewModel = viewModel
+                                                )
+                                            }
+                                            "gpu" -> tuningGpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context)
+                                            "cpu" -> item(key = "subscreen_cpu") { TuningCpuCategory(uiState = uiState, viewModel = viewModel) }
+                                            "thermal" -> item(key = "subscreen_thermal") { TuningThermalCategory(uiState = uiState, viewModel = viewModel) }
+                                            "memory" -> item(key = "subscreen_memory") { TuningMemoryCategory(uiState = uiState, viewModel = viewModel) }
+                                            "charging" -> if (uiState.batterySubTab == 1) {
+                                                batteryInformationItems(uiState, viewModel)
+                                            } else {
+                                                item(key = "subscreen_charging") {
+                                                    TuningChargingCategory(uiState, viewModel, manageLifecycle = false)
+                                                }
+                                            }
+                                            "network", "audio" -> {
+                                                if (uiState.selectedNetworkTab == 0) {
+                                                    item(key = "subscreen_network") { TuningNetworkCategory(uiState = uiState, viewModel = viewModel) }
+                                                } else {
+                                                    item(key = "subscreen_audio") { TuningAudioCategory(uiState = uiState, viewModel = viewModel) }
+                                                }
+                                            }
+                                            "system" -> item(key = "subscreen_system") {
+                                                TuningSystemCategory(
+                                                    uiState = uiState,
+                                                    viewModel = viewModel,
+                                                    onAddAppClick = {
+                                                        viewModel.refreshInstalledApps()
+                                                        onAddAppClick()
+                                                    },
+                                                    onEditRuleClick = { onEditRuleClick(it) }
+                                                )
+                                            }
+                                            else -> item(key = "subscreen_cpu_default") { TuningCpuCategory(uiState = uiState, viewModel = viewModel) }
                                         }
-                                        else -> item(key = "subscreen_cpu_default") { TuningCpuCategory(uiState = uiState, viewModel = viewModel) }
-                                    }
-                                    item(key = "subscreen_bottom_spacer") {
-                                        Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding())
+                                        item(key = "subscreen_bottom_spacer") {
+                                            Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding())
+                                        }
                                     }
                                 }
                         }
