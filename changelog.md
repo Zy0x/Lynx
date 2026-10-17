@@ -1,3 +1,23 @@
+# Lynx Universal [Hide Configured Apps in Add App Overlay & Clean Filter Streamlining] 7.0.0-RC77
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC77** (Lynx Kernel Manager v3.1.30): **Penyembunyian Otomatis Aplikasi yang Sudah Terdaftar dari Dialog Pemilihan Tambah Aplikasi, Penyempurnaan Filter Kategori Menjadi 'Semua', 'Game', dan 'Aplikasi' (Non-Game) dengan Counter Dinamis Presisi, Status Kosong 'Semua Aplikasi Terdaftar', Keseragaman Tombol Aksi (+), Serta Deteksi Cerdas pada Input Paket Manual**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC77)
+
+### 1. 🛡️ Penyembunyian Otomatis Aplikasi Terdaftar (Configured Apps Exclusion)
+- **Hanya Menampilkan Aplikasi yang Belum Didaftarkan**: Daftar kandidat pada dialog `Pilih Aplikasi` secara otomatis memfilter dan mengecualikan seluruh aplikasi yang telah memiliki aturan profil di `appProfileRules`. Pengguna tidak akan lagi melihat aplikasi yang telah ditambahkan sehingga dialog tetap bersih, fokus, dan bebas redundansi.
+- **Deteksi Cerdas Input Paket Manual**: Jika pengguna mengetik package name aplikasi yang secara manual sudah terdaftar, tombol aksi di bagian bawah secara otomatis berubah menjadi `Paket Sudah Terdaftar: Edit "<pkg>"` dengan aksen oranye dan ikon edit.
+
+### 2. 🗂️ Penyempurnaan Filter Kategori (Semua, Game, Aplikasi)
+- **Struktur Kategori Baru**: Mengganti filter `Belum Diatur` (yang kini redundan karena seluruh daftar telah difilter) menjadi filter `Aplikasi` (aplikasi non-game), menghasilkan pembagian 3-arah yang seimbang: `Semua` [total kandidat], `Game` [kandidat game], dan `Aplikasi` [kandidat aplikasi biasa].
+- **Counter Dinamis Anti-Glitch**: Menghitung jumlah kandidat secara real-time berdasarkan aplikasi yang belum terdaftar dengan micro-pill badge anti-ligatur HiOS/XOS.
+
+### 3. ✨ Status Kosong & Keseragaman Visual Baris
+- **Empty State Informatif**: Menambahkan status visual `Semua Aplikasi Terdaftar` dengan ikon centang hijau jika seluruh aplikasi terpasang di perangkat telah memiliki aturan profil otomasi.
+- **Keseragaman Tombol Aksi Bulat (+)**: Karena seluruh aplikasi di dalam daftar merupakan kandidat baru, setiap baris kini secara konsisten menampilkan tombol aksi lingkaran `(+)` di sebelah kanan tanpa variasi tombol yang membingungkan.
+
+---
+
 # Lynx Universal [Pure Dialog Polish & Symmetrical Visual Balance] 7.0.0-RC76
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC76** (Lynx Kernel Manager v3.1.29): **Penyempurnaan Total Kerapian Overlay Tambah Aplikasi (Pilih Aplikasi): Migrasi Penuh dari AlertDialog ke Custom Dialog Tanpa Tombol Tutup Asimetris yang Lopsided di Sudut Kanan Bawah, Integrasi Tombol Tutup Bulat Ergonomis di Header, Keseimbangan Visual Kolom Kanan dengan Tombol Aksi Bulat pada Aplikasi Baru, Penanganan Pemotongan Teks (Ellipsis) Sempurna pada Nama Aplikasi dan Package, Serta Squircle Icon Container Terstandar**.

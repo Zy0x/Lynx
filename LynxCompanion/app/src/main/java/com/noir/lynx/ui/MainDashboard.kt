@@ -552,18 +552,19 @@ fun MainDashboard(
         val configuredPkgs = remember(uiState.appProfileRules) {
             uiState.appProfileRules.map { it.packageName }.toSet()
         }
-        val gameCount = remember(allApps) { allApps.count { it.isGame } }
-        val unconfiguredCount = remember(allApps, configuredPkgs) {
-            allApps.count { !configuredPkgs.contains(it.packageName) }
+        val availableApps = remember(allApps, configuredPkgs) {
+            allApps.filter { !configuredPkgs.contains(it.packageName) }
         }
+        val availableGameCount = remember(availableApps) { availableApps.count { it.isGame } }
+        val availableRegularCount = remember(availableApps) { availableApps.count { !it.isGame } }
 
         val q = customPkgText.trim().lowercase()
-        val filteredApps = remember(allApps, q, addAppFilter, configuredPkgs) {
-            allApps.filter { app ->
+        val filteredApps = remember(availableApps, q, addAppFilter) {
+            availableApps.filter { app ->
                 val matchQuery = q.isBlank() || app.label.lowercase().contains(q) || app.packageName.lowercase().contains(q)
                 val matchCat = when (addAppFilter) {
                     "GAME" -> app.isGame
-                    "UNCONFIGURED" -> !configuredPkgs.contains(app.packageName)
+                    "APP" -> !app.isGame
                     else -> true
                 }
                 matchQuery && matchCat
@@ -624,7 +625,7 @@ fun MainDashboard(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp
                                     )
-                                    if (allApps.isNotEmpty()) {
+                                    if (availableApps.isNotEmpty()) {
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
                                             color = BgDeepOled.copy(alpha = 0.8f),
@@ -741,9 +742,9 @@ fun MainDashboard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         listOf(
-                            Triple("ALL", "Semua" to allApps.size, AccentCyan),
-                            Triple("GAME", "Game" to gameCount, AccentOrange),
-                            Triple("UNCONFIGURED", "Belum Diatur" to unconfiguredCount, AccentCyan),
+                            Triple("ALL", "Semua" to availableApps.size, AccentCyan),
+                            Triple("GAME", "Game" to availableGameCount, AccentOrange),
+                            Triple("APP", "Aplikasi" to availableRegularCount, AccentCyan),
                         ).forEach { (key, meta, accent) ->
                             val (label, count) = meta
                             val isSel = addAppFilter == key
@@ -805,6 +806,30 @@ fun MainDashboard(
                                 Text("Memuat daftar aplikasi...", color = TextSecondary, fontSize = 11.5.sp)
                             }
                         }
+                    } else if (availableApps.isEmpty()) {
+                        Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = AccentGreen.copy(alpha = 0.7f),
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Semua Aplikasi Terdaftar",
+                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "Seluruh aplikasi terpasang telah memiliki aturan profil.",
+                                    color = TextSecondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
                     } else if (filteredApps.isEmpty()) {
                         Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -841,24 +866,19 @@ fun MainDashboard(
                                 key = { filteredApps[it].packageName }
                             ) { i ->
                                 val app = filteredApps[i]
-                                val existingRule = uiState.appProfileRules.find { it.packageName == app.packageName }
                                 
                                 Surface(
                                     onClick = {
-                                        if (existingRule != null) {
-                                            editingRule = existingRule
-                                        } else {
-                                            val newRule = AppProfileRule(
-                                                packageName = app.packageName,
-                                                appName = app.label,
-                                                targetProfile = if (app.isGame) "extreme" else selectedTargetProfile,
-                                                enabled = true,
-                                                targetRefreshRate = if (app.isGame) 120 else null,
-                                                autoFloatingHud = app.isGame,
-                                                isGame = app.isGame
-                                            )
-                                            editingRule = newRule
-                                        }
+                                        val newRule = AppProfileRule(
+                                            packageName = app.packageName,
+                                            appName = app.label,
+                                            targetProfile = if (app.isGame) "extreme" else selectedTargetProfile,
+                                            enabled = true,
+                                            targetRefreshRate = if (app.isGame) 120 else null,
+                                            autoFloatingHud = app.isGame,
+                                            isGame = app.isGame
+                                        )
+                                        editingRule = newRule
                                         showAddAppDialog = false
                                     },
                                     shape = RoundedCornerShape(10.dp),
@@ -931,52 +951,19 @@ fun MainDashboard(
                                             }
                                         }
 
-                                        if (existingRule != null) {
-                                            val (profName, profColor) = when (existingRule.targetProfile.lowercase()) {
-                                                "extreme" -> "Ekstrem" to AccentRed
-                                                "performance" -> "Performa" to AccentOrange
-                                                "powersave" -> "Hemat" to AccentGreen
-                                                else -> "Seimbang" to AccentCyan
-                                            }
-                                            Surface(
-                                                shape = RoundedCornerShape(6.dp),
-                                                color = profColor.copy(alpha = 0.14f),
-                                                border = BorderStroke(0.6.dp, profColor.copy(alpha = 0.45f))
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                                ) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(5.dp)
-                                                            .background(profColor, CircleShape)
-                                                    )
-                                                    Text(
-                                                        text = profName,
-                                                        color = profColor,
-                                                        fontSize = 9.5.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                    )
-                                                }
-                                            }
-                                        } else {
-                                            Surface(
-                                                shape = CircleShape,
-                                                color = BgDeepOled.copy(alpha = 0.6f),
-                                                border = BorderStroke(0.6.dp, BorderGlass),
-                                                modifier = Modifier.size(24.dp)
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Add,
-                                                        contentDescription = null,
-                                                        tint = TextSecondary.copy(alpha = 0.6f),
-                                                        modifier = Modifier.size(13.dp)
-                                                    )
-                                                }
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = BgDeepOled.copy(alpha = 0.6f),
+                                            border = BorderStroke(0.6.dp, BorderGlass),
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Add,
+                                                    contentDescription = "Tambah",
+                                                    tint = TextSecondary.copy(alpha = 0.6f),
+                                                    modifier = Modifier.size(13.dp)
+                                                )
                                             }
                                         }
                                     }
@@ -992,25 +979,35 @@ fun MainDashboard(
                         }
                     }
 
-                    // Manual package input fallback (if user entered text not in apps)
-                    if (customPkgText.isNotBlank()) {
+                    // Manual package input fallback (if user entered text)
+                    val trimmedInput = customPkgText.trim()
+                    val isAlreadyConfigured = configuredPkgs.contains(trimmedInput)
+                    if (trimmedInput.isNotBlank()) {
                         Spacer(Modifier.height(8.dp))
                         Surface(
                             onClick = {
-                                val pkg = customPkgText.trim()
-                                val label = pkg.split(".").lastOrNull()?.replaceFirstChar { it.uppercase() } ?: pkg
-                                val newRule = AppProfileRule(
-                                    packageName = pkg,
-                                    appName = label,
-                                    targetProfile = selectedTargetProfile,
-                                    enabled = true
-                                )
-                                editingRule = newRule
-                                showAddAppDialog = false
+                                if (isAlreadyConfigured) {
+                                    val existing = uiState.appProfileRules.find { it.packageName == trimmedInput }
+                                    if (existing != null) {
+                                        editingRule = existing
+                                        showAddAppDialog = false
+                                    }
+                                } else {
+                                    val pkg = trimmedInput
+                                    val label = pkg.split(".").lastOrNull()?.replaceFirstChar { it.uppercase() } ?: pkg
+                                    val newRule = AppProfileRule(
+                                        packageName = pkg,
+                                        appName = label,
+                                        targetProfile = selectedTargetProfile,
+                                        enabled = true
+                                    )
+                                    editingRule = newRule
+                                    showAddAppDialog = false
+                                }
                             },
                             shape = RoundedCornerShape(10.dp),
-                            color = AccentCyan.copy(alpha = 0.16f),
-                            border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f)),
+                            color = if (isAlreadyConfigured) AccentOrange.copy(alpha = 0.12f) else AccentCyan.copy(alpha = 0.16f),
+                            border = BorderStroke(0.8.dp, if (isAlreadyConfigured) AccentOrange.copy(alpha = 0.4f) else AccentCyan.copy(alpha = 0.5f)),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(38.dp)
@@ -1023,15 +1020,15 @@ fun MainDashboard(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    Icons.Default.Add,
+                                    if (isAlreadyConfigured) Icons.Default.Edit else Icons.Default.Add,
                                     null,
-                                    tint = AccentCyan,
+                                    tint = if (isAlreadyConfigured) AccentOrange else AccentCyan,
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = "Konfigurasi Manual: \"${customPkgText.trim()}\"",
-                                    color = AccentCyan,
+                                    text = if (isAlreadyConfigured) "Paket Sudah Terdaftar: Edit \"$trimmedInput\"" else "Konfigurasi Manual: \"$trimmedInput\"",
+                                    color = if (isAlreadyConfigured) AccentOrange else AccentCyan,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.5.sp,
                                     maxLines = 1,
