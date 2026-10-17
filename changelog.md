@@ -1,3 +1,23 @@
+# Lynx Universal [Clean Anti-AI-Slop Add App & Profile Config Overhaul] 7.0.0-RC75
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC75** (Lynx Kernel Manager v3.1.28): **Perombakan Menyeluruh Overlay Tambah Aplikasi dan Modal Konfigurasi Profil: Mengeliminasi Gaya Boxy 'AI Slop' Menjadi Desain Monokromatis OLED Minimalis Elegan, Bilah Pencarian Kapsul Terintegrasi, Filter Kapsul Ramping Tanpa Pemotongan Teks, Baris Aplikasi Flat Minimalis dengan Pemisah Halus, Alur Transisi Instan ke Pengaturan Profil, Serta Penyelarasan Palet Cyberpunk Bersih Tanpa Warna-Warni Mencolok**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC75)
+
+### 1. 🎨 Perombakan Overlay 'Pilih Aplikasi' (Clean, Simpel, Anti-AI Slop)
+- **Kontainer Minimalis OLED**: Menggantikan latar `BgCard` lama dengan kontainer `BgElevated` bersudut `22.dp` dan border kaca transparan `BorderGlass`.
+- **Header Terintegrasi**: Menampilkan ikon aplikasi dalam kotak membulat halus, judul dengan badge total aplikasi, serta tombol tutup `(X)` ergonomis di sudut kanan atas.
+- **Bilah Pencarian Kapsul**: Kolom pencarian gelap terpadu dengan border halus (beraksen saat fokus) dan tombol hapus teks instan.
+- **Filter Kapsul Ramping**: Mengoptimalkan 3 chip filter (*Semua*, *Game*, *Belum Diatur*) dengan teks ringkas tanpa pemotongan teks (*text truncation*) dan highlight aksen lembut.
+- **Daftar Aplikasi Flat Minimalis**: Menghapus kotak-kotak border per-item yang berantakan; setiap baris aplikasi tampil lega dengan ikon 40dp, judul jelas 13.5sp, nama paket 10.5sp, dan pemisah garis tipis elegan.
+
+### 2. ⚡ Penyelarasan Modal Konfigurasi Profil Aplikasi (`editingRule`)
+- **Desain & Palet Terpadu**: Menghilangkan warna-warni mencolok (pelangi) yang saling bertabrakan, menyatukan seluruh elemen kontrol ke dalam estetika monokromatis gelap OLED dengan aksen status fungsional.
+- **Segmented Control Profil & Refresh Rate**: Mengubah tombol opsi profil (Ekstrem, Performa, Seimbang, Hemat) dan kunci refresh rate (Bawaan, 60Hz, 90Hz, 120Hz) menjadi pil segmented 38dp yang rapi dan mudah disentuh.
+- **Tombol Sentuh Ergonomis**: Tombol aksi *Simpan Konfigurasi* dan *Hapus Aturan / Batal* didesain proporsional (tinggi 40dp) bebas *miss-touch*.
+
+---
+
 # Lynx Universal [Header Action Streamlining & Redundancy Cleanup] 7.0.0-RC74
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC74** (Lynx Kernel Manager v3.1.27): **Pembersihan Redundansi Aksi Header Kartu Otomasi Aplikasi: Eliminasi Tombol Pindai Eksternal yang Redundan dengan Menu Titik Tiga (More Options), Integrasi Indikator Pemindaian Asinkron Terpadu pada Ikon Titik Tiga (Overflow Menu), dan Optimalisasi Ruang Header yang Lebih Rapi, Ergonomis, serta Anti-Clutter**.
