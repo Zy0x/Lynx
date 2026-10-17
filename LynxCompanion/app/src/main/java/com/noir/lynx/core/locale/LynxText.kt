@@ -255,17 +255,42 @@ private val recommendationUiTextResources = mapOf(
     "[ON] efisiensi termal maksimal" to R.string.recommendation_thermal_efficiency,
 )
 
+private data class MatchResolution(val resourceId: Int, val rawArguments: List<String>)
+
+private val NO_MATCH_SENTINEL = MatchResolution(-1, emptyList())
+private val dynamicResolutionCache = object : android.util.LruCache<String, MatchResolution>(1024) {}
+
 /** Localize static accessibility labels with the same catalog used by visible text. */
 @Composable
 fun localizedUiText(source: String): String {
+    if (source.length <= 1) return source
     legacyUiTextResources[source]?.let { return stringResource(it) }
     recommendationUiTextResources[source]?.let { return stringResource(it) }
+
+    val cached = synchronized(dynamicResolutionCache) { dynamicResolutionCache.get(source) }
+    if (cached != null) {
+        if (cached === NO_MATCH_SENTINEL) return source
+        val localizedArguments = cached.rawArguments.map { argument ->
+            legacyUiTextResources[argument]?.let { stringResource(it) } ?: argument
+        }
+        return stringResource(cached.resourceId, *localizedArguments.toTypedArray())
+    }
+
     for (entry in dynamicUiTextResources) {
         val match = entry.pattern.matchEntire(source) ?: continue
-        val localizedArguments = match.groupValues.drop(1).map { argument ->
+        val rawArgs = match.groupValues.drop(1)
+        val resolution = MatchResolution(entry.resource, rawArgs)
+        synchronized(dynamicResolutionCache) {
+            dynamicResolutionCache.put(source, resolution)
+        }
+        val localizedArguments = rawArgs.map { argument ->
             legacyUiTextResources[argument]?.let { stringResource(it) } ?: argument
         }
         return stringResource(entry.resource, *localizedArguments.toTypedArray())
+    }
+
+    synchronized(dynamicResolutionCache) {
+        dynamicResolutionCache.put(source, NO_MATCH_SENTINEL)
     }
     return source
 }

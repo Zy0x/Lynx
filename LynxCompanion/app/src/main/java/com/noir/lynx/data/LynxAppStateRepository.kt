@@ -289,10 +289,13 @@ internal object LynxAppStateRepository {
         val transientMasterProfile = if (isManualSelection) {
             null
         } else {
-            Shell.cmd("cat /data/adb/lynx/baseline_profile 2>/dev/null").exec().out.firstOrNull()
-                ?.trim()
-                ?.takeIf { it in allowedProfiles }
-                ?: readState().activeProfile
+            val fromFile = Shell.cmd("cat /data/adb/lynx/baseline_profile 2>/dev/null").exec().out.firstOrNull()?.trim()
+            if (!fromFile.isNullOrBlank() && fromFile in allowedProfiles && fromFile != "powersave") {
+                fromFile
+            } else {
+                val stateProf = readState().activeProfile
+                if (stateProf.isNotBlank() && stateProf != "powersave" && stateProf != "dormant") stateProf else "balance"
+            }
         }
         val lynxdPath = getLynxdBinaryPath()
         val safeLynxd = lynxdPath ?: LYNXD_PATH

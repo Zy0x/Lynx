@@ -46,6 +46,20 @@ impl MemoryController {
         Self::write_opt("/proc/sys/kernel/sched_schedstats", "0");
         Self::write_opt("/proc/sys/vm/compact_unevictable_allowed", "1");
 
+        // Anti-stutter direct reclaim prevention:
+        // Set watermark_scale_factor to 50 (0.5% buffer) to wake kswapd early in the background
+        // before RAM becomes depleted, preventing UI threads from blocking in direct reclaim.
+        Self::write_opt("/proc/sys/vm/watermark_scale_factor", "50");
+
+        // Dynamic min_free_kbytes guarantees sufficient atomic headroom for 120Hz display & GPU buffers
+        if mem.total_ram_mb >= 6000 {
+            Self::write_opt("/proc/sys/vm/min_free_kbytes", "32768");
+            Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "100");
+        } else if mem.total_ram_mb >= 4000 {
+            Self::write_opt("/proc/sys/vm/min_free_kbytes", "24576");
+            Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "100");
+        }
+
         let default_swap = if mem.total_ram_mb <= 4500 { "90" } else { "80" };
         let swap_val = ConfigStore::get("swappiness")
             .or_else(|| ConfigStore::get("memory.swappiness"))

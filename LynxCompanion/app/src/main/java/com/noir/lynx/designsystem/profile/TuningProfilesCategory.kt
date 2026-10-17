@@ -54,7 +54,7 @@ fun ProfilesCategoryTabRow(
     modifier: Modifier = Modifier
 ) {
     val tabs = listOf(
-        Triple(0, "Katalog Profil", Icons.Default.Speed),
+        Triple(0, "Profile", Icons.Default.Tune),
         Triple(1, "Otomasi Aplikasi", Icons.Default.SportsEsports)
     )
 
@@ -357,7 +357,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
     when (uiState.selectedProfileTab) {
         0 -> {
             // ══════════════════════════════════════════════════════════
-            // TAB 0: KATALOG PROFIL
+            // TAB 0: PROFILE
             // ══════════════════════════════════════════════════════════
 
             // ── 1. Active Status Hero Card ─────────────────────────
@@ -369,6 +369,13 @@ fun LazyListScope.tuningProfilesCategoryItems(
                     "performance" -> AccentOrange
                     "extreme" -> AccentRed
                     else -> AccentCyan
+                }
+                val activeIcon = when (activeProfileId.lowercase()) {
+                    "powersave" -> Icons.Default.BatteryChargingFull
+                    "balance" -> Icons.Default.Tune
+                    "performance" -> Icons.Default.Bolt
+                    "extreme" -> Icons.Default.LocalFireDepartment
+                    else -> Icons.Default.Widgets
                 }
                 val activeTitle = when (activeProfileId.lowercase()) {
                     "powersave" -> "Hemat Daya (Powersave)"
@@ -385,68 +392,139 @@ fun LazyListScope.tuningProfilesCategoryItems(
                     else -> "Profil aktif saat ini"
                 }
 
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
                     Surface(
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(18.dp),
                         color = BgElevated,
-                        border = BorderStroke(0.8.dp, activeColor.copy(alpha = 0.5f)),
+                        border = BorderStroke(1.dp, activeColor.copy(alpha = 0.35f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            // Top Row: Status badge and Overrides Tag
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .background(
+                                            color = activeColor.copy(alpha = 0.12f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
                                     Surface(
                                         shape = CircleShape,
                                         color = activeColor,
-                                        modifier = Modifier.size(8.dp)
+                                        modifier = Modifier.size(6.dp)
                                     ) {}
-                                    Spacer(Modifier.width(8.dp))
+                                    Spacer(Modifier.width(6.dp))
                                     Text(
-                                        text = "STATUS AKTIF",
+                                        text = "STATUS ENGINE AKTIF",
                                         color = activeColor,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.ExtraBold,
-                                        letterSpacing = 1.sp
+                                        letterSpacing = 0.8.sp
                                     )
                                 }
+
                                 if (state.profileOverrides.isNotEmpty()) {
                                     Surface(
-                                        shape = RoundedCornerShape(4.dp),
+                                        shape = RoundedCornerShape(6.dp),
                                         color = AccentOrange.copy(alpha = 0.18f),
                                         border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
                                     ) {
                                         Text(
                                             text = "OVERRIDE AKTIF",
                                             color = AccentOrange,
-                                            fontSize = 8.sp,
+                                            fontSize = 9.sp,
                                             fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                                         )
                                     }
                                 }
                             }
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = activeTitle,
-                                color = TextPrimary,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = activeDesc,
-                                color = TextSecondary,
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp
-                            )
+
+                            Spacer(Modifier.height(12.dp))
+
+                            // Main Row: Icon + Title & Desc
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = activeColor.copy(alpha = 0.14f),
+                                    border = BorderStroke(1.dp, activeColor.copy(alpha = 0.35f)),
+                                    modifier = Modifier.size(46.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = activeIcon,
+                                            contentDescription = null,
+                                            tint = activeColor,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = activeTitle,
+                                        color = TextPrimary,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = activeDesc,
+                                        color = TextSecondary,
+                                        fontSize = 11.5.sp,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                            }
+
+                            // Subsystem telemetry badges
+                            Spacer(Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                val cpuGov = uiState.clusters.firstOrNull()?.curGov?.ifEmpty { "Schedutil" } ?: "Schedutil"
+                                val thermalMode = state.thermal.mode.ifEmpty { "Dynamic" }.replaceFirstChar { it.uppercase() }
+                                val gpuState = if (uiState.telemetry != null && uiState.telemetry.gpuFreq > 0) "${uiState.telemetry.gpuFreq}MHz" else "GED Boost"
+
+                                listOf(
+                                    "CPU: $cpuGov",
+                                    "GPU: $gpuState",
+                                    "Thermal: $thermalMode"
+                                ).forEach { metric ->
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = BgDeepOled,
+                                        border = BorderStroke(0.6.dp, BorderGlass),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            text = metric,
+                                            color = TextSecondary,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
 
                             if (state.profileOverrides.isNotEmpty()) {
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(10.dp))
                                 HorizontalDivider(color = BorderGlass.copy(alpha = 0.5f))
                                 Spacer(Modifier.height(8.dp))
                                 val overrides = state.profileOverrides.entries
@@ -463,17 +541,33 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                         fontSize = 10.sp,
                                         modifier = Modifier.weight(1f).padding(end = 8.dp)
                                     )
-                                    Text(
-                                        text = "Reset Override",
-                                        color = AccentOrange,
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier
-                                            .clickable {
-                                                viewModel.selectKernelPerformanceProfile(activeProfileId, context, true)
-                                            }
-                                            .padding(vertical = 2.dp)
-                                    )
+                                    Surface(
+                                        onClick = {
+                                            viewModel.selectKernelPerformanceProfile(activeProfileId, context, true)
+                                        },
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AccentOrange.copy(alpha = 0.12f),
+                                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.RestartAlt,
+                                                contentDescription = null,
+                                                tint = AccentOrange,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                text = "Reset Override",
+                                                color = AccentOrange,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -481,51 +575,80 @@ fun LazyListScope.tuningProfilesCategoryItems(
                 }
             }
 
-            // ── 2. Profile Catalog Grid Card ───────────────────────
+            // ── 2. Section Header: DAFTAR PROFIL PERFORMA ────────────
+            item(key = "tab0_profiles_section_header") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "DAFTAR PROFIL PERFORMA",
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.6.dp, BorderGlass)
+                        ) {
+                            Text(
+                                text = "${uiState.kernelProfileCatalog.profiles.size}",
+                                color = TextPrimary,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── 3. Profile Catalog Grid (Direct First-Class Bento) ──
             item(key = "tab0_profiles_catalog_card") {
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    LynxCard(
-                        title = "Katalog Profil Kernel",
-                        icon = Icons.Default.Speed,
-                        accentColor = AccentOrange
-                    ) {
-                        ProfileGrid(
-                            catalog = uiState.kernelProfileCatalog,
-                            currentProfile = state.activeProfile,
-                            hasOverrides = state.profileOverrides.isNotEmpty(),
-                            onProfileSelected = { id, clearOverrides ->
-                                val colorHex = when (id.lowercase()) {
-                                    "powersave" -> 0xFF00E676L
-                                    "balance" -> 0xFF00A3FFL
-                                    "performance" -> 0xFFFF9100L
-                                    "extreme" -> 0xFFFF3D00L
-                                    else -> 0xFF00E5FFL
-                                }
-                                val labelResource = mapOf(
-                                    "powersave" to com.noir.lynx.R.string.audit_mode_powersave,
-                                    "balance" to com.noir.lynx.R.string.audit_mode_balance,
-                                    "performance" to com.noir.lynx.R.string.audit_mode_performance,
-                                    "extreme" to com.noir.lynx.R.string.audit_mode_extreme
-                                )[id.lowercase()]
-                                val label = labelResource?.let(context::getString) ?: id
-                                viewModel.triggerModeFeedback(id, label, colorHex)
-                                viewModel.selectKernelPerformanceProfile(id, context, clearOverrides)
-                            },
-                            onExtremeConfirmRequired = onExtremeConfirmRequired,
-                            onProfileSaved = { profile, replaceBuiltIn, replaceCustom ->
-                                viewModel.saveKernelPerformanceProfile(profile, replaceBuiltIn, replaceCustom)
-                            },
-                            onProfileDeleted = { id ->
-                                viewModel.deleteKernelPerformanceProfile(id)
-                            },
-                            onProfileDuplicated = { id ->
-                                viewModel.duplicateKernelPerformanceProfile(id)
-                            },
-                            onRestoreBuiltIn = { id ->
-                                viewModel.restoreBuiltInKernelProfile(id, context)
+                    ProfileGrid(
+                        catalog = uiState.kernelProfileCatalog,
+                        currentProfile = state.activeProfile,
+                        hasOverrides = state.profileOverrides.isNotEmpty(),
+                        onProfileSelected = { id, clearOverrides ->
+                            val colorHex = when (id.lowercase()) {
+                                "powersave" -> 0xFF00E676L
+                                "balance" -> 0xFF00A3FFL
+                                "performance" -> 0xFFFF9100L
+                                "extreme" -> 0xFFFF3D00L
+                                else -> 0xFF00E5FFL
                             }
-                        )
-                    }
+                            val labelResource = mapOf(
+                                "powersave" to com.noir.lynx.R.string.audit_mode_powersave,
+                                "balance" to com.noir.lynx.R.string.audit_mode_balance,
+                                "performance" to com.noir.lynx.R.string.audit_mode_performance,
+                                "extreme" to com.noir.lynx.R.string.audit_mode_extreme
+                            )[id.lowercase()]
+                            val label = labelResource?.let(context::getString) ?: id
+                            viewModel.triggerModeFeedback(id, label, colorHex)
+                            viewModel.selectKernelPerformanceProfile(id, context, clearOverrides)
+                        },
+                        onExtremeConfirmRequired = onExtremeConfirmRequired,
+                        onProfileSaved = { profile, replaceBuiltIn, replaceCustom ->
+                            viewModel.saveKernelPerformanceProfile(profile, replaceBuiltIn, replaceCustom)
+                        },
+                        onProfileDeleted = { id ->
+                            viewModel.deleteKernelPerformanceProfile(id)
+                        },
+                        onProfileDuplicated = { id ->
+                            viewModel.duplicateKernelPerformanceProfile(id)
+                        },
+                        onRestoreBuiltIn = { id ->
+                            viewModel.restoreBuiltInKernelProfile(id, context)
+                        }
+                    )
                 }
             }
         }

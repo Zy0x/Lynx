@@ -69,7 +69,7 @@ class LynxAppAutomationService : Service() {
                     Log.i(TAG, "Screen ON detected: Resuming app automation polling")
                     isScreenOn = true
                     serviceScope.launch(Dispatchers.IO) {
-                        val base = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
+                        val base = if (baselineProfile.isBlank() || baselineProfile == "dormant" || baselineProfile == "powersave") "balance" else baselineProfile
                         LynxRepository.setProfile(base, caller = "watcher")
                         val (pct, tempC) = getLiveBatteryTelemetry()
                         withContext(Dispatchers.Main) {
@@ -151,8 +151,9 @@ class LynxAppAutomationService : Service() {
                 LynxRepository.readState().activeProfile
             }.ifBlank { "balance" }
         }
-        baselineProfile = initialProfile
-        startForeground(NOTIF_ID, buildNotification(formatModeTitle(initialProfile), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active), initialProfile))
+        val safeProfile = if (initialProfile.isBlank() || initialProfile == "dormant" || initialProfile == "powersave") "balance" else initialProfile
+        baselineProfile = safeProfile
+        startForeground(NOTIF_ID, buildNotification(formatModeTitle(safeProfile), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active), safeProfile))
         isRunning = true
 
         val filter = IntentFilter().apply {
@@ -234,7 +235,7 @@ class LynxAppAutomationService : Service() {
             val current = LynxRepository.readBaselineProfile().ifBlank {
                 LynxRepository.readState().activeProfile
             }
-            baselineProfile = if (current.isBlank() || current == "dormant") "balance" else current
+            baselineProfile = if (current.isBlank() || current == "dormant" || current == "powersave") "balance" else current
             baselineRefreshRate = LynxRepository.readDisplayRefreshRate()
             Log.i(TAG, "Watcher initialized: ${rulesCache.size} rules loaded, ${graphicsRulesCache.size} gfx rules loaded, baseline profile=[$baselineProfile], baseline refreshRate=[${baselineRefreshRate}Hz]")
 
@@ -257,10 +258,10 @@ class LynxAppAutomationService : Service() {
             }
         }
 
-        // Live Telemetry Ticker (Updates status bar notification with real-time temperature and battery every 3 seconds)
+        // Live Telemetry Ticker (Updates status bar notification smoothly every 10 seconds without spamming SystemUI)
         serviceScope.launch {
             while (isActive) {
-                delay(3000L)
+                delay(10000L)
                 if (!isScreenOn) continue
                 try {
                     val (pct, tempC) = getLiveBatteryTelemetry()
@@ -492,7 +493,7 @@ class LynxAppAutomationService : Service() {
                     // App is CLOSED / TERMINATED: IMMEDIATELY cancel cooldown and restore baseline!
                     cooldownJob?.cancel()
                     cooldownJob = null
-                    val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
+                    val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant" || baselineProfile == "powersave") "balance" else baselineProfile
                     Log.i(TAG, "Target app [$targetPkg] closed: immediate restoration to baseline [$restoreTarget]")
 
                     if (autoStartedHud) {
@@ -530,7 +531,7 @@ class LynxAppAutomationService : Service() {
                             }
                         }
 
-                        val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
+                        val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant" || baselineProfile == "powersave") "balance" else baselineProfile
                         Log.i(TAG, "Cooldown expired/terminated (${elapsed}ms), restoring baseline profile [$restoreTarget]")
 
                         if (autoStartedHud) {
@@ -666,7 +667,7 @@ class LynxAppAutomationService : Service() {
 
     private fun formatTelemetry(pct: Int, tempC: Float): String {
         return if (pct > 0 && tempC > 0f) {
-            String.format(Locale.US, " • %.1f°C • %d%%", tempC, pct)
+            String.format(Locale.US, " • %d°C • %d%%", kotlin.math.round(tempC).toInt(), pct)
         } else if (pct > 0) {
             " • $pct%"
         } else ""
