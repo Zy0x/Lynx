@@ -1,3 +1,23 @@
+# Lynx Universal [Unified Bento Card, Smart Template Auto-Detection & Clean Application Rules Management] 7.0.0-RC68
+Released on: 2026-10-17
+> **Lynx Universal v7.0.0-RC68** (Lynx Kernel Manager v3.1.21): **Penyatuan Menyeluruh Tata Letak Aturan Profil Aplikasi ke dalam Satu Kartu Bento Terpadu (`UnifiedAppAutomationCard`), Implementasi Deteksi Cerdas Berbasis Template Referensi (Hanya Menambahkan Game/Aplikasi yang Benar-Benar Terpasang Tanpa Polusi Entri Dummy), Tombol Aksi Konfirmasi 'Hapus Semua' Seketika, Serta Resolusi Total Ligatur Karakter 'Performa' pada Seluruh Komponen Antarmuka**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC68)
+
+### 1. 🍱 Unified Bento Card Layout (Zero Visual Fragmentation)
+- **Desain Terpadu Bebas Pecahan**: Mengintegrasikan seluruh kontrol otomasi aplikasi—mulai dari Master Automation Switch, pemilihan buffer cooldown (0s, 3s, 5s), tombol aksi header (`[ Hapus ]`, `[ ↻ Deteksi ]`, `[ + Tambah ]`), hingga daftar baris aplikasi terdaftar (`AppRuleEmbeddedRow`) dan status kosong (*embedded empty state*)—langsung di dalam **satu kartu Bento terpadu**.
+- **Pembersihan Kartu Terpisah**: Menghilangkan kartu-kartu anak yang terpisah-pisah, menciptakan tampilan yang jauh lebih kompak, simpel, elegan, dan teratur sesuai prinsip estetika mobile-first.
+
+### 2. 🧠 Smart Template Auto-Detection (Anti-Dummy Rules Injection)
+- **Template Sebagai Referensi Statis**: Berkas `core/applist_perf.txt` dan daftar game populer kini murni berfungsi sebagai template referensi pencocokan, bukan lagi didorong mentah-mentah ke konfigurasi aktif jika aplikasi tidak terpasang di perangkat.
+- **Deteksi Game Terpasang Nyata**: Fitur deteksi otomatis (`autoDetectAndSyncInstalledRules`) memindai package manager perangkat secara real-time dan hanya menambahkan aplikasi atau game yang **benar-benar terpasang fisik** dengan bendera game (`isGame`) atau kecocokan template.
+- **Aksi Cepat Hapus Semua**: Menyediakan tombol `[ Hapus ]` dengan dialog konfirmasi keamanan untuk membersihkan seluruh aturan profil aplikasi secara menyeluruh dan mengembalikan modul ke kondisi bersih.
+
+### 3. ✨ Tipografi Sempurna & Resolusi Ligatur Font
+- **Eliminasi Glitch Ligatur OpenType**: Menerapkan konfigurasi `fontFeatureSettings = "liga 0, dlig 0, calt 0"` pada seluruh badge, dialog edit aplikasi di `MainDashboard.kt`, dan banner status aktif `TuningProfilesCategory.kt`, menjamin kata "Performa" dan variannya tampil presisi tanpa artefak visual sambung huruf pada font sistem Android.
+
+---
+
 # Lynx Universal [Segmented Architecture & High-Performance UI Overhaul for Kernel Performance Profiles] 7.0.0-RC67
 Released on: 2026-10-17
 > **Lynx Universal v7.0.0-RC67** (Lynx Kernel Manager v3.1.20): **Penyusunan Ulang Menyeluruh Antarmuka Halaman Profil Performa Kernel (`profiles`) Menjadi Struktur Segmented Tab Ramping (Tab 0: "Katalog Profil" & Tab 1: "Otomasi Aplikasi"), Pemindahan Pengaturan Gaya Feedback & Notifikasi HUD ke Cyberpunk ModalBottomSheet Mandiri Berbasis Ikon Aksi Header, Serta Integrasi Target Profile Pill Interaktif 1-Sentuh dan Penghapusan Total Lag Pemuatan via Asynchronous Icon Decoding & Virtualized LazyColumn (Sub-16ms / 120 FPS)**.

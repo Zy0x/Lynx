@@ -49,26 +49,26 @@ internal object LynxAppProfileRulesRepository {
                 }
                 return@withContext list
             }
-            // Fallback: If app_rules.json doesn't exist yet, populate from applist_perf.txt
-            val perfList = LynxRepository.readApplistPerf()
+            // Fallback: If app_rules.json doesn't exist yet, populate ONLY from installed apps that match templates or are games
             val allApps = LynxRepository.readInstalledAppInfos()
-            val initialRules = perfList.map { pkg ->
-                val info = allApps.firstOrNull { it.packageName == pkg }
-                val isBench = pkg.contains("antutu", ignoreCase = true) ||
-                    pkg.contains("benchmark", ignoreCase = true) ||
-                    pkg.contains("geekbench", ignoreCase = true) ||
-                    pkg.contains("3dmark", ignoreCase = true) ||
-                    pkg.contains("androbench", ignoreCase = true) ||
-                    pkg.contains("cputhrottlingtest", ignoreCase = true) ||
-                    pkg.contains("futuremark", ignoreCase = true)
+            val templates = readGameTemplates()
+            val initialRules = allApps.filter { app ->
+                val pkgLower = app.packageName.lowercase()
+                app.isGame || isBenchmarkPackage(app.packageName) || templates.any { tmpl ->
+                    val tmplLower = tmpl.lowercase()
+                    pkgLower == tmplLower || pkgLower.contains(tmplLower)
+                }
+            }.map { info ->
+                val pkg = info.packageName
+                val isBench = isBenchmarkPackage(pkg)
                 AppProfileRule(
                     packageName = pkg,
-                    appName = info?.label ?: pkg.substringAfterLast("."),
+                    appName = info.label,
                     targetProfile = if (isBench) "extreme" else "performance",
                     enabled = true,
                     targetRefreshRate = null,
                     autoFloatingHud = false,
-                    isGame = info?.isGame ?: false
+                    isGame = info.isGame
                 )
             }
             if (initialRules.isNotEmpty()) {
@@ -130,25 +130,19 @@ internal object LynxAppProfileRulesRepository {
                 ).exec()
             }
 
-            // Synchronize with applist_perf.txt
-            if (perfPkgs.isNotEmpty()) {
-                val currentPerf = LynxRepository.readApplistPerf().toMutableSet()
-                currentPerf.addAll(perfPkgs)
-                val lines = currentPerf.joinToString("\n")
-                val perfPath = LynxRepository.getApplistPerfPathForFeature()
-                val perfDir = perfPath.substringBeforeLast("/")
-                Shell.cmd(
-                    "mkdir -p '$perfDir' /data/adb/lynx 2>/dev/null",
-                    "cat << 'EOF' > '$perfPath'\n$lines\nEOF",
-                    "chmod 666 '$perfPath' 2>/dev/null"
-                ).exec()
+            // Synchronize with runtime applist_perf.txt in /data/adb/lynx
+            val lines = perfPkgs.joinToString("\n")
+            Shell.cmd(
+                "mkdir -p /data/adb/lynx 2>/dev/null",
+                "cat << 'EOF' > /data/adb/lynx/applist_perf.txt\n$lines\nEOF",
+                "chmod 666 /data/adb/lynx/applist_perf.txt 2>/dev/null"
+            ).exec()
 
-                if (Shell.cmd("[ -d '/storage/emulated/0/Lynx' ]").exec().isSuccess) {
-                    Shell.cmd(
-                        "cat << 'EOF' > '$LynxRepository.LEGACY_APPLIST_PERF_PATH'\n$lines\nEOF",
-                        "chmod 666 '$LynxRepository.LEGACY_APPLIST_PERF_PATH' 2>/dev/null"
-                    ).exec()
-                }
+            if (Shell.cmd("[ -d '/storage/emulated/0/Lynx' ]").exec().isSuccess) {
+                Shell.cmd(
+                    "cat << 'EOF' > '$LynxRepository.LEGACY_APPLIST_PERF_PATH'\n$lines\nEOF",
+                    "chmod 666 '$LynxRepository.LEGACY_APPLIST_PERF_PATH' 2>/dev/null"
+                ).exec()
             }
             com.noir.lynx.service.LynxAppAutomationService.reloadRules()
             true
@@ -156,6 +150,94 @@ internal object LynxAppProfileRulesRepository {
             Log.e("LynxRepository", "saveAllAppProfileRules error: ${e.message}")
             false
         }
+    }
+
+    suspend fun clearAllAppProfileRules(): Boolean = withContext(Dispatchers.IO) {
+        saveAllAppProfileRules(emptyList())
+    }
+
+    suspend fun autoDetectAndSyncInstalledRules(): Pair<Int, List<AppProfileRule>> = withContext(Dispatchers.IO) {
+        val currentRules = readAppProfileRules().toMutableList()
+        val existingPackages = currentRules.map { it.packageName.lowercase() }.toSet()
+        val allApps = LynxRepository.readInstalledAppInfos()
+        val templates = readGameTemplates()
+
+        val newlyDetected = mutableListOf<AppProfileRule>()
+
+        for (app in allApps) {
+            val pkg = app.packageName
+            val pkgLower = pkg.lowercase()
+            if (existingPackages.contains(pkgLower)) continue
+
+            val isBench = isBenchmarkPackage(pkg)
+            val matchesTemplate = templates.any { tmpl ->
+                val tmplLower = tmpl.lowercase()
+                pkgLower == tmplLower || pkgLower.contains(tmplLower)
+            }
+            val isGame = app.isGame
+
+            if (isGame || isBench || matchesTemplate) {
+                newlyDetected.add(
+                    AppProfileRule(
+                        packageName = pkg,
+                        appName = app.label,
+                        targetProfile = if (isBench) "extreme" else "performance",
+                        enabled = true,
+                        targetRefreshRate = null,
+                        autoFloatingHud = false,
+                        isGame = isGame
+                    )
+                )
+            }
+        }
+
+        if (newlyDetected.isNotEmpty()) {
+            currentRules.addAll(newlyDetected)
+            saveAllAppProfileRules(currentRules)
+        }
+
+        Pair(newlyDetected.size, currentRules)
+    }
+
+    private fun isBenchmarkPackage(pkg: String): Boolean {
+        val lower = pkg.lowercase()
+        return lower.contains("antutu") ||
+            lower.contains("benchmark") ||
+            lower.contains("geekbench") ||
+            lower.contains("3dmark") ||
+            lower.contains("androbench") ||
+            lower.contains("cputhrottlingtest") ||
+            lower.contains("futuremark")
+    }
+
+    val DEFAULT_GAME_TEMPLATES = listOf(
+        "nextgen", "YoStarJP", "YoStarEN", "bluearchive", "Arknights", "AzurLane",
+        "ioncannon", "roblox", "codm", "nexon", "konami", "bandainamco", "netmarble",
+        "edengames", "tencent", "krmobile", "moonton", "gameloft", "netease", "garena",
+        "pubg", "pubgmhd", "pubgmobile", "mojang", "aethersx2", "criticalops", "warface",
+        "ppsspp", "ubisoft", "activision", "rockstargames", "Fortnite", "FortniteMobile",
+        "epicgames", "apexlegendsmobilefps", "riotgames", "levelinfinite", "GacoGames",
+        "carxtech", "vespainteractive", "KingsRaid", "autochessmoba", "asobimo",
+        "gamesirnsemulator", "rayark", "battlefun", "clgame", "bangdreamgbp", "ea.game",
+        "ea.gp", "com.miHoYo.bh3oversea", "com.miHoYo.GenshinImpact", "com.mobile.legends",
+        "com.lemon.lvoverseas", "me.tigerhix.cytoid", "com.kurogame.wutheringwaves",
+        "com.HoYoverse.hkrpgoversea", "com.supercell.clashofclans", "com.supercell.brawlstars",
+        "com.supercell.clashroyale", "com.dts.freefireth", "com.dts.freefiremax",
+        "com.riotgames.league.wildrift", "com.riotgames.legendsofruneterra",
+        "com.antutu.ABenchMark", "com.antutu.benchmark", "com.primatelabs.geekbench",
+        "com.futuremark.dmandroid.application"
+    )
+
+    suspend fun readGameTemplates(): List<String> = withContext(Dispatchers.IO) {
+        val templates = mutableSetOf<String>()
+        templates.addAll(DEFAULT_GAME_TEMPLATES)
+        try {
+            val res = Shell.cmd("cat /data/adb/modules/Lynx/core/applist_perf.txt 2>/dev/null").exec()
+            res.out.map { it.trim() }
+                .filter { it.isNotBlank() && !it.startsWith("#") }
+                .forEach { templates.add(it) }
+        } catch (_: Exception) {}
+        templates.toList()
     }
 
     suspend fun saveAppProfileRule(rule: AppProfileRule): Boolean = withContext(Dispatchers.IO) {

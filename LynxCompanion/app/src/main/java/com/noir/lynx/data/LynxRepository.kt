@@ -524,6 +524,8 @@ object LynxRepository {
     suspend fun saveAppProfileRule(rule: AppProfileRule): Boolean = LynxAppProfileRulesRepository.saveAppProfileRule(rule)
     suspend fun deleteAppProfileRule(packageName: String): Boolean = LynxAppProfileRulesRepository.deleteAppProfileRule(packageName)
     suspend fun toggleAppProfileRule(packageName: String, enabled: Boolean): Boolean = LynxAppProfileRulesRepository.toggleAppProfileRule(packageName, enabled)
+    suspend fun clearAllAppProfileRules(): Boolean = LynxAppProfileRulesRepository.clearAllAppProfileRules()
+    suspend fun autoDetectAndSyncInstalledRules(): Pair<Int, List<AppProfileRule>> = LynxAppProfileRulesRepository.autoDetectAndSyncInstalledRules()
     suspend fun grantOverlayPermission(): Boolean = LynxAppProfileRepository.grantOverlayPermission()
     suspend fun grantUsageStatsPermission(): Boolean = LynxAppProfileRepository.grantUsageStatsPermission()
     suspend fun deployWatcherScripts(): Boolean = LynxAppProfileRepository.deployWatcherScripts()

@@ -235,7 +235,13 @@ fun MainDashboard(
 
                     // Kernel Profile Target
                     Column {
-                        Text("Profil Performa Kernel", color = AccentCyan, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                        Text(
+                            "Profil Performa Kernel",
+                            color = AccentCyan,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.5.sp,
+                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                        )
                         Text("Pilih profil CPU/GPU saat aplikasi berada di foreground", color = TextSecondary, fontSize = 10.sp)
                         Spacer(Modifier.height(6.dp))
                         Row(
@@ -260,7 +266,8 @@ fun MainDashboard(
                                             text = meta.first,
                                             color = if (isSel) meta.second else TextSecondary,
                                             fontSize = 10.sp,
-                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
                                         )
                                     }
                                 }

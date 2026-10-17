@@ -210,6 +210,49 @@ import kotlinx.coroutines.flow.update
         }
     }
 
+    fun LynxViewModel.clearAllAppProfileRules(context: android.content.Context) {
+        recordStateMutation()
+        _uiState.update { it.copy(appProfileRules = emptyList()) }
+        viewModelScope.launch {
+            val ok = LynxRepository.clearAllAppProfileRules()
+            if (ok) {
+                _uiState.update { it.copy(successMessage = "Semua aturan profil aplikasi berhasil dihapus") }
+                if (_uiState.value.isAppAutomationActive) {
+                    val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
+                        action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
+                    }
+                    context.startService(intent)
+                }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menghapus aturan aplikasi") }
+            }
+        }
+    }
+
+    fun LynxViewModel.autoDetectAndSyncInstalledRules(context: android.content.Context) {
+        recordStateMutation()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val (addedCount, updatedRules) = LynxRepository.autoDetectAndSyncInstalledRules()
+                _uiState.update { it.copy(isLoading = false, appProfileRules = updatedRules) }
+                if (addedCount > 0) {
+                    _uiState.update { it.copy(successMessage = "$addedCount game terpasang berhasil ditambahkan!") }
+                    if (_uiState.value.isAppAutomationActive) {
+                        val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
+                            action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
+                        }
+                        context.startService(intent)
+                    }
+                } else {
+                    _uiState.update { it.copy(successMessage = "Semua game terpasang sudah terdaftar") }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Gagal memindai game: ${e.message}") }
+            }
+        }
+    }
+
     fun LynxViewModel.setAppAutomationCooldownSeconds(context: android.content.Context, seconds: Int) {
         _uiState.update { it.copy(appAutomationCooldownSeconds = seconds) }
         context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
