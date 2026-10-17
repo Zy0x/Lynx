@@ -471,6 +471,7 @@ data class LynxUiState(
     val customScripts: List<CustomScriptItem> = emptyList(),
     val dmesgState: DmesgLogState = DmesgLogState(),
     val currentTcpCongestion: String = "",
+    val wifiTelemetry: WifiTelemetryInfo = WifiTelemetryInfo(),
     val vmAdvanced: VirtualMemoryAdvancedConfig = VirtualMemoryAdvancedConfig(),
     val wakelockBlockerInfo: WakelockBlockerInfo = WakelockBlockerInfo(),
     val schedulerInfo: SchedulerInfo = SchedulerInfo(),

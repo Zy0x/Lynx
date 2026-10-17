@@ -87,10 +87,31 @@ data class DisplayTouchConfig(
 
 data class NetworkConfig(
     val wifiPingStabilizer: Boolean = true,
-    val tcpCongestion: String = "bbr",
+    val tcpCongestion: String = "cubic",
     val fqCodelEnabled: Boolean = true,
     val wifiPowerSaveInGame: Boolean = false,
+    val tcpBuffers16m: Boolean = true,
+    val tcpFastOpen: Boolean = true,
+    val antiJitterScan: Boolean = true,
+    val mtkHardwareAggregation: Boolean = true,
 )
+
+data class WifiTelemetryInfo(
+    val isConnected: Boolean = false,
+    val ssid: String = "Tidak Terhubung",
+    val bssid: String = "",
+    val ipAddress: String = "",
+    val frequencyMhz: Int = 0,
+    val linkSpeedMbps: Int = 0,
+    val maxLinkSpeedMbps: Int = 0,
+    val rssiDbm: Int = 0,
+    val wifiStandard: String = "Wi-Fi",
+    val gatewayPingMs: Float = 0f,
+    val isLowLatencyActive: Boolean = false,
+    val rxLinkSpeedMbps: Int = 0,
+    val txLinkSpeedMbps: Int = 0,
+)
+
 
 data class AudioConfig(
     val lowLatencyMmap: Boolean = true,

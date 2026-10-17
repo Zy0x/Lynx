@@ -88,6 +88,7 @@ data class KernelPerformanceProfile(
         val BOOLEAN_SETTING_KEYS = setOf(
             "memory.mglru_enabled", "display_touch.touchboost", "display_touch.skia_vulkan_enabled",
             "network.wifi_ping_stabilizer", "network.fq_codel_enabled", "network.wifi_power_save_in_game",
+            "network.tcp_buffers_16m", "network.tcp_fast_open", "network.anti_jitter_scan", "network.mtk_hw_aggregation",
             "audio.low_latency_mmap", "audio.fast_track_enabled", "audio.bt_crackle_guard",
             "charging.smart_tapering_enabled", "charging.emergency_temp_guard_enabled",
             "charging.thermal_lockout_bypass_enabled", "charging.bypass_enabled",
@@ -108,7 +109,9 @@ data class KernelPerformanceProfile(
             "display_touch.touchboost", "display_touch.refresh_rate_lock",
             "display_touch.surfaceflinger_offset_ns", "display_touch.skia_vulkan_enabled",
             "network.wifi_ping_stabilizer", "network.tcp_congestion", "network.fq_codel_enabled",
-            "network.wifi_power_save_in_game", "audio.low_latency_mmap", "audio.fast_track_enabled",
+            "network.wifi_power_save_in_game", "network.tcp_buffers_16m", "network.tcp_fast_open",
+            "network.anti_jitter_scan", "network.mtk_hw_aggregation",
+            "audio.low_latency_mmap", "audio.fast_track_enabled",
             "audio.bt_crackle_guard", "charging.max_battery_percent", "charging.high_current_target_percent",
             "charging.limit_current_ma", "charging.smart_tapering_enabled",
             "charging.emergency_temp_guard_enabled", "charging.thermal_lockout_bypass_enabled",

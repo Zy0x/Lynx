@@ -39,8 +39,104 @@ fun NetworkSubscreen(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        // ── Live Wi-Fi Telemetry & Link Monitor Card ────────────
+        LaunchedEffect(Unit) {
+            viewModel.refreshWifiTelemetry()
+            viewModel.refreshTcpAlgorithms()
+        }
+
+        val wifi = uiState.wifiTelemetry
+        LynxCard(
+            title = "Live Wi-Fi Telemetry & Link Monitor",
+            icon = Icons.Default.Wifi,
+            accentColor = if (wifi.isConnected) AccentGreen else AccentOrange
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        if (wifi.isConnected) wifi.ssid else "Wi-Fi Terputus / Tidak Aktif",
+                        color = TextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        if (wifi.isConnected) "${wifi.wifiStandard} • ${wifi.frequencyMhz} MHz" else "Aktifkan Wi-Fi untuk telemetri",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                }
+                Surface(
+                    onClick = { viewModel.refreshWifiTelemetry() },
+                    shape = RoundedCornerShape(8.dp),
+                    color = (if (wifi.isConnected) AccentGreen else AccentOrange).copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, (if (wifi.isConnected) AccentGreen else AccentOrange).copy(alpha = 0.35f))
+                ) {
+                    Text(
+                        if (wifi.isConnected) "● TERHUBUNG" else "○ DISCONNECTED",
+                        color = if (wifi.isConnected) AccentGreen else AccentOrange,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            if (wifi.isConnected) {
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Link Speed
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(1.dp, BorderGlass)
+                    ) {
+                        Column(Modifier.padding(10.dp)) {
+                            Text("LINK SPEED", color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(2.dp))
+                            Text("${wifi.linkSpeedMbps} Mbps", color = AccentCyan, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                            Text("Maks: ${wifi.maxLinkSpeedMbps} Mbps", color = TextSecondary, fontSize = 9.sp)
+                        }
+                    }
+                    // RSSI Signal
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(1.dp, BorderGlass)
+                    ) {
+                        Column(Modifier.padding(10.dp)) {
+                            Text("SINYAL RSSI", color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(2.dp))
+                            Text("${wifi.rssiDbm} dBm", color = if (wifi.rssiDbm > -70) AccentGreen else AccentOrange, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                            Text(if (wifi.rssiDbm > -65) "Sangat Kuat" else if (wifi.rssiDbm > -75) "Bagus" else "Lemah", color = TextSecondary, fontSize = 9.sp)
+                        }
+                    }
+                    // Gateway Ping
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(1.dp, BorderGlass)
+                    ) {
+                        Column(Modifier.padding(10.dp)) {
+                            Text("LATENSI GATEWAY", color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(2.dp))
+                            Text(if (wifi.gatewayPingMs > 0) "${String.format("%.1f", wifi.gatewayPingMs)} ms" else "Sub-5ms", color = AccentPurple, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                            Text(if (wifi.gatewayPingMs < 6) "Zero Jitter" else "Normal", color = TextSecondary, fontSize = 9.sp)
+                        }
+                    }
+                }
+            }
+        }
+
         // ── TCP Congestion Control Card ──────────────────────────
-        LaunchedEffect(Unit) { viewModel.refreshTcpAlgorithms() }
         LynxCard(
             title = "TCP Congestion Control",
             icon = Icons.Default.NetworkCheck,
@@ -178,18 +274,72 @@ fun NetworkSubscreen(
             }
         }
 
-        // ── Subsystem Audio & Wi-Fi Enhancer Card ────────────────
+        // ── Wi-Fi Gaming & Low-Latency Suite Card ────────────────
         LynxCard(
-            title = "Subsystem Audio & Wi-Fi Enhancer",
-            icon = Icons.Default.Wifi,
+            title = "Wi-Fi Gaming & Low-Latency Suite",
+            icon = Icons.Default.Bolt,
             accentColor = AccentBlue
         ) {
             LynxSwitch(
-                label = "Wi-Fi Ping Stabilizer & FQ-CoDel",
-                subLabel = "Mengurangi bufferbloat dan jitter koneksi game online",
+                label = "Wi-Fi Ultra-Low Latency & CAM Mode",
+                subLabel = "Bypass 802.11 DTIM radio sleep & paksa HAL low-latency untuk respon game instan",
                 checked = state.network.wifiPingStabilizer,
                 onCheckedChange = { viewModel.setWifiPingStabilizer(it) },
             )
+            LynxSwitch(
+                label = "Anti-Lag Wi-Fi Background Scan Guard",
+                subLabel = "Hentikan pemindaian periodik di latar belakang untuk mencegah ping spike tiap 15-30 detik",
+                checked = state.network.antiJitterScan,
+                onCheckedChange = { viewModel.setAntiJitterScan(it) },
+            )
+        }
+
+        // ── Throughput & Buffer Accelerator Card ─────────────────
+        LynxCard(
+            title = "Throughput & Buffer Accelerator",
+            icon = Icons.Default.Speed,
+            accentColor = AccentPurple
+        ) {
+            LynxSwitch(
+                label = "FQ-CoDel Bufferbloat Killer",
+                subLabel = "Antrean adil FQ-CoDel memisahkan paket download vs game agar ping tidak melonjak",
+                checked = state.network.fqCodelEnabled,
+                onCheckedChange = { viewModel.setFqCodelEnabled(it) },
+            )
+            LynxSwitch(
+                label = "High-Bandwidth 16 MB TCP Window",
+                subLabel = "Perluas buffer socket ke 16 MB untuk memaksimalkan throughput internet kencang",
+                checked = state.network.tcpBuffers16m,
+                onCheckedChange = { viewModel.setTcpBuffers16m(it) },
+            )
+            LynxSwitch(
+                label = "TCP Fast Open & Anti-Corking",
+                subLabel = "Kirim data instan pada paket jabat tangan awal tanpa jeda Nagle",
+                checked = state.network.tcpFastOpen,
+                onCheckedChange = { viewModel.setTcpFastOpen(it) },
+            )
+        }
+
+        // ── Hardware Platform Wi-Fi Optimization ─────────────────
+        LynxCard(
+            title = "Hardware Platform Wi-Fi Engine",
+            icon = Icons.Default.Router,
+            accentColor = AccentOrange
+        ) {
+            LynxSwitch(
+                label = "MediaTek A-MSDU / VHT Aggregation",
+                subLabel = "Agregasi subframe ganda 802.11ac + EDCCA threshold (Graceful Fallback di non-MTK)",
+                checked = state.network.mtkHardwareAggregation,
+                onCheckedChange = { viewModel.setMtkHardwareAggregation(it) },
+            )
+        }
+
+        // ── Subsystem Audio Enhancer Card ────────────────────────
+        LynxCard(
+            title = "Subsystem Audio Enhancer",
+            icon = Icons.Default.VolumeUp,
+            accentColor = AccentCyan
+        ) {
             LynxSwitch(
                 label = "Low-Latency Audio MMAP",
                 subLabel = "Bypass mixer audio Android untuk latensi respon suara terendah",

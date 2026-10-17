@@ -90,9 +90,13 @@ internal object LynxStateParser {
 
         private fun parseNetwork(j: JSONObject?) = NetworkConfig(
             wifiPingStabilizer = j?.optBoolean("wifi_ping_stabilizer", true) ?: true,
-            tcpCongestion = j?.optString("tcp_congestion", "bbr") ?: "bbr",
+            tcpCongestion = j?.optString("tcp_congestion", "cubic") ?: "cubic",
             fqCodelEnabled = j?.optBoolean("fq_codel_enabled", true) ?: true,
             wifiPowerSaveInGame = j?.optBoolean("wifi_power_save_in_game", false) ?: false,
+            tcpBuffers16m = j?.optBoolean("tcp_buffers_16m", true) ?: true,
+            tcpFastOpen = j?.optBoolean("tcp_fast_open", true) ?: true,
+            antiJitterScan = j?.optBoolean("anti_jitter_scan", true) ?: true,
+            mtkHardwareAggregation = j?.optBoolean("mtk_hw_aggregation", true) ?: true,
         )
 
         private fun parseAudio(j: JSONObject?) = AudioConfig(

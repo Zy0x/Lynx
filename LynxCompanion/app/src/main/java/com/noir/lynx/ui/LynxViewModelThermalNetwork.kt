@@ -127,6 +127,83 @@ fun LynxViewModel.setWifiPingStabilizer(enabled: Boolean) {
     }
 }
 
+fun LynxViewModel.setAntiJitterScan(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(network = current.state.network.copy(antiJitterScan = enabled)))
+    }
+    setKey("network.anti_jitter_scan", enabled.toString(), "bool")
+    viewModelScope.launch {
+        val ok = LynxRepository.applyAntiJitterScan(enabled)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = if (enabled) "Anti-Lag Wi-Fi Scan Guard aktif" else "Anti-Lag Scan Guard dinonaktifkan") }
+        }
+    }
+}
+
+fun LynxViewModel.setFqCodelEnabled(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(network = current.state.network.copy(fqCodelEnabled = enabled)))
+    }
+    setKey("network.fq_codel_enabled", enabled.toString(), "bool")
+    viewModelScope.launch {
+        val ok = LynxRepository.applyFqCodel(enabled)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = if (enabled) "FQ-CoDel Bufferbloat Killer aktif" else "FQ-CoDel dinonaktifkan (Default FIFO)") }
+        }
+    }
+}
+
+fun LynxViewModel.setTcpBuffers16m(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(network = current.state.network.copy(tcpBuffers16m = enabled)))
+    }
+    setKey("network.tcp_buffers_16m", enabled.toString(), "bool")
+    viewModelScope.launch {
+        val ok = LynxRepository.applyTcpBuffers16m(enabled)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = if (enabled) "TCP High-Bandwidth 16MB Buffers aktif" else "TCP Buffers dikembalikan ke bawaan") }
+        }
+    }
+}
+
+fun LynxViewModel.setTcpFastOpen(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(network = current.state.network.copy(tcpFastOpen = enabled)))
+    }
+    setKey("network.tcp_fast_open", enabled.toString(), "bool")
+    viewModelScope.launch {
+        val ok = LynxRepository.applyTcpFastOpen(enabled)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = if (enabled) "TCP Fast Open & Anti-Corking aktif" else "TCP Fast Open dinonaktifkan") }
+        }
+    }
+}
+
+fun LynxViewModel.setMtkHardwareAggregation(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(network = current.state.network.copy(mtkHardwareAggregation = enabled)))
+    }
+    setKey("network.mtk_hw_aggregation", enabled.toString(), "bool")
+    viewModelScope.launch {
+        val ok = LynxRepository.applyMtkHardwareAggregation(enabled)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = if (enabled) "MediaTek Hardware Aggregation aktif" else "MediaTek Aggregation dinonaktifkan") }
+        }
+    }
+}
+
+fun LynxViewModel.refreshWifiTelemetry() {
+    viewModelScope.launch {
+        val tele = LynxRepository.readWifiTelemetry()
+        _uiState.update { it.copy(wifiTelemetry = tele) }
+    }
+}
+
 fun LynxViewModel.refreshAdbConfig() {
     viewModelScope.launch {
         val (enabled, port) = LynxRepository.readAdbKeepAliveConfig()

@@ -443,6 +443,12 @@ object LynxRepository {
     suspend fun applyTouchboost(enabled: Boolean): Boolean = LynxSystemControlRepository.applyTouchboost(enabled)
 
     suspend fun applyWifiPingStabilizer(enabled: Boolean): Boolean = LynxSystemControlRepository.applyWifiPingStabilizer(enabled)
+    suspend fun applyAntiJitterScan(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAntiJitterScan(enabled)
+    suspend fun applyFqCodel(enabled: Boolean): Boolean = LynxSystemControlRepository.applyFqCodel(enabled)
+    suspend fun applyTcpBuffers16m(enabled: Boolean): Boolean = LynxSystemControlRepository.applyTcpBuffers16m(enabled)
+    suspend fun applyTcpFastOpen(enabled: Boolean): Boolean = LynxSystemControlRepository.applyTcpFastOpen(enabled)
+    suspend fun applyMtkHardwareAggregation(enabled: Boolean): Boolean = LynxSystemControlRepository.applyMtkHardwareAggregation(enabled)
+    suspend fun readWifiTelemetry(): WifiTelemetryInfo = LynxSystemControlRepository.readWifiTelemetry()
 
     suspend fun applyAudioMmap(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAudioMmap(enabled)
 
