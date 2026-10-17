@@ -321,14 +321,40 @@ fun NetworkSubscreen(
         }
 
         // ── Hardware Platform Wi-Fi Optimization ─────────────────
+        val soc = state.targetSoc.lowercase()
+        val hwCardTitle = when {
+            soc == "mtk" -> "Hardware Platform (MediaTek Wi-Fi Engine)"
+            soc == "qcom" -> "Hardware Platform (Qualcomm WCNSS Engine)"
+            soc.contains("unisoc") || soc.contains("sprd") -> "Hardware Platform (Unisoc WLAN Engine)"
+            soc.contains("exynos") || soc.contains("s5e") -> "Hardware Platform (Samsung Exynos SCSC Engine)"
+            soc.contains("tensor") || soc.contains("google") -> "Hardware Platform (Google Tensor Radio Engine)"
+            else -> "Hardware Platform (Universal Radio Engine)"
+        }
+        val hwSwitchLabel = when {
+            soc == "mtk" -> "MediaTek Hardware CAM & Aggregation"
+            soc == "qcom" -> "Qualcomm WCNSS Low-Latency Radio"
+            soc.contains("unisoc") || soc.contains("sprd") -> "Unisoc SPRDWLAN Low-Power Bypass"
+            soc.contains("exynos") || soc.contains("s5e") -> "Exynos SCSC & DHD Sleep Bypass"
+            soc.contains("tensor") || soc.contains("google") -> "Tensor SCSC & Packet Filter Bypass"
+            else -> "Hardware Radio Low-Latency Mode"
+        }
+        val hwSwitchSub = when {
+            soc == "mtk" -> "Bypass DTIM sleep hardware (/proc/net/wlan/setCAM) & autoPerfCfg"
+            soc == "qcom" -> "Bypass timer inaktivitas paket WCNSS & optimalkan buffer RX/TX"
+            soc.contains("unisoc") || soc.contains("sprd") -> "Bypass auto_power sleep pada driver modem sprdwl_ng"
+            soc.contains("exynos") || soc.contains("s5e") -> "Bypass slp_enable & optimalkan watchdog buffer pada driver SCSC"
+            soc.contains("tensor") || soc.contains("google") -> "Bypass slp_enable driver SCSC & paksa Continuous Active Mode"
+            else -> "Paksa Continuous Active Mode & bypass sleep interval pada driver radio"
+        }
+
         LynxCard(
-            title = "Hardware Platform Wi-Fi Engine",
+            title = hwCardTitle,
             icon = Icons.Default.Router,
             accentColor = AccentOrange
         ) {
             LynxSwitch(
-                label = "MediaTek A-MSDU / VHT Aggregation",
-                subLabel = "Agregasi subframe ganda 802.11ac + EDCCA threshold (Graceful Fallback di non-MTK)",
+                label = hwSwitchLabel,
+                subLabel = hwSwitchSub,
                 checked = state.network.mtkHardwareAggregation,
                 onCheckedChange = { viewModel.setMtkHardwareAggregation(it) },
             )

@@ -146,7 +146,43 @@ internal object LynxAppStateRepository {
     private fun readTargetSocFile(): String {
         return try {
             val r = Shell.cmd("cat '$TARGET_SOC_PATH' 2>/dev/null").exec()
-            r.out.firstOrNull()?.trim() ?: "generic"
+            val fileSoc = r.out.firstOrNull()?.trim() ?: ""
+            if (fileSoc.isNotBlank() && fileSoc != "generic") {
+                return fileSoc
+            }
+            // Multi-SoC dynamic hardware ground-truth probe
+            val hwRes = Shell.cmd("""
+                if [ -d /proc/ppm ] || [ -d /proc/ged ] || [ -c /dev/ged ] || [ -d /proc/net/wlan ]; then
+                    echo "mtk"
+                elif [ -d /sys/class/kgsl ] || [ -c /dev/kgsl-3d0 ] || [ -d /sys/devices/soc0 ]; then
+                    echo "qcom"
+                elif [ -d /proc/sprdwlan ] || [ -d /sys/module/sprdwl_ng ] || [ -d /sys/module/sprdwl ]; then
+                    echo "unisoc"
+                elif [ -d /sys/module/scsc_wlan ] || [ -d /sys/module/s5n ]; then
+                    echo "exynos"
+                else
+                    p="$(getprop ro.hardware | tr '[:upper:]' '[:lower:]')"
+                    m="$(getprop ro.soc.manufacturer | tr '[:upper:]' '[:lower:]')"
+                    case "${'$'}m" in
+                        *mediatek*) echo "mtk" ;;
+                        *qualcomm*) echo "qcom" ;;
+                        *unisoc*|*spreadtrum*) echo "unisoc" ;;
+                        *samsung*|*exynos*) echo "exynos" ;;
+                        *google*|*tensor*) echo "tensor" ;;
+                        *)
+                            case "${'$'}p" in
+                                mt*|helio*|dimensity*) echo "mtk" ;;
+                                qcom*|sm*|sdm*|msm*) echo "qcom" ;;
+                                sprd*|ums*|shark*) echo "unisoc" ;;
+                                exynos*|s5e*) echo "exynos" ;;
+                                tensor*|gs*) echo "tensor" ;;
+                                *) echo "generic" ;;
+                            esac
+                            ;;
+                    esac
+                fi
+            """.trimIndent()).exec()
+            hwRes.out.firstOrNull()?.trim() ?: "generic"
         } catch (e: Exception) { "generic" }
     }
 
