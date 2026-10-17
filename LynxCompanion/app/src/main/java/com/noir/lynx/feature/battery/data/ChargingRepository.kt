@@ -305,6 +305,8 @@ class ChargingRepository(
             repository.writeStateKey("charging.extreme_charging_enabled", isExtreme.toString(), "bool")
             repository.writeStateKey("charging.limit_current_ma", targetMa.toString(), "val")
             repository.writeStateKey("charging.is_unconstrained_max_hw", (normalizedMode == "hyper").toString(), "bool")
+            repository.writeStateKey("charging.bypass_enabled", "false", "bool")
+            Shell.cmd("rm -f /dev/lynx_bypass_active").exec()
 
             val nativeCmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging mode $normalizedMode $targetMa && echo ok; fi"
             val fastRes = Shell.cmd(nativeCmd).exec()

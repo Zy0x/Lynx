@@ -40,8 +40,8 @@ static uint32_t original_opp0_freq = 950000;
 static uint32_t original_opp0_vgpu = 85000;
 static uint32_t original_opp0_vsram = 95000;
 
-// Runtime Configuration: Target 950 MHz (Stock Hardware Peak Ceiling, 100% Stable)
-#define LYNX_GPU_OC_TARGET_KHZ 950000
+// Runtime Configuration: Target 960 MHz @ 875 mV
+#define LYNX_GPU_OC_TARGET_KHZ 960000
 static int oc_gpu_target_freq_khz = LYNX_GPU_OC_TARGET_KHZ;
 static int oc_gpu_enabled = 1; // Armed on load
 static int oc_cpu_enabled = 0; // Pure GPU focus
@@ -138,10 +138,11 @@ static long lynx_oc_control0(const char *args, char *__user out_msg, int outlen)
         oc_gpu_target_freq_khz = 960000;
         if (live_gpufreq_opp_table) {
             live_gpufreq_opp_table[0].freq = 960000;
-            live_gpufreq_opp_table[0].vgpu = 85625; // 856.25 mV
-            live_gpufreq_opp_table[0].vsram = 95625; // 956.25 mV
+            live_gpufreq_opp_table[0].vgpu = 87500; // 875.0 mV
+            live_gpufreq_opp_table[0].vsram = 97500; // 975.0 mV
+            live_gpufreq_opp_table[0].gpu_power = 1450;
         }
-        logkd(LOG_TAG "GPU OPP[0] Set to 960 MHz (Overclocked @ 856.25 mV)\n");
+        logkd(LOG_TAG "GPU OPP[0] Set to 960 MHz (Overclocked @ 875.0 mV)\n");
     } else if (k_str_contains(args, "1000") || k_str_contains(args, "gpu=1000")) {
         oc_gpu_enabled = 1;
         oc_gpu_target_freq_khz = 1000000;
@@ -209,13 +210,13 @@ static long lynx_oc_init(const char *args, const char *event, void *__user reser
                       original_opp0_freq, original_opp0_vgpu, original_opp0_vsram,
                       live_gpufreq_opp_table[0].posdiv);
 
-                // Elevate OPP 0 to 960 MHz with +6.25 mV voltage headroom
+                // Elevate OPP 0 to 960 MHz with 875.0 mV voltage
                 live_gpufreq_opp_table[0].freq = oc_gpu_target_freq_khz;
-                live_gpufreq_opp_table[0].vgpu = 85625;
-                live_gpufreq_opp_table[0].vsram = 95625;
-                live_gpufreq_opp_table[0].gpu_power = 1350;
+                live_gpufreq_opp_table[0].vgpu = 87500;  // 875.0 mV
+                live_gpufreq_opp_table[0].vsram = 97500; // 975.0 mV
+                live_gpufreq_opp_table[0].gpu_power = 1450;
 
-                logkd(LOG_TAG "SUCCESS: OPP[0] elevated to %u kHz @ 856.25 mV (960 MHz Overclock Armed!)\n",
+                logkd(LOG_TAG "SUCCESS: OPP[0] elevated to %u kHz @ 875.0 mV (960 MHz Overclock Armed!)\n",
                       oc_gpu_target_freq_khz);
             }
         }

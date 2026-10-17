@@ -26,8 +26,13 @@ static void *target_regulator_set_voltage = NULL;
 static void *target_ged_dvfs_vcore = NULL;
 
 // Runtime Configurable Offset (in microvolts, uV)
-// Default: -25000 uV (-25.0 mV recommended undervolt, 100% stable)
-static int uv_gpu_offset_uv = -25000;
+// Default: -12500 uV (-12.5 mV primary sweet spot, 100% stable & cool)
+static int uv_gpu_offset_uv = -12500;
+
+// Rail Targeting Control:
+// 0 = ONLY vgpu (Core Logic undervolt, vsram kept at 100% stock for rock-solid stability)
+// 1 = Dual-rail (both vgpu and vsram_gpu undervolted)
+static int uv_target_vsram = 0;
 
 // Absolute safety floor voltage (uV) to prevent GPU freeze/crash
 #define MIN_SAFE_GPU_UV 550000 // 0.55 V minimum floor
@@ -64,8 +69,14 @@ void before_regulator_set_voltage(hook_fargs3_t *args, void *udata)
     void *rdev = *(void **)((char *)reg + 0x50);
     const char *name = (p_rdev_get_name && rdev) ? p_rdev_get_name(rdev) : NULL;
 
-    // Target ONLY GPU power rails ('vgpu' or 'vsram_gpu')
-    if (!name || (!k_str_contains(name, "vgpu") && !k_str_contains(name, "vsram_gpu"))) {
+    // Target ONLY GPU power rails:
+    // vgpu is always targeted. vsram_gpu is targeted ONLY if uv_target_vsram is explicitly enabled!
+    if (!name) return;
+
+    int is_vgpu = k_str_contains(name, "vgpu") && !k_str_contains(name, "vsram");
+    int is_vsram = k_str_contains(name, "vsram");
+
+    if (!is_vgpu && !(is_vsram && uv_target_vsram)) {
         return;
     }
 
@@ -114,21 +125,29 @@ static long lynx_gpu_uv_control0(const char *args, char *__user out_msg, int out
     if (!args) return 0;
     logkd(LOG_TAG "Control command: %s\n", args);
 
-    if (k_str_contains(args, "reset")) {
+    if (k_str_contains(args, "reset") || k_str_contains(args, "stock")) {
         uv_gpu_offset_uv = 0;
         logkd(LOG_TAG "GPU UV disabled (stock default 0 uV)\n");
-    } else if (k_str_contains(args, "uv=-12.5")) {
+    } else if (k_str_contains(args, "uv=-12.5") || k_str_contains(args, "sweetspot")) {
         uv_gpu_offset_uv = -12500;
-        logkd(LOG_TAG "Set conservative GPU UV offset: -12.5 mV\n");
+        logkd(LOG_TAG "Set sweetspot GPU UV offset: -12.5 mV\n");
     } else if (k_str_contains(args, "uv=-25")) {
         uv_gpu_offset_uv = -25000;
-        logkd(LOG_TAG "Set recommended GPU UV offset: -25.0 mV\n");
+        logkd(LOG_TAG "Set aggressive GPU UV offset: -25.0 mV\n");
     } else if (k_str_contains(args, "uv=-37.5")) {
         uv_gpu_offset_uv = -37500;
-        logkd(LOG_TAG "Set aggressive GPU UV offset: -37.5 mV\n");
+        logkd(LOG_TAG "Set heavy GPU UV offset: -37.5 mV\n");
     } else if (k_str_contains(args, "uv=-50")) {
         uv_gpu_offset_uv = -50000;
         logkd(LOG_TAG "Set extreme GPU UV offset: -50.0 mV\n");
+    }
+
+    if (k_str_contains(args, "vsram=off") || k_str_contains(args, "core_only")) {
+        uv_target_vsram = 0;
+        logkd(LOG_TAG "Targeting ONLY vgpu (vsram kept at stock)\n");
+    } else if (k_str_contains(args, "vsram=on") || k_str_contains(args, "dual_rail")) {
+        uv_target_vsram = 1;
+        logkd(LOG_TAG "Targeting dual rails (vgpu + vsram)\n");
     }
 
     return 0;

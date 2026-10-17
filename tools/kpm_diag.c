@@ -25,16 +25,17 @@ struct kpm_load_result {
 };
 
 static long make_cmd(int subcmd) {
-    return ((long)0x000d02 << 32) | (0x1158 << 16) | subcmd;
+    return ((long)0x000d03 << 32) | (0x1158 << 16) | subcmd;
 }
 
 int main(int argc, char **argv) {
     const char *action = (argc > 1) ? argv[1] : "list";
+    const char *skey = getenv("SUPERKEY") ? getenv("SUPERKEY") : "123456";
 
     if (strcmp(action, "unload") == 0) {
-        const char *name = (argc > 2) ? argv[2] : "lynx_thermal_unthrottle";
+        const char *name = (argc > 2) ? argv[2] : "lynx_gpu_uv";
         printf("Unloading KPM: %s\n", name);
-        long ret = syscall(__NR_supercall, "su", make_cmd(SUPERCALL_KPM_UNLOAD), name, NULL);
+        long ret = syscall(__NR_supercall, skey, make_cmd(SUPERCALL_KPM_UNLOAD), name, NULL);
         printf("Unload syscall return: %ld (errno=%d: %s)\n", ret, errno, strerror(errno));
         return ret == 0 ? 0 : 1;
     } else if (strcmp(action, "ctl") == 0) {
@@ -43,14 +44,14 @@ int main(int argc, char **argv) {
         char out_msg[256];
         memset(out_msg, 0, sizeof(out_msg));
         printf("Sending CTL to KPM %s: '%s'\n", name, ctl_args);
-        long ret = syscall(__NR_supercall, "su", make_cmd(SUPERCALL_KPM_CONTROL), name, ctl_args, out_msg, sizeof(out_msg));
+        long ret = syscall(__NR_supercall, skey, make_cmd(SUPERCALL_KPM_CONTROL), name, ctl_args, out_msg, sizeof(out_msg));
         printf("Control syscall return: %ld (errno=%d: %s)\n", ret, errno, strerror(errno));
         printf("Out message: '%s'\n", out_msg);
         return ret == 0 ? 0 : 1;
     } else if (strcmp(action, "list") == 0) {
         char buf[1024];
         memset(buf, 0, sizeof(buf));
-        long ret = syscall(__NR_supercall, "su", make_cmd(SUPERCALL_KPM_LIST), buf, sizeof(buf));
+        long ret = syscall(__NR_supercall, skey, make_cmd(SUPERCALL_KPM_LIST), buf, sizeof(buf));
         printf("List syscall return: %ld (errno=%d: %s)\n", ret, errno, strerror(errno));
         if (ret >= 0) {
             printf("Active KPMs:\n%s\n", buf);
@@ -66,7 +67,7 @@ int main(int argc, char **argv) {
         result.magic = KPM_LOAD_RESULT_MAGIC;
         result.size = sizeof(result);
 
-        long ret = syscall(__NR_supercall, "su", make_cmd(SUPERCALL_KPM_LOAD), path, args, &result);
+        long ret = syscall(__NR_supercall, skey, make_cmd(SUPERCALL_KPM_LOAD), path, args, &result);
         printf("Load syscall return: %ld (errno=%d: %s)\n", ret, errno, strerror(errno));
         printf("result.magic: 0x%x, code: %d, message: '%s'\n", result.magic, result.code, result.message);
         return ret == 0 ? 0 : 1;

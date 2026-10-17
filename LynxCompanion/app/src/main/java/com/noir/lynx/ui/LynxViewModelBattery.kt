@@ -209,6 +209,7 @@ fun LynxViewModel.setChargingMode(mode: String, customMa: Int = 2000) {
 
     viewModelScope.launch(Dispatchers.IO) {
         recordStateMutation()
+        setKey("charging.bypass_enabled", "false", "bool")
         val ok = LynxRepository.setChargingMode(normalized, targetMa)
         recordStateMutation()
         refreshBatteryDetails()

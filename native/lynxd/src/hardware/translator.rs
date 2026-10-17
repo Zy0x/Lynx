@@ -356,8 +356,10 @@ impl HardwareTranslator {
                         false,
                     );
 
-                    // Fixed OPP frequency lock for gaming (Performance & Extreme), released on Balance/Powersave
-                    let mtk_opp_val = if is_perf_or_ext {
+                    // Fixed OPP frequency lock for Extreme mode ONLY!
+                    // In Performance/Balance/Powersave, keep OPP fixed at "0" (dynamic DVFS enabled)
+                    // so the GPU scales down during idle to preserve battery and keep device cool!
+                    let mtk_opp_val = if is_extreme {
                         target_max_opp.freq_khz.to_string()
                     } else {
                         "0".to_string()
@@ -390,6 +392,10 @@ impl HardwareTranslator {
                 // MediaTek GED GPU Boost Amplitude (0=stock, 2=perf, 3=extreme)
                 let boost_amp = if is_extreme { "3" } else if is_perf_or_ext { "2" } else { "0" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED boost amplitude", MtkHardware::GED_BOOST_AMP, boost_amp, false);
+
+                // MediaTek GED GPU Boost Level (100 for extreme, 50 for perf, 0 for balance)
+                let boost_lvl = if is_extreme { "100" } else if is_perf_or_ext { "50" } else { "0" };
+                Self::push_op(&mut ops, "MTK-GPU", "GED GPU boost level", "/sys/kernel/ged/hal/gpu_boost_level", boost_lvl, false);
 
                 let loading_mode = if is_perf_or_ext { "1" } else { "0" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED DVFS loading mode", MtkHardware::GED_HAL_DVFS, loading_mode, false);
@@ -745,7 +751,8 @@ impl HardwareTranslator {
         }
 
         let (ra_kb, sched, read_exp, writes_starv) = match profile.name {
-            "extreme" | "performance" => ("1024", "deadline", "100", "4"),
+            "extreme" => ("2048", "deadline", "100", "4"),
+            "performance" => ("1024", "deadline", "100", "4"),
             "powersave" => ("256", "deadline", "500", "2"),
             _ => ("512", "deadline", "250", "3"), // Balance: responsive & smooth 512KB for daily use
         };
