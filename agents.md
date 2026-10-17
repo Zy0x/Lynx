@@ -623,6 +623,166 @@ Seluruh teks yang ditampilkan kepada pengguna wajib dapat diterjemahkan. Bahasa 
 4. Navigation, catalog/format checks, backend readbacks, guarded rejection tests, real decoder playback, and boot persistence are separate claims. Report each verified scope; never label destructive kernel flashing, uninstall, reboot, unsupported hardware, or unexercised controls as tested merely because the page opens.
 5. **WebUI (Secondary) regression tests**: While the Native Companion App is the primary development, experimentation, and test target, whenever secondary WebUI updates or parity synchronizations are performed, regression tests must cover locale round trips and saved overrides, first rendering over loading placeholders, and Linux CPU lists containing spaces, commas, and ranges. Keep fixtures read-only and distinguish captured-data browser checks from live hardware mutations.
 
+---
+
+## 🔬 20. Panduan Pembuatan, Kompilasi & Penyuntikan KernelPatch Module (KPM)
+
+### 20.1 Filosofi Anti-Hardcode: Mengapa KPM Digunakan
+Arsitektur Lynx Universal menganut prinsip mutlak **Zero-Hardcode**. Kode inti daemon (`lynxd`) dan aplikasi Android (`LynxCompanion`) bersifat universal untuk seluruh keluarga chipset Qualcomm Snapdragon dan MediaTek (Dimensity & Helio). 
+* Setiap silikon fisik memiliki karakteristik unik (*Silicon Lottery*), batas tabel frekuensi (OPP) OEM yang berbeda, serta toleransi voltase (*voltage margin*) yang bervariasi.
+* **Dilarang keras melakukan hardcode angka frekuensi atau voltase khusus satu perangkat (misalnya 940 MHz @ 825 mV) ke dalam logika inti translator `lynxd`**.
+* Seluruh eksperimen hardware tingkat rendah, modifikasi OPP memori kernel, dynamic undervolt (UV), dan *inline kernel hook* didelegasikan secara modular ke dalam **KernelPatch Module (KPM)**.
+
+### 20.2 Kebutuhan Alat & Lingkungan Kompilasi (Build Toolchain)
+Modul KPM dikompilasi menggunakan **Android NDK Clang (LLVM)** dengan standar *freestanding* tanpa dependensi `libc` userspace:
+
+1. **Toolchain Compiler**:
+   - Clang Android NDK (misalnya: `toolchains/llvm/prebuilt/windows-x86_64/bin/clang.exe` atau binary Linux).
+   - Target Arsitektur: `aarch64-linux-android`.
+2. **Direktori Header Wajib**:
+   - `tools/KernelPatch/kernel/include` (`kpmodule.h`, `hook.h`, `kallsyms.h`, `log.h`)
+   - `tools/KernelPatch/kernel/patch/include`
+   - `tools/KernelPatch/kernel/linux/include`
+   - `tools/KernelPatch/kernel/linux/arch/arm64/include`
+3. **Langkah 1: Kompilasi Objek ELF (`.o`)**:
+   ```powershell
+   clang -target aarch64-linux-android `
+         -c -O2 `
+         -fno-pic `
+         -fno-builtin `
+         -ffreestanding `
+         -Wall `
+         -I tools/KernelPatch/kernel/include `
+         -I tools/KernelPatch/kernel/patch/include `
+         -I tools/KernelPatch/kernel/linux/include `
+         -I tools/KernelPatch/kernel/linux/arch/arm64/include `
+         -o module.o source.c
+   ```
+4. **Langkah 2: Link Relocatable KPM Binary (`.kpm`)**:
+   ```powershell
+   clang -target aarch64-linux-android `
+         -no-pie `
+         -Wl,-r `
+         -nostdlib `
+         -o module.kpm module.o
+   ```
+
+### 20.3 Struktur Anatomi Kode Sumber C (`source.c`)
+Setiap KPM wajib mendefinisikan metadata, fungsi inisialisasi, fungsi terminasi, dan antarmuka kontrol userspace:
+```c
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+#include <log.h>
+#include <compiler.h>
+#include <kpmodule.h>
+#include <hook.h>
+#include <kallsyms.h>
+#include <linux/printk.h>
+
+KPM_NAME("lynx_nama_modul");
+KPM_VERSION("1.0.0");
+KPM_LICENSE("GPL v2");
+KPM_AUTHOR("ɴᴏɪʀ");
+KPM_DESCRIPTION("Deskripsi fungsi modul KPM");
+
+#define LOG_TAG "[LynxKPM] "
+
+// Handler kontrol dinamis dari userspace (CLI / Daemon)
+static long lynx_kpm_control0(const char *args, char *__user out_msg, int outlen) {
+    if (!args) return 0;
+    logkd(LOG_TAG "Control command received: %s\n", args);
+
+    if (strstr(args, "mode=extreme")) {
+        // Aktifkan profil hardware maksimal
+    } else if (strstr(args, "mode=balance") || strstr(args, "reset")) {
+        // Kembalikan ke profil seimbang / hemat daya
+    }
+    return 0;
+}
+
+// Inisialisasi saat KPM dimuat
+static long lynx_kpm_init(const char *args, const char *event, void *__user reserved) {
+    logkd(LOG_TAG "Initializing Lynx KPM...\n");
+    // Hook target simbol via kallsyms_lookup_name & hook_wrap
+    return 0;
+}
+
+// Terminasi saat KPM di-unload
+static long lynx_kpm_exit(void *__user reserved) {
+    logkd(LOG_TAG "Unloading Lynx KPM...\n");
+    // Lepas seluruh hook kernel via unhook
+    return 0;
+}
+
+KPM_INIT(lynx_kpm_init);
+KPM_CTL0(lynx_kpm_control0);
+KPM_EXIT(lynx_kpm_exit);
+```
+
+### 20.4 Protokol Keamanan & Otentikasi Supercall (Injeksi CLI Otomatis)
+
+> [!CAUTION]
+> **Penyebab Utama Error Injeksi CLI (`errno=1: Operation not permitted / -EPERM`)**:  
+> KernelPatch mengalihkan `syscall 45` (`__NR3264_truncate`) sebagai kanal supercall. Di dalam kernel (`tools/KernelPatch/lkm/supercall/supercall.c`), fungsi `kp_supercall_handler` memverifikasi identitas pemanggil:
+> ```c
+> bool manager = kp_is_manager_uid(uid);
+> if (!manager && !kp_supercall_allowed_for_su(cmd)) return -EPERM;
+> ```
+> Seluruh perintah manipulasi modul KPM (`SUPERCALL_KPM_LOAD`, `UNLOAD`, `CONTROL`, `LIST`) **HANYA DIIZINKAN** dieksekusi oleh **UID APatch Manager App** (`me.bmax.apatch`). Pemanggilan langsung dari akun `root` (`uid 0`) atau user lain akan selalu diblokir oleh kernel dengan error `-EPERM`.
+
+#### Protokol Otomasi Injeksi Melalui CLI / ADB:
+1. **Identifikasi Dinamis UID APatch Manager**:
+   ```bash
+   APATCH_UID=$(pm list packages -U | grep "package:me.bmax.apatch " | awk -F'uid:' '{print $2}')
+   # Contoh pada perangkat uji Infinix X698: UID adalah 10683 (u0_a683)
+   ```
+2. **Kompilasi Alat Diagnostik (`tools/kpm_diag.c`)**:
+   Utilitas `kpm_diag` dikompilasi menggunakan target `aarch64-linux-android` dengan formula command 64-bit KernelPatch:
+   ```c
+   // Format: ((long)version_code << 32) | (0x1158 << 16) | subcmd
+   // Pastikan version_code cocok dengan versi kernel aktif (misal 0x000d03 untuk d03)
+   static long make_cmd(int subcmd) {
+       return ((long)0x000d03 << 32) | (0x1158 << 16) | subcmd;
+   }
+   ```
+   - Kode Sub-perintah:
+     - `SUPERCALL_KPM_LOAD = 0x1020`
+     - `SUPERCALL_KPM_UNLOAD = 0x1021`
+     - `SUPERCALL_KPM_CONTROL = 0x1022`
+     - `SUPERCALL_KPM_LIST = 0x1031`
+   - Superkey standar perangkat: `"123456"`.
+3. **Eksekusi Perintah di Bawah Konteks Manager UID**:
+   Gunakan `su $APATCH_UID sh -c '...'` agar pemanggilan syscall truncate lolos validasi `kp_is_manager_uid`:
+   ```bash
+   # 1. Menampilkan daftar seluruh modul KPM aktif:
+   su $APATCH_UID sh -c '/data/local/tmp/kpm_diag list'
+
+   # 2. Menyuntikkan / Memuat modul KPM ke memori kernel:
+   su $APATCH_UID sh -c '/data/local/tmp/kpm_diag load /path/ke/modul.kpm'
+
+   # 3. Mengeluarkan / Unload modul KPM secara bersih:
+   su $APATCH_UID sh -c '/data/local/tmp/kpm_diag unload nama_modul'
+
+   # 4. Mengirim instruksi runtime ke handler KPM_CTL0:
+   su $APATCH_UID sh -c '/data/local/tmp/kpm_diag ctl nama_modul "mode=extreme"'
+   ```
+
+### 20.5 Kebijakan Siklus Daya GPU: Dynamic DVFS vs Extreme Sweet Spot Lock
+Modul KPM dan pengontrolan GPU wajib mematuhi aturan manajemen daya berimbang:
+1. **Modul Utama GPU Tuning (`lynx_gpu_uv.kpm`)**:
+   - Menjadi modul KPM resmi dan utama untuk penyesuaian voltase silikon GPU.
+   - Offset default sweet spot resmi terverifikasi: **`-12.5 mV`** (`-12500 µV`).
+   - Pada frekuensi tertinggi (OPP 0: 950 MHz di Helio G96 MT6781), voltase turun dari standar pabrik 850.0 mV menjadi **837.5 mV**, terbukti 100% stabil, dingin, dan bebas watchdog timeout / GPU freeze.
+2. **Saat Mode Extreme Aktif**:
+   - Sistem Lynx mengunci frekuensi GPU ke frekuensi kapabilitas silikon maksimum (950 MHz via `/proc/gpufreq/gpufreq_opp_freq`) dengan voltase sweet spot 837.5 mV untuk mencegah *frame drop* dan memaksimalkan stabilitas gaming berat (seperti Genshin Impact).
+3. **Saat di Luar Mode Extreme (Balanced, Powersave, Normal, Standby)**:
+   - **DILARANG KERAS** membiarkan kuncian frekuensi GPU tetap aktif secara statis!
+   - Penguncian OPP wajib dilepaskan seketika (`echo 0 > /proc/gpufreq/gpufreq_opp_freq`) sehingga kernel driver GPU beralih penuh ke **Dynamic DVFS** murni.
+   - Saat perangkat dalam kondisi idle / tanpa beban grafis 3D berat, frekuensi GPU otomatis turun (*downclock*) ke 0 MHz / 300 MHz dengan tegangan turun ke batas minimal (~600 mV), menjaga baterai tetap hemat dan suhu perangkat dingin.
+   - Modul Undervolt (`lynx_gpu_uv.kpm`) tetap dibiarkan aktif di latar belakang untuk memberikan pengurangan tegangan `-12.5 mV` secara proporsional di seluruh jenjang frekuensi dinamis.
+
+---
+
 *Dokumen ini sah sebagai panduan teknis dan acuan implementasi resmi proyek Lynx Universal.*
+
 
 

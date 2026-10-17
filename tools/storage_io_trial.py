@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 def root(serial, script, timeout=20):
+    subprocess.run(["adb", "connect", serial], capture_output=True, timeout=5)
     result = subprocess.run(
         ["adb", "-s", serial, "shell", "su"],
         input=(script + "\nexit\n").encode("utf-8"), capture_output=True, timeout=timeout,

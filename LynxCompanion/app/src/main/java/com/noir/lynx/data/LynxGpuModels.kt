@@ -417,6 +417,7 @@ data class LynxUiState(
     val savedLabSessions: List<com.noir.lynx.lab.FrameSessionReport> = emptyList(),
     val selectedGpuTab: Int = 0,
     val selectedCpuTab: Int = 0,
+    val selectedProfileTab: Int = 0,
     val cpuHealthScore: Int = 100,
     val cpuRecommendation: String? = null,
     val isCpuRecommendationDismissed: Boolean = false,

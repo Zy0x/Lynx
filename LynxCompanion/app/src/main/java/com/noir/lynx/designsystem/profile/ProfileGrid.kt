@@ -1,26 +1,13 @@
 package com.noir.lynx.designsystem.profile
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BatteryChargingFull
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
-import androidx.compose.material3.TextButton
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
@@ -28,10 +15,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.rememberScrollState
@@ -40,6 +30,7 @@ import com.noir.lynx.designsystem.theme.AccentBlue
 import com.noir.lynx.designsystem.theme.AccentCyan
 import com.noir.lynx.designsystem.theme.AccentOrange
 import com.noir.lynx.designsystem.theme.AccentRed
+import com.noir.lynx.designsystem.theme.BgDeepOled
 import com.noir.lynx.designsystem.theme.BgElevated
 import com.noir.lynx.designsystem.theme.BorderSubtle
 import com.noir.lynx.designsystem.theme.TextPrimary
@@ -74,10 +65,11 @@ fun ProfileGrid(
                 row.forEach { profile ->
                     val item = profileItem(profile)
                     val isSelected = profile.id == currentProfile
-                    val targetBg = if (isSelected) item.color.copy(alpha = 0.16f) else BgElevated
+                    val targetBg = if (isSelected) item.color.copy(alpha = 0.14f) else BgElevated
                     val targetBorder = if (isSelected) item.color.copy(alpha = 0.75f) else BorderSubtle
                     val animatedBg by animateColorAsState(targetBg, animationSpec = tween(150), label = "profile_grid_bg")
                     val animatedBorder by animateColorAsState(targetBorder, animationSpec = tween(150), label = "profile_grid_border")
+                    var cardMenuExpanded by remember { mutableStateOf(false) }
 
                     Surface(
                         onClick = {
@@ -87,40 +79,210 @@ fun ProfileGrid(
                                 if (hasOverrides) pendingSelection = profile.id else onProfileSelected(profile.id, true)
                             }
                         },
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(14.dp),
                         color = animatedBg,
-                        border = BorderStroke(1.dp, animatedBorder),
+                        border = BorderStroke(if (isSelected) 1.2.dp else 0.8.dp, animatedBorder),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Column(Modifier.padding(12.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp)
+                        ) {
+                            // Top Row: Icon container + Active Pill + Kebab Action Menu
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(7.dp),
+                                        color = item.color.copy(alpha = 0.16f),
+                                        modifier = Modifier.size(26.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = item.icon,
+                                                contentDescription = null,
+                                                tint = item.color,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        }
+                                    }
+                                    if (isSelected) {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = item.color.copy(alpha = 0.22f),
+                                            border = BorderStroke(0.6.dp, item.color)
+                                        ) {
+                                            Text(
+                                                text = "AKTIF",
+                                                color = item.color,
+                                                fontSize = 8.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Kebab Dropdown Menu
+                                Box {
+                                    IconButton(
+                                        onClick = { cardMenuExpanded = true },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MoreVert,
+                                            contentDescription = "Opsi",
+                                            tint = TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = cardMenuExpanded,
+                                        onDismissRequest = { cardMenuExpanded = false }
+                                    ) {
+                                        if (!profile.builtIn) {
+                                            DropdownMenuItem(
+                                                text = { Text("Edit Profil") },
+                                                leadingIcon = { Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp)) },
+                                                onClick = {
+                                                    cardMenuExpanded = false
+                                                    editing = profile
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Salin Profil") },
+                                                leadingIcon = { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp)) },
+                                                onClick = {
+                                                    cardMenuExpanded = false
+                                                    onProfileDuplicated(profile.id)
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Hapus Profil", color = AccentRed) },
+                                                leadingIcon = { Icon(Icons.Default.Delete, null, tint = AccentRed, modifier = Modifier.size(16.dp)) },
+                                                onClick = {
+                                                    cardMenuExpanded = false
+                                                    pendingDelete = profile.id
+                                                }
+                                            )
+                                        } else {
+                                            DropdownMenuItem(
+                                                text = { Text("Kustomisasi") },
+                                                leadingIcon = { Icon(Icons.Default.Tune, null, modifier = Modifier.size(16.dp)) },
+                                                onClick = {
+                                                    cardMenuExpanded = false
+                                                    editing = profile
+                                                }
+                                            )
+                                            val default = KernelPerformanceProfile.builtIns().firstOrNull { it.id == profile.id }
+                                            if (default != null && (profile.baseProfile != default.baseProfile || profile.domainProfiles != default.domainProfiles || profile.settings.isNotEmpty() || profile.includedSensitiveSettings.isNotEmpty())) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Pulihkan Bawaan") },
+                                                    leadingIcon = { Icon(Icons.Default.Restore, null, modifier = Modifier.size(16.dp)) },
+                                                    onClick = {
+                                                        cardMenuExpanded = false
+                                                        pendingRestore = profile.id
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(6.dp))
+
+                            // Profile Name
                             Text(
-                                item.name,
-                                color = item.color,
+                                text = item.name,
+                                color = if (isSelected) item.color else TextPrimary,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
+                                fontSize = 12.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
                             )
-                            Text(profile.description.ifBlank { "Profil ${profile.baseProfile}" }, color = TextSecondary, fontSize = 10.sp)
-                            if (!profile.builtIn) {
-                                TextButton(onClick = { editing = profile }) { Text("Edit") }
-                                TextButton(onClick = { onProfileDuplicated(profile.id) }) { Text("Salin") }
-                                TextButton(onClick = { pendingDelete = profile.id }) { Text("Hapus") }
-                            } else {
-                                TextButton(onClick = { editing = profile }) { Text("Kustomisasi") }
-                                val default = KernelPerformanceProfile.builtIns().firstOrNull { it.id == profile.id }
-                                if (default != null && (profile.baseProfile != default.baseProfile || profile.domainProfiles != default.domainProfiles || profile.settings.isNotEmpty() || profile.includedSensitiveSettings.isNotEmpty())) {
-                                    TextButton(onClick = { pendingRestore = profile.id }) { Text("Pulihkan bawaan") }
+
+                            Spacer(Modifier.height(2.dp))
+
+                            // Profile Description (1-Line Crisp Tag)
+                            val shortDesc = when (profile.id.lowercase()) {
+                                "powersave" -> "Maks 60 FPS • Hemat Daya"
+                                "balance" -> "Seimbang & Responsif Harian"
+                                "performance" -> "Gaming & Latensi Rendah"
+                                "extreme" -> "Maksimal Tanpa Batas Termal"
+                                else -> profile.description.ifBlank { "Profil ${profile.baseProfile}" }
+                            }
+                            Text(
+                                text = shortDesc,
+                                color = TextSecondary,
+                                fontSize = 9.5.sp,
+                                lineHeight = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            // Status Tag if modified built-in
+                            val defaultProf = KernelPerformanceProfile.builtIns().firstOrNull { it.id == profile.id }
+                            val isModified = profile.builtIn && defaultProf != null && (profile.baseProfile != defaultProf.baseProfile || profile.domainProfiles != defaultProf.domainProfiles || profile.settings.isNotEmpty() || profile.includedSensitiveSettings.isNotEmpty())
+                            if (isModified) {
+                                Spacer(Modifier.height(4.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(3.dp),
+                                    color = AccentOrange.copy(alpha = 0.15f),
+                                    border = BorderStroke(0.5.dp, AccentOrange.copy(alpha = 0.4f))
+                                ) {
+                                    Text(
+                                        text = "Tersuai",
+                                        color = AccentOrange,
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
                                 }
                             }
                         }
                     }
                 }
-                if (row.size == 1) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { creating = true }) { Text("Tambah profil") }
-            Button(onClick = { creating = true }) { Text("Simpan kondisi saat ini") }
+
+        // Action CTA: Create / Save Current Profile (Lynx Cyberpunk Styled Surface)
+        Surface(
+            onClick = { creating = true },
+            shape = RoundedCornerShape(10.dp),
+            color = BgElevated,
+            border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.45f)),
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    tint = AccentOrange,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Tambah Profil Baru / Simpan Kondisi Saat Ini",
+                    color = AccentOrange,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 
@@ -223,8 +385,31 @@ private fun ProfileEditorDialog(
         title = { Text(if (source.builtIn) "Kustomisasi ${source.name}" else "Profil Kernel") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it.take(40) }, label = { Text("Nama profil") }, singleLine = true)
-                TextButton(onClick = { menu = true }) { Text("Profil dasar: $base") }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it.take(40) },
+                    label = { Text("Nama profil") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Surface(
+                    onClick = { menu = true },
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Profil dasar: $base", color = TextPrimary, fontSize = 12.sp)
+                        Icon(Icons.Default.ArrowDropDown, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+                    }
+                }
+                
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     KernelPerformanceProfile.BUILT_IN_IDS.filter { it != "auto" }.forEach { id ->
                         DropdownMenuItem(text = { Text(id) }, onClick = {
@@ -235,8 +420,43 @@ private fun ProfileEditorDialog(
                         })
                     }
                 }
-                TextButton(onClick = { presetMenu = "cpu" }) { Text("CPU: $cpu · ubah") }
-                TextButton(onClick = { presetMenu = "gpu" }) { Text("GPU: $gpu · ubah") }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        onClick = { presetMenu = "cpu" },
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("CPU: $cpu", color = TextPrimary, fontSize = 11.5.sp)
+                            Icon(Icons.Default.ArrowDropDown, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    Surface(
+                        onClick = { presetMenu = "gpu" },
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("GPU: $gpu", color = TextPrimary, fontSize = 11.5.sp)
+                            Icon(Icons.Default.ArrowDropDown, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+
                 DropdownMenu(expanded = presetMenu == "cpu", onDismissRequest = { presetMenu = "" }) {
                     listOf("powersave", "balance", "performance", "extreme").forEach { id ->
                         DropdownMenuItem(text = { Text(id) }, onClick = { cpu = id; presetMenu = "" })
@@ -247,21 +467,73 @@ private fun ProfileEditorDialog(
                         DropdownMenuItem(text = { Text(id) }, onClick = { gpu = id; presetMenu = "" })
                     }
                 }
-                Text("Simpan nilai kondisi saat ini per domain:", color = TextSecondary, fontSize = 11.sp)
+
+                Text("Simpan nilai kondisi saat ini per domain:", color = TextSecondary, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
+                
                 listOf(
                     ProfileDomain.MEMORY to "Memori",
                     ProfileDomain.DISPLAY to "Layar",
                     ProfileDomain.NETWORK to "Jaringan",
                     ProfileDomain.AUDIO to "Audio",
                 ).forEach { (domain, label) ->
-                    TextButton(onClick = {
-                        includedDomains = if (domain in includedDomains) includedDomains - domain else includedDomains + domain
-                    }) { Text("${if (domain in includedDomains) "☑" else "□"} $label") }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                includedDomains = if (domain in includedDomains) includedDomains - domain else includedDomains + domain
+                            }
+                            .padding(vertical = 2.dp)
+                    ) {
+                        Checkbox(
+                            checked = domain in includedDomains,
+                            onCheckedChange = { checked ->
+                                includedDomains = if (checked) includedDomains + domain else includedDomains - domain
+                            },
+                            colors = CheckboxDefaults.colors(checkedColor = AccentCyan, checkmarkColor = BgDeepOled, uncheckedColor = TextSecondary)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(label, color = TextPrimary, fontSize = 12.sp)
+                    }
                 }
-                TextButton(onClick = { includeThermal = !includeThermal }) { Text("${if (includeThermal) "☑" else "□"} Sertakan kebijakan termal saat ini") }
-                TextButton(onClick = { includeBattery = !includeBattery }) { Text("${if (includeBattery) "☑" else "□"} Sertakan batas pengisian saat ini") }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { includeThermal = !includeThermal }
+                        .padding(vertical = 2.dp)
+                ) {
+                    Checkbox(
+                        checked = includeThermal,
+                        onCheckedChange = { includeThermal = it },
+                        colors = CheckboxDefaults.colors(checkedColor = AccentCyan, checkmarkColor = BgDeepOled, uncheckedColor = TextSecondary)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Sertakan kebijakan termal saat ini", color = TextPrimary, fontSize = 12.sp)
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { includeBattery = !includeBattery }
+                        .padding(vertical = 2.dp)
+                ) {
+                    Checkbox(
+                        checked = includeBattery,
+                        onCheckedChange = { includeBattery = it },
+                        colors = CheckboxDefaults.colors(checkedColor = AccentCyan, checkmarkColor = BgDeepOled, uncheckedColor = TextSecondary)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Sertakan batas pengisian saat ini", color = TextPrimary, fontSize = 12.sp)
+                }
+
                 if (replacingBuiltIn) {
-                    Text("Nilai bawaan asli dapat dipulihkan dari kartu profil.", color = TextSecondary, fontSize = 11.sp)
+                    Text("Nilai bawaan asli dapat dipulihkan dari kartu profil.", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(top = 4.dp))
                 }
             }
         },

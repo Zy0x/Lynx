@@ -128,6 +128,7 @@ fun TuningTabContent(
 ) {
     val state = uiState.state
     val context = LocalContext.current
+    var showProfilesFeedbackSheet by rememberSaveable { mutableStateOf(false) }
                     AnimatedContent(
                         targetState = selectedCategory,
                         modifier = Modifier.fillMaxSize(),
@@ -375,6 +376,26 @@ fun TuningTabContent(
                                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                                 )
                                             }
+
+                                            // Action Button for Profiles: Notification & Feedback HUD Settings
+                                            if (currentCategory == "profiles") {
+                                                Surface(
+                                                    onClick = { showProfilesFeedbackSheet = true },
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    color = AccentCyan.copy(alpha = 0.14f),
+                                                    border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.45f)),
+                                                    modifier = Modifier.size(36.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.NotificationsActive,
+                                                            contentDescription = "Gaya Feedback Notifikasi HUD",
+                                                            tint = AccentCyan,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
                                         }
                                         HorizontalDivider(
                                             color = Color(0xFF1E2026),
@@ -383,8 +404,16 @@ fun TuningTabContent(
                                     }
                                 }
 
-                                // 1.5. Sticky Category Header (CPU Tabs & GPU & Display Tabs)
-                                if (currentCategory == "cpu") {
+                                // 1.5. Sticky Category Header (Profiles, CPU, GPU, Charging Tabs)
+                                if (currentCategory == "profiles") {
+                                    ProfilesCategoryTabRow(
+                                        selectedTab = uiState.selectedProfileTab,
+                                        onSelectTab = { viewModel.selectProfileTab(it) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                                    )
+                                } else if (currentCategory == "cpu") {
                                     CpuTabRow(
                                         selectedTab = uiState.selectedCpuTab,
                                         onSelectTab = { viewModel.selectCpuTab(it) },
@@ -428,18 +457,17 @@ fun TuningTabContent(
                                         Spacer(Modifier.height(8.dp))
                                     }
                                     when (currentCategory) {
-                                        "profiles" -> item(key = "subscreen_profiles") {
-                                            TuningProfilesCategory(
-                                                uiState = uiState,
-                                                viewModel = viewModel,
-                                                onAddAppClick = {
-                                                    viewModel.refreshInstalledApps()
-                                                    onAddAppClick()
-                                                },
-                                                onEditRuleClick = { onEditRuleClick(it) },
-                                                onExtremeConfirmRequired = onExtremeConfirmRequired
-                                            )
-                                        }
+                                        "profiles" -> tuningProfilesCategoryItems(
+                                            uiState = uiState,
+                                            viewModel = viewModel,
+                                            context = context,
+                                            onAddAppClick = {
+                                                viewModel.refreshInstalledApps()
+                                                onAddAppClick()
+                                            },
+                                            onEditRuleClick = { onEditRuleClick(it) },
+                                            onExtremeConfirmRequired = onExtremeConfirmRequired
+                                        )
                                         "hud" -> item(key = "subscreen_hud") {
                                             TuningGameHudCategory(
                                                 uiState = uiState,
@@ -475,7 +503,16 @@ fun TuningTabContent(
                                         Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding())
                                     }
                                 }
-                            }
                         }
                     }
+                }
+
+    if (showProfilesFeedbackSheet) {
+        ProfilesFeedbackBottomSheet(
+            uiState = uiState,
+            viewModel = viewModel,
+            context = context,
+            onDismiss = { showProfilesFeedbackSheet = false }
+        )
+    }
 }

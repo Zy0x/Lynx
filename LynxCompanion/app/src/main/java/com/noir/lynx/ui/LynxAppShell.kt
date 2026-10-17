@@ -304,28 +304,36 @@ private val appIconMemoryCache = android.util.LruCache<String, ImageBitmap>(150)
 @Composable
 fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val bitmapState = remember(packageName) {
-        appIconMemoryCache.get(packageName) ?: try {
-            val pm = context.packageManager
-            val drawable = pm.getApplicationIcon(packageName)
-            val bmp = Bitmap.createBitmap(
-                drawable.intrinsicWidth.coerceAtLeast(1),
-                drawable.intrinsicHeight.coerceAtLeast(1),
-                Bitmap.Config.ARGB_8888
-            )
-            val canvas = Canvas(bmp)
-            drawable.setBounds(0, 0, canvas.width, canvas.height)
-            drawable.draw(canvas)
-            val img = bmp.asImageBitmap()
-            appIconMemoryCache.put(packageName, img)
-            img
-        } catch (_: Exception) {
-            null
+    var bitmapState by remember(packageName) { mutableStateOf(appIconMemoryCache.get(packageName)) }
+
+    if (bitmapState == null) {
+        LaunchedEffect(packageName) {
+            val img = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val pm = context.packageManager
+                    val drawable = pm.getApplicationIcon(packageName)
+                    val w = drawable.intrinsicWidth.coerceIn(1, 192)
+                    val h = drawable.intrinsicHeight.coerceIn(1, 192)
+                    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                    val canvas = Canvas(bmp)
+                    drawable.setBounds(0, 0, canvas.width, canvas.height)
+                    drawable.draw(canvas)
+                    val imageBitmap = bmp.asImageBitmap()
+                    appIconMemoryCache.put(packageName, imageBitmap)
+                    imageBitmap
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            if (img != null) {
+                bitmapState = img
+            }
         }
     }
+
     if (bitmapState != null) {
         Image(
-            bitmap = bitmapState,
+            bitmap = bitmapState!!,
             contentDescription = null,
             modifier = modifier
         )
@@ -333,7 +341,7 @@ fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
         Icon(
             Icons.Default.Android,
             contentDescription = null,
-            tint = AccentCyan,
+            tint = AccentCyan.copy(alpha = 0.6f),
             modifier = modifier
         )
     }

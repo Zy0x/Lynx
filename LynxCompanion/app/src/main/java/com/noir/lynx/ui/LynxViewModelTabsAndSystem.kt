@@ -13,6 +13,12 @@ import kotlinx.coroutines.flow.update
 
 fun LynxViewModel.selectGpuTab(tab: Int) = setSelectedGpuTab(tab)
 
+    fun LynxViewModel.setSelectedProfileTab(tab: Int) {
+        _uiState.update { it.copy(selectedProfileTab = tab) }
+    }
+
+fun LynxViewModel.selectProfileTab(tab: Int) = setSelectedProfileTab(tab)
+
 
     fun LynxViewModel.setSelectedCpuTab(tab: Int) {
         _uiState.update { it.copy(selectedCpuTab = tab) }

@@ -22,7 +22,7 @@ if (-not (Test-Path "D:\temp\.build-cache\android-user-home")) {
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location "$repoRoot\LynxCompanion"
-$buildOptions = @("--no-configuration-cache")
+$buildOptions = @("--no-configuration-cache", "--max-workers=2")
 if ($DisableBuildCache) { $buildOptions += "--no-build-cache" }
 $unitTasks = @()
 if ($RunUnitTests) { $unitTasks += (":app:test" + $Variant + "UnitTest") }

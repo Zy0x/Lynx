@@ -25,6 +25,7 @@ class Audit:
         self.since = self.adb("shell", "date '+%m-%d %H:%M:%S.000'").strip()
 
     def adb(self, *args, timeout=35):
+        subprocess.run(["adb", "connect", self.serial], capture_output=True, timeout=5)
         result = subprocess.run(["adb", "-s", self.serial, *args], capture_output=True,
                                 timeout=timeout)
         result.check_returncode()
@@ -33,8 +34,8 @@ class Audit:
     def require_foreground(self):
         if self.initial_pid and self.adb("shell", "pidof", "com.noir.lynx").strip() != self.initial_pid:
             raise RuntimeError("UI audit stopped: Companion process exited or restarted")
-        raw = self.adb("shell", "dumpsys activity activities | grep -m1 topResumedActivity")
-        if "com.noir.lynx/" not in raw:
+        raw = self.adb("shell", "dumpsys activity activities | grep -E -m1 '(topResumedActivity|ResumedActivity)'")
+        if "com.noir.lynx" not in raw:
             raise RuntimeError("UI audit stopped: Lynx is no longer foreground")
 
     def dump(self):

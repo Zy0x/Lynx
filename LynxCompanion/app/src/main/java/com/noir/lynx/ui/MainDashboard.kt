@@ -152,11 +152,13 @@ fun MainDashboard(
     var lastCpuTab by rememberSaveable { mutableStateOf(uiState.selectedCpuTab) }
     var lastGpuTab by rememberSaveable { mutableStateOf(uiState.selectedGpuTab) }
     var lastBattTab by rememberSaveable { mutableStateOf(uiState.batterySubTab) }
-    LaunchedEffect(uiState.selectedCpuTab, uiState.selectedGpuTab, uiState.batterySubTab) {
-        if (uiState.selectedCpuTab != lastCpuTab || uiState.selectedGpuTab != lastGpuTab || uiState.batterySubTab != lastBattTab) {
+    var lastProfileTab by rememberSaveable { mutableStateOf(uiState.selectedProfileTab) }
+    LaunchedEffect(uiState.selectedCpuTab, uiState.selectedGpuTab, uiState.batterySubTab, uiState.selectedProfileTab) {
+        if (uiState.selectedCpuTab != lastCpuTab || uiState.selectedGpuTab != lastGpuTab || uiState.batterySubTab != lastBattTab || uiState.selectedProfileTab != lastProfileTab) {
             lastCpuTab = uiState.selectedCpuTab
             lastGpuTab = uiState.selectedGpuTab
             lastBattTab = uiState.batterySubTab
+            lastProfileTab = uiState.selectedProfileTab
             subscreenLazyState.scrollToItem(0)
         }
     }

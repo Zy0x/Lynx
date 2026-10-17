@@ -3,7 +3,11 @@ package com.noir.lynx.ui
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -26,233 +31,224 @@ import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.profile.*
 import com.noir.lynx.designsystem.theme.*
-import com.noir.lynx.feature.memory.ui.MountXStorageCard
+import com.noir.lynx.profiles.ProfileDomain
 import com.noir.lynx.ui.AppIconImage
 
 /**
- * TuningProfilesCategory — Full Kernel Performance Profile Management Subscreen.
- *
- * Provides a dedicated space within the Tuning Hub for:
- * - Viewing built-in and user-created kernel profiles
- * - Creating, duplicating, editing, and deleting profiles
- * - Managing domain overrides and restoring default configurations
- * - Per-app and game profiling and automation rules
+ * ProfilesCategoryTabRow — High-performance Segmented Tab Pill Row for Kernel Performance Profiles.
  */
 @Composable
-fun TuningProfilesCategory(
-    uiState: LynxUiState,
-    viewModel: LynxViewModel,
-    onAddAppClick: () -> Unit = {},
-    onEditRuleClick: (AppProfileRule) -> Unit = {},
-    onExtremeConfirmRequired: () -> Unit,
+fun ProfilesCategoryTabRow(
+    selectedTab: Int,
+    onSelectTab: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val state = uiState.state
-    val context = LocalContext.current
+    val tabs = listOf(
+        Triple(0, "Katalog Profil", Icons.Default.Speed),
+        Triple(1, "Otomasi Aplikasi", Icons.Default.SportsEsports)
+    )
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        viewModel.loadAppAutomationCooldown(context)
-        viewModel.refreshMountXStorageInfo()
-    }
-
-    Column(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .height(48.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = BgElevated,
+        border = BorderStroke(0.8.dp, BorderSubtle)
     ) {
-        // ── 1. Descriptive Header Card ─────────────────────────
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = BgElevated,
-            border = BorderStroke(0.8.dp, BorderSubtle),
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            tabs.forEach { (index, title, icon) ->
+                val isSelected = selectedTab == index
+                val tabAccent = if (index == 0) AccentOrange else AccentGreen
+                Surface(
+                    onClick = { onSelectTab(index) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isSelected) tabAccent.copy(alpha = 0.16f) else Color.Transparent,
+                    border = if (isSelected) BorderStroke(1.dp, tabAccent.copy(alpha = 0.5f)) else null
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = title,
+                            tint = if (isSelected) tabAccent else TextSecondary,
+                            modifier = Modifier.size(17.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = title,
+                            color = if (isSelected) TextPrimary else TextSecondary,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * ProfilesFeedbackBottomSheet — Cyberpunk ModalBottomSheet for HUD & Notification Style Selection.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProfilesFeedbackBottomSheet(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    context: Context,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFA0D1017),
+        scrimColor = Color.Black.copy(alpha = 0.65f),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = {
+            Surface(
+                color = Color(0x33FFFFFF),
+                shape = CircleShape,
+                modifier = Modifier
+                    .padding(top = 10.dp, bottom = 6.dp)
+                    .size(width = 38.dp, height = 4.dp)
+            ) {}
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 36.dp)
+        ) {
+            // Header
             Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 12.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = AccentOrange,
-                    modifier = Modifier.size(20.dp)
-                )
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = AccentCyan.copy(alpha = 0.15f),
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.NotificationsActive,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Katalog & Editor Preset Performa",
+                        text = "Gaya Notifikasi & Feedback Mode",
                         color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
                     )
-                    Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "Sesuaikan domain CPU, GPU, Thermal, dan Pengisian Daya per-profil serta tautkan ke game/aplikasi favorit Anda.",
+                        text = "Visual umpan balik saat profil performa kernel beralih",
                         color = TextSecondary,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
+                        fontSize = 11.sp
                     )
                 }
             }
-        }
-
-        // ── 2. Main Profile Catalog Card ───────────────────────
-        LynxCard(
-            title = "Katalog Profil Kernel",
-            icon = Icons.Default.Speed,
-            accentColor = AccentOrange
-        ) {
-            ProfileGrid(
-                catalog = uiState.kernelProfileCatalog,
-                currentProfile = state.activeProfile,
-                hasOverrides = state.profileOverrides.isNotEmpty(),
-                onProfileSelected = { id, clearOverrides ->
-                    val colorHex = when (id.lowercase()) {
-                        "powersave" -> 0xFF00E676L
-                        "balance" -> 0xFF00A3FFL
-                        "performance" -> 0xFFFF9100L
-                        "extreme" -> 0xFFFF3D00L
-                        else -> 0xFF00E5FFL
-                    }
-                    val labelResource = mapOf(
-                        "powersave" to com.noir.lynx.R.string.audit_mode_powersave,
-                        "balance" to com.noir.lynx.R.string.audit_mode_balance,
-                        "performance" to com.noir.lynx.R.string.audit_mode_performance,
-                        "extreme" to com.noir.lynx.R.string.audit_mode_extreme
-                    )[id.lowercase()]
-                    val label = labelResource?.let(context::getString) ?: id
-                    viewModel.triggerModeFeedback(id, label, colorHex)
-                    viewModel.selectKernelPerformanceProfile(id, context, clearOverrides)
-                },
-                onExtremeConfirmRequired = onExtremeConfirmRequired,
-                onProfileSaved = { profile, replaceBuiltIn, replaceCustom ->
-                    viewModel.saveKernelPerformanceProfile(profile, replaceBuiltIn, replaceCustom)
-                },
-                onProfileDeleted = { id ->
-                    viewModel.deleteKernelPerformanceProfile(id)
-                },
-                onProfileDuplicated = { id ->
-                    viewModel.duplicateKernelPerformanceProfile(id)
-                },
-                onRestoreBuiltIn = { id ->
-                    viewModel.restoreBuiltInKernelProfile(id, context)
-                }
-            )
-
-            if (state.profileOverrides.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                val overrides = state.profileOverrides.entries
-                    .sortedBy { it.key.storageKey }
-                    .joinToString(" • ") { (domain, profile) -> "${domain.storageKey.uppercase()}: ${profile.uppercase()}" }
-                Text(
-                    text = "Induk ${state.activeProfile.uppercase()} · override lokal $overrides",
-                    color = TextSecondary,
-                    fontSize = 10.sp,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                )
-            }
-        }
-
-        // ── 3. Gaya Notifikasi & Feedback Mode Card ───────────────
-        LynxCard(
-            title = "Gaya Notifikasi & Feedback Mode",
-            icon = Icons.Default.NotificationsActive,
-            accentColor = AccentCyan
-        ) {
-            Text(
-                text = "Pilih gaya umpan balik visual saat profil performa kernel diubah melalui header, katalog, atau otomasi aplikasi.",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                lineHeight = 15.sp,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
 
             val feedbackOptions = listOf(
-                Triple("jewel_top", "Jewel Dynamic Island (HUD)", "Kapsul permata melayang di atas layar • Animasi cyberpunk"),
-                Triple("jewel_bottom", "Jewel Bottom Capsule (HUD)", "Kapsul permata melayang di bawah layar • Animasi cyberpunk"),
+                Triple("jewel_top", "Jewel Dynamic Island (HUD)", "Kapsul permata melayang di atas layar • Cyberpunk HUD"),
+                Triple("jewel_bottom", "Jewel Bottom Capsule (HUD)", "Kapsul permata melayang di bawah layar • Cyberpunk HUD"),
                 Triple("system_toast", "System Toast (OS Text)", "Gelembung teks standar Android di bawah layar • Ringan (~8 MB)"),
                 Triple("status_bar", "Status Bar Saja (0 MB RAM)", "Notifikasi hening di status bar • Tanpa pop-up layar"),
-                Triple("disabled", "Nonaktifkan Feedback", "Hening total tanpa notifikasi atau pop-up")
+                Triple("disabled", "Nonaktifkan Feedback", "Hening total tanpa notifikasi atau pop-up visual")
             )
 
-            feedbackOptions.forEach { (key, title, subtitle) ->
-                val isSelected = uiState.modeFeedbackStyle == key
-                Surface(
-                    onClick = {
-                        viewModel.setModeFeedbackStyle(context, key)
-                        viewModel.triggerModeFeedback("balance", "Seimbang", 0xFF00A3FFL)
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isSelected) AccentCyan.copy(alpha = 0.14f) else BgElevated,
-                    border = BorderStroke(
-                        if (isSelected) 1.2.dp else 0.8.dp,
-                        if (isSelected) AccentCyan else BorderSubtle
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                feedbackOptions.forEach { (key, title, subtitle) ->
+                    val isSelected = uiState.modeFeedbackStyle == key
+                    Surface(
+                        onClick = {
+                            viewModel.setModeFeedbackStyle(context, key)
+                            viewModel.triggerModeFeedback("balance", "Seimbang", 0xFF00A3FFL)
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) AccentCyan.copy(alpha = 0.12f) else BgElevated,
+                        border = BorderStroke(
+                            if (isSelected) 1.2.dp else 0.8.dp,
+                            if (isSelected) AccentCyan else BorderSubtle
+                        ),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = title,
-                                    color = if (isSelected) AccentCyan else TextPrimary,
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                if (key == "jewel_top") {
-                                    Spacer(Modifier.width(6.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = AccentCyan.copy(alpha = 0.2f),
-                                        border = BorderStroke(0.5.dp, AccentCyan.copy(alpha = 0.4f))
-                                    ) {
-                                        Text(
-                                            text = "DEFAULT",
-                                            color = AccentCyan,
-                                            fontSize = 8.5.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = title,
+                                        color = if (isSelected) AccentCyan else TextPrimary,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (key == "jewel_top") {
+                                        Spacer(Modifier.width(6.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = AccentCyan.copy(alpha = 0.2f),
+                                            border = BorderStroke(0.5.dp, AccentCyan.copy(alpha = 0.4f))
+                                        ) {
+                                            Text(
+                                                text = "DEFAULT",
+                                                color = AccentCyan,
+                                                fontSize = 8.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
                                     }
                                 }
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = subtitle,
+                                    color = TextSecondary,
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.5.sp
+                                )
                             }
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = subtitle,
-                                color = TextSecondary,
-                                fontSize = 10.sp
-                            )
-                        }
 
-                        // Radio dot indicator
-                        Surface(
-                            shape = CircleShape,
-                            color = if (isSelected) AccentCyan else Color.Transparent,
-                            border = BorderStroke(1.5.dp, if (isSelected) AccentCyan else TextSecondary.copy(alpha = 0.4f)),
-                            modifier = Modifier.size(16.dp)
-                        ) {}
+                            Surface(
+                                shape = CircleShape,
+                                color = if (isSelected) AccentCyan else Color.Transparent,
+                                border = BorderStroke(1.5.dp, if (isSelected) AccentCyan else TextSecondary.copy(alpha = 0.4f)),
+                                modifier = Modifier.size(16.dp)
+                            ) {}
+                        }
                     }
                 }
             }
 
-            Spacer(Modifier.height(4.dp))
-            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 12.dp))
 
             // Dual Morph Switch
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -282,9 +278,9 @@ fun TuningProfilesCategory(
                 )
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(10.dp))
 
-            // Test Button
+            // Live Test Button
             Surface(
                 onClick = {
                     val sampleModes = listOf(
@@ -298,13 +294,13 @@ fun TuningProfilesCategory(
                 },
                 shape = RoundedCornerShape(10.dp),
                 color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderSubtle),
+                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -312,222 +308,444 @@ fun TuningProfilesCategory(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = null,
                         tint = AccentCyan,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
                         text = "Uji Coba Animasi Toast (Live Test)",
                         color = AccentCyan,
-                        fontSize = 11.5.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
+    }
+}
 
-        // ── 3. Adaptive SD I/O Policy ─────────────────────────
-        MountXStorageCard(uiState = uiState, viewModel = viewModel)
+/**
+ * tuningProfilesCategoryItems — Modular LazyListScope items for Kernel Performance Profile Subscreen.
+ *
+ * Tab 0: Katalog Profil
+ * - Active State Hero Card
+ * - 2x2 Bento Quick-Switch Grid
+ *
+ * Tab 1: Otomasi Aplikasi
+ * - Master Automation & Cooldown Configuration Card
+ * - Virtualized App Profile Rule Items (with one-tap profile cycle pill)
+ */
+fun LazyListScope.tuningProfilesCategoryItems(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    context: Context,
+    onAddAppClick: () -> Unit = {},
+    onEditRuleClick: (AppProfileRule) -> Unit = {},
+    onExtremeConfirmRequired: () -> Unit
+) {
+    val state = uiState.state
 
-        // ── 4. Per-App Profile Automation Card ─────────────────
-        LynxCard(
-            title = "Otomasi Profil Per-Aplikasi",
-            icon = Icons.Default.SportsEsports,
-            accentColor = AccentGreen
-        ) {
-            // Master Service Toggle
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "Layanan Otomasi Latar Belakang",
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
-                    Text(
-                        "Pantau aplikasi aktif dan alihkan profil CPU/GPU seketika (0ms boost saat launch)",
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
-                    )
+    when (uiState.selectedProfileTab) {
+        0 -> {
+            // ══════════════════════════════════════════════════════════
+            // TAB 0: KATALOG PROFIL
+            // ══════════════════════════════════════════════════════════
+
+            // ── 1. Active Status Hero Card ─────────────────────────
+            item(key = "tab0_hero_active_card") {
+                val activeProfileId = state.activeProfile
+                val activeColor = when (activeProfileId.lowercase()) {
+                    "powersave" -> Color(0xFF00E676)
+                    "balance" -> AccentBlue
+                    "performance" -> AccentOrange
+                    "extreme" -> AccentRed
+                    else -> AccentCyan
                 }
-                Switch(
-                    checked = uiState.isAppAutomationActive,
-                    onCheckedChange = { viewModel.toggleAppAutomation(context, it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BgDeepOled,
-                        checkedTrackColor = AccentGreen,
-                        uncheckedThumbColor = TextSecondary,
-                        uncheckedTrackColor = BgElevated,
-                        uncheckedBorderColor = BorderGlass
-                    )
-                )
-            }
-
-            // ── Buffer Cooldown Selection ──────────────────────
-            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Timelapse,
-                        contentDescription = null,
-                        tint = AccentGreen,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_title),
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
+                val activeTitle = when (activeProfileId.lowercase()) {
+                    "powersave" -> "Hemat Daya (Powersave)"
+                    "balance" -> "Seimbang (Balance)"
+                    "performance" -> "Performa Tinggi (Performance)"
+                    "extreme" -> "Ekstrem (Extreme)"
+                    else -> activeProfileId.replaceFirstChar { it.uppercase() }
                 }
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_description),
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                val activeDesc = when (activeProfileId.lowercase()) {
+                    "powersave" -> "Efisiensi daya maksimal untuk penggunaan baterai tahan lama"
+                    "balance" -> "Responsif, dingin, dan optimal untuk seluruh aktivitas harian"
+                    "performance" -> "Prioritas clock tinggi, devfreq responsif, dan frame rate stabil"
+                    "extreme" -> "Bypass batasan termal, clock maksimal tanpa batas untuk gaming berat"
+                    else -> "Profil aktif saat ini"
+                }
 
-                val cooldownOptions = listOf(
-                    Triple(5, androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_five_seconds), androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_fast)),
-                    Triple(30, androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_thirty_seconds), androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_optimal)),
-                    Triple(60, androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_one_minute), androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_light)),
-                    Triple(180, androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_three_minutes), androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_cooldown_heavy)),
-                    Triple(0, androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_persistent), androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_in_ram))
-                )
-
-                cooldownOptions.forEach { (sec, label, desc) ->
-                    val isSelected = uiState.appAutomationCooldownSeconds == sec
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Surface(
-                        onClick = { viewModel.setAppAutomationCooldownSeconds(context, sec) },
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) AccentGreen.copy(alpha = 0.14f) else BgElevated,
-                        border = BorderStroke(
-                            if (isSelected) 1.2.dp else 0.8.dp,
-                            if (isSelected) AccentGreen else BorderSubtle
-                        ),
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, activeColor.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = activeColor,
+                                        modifier = Modifier.size(8.dp)
+                                    ) {}
+                                    Spacer(Modifier.width(8.dp))
                                     Text(
-                                        text = label,
-                                        color = if (isSelected) AccentGreen else TextPrimary,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
+                                        text = "STATUS AKTIF",
+                                        color = activeColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        letterSpacing = 1.sp
                                     )
-                                    if (sec == 30) {
-                                        Spacer(Modifier.width(6.dp))
-                                        Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = AccentGreen.copy(alpha = 0.2f),
-                                            border = BorderStroke(0.5.dp, AccentGreen.copy(alpha = 0.4f))
-                                        ) {
-                                            Text(
-                                                text = androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_recommended),
-                                                color = AccentGreen,
-                                                fontSize = 8.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                            )
-                                        }
+                                }
+                                if (state.profileOverrides.isNotEmpty()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = AccentOrange.copy(alpha = 0.18f),
+                                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
+                                    ) {
+                                        Text(
+                                            text = "OVERRIDE AKTIF",
+                                            color = AccentOrange,
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
                                     }
                                 }
-                                Text(
-                                    text = desc,
-                                    color = TextSecondary,
-                                    fontSize = 10.sp
-                                )
                             }
-                            Surface(
-                                shape = CircleShape,
-                                color = if (isSelected) AccentGreen else Color.Transparent,
-                                border = BorderStroke(1.5.dp, if (isSelected) AccentGreen else TextSecondary.copy(alpha = 0.4f)),
-                                modifier = Modifier.size(15.dp)
-                            ) {}
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = activeTitle,
+                                color = TextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = activeDesc,
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
+                            )
+
+                            if (state.profileOverrides.isNotEmpty()) {
+                                Spacer(Modifier.height(8.dp))
+                                HorizontalDivider(color = BorderGlass.copy(alpha = 0.5f))
+                                Spacer(Modifier.height(8.dp))
+                                val overrides = state.profileOverrides.entries
+                                    .sortedBy { it.key.storageKey }
+                                    .joinToString(" • ") { (domain, profile) -> "${domain.storageKey.uppercase()}: ${profile.uppercase()}" }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Override: $overrides",
+                                        color = TextSecondary,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                    )
+                                    Text(
+                                        text = "Reset Override",
+                                        color = AccentOrange,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier
+                                            .clickable {
+                                                viewModel.selectKernelPerformanceProfile(activeProfileId, context, true)
+                                            }
+                                            .padding(vertical = 2.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(bottom = 10.dp))
-
-            // Header: Rule Count & Add Button
-            Row(
-                Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "${uiState.appProfileRules.size} Aturan Profil Dikonfigurasi",
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.5.sp
-                    )
-                    Text(
-                        "Profil khusus diterapkan otomatis saat aplikasi berada di foreground",
-                        color = TextSecondary,
-                        fontSize = 10.5.sp
-                    )
-                }
-                Surface(
-                    onClick = onAddAppClick,
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentGreen.copy(alpha = 0.18f),
-                    border = BorderStroke(1.dp, AccentGreen.copy(alpha = 0.5f))
-                ) {
-                    Row(
-                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            // ── 2. Profile Catalog Grid Card ───────────────────────
+            item(key = "tab0_profiles_catalog_card") {
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    LynxCard(
+                        title = "Katalog Profil Kernel",
+                        icon = Icons.Default.Speed,
+                        accentColor = AccentOrange
                     ) {
-                        Icon(Icons.Default.Add, null, tint = AccentGreen, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Tambah", color = AccentGreen, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        ProfileGrid(
+                            catalog = uiState.kernelProfileCatalog,
+                            currentProfile = state.activeProfile,
+                            hasOverrides = state.profileOverrides.isNotEmpty(),
+                            onProfileSelected = { id, clearOverrides ->
+                                val colorHex = when (id.lowercase()) {
+                                    "powersave" -> 0xFF00E676L
+                                    "balance" -> 0xFF00A3FFL
+                                    "performance" -> 0xFFFF9100L
+                                    "extreme" -> 0xFFFF3D00L
+                                    else -> 0xFF00E5FFL
+                                }
+                                val labelResource = mapOf(
+                                    "powersave" to com.noir.lynx.R.string.audit_mode_powersave,
+                                    "balance" to com.noir.lynx.R.string.audit_mode_balance,
+                                    "performance" to com.noir.lynx.R.string.audit_mode_performance,
+                                    "extreme" to com.noir.lynx.R.string.audit_mode_extreme
+                                )[id.lowercase()]
+                                val label = labelResource?.let(context::getString) ?: id
+                                viewModel.triggerModeFeedback(id, label, colorHex)
+                                viewModel.selectKernelPerformanceProfile(id, context, clearOverrides)
+                            },
+                            onExtremeConfirmRequired = onExtremeConfirmRequired,
+                            onProfileSaved = { profile, replaceBuiltIn, replaceCustom ->
+                                viewModel.saveKernelPerformanceProfile(profile, replaceBuiltIn, replaceCustom)
+                            },
+                            onProfileDeleted = { id ->
+                                viewModel.deleteKernelPerformanceProfile(id)
+                            },
+                            onProfileDuplicated = { id ->
+                                viewModel.duplicateKernelPerformanceProfile(id)
+                            },
+                            onRestoreBuiltIn = { id ->
+                                viewModel.restoreBuiltInKernelProfile(id, context)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        1 -> {
+            // ══════════════════════════════════════════════════════════
+            // TAB 1: OTOMASI APLIKASI
+            // ══════════════════════════════════════════════════════════
+
+            // ── 1. Master Automation Card ──────────────────────────
+            item(key = "tab1_automation_master_card") {
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            // Title & Subtitle + Master Switch
+                            Row(
+                                Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f).padding(end = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = AccentGreen.copy(alpha = 0.15f),
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.SportsEsports, null, tint = AccentGreen, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            "Layanan Otomasi Game / App",
+                                            color = TextPrimary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                        Text(
+                                            "0ms responsivitas profil saat game/aplikasi diluncurkan",
+                                            color = TextSecondary,
+                                            fontSize = 10.sp,
+                                            lineHeight = 13.5.sp
+                                        )
+                                    }
+                                }
+                                Switch(
+                                    checked = uiState.isAppAutomationActive,
+                                    onCheckedChange = { viewModel.toggleAppAutomation(context, it) },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = BgDeepOled,
+                                        checkedTrackColor = AccentGreen,
+                                        uncheckedThumbColor = TextSecondary,
+                                        uncheckedTrackColor = BgElevated,
+                                        uncheckedBorderColor = BorderGlass
+                                    )
+                                )
+                            }
+
+                            HorizontalDivider(color = BorderGlass.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 6.dp))
+
+                            // Buffer Cooldown Selection Header
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Timelapse,
+                                    contentDescription = null,
+                                    tint = AccentGreen,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(com.noir.lynx.R.string.audit_cooldown_title),
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(com.noir.lynx.R.string.audit_cooldown_description),
+                                color = TextSecondary,
+                                fontSize = 10.sp,
+                                lineHeight = 13.5.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+
+                            // Compact Horizontal Scrollable Cooldown Chips
+                            val cooldownOptions = listOf(
+                                Triple(5, stringResource(com.noir.lynx.R.string.audit_five_seconds), stringResource(com.noir.lynx.R.string.audit_cooldown_fast)),
+                                Triple(30, stringResource(com.noir.lynx.R.string.audit_thirty_seconds), stringResource(com.noir.lynx.R.string.audit_cooldown_optimal)),
+                                Triple(60, stringResource(com.noir.lynx.R.string.audit_one_minute), stringResource(com.noir.lynx.R.string.audit_cooldown_light)),
+                                Triple(180, stringResource(com.noir.lynx.R.string.audit_three_minutes), stringResource(com.noir.lynx.R.string.audit_cooldown_heavy)),
+                                Triple(0, stringResource(com.noir.lynx.R.string.audit_persistent), stringResource(com.noir.lynx.R.string.audit_in_ram))
+                            )
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                cooldownOptions.forEach { (sec, label, _) ->
+                                    val isSelected = uiState.appAutomationCooldownSeconds == sec
+                                    Surface(
+                                        onClick = { viewModel.setAppAutomationCooldownSeconds(context, sec) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) AccentGreen.copy(alpha = 0.16f) else BgElevated,
+                                        border = BorderStroke(
+                                            if (isSelected) 1.2.dp else 0.8.dp,
+                                            if (isSelected) AccentGreen else BorderSubtle
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                color = if (isSelected) AccentGreen else TextPrimary,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            if (sec == 30) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(3.dp),
+                                                    color = AccentGreen.copy(alpha = 0.25f)
+                                                ) {
+                                                    Text(
+                                                        text = stringResource(com.noir.lynx.R.string.audit_recommended),
+                                                        color = AccentGreen,
+                                                        fontSize = 7.5.sp,
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        modifier = Modifier.padding(horizontal = 3.dp, vertical = 0.5.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            HorizontalDivider(color = BorderGlass.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 10.dp))
+
+                            // Rules Header & Add Button
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text(
+                                        "${uiState.appProfileRules.size} Aturan Dikonfigurasi",
+                                        color = TextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
+                                    )
+                                    Text(
+                                        "Ketuk pill profil untuk ganti cepat (Powersave / Seimbang / Performa / Extreme)",
+                                        color = TextSecondary,
+                                        fontSize = 9.5.sp
+                                    )
+                                }
+                                Surface(
+                                    onClick = onAddAppClick,
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = AccentGreen.copy(alpha = 0.18f),
+                                    border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.5f))
+                                ) {
+                                    Row(
+                                        Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Add, null, tint = AccentGreen, modifier = Modifier.size(15.dp))
+                                        Spacer(Modifier.width(3.dp))
+                                        Text("Tambah Game", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            // App Profile Rules List
+            // ── 2. Virtualized Rules List / Empty State ────────────
             if (uiState.appProfileRules.isEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = BgElevated,
-                    border = BorderStroke(1.dp, BorderGlass),
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                ) {
-                    Column(
-                        Modifier.padding(14.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(Icons.Default.Tune, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "Belum ada aturan khusus",
-                            color = TextPrimary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            "Klik tombol 'Tambah' untuk mengunci profil tertentu (Performa, Extreme, Balance, Hemat) ke game atau app favorit.",
-                            color = TextSecondary,
-                            fontSize = 10.5.sp,
-                            textAlign = TextAlign.Center
-                        )
+                item(key = "tab1_rules_empty_card") {
+                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.8.dp, BorderGlass),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                Modifier.padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(Icons.Default.SportsEsports, null, tint = AccentGreen.copy(alpha = 0.6f), modifier = Modifier.size(32.dp))
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Belum Ada Game / Aplikasi Terdaftar",
+                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                    "Klik tombol 'Tambah Game' di atas untuk mengaitkan profil performa, refresh rate layar, atau HUD overlay ke game favorit Anda.",
+                                    color = TextSecondary,
+                                    fontSize = 10.5.sp,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 14.5.sp
+                                )
+                            }
+                        }
                     }
                 }
             } else {
-                uiState.appProfileRules.forEach { rule ->
+                items(
+                    items = uiState.appProfileRules,
+                    key = { "app_rule_${it.packageName}" }
+                ) { rule ->
                     val profColor = when (rule.targetProfile.lowercase()) {
                         "extreme" -> AccentRed
                         "performance" -> AccentOrange
@@ -541,128 +759,197 @@ fun TuningProfilesCategory(
                         else -> context.getString(com.noir.lynx.R.string.audit_mode_balance)
                     }
 
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = BgElevated,
-                        border = BorderStroke(1.dp, if (rule.enabled) profColor.copy(alpha = 0.35f) else BorderGlass),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .clickable { onEditRuleClick(rule) }
-                    ) {
-                        Row(
-                            Modifier.padding(10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.8.dp, if (rule.enabled) profColor.copy(alpha = 0.35f) else BorderGlass),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onEditRuleClick(rule) }
                         ) {
-                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                AppIconImage(
-                                    packageName = rule.packageName,
-                                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp))
-                                )
-                                Spacer(Modifier.width(10.dp))
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            rule.appName,
-                                            color = if (rule.enabled) TextPrimary else TextSecondary,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.5.sp
-                                        )
-                                        if (rule.isGame) {
-                                            Spacer(Modifier.width(4.dp))
-                                            Surface(
-                                                shape = RoundedCornerShape(4.dp),
-                                                color = AccentOrange.copy(alpha = 0.18f)
-                                            ) {
-                                                Text(
-                                                    "GAME",
-                                                    color = AccentOrange,
-                                                    fontSize = 7.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Spacer(Modifier.height(2.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = profColor.copy(alpha = 0.15f),
-                                            border = BorderStroke(1.dp, profColor.copy(alpha = 0.4f))
-                                        ) {
+                            Row(
+                                Modifier.padding(10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                    AppIconImage(
+                                        packageName = rule.packageName,
+                                        modifier = Modifier.size(34.dp).clip(RoundedCornerShape(8.dp))
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
-                                                profLabel,
-                                                color = profColor,
-                                                fontSize = 9.sp,
+                                                rule.appName,
+                                                color = if (rule.enabled) TextPrimary else TextSecondary,
                                                 fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                                fontSize = 12.sp,
+                                                maxLines = 1
                                             )
-                                        }
-                                        if (rule.targetRefreshRate != null) {
-                                            Surface(
-                                                shape = RoundedCornerShape(4.dp),
-                                                color = AccentPurple.copy(alpha = 0.15f)
-                                            ) {
-                                                Text(
-                                                    "${rule.targetRefreshRate} Hz",
-                                                    color = AccentPurple,
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                                )
+                                            if (rule.isGame) {
+                                                Spacer(Modifier.width(4.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = AccentOrange.copy(alpha = 0.18f)
+                                                ) {
+                                                    Text(
+                                                        "GAME",
+                                                        color = AccentOrange,
+                                                        fontSize = 7.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    )
+                                                }
                                             }
                                         }
-                                        if (rule.autoFloatingHud) {
+                                        Spacer(Modifier.height(3.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            // Interactive Clickable Target Profile Pill
                                             Surface(
+                                                onClick = {
+                                                    val nextProfile = when (rule.targetProfile.lowercase()) {
+                                                        "powersave" -> "balance"
+                                                        "balance" -> "performance"
+                                                        "performance" -> "extreme"
+                                                        "extreme" -> "powersave"
+                                                        else -> "balance"
+                                                    }
+                                                    viewModel.addOrUpdateAppProfileRule(context, rule.copy(targetProfile = nextProfile))
+                                                },
                                                 shape = RoundedCornerShape(4.dp),
-                                                color = AccentCyan.copy(alpha = 0.15f)
+                                                color = profColor.copy(alpha = 0.18f),
+                                                border = BorderStroke(0.8.dp, profColor.copy(alpha = 0.5f))
                                             ) {
-                                                Text(
-                                                    "OSD",
-                                                    color = AccentCyan,
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                                )
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        profLabel,
+                                                        color = profColor,
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
+                                                    Spacer(Modifier.width(3.dp))
+                                                    Icon(
+                                                        imageVector = Icons.Default.Sync,
+                                                        contentDescription = "Ganti Profil",
+                                                        tint = profColor,
+                                                        modifier = Modifier.size(9.dp)
+                                                    )
+                                                }
+                                            }
+                                            if (rule.targetRefreshRate != null) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = AccentPurple.copy(alpha = 0.15f)
+                                                ) {
+                                                    Text(
+                                                        "${rule.targetRefreshRate} Hz",
+                                                        color = AccentPurple,
+                                                        fontSize = 8.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+                                            if (rule.autoFloatingHud) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = AccentCyan.copy(alpha = 0.15f)
+                                                ) {
+                                                    Text(
+                                                        "OSD",
+                                                        color = AccentCyan,
+                                                        fontSize = 8.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Switch(
-                                    checked = rule.enabled,
-                                    onCheckedChange = { enabled ->
-                                        val updated = rule.copy(enabled = enabled)
-                                        viewModel.addOrUpdateAppProfileRule(context, updated)
-                                    },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = BgDeepOled,
-                                        checkedTrackColor = profColor,
-                                        uncheckedThumbColor = TextSecondary,
-                                        uncheckedTrackColor = BgElevated
-                                    ),
-                                    modifier = Modifier.scale(0.75f)
-                                )
-                                IconButton(
-                                    onClick = { onEditRuleClick(rule) },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        null,
-                                        tint = TextSecondary,
-                                        modifier = Modifier.size(16.dp)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Switch(
+                                        checked = rule.enabled,
+                                        onCheckedChange = { enabled ->
+                                            val updated = rule.copy(enabled = enabled)
+                                            viewModel.addOrUpdateAppProfileRule(context, updated)
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = BgDeepOled,
+                                            checkedTrackColor = profColor,
+                                            uncheckedThumbColor = TextSecondary,
+                                            uncheckedTrackColor = BgElevated
+                                        ),
+                                        modifier = Modifier.scale(0.75f)
                                     )
+                                    IconButton(
+                                        onClick = { onEditRuleClick(rule) },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            null,
+                                            tint = TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * TuningProfilesCategory — Standalone Composable wrapper for Kernel Performance Profiles.
+ * Maintained for backward compatibility.
+ */
+@Composable
+fun TuningProfilesCategory(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    onAddAppClick: () -> Unit = {},
+    onEditRuleClick: (AppProfileRule) -> Unit = {},
+    onExtremeConfirmRequired: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.loadAppAutomationCooldown(context)
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        ProfilesCategoryTabRow(
+            selectedTab = uiState.selectedProfileTab,
+            onSelectTab = { viewModel.selectProfileTab(it) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+        )
+
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            tuningProfilesCategoryItems(
+                uiState = uiState,
+                viewModel = viewModel,
+                context = context,
+                onAddAppClick = onAddAppClick,
+                onEditRuleClick = onEditRuleClick,
+                onExtremeConfirmRequired = onExtremeConfirmRequired
+            )
         }
     }
 }
