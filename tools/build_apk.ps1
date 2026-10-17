@@ -20,9 +20,21 @@ if (-not (Test-Path "D:\temp\.build-cache\android-user-home")) {
     New-Item -ItemType Directory -Force -Path "D:\temp\.build-cache\android-user-home" | Out-Null
 }
 
+# Perlindungan kestabilan sistem: Turunkan prioritas proses agar Windows tidak freeze/BSOD
+try {
+    [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = [System.Diagnostics.ProcessPriorityClass]::BelowNormal
+    Write-Host "[SAFETY] Prioritas proses build diatur ke BelowNormal demi kestabilan sistem." -ForegroundColor Cyan
+} catch {}
+
+# Verifikasi sisa RAM fisik
+$freeRam = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB
+if ($freeRam -lt 2.0) {
+    Write-Warning "[SAFETY] Peringatan: Sisa RAM fisik rendah ($([math]::Round($freeRam, 2)) GB). Menjaga worker tunggal..."
+}
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location "$repoRoot\LynxCompanion"
-$buildOptions = @("--no-configuration-cache", "--max-workers=2")
+$buildOptions = @("--no-configuration-cache", "--max-workers=1")
 if ($DisableBuildCache) { $buildOptions += "--no-build-cache" }
 $unitTasks = @()
 if ($RunUnitTests) { $unitTasks += (":app:test" + $Variant + "UnitTest") }

@@ -21,3 +21,4 @@ archive/local_backups/
 /tools/video_memory_audit_*/
 /tools/KernelPatch/
 native/kpm/**/build/
+build-safe.ps1
