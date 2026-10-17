@@ -1,3 +1,25 @@
+# Lynx Universal [Proportional Equal-Width Cooldown Selector, Unified Geometry Toolbar & Centered 2-Line App Rows] 7.0.0-RC70
+Released on: 2026-10-17
+> **Lynx Universal v7.0.0-RC70** (Lynx Kernel Manager v3.1.23): **Penyempurnaan Total Tata Letak, Ukuran, Tinggi, Lebar, dan Spasi Halaman Otomasi Aplikasi: Eliminasi Truncation Tombol Cooldown dengan Selector Equal-Width Proposional, Unifikasi Geometri Toolbar Pencarian & Aksi Cepat (34dp & Radius 8dp), Serta Restrukturisasi Baris Aplikasi Menjadi Format 2-Baris Sejajar Sempurna dengan Switch yang Terpusat Vertikal**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC70)
+
+### 1. ⏱️ Proportional Equal-Width Cooldown Selector (Anti-Truncation)
+- **Eliminasi Teks Terpotong ('Persis...')**: Mengganti deretan tombol durasi penahanan yang sebelumnya melebihi lebar layar menjadi grid 5 tombol dengan bobot simetris (`weight(1f)` dan tinggi seragam 32dp): `5 dtk`, `30 dtk`, `1 mnt`, `3 mnt`, dan `Tetap`.
+- **Informasi Rekomendasi Dinamis & Elegan**: Menghilangkan teks "REKOMENDASI" yang sebelumnya membuat tombol 30 detik membesar secara anomali, dan menggantikannya dengan teks penjelasan dinamis yang rapi di bawah selector (`✓ Rekomendasi: 30 detik menahan profil saat keluar sementara`).
+
+### 2. 📏 Unifikasi Geometri Toolbar Pencarian & Aksi Cepat
+- **Konsistensi Tinggi dan Radius Presisi**: Menyelaraskan seluruh elemen toolbar (`Cari game atau paket...`, tombol `[ ↻ Pindai ]`, dan tombol kotak `[ 🗑 ]`) ke ketinggian mutlak **34dp** dan sudut melengkung **8dp**, menghilangkan ketidaksejajaran vertikal dan celah visual yang tidak rapi.
+- **Filter Chips Proporsional**: Mengatur ketinggian chips kategori (`Semua`, `🎮 Game`, `⚡ Aktif`) ke 26dp dengan padding horizontal seimbang (8dp) dan sudut 6dp sehingga tampak seperti kapsul modern yang padat.
+
+### 3. 🎯 Centered 2-Line App Rows Architecture (Ukuran, Lebar, & Spasi Sempurna)
+- **Restrukturisasi Baris Tunggal Terpadu**: Mengubah arsitektur `AppRuleEmbeddedRow` dari 3 baris bertingkat yang menyisakan ruang kosong di bawah switch menjadi baris tunggal horizontal 2-baris yang rapi:
+  - **Baris 1**: Judul Aplikasi tebal (12sp) berdampingan langsung dengan badge `[GAME]` (jika berlaku).
+  - **Baris 2**: Badge target profil interaktif (`Performa` / `Ekstrem` / `Seimbang`), target refresh rate (`120 Hz`), floating HUD (`OSD`), separator titik (`•`), dan nama paket aplikasi sekunder (8.5sp).
+- **Penyelarasan Vertikal Saklar Master**: Saklar toggle kini berada tepat di garis tengah vertikal (*vertical center*) dari keseluruhan baris aplikasi, menghasilkan visual yang seimbang, padat, dan bebas dari ruang kosong.
+
+---
+
 # Lynx Universal [Two-Tier Adaptive App Layout, In-Memory Quick Search & Multi-Criteria Filter Chips] 7.0.0-RC69
 Released on: 2026-10-17
 > **Lynx Universal v7.0.0-RC69** (Lynx Kernel Manager v3.1.22): **Penyempurnaan Total Tata Letak Aturan Otomasi Aplikasi dengan Arsitektur Dua Tingkat (Two-Tier Adaptive Layout) untuk Mengakomodasi Nama Aplikasi Panjang Tanpa Tumpang Tindih, Eliminasi Redundansi Tombol Edit/Hapus pada Baris Daftar, Integrasi Pencarian Cepat In-Memory (Quick Search), Serta Filter Chips Multi-Kriteria ('Semua', '🎮 Game', '⚡ Aktif') dan Status Pencarian Kosong**.
