@@ -224,11 +224,99 @@ object LynxSystemControlRepository {
         }
     }
 
+    suspend fun readPrivateDns(): Pair<String, String> = withContext(Dispatchers.IO) {
+        try {
+            val mode = Shell.cmd("settings get global private_dns_mode 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "off"
+            val spec = Shell.cmd("settings get global private_dns_specifier 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            Pair(mode, spec)
+        } catch (_: Exception) {
+            Pair("off", "")
+        }
+    }
+
+    suspend fun applyPrivateDns(mode: String, specifier: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (mode == "hostname" && specifier.isNotBlank()) {
+                Shell.cmd("settings put global private_dns_mode hostname; settings put global private_dns_specifier $specifier").exec()
+            } else {
+                Shell.cmd("settings put global private_dns_mode off; settings put global private_dns_specifier \"\"").exec()
+            }
+            true
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun readAvailableTcpCongestion(): List<String> = withContext(Dispatchers.IO) {
+        try {
+            val out = Shell.cmd("cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            if (out.isNotBlank()) {
+                out.split(Regex("\\s+")).filter { it.isNotBlank() }
+            } else {
+                listOf("cubic", "bic", "reno")
+            }
+        } catch (_: Exception) {
+            listOf("cubic", "bic", "reno")
+        }
+    }
+
+    suspend fun applyTcpCongestionControl(algo: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd("sysctl -w net.ipv4.tcp_congestion_control=$algo 2>/dev/null").exec()
+            true
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun readAudioTelemetry(): AudioTelemetryInfo = withContext(Dispatchers.IO) {
+        try {
+            val deviceOut = Shell.cmd("dumpsys audio 2>/dev/null | grep -m 1 -E 'Devices: speaker|Devices: wired_headset|Devices: bluetooth|Devices: usb_headset'").exec().out.firstOrNull()?.trim() ?: ""
+            val activeDevice = when {
+                deviceOut.contains("bluetooth", ignoreCase = true) -> "Bluetooth (A2DP)"
+                deviceOut.contains("wired_headset", ignoreCase = true) -> "Headphone (3.5mm)"
+                deviceOut.contains("usb", ignoreCase = true) -> "USB Audio DAC"
+                deviceOut.contains("speaker", ignoreCase = true) -> "Internal Speaker"
+                else -> "Speaker / Default"
+            }
+            val mmapPolicy = Shell.cmd("getprop aaudio.mmap_policy 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "2"
+            val isMmapForced = mmapPolicy == "3"
+            val deepBuffer = Shell.cmd("getprop audio.deep_buffer.media 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "true"
+            val isDeepBufferBypassed = deepBuffer.equals("false", ignoreCase = true)
+            val offloadKb = Shell.cmd("getprop vendor.audio.offload.buffer.size.kb 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "64"
+            val isDirectDac = offloadKb == "32"
+
+            AudioTelemetryInfo(
+                activeDevice = activeDevice,
+                sampleRate = "48000 Hz",
+                isMmapForced = isMmapForced,
+                isDeepBufferBypassed = isDeepBufferBypassed,
+                isDirectDacOffload = isDirectDac
+            )
+        } catch (_: Exception) {
+            AudioTelemetryInfo()
+        }
+    }
+
     suspend fun applyAudioMmap(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
-            val p = if (enabled) "2" else "1"
-            val cmd = "setprop aaudio.mmap_policy $p; setprop aaudio.mmap_exclusive_policy $p; [ \"$(getprop aaudio.mmap_policy)\" = \"$p\" ] && echo ok"
+            val p = if (enabled) "3" else "2"
+            val burst = if (enabled) "2000" else "4000"
+            val cmd = "setprop aaudio.mmap_policy $p; setprop aaudio.mmap_exclusive_policy $p; setprop aaudio.hw_burst_min_usec $burst; [ \"$(getprop aaudio.mmap_policy)\" = \"$p\" ] && echo ok"
             Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applyAudioDeepBufferBypass(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val valStr = if (enabled) "false" else "true"
+            Shell.cmd("setprop audio.deep_buffer.media $valStr; setprop persist.sys.phh.disable_fast_audio 0").exec()
+            true
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applyAudioDirectDacOffload(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val kb = if (enabled) "32" else "64"
+            val mult = if (enabled) "1" else "2"
+            Shell.cmd("setprop vendor.audio.offload.buffer.size.kb $kb; setprop af.fast_track_multiplier $mult").exec()
+            true
         } catch (_: Exception) { false }
     }
 

@@ -97,12 +97,17 @@ internal object LynxStateParser {
             tcpFastOpen = j?.optBoolean("tcp_fast_open", true) ?: true,
             antiJitterScan = j?.optBoolean("anti_jitter_scan", true) ?: true,
             mtkHardwareAggregation = j?.optBoolean("mtk_hw_aggregation", true) ?: true,
+            privateDnsMode = j?.optString("private_dns_mode", "off") ?: "off",
+            privateDnsSpecifier = j?.optString("private_dns_specifier", "") ?: "",
+            wifiGameAutoTrigger = j?.optBoolean("wifi_game_auto_trigger", true) ?: true,
         )
 
         private fun parseAudio(j: JSONObject?) = AudioConfig(
             lowLatencyMmap = j?.optBoolean("low_latency_mmap", true) ?: true,
             fastTrackEnabled = j?.optBoolean("fast_track_enabled", true) ?: true,
             btCrackleGuard = j?.optBoolean("bt_crackle_guard", true) ?: true,
+            deepBufferBypass = j?.optBoolean("deep_buffer_bypass", true) ?: true,
+            directDacOffload = j?.optBoolean("direct_dac_offload", true) ?: true,
         )
 
         private fun parseOemNeutralizer(j: JSONObject?) = OemNeutralizerConfig(

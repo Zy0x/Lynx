@@ -121,12 +121,85 @@ fun LynxViewModel.refreshTcpAlgorithms() {
         try {
             val algs = LynxRepository.readAvailableTcpAlgorithms()
             val current = LynxRepository.readCurrentTcpCongestion()
+            val dns = LynxRepository.readPrivateDns()
             _uiState.update { it.copy(
                 availableTcpAlgorithms = algs,
                 currentTcpCongestion = current,
-                state = if (current.isNotBlank()) it.state.copy(network = it.state.network.copy(tcpCongestion = current)) else it.state
+                privateDnsMode = dns.first,
+                privateDnsSpecifier = dns.second,
+                state = if (current.isNotBlank()) it.state.copy(network = it.state.network.copy(
+                    tcpCongestion = current,
+                    privateDnsMode = dns.first,
+                    privateDnsSpecifier = dns.second
+                )) else it.state
             ) }
         } catch (_: Exception) {}
+    }
+}
+
+fun LynxViewModel.setPrivateDns(mode: String, specifier: String) {
+    recordStateMutation()
+    _uiState.update { it.copy(
+        privateDnsMode = mode,
+        privateDnsSpecifier = specifier,
+        state = it.state.copy(network = it.state.network.copy(privateDnsMode = mode, privateDnsSpecifier = specifier))
+    ) }
+    viewModelScope.launch {
+        val ok = LynxRepository.applyPrivateDns(mode, specifier)
+        if (ok) {
+            val label = if (mode == "hostname") specifier else "Off (ISP)"
+            _uiState.update { it.copy(successMessage = "Private DNS: $label diterapkan") }
+            LynxRepository.writeStateKey("network.private_dns_mode", mode, "str")
+            LynxRepository.writeStateKey("network.private_dns_specifier", specifier, "str")
+        } else {
+            _uiState.update { it.copy(errorMessage = "Gagal menerapkan Private DNS") }
+        }
+    }
+}
+
+fun LynxViewModel.refreshAudioSubsystem() {
+    viewModelScope.launch {
+        try {
+            val audioTelem = LynxRepository.readAudioTelemetry()
+            val soundCtrl = LynxRepository.readSoundControl()
+            _uiState.update { it.copy(
+                audioTelemetry = audioTelem,
+                soundControl = soundCtrl,
+                state = it.state.copy(audio = it.state.audio.copy(
+                    lowLatencyMmap = audioTelem.isMmapForced,
+                    deepBufferBypass = audioTelem.isDeepBufferBypassed,
+                    directDacOffload = audioTelem.isDirectDacOffload
+                ))
+            ) }
+        } catch (_: Exception) {}
+    }
+}
+
+fun LynxViewModel.setAudioDeepBufferBypass(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(deepBufferBypass = enabled)))
+    }
+    setKey("audio.deep_buffer_bypass", enabled.toString(), "bool")
+    viewModelScope.launch {
+        val ok = LynxRepository.applyAudioDeepBufferBypass(enabled)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = if (enabled) "Deep Buffer Bypass diaktifkan (Zero Latency)" else "Deep Buffer Bypass dinonaktifkan") }
+        }
+    }
+}
+
+fun LynxViewModel.setAudioDirectDacOffload(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(directDacOffload = enabled)))
+    }
+    setKey("audio.direct_dac_offload", enabled.toString(), "bool")
+    viewModelScope.launch {
+        val ok = LynxRepository.applyAudioDirectDacOffload(enabled)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = if (enabled) "Direct DAC Offload (32KB buffer) diaktifkan" else "Direct DAC Offload dinonaktifkan") }
+        }
     }
 }
 

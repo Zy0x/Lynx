@@ -160,6 +160,11 @@ while true; do
                 settings put system peak_refresh_rate "$target_hz.0" 2>/dev/null
             fi
 
+            # Wi-Fi Gaming Low-Latency Auto-Trigger
+            cmd wifi force-low-latency-mode enabled >/dev/null 2>&1
+            [ -f /proc/net/wlan/setCAM ] && echo 1 > /proc/net/wlan/setCAM 2>/dev/null
+            settings put global wifi_scan_always_enabled 0 2>/dev/null
+
             if [ "$auto_hud" = "1" ]; then
                 am start-foreground-service -a com.noir.lynx.service.START_HUD "$LYNX_PKG/com.noir.lynx.service.LynxFloatingHudService" >/dev/null 2>&1
                 AUTO_STARTED_HUD=1
@@ -179,6 +184,10 @@ while true; do
                 [ -e /sys/module/ged/parameters/gx_top_app_pid ] && echo "0" > /sys/module/ged/parameters/gx_top_app_pid 2>/dev/null
                 settings put system min_refresh_rate "$BASELINE_HZ" 2>/dev/null
                 settings put system peak_refresh_rate "$BASELINE_HZ" 2>/dev/null
+
+                # Restore Wi-Fi Standard Mode
+                cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
+                [ -f /proc/net/wlan/setCAM ] && echo 0 > /proc/net/wlan/setCAM 2>/dev/null
 
                 if [ "$AUTO_STARTED_HUD" = "1" ]; then
                     am start-service -a com.noir.lynx.service.STOP_HUD "$LYNX_PKG/com.noir.lynx.service.LynxFloatingHudService" >/dev/null 2>&1

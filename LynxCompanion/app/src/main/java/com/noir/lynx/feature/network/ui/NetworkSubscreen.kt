@@ -334,18 +334,90 @@ fun NetworkSubscreen(
             )
         }
 
-        // ── Subsystem Audio Enhancer Card ────────────────────────
+        // ── Fast Gaming Private DNS Switcher Card (DoT) ──────────
+        val dnsOptions = listOf(
+            Triple("off", "", "Off (Bawaan ISP / DHCP)"),
+            Triple("hostname", "1dot1dot1dot1.cloudflare-dns.com", "Cloudflare (1.1.1.1) • Low Ping & CDN"),
+            Triple("hostname", "dns.google", "Google DNS • Kecepatan Stabil"),
+            Triple("hostname", "dns.adguard-dns.com", "AdGuard DNS • Blokir Iklan & Pelacak"),
+            Triple("hostname", "dns.quad9.net", "Quad9 • Perlindungan Malware & Anti-Phishing")
+        )
+
         LynxCard(
-            title = "Subsystem Audio Enhancer",
-            icon = Icons.Default.VolumeUp,
+            title = "Fast Gaming Private DNS (DoT)",
+            icon = Icons.Default.Dns,
             accentColor = AccentCyan
         ) {
-            LynxSwitch(
-                label = "Low-Latency Audio MMAP",
-                subLabel = "Bypass mixer audio Android untuk latensi respon suara terendah",
-                checked = state.audio.lowLatencyMmap,
-                onCheckedChange = { viewModel.setAudioMmap(it) },
+            Row(
+                Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "DNS-over-TLS Terenkripsi",
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        if (uiState.privateDnsMode == "hostname") "Aktif: ${uiState.privateDnsSpecifier}" else "Menggunakan DNS default ISP (tanpa enkripsi)",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                }
+                val isDot = uiState.privateDnsMode == "hostname"
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isDot) AccentCyan.copy(alpha = 0.15f) else BgElevated,
+                    border = BorderStroke(1.dp, if (isDot) AccentCyan.copy(alpha = 0.5f) else BorderGlass)
+                ) {
+                    Text(
+                        if (isDot) "🔒 TLS AKTIF" else "○ OFF (ISP)",
+                        color = if (isDot) AccentCyan else TextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Text(
+                "Pilih Resolver DNS Gaming (1-Tap):",
+                color = TextSecondary,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                dnsOptions.forEach { (mode, spec, label) ->
+                    val isSelected = (mode == "off" && uiState.privateDnsMode != "hostname") ||
+                            (mode == "hostname" && uiState.privateDnsMode == "hostname" && uiState.privateDnsSpecifier == spec)
+                    Surface(
+                        onClick = { viewModel.setPrivateDns(mode, spec) },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) AccentCyan.copy(alpha = 0.16f) else BgElevated,
+                        border = BorderStroke(1.dp, if (isSelected) AccentCyan else BorderGlass),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                label,
+                                color = if (isSelected) TextPrimary else TextSecondary,
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                            if (isSelected) {
+                                Icon(Icons.Default.Check, contentDescription = "Terpilih", tint = AccentCyan, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // ── ADB Wireless Keep-Alive & Custom Port Lock Card ──────

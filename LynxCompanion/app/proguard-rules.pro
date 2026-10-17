@@ -39,3 +39,7 @@
 -keepclassmembers class com.noir.lynx.feature.** { *; }
 
 -dontwarn kotlinx.serialization.**
+-dontwarn com.noir.lynx.R**
+-keepclassmembers class com.noir.lynx.R$* {
+    public static <fields>;
+}

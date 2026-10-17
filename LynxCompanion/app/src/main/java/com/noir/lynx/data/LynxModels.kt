@@ -94,6 +94,9 @@ data class NetworkConfig(
     val tcpFastOpen: Boolean = true,
     val antiJitterScan: Boolean = true,
     val mtkHardwareAggregation: Boolean = true,
+    val privateDnsMode: String = "off",
+    val privateDnsSpecifier: String = "",
+    val wifiGameAutoTrigger: Boolean = true,
 )
 
 data class WifiTelemetryInfo(
@@ -112,11 +115,21 @@ data class WifiTelemetryInfo(
     val txLinkSpeedMbps: Int = 0,
 )
 
-
 data class AudioConfig(
     val lowLatencyMmap: Boolean = true,
     val fastTrackEnabled: Boolean = true,
     val btCrackleGuard: Boolean = true,
+    val deepBufferBypass: Boolean = true,
+    val directDacOffload: Boolean = true,
+)
+
+data class AudioTelemetryInfo(
+    val activeDevice: String = "Internal Speaker",
+    val sampleRate: String = "48000 Hz",
+    val isMmapForced: Boolean = true,
+    val isDeepBufferBypassed: Boolean = false,
+    val isDirectDacOffload: Boolean = false,
+    val serverStatus: String = "audioserver (Active)",
 )
 
 data class OemNeutralizerConfig(

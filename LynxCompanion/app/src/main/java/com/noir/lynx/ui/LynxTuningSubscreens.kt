@@ -13,6 +13,7 @@ import com.noir.lynx.feature.gpu.ui.tuningGpuCategoryItems as modularTuningGpuCa
 import com.noir.lynx.feature.thermal.ui.ThermalSubscreen
 import com.noir.lynx.feature.memory.ui.MemorySubscreen
 import com.noir.lynx.feature.network.ui.NetworkSubscreen
+import com.noir.lynx.feature.audio.ui.AudioSubscreen
 import com.noir.lynx.feature.system.ui.SystemSubscreen
 import com.noir.lynx.feature.system.ui.DeepTunableItemCard as ModularDeepTunableItemCard
 
@@ -87,6 +88,15 @@ fun TuningNetworkCategory(
     modifier: Modifier = Modifier
 ) {
     NetworkSubscreen(uiState = uiState, viewModel = viewModel, modifier = modifier)
+}
+
+@Composable
+fun TuningAudioCategory(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    modifier: Modifier = Modifier
+) {
+    AudioSubscreen(uiState = uiState, viewModel = viewModel, modifier = modifier)
 }
 
 @Composable

@@ -19,6 +19,20 @@ fun LynxViewModel.selectGpuTab(tab: Int) = setSelectedGpuTab(tab)
 
 fun LynxViewModel.selectProfileTab(tab: Int) = setSelectedProfileTab(tab)
 
+    fun LynxViewModel.setSelectedNetworkTab(tab: Int) {
+        _uiState.update { it.copy(selectedNetworkTab = tab) }
+        viewModelScope.launch(Dispatchers.IO) {
+            if (tab == 0) {
+                refreshWifiTelemetry()
+                refreshTcpAlgorithms()
+            } else {
+                refreshAudioSubsystem()
+            }
+        }
+    }
+
+fun LynxViewModel.selectNetworkTab(tab: Int) = setSelectedNetworkTab(tab)
+
 
     fun LynxViewModel.setSelectedCpuTab(tab: Int) {
         _uiState.update { it.copy(selectedCpuTab = tab) }

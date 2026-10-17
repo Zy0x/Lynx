@@ -449,8 +449,15 @@ object LynxRepository {
     suspend fun applyTcpFastOpen(enabled: Boolean): Boolean = LynxSystemControlRepository.applyTcpFastOpen(enabled)
     suspend fun applyMtkHardwareAggregation(enabled: Boolean): Boolean = LynxSystemControlRepository.applyMtkHardwareAggregation(enabled)
     suspend fun readWifiTelemetry(): WifiTelemetryInfo = LynxSystemControlRepository.readWifiTelemetry()
+    suspend fun readPrivateDns(): Pair<String, String> = LynxSystemControlRepository.readPrivateDns()
+    suspend fun applyPrivateDns(mode: String, specifier: String): Boolean = LynxSystemControlRepository.applyPrivateDns(mode, specifier)
+    suspend fun readAvailableTcpCongestion(): List<String> = LynxSystemControlRepository.readAvailableTcpCongestion()
+    suspend fun applyTcpCongestionControl(algo: String): Boolean = LynxSystemControlRepository.applyTcpCongestionControl(algo)
 
+    suspend fun readAudioTelemetry(): AudioTelemetryInfo = LynxSystemControlRepository.readAudioTelemetry()
     suspend fun applyAudioMmap(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAudioMmap(enabled)
+    suspend fun applyAudioDeepBufferBypass(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAudioDeepBufferBypass(enabled)
+    suspend fun applyAudioDirectDacOffload(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAudioDirectDacOffload(enabled)
 
     suspend fun readAdbKeepAliveConfig(): Pair<Boolean, Int> = LynxSystemControlRepository.readAdbKeepAliveConfig()
 

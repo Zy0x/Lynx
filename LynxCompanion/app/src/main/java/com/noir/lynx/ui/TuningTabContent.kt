@@ -268,13 +268,28 @@ fun TuningTabContent(
                                             onClick = { onSelectedCategoryChange("memory") }
                                         )
 
-                                        // 6. Network & Audio
+                                        // 6. Wi-Fi & Network Engine
                                         SubsystemCategoryCard(
                                             category = TuningCategory.NETWORK,
-                                            badgeText = uiState.currentTcpCongestion.ifBlank { "bbr" }.uppercase(),
-                                            detailText1 = if (state.network.wifiPingStabilizer) "FQ-CoDel" else "Standard",
-                                            detailText2 = if (state.audio.lowLatencyMmap) "MMAP" else "Audio",
-                                            onClick = { onSelectedCategoryChange("network") }
+                                            badgeText = uiState.currentTcpCongestion.ifBlank { "CUBIC" }.uppercase(),
+                                            detailText1 = if (state.network.wifiPingStabilizer) "CAM Mode" else "Standard",
+                                            detailText2 = if (uiState.wifiTelemetry.isConnected) "${uiState.wifiTelemetry.linkSpeedMbps} Mbps" else "Offline",
+                                            onClick = {
+                                                viewModel.selectNetworkTab(0)
+                                                onSelectedCategoryChange("network")
+                                            }
+                                        )
+
+                                        // 7. Sound & Audio Subsystem
+                                        SubsystemCategoryCard(
+                                            category = TuningCategory.AUDIO,
+                                            badgeText = if (state.audio.lowLatencyMmap) "MMAP DMA" else "Standard",
+                                            detailText1 = uiState.audioTelemetry.activeDevice,
+                                            detailText2 = if (uiState.soundControl.isSupported) "Faux Driver" else "AAudio HAL",
+                                            onClick = {
+                                                viewModel.selectNetworkTab(1)
+                                                onSelectedCategoryChange("network")
+                                            }
                                         )
 
                                         // 8. Subsystem & Deep Tunables
@@ -437,6 +452,14 @@ fun TuningTabContent(
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 6.dp)
                                     )
+                                } else if (currentCategory == "network" || currentCategory == "audio") {
+                                    NetworkAudioTabRow(
+                                        selectedTab = uiState.selectedNetworkTab,
+                                        onSelectTab = { viewModel.selectNetworkTab(it) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                                    )
                                 }
 
                                 // Own charging polling/dialogs for the whole page, not a lazy item.
@@ -485,7 +508,13 @@ fun TuningTabContent(
                                                 TuningChargingCategory(uiState, viewModel, manageLifecycle = false)
                                             }
                                         }
-                                        "network" -> item(key = "subscreen_network") { TuningNetworkCategory(uiState = uiState, viewModel = viewModel) }
+                                        "network", "audio" -> {
+                                            if (uiState.selectedNetworkTab == 0) {
+                                                item(key = "subscreen_network") { TuningNetworkCategory(uiState = uiState, viewModel = viewModel) }
+                                            } else {
+                                                item(key = "subscreen_audio") { TuningAudioCategory(uiState = uiState, viewModel = viewModel) }
+                                            }
+                                        }
                                         "system" -> item(key = "subscreen_system") {
                                             TuningSystemCategory(
                                                 uiState = uiState,
