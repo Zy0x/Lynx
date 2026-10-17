@@ -457,6 +457,8 @@ data class LynxUiState(
     val manualInspectResult: DeepTunable? = null,
     // Per-App Profile Rules & Floating Game HUD
     val appProfileRules: List<AppProfileRule> = emptyList(),
+    val isScanningInstalledGames: Boolean = false,
+    val selectedTuningCategory: String? = null,
     val perAppGraphicsRules: List<PerAppGraphicsRule> = emptyList(),
     val isGameHudActive: Boolean = false,
     val hudMode: Int = 0, // 0 = Edge Drawer (Infinix/ROG Game Space), 1 = Classic Floating Window

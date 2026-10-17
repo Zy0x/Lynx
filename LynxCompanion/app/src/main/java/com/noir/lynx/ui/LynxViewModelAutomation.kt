@@ -232,10 +232,10 @@ import kotlinx.coroutines.flow.update
     fun LynxViewModel.autoDetectAndSyncInstalledRules(context: android.content.Context) {
         recordStateMutation()
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isScanningInstalledGames = true) }
             try {
                 val (addedCount, updatedRules) = LynxRepository.autoDetectAndSyncInstalledRules()
-                _uiState.update { it.copy(isLoading = false, appProfileRules = updatedRules) }
+                _uiState.update { it.copy(isScanningInstalledGames = false, appProfileRules = updatedRules) }
                 if (addedCount > 0) {
                     _uiState.update { it.copy(successMessage = "$addedCount game terpasang berhasil ditambahkan!") }
                     if (_uiState.value.isAppAutomationActive) {
@@ -248,7 +248,7 @@ import kotlinx.coroutines.flow.update
                     _uiState.update { it.copy(successMessage = "Semua game terpasang sudah terdaftar") }
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Gagal memindai game: ${e.message}") }
+                _uiState.update { it.copy(isScanningInstalledGames = false, errorMessage = "Gagal memindai game: ${e.message}") }
             }
         }
     }

@@ -1,3 +1,34 @@
+# Lynx Universal [Zero-Exit Navigation Guard, Dedicated Scan Game Button & Cyberpunk Clear-All Modal UX] 7.0.0-RC73
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC73** (Lynx Kernel Manager v3.1.26): **Perbaikan Total UX Tombol Pindai Game Terpasang dan Hapus Semua Aturan: Eliminasi Total Bug 'Terlempar Keluar Halaman' dengan Mengganti Root Loading Screen Menjadi In-Place Scanning State, Integrasi Tombol Pindai Dedicated di Header Kartu dengan Animasi Loading Real-Time, Pembuatan Modal Konfirmasi 'Hapus Semua' Mewah Bergaya Cyberpunk OLED dengan Ringkasan Aturan Terdaftar, Serta Proteksi State Navigasi Presisten (Navigation Guard)**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC73)
+
+### 1. 🛡️ Eliminasi Total Bug 'Terlempar Keluar Halaman' (Zero-Exit Scanning Protocol)
+- **Akar Masalah**: Sebelumnya fungsi `autoDetectAndSyncInstalledRules()` memicu `_uiState.update { it.copy(isLoading = true) }`. Hal ini menyebabkan `LynxAppShell` membongkar (*unmount*) seluruh komposisi `MainDashboard` dan menggantinya dengan `LoadingScreen()`. Saat selesai, state navigasi lokal ter-reset ke `null`, melempar pengguna keluar dari sub-halaman Profil ke Hub menu awal.
+- **Solusi Arsitektur**:
+  - Mengisolasi pemindaian game ke state independen `isScanningInstalledGames: Boolean` pada `LynxUiState`.
+  - Fungsi scan berjalan asinkron di latar belakang tanpa pernah menyentuh flag `isLoading` aplikasi.
+  - Pengguna tetap berada 100% di halaman Otomasi Aplikasi tanpa *screen reload*, *flicker*, ataupun reset navigasi.
+  - Menyematkan `selectedTuningCategory` ke dalam ViewModel sebagai *Single Source of Truth* untuk proteksi navigasi permanen (*Navigation Guard*).
+
+### 2. ⚡ Tombol Dedicated 'Pindai Game' di Header Kartu & Animasi Real-Time
+- **Aksesibilitas Cepat (First-Class Action)**: Tombol **[ ⟳ Pindai ]** kini ditempatkan langsung di header kartu bersanding dengan tombol **[ + Tambah ]** dan **[ ⋮ ]**, menghilangkan keharusan membuka menu tersembunyi.
+- **Indikator Progres Inline**: Saat pemindaian berlangsung, tombol otomatis menampilkan `CircularProgressIndicator` mini berputar halus dengan teks `"Memindai..."` dan status disabled sementara untuk mencegah *spam-tap*.
+- **Umpan Balik Cerdas**: Selesai pemindaian, notifikasi Toast HUD langsung menginformasikan jumlah game baru yang berhasil didaftarkan secara akurat.
+
+### 3. 🗑️ Modal Konfirmasi 'Hapus Semua Aturan' Mewah Bergaya Cyberpunk OLED
+- **Perombakan Dialog Menyeluruh**: Menggantikan dialog teks biasa dengan modal keamanan tingkat tinggi:
+  - **Badge Bahaya**: Lingkaran merah transparan (`AccentRed`) dengan ikon `DeleteOutline`.
+  - **Kotak Ringkasan Aturan**: Menampilkan badge jumlah total aturan yang akan dihapus (`X Aplikasi`) dengan teks kontras tinggi.
+  - **Penjelasan Dampak Bersih**: Menjelaskan secara transparan bahwa reset mencakup profil performa, target refresh rate, dan floating HUD, disertai catatan bahwa game terpasang dapat dipindai ulang kapan saja.
+  - **Tombol Sentuh Proporsional**: Tombol konfirmasi merah `Hapus Semua` dan tombol `Batal` ditata ergonomis (tinggi 40dp) bebas *miss-touch*.
+
+### 4. 🎮 Empty State Interaktif & Konsisten
+- Menghadirkan tampilan kartu kosong yang memukau saat belum ada aturan (atau setelah dibersihkan), lengkap dengan tombol utama `[ ⟳ Pindai Game Terpasang ]` beraksen Cyan bercahaya dan tombol sekunder `[ + Tambah Manual ]`.
+
+---
+
 # Lynx Universal [Two-Zone Pinned Service Architecture, In-Place Virtualized App Scroll & Standard Ergonomic Sizing] 7.0.0-RC72
 Released on: 2026-10-17
 > **Lynx Universal v7.0.0-RC72** (Lynx Kernel Manager v3.1.25): **Implementasi Arsitektur Dua Zona Vertikal (Two-Zone Layout) dengan Pinned Top Service Header & In-Place Virtualized App Rules Scroll, Peningkatan Standar Ukuran Tipografi (Judul 14sp, Subteks 11.5sp, Badge 10.5sp), Serta Optimalisasi Target Sentuh Ergonomis Bebas Miss-Touch (Slider & Tombol 38dp, Target Sentuh >=44dp)**.

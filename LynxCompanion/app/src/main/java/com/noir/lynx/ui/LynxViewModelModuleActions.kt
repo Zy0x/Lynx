@@ -46,6 +46,10 @@ fun LynxViewModel.switchTab(tabIndex: Int) {
     }
 }
 
+fun LynxViewModel.setSelectedTuningCategory(category: String?) {
+    _uiState.update { it.copy(selectedTuningCategory = category) }
+}
+
 fun LynxViewModel.refreshBackups() {
     viewModelScope.launch {
         val backups = LynxRepository.listBackups()

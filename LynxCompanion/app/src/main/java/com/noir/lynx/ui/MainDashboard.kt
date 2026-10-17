@@ -112,7 +112,13 @@ fun MainDashboard(
     val tuningHubFling = rememberFluidFlingBehavior()
     val toolsFling = rememberFluidFlingBehavior()
     val subscreenFling = rememberFluidFlingBehavior()
-    var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedCategory by rememberSaveable { mutableStateOf<String?>(uiState.selectedTuningCategory) }
+
+    LaunchedEffect(uiState.selectedTuningCategory) {
+        if (uiState.selectedTuningCategory != selectedCategory) {
+            selectedCategory = uiState.selectedTuningCategory
+        }
+    }
 
     var selectedToolsCategory by rememberSaveable { mutableStateOf<String?>(null) }
     val toolsHubLazyState = rememberLazyListState()
@@ -126,6 +132,7 @@ fun MainDashboard(
     BackHandler(enabled = uiState.currentTab == 1 && selectedCategory != null) {
         android.util.Log.i("LynxNavigation", "system-back category=$selectedCategory scrolling=${subscreenLazyState.isScrollInProgress}")
         selectedCategory = null
+        viewModel.setSelectedTuningCategory(null)
     }
     BackHandler(enabled = (uiState.currentTab == 2 || uiState.currentTab == 3) && selectedToolsCategory != null) {
         android.util.Log.i("LynxNavigation", "system-back toolsCategory=$selectedToolsCategory")
@@ -593,6 +600,7 @@ fun MainDashboard(
                 onNavigateToProfilesCatalog = {
                     android.util.Log.i("LynxNavigation", "navigating to profiles catalog")
                     selectedCategory = "profiles"
+                    viewModel.setSelectedTuningCategory("profiles")
                     viewModel.switchTab(1)
                 }
             )
@@ -601,7 +609,10 @@ fun MainDashboard(
                 uiState = uiState,
                 viewModel = viewModel,
                 selectedCategory = selectedCategory,
-                onSelectedCategoryChange = { selectedCategory = it },
+                onSelectedCategoryChange = {
+                    selectedCategory = it
+                    viewModel.setSelectedTuningCategory(it)
+                },
                 tuningHubLazyState = tuningHubLazyState,
                 tuningHubFling = tuningHubFling,
                 subscreenLazyState = subscreenLazyState,
@@ -623,6 +634,7 @@ fun MainDashboard(
                 toolsSubscreenFling = toolsSubscreenFling,
                 onNavigateToTuning = { targetCategory ->
                     selectedCategory = targetCategory
+                    viewModel.setSelectedTuningCategory(targetCategory)
                     viewModel.switchTab(1)
                 }
             )

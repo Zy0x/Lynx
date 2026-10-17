@@ -586,51 +586,153 @@ fun ProfilesAutomationScreen(
     if (showClearAllDialog) {
         AlertDialog(
             onDismissRequest = { showClearAllDialog = false },
+            containerColor = BgElevated,
+            shape = RoundedCornerShape(20.dp),
             icon = {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = AccentRed,
-                    modifier = Modifier.size(28.dp)
-                )
+                Surface(
+                    shape = CircleShape,
+                    color = AccentRed.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.35f)),
+                    modifier = Modifier.size(52.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = null,
+                            tint = AccentRed,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
             },
             title = {
                 Text(
-                    text = "Hapus Semua Aturan?",
+                    text = "Hapus Semua Aturan Profil?",
                     color = TextPrimary,
-                    fontSize = 16.sp,
+                    fontSize = 16.5.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
             },
             text = {
-                Text(
-                    text = "Seluruh ${uiState.appProfileRules.size} konfigurasi aturan profil per-aplikasi akan dihapus dari sistem. Anda dapat mendeteksi ulang game terpasang kapan saja.",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgDeepOled,
+                        border = BorderStroke(0.8.dp, BorderGlass),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Total Aturan Terdaftar",
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = AccentRed.copy(alpha = 0.16f),
+                                border = BorderStroke(0.8.dp, AccentRed.copy(alpha = 0.4f))
+                            ) {
+                                Text(
+                                    text = "${uiState.appProfileRules.size} Aplikasi",
+                                    color = AccentRed,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = "Tindakan ini akan menghapus seluruh konfigurasi profil performa, target refresh rate, dan floating HUD untuk semua game & aplikasi.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.5.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentCyan.copy(alpha = 0.08f),
+                        border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.25f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = AccentCyan,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Anda dapat memindai ulang game terpasang secara otomatis kapan saja dengan tombol Pindai.",
+                                color = TextPrimary.copy(alpha = 0.85f),
+                                fontSize = 11.sp,
+                                lineHeight = 14.5.sp
+                            )
+                        }
+                    }
+                }
             },
             confirmButton = {
-                TextButton(
+                Surface(
                     onClick = {
                         showClearAllDialog = false
                         viewModel.clearAllAppProfileRules(context)
-                    }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    color = AccentRed.copy(alpha = 0.18f),
+                    border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.6f)),
+                    modifier = Modifier.height(40.dp)
                 ) {
-                    Text("Hapus Semua", color = AccentRed, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Box(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Hapus Semua (${uiState.appProfileRules.size})",
+                            color = AccentRed,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp
+                        )
+                    }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showClearAllDialog = false }) {
-                    Text("Batal", color = TextSecondary, fontSize = 13.sp)
+                Surface(
+                    onClick = { showClearAllDialog = false },
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgDeepOled,
+                    border = BorderStroke(0.8.dp, BorderGlass),
+                    modifier = Modifier.height(40.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Batal",
+                            color = TextSecondary,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.5.sp
+                        )
+                    }
                 }
-            },
-            containerColor = BgElevated,
-            shape = RoundedCornerShape(16.dp)
+            }
         )
     }
 
@@ -846,7 +948,7 @@ fun AutomationRulesCard(
         Column(modifier = Modifier.fillMaxSize()) {
             // ── PINNED HEADER INSIDE CARD ────────────────────────────
             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                // Header Row (Title, Count Badge, Tambah Button, Overflow Button)
+                // Header Row (Title, Count Badge, Action Buttons: Pindai, Tambah, Overflow)
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -854,10 +956,10 @@ fun AutomationRulesCard(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Aturan Profil Aplikasi",
+                            text = "Aturan Aplikasi",
                             color = TextPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.5.sp
@@ -883,6 +985,35 @@ fun AutomationRulesCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Scan / Pindai Button (with active scanning state)
+                        Surface(
+                            onClick = { viewModel.autoDetectAndSyncInstalledRules(context) },
+                            enabled = !uiState.isScanningInstalledGames,
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (uiState.isScanningInstalledGames) AccentCyan.copy(alpha = 0.22f) else BgDeepOled.copy(alpha = 0.6f),
+                            border = BorderStroke(0.8.dp, if (uiState.isScanningInstalledGames) AccentCyan else BorderGlass),
+                            modifier = Modifier.height(38.dp)
+                        ) {
+                            Row(
+                                Modifier.padding(horizontal = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (uiState.isScanningInstalledGames) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(13.dp),
+                                        color = AccentCyan,
+                                        strokeWidth = 1.8.dp
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Memindai...", color = AccentCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                } else {
+                                    Icon(Icons.Default.Refresh, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Pindai", color = AccentCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
                         // Minimal Primary Add Button
                         Surface(
                             onClick = onAddAppClick,
@@ -892,12 +1023,12 @@ fun AutomationRulesCard(
                             modifier = Modifier.height(38.dp)
                         ) {
                             Row(
-                                Modifier.padding(horizontal = 12.dp),
+                                Modifier.padding(horizontal = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Default.Add, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("Tambah", color = AccentCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("Tambah", color = AccentCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -928,7 +1059,7 @@ fun AutomationRulesCard(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            "Pindai Game Terpasang",
+                                            "Pindai Ulang Game",
                                             color = TextPrimary,
                                             fontSize = 13.sp
                                         )
@@ -946,27 +1077,29 @@ fun AutomationRulesCard(
                                         viewModel.autoDetectAndSyncInstalledRules(context)
                                     }
                                 )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            "Hapus Semua Aturan",
-                                            color = AccentRed,
-                                            fontSize = 13.sp
-                                        )
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Default.DeleteOutline,
-                                            contentDescription = null,
-                                            tint = AccentRed,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    },
-                                    onClick = {
-                                        onOverflowMenuDismiss()
-                                        onClearAllClick()
-                                    }
-                                )
+                                if (uiState.appProfileRules.isNotEmpty()) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "Hapus Semua Aturan",
+                                                color = AccentRed,
+                                                fontSize = 13.sp
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                Icons.Default.DeleteOutline,
+                                                contentDescription = null,
+                                                tint = AccentRed,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        },
+                                        onClick = {
+                                            onOverflowMenuDismiss()
+                                            onClearAllClick()
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -1080,58 +1213,116 @@ fun AutomationRulesCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .padding(16.dp),
+                        .padding(20.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.SportsEsports, null, tint = AccentCyan.copy(alpha = 0.5f), modifier = Modifier.size(32.dp))
-                        Spacer(Modifier.height(8.dp))
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = AccentCyan.copy(alpha = 0.1f),
+                            border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.3f)),
+                            modifier = Modifier.size(54.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.SportsEsports,
+                                    contentDescription = null,
+                                    tint = AccentCyan,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
                         Text(
-                            "Belum Ada Game / Aplikasi Terdaftar",
+                            text = "Belum Ada Game / Aplikasi Terdaftar",
                             color = TextPrimary,
-                            fontSize = 13.5.sp,
+                            fontSize = 14.5.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(6.dp))
                         Text(
-                            "Pindai otomatis game yang terpasang di perangkat Anda atau tambahkan aplikasi secara manual.",
+                            text = "Pindai otomatis seluruh game yang terpasang di perangkat Anda atau tambahkan aplikasi secara manual.",
                             color = TextSecondary,
-                            fontSize = 11.5.sp,
+                            fontSize = 12.sp,
                             textAlign = TextAlign.Center,
-                            lineHeight = 15.sp
+                            lineHeight = 16.5.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp)
                         )
-                        Spacer(Modifier.height(14.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Spacer(Modifier.height(18.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Surface(
                                 onClick = { viewModel.autoDetectAndSyncInstalledRules(context) },
-                                shape = RoundedCornerShape(8.dp),
-                                color = AccentCyan.copy(alpha = 0.16f),
-                                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f)),
-                                modifier = Modifier.height(38.dp)
+                                enabled = !uiState.isScanningInstalledGames,
+                                shape = RoundedCornerShape(10.dp),
+                                color = AccentCyan.copy(alpha = 0.18f),
+                                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.55f)),
+                                modifier = Modifier.height(42.dp)
                             ) {
                                 Row(
-                                    Modifier.padding(horizontal = 12.dp),
+                                    Modifier.padding(horizontal = 14.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.Refresh, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Deteksi Game Terpasang", color = AccentCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    if (uiState.isScanningInstalledGames) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(15.dp),
+                                            color = AccentCyan,
+                                            strokeWidth = 2.dp
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "Memindai Game...",
+                                            color = AccentCyan,
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.Refresh,
+                                            null,
+                                            tint = AccentCyan,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "Pindai Game Terpasang",
+                                            color = AccentCyan,
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
+
                             Surface(
                                 onClick = onAddAppClick,
-                                shape = RoundedCornerShape(8.dp),
-                                color = AccentCyan.copy(alpha = 0.16f),
-                                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f)),
-                                modifier = Modifier.height(38.dp)
+                                shape = RoundedCornerShape(10.dp),
+                                color = BgDeepOled,
+                                border = BorderStroke(1.dp, BorderGlass),
+                                modifier = Modifier.height(42.dp)
                             ) {
                                 Row(
-                                    Modifier.padding(horizontal = 12.dp),
+                                    Modifier.padding(horizontal = 14.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.Add, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
+                                    Icon(
+                                        Icons.Default.Add,
+                                        null,
+                                        tint = TextSecondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                     Spacer(Modifier.width(6.dp))
-                                    Text("Tambah Manual", color = AccentCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        "Tambah Manual",
+                                        color = TextSecondary,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
                                 }
                             }
                         }
