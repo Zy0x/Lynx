@@ -203,347 +203,430 @@ fun MainDashboard(
             uiState.appProfileRules.any { it.packageName == rule.packageName }
         }
 
-        AlertDialog(
+        Dialog(
             onDismissRequest = { editingRule = null },
-            containerColor = BgElevated,
-            shape = RoundedCornerShape(22.dp),
-            modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .border(0.8.dp, BorderGlass, RoundedCornerShape(22.dp)),
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderGlass),
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .heightIn(max = 660.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp)
                 ) {
-                    AppIconImage(
-                        packageName = rule.packageName,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = rule.appName,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            if (rule.isGame) {
-                                Spacer(Modifier.width(6.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = AccentOrange.copy(alpha = 0.16f),
-                                    border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
-                                ) {
+                    // Header Terpadu & Minimalis
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = BgDeepOled.copy(alpha = 0.7f),
+                                border = BorderStroke(0.8.dp, BorderGlass),
+                                modifier = Modifier.size(46.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    AppIconImage(
+                                        packageName = rule.packageName,
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(RoundedCornerShape(9.dp))
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = "GAME",
-                                        color = AccentOrange,
-                                        fontSize = 8.5.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                        text = rule.appName,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = TextPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    if (rule.isGame) {
+                                        Spacer(Modifier.width(6.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = AccentOrange.copy(alpha = 0.16f),
+                                            border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
+                                        ) {
+                                            Text(
+                                                text = "GAME",
+                                                color = AccentOrange,
+                                                fontSize = 8.5.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = rule.packageName,
+                                    fontSize = 11.sp,
+                                    color = TextSecondary.copy(alpha = 0.7f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        Surface(
+                            onClick = { editingRule = null },
+                            shape = CircleShape,
+                            color = BgDeepOled.copy(alpha = 0.7f),
+                            border = BorderStroke(0.8.dp, BorderGlass),
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Tutup",
+                                    tint = TextSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+
+                    // Pengaturan Konfigurasi Terstruktur & Terpadu
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // 1. Status Otomasi Aplikasi
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = BgDeepOled.copy(alpha = 0.6f),
+                            border = BorderStroke(0.8.dp, BorderGlass),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                                    Text(
+                                        text = "Status Otomasi Aplikasi",
+                                        color = TextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.5.sp
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = "Aktifkan profil kustom saat aplikasi dibuka",
+                                        color = TextSecondary.copy(alpha = 0.7f),
+                                        fontSize = 10.5.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = isRuleEnabled,
+                                    onCheckedChange = { isRuleEnabled = it },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = BgDeepOled,
+                                        checkedTrackColor = AccentCyan,
+                                        uncheckedThumbColor = TextSecondary.copy(alpha = 0.5f),
+                                        uncheckedTrackColor = BgElevated
+                                    ),
+                                    modifier = Modifier.scale(0.85f)
+                                )
+                            }
+                        }
+
+                        // 2. Profil Performa Kernel
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = BgDeepOled.copy(alpha = 0.6f),
+                            border = BorderStroke(0.8.dp, BorderGlass),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = "Profil Performa Kernel",
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.5.sp,
+                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = "Pilih profil CPU & GPU saat aplikasi di foreground",
+                                    color = TextSecondary.copy(alpha = 0.7f),
+                                    fontSize = 10.5.sp
+                                )
+                                Spacer(Modifier.height(10.dp))
+
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = BgElevated.copy(alpha = 0.7f),
+                                    border = BorderStroke(0.6.dp, BorderGlass.copy(alpha = 0.5f)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(36.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(2.5.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        listOf(
+                                            "extreme" to ("Ekstrem" to AccentRed),
+                                            "performance" to ("Performa" to AccentOrange),
+                                            "balance" to ("Seimbang" to AccentCyan),
+                                            "powersave" to ("Hemat" to AccentGreen),
+                                        ).forEach { (prof, meta) ->
+                                            val isSel = targetProf.equals(prof, ignoreCase = true)
+                                            val accentColor = meta.second
+                                            Surface(
+                                                onClick = { targetProf = prof },
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = if (isSel) accentColor.copy(alpha = 0.22f) else Color.Transparent,
+                                                border = if (isSel) BorderStroke(0.8.dp, accentColor.copy(alpha = 0.6f)) else null,
+                                                modifier = Modifier.weight(1f).fillMaxHeight()
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Text(
+                                                        text = meta.first,
+                                                        color = if (isSel) accentColor else TextSecondary.copy(alpha = 0.8f),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Kunci Refresh Rate Layar
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = BgDeepOled.copy(alpha = 0.6f),
+                            border = BorderStroke(0.8.dp, BorderGlass),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = "Kunci Refresh Rate Layar",
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.5.sp
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = "Paksa refresh rate display panel saat aplikasi aktif",
+                                    color = TextSecondary.copy(alpha = 0.7f),
+                                    fontSize = 10.5.sp
+                                )
+                                Spacer(Modifier.height(10.dp))
+
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = BgElevated.copy(alpha = 0.7f),
+                                    border = BorderStroke(0.6.dp, BorderGlass.copy(alpha = 0.5f)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(36.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(2.5.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        listOf(
+                                            null to "Bawaan",
+                                            60 to "60 Hz",
+                                            90 to "90 Hz",
+                                            120 to "120 Hz"
+                                        ).forEach { (hz, label) ->
+                                            val isSel = targetHz == hz
+                                            Surface(
+                                                onClick = { targetHz = hz },
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = if (isSel) AccentPurple.copy(alpha = 0.22f) else Color.Transparent,
+                                                border = if (isSel) BorderStroke(0.8.dp, AccentPurple.copy(alpha = 0.6f)) else null,
+                                                modifier = Modifier.weight(1f).fillMaxHeight()
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Text(
+                                                        text = label,
+                                                        color = if (isSel) AccentPurple else TextSecondary.copy(alpha = 0.8f),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 4. Floating Game HUD (OSD) Toggle
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = BgDeepOled.copy(alpha = 0.6f),
+                            border = BorderStroke(0.8.dp, BorderGlass),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                                    Text(
+                                        text = "Floating Game HUD (OSD)",
+                                        color = TextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.5.sp
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = "Tampilkan overlay FPS, suhu & watt real-time",
+                                        color = TextSecondary.copy(alpha = 0.7f),
+                                        fontSize = 10.5.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = autoHud,
+                                    onCheckedChange = { autoHud = it },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = BgDeepOled,
+                                        checkedTrackColor = AccentCyan,
+                                        uncheckedThumbColor = TextSecondary.copy(alpha = 0.5f),
+                                        uncheckedTrackColor = BgElevated
+                                    ),
+                                    modifier = Modifier.scale(0.85f)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Tombol Aksi Simetris & Seimbang
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isExistingRule) {
+                            Surface(
+                                onClick = {
+                                    viewModel.deleteAppProfileRule(context, rule.packageName)
+                                    viewModel.removeAppFromPerf(rule.packageName)
+                                    editingRule = null
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                color = AccentRed.copy(alpha = 0.12f),
+                                border = BorderStroke(0.8.dp, AccentRed.copy(alpha = 0.45f)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DeleteOutline,
+                                            contentDescription = null,
+                                            tint = AccentRed,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = "Hapus Aturan",
+                                            color = AccentRed,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Surface(
+                            onClick = {
+                                val updated = rule.copy(
+                                    targetProfile = targetProf,
+                                    targetRefreshRate = targetHz,
+                                    autoFloatingHud = autoHud,
+                                    enabled = isRuleEnabled
+                                )
+                                viewModel.addOrUpdateAppProfileRule(context, updated)
+                                editingRule = null
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = AccentCyan.copy(alpha = 0.2f),
+                            border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.65f)),
+                            modifier = Modifier
+                                .weight(if (isExistingRule) 1.35f else 1f)
+                                .height(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = AccentCyan,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "Simpan Konfigurasi",
+                                        color = AccentCyan,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
                                     )
                                 }
                             }
                         }
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = rule.packageName,
-                            fontSize = 11.sp,
-                            color = TextSecondary.copy(alpha = 0.75f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    // 1. Status Otomasi Aplikasi
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = BgDeepOled.copy(alpha = 0.6f),
-                        border = BorderStroke(0.8.dp, BorderGlass),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f).padding(end = 10.dp)) {
-                                Text(
-                                    "Status Otomasi Aplikasi",
-                                    color = TextPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    "Aktifkan profil kustom saat aplikasi dibuka",
-                                    color = TextSecondary.copy(alpha = 0.7f),
-                                    fontSize = 11.sp
-                                )
-                            }
-                            Switch(
-                                checked = isRuleEnabled,
-                                onCheckedChange = { isRuleEnabled = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = BgDeepOled,
-                                    checkedTrackColor = AccentCyan,
-                                    uncheckedThumbColor = TextSecondary.copy(alpha = 0.5f),
-                                    uncheckedTrackColor = BgElevated
-                                ),
-                                modifier = Modifier.scale(0.85f)
-                            )
-                        }
-                    }
-
-                    // 2. Profil Performa Kernel
-                    Column {
-                        Text(
-                            text = "Profil Performa Kernel",
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            "Pilih profil CPU & GPU saat aplikasi di foreground",
-                            color = TextSecondary.copy(alpha = 0.7f),
-                            fontSize = 11.sp
-                        )
-                        Spacer(Modifier.height(8.dp))
-
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = BgDeepOled.copy(alpha = 0.6f),
-                            border = BorderStroke(0.8.dp, BorderGlass),
-                            modifier = Modifier.fillMaxWidth().height(38.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxSize().padding(3.dp),
-                                horizontalArrangement = Arrangement.spacedBy(3.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                listOf(
-                                    "extreme" to ("Ekstrem" to AccentRed),
-                                    "performance" to ("Performa" to AccentOrange),
-                                    "balance" to ("Seimbang" to AccentCyan),
-                                    "powersave" to ("Hemat" to AccentGreen),
-                                ).forEach { (prof, meta) ->
-                                    val isSel = targetProf.equals(prof, ignoreCase = true)
-                                    val accentColor = meta.second
-                                    Surface(
-                                        onClick = { targetProf = prof },
-                                        shape = RoundedCornerShape(7.dp),
-                                        color = if (isSel) accentColor.copy(alpha = 0.22f) else Color.Transparent,
-                                        border = if (isSel) BorderStroke(0.8.dp, accentColor.copy(alpha = 0.6f)) else null,
-                                        modifier = Modifier.weight(1f).fillMaxHeight()
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Text(
-                                                text = meta.first,
-                                                color = if (isSel) accentColor else TextSecondary,
-                                                fontSize = 11.5.sp,
-                                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // 3. Kunci Refresh Rate Layar
-                    Column {
-                        Text(
-                            "Kunci Refresh Rate Layar",
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            "Paksa refresh rate display panel saat aplikasi aktif",
-                            color = TextSecondary.copy(alpha = 0.7f),
-                            fontSize = 11.sp
-                        )
-                        Spacer(Modifier.height(8.dp))
-
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = BgDeepOled.copy(alpha = 0.6f),
-                            border = BorderStroke(0.8.dp, BorderGlass),
-                            modifier = Modifier.fillMaxWidth().height(38.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxSize().padding(3.dp),
-                                horizontalArrangement = Arrangement.spacedBy(3.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                listOf(
-                                    null to "Bawaan",
-                                    60 to "60 Hz",
-                                    90 to "90 Hz",
-                                    120 to "120 Hz"
-                                ).forEach { (hz, label) ->
-                                    val isSel = targetHz == hz
-                                    Surface(
-                                        onClick = { targetHz = hz },
-                                        shape = RoundedCornerShape(7.dp),
-                                        color = if (isSel) AccentPurple.copy(alpha = 0.22f) else Color.Transparent,
-                                        border = if (isSel) BorderStroke(0.8.dp, AccentPurple.copy(alpha = 0.6f)) else null,
-                                        modifier = Modifier.weight(1f).fillMaxHeight()
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Text(
-                                                text = label,
-                                                color = if (isSel) AccentPurple else TextSecondary,
-                                                fontSize = 11.5.sp,
-                                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // 4. Floating Game HUD (OSD) Toggle
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = BgDeepOled.copy(alpha = 0.6f),
-                        border = BorderStroke(0.8.dp, BorderGlass),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f).padding(end = 10.dp)) {
-                                Text(
-                                    "Floating Game HUD (OSD)",
-                                    color = TextPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    "Tampilkan overlay FPS, suhu & watt real-time",
-                                    color = TextSecondary.copy(alpha = 0.7f),
-                                    fontSize = 11.sp
-                                )
-                            }
-                            Switch(
-                                checked = autoHud,
-                                onCheckedChange = { autoHud = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = BgDeepOled,
-                                    checkedTrackColor = AccentCyan,
-                                    uncheckedThumbColor = TextSecondary.copy(alpha = 0.5f),
-                                    uncheckedTrackColor = BgElevated
-                                ),
-                                modifier = Modifier.scale(0.85f)
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Surface(
-                    onClick = {
-                        val updated = rule.copy(
-                            targetProfile = targetProf,
-                            targetRefreshRate = targetHz,
-                            autoFloatingHud = autoHud,
-                            enabled = isRuleEnabled
-                        )
-                        viewModel.addOrUpdateAppProfileRule(context, updated)
-                        editingRule = null
-                    },
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentCyan.copy(alpha = 0.2f),
-                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f)),
-                    modifier = Modifier.height(40.dp)
-                ) {
-                    Box(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Simpan Konfigurasi",
-                            color = AccentCyan,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.5.sp
-                        )
-                    }
-                }
-            },
-            dismissButton = {
-                if (isExistingRule) {
-                    Surface(
-                        onClick = {
-                            viewModel.deleteAppProfileRule(context, rule.packageName)
-                            viewModel.removeAppFromPerf(rule.packageName)
-                            editingRule = null
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        color = AccentRed.copy(alpha = 0.12f),
-                        border = BorderStroke(0.8.dp, AccentRed.copy(alpha = 0.4f)),
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier.padding(horizontal = 14.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Hapus Aturan",
-                                color = AccentRed,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                } else {
-                    Surface(
-                        onClick = { editingRule = null },
-                        shape = RoundedCornerShape(10.dp),
-                        color = BgDeepOled.copy(alpha = 0.6f),
-                        border = BorderStroke(0.8.dp, BorderGlass),
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier.padding(horizontal = 14.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Batal",
-                                color = TextSecondary,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp
-                            )
-                        }
                     }
                 }
             }
-        )
+        }
     }
 
     // ── Add App Profile Rule Dialog ───────────────────

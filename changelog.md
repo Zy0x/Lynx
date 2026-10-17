@@ -1,3 +1,26 @@
+# Lynx Universal [Pure Unified Profile Rule Dialog & Symmetrical Action Layout] 7.0.0-RC78
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC78** (Lynx Kernel Manager v3.1.31): **Perombakan Total Modal Konfigurasi Aturan Aplikasi (Edit & Setup Rule): Migrasi dari AlertDialog Usang ke Custom Dialog Presisi, Penataan Kartu Pengaturan Terpadu (Unified Cards) untuk Seluruh Kontrol (Status, Profil, Refresh Rate, HUD), Eliminasi Tombol Menumpuk Menjadi Baris Aksi Seimbang dan Simetris Penuh (Hapus & Simpan), Squircle Icon Header Terstandar, Serta Tombol Tutup Bulat Ergonomis**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC78)
+
+### 1. ⚖️ Baris Aksi Simetris Penuh (Eliminasi Tombol Menumpuk Asimetris)
+- **Eliminasi Stacking Lopsided Kanan**: Menghapus perilaku Material 3 AlertDialog yang menumpuk tombol `Simpan Konfigurasi` dan `Hapus Aturan` secara vertikal di sisi kanan bawah dengan ruang kosong besar di kiri.
+- **Tata Letak Baris 2-Kolom Seimbang**: Mengintegrasikan tombol `Hapus Aturan` (merah, dengan ikon tempat sampah) dan `Simpan Konfigurasi` (cyan, dengan ikon centang) ke dalam satu baris horizontal proporsional selebar dialog (`Row` dengan `spacedBy(10.dp)`), memberikan keseimbangan visual 100% simetris.
+
+### 2. 🎴 Arsitektur Kartu Terpadu (Unified Settings Cards)
+- **Konsistensi Visual Antar-Bagian**: Mengakhiri disparitas desain di mana beberapa bagian berada di dalam kartu sementara bagian lain melayang tanpa kontainer. Keempat pengaturan kini menggunakan kontainer squircle OLED (`12.dp`) dengan border kaca (`BorderGlass`) yang identik:
+  1. **Status Otomasi Aplikasi**: Judul, subjudul, dan Switch smooth.
+  2. **Profil Performa Kernel**: Judul, subjudul, dan selector segmented 4-profil terintegrasi rapi di dalam kartu yang sama.
+  3. **Kunci Refresh Rate Layar**: Judul, subjudul, dan selector segmented refresh rate terintegrasi rapi di dalam kartu yang sama.
+  4. **Floating Game HUD (OSD)**: Judul, subjudul, dan Switch smooth.
+
+### 3. 🖼️ Header Terstandar & Tombol Tutup Ergonomis
+- **Kontainer Ikon Squircle**: Membungkus ikon aplikasi ke dalam kontainer squircle `46.dp` dengan sudut `12.dp` dan border kaca transparan, serasi dengan standar visual Lynx.
+- **Tombol Tutup (X) Ergonomis**: Tombol lingkaran modern di sudut kanan atas memungkinkan pengguna menutup/membatalkan konfigurasi secara instan tanpa harus mengandalkan tombol back sistem.
+
+---
+
 # Lynx Universal [Hide Configured Apps in Add App Overlay & Clean Filter Streamlining] 7.0.0-RC77
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC77** (Lynx Kernel Manager v3.1.30): **Penyembunyian Otomatis Aplikasi yang Sudah Terdaftar dari Dialog Pemilihan Tambah Aplikasi, Penyempurnaan Filter Kategori Menjadi 'Semua', 'Game', dan 'Aplikasi' (Non-Game) dengan Counter Dinamis Presisi, Status Kosong 'Semua Aplikasi Terdaftar', Keseragaman Tombol Aksi (+), Serta Deteksi Cerdas pada Input Paket Manual**.
