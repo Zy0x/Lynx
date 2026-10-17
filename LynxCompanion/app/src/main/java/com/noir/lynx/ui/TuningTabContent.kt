@@ -288,7 +288,7 @@ fun TuningTabContent(
                                             detailText2 = if (uiState.soundControl.isSupported) "Faux Driver" else "AAudio HAL",
                                             onClick = {
                                                 viewModel.selectNetworkTab(1)
-                                                onSelectedCategoryChange("network")
+                                                onSelectedCategoryChange("audio")
                                             }
                                         )
 
@@ -309,7 +309,11 @@ fun TuningTabContent(
                             }
                         } else {
                             // ── SUB-PAGE VIEW WITH PERMANENT STICKY PINNED HEADER ──
-                            val cat = TuningCategory.fromId(currentCategory) ?: TuningCategory.CPU
+                            val cat = if (currentCategory == "network" || currentCategory == "audio") {
+                                if (uiState.selectedNetworkTab == 1) TuningCategory.AUDIO else TuningCategory.NETWORK
+                            } else {
+                                TuningCategory.fromId(currentCategory) ?: TuningCategory.CPU
+                            }
 
                             Column(
                                 modifier = Modifier
