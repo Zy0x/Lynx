@@ -1,3 +1,27 @@
+# Lynx Universal [Minimalist Stealth OLED Architecture, Nothing OS Segmented Slider & Header Overflow Menu] 7.0.0-RC71
+Released on: 2026-10-17
+> **Lynx Universal v7.0.0-RC71** (Lynx Kernel Manager v3.1.24): **Perombakan Estetika Menyeluruh Mengusung Filosofi 'Minimalist Stealth OLED & Anti AI-Slop': Eliminasi Eksplosi Warna Pelangi Menjadi Monokromatik Mewah dengan Stealth Dot Profile Pills, Penyeragaman Saklar Master Lynx Cyan, Segmented Control Slider Bergaya Nothing OS (30dp), Serta Integrasi Header Toolbar dengan Menu Overflow (⋮) dan Kolom Pencarian Full-Width**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC71)
+
+### 1. 🖤 Minimalist Stealth OLED Architecture (Anti AI-Slop & Monokromatik Mewah)
+- **Eliminasi Eksplosi Warna Pelangi**: Menghilangkan tampilan "AI slop" penuh warna neon acak yang membuat mata cepat lelah dan terkesan murahan.
+- **Stealth Dot Monokrom Profile Pills**: Mengganti pill profil dengan latar belakang berwarna kontras tinggi menjadi kapsul monokrom stealth gelap (`BgDeepOled` & `BorderGlass`) yang disempurnakan dengan *micro status dot* 5dp (`●`) beraksen profil dan tipografi netral yang elegan.
+- **Penyeragaman Saklar Master (Unified Lynx Cyan)**: Seluruh switch toggle pada baris aplikasi kini menggunakan aksen tunggal Lynx Cyan (`AccentCyan`), menghapus variasi warna switch dinamis (merah/oranye/hijau) yang sebelumnya mengacaukan ritme visual.
+- **Subdued Neutral Game Badge**: Merestrukturisasi badge `[GAME]` menjadi kontainer netral gelap transparan (`BgDeepOled.copy(0.7f)`) dengan teks abu-abu sekunder, memposisikan identitas game sebagai penanda fungsional tanpa mendominasi visual judul aplikasi.
+
+### 2. 🎚️ Nothing OS Style Segmented Control Slider (30dp)
+- **Desain Segmented Slider Padat & Mewah**: Mengganti tombol selector durasi cooldown terpisah dengan satu kontainer slider tersegmentasi bergaya Nothing OS setinggi 30dp yang mulus dan terbagi rata secara presisi: `5s`, `30s`, `1m`, `3m`, dan `Tetap`.
+- **Indikator Aktif Elegan & Keterangan Dinamis**: Opsi terpilih ditandai dengan latar belakang pill semi-transparan `AccentCyan.copy(0.22f)` dengan garis tepi `AccentCyan`, disertai penjelasan dinamis cerdas di bagian bawah tanpa teks promosi "REKOMENDASI" yang berlebihan.
+
+### 3. ⋯ Unifikasi Header Toolbar & Menu Overflow (⋮)
+- **Eliminasi Tombol Berdesakan di Samping Search**: Memindahkan tombol sekunder dan destruktif dari samping kolom pencarian ke baris judul kartu teratas:
+  - Tombol aksi primer `[ + Tambah ]` dan menu titik tiga vertikal `[ ⋮ ]` kini terpasang rapi di sebelah kanan judul "Konfigurasi Otomasi Aplikasi".
+  - Menu titik tiga `⋮` (DropdownMenu) menampung aksi `↻ Pindai Game Terpasang` serta aksi `🗑 Hapus Semua Aturan` lengkap dengan dialog konfirmasi berlapis.
+- **Pencarian Full-Width & Chip Kategori Monokrom Minimalis**: Kolom pencarian kini membentang penuh (*full-width*) dengan ketinggian 34dp untuk kenyamanan pengetikan, dipadukan dengan chip kategori ramping setinggi 25dp (`Semua`, `Game`, `Aktif`) yang serasi.
+
+---
+
 # Lynx Universal [Proportional Equal-Width Cooldown Selector, Unified Geometry Toolbar & Centered 2-Line App Rows] 7.0.0-RC70
 Released on: 2026-10-17
 > **Lynx Universal v7.0.0-RC70** (Lynx Kernel Manager v3.1.23): **Penyempurnaan Total Tata Letak, Ukuran, Tinggi, Lebar, dan Spasi Halaman Otomasi Aplikasi: Eliminasi Truncation Tombol Cooldown dengan Selector Equal-Width Proposional, Unifikasi Geometri Toolbar Pencarian & Aksi Cepat (34dp & Radius 8dp), Serta Restrukturisasi Baris Aplikasi Menjadi Format 2-Baris Sejajar Sempurna dengan Switch yang Terpusat Vertikal**.

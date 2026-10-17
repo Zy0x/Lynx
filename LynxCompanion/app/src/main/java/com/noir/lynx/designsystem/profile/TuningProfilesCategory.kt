@@ -2,6 +2,7 @@ package com.noir.lynx.ui
 
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -558,6 +559,7 @@ fun UnifiedAppAutomationCard(
     onEditRuleClick: (AppProfileRule) -> Unit
 ) {
     var showClearAllDialog by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("all") } // "all", "game", "active"
 
@@ -634,9 +636,9 @@ fun UnifiedAppAutomationCard(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
-                // ── 1. Title & Subtitle + Master Switch ─────────────
+                // ── 1. Title & Subtitle + Master Switch (Streamlined & Minimalist) ─────────────
                 Row(
-                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    Modifier.fillMaxWidth().padding(bottom = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -646,26 +648,27 @@ fun UnifiedAppAutomationCard(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = AccentGreen.copy(alpha = 0.15f),
-                            modifier = Modifier.size(32.dp)
+                            color = BgDeepOled.copy(alpha = 0.6f),
+                            border = BorderStroke(0.6.dp, BorderGlass),
+                            modifier = Modifier.size(30.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.SportsEsports, null, tint = AccentGreen, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.SportsEsports, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
                             }
                         }
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(9.dp))
                         Column {
                             Text(
-                                "Layanan Otomasi Game / App",
+                                "Layanan Otomasi Profil",
                                 color = TextPrimary,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
+                                fontSize = 12.5.sp
                             )
                             Text(
-                                "Responsivitas instan tanpa jeda saat game atau aplikasi dibuka",
-                                color = TextSecondary,
-                                fontSize = 10.sp,
-                                lineHeight = 13.5.sp
+                                "Terapkan profil otomatis saat game atau aplikasi dibuka",
+                                color = TextSecondary.copy(alpha = 0.7f),
+                                fontSize = 9.5.sp,
+                                lineHeight = 12.5.sp
                             )
                         }
                     }
@@ -674,72 +677,68 @@ fun UnifiedAppAutomationCard(
                         onCheckedChange = { viewModel.toggleAppAutomation(context, it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = BgDeepOled,
-                            checkedTrackColor = AccentGreen,
+                            checkedTrackColor = AccentCyan,
                             uncheckedThumbColor = TextSecondary,
                             uncheckedTrackColor = BgElevated,
                             uncheckedBorderColor = BorderGlass
-                        )
+                        ),
+                        modifier = Modifier.scale(0.75f)
                     )
                 }
 
-                HorizontalDivider(color = BorderGlass.copy(alpha = 0.4f), modifier = Modifier.padding(vertical = 7.dp))
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.35f), modifier = Modifier.padding(vertical = 6.dp))
 
-                // ── 2. Buffer Cooldown Selection ────────────────────
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Timelapse,
-                        contentDescription = null,
-                        tint = AccentGreen,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
+                // ── 2. Segmented Cooldown Slider (Stealth Nothing OS Style) ────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 3.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = stringResource(com.noir.lynx.R.string.audit_cooldown_title),
+                        text = "Penahanan Mode (Cooldown)",
                         color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.5.sp
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 11.sp
                     )
                 }
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = stringResource(com.noir.lynx.R.string.audit_cooldown_description),
-                    color = TextSecondary,
-                    fontSize = 10.sp,
-                    lineHeight = 13.5.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
 
                 val cooldownOptions = listOf(
-                    5 to "5 dtk",
-                    30 to "30 dtk",
-                    60 to "1 mnt",
-                    180 to "3 mnt",
+                    5 to "5s",
+                    30 to "30s",
+                    60 to "1m",
+                    180 to "3m",
                     0 to "Tetap"
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                // Monochromatic Segmented Control Container
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgDeepOled.copy(alpha = 0.6f),
+                    border = BorderStroke(0.8.dp, BorderGlass),
+                    modifier = Modifier.fillMaxWidth().height(30.dp)
                 ) {
-                    cooldownOptions.forEach { (sec, label) ->
-                        val isSelected = uiState.appAutomationCooldownSeconds == sec
-                        Surface(
-                            onClick = { viewModel.setAppAutomationCooldownSeconds(context, sec) },
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isSelected) AccentGreen.copy(alpha = 0.16f) else BgDeepOled.copy(alpha = 0.5f),
-                            border = BorderStroke(
-                                if (isSelected) 1.2.dp else 0.8.dp,
-                                if (isSelected) AccentGreen else BorderGlass
-                            ),
-                            modifier = Modifier.weight(1f).height(32.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = label,
-                                    color = if (isSelected) AccentGreen else TextPrimary,
-                                    fontSize = 10.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
+                    Row(
+                        modifier = Modifier.fillMaxSize().padding(2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        cooldownOptions.forEach { (sec, label) ->
+                            val isSelected = uiState.appAutomationCooldownSeconds == sec
+                            Surface(
+                                onClick = { viewModel.setAppAutomationCooldownSeconds(context, sec) },
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isSelected) AccentCyan.copy(alpha = 0.18f) else Color.Transparent,
+                                border = if (isSelected) BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.45f)) else null,
+                                modifier = Modifier.weight(1f).fillMaxHeight()
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) AccentCyan else TextSecondary,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
                             }
                         }
                     }
@@ -754,19 +753,19 @@ fun UnifiedAppAutomationCard(
                     } else {
                         "Buffer pendinginan: ${uiState.appAutomationCooldownSeconds} detik sebelum kembali ke seimbang"
                     },
-                    color = if (uiState.appAutomationCooldownSeconds == 30) AccentGreen else TextSecondary.copy(alpha = 0.7f),
-                    fontSize = 9.sp,
-                    fontWeight = if (uiState.appAutomationCooldownSeconds == 30) FontWeight.SemiBold else FontWeight.Normal
+                    color = TextSecondary.copy(alpha = 0.6f),
+                    fontSize = 8.5.sp
                 )
 
-                HorizontalDivider(color = BorderGlass.copy(alpha = 0.4f), modifier = Modifier.padding(vertical = 7.dp))
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.35f), modifier = Modifier.padding(vertical = 6.dp))
 
-                // ── 3. App Rules Section Header ─────────
+                // ── 3. App Rules Section Header (Integrated More Menu) ─────────
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Title + Subtle Count Badge
                     Row(
                         modifier = Modifier.weight(1f, fill = false),
                         verticalAlignment = Alignment.CenterVertically
@@ -780,160 +779,198 @@ fun UnifiedAppAutomationCard(
                         Spacer(Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = AccentGreen.copy(alpha = 0.16f),
-                            border = BorderStroke(0.6.dp, AccentGreen.copy(alpha = 0.35f))
+                            color = BgDeepOled.copy(alpha = 0.6f),
+                            border = BorderStroke(0.6.dp, BorderGlass)
                         ) {
                             Text(
                                 text = "${uiState.appProfileRules.size}",
-                                color = AccentGreen,
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.ExtraBold,
+                                color = TextSecondary,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                             )
                         }
                     }
 
-                    // Primary Add Button (Header Right)
-                    Surface(
-                        onClick = onAddAppClick,
-                        shape = RoundedCornerShape(8.dp),
-                        color = AccentGreen.copy(alpha = 0.16f),
-                        border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.45f)),
-                        modifier = Modifier.height(28.dp)
+                    // Right Actions: [+ Tambah] & [⋮ More Menu]
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            Modifier.padding(horizontal = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        // Minimal Primary Add Button
+                        Surface(
+                            onClick = onAddAppClick,
+                            shape = RoundedCornerShape(7.dp),
+                            color = AccentCyan.copy(alpha = 0.12f),
+                            border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.35f)),
+                            modifier = Modifier.height(28.dp)
                         ) {
-                            Icon(Icons.Default.Add, null, tint = AccentGreen, modifier = Modifier.size(13.dp))
-                            Spacer(Modifier.width(3.dp))
-                            Text("Tambah", color = AccentGreen, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                            Row(
+                                Modifier.padding(horizontal = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Add, null, tint = AccentCyan, modifier = Modifier.size(13.dp))
+                                Spacer(Modifier.width(3.dp))
+                                Text("Tambah", color = AccentCyan, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        // Overflow Menu Button (⋮)
+                        Box {
+                            Surface(
+                                onClick = { showOverflowMenu = true },
+                                shape = RoundedCornerShape(7.dp),
+                                color = BgDeepOled.copy(alpha = 0.5f),
+                                border = BorderStroke(0.8.dp, BorderGlass),
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.MoreVert,
+                                        contentDescription = "Opsi Lainnya",
+                                        tint = TextSecondary,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false },
+                                modifier = Modifier.background(BgElevated)
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            "Pindai Game Terpasang",
+                                            color = TextPrimary,
+                                            fontSize = 11.5.sp
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Refresh,
+                                            contentDescription = null,
+                                            tint = AccentCyan,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        viewModel.autoDetectAndSyncInstalledRules(context)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            "Hapus Semua Aturan",
+                                            color = AccentRed,
+                                            fontSize = 11.5.sp
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.DeleteOutline,
+                                            contentDescription = null,
+                                            tint = AccentRed,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showClearAllDialog = true
+                                    }
+                                )
+                            }
                         }
                     }
                 }
 
                 Spacer(Modifier.height(7.dp))
 
-                // ── 3.5 Integrated Search & General Actions Toolbar ─────────
+                // ── 3.5 Full-Width Minimalist Search & Filter Bar ─────────
                 if (uiState.appProfileRules.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    // Full-Width Dynamic Search Bar
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgDeepOled.copy(alpha = 0.6f),
+                        border = BorderStroke(0.8.dp, if (searchQuery.isNotEmpty()) AccentCyan.copy(alpha = 0.5f) else BorderGlass),
+                        modifier = Modifier.fillMaxWidth().height(34.dp)
                     ) {
-                        // Dynamic flexible search bar
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgDeepOled.copy(alpha = 0.6f),
-                            border = BorderStroke(0.8.dp, if (searchQuery.isNotEmpty()) AccentGreen.copy(alpha = 0.5f) else BorderGlass),
-                            modifier = Modifier.weight(1f).height(34.dp)
+                        Row(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = null,
-                                    tint = if (searchQuery.isNotEmpty()) AccentGreen else TextSecondary,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                                    if (searchQuery.isEmpty()) {
-                                        Text(
-                                            text = "Cari game atau paket...",
-                                            color = TextSecondary.copy(alpha = 0.5f),
-                                            fontSize = 10.5.sp
-                                        )
-                                    }
-                                    BasicTextField(
-                                        value = searchQuery,
-                                        onValueChange = { searchQuery = it },
-                                        singleLine = true,
-                                        textStyle = androidx.compose.ui.text.TextStyle(
-                                            color = TextPrimary,
-                                            fontSize = 10.5.sp,
-                                            fontFamily = FontFamily.Default
-                                        ),
-                                        cursorBrush = SolidColor(AccentGreen),
-                                        modifier = Modifier.fillMaxWidth()
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = if (searchQuery.isNotEmpty()) AccentCyan else TextSecondary.copy(alpha = 0.5f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(Modifier.width(7.dp))
+                            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = "Cari game atau nama paket...",
+                                        color = TextSecondary.copy(alpha = 0.4f),
+                                        fontSize = 10.5.sp
                                     )
                                 }
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(
-                                        onClick = { searchQuery = "" },
-                                        modifier = Modifier.size(18.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "Bersihkan",
-                                            tint = TextSecondary,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                    }
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    singleLine = true,
+                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                        color = TextPrimary,
+                                        fontSize = 10.5.sp,
+                                        fontFamily = FontFamily.Default
+                                    ),
+                                    cursorBrush = SolidColor(AccentCyan),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { searchQuery = "" },
+                                    modifier = Modifier.size(18.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Bersihkan",
+                                        tint = TextSecondary,
+                                        modifier = Modifier.size(12.dp)
+                                    )
                                 }
-                            }
-                        }
-
-                        // General Scan / Detect Game Button
-                        Surface(
-                            onClick = { viewModel.autoDetectAndSyncInstalledRules(context) },
-                            shape = RoundedCornerShape(8.dp),
-                            color = AccentCyan.copy(alpha = 0.12f),
-                            border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.35f)),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Pindai Game Terpasang", tint = AccentCyan, modifier = Modifier.size(13.dp))
-                                Spacer(Modifier.width(3.dp))
-                                Text("Pindai", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        // General Clear All Button (Dedicated square icon button)
-                        Surface(
-                            onClick = { showClearAllDialog = true },
-                            shape = RoundedCornerShape(8.dp),
-                            color = AccentRed.copy(alpha = 0.12f),
-                            border = BorderStroke(0.8.dp, AccentRed.copy(alpha = 0.35f)),
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.DeleteOutline, contentDescription = "Hapus Semua Aturan", tint = AccentRed, modifier = Modifier.size(15.dp))
                             }
                         }
                     }
 
                     Spacer(Modifier.height(6.dp))
 
-                    // Multi-Criteria Filter Chips Row
+                    // Multi-Criteria Minimalist Filter Chips Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val gameCount = uiState.appProfileRules.count { it.isGame }
                         val activeCount = uiState.appProfileRules.count { it.enabled }
                         val filters = listOf(
-                            Triple("all", "Semua (${uiState.appProfileRules.size})", AccentGreen),
-                            Triple("game", "🎮 Game ($gameCount)", AccentOrange),
-                            Triple("active", "⚡ Aktif ($activeCount)", AccentCyan)
+                            "all" to "Semua (${uiState.appProfileRules.size})",
+                            "game" to "Game ($gameCount)",
+                            "active" to "Aktif ($activeCount)"
                         )
-                        filters.forEach { (key, label, accent) ->
+                        filters.forEach { (key, label) ->
                             val isSelected = selectedFilter == key
                             Surface(
                                 onClick = { selectedFilter = key },
                                 shape = RoundedCornerShape(6.dp),
-                                color = if (isSelected) accent.copy(alpha = 0.16f) else BgDeepOled.copy(alpha = 0.4f),
+                                color = if (isSelected) AccentCyan.copy(alpha = 0.12f) else BgDeepOled.copy(alpha = 0.4f),
                                 border = BorderStroke(
                                     0.8.dp,
-                                    if (isSelected) accent.copy(alpha = 0.5f) else BorderGlass
+                                    if (isSelected) AccentCyan.copy(alpha = 0.45f) else BorderGlass
                                 ),
-                                modifier = Modifier.height(26.dp)
+                                modifier = Modifier.height(25.dp)
                             ) {
                                 Box(
                                     contentAlignment = Alignment.Center,
@@ -941,9 +978,9 @@ fun UnifiedAppAutomationCard(
                                 ) {
                                     Text(
                                         text = label,
-                                        color = if (isSelected) accent else TextSecondary,
-                                        fontSize = 9.5.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        color = if (isSelected) AccentCyan else TextSecondary,
+                                        fontSize = 9.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
                                 }
                             }
@@ -965,7 +1002,7 @@ fun UnifiedAppAutomationCard(
                             Modifier.padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Icon(Icons.Default.SportsEsports, null, tint = AccentGreen.copy(alpha = 0.5f), modifier = Modifier.size(28.dp))
+                            Icon(Icons.Default.SportsEsports, null, tint = AccentCyan.copy(alpha = 0.5f), modifier = Modifier.size(28.dp))
                             Spacer(Modifier.height(6.dp))
                             Text(
                                 "Belum Ada Game / Aplikasi Terdaftar",
@@ -1001,16 +1038,16 @@ fun UnifiedAppAutomationCard(
                                 Surface(
                                     onClick = onAddAppClick,
                                     shape = RoundedCornerShape(8.dp),
-                                    color = AccentGreen.copy(alpha = 0.16f),
-                                    border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.5f))
+                                    color = AccentCyan.copy(alpha = 0.16f),
+                                    border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f))
                                 ) {
                                     Row(
                                         Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Default.Add, null, tint = AccentGreen, modifier = Modifier.size(13.dp))
+                                        Icon(Icons.Default.Add, null, tint = AccentCyan, modifier = Modifier.size(13.dp))
                                         Spacer(Modifier.width(4.dp))
-                                        Text("Tambah Manual", color = AccentGreen, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                                        Text("Tambah Manual", color = AccentCyan, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -1049,7 +1086,7 @@ fun UnifiedAppAutomationCard(
                                     selectedFilter = "all"
                                 }
                             ) {
-                                Text("Reset Filter", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Reset Filter", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1090,7 +1127,7 @@ private fun AppRuleEmbeddedRow(
     viewModel: LynxViewModel,
     onEditRuleClick: (AppProfileRule) -> Unit
 ) {
-    val profColor = when (rule.targetProfile.lowercase()) {
+    val profDotColor = when (rule.targetProfile.lowercase()) {
         "extreme" -> AccentRed
         "performance" -> AccentOrange
         "powersave" -> AccentGreen
@@ -1125,14 +1162,14 @@ private fun AppRuleEmbeddedRow(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center
         ) {
-            // Line 1: App Title + [GAME] Badge
+            // Line 1: App Title + [GAME] Subtle Neutral Badge
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Text(
                     text = rule.appName,
-                    color = if (rule.enabled) TextPrimary else TextSecondary,
+                    color = if (rule.enabled) TextPrimary else TextSecondary.copy(alpha = 0.6f),
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     maxLines = 1,
@@ -1142,15 +1179,15 @@ private fun AppRuleEmbeddedRow(
                 if (rule.isGame) {
                     Surface(
                         shape = RoundedCornerShape(3.dp),
-                        color = AccentOrange.copy(alpha = 0.18f),
-                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
+                        color = BgDeepOled.copy(alpha = 0.7f),
+                        border = BorderStroke(0.6.dp, BorderGlass)
                     ) {
                         Text(
                             "GAME",
-                            color = AccentOrange,
+                            color = TextSecondary,
                             fontSize = 7.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 3.5.dp, vertical = 1.dp)
+                            modifier = Modifier.padding(horizontal = 3.5.dp, vertical = 0.8.dp)
                         )
                     }
                 }
@@ -1158,12 +1195,12 @@ private fun AppRuleEmbeddedRow(
 
             Spacer(Modifier.height(3.dp))
 
-            // Line 2: Profile Pill + Telemetry Badges + Package Name
+            // Line 2: Stealth Dot Monokrom Pill + Telemetry Badges + Package Name
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Interactive Target Profile Cycle Pill (Compact & Clean)
+                // Interactive Target Profile Cycle Pill (Stealth Monokrom with Colored Dot)
                 Surface(
                     onClick = {
                         val nextProfile = when (rule.targetProfile.lowercase()) {
@@ -1176,30 +1213,42 @@ private fun AppRuleEmbeddedRow(
                         viewModel.addOrUpdateAppProfileRule(context, rule.copy(targetProfile = nextProfile))
                     },
                     shape = RoundedCornerShape(4.dp),
-                    color = profColor.copy(alpha = 0.18f),
-                    border = BorderStroke(0.8.dp, profColor.copy(alpha = 0.45f))
+                    color = BgDeepOled.copy(alpha = 0.8f),
+                    border = BorderStroke(0.8.dp, BorderGlass)
                 ) {
-                    Text(
-                        text = profLabel,
-                        color = profColor,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0"),
-                        modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 1.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.5.dp)
+                    ) {
+                        // Tiny Status Dot
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(profDotColor)
+                        )
+                        Text(
+                            text = profLabel,
+                            color = TextPrimary,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                        )
+                    }
                 }
 
                 if (rule.targetRefreshRate != null) {
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = AccentPurple.copy(alpha = 0.16f),
-                        border = BorderStroke(0.6.dp, AccentPurple.copy(alpha = 0.4f))
+                        color = BgDeepOled.copy(alpha = 0.6f),
+                        border = BorderStroke(0.6.dp, BorderGlass)
                     ) {
                         Text(
                             "${rule.targetRefreshRate} Hz",
-                            color = AccentPurple,
+                            color = TextSecondary,
                             fontSize = 7.5.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Medium,
                             modifier = Modifier.padding(horizontal = 3.5.dp, vertical = 1.dp)
                         )
                     }
@@ -1208,14 +1257,14 @@ private fun AppRuleEmbeddedRow(
                 if (rule.autoFloatingHud) {
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = AccentCyan.copy(alpha = 0.16f),
-                        border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.4f))
+                        color = BgDeepOled.copy(alpha = 0.6f),
+                        border = BorderStroke(0.6.dp, BorderGlass)
                     ) {
                         Text(
                             "OSD",
-                            color = AccentCyan,
+                            color = TextSecondary,
                             fontSize = 7.5.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Medium,
                             modifier = Modifier.padding(horizontal = 3.5.dp, vertical = 1.dp)
                         )
                     }
@@ -1223,13 +1272,13 @@ private fun AppRuleEmbeddedRow(
 
                 Text(
                     text = "•",
-                    color = TextSecondary.copy(alpha = 0.4f),
+                    color = TextSecondary.copy(alpha = 0.3f),
                     fontSize = 8.sp
                 )
 
                 Text(
                     text = rule.packageName,
-                    color = TextSecondary.copy(alpha = 0.5f),
+                    color = TextSecondary.copy(alpha = 0.45f),
                     fontSize = 8.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1240,7 +1289,7 @@ private fun AppRuleEmbeddedRow(
 
         Spacer(Modifier.width(6.dp))
 
-        // 3. Right Action: Master Switch (Centered vertically with the whole item!)
+        // 3. Right Action: Uniform Lynx Cyan Master Switch
         Switch(
             checked = rule.enabled,
             onCheckedChange = { enabled ->
@@ -1248,7 +1297,7 @@ private fun AppRuleEmbeddedRow(
             },
             colors = SwitchDefaults.colors(
                 checkedThumbColor = BgDeepOled,
-                checkedTrackColor = profColor,
+                checkedTrackColor = AccentCyan,
                 uncheckedThumbColor = TextSecondary,
                 uncheckedTrackColor = BgElevated,
                 uncheckedBorderColor = BorderGlass
