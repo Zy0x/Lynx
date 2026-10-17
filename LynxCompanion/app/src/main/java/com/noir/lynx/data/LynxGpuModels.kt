@@ -1,5 +1,6 @@
 package com.noir.lynx.data
 
+import androidx.compose.runtime.Immutable
 import com.noir.lynx.profiles.KernelProfileCatalog
 
 data class GpuProcessInfo(
@@ -228,6 +229,7 @@ data class ThermalZoneInfo(
     val policy: String = "step_wise",
 )
 
+@Immutable
 data class AppInfo(
     val packageName: String = "",
     val label: String = "",

@@ -94,6 +94,11 @@ import com.noir.lynx.feature.memory.ui.*
 import com.noir.lynx.feature.network.ui.*
 import com.noir.lynx.feature.system.ui.*
 import com.noir.lynx.feature.navigation.model.TuningCategory
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 
 
 /**
@@ -296,35 +301,66 @@ fun ErrorScreen(uiState: LynxUiState) {
 }
 
 // ============================================================
-//  App Icon Loader Composable
+//  Ultra-Smooth App Icon Loader & Memory Cache (Preloaded & Zero IPC Jank)
 // ============================================================
 
-private val appIconMemoryCache = android.util.LruCache<String, ImageBitmap>(150)
+object AppIconLoader {
+    val cache = android.util.LruCache<String, ImageBitmap>(500)
+    private val iconDispatcher = Dispatchers.IO.limitedParallelism(2)
+    private val scope = CoroutineScope(iconDispatcher + SupervisorJob())
+
+    fun getCached(packageName: String): ImageBitmap? = cache.get(packageName)
+
+    suspend fun loadIcon(context: android.content.Context, packageName: String): ImageBitmap? {
+        val cached = cache.get(packageName)
+        if (cached != null) return cached
+
+        return withContext(iconDispatcher) {
+            try {
+                val pm = context.packageManager
+                val drawable = pm.getApplicationIcon(packageName)
+                val targetSize = 96
+                val bmp = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
+                drawable.setBounds(0, 0, targetSize, targetSize)
+                drawable.draw(canvas)
+                val imageBitmap = bmp.asImageBitmap()
+                cache.put(packageName, imageBitmap)
+                imageBitmap
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
+
+    fun preload(context: android.content.Context, packageNames: Collection<String>) {
+        if (packageNames.isEmpty()) return
+        scope.launch {
+            val pm = context.packageManager
+            for (pkg in packageNames) {
+                if (cache.get(pkg) != null) continue
+                try {
+                    val drawable = pm.getApplicationIcon(pkg)
+                    val targetSize = 96
+                    val bmp = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
+                    val canvas = Canvas(bmp)
+                    drawable.setBounds(0, 0, targetSize, targetSize)
+                    drawable.draw(canvas)
+                    cache.put(pkg, bmp.asImageBitmap())
+                } catch (_: Exception) {}
+            }
+        }
+    }
+}
 
 @Composable
 fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    var bitmapState by remember(packageName) { mutableStateOf(appIconMemoryCache.get(packageName)) }
+    var bitmapState by remember(packageName) { mutableStateOf(AppIconLoader.getCached(packageName)) }
 
     if (bitmapState == null) {
         LaunchedEffect(packageName) {
-            val img = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                try {
-                    val pm = context.packageManager
-                    val drawable = pm.getApplicationIcon(packageName)
-                    val w = drawable.intrinsicWidth.coerceIn(1, 192)
-                    val h = drawable.intrinsicHeight.coerceIn(1, 192)
-                    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                    val canvas = Canvas(bmp)
-                    drawable.setBounds(0, 0, canvas.width, canvas.height)
-                    drawable.draw(canvas)
-                    val imageBitmap = bmp.asImageBitmap()
-                    appIconMemoryCache.put(packageName, imageBitmap)
-                    imageBitmap
-                } catch (_: Exception) {
-                    null
-                }
-            }
+            val img = AppIconLoader.loadIcon(context, packageName)
             if (img != null) {
                 bitmapState = img
             }

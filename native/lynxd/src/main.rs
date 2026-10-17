@@ -1004,6 +1004,23 @@ fn handle_applist(args: &[String]) {
 }
 
 fn main() {
+    // Gracefully handle BrokenPipe (e.g. piped to head, grep, or reader closed stream)
+    // to prevent SIGABRT tombstones on Android.
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let msg = if let Some(s) = info.payload().downcast_ref::<&str>() {
+            *s
+        } else if let Some(s) = info.payload().downcast_ref::<String>() {
+            s.as_str()
+        } else {
+            ""
+        };
+        if msg.contains("Broken pipe") {
+            std::process::exit(0);
+        }
+        default_hook(info);
+    }));
+
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {

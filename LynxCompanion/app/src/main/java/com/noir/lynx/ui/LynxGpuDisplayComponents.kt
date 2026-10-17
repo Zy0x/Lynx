@@ -19,6 +19,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -423,11 +424,18 @@ fun PerAppGraphicsHubCard(
                             Text("Aplikasi tidak ditemukan", fontSize = 12.sp, color = TextSecondary)
                         }
                     } else {
+                        val pickerListState = rememberLazyListState()
                         LazyColumn(
+                            state = pickerListState,
+                            flingBehavior = rememberFluidFlingBehavior(),
                             modifier = Modifier.fillMaxWidth().weight(1f),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            items(filteredApps, key = { it.packageName }) { app ->
+                            items(
+                                items = filteredApps,
+                                key = { it.packageName },
+                                contentType = { "gpu_app_picker_row" }
+                            ) { app ->
                                 Surface(
                                     onClick = {
                                         showAppPicker = false

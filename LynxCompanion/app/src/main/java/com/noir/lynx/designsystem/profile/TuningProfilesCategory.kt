@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -736,6 +737,11 @@ fun ProfilesAutomationScreen(
         )
     }
 
+    LaunchedEffect(uiState.appProfileRules) {
+        val pkgs = uiState.appProfileRules.map { it.packageName }
+        AppIconLoader.preload(context, pkgs)
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -1367,14 +1373,18 @@ fun AutomationRulesCard(
                     }
                 }
             } else {
+                val listState = androidx.compose.foundation.lazy.rememberLazyListState()
                 androidx.compose.foundation.lazy.LazyColumn(
+                    state = listState,
+                    flingBehavior = rememberFluidFlingBehavior(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
                 ) {
                     items(
                         items = filteredRules,
-                        key = { it.packageName }
+                        key = { it.packageName },
+                        contentType = { "app_rule_row" }
                     ) { rule ->
                         AppRuleEmbeddedRow(
                             rule = rule,
@@ -1387,7 +1397,7 @@ fun AutomationRulesCard(
                             modifier = Modifier.padding(horizontal = 12.dp)
                         )
                     }
-                    item {
+                    item(key = "bottom_spacer", contentType = "spacer") {
                         Spacer(Modifier.height(12.dp))
                     }
                 }
@@ -1436,10 +1446,27 @@ private fun AppRuleEmbeddedRow(
         else -> context.getString(com.noir.lynx.R.string.audit_mode_balance)
     }
 
+    val onRowClick = remember(rule) { { onEditRuleClick(rule) } }
+    val onToggle = remember(rule.packageName) {
+        { enabled: Boolean -> viewModel.toggleAppProfileRule(context, rule.packageName, enabled) }
+    }
+    val onCycleProfile = remember(rule.packageName, rule.targetProfile) {
+        {
+            val nextProfile = when (rule.targetProfile.lowercase()) {
+                "powersave" -> "balance"
+                "balance" -> "performance"
+                "performance" -> "extreme"
+                "extreme" -> "powersave"
+                else -> "balance"
+            }
+            viewModel.addOrUpdateAppProfileRule(context, rule.copy(targetProfile = nextProfile))
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onEditRuleClick(rule) }
+            .clickable(onClick = onRowClick)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1498,16 +1525,7 @@ private fun AppRuleEmbeddedRow(
             ) {
                 // Interactive Target Profile Cycle Pill (Height 22dp)
                 Surface(
-                    onClick = {
-                        val nextProfile = when (rule.targetProfile.lowercase()) {
-                            "powersave" -> "balance"
-                            "balance" -> "performance"
-                            "performance" -> "extreme"
-                            "extreme" -> "powersave"
-                            else -> "balance"
-                        }
-                        viewModel.addOrUpdateAppProfileRule(context, rule.copy(targetProfile = nextProfile))
-                    },
+                    onClick = onCycleProfile,
                     shape = RoundedCornerShape(5.dp),
                     color = BgDeepOled.copy(alpha = 0.8f),
                     border = BorderStroke(0.8.dp, BorderGlass)
@@ -1588,9 +1606,7 @@ private fun AppRuleEmbeddedRow(
         // 3. Right Action: Uniform Lynx Cyan Master Switch
         Switch(
             checked = rule.enabled,
-            onCheckedChange = { enabled ->
-                viewModel.toggleAppProfileRule(context, rule.packageName, enabled)
-            },
+            onCheckedChange = onToggle,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = BgDeepOled,
                 checkedTrackColor = AccentCyan,

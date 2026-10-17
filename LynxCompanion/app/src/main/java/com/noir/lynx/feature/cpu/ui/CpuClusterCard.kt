@@ -387,9 +387,14 @@ fun CompactClusterRow(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp),
+                    flingBehavior = rememberFluidFlingBehavior(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    items(targetCluster.availFreqs) { freqKhz ->
+                    items(
+                        items = targetCluster.availFreqs,
+                        key = { it },
+                        contentType = { "cpu_freq_item" }
+                    ) { freqKhz ->
                         val mhz = (freqKhz / 1000).toInt()
                         val isCurrent = if (isMinPicker) targetCluster.curMin == freqKhz else targetCluster.curMax == freqKhz
                         Surface(
@@ -452,9 +457,14 @@ fun CompactClusterRow(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
+                    flingBehavior = rememberFluidFlingBehavior(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    items(targetCluster.availGovs) { gov ->
+                    items(
+                        items = targetCluster.availGovs,
+                        key = { it },
+                        contentType = { "cpu_gov_item" }
+                    ) { gov ->
                         val isCurrent = targetCluster.curGov.equals(gov, true)
                         val humanGov = when (gov.lowercase()) {
                             "schedutil" -> "Seimbang (schedutil)"

@@ -654,6 +654,11 @@ fun MainDashboard(
             }
         }
 
+        LaunchedEffect(availableApps) {
+            val pkgs = availableApps.take(80).map { it.packageName }
+            AppIconLoader.preload(context, pkgs)
+        }
+
         Dialog(
             onDismissRequest = { showAddAppDialog = false },
             properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -938,7 +943,10 @@ fun MainDashboard(
                             }
                         }
                     } else {
+                        val addAppListState = rememberLazyListState()
                         LazyColumn(
+                            state = addAppListState,
+                            flingBehavior = rememberFluidFlingBehavior(),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
@@ -946,7 +954,8 @@ fun MainDashboard(
                         ) {
                             items(
                                 count = filteredApps.size,
-                                key = { filteredApps[it].packageName }
+                                key = { filteredApps[it].packageName },
+                                contentType = { "add_app_item" }
                             ) { i ->
                                 val app = filteredApps[i]
                                 

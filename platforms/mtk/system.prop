@@ -11,3 +11,8 @@ windowsmgr.max_events_per_sec=120
 # ── 2. MediaTek GED & Graphics Driver Performance Flags ───────────────────────
 persist.vendor.ged.boost_enable=1
 persist.vendor.ged.smart_boost=1
+
+# ── 3. MediaTek Power HAL Log Flood Suppression (Android 14 GSI EXPENSIVE_RENDERING)
+persist.log.tag.mtkpower@impl=S
+persist.log.tag.libPowerHal=S
+

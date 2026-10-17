@@ -1,5 +1,7 @@
 package com.noir.lynx.data
 
+import androidx.compose.runtime.Immutable
+
 // ============================================================
 //  CPU IDLE & C-STATES / CORE PARKING MODELS
 // ============================================================
@@ -108,6 +110,7 @@ data class WakelockBlockerInfo(
     val aggressiveDozeEnabled: Boolean = false,
 )
 
+@Immutable
 data class AppProfileRule(
     val packageName: String = "",
     val appName: String = "",
