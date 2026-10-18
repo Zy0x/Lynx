@@ -326,33 +326,21 @@ internal object LynxThermalControlRepository {
                 }
             }
 
-            // Tier 1: Fallback Shell Script (Only if direct file read returns empty)
+            // Tier 1: Ultra-fast fallback Shell Script (Zero unnecessary forks, skips 350 trip point checks)
             val script = """
-                for tz in /sys/class/thermal/thermal_zone*; do
+                for tz in /sys/class/thermal/thermal_zone[0-9]*; do
                     [ -d "${'$'}tz" ] || continue
-                    id=${'$'}(basename "${'$'}tz")
-                    id=${'$'}{id#thermal_zone}
+                    id=${'$'}{tz##*thermal_zone}
                     type=${'$'}(cat "${'$'}tz/type" 2>/dev/null)
+                    [ -z "${'$'}type" ] && continue
                     temp=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
-                    mode=${'$'}(cat "${'$'}tz/mode" 2>/dev/null || echo "enabled")
-                    policy=${'$'}(cat "${'$'}tz/policy" 2>/dev/null || echo "step_wise")
-
-                    mode_w=0; [ -w "${'$'}tz/mode" ] && mode_w=1
-                    tp_tot=0; tp_w=0
-                    for tp in "${'$'}tz"/trip_point_*_temp; do
-                        [ -f "${'$'}tp" ] || continue
-                        tp_tot=${'$'}((tp_tot + 1))
-                        [ -w "${'$'}tp" ] && tp_w=${'$'}((tp_w + 1))
-                    done
-
-                    is_w=0
-                    if [ "${'$'}mode_w" = "1" ] || [ "${'$'}tp_w" -gt 0 ]; then is_w=1; fi
-
-                    [ -n "${'$'}type" ] && [ -n "${'$'}temp" ] && echo "${'$'}id|${'$'}type|${'$'}temp|${'$'}is_w|${'$'}tp_tot|${'$'}tp_w|${'$'}mode|${'$'}policy"
+                    [ -z "${'$'}temp" ] && continue
+                    echo "${'$'}id|${'$'}type|${'$'}temp"
                 done
             """.trimIndent()
             val r = Shell.cmd(script).exec()
             val list = mutableListOf<ThermalZoneInfo>()
+            val metaList = mutableListOf<ThermalMeta>()
             for (line in r.out) {
                 val parts = line.split("|")
                 if (parts.size >= 3) {
@@ -360,29 +348,41 @@ internal object LynxThermalControlRepository {
                     val type = parts[1].trim()
                     val rawTemp = parts[2].trim().toFloatOrNull() ?: continue
                     val tempC = if (rawTemp > 1000f) rawTemp / 1000f else rawTemp
-                    val isW = parts.getOrNull(3) == "1"
-                    val tpTot = parts.getOrNull(4)?.toIntOrNull() ?: 0
-                    val tpW = parts.getOrNull(5)?.toIntOrNull() ?: 0
-                    val mode = parts.getOrNull(6)?.trim() ?: "enabled"
-                    val policy = parts.getOrNull(7)?.trim() ?: "step_wise"
 
-                    if (tempC in 15f..115f) {
+                    if (tempC in 10f..120f) {
+                        metaList.add(
+                            ThermalMeta(
+                                id = id,
+                                type = type,
+                                isWritable = false,
+                                tripPointsCount = 0,
+                                writableTripPointsCount = 0,
+                                mode = "enabled",
+                                policy = "step_wise",
+                                tempFile = File("/sys/class/thermal/thermal_zone$id/temp")
+                            )
+                        )
                         list.add(
                             ThermalZoneInfo(
                                 id = id,
                                 type = type,
                                 tempC = tempC,
-                                isWritable = isW,
-                                tripPointsCount = tpTot,
-                                writableTripPointsCount = tpW,
-                                mode = mode,
-                                policy = policy
+                                isWritable = false,
+                                tripPointsCount = 0,
+                                writableTripPointsCount = 0,
+                                mode = "enabled",
+                                policy = "step_wise"
                             )
                         )
                     }
                 }
             }
-            list.sortedBy { it.type }
+            if (metaList.isNotEmpty()) {
+                cachedZonesMeta = metaList
+            }
+            val sorted = list.sortedBy { it.type }
+            lastKnownZones = sorted
+            sorted
         } catch (e: Exception) {
             emptyList()
         }
