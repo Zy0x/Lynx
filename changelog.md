@@ -1,3 +1,20 @@
+# Lynx Universal [Low-Profile Telemetry Badge Row & Ergonomic Vertical Padding Optimization] 7.0.0-RC93
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC93** (Lynx Kernel Manager v3.1.45): **Optimalisasi Presisi Tinggi Baris Badge Otomasi Aplikasi: Pengetatan Padding Vertikal Bawah (*Bottom Chin* dari 10dp ke 5dp), Perampingan Spacer Pemisah Kaca (4–5dp), Format Low-Profile Badge Kapsul Mode, Refresh Rate, dan HUD (Tinggi Ramping & Elegan Tanpa Ruang Kosong Berlebih), Serta Pembaruan Biner Release**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC93)
+
+### 1. 📉 Penyesuaian Presisi Tinggi Baris Badge (`Low-Profile Badge Row`)
+- **Eliminasi Ruang Kosong Vertikal Bawah**: Menanggapi umpan balik terkait baris badge yang sebelumnya terasa terlalu tinggi karena padding bawah yang berlebih. Dilakukan reduksi:
+  - Padding bawah kartu dipangkas dari `10.dp` menjadi `5.dp` (`padding(start = 14.dp, end = 14.dp, top = 9.dp, bottom = 5.dp)`).
+  - Spacer di atas dan di bawah garis pemisah kaca dirampingkan dari `7.dp` menjadi `4–5.dp`.
+- **Format Low-Profile Kapsul Mode & Telemetri**:
+  - Badge mode profil (`● Ekstrem`, `● Performa`, `● Seimbang`, `● Hemat Daya`) kini menggunakan padding vertikal ramping (`vertical = 1.5.dp`), dot diameter 4.5dp, dan font 10sp tebal.
+  - Badge target refresh rate (`120 Hz`, `90 Hz`) dan floating HUD (`HUD ON`) dipadatkan secara proporsional (`vertical = 1.5.dp`).
+  - Baris badge kini memeluk badge-badge secara pas (*tight wrapping*), terlihat jauh lebih ramping, proporsional, dan menyatu sempurna dengan badan kartu.
+
+---
+
 # Lynx Universal [Harmonized 2-Tier App Rule Bento Architecture & Dedicated Lower Telemetry Row] 7.0.0-RC92
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC92** (Lynx Kernel Manager v3.1.44): **Penyesuaian Proporsional Tata Letak App Rule Bento Card: Pemisahan Jernih Baris 1 (Nama Aplikasi & Tag GAME), Baris 2 (Nama Paket Aplikasi), Serta Baris Baru Khusus di Bawah untuk Mode Profil, Refresh Rate, dan Floating HUD (Anti Menumpuk & Tinggi Proporsional), Serta Pembaruan Biner Release**.
