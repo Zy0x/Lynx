@@ -349,6 +349,9 @@ Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman oper
        4. Pemindaian paralel multi-subnet kecepatan tinggi (.NET Async Sockets, <1 detik di semua subnet lokal aktif).
      - **Selalu Gunakan Flag Target (`-s <SERIAL>`)**: Karena host PC dapat memiliki beberapa perangkat/emulator sekaligus, seluruh perintah adb wajib menyertakan flag serial perangkat target (contoh: `adb -s 192.168.1.5:5555 shell ...`).
      - **Dilarang Keras**: Menebak IP secara acak, melakukan perulangan `Test-Connection` lambat, atau menyimpulkan daemon adbd mati sebelum menjalankan utilitas `connect_device`.
+     - **Larangan Mengaktifkan Mode Rotasi Layar Otomatis (Anti Auto-Rotate Policy)**:
+       - Saat menghubungkan perangkat via ADB (`connect_device`) maupun selama sesi otomasi/pengujian perangkat berlangsung, agen **DILARANG KERAS** mengaktifkan mode rotasi layar otomatis (`settings put system accelerometer_rotation 1` atau memodifikasi orientasi layar `user_rotation`), **KECUALI jika memang sangat diperlukan** untuk validasi skenario pengujian spesifik (misalnya pengujian layout landscape tertentu).
+       - Pertahankan preferensi rotasi bawaan milik pengguna tanpa intervensi sepihak. Jika dalam kondisi darurat orientasi sempat diubah untuk pengujian, agen **WAJIB** segera mengembalikan setelan rotasi ke kondisi semula begitu pengujian selesai.
 4. **Lokasi Penyimpanan Berkas Pengujian & Protokol Zero-Trace / Pembersihan Seketika (Syarat Mutlak — Non-Negotiable)**:
    - **Lokasi Tunggal yang Diizinkan**: Setiap kali melakukan remote testing, inspeksi, dump hierarki UI (`uiautomator dump`), tangkapan layar (`screencap`), log uji, maupun berkas sementara pada perangkat uji aktif (**Infinix X698**), seluruh berkas luaran **WAJIB** diletakkan secara terisolasi di folder:
      `/storage/emulated/0/Debug/` (alias `/sdcard/Debug/`).
