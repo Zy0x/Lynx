@@ -1,32 +1,24 @@
-# Qualcomm Snapdragon Specific System Properties
-ro.vendor.qti.sys.fw.bg_apps_limit=50
-ro.vendor.qti.sys.fw.bservice_enable=true
-ro.vendor.qti.sys.fw.bservice_limit=50
-persist.vendor.qti.games.gt.prof=1
-sys.games.gt.prof=1
+# ==============================================================================
+# Lynx Universal - Qualcomm Snapdragon Safe System Properties
+# Strictly universal Qualcomm vendor performance hints.
+#
+# NOTE (Zero-Default-Risk):
+# High-risk compositor and renderengine properties (such as debug.sf.latch_unsignaled,
+# debug.sf.disable_backpressure, debug.hwui.renderer, vendor.gralloc.enable_fb_ubwc,
+# and core_ctl overrides) are NOT enabled by default here to prevent display glitches,
+# camera/video black screens, and bootloops across diverse OEM ROMs.
+# They are managed interactively with user consent via LynxCompanion (Domain 4).
+# ==============================================================================
+
+# ── 1. Qualcomm Input & Touch Responsiveness (Safe Vendor Opts) ───────────────
 persist.vendor.qti.inputopts.enable=true
 persist.vendor.qti.inputopts.touchboost=true
 vendor.perf.gestureflingboost.enable=true
 ro.vendor.perf.scroll_opt=true
-sdm.debug.disable_skip_validate=1
-vendor.display.disable_skip_validate=1
-vendor.gralloc.enable_fb_ubwc=1
-persist.hwc.mdpcomp.enable=true
-persist.vendor.qti.core_ctl_min_cpu=4
 
-# SurfaceFlinger Zero-Latency Latching & HWC Protection
-debug.sf.latch_unsignaled=1
-debug.sf.disable_backpressure=1
-debug.sf.enable_hwc_vds=1
+# ── 2. Qualcomm Game Profiling Hints ──────────────────────────────────────────
+persist.vendor.qti.games.gt.prof=1
+sys.games.gt.prof=1
 
-# Hardware Skia Renderer & Threaded RenderEngine
-debug.hwui.renderer=skiagl
-debug.renderengine.backend=skiaglthreaded
-debug.hwui.use_buffer_age=false
-
-# 64MB Multi-Threaded Shader Disk Blob Cache (Anti Shader-Freeze)
-ro.egl.blobcache.max_size=67108864
-ro.egl.blobcache.multifile=true
-
-# Low-Latency Fast Sockets
+# ── 3. Low-Latency Fast Network Sockets ───────────────────────────────────────
 net.ipv4.tcp_fastopen=3

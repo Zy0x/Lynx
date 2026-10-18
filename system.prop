@@ -8,22 +8,15 @@
 # Keep Hardware Composer (HWC) in DEVICE mode; avoid forcing GPU client composition
 debug.egl.hw=1
 debug.sf.hw=1
-debug.sf.enable_backpressure=1
-
 
 # ── 2. Universal Framework & Rendering Responsiveness ─────────────────────────
-debug.performance.tuning=1
-persist.sys.scrollingcache=3
-persist.sys.purgeable_assets=1
+ro.config.nocheckin=1
 persist.device_config.runtime_native.usap_pool_enabled=true
-debug.kill_allocating_task=0
-windowsmgr.max_events_per_sec=1500
 
 # ── 3. Universal Dalvik & ART Runtime Performance ─────────────────────────────
 dalvik.vm.dexopt-flags=m=y
 dalvik.vm.dexopt.thermal-cutoff=0
 debug.graphics.game_default_frame_rate.disabled=true
-ro.config.nocheckin=1
 
 # Dalvik VM Heap Baseline (Dynamically scaled per hardware RAM tier by customize.sh & lynxd)
 # Tiers: 3-4GB (Growth: 192M, Max: 512M) | 6GB (Growth: 256M, Max: 640M) | 8-10GB (Growth: 384M, Max: 768M) | 12GB+ (Growth: 512M, Max: 1024M)
