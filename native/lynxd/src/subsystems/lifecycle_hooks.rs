@@ -213,8 +213,9 @@ impl LifecycleHooks {
         ChargingRegulator::apply_from_config();
         crate::subsystems::AdbController::apply_from_config();
         let _ = MaintenanceController::run(false);
+        let _ = MemoryController::apply_ram();
         let _ = MemoryController::clean_memory();
-        Self::log_msg("[+] Charging, ADB Keep-Alive & storage maintenance executed natively via lynxd");
+        Self::log_msg("[+] Memory & VM optimizations, Charging, ADB Keep-Alive & storage maintenance executed natively via lynxd");
 
         // 8. Profile Action Execution
         // 8. Profile Action Execution & Autonomous Daemon Spawning
