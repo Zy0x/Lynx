@@ -1,0 +1,2683 @@
+=== dumpsys media.camera ===
+== Service global info: ==
+
+Number of camera devices: 2
+Number of normal camera devices: 2
+Number of public camera devices visible to API1: 2
+    Device 0 maps to "0"
+    Device 1 maps to "1"
+Active Camera Clients:
+[]
+Allowed user IDs: 0
+
+== Camera service events log (most recent at top): ==
+  10-18 23:19:27 : DISCONNECT device 1 client for package co.aospa.sense (PID 17969)
+  10-18 23:19:23 : CONNECT device 1 client for package co.aospa.sense (PID 17969)
+  10-18 23:19:21 : DISCONNECT device 1 client for package co.aospa.sense (PID 17969)
+  10-18 23:19:17 : CONNECT device 1 client for package co.aospa.sense (PID 17969)
+  10-18 23:19:05 : DISCONNECT device 1 client for package co.aospa.sense (PID 17969)
+  10-18 23:19:01 : CONNECT device 1 client for package co.aospa.sense (PID 17969)
+  10-18 13:48:04 : USER_SWITCH previous allowed user IDs: <None>, current allowed user IDs: 0
+  10-18 13:47:49 : ADD device 0, reason: (Device added)
+  10-18 13:47:49 : ADD device 1, reason: (Device added)
+
+== Camera device 0 dynamic info: ==
+  Device 0 is closed, no client instance
+== Camera device 1 dynamic info: ==
+  Camera1 API shim is using parameters:
+        CameraParameters::dump: mMap.size = 59
+	antibanding: auto
+	antibanding-values: off,60hz,50hz,auto
+	auto-exposure-lock: false
+	auto-exposure-lock-supported: true
+	auto-whitebalance-lock: false
+	auto-whitebalance-lock-supported: true
+	effect: none
+	effect-values: none,mono,negative,solarize,sepia,posterize,whiteboard,blackboard,aqua
+	exposure-compensation: 0
+	exposure-compensation-step: 0.166667
+	focal-length: 3.51
+	focus-areas: (0,0,0,0,0)
+	focus-distances: Infinity,Infinity,Infinity
+	focus-mode: fixed
+	focus-mode-values: fixed
+	horizontal-view-angle: 62.0714
+	jpeg-quality: 90
+	jpeg-thumbnail-height: 0
+	jpeg-thumbnail-quality: 90
+	jpeg-thumbnail-size-values: 0x0,176x144,240x144,256x144,240x160,256x154,240x240,320x240
+	jpeg-thumbnail-width: 0
+	max-exposure-compensation: 24
+	max-num-detected-faces-hw: 10
+	max-num-detected-faces-sw: 0
+	max-num-focus-areas: 0
+	max-num-metering-areas: 1
+	max-zoom: 99
+	metering-areas: (0,0,0,0,0)
+	min-exposure-compensation: -24
+	picture-format: jpeg
+	picture-format-values: jpeg
+	picture-size: 4224x3136
+	picture-size-values: 4224x3136,4224x2376,4160x3120,4160x2340,4000x3000,4000x2250,3840x2160,2592x1944,2592x1940,2048x1536,1920x1080,1600x1200,1440x1080,1440x720,1280x960,1280x768,1280x720,1280x480,1280x400,800x480,720x480,640x480,480x640,480x360,480x320,	preferred-preview-size-for-video: 1920x1080
+	preview-format: yuv420sp
+	preview-format-values: yuv420p,yuv420sp,
+	preview-fps-range: 7000,30000
+	preview-fps-range-values: (15000,15000),(20000,20000),(7000,24000),(24000,24000),(7000,30000),(30000,30000)
+	preview-frame-rate: 30
+	preview-frame-rate-values: 15,20,24,30
+	preview-size: 1920x1080
+	preview-size-values: 2048x1536,1920x1080,1600x1200,1440x1080,1440x720,1280x960,1280x768,1280x720,1280x480,1280x400,800x480,720x480,640x480,480x640,480x360,480x320,352x288,320x240,240x320,176x144,144x176
+	recording-hint: false
+	rotation: 0
+	scene-mode: auto
+	scene-mode-values: auto,landscape,snow,beach,sunset,night,portrait,sports,steadyphoto,candlelight,fireworks,party,night-portrait,theatre,action,hdr
+	smooth-zoom-supported: false
+	vertical-view-angle: 48.1429
+	video-frame-format: android-opaque
+	video-size: 1920x1080
+	video-size-values: 1920x1080,1600x1200,1440x1080,1440x720,1280x960,1280x768,1280x720,1280x480,1280x400,800x480,720x480,640x480,480x640,480x360,480x320,352x288,320x240,240x320,176x144,144x176
+	video-snapshot-supported: false
+	video-stabilization: false
+	video-stabilization-supported: true
+	whitebalance: auto
+	whitebalance-values: auto,incandescent,fluorescent,warm-fluorescent,daylight,cloudy-daylight,twilight,shade,
+	zoom: 0
+	zoom-ratios: 100,107,114,121,128,135,142,149,156,163,170,177,184,191,198,206,213,220,227,234,241,248,255,262,269,276,283,290,297,305,312,319,326,333,340,347,354,361,368,375,382,389,396,404,411,418,425,432,439,446,453,460,467,474,481,488,495,503,510,517,	zoom-supported: true
+  Device 1 is closed, no client instance
+== Camera Provider HAL legacy/0-0 (v2.5, remote) static info: 2 devices: ==
+== Camera HAL device device@3.4/legacy/0 (v3.4) static information: ==
+  Resource cost: 100
+  Conflicting devices: None
+  API1 info:
+    Has a flash unit: true
+    Facing: Back
+    Orientation: 90
+  API2 camera characteristics:
+    Dumping camera metadata array: 120 / 120 entries, 8488 / 8488 bytes of extra data.
+      Version: 1, Flags: 00000000
+      android.info.supportedHardwareLevel (150000): byte[1]
+        [3 ]
+      android.lens.info.minimumFocusDistance (90005): float[1]
+        [10.00000000 ]
+      android.lens.info.hyperfocalDistance (90004): float[1]
+        [0.12818459 ]
+      android.lens.info.availableFocalLengths (90002): float[1]
+        [4.73999977 ]
+      android.lens.info.availableApertures (90000): float[1]
+        [1.79999995 ]
+      android.lens.info.availableFilterDensities (90001): float[1]
+        [0.00000000 ]
+      android.lens.info.availableOpticalStabilization (90003): byte[1]
+        [0 ]
+      android.lens.info.shadingMapSize (90006): int32[2]
+        [17 13 ]
+      android.sensor.info.physicalSize (f0005): float[2]
+        [3.21280003 2.41280007 ]
+      android.sensor.info.exposureTimeRange (f0003): int64[2]
+        [10436 32000000000 ]
+      android.sensor.info.maxFrameDuration (f0004): int64[1]
+        [244929714 ]
+      android.sensor.baseGainFactor (e000b): rational[1]
+        [(0 / 128) ]
+      android.sensor.info.colorFilterArrangement (f0002): byte[1]
+        [GRBG ]
+      android.sensor.info.pixelArraySize (f0006): int32[2]
+        [4016 3016 ]
+      android.sensor.info.activeArraySize (f0000): int32[4]
+        [8 8 4000 3000 ]
+      android.sensor.info.whiteLevel (f0007): int32[1]
+        [1023 ]
+      android.sensor.blackLevelPattern (e000c): int32[4]
+        [64 64 64 64 ]
+      android.flash.info.chargeDuration (50001): int64[1]
+        [0 ]
+      android.tonemap.maxCurvePoints (130004): int32[1]
+        [512 ]
+      android.sensor.info.timestampSource (f0008): byte[1]
+        [REALTIME ]
+      org.codeaurora.qcamera3.histogram.buckets (80150001): int32[1]
+        [256 ]
+      org.codeaurora.qcamera3.histogram.max_count (80150002): int32[1]
+        [256 ]
+      android.statistics.info.sharpnessMapSize (120005): int32[2]
+        [0 0 ]
+      android.statistics.info.maxSharpnessMapValue (120004): int32[1]
+        [0 ]
+      android.scaler.availableFormats (d0001): int32[6]
+        [RAW_OPAQUE RAW16 YCbCr_420_888 BLOB ]
+        [RAW10 IMPLEMENTATION_DEFINED ]
+      android.scaler.availableProcessedSizes (d0006): int32[52]
+        [4000 3000 4000 2250 ]
+        [3840 2160 2592 1944 ]
+        [2592 1940 2048 1536 ]
+        [1920 1080 1600 1200 ]
+        [1440 1080 1440 720 ]
+        [1280 960 1280 768 ]
+        [1280 720 1280 480 ]
+        [1280 400 800 480 ]
+        [720 480 640 480 ]
+        [480 640 480 360 ]
+        [480 320 352 288 ]
+        [320 240 240 320 ]
+        [176 144 144 176 ]
+      android.scaler.availableRawSizes (d0008): int32[2]
+        [4000 3000 ]
+      android.control.aeAvailableTargetFpsRanges (10014): int32[10]
+        [15 15 20 20 ]
+        [24 24 7 30 ]
+        [30 30 ]
+      android.control.aeCompensationStep (10016): rational[1]
+        [(1 / 6) ]
+      android.control.availableVideoStabilizationModes (1001a): byte[2]
+        [0 1 ]
+      android.scaler.availableMaxDigitalZoom (d0004): float[1]
+        [8.00000000 ]
+      android.scaler.croppingType (d000d): byte[1]
+        [CENTER_ONLY ]
+      android.control.maxRegions (1001c): int32[3]
+        [1 0 1 ]
+      android.statistics.info.availableFaceDetectModes (120000): byte[2]
+        [0 1 ]
+      android.statistics.info.maxFaceCount (120002): int32[1]
+        [10 ]
+      org.codeaurora.qcamera3.stats.bsgc_available (80170004): byte[1]
+        [0 ]
+      android.control.aeCompensationRange (10015): int32[2]
+        [-24 24 ]
+      android.lens.facing (80005): byte[1]
+        [BACK ]
+      android.jpeg.availableThumbnailSizes (70007): int32[16]
+        [0 0 176 144 ]
+        [240 144 256 144 ]
+        [240 160 256 154 ]
+        [240 240 320 240 ]
+      android.scaler.availableStreamConfigurations (d000a): int32[364]
+        [36 4000 3000 OUTPUT ]
+        [32 4000 3000 OUTPUT ]
+        [35 4000 3000 OUTPUT ]
+        [35 4000 3000 INPUT ]
+        [35 4000 2250 OUTPUT ]
+        [35 4000 2250 INPUT ]
+        [35 3840 2160 OUTPUT ]
+        [35 3840 2160 INPUT ]
+        [35 2592 1944 OUTPUT ]
+        [35 2592 1944 INPUT ]
+        [35 2592 1940 OUTPUT ]
+        [35 2592 1940 INPUT ]
+        [35 2048 1536 OUTPUT ]
+        [35 1920 1080 OUTPUT ]
+        [35 1600 1200 OUTPUT ]
+        [35 1440 1080 OUTPUT ]
+        [35 1440 720 OUTPUT ]
+        [35 1280 960 OUTPUT ]
+        [35 1280 768 OUTPUT ]
+        [35 1280 720 OUTPUT ]
+        [35 1280 480 OUTPUT ]
+        [35 1280 400 OUTPUT ]
+        [35 800 480 OUTPUT ]
+        [35 720 480 OUTPUT ]
+        [35 640 480 OUTPUT ]
+        [35 480 640 OUTPUT ]
+        [35 480 360 OUTPUT ]
+        [35 480 320 OUTPUT ]
+        [35 352 288 OUTPUT ]
+        [35 320 240 OUTPUT ]
+        [35 240 320 OUTPUT ]
+        [35 176 144 OUTPUT ]
+        [35 144 176 OUTPUT ]
+        [33 4000 3000 OUTPUT ]
+        [33 4000 2250 OUTPUT ]
+        [33 3840 2160 OUTPUT ]
+        [33 2592 1944 OUTPUT ]
+        [33 2592 1940 OUTPUT ]
+        [33 2048 1536 OUTPUT ]
+        [33 1920 1080 OUTPUT ]
+        [33 1600 1200 OUTPUT ]
+        [33 1440 1080 OUTPUT ]
+        [33 1440 720 OUTPUT ]
+        [33 1280 960 OUTPUT ]
+        [33 1280 768 OUTPUT ]
+        [33 1280 720 OUTPUT ]
+        [33 1280 480 OUTPUT ]
+        [33 1280 400 OUTPUT ]
+        [33 800 480 OUTPUT ]
+        [33 720 480 OUTPUT ]
+        [33 640 480 OUTPUT ]
+        [33 480 640 OUTPUT ]
+        [33 480 360 OUTPUT ]
+        [33 480 320 OUTPUT ]
+        [33 352 288 OUTPUT ]
+        [33 320 240 OUTPUT ]
+        [33 240 320 OUTPUT ]
+        [33 176 144 OUTPUT ]
+        [33 144 176 OUTPUT ]
+        [37 4000 3000 OUTPUT ]
+        [34 4000 3000 OUTPUT ]
+        [34 4000 3000 INPUT ]
+        [34 4000 2250 OUTPUT ]
+        [34 4000 2250 INPUT ]
+        [34 3840 2160 OUTPUT ]
+        [34 3840 2160 INPUT ]
+        [34 2592 1944 OUTPUT ]
+        [34 2592 1944 INPUT ]
+        [34 2592 1940 OUTPUT ]
+        [34 2592 1940 INPUT ]
+        [34 2048 1536 OUTPUT ]
+        [34 1920 1080 OUTPUT ]
+        [34 1600 1200 OUTPUT ]
+        [34 1440 1080 OUTPUT ]
+        [34 1440 720 OUTPUT ]
+        [34 1280 960 OUTPUT ]
+        [34 1280 768 OUTPUT ]
+        [34 1280 720 OUTPUT ]
+        [34 1280 480 OUTPUT ]
+        [34 1280 400 OUTPUT ]
+        [34 800 480 OUTPUT ]
+        [34 720 480 OUTPUT ]
+        [34 640 480 OUTPUT ]
+        [34 480 640 OUTPUT ]
+        [34 480 360 OUTPUT ]
+        [34 480 320 OUTPUT ]
+        [34 352 288 OUTPUT ]
+        [34 320 240 OUTPUT ]
+        [34 240 320 OUTPUT ]
+        [34 176 144 OUTPUT ]
+        [34 144 176 OUTPUT ]
+      android.hotPixel.mode (60000): byte[1]
+        [FAST ]
+      android.statistics.hotPixelMapMode (110003): byte[1]
+        [OFF ]
+      android.scaler.availableMinFrameDurations (d000b): int64[324]
+        [36 4000 ]
+        [3000 33333333 ]
+        [32 4000 ]
+        [3000 33333333 ]
+        [35 4000 ]
+        [3000 33333333 ]
+        [35 4000 ]
+        [2250 33333333 ]
+        [35 3840 ]
+        [2160 33333333 ]
+        [35 2592 ]
+        [1944 33333333 ]
+        [35 2592 ]
+        [1940 33333333 ]
+        [35 2048 ]
+        [1536 33333333 ]
+        [35 1920 ]
+        [1080 33333333 ]
+        [35 1600 ]
+        [1200 33333333 ]
+        [35 1440 ]
+        [1080 33333333 ]
+        [35 1440 ]
+        [720 33333333 ]
+        [35 1280 ]
+        [960 33333333 ]
+        [35 1280 ]
+        [768 33333333 ]
+        [35 1280 ]
+        [720 33333333 ]
+        [35 1280 ]
+        [480 33333333 ]
+        [35 1280 ]
+        [400 33333333 ]
+        [35 800 ]
+        [480 33333333 ]
+        [35 720 ]
+        [480 33333333 ]
+        [35 640 ]
+        [480 33333333 ]
+        [35 480 ]
+        [640 33333333 ]
+        [35 480 ]
+        [360 33333333 ]
+        [35 480 ]
+        [320 33333333 ]
+        [35 352 ]
+        [288 33333333 ]
+        [35 320 ]
+        [240 33333333 ]
+        [35 240 ]
+        [320 33333333 ]
+        [35 176 ]
+        [144 33333333 ]
+        [35 144 ]
+        [176 33333333 ]
+        [33 4000 ]
+        [3000 33333333 ]
+        [33 4000 ]
+        [2250 33333333 ]
+        [33 3840 ]
+        [2160 33333333 ]
+        [33 2592 ]
+        [1944 33333333 ]
+        [33 2592 ]
+        [1940 33333333 ]
+        [33 2048 ]
+        [1536 33333333 ]
+        [33 1920 ]
+        [1080 33333333 ]
+        [33 1600 ]
+        [1200 33333333 ]
+        [33 1440 ]
+        [1080 33333333 ]
+        [33 1440 ]
+        [720 33333333 ]
+        [33 1280 ]
+        [960 33333333 ]
+        [33 1280 ]
+        [768 33333333 ]
+        [33 1280 ]
+        [720 33333333 ]
+        [33 1280 ]
+        [480 33333333 ]
+        [33 1280 ]
+        [400 33333333 ]
+        [33 800 ]
+        [480 33333333 ]
+        [33 720 ]
+        [480 33333333 ]
+        [33 640 ]
+        [480 33333333 ]
+        [33 480 ]
+        [640 33333333 ]
+        [33 480 ]
+        [360 33333333 ]
+        [33 480 ]
+        [320 33333333 ]
+        [33 352 ]
+        [288 33333333 ]
+        [33 320 ]
+        [240 33333333 ]
+        [33 240 ]
+        [320 33333333 ]
+        [33 176 ]
+        [144 33333333 ]
+        [33 144 ]
+        [176 33333333 ]
+        [37 4000 ]
+        [3000 33333333 ]
+        [34 4000 ]
+        [3000 33333333 ]
+        [34 4000 ]
+        [2250 33333333 ]
+        [34 3840 ]
+        [2160 33333333 ]
+        [34 2592 ]
+        [1944 33333333 ]
+        [34 2592 ]
+        [1940 33333333 ]
+        [34 2048 ]
+        [1536 33333333 ]
+        [34 1920 ]
+        [1080 33333333 ]
+        [34 1600 ]
+        [1200 33333333 ]
+        [34 1440 ]
+        [1080 33333333 ]
+        [34 1440 ]
+        [720 33333333 ]
+        [34 1280 ]
+        [960 33333333 ]
+        [34 1280 ]
+        [768 33333333 ]
+        [34 1280 ]
+        [720 33333333 ]
+        [34 1280 ]
+        [480 33333333 ]
+        [34 1280 ]
+        [400 33333333 ]
+        [34 800 ]
+        [480 33333333 ]
+        [34 720 ]
+        [480 33333333 ]
+        [34 640 ]
+        [480 33333333 ]
+        [34 480 ]
+        [640 33333333 ]
+        [34 480 ]
+        [360 33333333 ]
+        [34 480 ]
+        [320 33333333 ]
+        [34 352 ]
+        [288 33333333 ]
+        [34 320 ]
+        [240 33333333 ]
+        [34 240 ]
+        [320 33333333 ]
+        [34 176 ]
+        [144 33333333 ]
+        [34 144 ]
+        [176 33333333 ]
+      android.control.availableHighSpeedVideoConfigurations (10023): int32[190]
+        [1920 1080 30 120 ]
+        [4 1920 1080 120 ]
+        [120 4 1280 720 ]
+        [30 120 4 1280 ]
+        [720 120 120 4 ]
+        [1280 480 30 120 ]
+        [4 1280 480 120 ]
+        [120 4 1280 400 ]
+        [30 120 4 1280 ]
+        [400 120 120 4 ]
+        [800 480 30 120 ]
+        [4 800 480 120 ]
+        [120 4 720 480 ]
+        [30 120 4 720 ]
+        [480 120 120 4 ]
+        [640 480 30 120 ]
+        [4 640 480 120 ]
+        [120 4 480 360 ]
+        [30 120 4 480 ]
+        [360 120 120 4 ]
+        [480 320 30 120 ]
+        [4 480 320 120 ]
+        [120 4 320 240 ]
+        [30 120 4 320 ]
+        [240 120 120 4 ]
+        [1280 720 30 240 ]
+        [8 1280 720 240 ]
+        [240 8 1280 480 ]
+        [30 240 8 1280 ]
+        [480 240 240 8 ]
+        [1280 400 30 240 ]
+        [8 1280 400 240 ]
+        [240 8 800 480 ]
+        [30 240 8 800 ]
+        [480 240 240 8 ]
+        [720 480 30 240 ]
+        [8 720 480 240 ]
+        [240 8 640 480 ]
+        [30 240 8 640 ]
+        [480 240 240 8 ]
+        [480 360 30 240 ]
+        [8 480 360 240 ]
+        [240 8 480 320 ]
+        [30 240 8 480 ]
+        [320 240 240 8 ]
+        [320 240 30 240 ]
+        [8 320 240 240 ]
+        [240 8 ]
+      android.jpeg.maxSize (70008): int32[1]
+        [18000008 ]
+      android.control.availableEffects (10018): byte[9]
+        [0 1 2 3 4 5 6 7 8 ]
+      android.control.availableSceneModes (10019): byte[16]
+        [4 9 8 10 5 3 13 11 15 12 14 6 7 2 1 18 ]
+      android.control.sceneModeOverrides (1001d): byte[48]
+        [2 1 0 2 1 0 2 1 0 2 2 0 2 1 0 2 ]
+        [1 0 2 1 0 2 1 1 2 1 2 2 2 0 2 6 ]
+        [1 2 1 0 2 1 1 2 1 1 2 1 1 2 1 1 ]
+      android.control.availableModes (10026): byte[3]
+        [0 1 2 ]
+      android.control.aeAvailableAntibandingModes (10012): byte[4]
+        [0 2 1 3 ]
+      android.colorCorrection.availableAberrationModes (00004): byte[1]
+        [0 ]
+      android.control.afAvailableModes (10017): byte[5]
+        [1 0 2 3 4 ]
+      android.control.awbAvailableModes (1001b): byte[9]
+        [1 2 3 4 5 6 7 8 0 ]
+      android.flash.firingPower (40000): byte[11]
+        [0 1 2 3 4 5 6 7 8 9 10 ]
+      android.flash.info.available (50000): byte[1]
+        [TRUE ]
+      android.control.aeAvailableModes (10013): byte[5]
+        [0 1 2 3 4 ]
+      android.sensor.info.sensitivityRange (f0001): int32[2]
+        [100 3200 ]
+      android.sensor.maxAnalogSensitivity (e000d): int32[1]
+        [1600 ]
+      android.sensor.orientation (e000e): int32[1]
+        [90 ]
+      android.request.maxNumOutputStreams (c0006): int32[3]
+        [1 3 1 ]
+      android.led.availableLeds (140001): byte[0]
+      android.lens.info.focusDistanceCalibration (90007): byte[1]
+        [CALIBRATED ]
+      android.sensor.availableTestPatternModes (e0019): int32[1]
+        [0 ]
+      android.request.pipelineMaxDepth (c000a): byte[1]
+        [8 ]
+      android.request.partialResultCount (c000b): int32[1]
+        [2 ]
+      android.reprocess.maxCaptureStall (180001): int32[1]
+        [2 ]
+      android.request.availableCapabilities (c000c): byte[7]
+        [BACKWARD_COMPATIBLE MANUAL_SENSOR MANUAL_POST_PROCESSING READ_SENSOR_SETTINGS BURST_CAPTURE CONSTRAINED_HIGH_SPEED_VIDEO RAW ]
+      android.control.aeLockAvailable (10024): byte[1]
+        [TRUE ]
+      android.control.awbLockAvailable (10025): byte[1]
+        [TRUE ]
+      android.request.maxNumInputStreams (c0008): int32[1]
+        [1 ]
+      android.scaler.availableInputOutputFormatsMap (d0009): int32[8]
+        [34 2 33 35 ]
+        [35 2 33 35 ]
+      android.sync.maxLatency (170001): int32[1]
+        [PER_FRAME_CONTROL ]
+      android.control.postRawSensitivityBoostRange (10027): int32[2]
+        [100 3200 ]
+      android.hotPixel.availableHotPixelModes (60001): byte[2]
+        [1 2 ]
+      android.shading.availableModes (100002): byte[3]
+        [0 1 2 ]
+      android.statistics.info.availableLensShadingMapModes (120007): byte[2]
+        [0 1 ]
+      android.edge.availableEdgeModes (30002): byte[4]
+        [0 1 2 3 ]
+      android.noiseReduction.availableNoiseReductionModes (a0002): byte[5]
+        [0 1 2 3 4 ]
+      android.tonemap.availableToneMapModes (130005): byte[3]
+        [0 1 2 ]
+      android.statistics.info.availableHotPixelMapModes (120006): byte[1]
+        [0 ]
+      android.sensor.referenceIlluminant1 (e0003): byte[1]
+        [D65 ]
+      android.sensor.referenceIlluminant2 (e0004): byte[1]
+        [17 ]
+      android.sensor.forwardMatrix1 (e0009): rational[9]
+        [(56 / 128) (49 / 128) ]
+        [(18 / 128) (28 / 128) ]
+        [(92 / 128) (8 / 128) ]
+        [(2 / 128) (12 / 128) ]
+        [(91 / 128) ]
+      android.sensor.forwardMatrix2 (e000a): rational[9]
+        [(56 / 128) (49 / 128) ]
+        [(18 / 128) (28 / 128) ]
+        [(92 / 128) (8 / 128) ]
+        [(2 / 128) (12 / 128) ]
+        [(91 / 128) ]
+      android.sensor.colorTransform1 (e0007): rational[9]
+        [(217 / 128) (-103 / 128) ]
+        [(-33 / 128) (-124 / 128) ]
+        [(240 / 128) (5 / 128) ]
+        [(4 / 128) (-15 / 128) ]
+        [(80 / 128) ]
+      android.sensor.colorTransform2 (e0008): rational[9]
+        [(299 / 128) (-207 / 128) ]
+        [(-53 / 128) (-137 / 128) ]
+        [(279 / 128) (-1 / 128) ]
+        [(7 / 128) (-17 / 128) ]
+        [(150 / 128) ]
+      android.sensor.calibrationTransform1 (e0005): rational[9]
+        [(137 / 128) (0 / 128) ]
+        [(0 / 128) (0 / 128) ]
+        [(128 / 128) (0 / 128) ]
+        [(0 / 128) (0 / 128) ]
+        [(110 / 128) ]
+      android.sensor.calibrationTransform2 (e0006): rational[9]
+        [(137 / 128) (0 / 128) ]
+        [(0 / 128) (0 / 128) ]
+        [(128 / 128) (0 / 128) ]
+        [(0 / 128) (0 / 128) ]
+        [(110 / 128) ]
+      android.request.availableRequestKeys (c000d): int32[59]
+        [0 (mode) 1 (transform) 2 (gains) 3 (aberrationMode) ]
+        [65536 (aeAntibandingMode) 65537 (aeExposureCompensation) 65538 (aeLock) 65539 (aeMode) ]
+        [65540 (aeRegions) 65541 (aeTargetFpsRange) 65542 (aePrecaptureTrigger) 65543 (afMode) ]
+        [65545 (afTrigger) 65546 (awbLock) 65547 (awbMode) 65549 (captureIntent) ]
+        [65550 (effectMode) 65551 (mode) 65552 (sceneMode) 65553 (videoStabilizationMode) ]
+        [131072 (mode) 196608 (mode) 262144 (firingPower) 262145 (firingTime) ]
+        [262146 (mode) 458752 (gpsCoordinates) 458753 (gpsProcessingMethod) 458754 (gpsTimestamp) ]
+        [458755 (orientation) 458756 (quality) 458757 (thumbnailQuality) 458758 (thumbnailSize) ]
+        [524288 (aperture) 524289 (filterDensity) 524290 (focalLength) 524291 (focusDistance) ]
+        [524292 (opticalStabilizationMode) 655360 (mode) 786433 (id) 786437 (type) ]
+        [851968 (cropRegion) 917504 (exposureTime) 917505 (frameDuration) 393216 (mode) ]
+        [1114115 (hotPixelMapMode) 917506 (sensitivity) 1048576 (mode) 65576 (postRawSensitivityBoost) ]
+        [1114112 (faceDetectMode) 1114114 (sharpnessMapMode) 1114128 (lensShadingMapMode) 1245184 (curveBlue) ]
+        [1245185 (curveGreen) 1245186 (curveRed) 1245187 (mode) 1441792 (lock) ]
+        [65577 (enableZsl) 65544 (afRegions) 65583 (zoomRatio) ]
+      android.request.availableResultKeys (c000e): int32[62]
+        [1 (transform) 2 (gains) 65539 (aeMode) 65540 (aeRegions) ]
+        [65567 (aeState) 65543 (afMode) 65568 (afState) 65547 (awbMode) ]
+        [65570 (awbState) 65551 (mode) 196608 (mode) 262144 (firingPower) ]
+        [262145 (firingTime) 262146 (mode) 262149 (state) 458752 (gpsCoordinates) ]
+        [458753 (gpsProcessingMethod) 458754 (gpsTimestamp) 458755 (orientation) 458756 (quality) ]
+        [458757 (thumbnailQuality) 458758 (thumbnailSize) 524288 (aperture) 524289 (filterDensity) ]
+        [524290 (focalLength) 524291 (focusDistance) 524296 (focusRange) 524297 (state) ]
+        [524292 (opticalStabilizationMode) 655360 (mode) 786433 (id) 851968 (cropRegion) ]
+        [1048576 (mode) 917504 (exposureTime) 917505 (frameDuration) 917506 (sensitivity) ]
+        [917520 (timestamp) 917522 (neutralColorPoint) 917525 (profileToneCurve) 1441792 (lock) ]
+        [1245184 (curveBlue) 1245185 (curveGreen) 1245186 (curveRed) 1245187 (mode) ]
+        [1114112 (faceDetectMode) 1114121 (sharpnessMap) 1114114 (sharpnessMapMode) 1114124 (predictedColorGains) ]
+        [1114125 (predictedColorTransform) 1114126 (sceneFlicker) 1114118 (faceRectangles) 1114119 (faceScores) ]
+        [65576 (postRawSensitivityBoost) 65577 (enableZsl) 65544 (afRegions) 917523 (noiseProfile) ]
+        [917526 (greenSplit) 1114118 (faceRectangles) 1114119 (faceScores) 917532 (dynamicBlackLevel) ]
+        [917533 (dynamicWhiteLevel) 65583 (zoomRatio) ]
+      android.request.availableCharacteristicsKeys (c000f): int32[82]
+        [65554 (aeAvailableAntibandingModes) 65555 (aeAvailableModes) 65556 (aeAvailableTargetFpsRanges) 65557 (aeCompensationRange) ]
+        [65558 (aeCompensationStep) 65559 (afAvailableModes) 65560 (availableEffects) 4 (availableAberrationModes) ]
+        [851981 (croppingType) 1507329 (maxLatency) 983048 (timestampSource) 65561 (availableSceneModes) ]
+        [65562 (availableVideoStabilizationModes) 65563 (awbAvailableModes) 65564 (maxRegions) 65565 (sceneModeOverrides) ]
+        [327680 (available) 327681 (chargeDuration) 458759 (availableThumbnailSizes) 458760 (maxSize) ]
+        [589824 (availableApertures) 589825 (availableFilterDensities) 589826 (availableFocalLengths) 589827 (availableOpticalStabilization) ]
+        [589828 (hyperfocalDistance) 589829 (minimumFocusDistance) 589830 (shadingMapSize) 589831 (focusDistanceCalibration) ]
+        [524293 (facing) 786438 (maxNumOutputStreams) 786440 (maxNumInputStreams) 786442 (pipelineMaxDepth) ]
+        [786444 (availableCapabilities) 786445 (availableRequestKeys) 786446 (availableResultKeys) 786447 (availableCharacteristicsKeys) ]
+        [786443 (partialResultCount) 851972 (availableMaxDigitalZoom) 851977 (availableInputOutputFormatsMap) 851978 (availableStreamConfigurations) ]
+        [851979 (availableMinFrameDurations) 917513 (forwardMatrix1) 917507 (referenceIlluminant1) 917508 (referenceIlluminant2) ]
+        [917514 (forwardMatrix2) 917511 (colorTransform1) 917512 (colorTransform2) 917509 (calibrationTransform1) ]
+        [917510 (calibrationTransform2) 983040 (activeArraySize) 983041 (sensitivityRange) 983042 (colorFilterArrangement) ]
+        [983043 (exposureTimeRange) 983044 (maxFrameDuration) 983045 (physicalSize) 983046 (pixelArraySize) ]
+        [983047 (whiteLevel) 917515 (baseGainFactor) 917516 (blackLevelPattern) 917517 (maxAnalogSensitivity) ]
+        [917518 (orientation) 917529 (availableTestPatternModes) 1179648 (availableFaceDetectModes) 1179650 (maxFaceCount) ]
+        [1179652 (maxSharpnessMapValue) 1179653 (sharpnessMapSize) 393217 (availableHotPixelModes) 196610 (availableEdgeModes) ]
+        [655362 (availableNoiseReductionModes) 1245189 (availableToneMapModes) 1179654 (availableHotPixelMapModes) 1245188 (maxCurvePoints) ]
+        [65574 (availableModes) 65572 (aeLockAvailable) 65573 (awbLockAvailable) 1179655 (availableLensShadingMapModes) ]
+        [1048578 (availableModes) 1376256 (supportedHardwareLevel) 917534 (opaqueRawSize) 65575 (postRawSensitivityBoostRange) ]
+        [983050 (preCorrectionActiveArraySize) 65582 (zoomRatioRange) ]
+      android.scaler.availableStallDurations (d000c): int64[108]
+        [33 4000 ]
+        [3000 76000000 ]
+        [33 4000 ]
+        [2250 57000000 ]
+        [33 3840 ]
+        [2160 53000000 ]
+        [33 2592 ]
+        [1944 50000000 ]
+        [33 2592 ]
+        [1940 49000000 ]
+        [33 2048 ]
+        [1536 49000000 ]
+        [33 1920 ]
+        [1080 48000000 ]
+        [33 1600 ]
+        [1200 47000000 ]
+        [33 1440 ]
+        [1080 46000000 ]
+        [33 1440 ]
+        [720 45000000 ]
+        [33 1280 ]
+        [960 45000000 ]
+        [33 1280 ]
+        [768 45000000 ]
+        [33 1280 ]
+        [720 45000000 ]
+        [33 1280 ]
+        [480 45000000 ]
+        [33 1280 ]
+        [400 45000000 ]
+        [33 800 ]
+        [480 45000000 ]
+        [33 720 ]
+        [480 45000000 ]
+        [33 640 ]
+        [480 44000000 ]
+        [33 480 ]
+        [640 44000000 ]
+        [33 480 ]
+        [360 44000000 ]
+        [33 480 ]
+        [320 44000000 ]
+        [33 352 ]
+        [288 43000000 ]
+        [33 320 ]
+        [240 43000000 ]
+        [33 240 ]
+        [320 42000000 ]
+        [33 176 ]
+        [144 40000000 ]
+        [33 144 ]
+        [176 40000000 ]
+        [32 4000 ]
+        [3000 100000000 ]
+      org.codeaurora.qcamera3.opaque_raw.opaque_raw_format (80020001): byte[1]
+        [0 ]
+      org.codeaurora.qcamera3.opaque_raw.opaque_raw_strides (80020000): int32[3]
+        [4000 3000 4008 ]
+      org.codeaurora.qcamera3.dualcam_calib_meta_data.dualcam_calib_meta_data_blob (800c0000): byte[442]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 182 3 ]
+        [0 4 13 0 0 4 5 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 ]
+      org.codeaurora.qcamera3.sensor_meta_data.is_mono_only (800a0001): byte[1]
+        [0 ]
+      android.sensor.opaqueRawSize (e001e): int32[3]
+        [4000 3000 16076800 ]
+      org.codeaurora.qcamera3.instant_aec.instant_aec_available_modes (80130001): int32[3]
+        [0 1 2 ]
+      org.codeaurora.qcamera3.sharpness.range (80140001): int32[2]
+        [0 36 ]
+      org.codeaurora.qcamera3.exposure_metering.available_modes (80080001): int32[6]
+        [0 1 2 1 ]
+        [5 6 ]
+      org.codeaurora.qcamera3.iso_exp_priority.iso_available_modes (80060002): int32[7]
+        [0 1 2 3 ]
+        [4 5 6 ]
+      org.codeaurora.qcamera3.iso_exp_priority.exposure_time_range (80060003): int64[2]
+        [10436 32000000000 ]
+      org.codeaurora.qcamera3.saturation.range (80070001): int32[4]
+        [0 10 5 1 ]
+      org.codeaurora.qcamera3.hfr.sizes (801a0000): int32[3]
+        [60 1920 1080 ]
+      org.codeaurora.qcamera3.logical.mode (801d0000): byte[1]
+        [0 ]
+      org.codeaurora.qcamera3.manualWB.color_temperature_range (801e0001): int32[2]
+        [2000 8000 ]
+      org.codeaurora.qcamera3.manualWB.gains_range (801e0002): float[2]
+        [1.00000000 4.00000000 ]
+      android.request.availablePhysicalCameraRequestKeys (c0011): int32[58]
+        [0 (mode) 1 (transform) 2 (gains) 3 (aberrationMode) ]
+        [65536 (aeAntibandingMode) 65537 (aeExposureCompensation) 65538 (aeLock) 65539 (aeMode) ]
+        [65540 (aeRegions) 65541 (aeTargetFpsRange) 65542 (aePrecaptureTrigger) 65543 (afMode) ]
+        [65545 (afTrigger) 65546 (awbLock) 65547 (awbMode) 65549 (captureIntent) ]
+        [65550 (effectMode) 65551 (mode) 65552 (sceneMode) 65553 (videoStabilizationMode) ]
+        [131072 (mode) 196608 (mode) 262144 (firingPower) 262145 (firingTime) ]
+        [262146 (mode) 458752 (gpsCoordinates) 458753 (gpsProcessingMethod) 458754 (gpsTimestamp) ]
+        [458755 (orientation) 458756 (quality) 458757 (thumbnailQuality) 458758 (thumbnailSize) ]
+        [524288 (aperture) 524289 (filterDensity) 524290 (focalLength) 524291 (focusDistance) ]
+        [524292 (opticalStabilizationMode) 655360 (mode) 786433 (id) 786437 (type) ]
+        [851968 (cropRegion) 917504 (exposureTime) 917505 (frameDuration) 393216 (mode) ]
+        [1114115 (hotPixelMapMode) 917506 (sensitivity) 1048576 (mode) 65576 (postRawSensitivityBoost) ]
+        [1114112 (faceDetectMode) 1114114 (sharpnessMapMode) 1114128 (lensShadingMapMode) 1245184 (curveBlue) ]
+        [1245185 (curveGreen) 1245186 (curveRed) 1245187 (mode) 1441792 (lock) ]
+        [65577 (enableZsl) 65544 (afRegions) ]
+      android.flash.singleStrengthMaxLevel (40007): int32[1]
+        [1 ]
+      android.flash.singleStrengthDefaultLevel (40008): int32[1]
+        [1 ]
+      android.flash.torchStrengthMaxLevel (40009): int32[1]
+        [1 ]
+      android.flash.torchStrengthDefaultLevel (4000a): int32[1]
+        [1 ]
+      android.scaler.availableRotateAndCropModes (d0010): byte[1]
+        [0 ]
+      android.control.autoframingAvailable (10038): byte[1]
+        [FALSE ]
+      android.sensor.info.preCorrectionActiveArraySize (f000a): int32[4]
+        [8 8 4000 3000 ]
+      android.control.zoomRatioRange (1002e): float[2]
+        [1.00000000 8.00000000 ]
+      android.sensor.readoutTimestamp (e0022): byte[1]
+        [NOT_SUPPORTED ]
+      android.flash.info.strengthDefaultLevel (50003): int32[1]
+        [1 ]
+      android.flash.info.strengthMaximumLevel (50002): int32[1]
+        [1 ]
+      android.info.sessionConfigurationQueryVersion (150004): int32[1]
+        [UPSIDE_DOWN_CAKE ]
+== Camera HAL device device@3.4/legacy/0 (v3.4) dumpState: ==
+No active camera device session instance
+== Camera HAL device device@3.4/legacy/1 (v3.4) static information: ==
+  Resource cost: 100
+  Conflicting devices: None
+  API1 info:
+    Has a flash unit: false
+    Facing: Front
+    Orientation: 270
+  API2 camera characteristics:
+    Dumping camera metadata array: 116 / 116 entries, 8552 / 8552 bytes of extra data.
+      Version: 1, Flags: 00000000
+      android.info.supportedHardwareLevel (150000): byte[1]
+        [3 ]
+      android.lens.info.minimumFocusDistance (90005): float[1]
+        [0.00000000 ]
+      android.lens.info.hyperfocalDistance (90004): float[1]
+        [0.32467270 ]
+      android.lens.info.availableFocalLengths (90002): float[1]
+        [3.50999999 ]
+      android.lens.info.availableApertures (90000): float[1]
+        [2.00000000 ]
+      android.lens.info.availableFilterDensities (90001): float[1]
+        [0.00000000 ]
+      android.lens.info.availableOpticalStabilization (90003): byte[1]
+        [0 ]
+      android.lens.info.shadingMapSize (90006): int32[2]
+        [17 13 ]
+      android.sensor.info.physicalSize (f0005): float[2]
+        [4.23999977 3.15199995 ]
+      android.sensor.info.exposureTimeRange (f0003): int64[2]
+        [10371 339702105 ]
+      android.sensor.info.maxFrameDuration (f0004): int64[1]
+        [339826557 ]
+      android.sensor.baseGainFactor (e000b): rational[1]
+        [(0 / 128) ]
+      android.sensor.info.colorFilterArrangement (f0002): byte[1]
+        [BGGR ]
+      android.sensor.info.pixelArraySize (f0006): int32[2]
+        [4240 3152 ]
+      android.sensor.info.activeArraySize (f0000): int32[4]
+        [8 8 4224 3136 ]
+      android.sensor.info.whiteLevel (f0007): int32[1]
+        [1023 ]
+      android.sensor.blackLevelPattern (e000c): int32[4]
+        [64 64 64 64 ]
+      android.flash.info.chargeDuration (50001): int64[1]
+        [0 ]
+      android.tonemap.maxCurvePoints (130004): int32[1]
+        [512 ]
+      android.sensor.info.timestampSource (f0008): byte[1]
+        [REALTIME ]
+      org.codeaurora.qcamera3.histogram.buckets (80150001): int32[1]
+        [256 ]
+      org.codeaurora.qcamera3.histogram.max_count (80150002): int32[1]
+        [256 ]
+      android.statistics.info.sharpnessMapSize (120005): int32[2]
+        [0 0 ]
+      android.statistics.info.maxSharpnessMapValue (120004): int32[1]
+        [0 ]
+      android.scaler.availableFormats (d0001): int32[6]
+        [RAW_OPAQUE RAW16 YCbCr_420_888 BLOB ]
+        [RAW10 IMPLEMENTATION_DEFINED ]
+      android.scaler.availableProcessedSizes (d0006): int32[60]
+        [4224 3136 4224 2376 ]
+        [4160 3120 4160 2340 ]
+        [4000 3000 4000 2250 ]
+        [3840 2160 2592 1944 ]
+        [2592 1940 2048 1536 ]
+        [1920 1080 1600 1200 ]
+        [1440 1080 1440 720 ]
+        [1280 960 1280 768 ]
+        [1280 720 1280 480 ]
+        [1280 400 800 480 ]
+        [720 480 640 480 ]
+        [480 640 480 360 ]
+        [480 320 352 288 ]
+        [320 240 240 320 ]
+        [176 144 144 176 ]
+      android.scaler.availableRawSizes (d0008): int32[2]
+        [4224 3136 ]
+      android.control.aeAvailableTargetFpsRanges (10014): int32[12]
+        [15 15 20 20 ]
+        [7 24 24 24 ]
+        [7 30 30 30 ]
+      android.control.aeCompensationStep (10016): rational[1]
+        [(1 / 6) ]
+      android.control.availableVideoStabilizationModes (1001a): byte[2]
+        [0 1 ]
+      android.scaler.availableMaxDigitalZoom (d0004): float[1]
+        [8.00000000 ]
+      android.scaler.croppingType (d000d): byte[1]
+        [CENTER_ONLY ]
+      android.control.maxRegions (1001c): int32[3]
+        [1 0 0 ]
+      android.statistics.info.availableFaceDetectModes (120000): byte[2]
+        [0 1 ]
+      android.statistics.info.maxFaceCount (120002): int32[1]
+        [10 ]
+      org.codeaurora.qcamera3.stats.bsgc_available (80170004): byte[1]
+        [0 ]
+      android.control.aeCompensationRange (10015): int32[2]
+        [-24 24 ]
+      android.lens.facing (80005): byte[1]
+        [FRONT ]
+      android.jpeg.availableThumbnailSizes (70007): int32[16]
+        [0 0 176 144 ]
+        [240 144 256 144 ]
+        [240 160 256 154 ]
+        [240 240 320 240 ]
+      android.scaler.availableStreamConfigurations (d000a): int32[444]
+        [36 4224 3136 OUTPUT ]
+        [32 4224 3136 OUTPUT ]
+        [35 4224 3136 OUTPUT ]
+        [35 4224 3136 INPUT ]
+        [35 4224 2376 OUTPUT ]
+        [35 4224 2376 INPUT ]
+        [35 4160 3120 OUTPUT ]
+        [35 4160 3120 INPUT ]
+        [35 4160 2340 OUTPUT ]
+        [35 4160 2340 INPUT ]
+        [35 4000 3000 OUTPUT ]
+        [35 4000 3000 INPUT ]
+        [35 4000 2250 OUTPUT ]
+        [35 4000 2250 INPUT ]
+        [35 3840 2160 OUTPUT ]
+        [35 3840 2160 INPUT ]
+        [35 2592 1944 OUTPUT ]
+        [35 2592 1944 INPUT ]
+        [35 2592 1940 OUTPUT ]
+        [35 2592 1940 INPUT ]
+        [35 2048 1536 OUTPUT ]
+        [35 1920 1080 OUTPUT ]
+        [35 1600 1200 OUTPUT ]
+        [35 1440 1080 OUTPUT ]
+        [35 1440 720 OUTPUT ]
+        [35 1280 960 OUTPUT ]
+        [35 1280 768 OUTPUT ]
+        [35 1280 720 OUTPUT ]
+        [35 1280 480 OUTPUT ]
+        [35 1280 400 OUTPUT ]
+        [35 800 480 OUTPUT ]
+        [35 720 480 OUTPUT ]
+        [35 640 480 OUTPUT ]
+        [35 480 640 OUTPUT ]
+        [35 480 360 OUTPUT ]
+        [35 480 320 OUTPUT ]
+        [35 352 288 OUTPUT ]
+        [35 320 240 OUTPUT ]
+        [35 240 320 OUTPUT ]
+        [35 176 144 OUTPUT ]
+        [35 144 176 OUTPUT ]
+        [33 4224 3136 OUTPUT ]
+        [33 4224 2376 OUTPUT ]
+        [33 4160 3120 OUTPUT ]
+        [33 4160 2340 OUTPUT ]
+        [33 4000 3000 OUTPUT ]
+        [33 4000 2250 OUTPUT ]
+        [33 3840 2160 OUTPUT ]
+        [33 2592 1944 OUTPUT ]
+        [33 2592 1940 OUTPUT ]
+        [33 2048 1536 OUTPUT ]
+        [33 1920 1080 OUTPUT ]
+        [33 1600 1200 OUTPUT ]
+        [33 1440 1080 OUTPUT ]
+        [33 1440 720 OUTPUT ]
+        [33 1280 960 OUTPUT ]
+        [33 1280 768 OUTPUT ]
+        [33 1280 720 OUTPUT ]
+        [33 1280 480 OUTPUT ]
+        [33 1280 400 OUTPUT ]
+        [33 800 480 OUTPUT ]
+        [33 720 480 OUTPUT ]
+        [33 640 480 OUTPUT ]
+        [33 480 640 OUTPUT ]
+        [33 480 360 OUTPUT ]
+        [33 480 320 OUTPUT ]
+        [33 352 288 OUTPUT ]
+        [33 320 240 OUTPUT ]
+        [33 240 320 OUTPUT ]
+        [33 176 144 OUTPUT ]
+        [33 144 176 OUTPUT ]
+        [37 4224 3136 OUTPUT ]
+        [34 4224 3136 OUTPUT ]
+        [34 4224 3136 INPUT ]
+        [34 4224 2376 OUTPUT ]
+        [34 4224 2376 INPUT ]
+        [34 4160 3120 OUTPUT ]
+        [34 4160 3120 INPUT ]
+        [34 4160 2340 OUTPUT ]
+        [34 4160 2340 INPUT ]
+        [34 4000 3000 OUTPUT ]
+        [34 4000 3000 INPUT ]
+        [34 4000 2250 OUTPUT ]
+        [34 4000 2250 INPUT ]
+        [34 3840 2160 OUTPUT ]
+        [34 3840 2160 INPUT ]
+        [34 2592 1944 OUTPUT ]
+        [34 2592 1944 INPUT ]
+        [34 2592 1940 OUTPUT ]
+        [34 2592 1940 INPUT ]
+        [34 2048 1536 OUTPUT ]
+        [34 1920 1080 OUTPUT ]
+        [34 1600 1200 OUTPUT ]
+        [34 1440 1080 OUTPUT ]
+        [34 1440 720 OUTPUT ]
+        [34 1280 960 OUTPUT ]
+        [34 1280 768 OUTPUT ]
+        [34 1280 720 OUTPUT ]
+        [34 1280 480 OUTPUT ]
+        [34 1280 400 OUTPUT ]
+        [34 800 480 OUTPUT ]
+        [34 720 480 OUTPUT ]
+        [34 640 480 OUTPUT ]
+        [34 480 640 OUTPUT ]
+        [34 480 360 OUTPUT ]
+        [34 480 320 OUTPUT ]
+        [34 352 288 OUTPUT ]
+        [34 320 240 OUTPUT ]
+        [34 240 320 OUTPUT ]
+        [34 176 144 OUTPUT ]
+        [34 144 176 OUTPUT ]
+      android.hotPixel.mode (60000): byte[1]
+        [FAST ]
+      android.statistics.hotPixelMapMode (110003): byte[1]
+        [OFF ]
+      android.scaler.availableMinFrameDurations (d000b): int64[372]
+        [36 4224 ]
+        [3136 33333333 ]
+        [32 4224 ]
+        [3136 33333333 ]
+        [35 4224 ]
+        [3136 41666666 ]
+        [35 4224 ]
+        [2376 33333333 ]
+        [35 4160 ]
+        [3120 41666666 ]
+        [35 4160 ]
+        [2340 33333333 ]
+        [35 4000 ]
+        [3000 33333333 ]
+        [35 4000 ]
+        [2250 33333333 ]
+        [35 3840 ]
+        [2160 33333333 ]
+        [35 2592 ]
+        [1944 33333333 ]
+        [35 2592 ]
+        [1940 33333333 ]
+        [35 2048 ]
+        [1536 33333333 ]
+        [35 1920 ]
+        [1080 33333333 ]
+        [35 1600 ]
+        [1200 33333333 ]
+        [35 1440 ]
+        [1080 33333333 ]
+        [35 1440 ]
+        [720 33333333 ]
+        [35 1280 ]
+        [960 33333333 ]
+        [35 1280 ]
+        [768 33333333 ]
+        [35 1280 ]
+        [720 33333333 ]
+        [35 1280 ]
+        [480 33333333 ]
+        [35 1280 ]
+        [400 33333333 ]
+        [35 800 ]
+        [480 33333333 ]
+        [35 720 ]
+        [480 33333333 ]
+        [35 640 ]
+        [480 33333333 ]
+        [35 480 ]
+        [640 33333333 ]
+        [35 480 ]
+        [360 33333333 ]
+        [35 480 ]
+        [320 33333333 ]
+        [35 352 ]
+        [288 33333333 ]
+        [35 320 ]
+        [240 33333333 ]
+        [35 240 ]
+        [320 33333333 ]
+        [35 176 ]
+        [144 33333333 ]
+        [35 144 ]
+        [176 33333333 ]
+        [33 4224 ]
+        [3136 41666666 ]
+        [33 4224 ]
+        [2376 33333333 ]
+        [33 4160 ]
+        [3120 41666666 ]
+        [33 4160 ]
+        [2340 33333333 ]
+        [33 4000 ]
+        [3000 33333333 ]
+        [33 4000 ]
+        [2250 33333333 ]
+        [33 3840 ]
+        [2160 33333333 ]
+        [33 2592 ]
+        [1944 33333333 ]
+        [33 2592 ]
+        [1940 33333333 ]
+        [33 2048 ]
+        [1536 33333333 ]
+        [33 1920 ]
+        [1080 33333333 ]
+        [33 1600 ]
+        [1200 33333333 ]
+        [33 1440 ]
+        [1080 33333333 ]
+        [33 1440 ]
+        [720 33333333 ]
+        [33 1280 ]
+        [960 33333333 ]
+        [33 1280 ]
+        [768 33333333 ]
+        [33 1280 ]
+        [720 33333333 ]
+        [33 1280 ]
+        [480 33333333 ]
+        [33 1280 ]
+        [400 33333333 ]
+        [33 800 ]
+        [480 33333333 ]
+        [33 720 ]
+        [480 33333333 ]
+        [33 640 ]
+        [480 33333333 ]
+        [33 480 ]
+        [640 33333333 ]
+        [33 480 ]
+        [360 33333333 ]
+        [33 480 ]
+        [320 33333333 ]
+        [33 352 ]
+        [288 33333333 ]
+        [33 320 ]
+        [240 33333333 ]
+        [33 240 ]
+        [320 33333333 ]
+        [33 176 ]
+        [144 33333333 ]
+        [33 144 ]
+        [176 33333333 ]
+        [37 4224 ]
+        [3136 33333333 ]
+        [34 4224 ]
+        [3136 41666666 ]
+        [34 4224 ]
+        [2376 33333333 ]
+        [34 4160 ]
+        [3120 41666666 ]
+        [34 4160 ]
+        [2340 33333333 ]
+        [34 4000 ]
+        [3000 33333333 ]
+        [34 4000 ]
+        [2250 33333333 ]
+        [34 3840 ]
+        [2160 33333333 ]
+        [34 2592 ]
+        [1944 33333333 ]
+        [34 2592 ]
+        [1940 33333333 ]
+        [34 2048 ]
+        [1536 33333333 ]
+        [34 1920 ]
+        [1080 33333333 ]
+        [34 1600 ]
+        [1200 33333333 ]
+        [34 1440 ]
+        [1080 33333333 ]
+        [34 1440 ]
+        [720 33333333 ]
+        [34 1280 ]
+        [960 33333333 ]
+        [34 1280 ]
+        [768 33333333 ]
+        [34 1280 ]
+        [720 33333333 ]
+        [34 1280 ]
+        [480 33333333 ]
+        [34 1280 ]
+        [400 33333333 ]
+        [34 800 ]
+        [480 33333333 ]
+        [34 720 ]
+        [480 33333333 ]
+        [34 640 ]
+        [480 33333333 ]
+        [34 480 ]
+        [640 33333333 ]
+        [34 480 ]
+        [360 33333333 ]
+        [34 480 ]
+        [320 33333333 ]
+        [34 352 ]
+        [288 33333333 ]
+        [34 320 ]
+        [240 33333333 ]
+        [34 240 ]
+        [320 33333333 ]
+        [34 176 ]
+        [144 33333333 ]
+        [34 144 ]
+        [176 33333333 ]
+      android.jpeg.maxSize (70008): int32[1]
+        [19869704 ]
+      android.control.availableEffects (10018): byte[9]
+        [0 1 2 3 4 5 6 7 8 ]
+      android.control.availableSceneModes (10019): byte[16]
+        [4 9 8 10 5 3 13 11 15 12 14 6 7 2 1 18 ]
+      android.control.sceneModeOverrides (1001d): byte[48]
+        [1 1 0 1 1 0 1 1 0 1 2 0 1 1 0 1 ]
+        [1 0 1 1 0 1 1 0 1 1 0 1 2 0 1 6 ]
+        [0 1 1 0 1 1 0 1 1 0 1 1 0 1 1 0 ]
+      android.control.availableModes (10026): byte[3]
+        [0 1 2 ]
+      android.control.aeAvailableAntibandingModes (10012): byte[4]
+        [0 2 1 3 ]
+      android.colorCorrection.availableAberrationModes (00004): byte[1]
+        [0 ]
+      android.control.afAvailableModes (10017): byte[1]
+        [0 ]
+      android.control.awbAvailableModes (1001b): byte[9]
+        [1 2 3 4 5 6 7 8 0 ]
+      android.flash.firingPower (40000): byte[11]
+        [0 1 2 3 4 5 6 7 8 9 10 ]
+      android.flash.info.available (50000): byte[1]
+        [FALSE ]
+      android.control.aeAvailableModes (10013): byte[2]
+        [0 1 ]
+      android.sensor.info.sensitivityRange (f0001): int32[2]
+        [100 1500 ]
+      android.sensor.maxAnalogSensitivity (e000d): int32[1]
+        [1500 ]
+      android.sensor.orientation (e000e): int32[1]
+        [270 ]
+      android.request.maxNumOutputStreams (c0006): int32[3]
+        [1 3 1 ]
+      android.led.availableLeds (140001): byte[0]
+      android.lens.info.focusDistanceCalibration (90007): byte[1]
+        [UNCALIBRATED ]
+      android.sensor.availableTestPatternModes (e0019): int32[1]
+        [0 ]
+      android.request.pipelineMaxDepth (c000a): byte[1]
+        [8 ]
+      android.request.partialResultCount (c000b): int32[1]
+        [2 ]
+      android.reprocess.maxCaptureStall (180001): int32[1]
+        [2 ]
+      android.request.availableCapabilities (c000c): byte[6]
+        [BACKWARD_COMPATIBLE MANUAL_SENSOR MANUAL_POST_PROCESSING READ_SENSOR_SETTINGS BURST_CAPTURE RAW ]
+      android.control.aeLockAvailable (10024): byte[1]
+        [TRUE ]
+      android.control.awbLockAvailable (10025): byte[1]
+        [TRUE ]
+      android.request.maxNumInputStreams (c0008): int32[1]
+        [1 ]
+      android.scaler.availableInputOutputFormatsMap (d0009): int32[8]
+        [34 2 33 35 ]
+        [35 2 33 35 ]
+      android.sync.maxLatency (170001): int32[1]
+        [PER_FRAME_CONTROL ]
+      android.control.postRawSensitivityBoostRange (10027): int32[2]
+        [100 3200 ]
+      android.hotPixel.availableHotPixelModes (60001): byte[2]
+        [1 2 ]
+      android.shading.availableModes (100002): byte[3]
+        [0 1 2 ]
+      android.statistics.info.availableLensShadingMapModes (120007): byte[2]
+        [0 1 ]
+      android.edge.availableEdgeModes (30002): byte[4]
+        [0 1 2 3 ]
+      android.noiseReduction.availableNoiseReductionModes (a0002): byte[5]
+        [0 1 2 3 4 ]
+      android.tonemap.availableToneMapModes (130005): byte[3]
+        [0 1 2 ]
+      android.statistics.info.availableHotPixelMapModes (120006): byte[1]
+        [0 ]
+      android.sensor.referenceIlluminant1 (e0003): byte[1]
+        [D65 ]
+      android.sensor.referenceIlluminant2 (e0004): byte[1]
+        [17 ]
+      android.sensor.forwardMatrix1 (e0009): rational[9]
+        [(56 / 128) (49 / 128) ]
+        [(18 / 128) (28 / 128) ]
+        [(92 / 128) (8 / 128) ]
+        [(2 / 128) (12 / 128) ]
+        [(91 / 128) ]
+      android.sensor.forwardMatrix2 (e000a): rational[9]
+        [(56 / 128) (49 / 128) ]
+        [(18 / 128) (28 / 128) ]
+        [(92 / 128) (8 / 128) ]
+        [(2 / 128) (12 / 128) ]
+        [(91 / 128) ]
+      android.sensor.colorTransform1 (e0007): rational[9]
+        [(188 / 128) (-89 / 128) ]
+        [(-29 / 128) (-124 / 128) ]
+        [(240 / 128) (5 / 128) ]
+        [(6 / 128) (-21 / 128) ]
+        [(106 / 128) ]
+      android.sensor.colorTransform2 (e0008): rational[9]
+        [(313 / 128) (-217 / 128) ]
+        [(-55 / 128) (-137 / 128) ]
+        [(279 / 128) (-1 / 128) ]
+        [(9 / 128) (-22 / 128) ]
+        [(197 / 128) ]
+      android.sensor.calibrationTransform1 (e0005): rational[9]
+        [(131 / 128) (0 / 128) ]
+        [(0 / 128) (0 / 128) ]
+        [(128 / 128) (0 / 128) ]
+        [(0 / 128) (0 / 128) ]
+        [(124 / 128) ]
+      android.sensor.calibrationTransform2 (e0006): rational[9]
+        [(131 / 128) (0 / 128) ]
+        [(0 / 128) (0 / 128) ]
+        [(128 / 128) (0 / 128) ]
+        [(0 / 128) (0 / 128) ]
+        [(124 / 128) ]
+      android.request.availableRequestKeys (c000d): int32[58]
+        [0 (mode) 1 (transform) 2 (gains) 3 (aberrationMode) ]
+        [65536 (aeAntibandingMode) 65537 (aeExposureCompensation) 65538 (aeLock) 65539 (aeMode) ]
+        [65540 (aeRegions) 65541 (aeTargetFpsRange) 65542 (aePrecaptureTrigger) 65543 (afMode) ]
+        [65545 (afTrigger) 65546 (awbLock) 65547 (awbMode) 65549 (captureIntent) ]
+        [65550 (effectMode) 65551 (mode) 65552 (sceneMode) 65553 (videoStabilizationMode) ]
+        [131072 (mode) 196608 (mode) 262144 (firingPower) 262145 (firingTime) ]
+        [262146 (mode) 458752 (gpsCoordinates) 458753 (gpsProcessingMethod) 458754 (gpsTimestamp) ]
+        [458755 (orientation) 458756 (quality) 458757 (thumbnailQuality) 458758 (thumbnailSize) ]
+        [524288 (aperture) 524289 (filterDensity) 524290 (focalLength) 524291 (focusDistance) ]
+        [524292 (opticalStabilizationMode) 655360 (mode) 786433 (id) 786437 (type) ]
+        [851968 (cropRegion) 917504 (exposureTime) 917505 (frameDuration) 393216 (mode) ]
+        [1114115 (hotPixelMapMode) 917506 (sensitivity) 1048576 (mode) 65576 (postRawSensitivityBoost) ]
+        [1114112 (faceDetectMode) 1114114 (sharpnessMapMode) 1114128 (lensShadingMapMode) 1245184 (curveBlue) ]
+        [1245185 (curveGreen) 1245186 (curveRed) 1245187 (mode) 1441792 (lock) ]
+        [65577 (enableZsl) 65583 (zoomRatio) ]
+      android.request.availableResultKeys (c000e): int32[61]
+        [1 (transform) 2 (gains) 65539 (aeMode) 65540 (aeRegions) ]
+        [65567 (aeState) 65543 (afMode) 65568 (afState) 65547 (awbMode) ]
+        [65570 (awbState) 65551 (mode) 196608 (mode) 262144 (firingPower) ]
+        [262145 (firingTime) 262146 (mode) 262149 (state) 458752 (gpsCoordinates) ]
+        [458753 (gpsProcessingMethod) 458754 (gpsTimestamp) 458755 (orientation) 458756 (quality) ]
+        [458757 (thumbnailQuality) 458758 (thumbnailSize) 524288 (aperture) 524289 (filterDensity) ]
+        [524290 (focalLength) 524291 (focusDistance) 524296 (focusRange) 524297 (state) ]
+        [524292 (opticalStabilizationMode) 655360 (mode) 786433 (id) 851968 (cropRegion) ]
+        [1048576 (mode) 917504 (exposureTime) 917505 (frameDuration) 917506 (sensitivity) ]
+        [917520 (timestamp) 917522 (neutralColorPoint) 917525 (profileToneCurve) 1441792 (lock) ]
+        [1245184 (curveBlue) 1245185 (curveGreen) 1245186 (curveRed) 1245187 (mode) ]
+        [1114112 (faceDetectMode) 1114121 (sharpnessMap) 1114114 (sharpnessMapMode) 1114124 (predictedColorGains) ]
+        [1114125 (predictedColorTransform) 1114126 (sceneFlicker) 1114118 (faceRectangles) 1114119 (faceScores) ]
+        [65576 (postRawSensitivityBoost) 65577 (enableZsl) 917523 (noiseProfile) 917526 (greenSplit) ]
+        [1114118 (faceRectangles) 1114119 (faceScores) 917532 (dynamicBlackLevel) 917533 (dynamicWhiteLevel) ]
+        [65583 (zoomRatio) ]
+      android.request.availableCharacteristicsKeys (c000f): int32[82]
+        [65554 (aeAvailableAntibandingModes) 65555 (aeAvailableModes) 65556 (aeAvailableTargetFpsRanges) 65557 (aeCompensationRange) ]
+        [65558 (aeCompensationStep) 65559 (afAvailableModes) 65560 (availableEffects) 4 (availableAberrationModes) ]
+        [851981 (croppingType) 1507329 (maxLatency) 983048 (timestampSource) 65561 (availableSceneModes) ]
+        [65562 (availableVideoStabilizationModes) 65563 (awbAvailableModes) 65564 (maxRegions) 65565 (sceneModeOverrides) ]
+        [327680 (available) 327681 (chargeDuration) 458759 (availableThumbnailSizes) 458760 (maxSize) ]
+        [589824 (availableApertures) 589825 (availableFilterDensities) 589826 (availableFocalLengths) 589827 (availableOpticalStabilization) ]
+        [589828 (hyperfocalDistance) 589829 (minimumFocusDistance) 589830 (shadingMapSize) 589831 (focusDistanceCalibration) ]
+        [524293 (facing) 786438 (maxNumOutputStreams) 786440 (maxNumInputStreams) 786442 (pipelineMaxDepth) ]
+        [786444 (availableCapabilities) 786445 (availableRequestKeys) 786446 (availableResultKeys) 786447 (availableCharacteristicsKeys) ]
+        [786443 (partialResultCount) 851972 (availableMaxDigitalZoom) 851977 (availableInputOutputFormatsMap) 851978 (availableStreamConfigurations) ]
+        [851979 (availableMinFrameDurations) 917513 (forwardMatrix1) 917507 (referenceIlluminant1) 917508 (referenceIlluminant2) ]
+        [917514 (forwardMatrix2) 917511 (colorTransform1) 917512 (colorTransform2) 917509 (calibrationTransform1) ]
+        [917510 (calibrationTransform2) 983040 (activeArraySize) 983041 (sensitivityRange) 983042 (colorFilterArrangement) ]
+        [983043 (exposureTimeRange) 983044 (maxFrameDuration) 983045 (physicalSize) 983046 (pixelArraySize) ]
+        [983047 (whiteLevel) 917515 (baseGainFactor) 917516 (blackLevelPattern) 917517 (maxAnalogSensitivity) ]
+        [917518 (orientation) 917529 (availableTestPatternModes) 1179648 (availableFaceDetectModes) 1179650 (maxFaceCount) ]
+        [1179652 (maxSharpnessMapValue) 1179653 (sharpnessMapSize) 393217 (availableHotPixelModes) 196610 (availableEdgeModes) ]
+        [655362 (availableNoiseReductionModes) 1245189 (availableToneMapModes) 1179654 (availableHotPixelMapModes) 1245188 (maxCurvePoints) ]
+        [65574 (availableModes) 65572 (aeLockAvailable) 65573 (awbLockAvailable) 1179655 (availableLensShadingMapModes) ]
+        [1048578 (availableModes) 1376256 (supportedHardwareLevel) 917534 (opaqueRawSize) 65575 (postRawSensitivityBoostRange) ]
+        [983050 (preCorrectionActiveArraySize) 65582 (zoomRatioRange) ]
+      android.scaler.availableStallDurations (d000c): int64[124]
+        [33 4224 ]
+        [3136 80000000 ]
+        [33 4224 ]
+        [2376 76000000 ]
+        [33 4160 ]
+        [3120 72000000 ]
+        [33 4160 ]
+        [2340 70000000 ]
+        [33 4000 ]
+        [3000 76000000 ]
+        [33 4000 ]
+        [2250 57000000 ]
+        [33 3840 ]
+        [2160 53000000 ]
+        [33 2592 ]
+        [1944 50000000 ]
+        [33 2592 ]
+        [1940 49000000 ]
+        [33 2048 ]
+        [1536 49000000 ]
+        [33 1920 ]
+        [1080 48000000 ]
+        [33 1600 ]
+        [1200 47000000 ]
+        [33 1440 ]
+        [1080 46000000 ]
+        [33 1440 ]
+        [720 45000000 ]
+        [33 1280 ]
+        [960 45000000 ]
+        [33 1280 ]
+        [768 45000000 ]
+        [33 1280 ]
+        [720 45000000 ]
+        [33 1280 ]
+        [480 45000000 ]
+        [33 1280 ]
+        [400 45000000 ]
+        [33 800 ]
+        [480 45000000 ]
+        [33 720 ]
+        [480 45000000 ]
+        [33 640 ]
+        [480 44000000 ]
+        [33 480 ]
+        [640 44000000 ]
+        [33 480 ]
+        [360 44000000 ]
+        [33 480 ]
+        [320 44000000 ]
+        [33 352 ]
+        [288 43000000 ]
+        [33 320 ]
+        [240 43000000 ]
+        [33 240 ]
+        [320 42000000 ]
+        [33 176 ]
+        [144 40000000 ]
+        [33 144 ]
+        [176 40000000 ]
+        [32 4224 ]
+        [3136 50000000 ]
+      org.codeaurora.qcamera3.opaque_raw.opaque_raw_format (80020001): byte[1]
+        [0 ]
+      org.codeaurora.qcamera3.opaque_raw.opaque_raw_strides (80020000): int32[3]
+        [4224 3136 4224 ]
+      org.codeaurora.qcamera3.dualcam_calib_meta_data.dualcam_calib_meta_data_blob (800c0000): byte[442]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ]
+        [0 0 0 0 0 0 0 0 0 0 ]
+      org.codeaurora.qcamera3.sensor_meta_data.is_mono_only (800a0001): byte[1]
+        [0 ]
+      android.sensor.opaqueRawSize (e001e): int32[3]
+        [4224 3136 17661952 ]
+      org.codeaurora.qcamera3.instant_aec.instant_aec_available_modes (80130001): int32[3]
+        [0 1 2 ]
+      org.codeaurora.qcamera3.sharpness.range (80140001): int32[2]
+        [0 36 ]
+      org.codeaurora.qcamera3.exposure_metering.available_modes (80080001): int32[6]
+        [0 1 2 1 ]
+        [5 6 ]
+      org.codeaurora.qcamera3.iso_exp_priority.iso_available_modes (80060002): int32[6]
+        [0 1 2 3 ]
+        [4 5 ]
+      org.codeaurora.qcamera3.iso_exp_priority.exposure_time_range (80060003): int64[2]
+        [10371 339702105 ]
+      org.codeaurora.qcamera3.saturation.range (80070001): int32[4]
+        [0 10 5 1 ]
+      org.codeaurora.qcamera3.logical.mode (801d0000): byte[1]
+        [0 ]
+      org.codeaurora.qcamera3.manualWB.color_temperature_range (801e0001): int32[2]
+        [2000 8000 ]
+      org.codeaurora.qcamera3.manualWB.gains_range (801e0002): float[2]
+        [1.00000000 4.00000000 ]
+      android.request.availablePhysicalCameraRequestKeys (c0011): int32[57]
+        [0 (mode) 1 (transform) 2 (gains) 3 (aberrationMode) ]
+        [65536 (aeAntibandingMode) 65537 (aeExposureCompensation) 65538 (aeLock) 65539 (aeMode) ]
+        [65540 (aeRegions) 65541 (aeTargetFpsRange) 65542 (aePrecaptureTrigger) 65543 (afMode) ]
+        [65545 (afTrigger) 65546 (awbLock) 65547 (awbMode) 65549 (captureIntent) ]
+        [65550 (effectMode) 65551 (mode) 65552 (sceneMode) 65553 (videoStabilizationMode) ]
+        [131072 (mode) 196608 (mode) 262144 (firingPower) 262145 (firingTime) ]
+        [262146 (mode) 458752 (gpsCoordinates) 458753 (gpsProcessingMethod) 458754 (gpsTimestamp) ]
+        [458755 (orientation) 458756 (quality) 458757 (thumbnailQuality) 458758 (thumbnailSize) ]
+        [524288 (aperture) 524289 (filterDensity) 524290 (focalLength) 524291 (focusDistance) ]
+        [524292 (opticalStabilizationMode) 655360 (mode) 786433 (id) 786437 (type) ]
+        [851968 (cropRegion) 917504 (exposureTime) 917505 (frameDuration) 393216 (mode) ]
+        [1114115 (hotPixelMapMode) 917506 (sensitivity) 1048576 (mode) 65576 (postRawSensitivityBoost) ]
+        [1114112 (faceDetectMode) 1114114 (sharpnessMapMode) 1114128 (lensShadingMapMode) 1245184 (curveBlue) ]
+        [1245185 (curveGreen) 1245186 (curveRed) 1245187 (mode) 1441792 (lock) ]
+        [65577 (enableZsl) ]
+      android.flash.singleStrengthMaxLevel (40007): int32[1]
+        [1 ]
+      android.flash.singleStrengthDefaultLevel (40008): int32[1]
+        [1 ]
+      android.flash.torchStrengthMaxLevel (40009): int32[1]
+        [1 ]
+      android.flash.torchStrengthDefaultLevel (4000a): int32[1]
+        [1 ]
+      android.scaler.availableRotateAndCropModes (d0010): byte[1]
+        [0 ]
+      android.control.autoframingAvailable (10038): byte[1]
+        [FALSE ]
+      android.sensor.info.preCorrectionActiveArraySize (f000a): int32[4]
+        [8 8 4224 3136 ]
+      android.control.zoomRatioRange (1002e): float[2]
+        [1.00000000 8.00000000 ]
+      android.sensor.readoutTimestamp (e0022): byte[1]
+        [NOT_SUPPORTED ]
+      android.info.sessionConfigurationQueryVersion (150004): int32[1]
+        [UPSIDE_DOWN_CAKE ]
+== Camera HAL device device@3.4/legacy/1 (v3.4) dumpState: ==
+No active camera device session instance
+
+== Vendor tags: ==
+
+  Dumping vendor tag descriptors for vendor with id 14172875900359437128 
+  Dumping configured vendor tag descriptors: 75 entries
+    0x80000000 (privatedata_reprocess) with type 1 (int32) defined in section org.codeaurora.qcamera3.privatedata
+    0x80010000 (cds_mode) with type 1 (int32) defined in section org.codeaurora.qcamera3.CDS
+    0x80010001 (cds_info) with type 0 (byte) defined in section org.codeaurora.qcamera3.CDS
+    0x80020000 (opaque_raw_strides) with type 1 (int32) defined in section org.codeaurora.qcamera3.opaque_raw
+    0x80020001 (opaque_raw_format) with type 0 (byte) defined in section org.codeaurora.qcamera3.opaque_raw
+    0x80030000 (count) with type 1 (int32) defined in section org.codeaurora.qcamera3.crop
+    0x80030001 (data) with type 1 (int32) defined in section org.codeaurora.qcamera3.crop
+    0x80030002 (roimap) with type 1 (int32) defined in section org.codeaurora.qcamera3.crop
+    0x80040000 (tuning_meta_data_blob) with type 1 (int32) defined in section org.codeaurora.qcamera3.tuning_meta_data
+    0x80050000 (enable) with type 0 (byte) defined in section org.codeaurora.qcamera3.temporal_denoise
+    0x80050001 (process_type) with type 1 (int32) defined in section org.codeaurora.qcamera3.temporal_denoise
+    0x80060000 (use_iso_exp_priority) with type 3 (int64) defined in section org.codeaurora.qcamera3.iso_exp_priority
+    0x80060001 (select_priority) with type 1 (int32) defined in section org.codeaurora.qcamera3.iso_exp_priority
+    0x80060002 (iso_available_modes) with type 1 (int32) defined in section org.codeaurora.qcamera3.iso_exp_priority
+    0x80060003 (exposure_time_range) with type 3 (int64) defined in section org.codeaurora.qcamera3.iso_exp_priority
+    0x80070000 (use_saturation) with type 1 (int32) defined in section org.codeaurora.qcamera3.saturation
+    0x80070001 (range) with type 1 (int32) defined in section org.codeaurora.qcamera3.saturation
+    0x80080000 (exposure_metering_mode) with type 1 (int32) defined in section org.codeaurora.qcamera3.exposure_metering
+    0x80080001 (available_modes) with type 1 (int32) defined in section org.codeaurora.qcamera3.exposure_metering
+    0x80090000 (use_av_timer) with type 0 (byte) defined in section org.codeaurora.qcamera3.av_timer
+    0x800a0000 (dynamic_black_level_pattern) with type 2 (float) defined in section org.codeaurora.qcamera3.sensor_meta_data
+    0x800a0001 (is_mono_only) with type 0 (byte) defined in section org.codeaurora.qcamera3.sensor_meta_data
+    0x800b0000 (enable) with type 0 (byte) defined in section org.codeaurora.qcamera3.dualcam_link_meta_data
+    0x800b0001 (is_main) with type 0 (byte) defined in section org.codeaurora.qcamera3.dualcam_link_meta_data
+    0x800b0002 (related_camera_id) with type 1 (int32) defined in section org.codeaurora.qcamera3.dualcam_link_meta_data
+    0x800c0000 (dualcam_calib_meta_data_blob) with type 0 (byte) defined in section org.codeaurora.qcamera3.dualcam_calib_meta_data
+    0x800d0000 (reprocess_flags) with type 0 (byte) defined in section org.codeaurora.qcamera3.hal_private_data
+    0x800d0001 (reprocess_data_blob) with type 0 (byte) defined in section org.codeaurora.qcamera3.hal_private_data
+    0x800d0002 (exif_debug_data_blob) with type 0 (byte) defined in section org.codeaurora.qcamera3.hal_private_data
+    0x800e0000 (enable) with type 0 (byte) defined in section org.codeaurora.qcamera3.jpeg_encode_crop
+    0x800e0001 (rect) with type 1 (int32) defined in section org.codeaurora.qcamera3.jpeg_encode_crop
+    0x800e0002 (roi) with type 1 (int32) defined in section org.codeaurora.qcamera3.jpeg_encode_crop
+    0x800f0000 (vhdr_mode) with type 1 (int32) defined in section org.codeaurora.qcamera3.video_hdr_mode
+    0x800f0001 (vhdr_supported_modes) with type 1 (int32) defined in section org.codeaurora.qcamera3.video_hdr_mode
+    0x80100000 (ir_mode) with type 1 (int32) defined in section org.codeaurora.qcamera3.ir
+    0x80100001 (ir_supported_modes) with type 1 (int32) defined in section org.codeaurora.qcamera3.ir
+    0x80110000 (aec_speed) with type 2 (float) defined in section org.codeaurora.qcamera3.aec_convergence_speed
+    0x80120000 (awb_speed) with type 2 (float) defined in section org.codeaurora.qcamera3.awb_convergence_speed
+    0x80130000 (instant_aec_mode) with type 1 (int32) defined in section org.codeaurora.qcamera3.instant_aec
+    0x80130001 (instant_aec_available_modes) with type 1 (int32) defined in section org.codeaurora.qcamera3.instant_aec
+    0x80140000 (strength) with type 1 (int32) defined in section org.codeaurora.qcamera3.sharpness
+    0x80140001 (range) with type 1 (int32) defined in section org.codeaurora.qcamera3.sharpness
+    0x80150000 (enable) with type 0 (byte) defined in section org.codeaurora.qcamera3.histogram
+    0x80150001 (buckets) with type 1 (int32) defined in section org.codeaurora.qcamera3.histogram
+    0x80150002 (max_count) with type 1 (int32) defined in section org.codeaurora.qcamera3.histogram
+    0x80150003 (stats) with type 1 (int32) defined in section org.codeaurora.qcamera3.histogram
+    0x80160000 (binning_correction_mode) with type 1 (int32) defined in section org.codeaurora.qcamera3.binning_correction
+    0x80160001 (binning_correction_available_modes) with type 1 (int32) defined in section org.codeaurora.qcamera3.binning_correction
+    0x80170000 (is_hdr_scene) with type 0 (byte) defined in section org.codeaurora.qcamera3.stats
+    0x80170002 (is_hdr_scene_confidence) with type 2 (float) defined in section org.codeaurora.qcamera3.stats
+    0x80170004 (bsgc_available) with type 0 (byte) defined in section org.codeaurora.qcamera3.stats
+    0x80170005 (blink_detected) with type 0 (byte) defined in section org.codeaurora.qcamera3.stats
+    0x80170006 (blink_degree) with type 0 (byte) defined in section org.codeaurora.qcamera3.stats
+    0x80170007 (smile_degree) with type 0 (byte) defined in section org.codeaurora.qcamera3.stats
+    0x80170008 (smile_confidence) with type 0 (byte) defined in section org.codeaurora.qcamera3.stats
+    0x80170009 (gaze_angle) with type 0 (byte) defined in section org.codeaurora.qcamera3.stats
+    0x8017000a (gaze_direction) with type 1 (int32) defined in section org.codeaurora.qcamera3.stats
+    0x8017000b (gaze_degree) with type 0 (byte) defined in section org.codeaurora.qcamera3.stats
+    0x80180000 (vfe1_reserved_rdi) with type 1 (int32) defined in section org.codeaurora.qcamera3.simultaneous_camera
+    0x80190000 (is_qcfa_sensor) with type 0 (byte) defined in section org.codeaurora.qcamera3.quadra_cfa
+    0x80190001 (qcfa_dimension) with type 1 (int32) defined in section org.codeaurora.qcamera3.quadra_cfa
+    0x801a0000 (sizes) with type 1 (int32) defined in section org.codeaurora.qcamera3.hfr
+    0x801b0000 (enable) with type 0 (byte) defined in section org.codeaurora.qcamera3.bokeh
+    0x801b0001 (blurLevel) with type 1 (int32) defined in section org.codeaurora.qcamera3.bokeh
+    0x801b0002 (status) with type 1 (int32) defined in section org.codeaurora.qcamera3.bokeh
+    0x801c0000 (status) with type 0 (byte) defined in section org.codeaurora.qcamera3.fusion
+    0x801d0000 (mode) with type 0 (byte) defined in section org.codeaurora.qcamera3.logical
+    0x801e0000 (partial_mwb_mode) with type 1 (int32) defined in section org.codeaurora.qcamera3.manualWB
+    0x801e0001 (color_temperature_range) with type 1 (int32) defined in section org.codeaurora.qcamera3.manualWB
+    0x801e0002 (gains_range) with type 2 (float) defined in section org.codeaurora.qcamera3.manualWB
+    0x801e0003 (color_temperature) with type 1 (int32) defined in section org.codeaurora.qcamera3.manualWB
+    0x801e0004 (gains) with type 2 (float) defined in section org.codeaurora.qcamera3.manualWB
+    0x801f0000 (on) with type 0 (byte) defined in section org.codeaurora.qcamera3.sat
+    0x80200000 (endOfStream) with type 0 (byte) defined in section org.quic.camera.recording
+    0x80210000 (enable) with type 0 (byte) defined in section org.codeaurora.qcamera3.swmfnr
+
+== Camera error traces (0): ==
+  No camera traces collected.
+
+**********Dumpsys from previous open session**********
+
+**********End of Dumpsys from previous open session**********
+
+=== Vendor Camera Configs ===
+total 35944
+drwxr-xr-x  2 root shell     4096 2009-01-01 08:00 .
+drwxr-xr-x 19 root shell     4096 2009-01-01 08:00 ..
+-rw-r--r--  1 root root     50183 2009-01-01 08:00 GpuKernelRepo.pb
+-rw-r--r--  1 root root      4517 2009-01-01 08:00 beauty_ui9_intelligent_params.config
+-rw-r--r--  1 root root     13647 2009-01-01 08:00 camera_config.xml
+-rw-r--r--  1 root root      4108 2009-01-01 08:00 csidtg_camera.xml
+-rw-r--r--  1 root root      7222 2009-01-01 08:00 csidtg_chromatix.xml
+-rw-r--r--  1 root root     18864 2009-01-01 08:00 lavender_imx486_ofilm_i_chromatix.xml
+-rw-r--r--  1 root root     20330 2009-01-01 08:00 lavender_imx486_ofilm_i_dw9714_chromatix.xml
+-rw-r--r--  1 root root      3769 2009-01-01 08:00 lavender_ov02a10_ofilm_i_chromatix.xml
+-rw-r--r--  1 root root      3780 2009-01-01 08:00 lavender_ov02a10_sunny_ii_chromatix.xml
+-rw-r--r--  1 root root     17318 2009-01-01 08:00 lavender_ov12a10_sunny_ii_chromatix.xml
+-rw-r--r--  1 root root     14837 2009-01-01 08:00 lavender_ov13855_ofilm_global_i_chromatix.xml
+-rw-r--r--  1 root root     13876 2009-01-01 08:00 lavender_ov13855_ofilm_i_chromatix.xml
+-rw-r--r--  1 root root     13922 2009-01-01 08:00 lavender_ov13855_ofilm_india_i_chromatix.xml
+-rw-r--r--  1 root root     14975 2009-01-01 08:00 lavender_ov13855_sunny_global_ii_chromatix.xml
+-rw-r--r--  1 root root     14018 2009-01-01 08:00 lavender_ov13855_sunny_ii_chromatix.xml
+-rw-r--r--  1 root root     14050 2009-01-01 08:00 lavender_ov13855_sunny_india_ii_chromatix.xml
+-rw-r--r--  1 root root      6395 2009-01-01 08:00 lavender_s5k5e8_ofilm_cn_i_chromatix.xml
+-rw-r--r--  1 root root      6442 2009-01-01 08:00 lavender_s5k5e8_sunny_cn_ii_chromatix.xml
+-rw-r--r--  1 root root     16904 2009-01-01 08:00 lavender_s5kgm1_ofilm_i_chromatix.xml
+-rw-r--r--  1 root root     17987 2009-01-01 08:00 lavender_s5kgm1_ofilm_india_i_chromatix.xml
+-rw-r--r--  1 root root     16371 2009-01-01 08:00 lavender_s5kgm1_sunny_ii_chromatix.xml
+-rw-r--r--  1 root root     18157 2009-01-01 08:00 lavender_s5kgm1_sunny_india_ii_chromatix.xml
+-rw-r--r--  1 root root   2290324 2009-01-01 08:00 lf_facerank_model.bin
+-rw-r--r--  1 root root   6673796 2009-01-01 08:00 megviifacepp_model
+-rw-r--r--  1 root root  12933599 2009-01-01 08:00 model_back.dlc
+-rw-r--r--  1 root root  12843397 2009-01-01 08:00 model_front.dlc
+-rw-r--r--  1 root root   1690160 2009-01-01 08:00 sdm_ys_32p_120_21_5_perturb50.bin
+==> /vendor/etc/camera/GpuKernelRepo.pb <==
+  Ë
+image2d_to_buffer_108341¨   
+            0   8   	                     �               ˜  P      P      è          ¨      è          ¨      è          ¨      è  (      (                (                (                ¨   	             È   
+        `                                    
+             0                0                0                0                                                                ¨                ,                                8                                0                D                ¨                                                                                        !                "             0   #             0   $              %              &   (             '   (          d   (   (             )   (             *   (             +   (             ,   (             -   (             .   (             /   (              0   (              1   (              2   (              3   (              4   (              5   (              6   (              7   (              main                           p                  e                                 2       A      H                      X   @$0           °BXP   PCÌ     0BÍ   0BÎ   0B X ‚d     °B @   PC    ÐF   	@    ðC   €‚d`  ƒb`  pBd €€b   
+@ 	   	 €        P 0B	 
+ 
+x@
+   
+À        
+  PF
+  �`€ …`  xB   @        	  	x@	   	@        	 
+ 	8B	  
+PF	 
+ 
+�`€
+ 
+ˆ„` 
+  pB
+   šB   “B	  	 xB  øF 	 8B@  XC  ‚d\ ˆ€b  PF  ˆ�a€ �a    pBX    ƒb                 I0  ø ´B           €   ø ´B            €   ø ´B            �    ØFT   8B     @     @U         € ÂÀ         ÐN    I         T 8B   @     @U          € ÂÀ         ÐN    I         T 8B   @     @U          € ÂÀ        ØNT 8B   @     @U          € 	ÂÀ                                  À                   Ï   Ì          ,   .       0   2   4   6   ÿÿÿÿ@   B   D   H   ÿÿÿÿL                                                       T     È                                         À                                        8   <      =                                                               image2d_to_buffer          œ          P                                       ÿÿÿÿ                      ÿÿÿÿ                                                    offsetint   ¤                 	                               ÿÿÿÿ       	               ÿÿÿÿ                                                    inputimage2d_t                T       
+                                ÿÿÿÿ                      ÿÿÿÿ                                                    outputfloat*    °         X                                       ÿÿÿÿ                      ÿÿÿÿ                                                    packedInputChannelsWidthint     °         \                                       ÿÿÿÿ                      ÿÿÿÿ                                                    packedInputChannelsHeightint    ¨         `                                       ÿÿÿÿ                      ÿÿÿÿ                                                    numOutputChannelsint    ¤         d                 
+                      ÿÿÿÿ                      ÿÿÿÿ                                                    outputRowSizeint              Ï   À   Ì   ¡ž‚àÅ3
+avg_pooling_197301¨3   
+            0   8   	                     �               ˜  P      P      è          ¨      è          ¨      è          ¨      è  (      (        @     (      P          (      P          ¨   	   P          È   
+   P  °  ö            �     �     �             
+   �          0      �          0      �          0      �          0      �                �                �                �          ¨      �          ,      �                �          8      �                �          0      �          D      �          ¨      �                 �                 �                 �                  �             !   �             "   �          0   #   �          0   $   �           %   ˜           &   ¨             '   ¨          d   (   ¨             )   ¨             *   ¨             +   ¨             ,   ¨             -   ¨             .   ¨             /   ¨              0   ¨              1   ¨              2   ¨              3   ¨              4   ¨              5   ¨              6   ¨              7   ¨              main                          œ                                                 ˆ   
+   º      Ô                        €?            ”                     ‰ˆ>            •                     ¤'³<            –                     š™	A            —                     «ªª¾            ˜                     Ñ
+]½            ™                     
+×£>            š                                     ›                     à      0¨             Î   0BÍ   0BÌ     0BÈ   @1    ÐF   ÐFÀ   @1 Ø   @1    G   GÐ   @1  Ð `B  €�b   ‚b Ø `B    ø ¤B                    ¸  B °  B   @     @   	èB       C     C   I     @    @    pB   pB ¨ àB  àB  PF  ˆ€a   �a	     �    @    @           pB  xB  PF  �a  €€a     (   ø  B    	@D        	   
+B      �     	@D      @$    
+@    @    @     ØF    G	   
+B   ø  B   @             �  
+   ˆb   @   0B    ÐF  ø´B     G               	 	P÷ÿÿÿ  �   8J  ø ´B       ïÿÿÿ  �    ø ²J            �     @”              €  	 	x@è    @1(          ø ´B       
+     €    ø ´B            €    ø ´B       p     €    ø ´B       €     � 	 € P@  „	0@}      	  (	PH{      |	  xH €—ø ²@”   @$             €  €šø °@            �  € €x@–�™‚c€•ˆ‚c€˜ˆ‚c€”ˆ‚c €  p@
+       €(xH ( p@           p€ (@ h @           €  p@      @@  €f€—ø ²@”   @$             € €šø °@            � €€x@–�™‚c€•ˆ‚c€˜ˆ‚c€”ˆ‚c€  p@
+      €(xH ( p@           p€ (@ h @           €  p@      @@€€f€—ø ²@”   @$             € €šø °@            � €€x@–�™‚c€•ˆ‚c€˜ˆ‚c€”ˆ‚c€  p@
+      €(xH ( p@           p€ (@ h @           €  p@      @@ �f€—ø ²@”   @$             € €šø °@            � €€x@–�™‚c€•ˆ‚c€˜ˆ‚c€”ˆ‚c€  p@
+      €(xH ( p@           p€ (@ h @           €  p@      @@€�fx  	x@      xÐ| ƒ„k  ( p@             p€            p€            p€            p€  ( @           	 €           
+
+==> /vendor/etc/camera/beauty_ui9_intelligent_params.config <==
+/*
+1			2			3			 	4			5				6					 7				8				9				10
+soften		white		ruddy			eye-large	slender-face	foundation			eye-bright		deblemish		depouch			lip
+11			12			13				14			15				16					17				18				19
+relight 	iris	 	auto-bright		auto-color	clarity 		auto-style			slender-nose 	skin-sharp 		nose-highlight
+*/
+
+//# capture beauty , value = (int)(X + M /100f * limit)  , M(0~100)
+//# bokeh beauty , value = (int)(enabled * X + M /100f * limit) , M(0~100)
+
+//# CN:X
+//male
+//	1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19
+{   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
+{   5,  0,  0,  10, 20, 0,  5,  1,  50, 0,  0,  0,  0,  0,  30, 50, 0,  0,  5},
+{   10, 0,  0,  10, 20, 0,  5,  1,  60, 0,  0,  0,  0,  0,  30, 50, 0,  0,  10},
+{   15, 0,  0,  10, 20, 0,  5,  1,  60, 0,  0,  0,  0,  0,  30, 50, 0,  0,  10},
+{   20, 0,  0,  15, 20, 0,  5,  1,  60, 0,  0,  0,  0,  0,  30, 50, 0,  0,  10},
+{   25, 0,  0,  20, 20, 0,  5,  1,  60, 0,  0,  0,  0,  0,  30, 50, 0,  0,  15},
+//female
+{   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
+{   25, 0,  0,  10, 40, 0,  10, 1,  50, 20, 0,  0,  0,  0,  30, 50, 0,  0,  10},
+{   30, 0,  0,  10, 40, 0,  10, 1,  60, 25, 0,  0,  0,  0,  30, 50, 0,  0,  10},
+{   35, 0,  0,  10, 40, 0,  10, 1,  60, 30, 0,  0,  0,  0,  30, 50, 0,  0,  15},
+{   40, 0,  0,  15, 40, 0,  10, 1,  60, 35, 0,  0,  0,  0,  30, 50, 0,  0,  15},
+{   45, 0,  0,  20, 40, 0,  10, 1,  60, 40, 0,  0,  0,  0,  30, 50, 0,  0,  20},
+
+//# India:X
+//male
+//	1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19
+
+==> /vendor/etc/camera/camera_config.xml <==
+<!--
+  Copyright (c) 2016-2017 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+<!--
+CameraModuleConfig :
+    This node must be added for each module prosent in the device.
+    It contain all information about the module present.
+    The number of nodes of CameraModuleConfig indicate number of modules
+    to be probed on the device.
+    Maximum number of CameraModuleConfig nodes is 10
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+*CameraId :
+    Camera Id is the Slot number in which the mode is plugged.
+    Valid values are 0, 1, 2 and 3.
+*SensorName :
+    Name of the sensor present on the module.
+    The sensor library name should be of the form libmmcamera_<SensorName>.so
+ActuatorName :
+    Name of the actuator on this module.
+    The actuator library name should be of the form libactuator_<ActuatorName>.so.
+    If there is no actuator remove the <ActuatorName> node.
+EepromName :
+    Name of the eeprom on this module.
+    Eeprom lib name should be of the form libmmcamera_<EepromName>_eeprom.so
+    If there is no eeprom remove the <EepromName> node.
+FlashName :
+    Name of the flash on this module.
+
+==> /vendor/etc/camera/csidtg_camera.xml <==
+<!--
+  Copyright (c) 2015 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+<!--
+CameraModuleConfig :
+	This node must be added for each module prosent in the device.
+	It contain all information about the module present.
+	The number of nodes of CameraModuleConfig indicate number of modules
+	to be probed on the device.
+	Maximum number of CameraModuleConfig nodes is 10
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+*CameraId :
+	Camera Id is the Slot number in which the mode is plugged.
+	Valid values are 0, 1, 2 and 3.
+*SensorName :
+	Name of the sensor present on the module.
+	The sensor library name should be of the form libmmcamera_<SensorName>.so
+ActuatorName :
+	Name of the actuator on this module.
+	The actuator library name should be of the form libactuator_<ActuatorName>.so.
+	If there is no actuator remove the <ActuatorName> node.
+EepromName :
+	Name of the eeprom on this module.
+	Eeprom lib name should be of the form libmmcamera_<EepromName>_eeprom.so
+	If there is no eeprom remove the <EepromName> node.
+FlashName :
+	Name of the flash on this module.
+
+==> /vendor/etc/camera/csidtg_chromatix.xml <==
+<!--
+  Copyright (c) 2015-2016 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+	CommonChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+	ResolutionChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+	Contains the list of chromatix names for all modules.
+	special_mode_mask:
+		It is the bit mask for special modes, which is used for
+			chromatix selection.
+		Special modes can be any mode that needs a special chromatix.
+		Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+		This is applicable for CommonChromatixInfo and
+			ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_imx486_ofilm_i_chromatix.xml <==
+<!--
+  Copyright (c) 2016 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+	CommonChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+	ResolutionChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+	Contains the list of chromatix names for all modules.
+	special_mode_mask:
+		It is the bit mask for special modes, which is used for
+			chromatix selection.
+		Special modes can be any mode that needs a special chromatix.
+		Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+		This is applicable for CommonChromatixInfo and
+			ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_imx486_ofilm_i_dw9714_chromatix.xml <==
+<!--
+  Copyright (c) 2016 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+	CommonChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+	ResolutionChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+	Contains the list of chromatix names for all modules.
+	special_mode_mask:
+		It is the bit mask for special modes, which is used for
+			chromatix selection.
+		Special modes can be any mode that needs a special chromatix.
+		Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+		This is applicable for CommonChromatixInfo and
+			ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_ov02a10_ofilm_i_chromatix.xml <==
+<!--
+  Copyright (c) 2017 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+   CommonChromatixInfo is the information about chromatix needed for
+       various use cases.
+   Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+       3A and SW PostProc.
+   Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+   ResolutionChromatixInfo is the information about chromatix needed for
+       various use cases.
+   Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+       3A and SW PostProc.
+   Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+   Contains the list of chromatix names for all modules.
+   special_mode_mask:
+       It is the bit mask for special modes, which is used for
+           chromatix selection.
+       Special modes can be any mode that needs a special chromatix.
+       Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+       This is applicable for CommonChromatixInfo and
+           ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_ov02a10_sunny_ii_chromatix.xml <==
+<!--
+  Copyright (c) 2017 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+   CommonChromatixInfo is the information about chromatix needed for
+       various use cases.
+   Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+       3A and SW PostProc.
+   Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+   ResolutionChromatixInfo is the information about chromatix needed for
+       various use cases.
+   Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+       3A and SW PostProc.
+   Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+   Contains the list of chromatix names for all modules.
+   special_mode_mask:
+       It is the bit mask for special modes, which is used for
+           chromatix selection.
+       Special modes can be any mode that needs a special chromatix.
+       Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+       This is applicable for CommonChromatixInfo and
+           ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_ov12a10_sunny_ii_chromatix.xml <==
+<!--
+  Copyright (c) 2017 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+   CommonChromatixInfo is the information about chromatix needed for
+       various use cases.
+   Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+       3A and SW PostProc.
+   Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+   ResolutionChromatixInfo is the information about chromatix needed for
+       various use cases.
+   Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+       3A and SW PostProc.
+   Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+   Contains the list of chromatix names for all modules.
+   special_mode_mask:
+       It is the bit mask for special modes, which is used for
+           chromatix selection.
+       Special modes can be any mode that needs a special chromatix.
+       Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+       This is applicable for CommonChromatixInfo and
+           ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_ov13855_ofilm_global_i_chromatix.xml <==
+<!--
+  Copyright (c) 2017 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+    CommonChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+    ResolutionChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+    Contains the list of chromatix names for all modules.
+    special_mode_mask:
+        It is the bit mask for special modes, which is used for
+            chromatix selection.
+        Special modes can be any mode that needs a special chromatix.
+        Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+        This is applicable for CommonChromatixInfo and
+            ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_ov13855_ofilm_i_chromatix.xml <==
+<!--
+  Copyright (c) 2017 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+    CommonChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+    ResolutionChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+    Contains the list of chromatix names for all modules.
+    special_mode_mask:
+        It is the bit mask for special modes, which is used for
+            chromatix selection.
+        Special modes can be any mode that needs a special chromatix.
+        Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+        This is applicable for CommonChromatixInfo and
+            ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_ov13855_ofilm_india_i_chromatix.xml <==
+<!--
+  Copyright (c) 2017 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+    CommonChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+    ResolutionChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+    Contains the list of chromatix names for all modules.
+    special_mode_mask:
+        It is the bit mask for special modes, which is used for
+            chromatix selection.
+        Special modes can be any mode that needs a special chromatix.
+        Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+        This is applicable for CommonChromatixInfo and
+            ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_ov13855_sunny_global_ii_chromatix.xml <==
+<!--
+  Copyright (c) 2017 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+    CommonChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+    ResolutionChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+    Contains the list of chromatix names for all modules.
+    special_mode_mask:
+        It is the bit mask for special modes, which is used for
+            chromatix selection.
+        Special modes can be any mode that needs a special chromatix.
+        Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+        This is applicable for CommonChromatixInfo and
+            ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_ov13855_sunny_ii_chromatix.xml <==
+<!--
+  Copyright (c) 2017 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+    CommonChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+    ResolutionChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+    Contains the list of chromatix names for all modules.
+    special_mode_mask:
+        It is the bit mask for special modes, which is used for
+            chromatix selection.
+        Special modes can be any mode that needs a special chromatix.
+        Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+        This is applicable for CommonChromatixInfo and
+            ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_ov13855_sunny_india_ii_chromatix.xml <==
+<!--
+  Copyright (c) 2017 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+    CommonChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+    ResolutionChromatixInfo is the information about chromatix needed for
+        various use cases.
+    Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+        3A and SW PostProc.
+    Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+    Contains the list of chromatix names for all modules.
+    special_mode_mask:
+        It is the bit mask for special modes, which is used for
+            chromatix selection.
+        Special modes can be any mode that needs a special chromatix.
+        Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+        This is applicable for CommonChromatixInfo and
+            ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_s5k5e8_ofilm_cn_i_chromatix.xml <==
+<!--
+  Copyright (c) 2015 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+	CommonChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+	ResolutionChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+	Contains the list of chromatix names for all modules.
+	special_mode_mask:
+		It is the bit mask for special modes, which is used for
+			chromatix selection.
+		Special modes can be any mode that needs a special chromatix.
+		Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+		This is applicable for CommonChromatixInfo and
+			ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_s5k5e8_sunny_cn_ii_chromatix.xml <==
+<!--
+  Copyright (c) 2015 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+	CommonChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+	ResolutionChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+	Contains the list of chromatix names for all modules.
+	special_mode_mask:
+		It is the bit mask for special modes, which is used for
+			chromatix selection.
+		Special modes can be any mode that needs a special chromatix.
+		Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+		This is applicable for CommonChromatixInfo and
+			ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_s5kgm1_ofilm_i_chromatix.xml <==
+<!--
+  Copyright (c) 2016 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+	CommonChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+	ResolutionChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+	Contains the list of chromatix names for all modules.
+	special_mode_mask:
+		It is the bit mask for special modes, which is used for
+			chromatix selection.
+		Special modes can be any mode that needs a special chromatix.
+		Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+		This is applicable for CommonChromatixInfo and
+			ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_s5kgm1_ofilm_india_i_chromatix.xml <==
+<!--
+  Copyright (c) 2016 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+	CommonChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+	ResolutionChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+	Contains the list of chromatix names for all modules.
+	special_mode_mask:
+		It is the bit mask for special modes, which is used for
+			chromatix selection.
+		Special modes can be any mode that needs a special chromatix.
+		Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+		This is applicable for CommonChromatixInfo and
+			ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_s5kgm1_sunny_ii_chromatix.xml <==
+<!--
+  Copyright (c) 2016 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+	CommonChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+	ResolutionChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+	Contains the list of chromatix names for all modules.
+	special_mode_mask:
+		It is the bit mask for special modes, which is used for
+			chromatix selection.
+		Special modes can be any mode that needs a special chromatix.
+		Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+		This is applicable for CommonChromatixInfo and
+			ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lavender_s5kgm1_sunny_india_ii_chromatix.xml <==
+<!--
+  Copyright (c) 2016 Qualcomm Technologies, Inc.
+  All Rights Reserved.
+  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+
+<!--
+CommonChromatixInfo:
+	CommonChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are common for all sensor modes.
+
+ResolutionChromatixInfo:
+	ResolutionChromatixInfo is the information about chromatix needed for
+		various use cases.
+	Ex:- Preview, Snapshot, ZSL, HFR, HDR, Video, Liveshot for ISP, CPP,
+		3A and SW PostProc.
+	Entries in this node are specific to sensor resolution.
+
+ChromatixName:
+	Contains the list of chromatix names for all modules.
+	special_mode_mask:
+		It is the bit mask for special modes, which is used for
+			chromatix selection.
+		Special modes can be any mode that needs a special chromatix.
+		Ex:- scene mode, DZOOM mode, OIS capture mode, flash mode
+		This is applicable for CommonChromatixInfo and
+			ResolutionChromatixInfo.
+
+==> /vendor/etc/camera/lf_facerank_model.bin <==
+yó¢ºµd=Ê¼�Ð¤=õ‘˜=öQ¦=è<$�‚=ûù©=-†ººÉ™ä;…©T¼ãDA=²ºƒ=vÄz½ 0Ÿ=˜¨É=y“ ½´ví9°0Ê=†“½(=_Âx¼a‡Á<“oy½È„Í=4�=?€½ó¦–="Ô¼Pcè¼ímÊ<x5%½'‚=�mš½é–&=¼Vt=ŸÃ¨=Š<7½ÿ7+½S#=‰Ã=âá€½½)9½NÕK:Èx8½žGo¼¨Ë<V­½ÙG
+=O­½J(¬<¹è–=Ææ—½®éï¼Q½±ÑÆ½l°±¼�Žê:*êF=ô ð9Æ:g='è»;\Õ9;í½N;=M‹2½Ë%|½f�˜ºJ=$<íV	¼‚ÃÕ<³]½ÝÁ(½ŒÐ½¢€å<À�b½‚wÍ½ºbt½Eà®¼ç'$½xQv½&÷�½Äç=Qò=ÊÕE½ñœ?<ß¡Ç;ìA^½W£Í<{©€½fj<·"n=îB¹½]Éƒ=Ñ\¹½†@½ß,”½wþì»w)½xL¢<ÊQ�½é¢á<ò×O=Bú#<„Q¯=Ó =3ã¼]ß<F;<µØ¤¼‰¬ò<˜¹V½èo—¼ÝéŒ=·?¦=§ët=Ëõ=ç*¸½Bk°½ï .=Š�—=ÿ2Ï<”A>»Ò¨j½5N=Ò2i=ˆ)
+½ìa¼=¢½¥î]=Å½ªd½çeS=IQ=5û½3‹¤<é°à=˜íœ=6{c½—€A=WP1½yC�½œBÐ=¥,ƒ½
+¨í»ç)c¼P¬¾<øHf=d&€=Vß�¼?¤=Õiy=éF2=-È†=w™ã<b¦s=>8¼<Þog½\ÿq<Äÿ=ñ=~	Š½§*^=˜ž=	UO;Ñ…=µ†½<ý<}Ið<ÙÓ€½ÝS³½ãë]½.r–=2¦=áâ€½Lcˆ½F`½øÕ0=¨âŒ=î�½Ø3½/¥—¼õ�4½Ì�=¶f=AC½	<=¨È¼Ç‰½Z3=Ãx½„ëÂ½„½Š)Ã¼1‹A=\Î
+=:‹=(Û ½ÿ‘
+=ÿÎ9<íï=°C˜½=KF½¾éB=q=þ"í¹¥À¢½Öá=8W€=™ ½Zæ);öÕY½¾(Š½W5’½!ÑQ½H+B»ÇÝ©=$¼™½#ÙX½K)Z½qL“=ˆQ‚½6¸¬½pŒ½¾¬9<D <N]�=êbt=p˜ƒ<ÏŸ½œ�=xqÂ½º"W=Á½éX=>Zœ¼ý™`½†²+¼´ ¤=Äå›½£…½ë'5½—‚¤=Lî= Ñ=+îb=t†<œ¸=�@´=¸=‰=ãïœ=Æò=”e½)0<ÙU—=´È¥=qˆi=é²»¼l‚X<ç­@½Ìb²=	ÜY=ßN}=JÛÚ¼,Š:¼O1<æ¿²<Å[—=z\¼=rîÈ»�š
+=�1e¼ø¦=öÉ±=œ*¯=Ož/=	�»Ël…=ŸÝL=VB½ó¼Ž½Pê»UŸ=±Ì<Y.¼¼\s=w¥½+–Y=ÇPj=
+3Ó<¥È¼á¨¼#Ñå:8w½a&¼\Ìl½*n/½=N½.¹<Ê€<Úü‡=z`¢½£“N½µ&x½±zŠ¼j<Å¼ÌÆ¡½ó…½ž\2=ô.Þ½Vm�½ó —½IRZ»Æº½0åÖ½ï½ÌÈ½+Is<o=2„=óÜ–¼ì‚Ê< 44¼—©<úx|½ËH‘½fBD=Pl¬¼°›—¼ÍÜˆ½7ß½ÂÉ:½Nœs=”qu¼‰&=¡Hh½gIÜ¼0#�;[)»ŒJk=F†°½±6¨½†z<¢¦=^lÌ½O	½]`½O”»<ï~ ;1vŽ=d2¼½[Ð“½Usk¼ ’½eˆ=ú$=Ã‹=V~½«•=-Çœ¼‚�[=g"°½J�±¼A¹ü;¥©º½SNæºëG•=Êi=’:¹½Ÿ|½•¥½“@ˆ¼ªŠ¼ÏÍÝ<… ½R$Û¼$I·½ã.L=R_Œ½²Û»½=Õj=idÂ¼ÏÃÀ¼ØôZ={¶=Wnñ<±k¬=l¿»”å<ÂÛ¼é…¼¹qU½Ôr<ã=˜‡¼Êk ;7Œ•½Œ½v½c
+³»�O‚=Œµ˜½Zâ¼"ÿ“=ki›9ŠñÈ¼Ñ!¸;òyŽ=Ê‡=âÓ;kä¼£ÝÇ<+ t½�¢<«yºO}=§¯$=´Òˆ½RÞ»=Èë­½²„»½ú·Ž½`�Ž½#/F=™I=é0N½Ýâ~=Ž5Ž½*Çº¼Z!µ=M’=…ec<´�`=ãâ=zî£½?ID<ío3<‰’½©öª¼[ðV¼lã’=þÚ´=2C=°ÏÄ¼r�Ç»ÕDÄºv{u½QÍ=0í�½*€Š<‘éœ<þ_¨½Mê< M½øA;ô;¨»Â=zYK½"æ,¼šþÑ¼†Ÿ"=ÍÒ¼ÏÆK½í©1½l8Ò<rÁQ=$É>=y—½óµ¨=Ý–¼~ä¹9½gq=Ò=�Æ‹=P~¼dõu½7û¤:�#µ¼½A‰½2ž™½B'=' «¼¯„¹=1¢Ì=/s =´l`¼ma§ºä0¥½Í&;Ï´¼–•�=]¨V=à¥w=]œA=þº›½}™<ž®<`¼—¡½åh®<=ë
+=,§½Ã;è<CY¬=œ¨^½Ð|X<FPƒ½\•»,Ü2;!ç\=ðÌ½.¾=ôªA=‰Gi½ÛçŽ½äÀ|=p^Ç<Lm»`(t½Cãv¼I �½n?u½óîY½D’Z½âF‹¼­Í|:Vbp½/5·½€ã™=Á\ˆ½†›<˜—ï<we”¼êŒJ<ÛY;r‰©<%Ç?¼w‡=WÊé¼ç=Øµ½ÇC<õà‰½X<O=Iã/½Ï‚b½Åm�½|ø0¼��‚;�¨v½—²³½\ù=×i<mé¥¼‹lB=Î`:<3f<Ö;´½ìE­¼Y7;br•½ïú_=§Àž¼qás<LnÏ;.Ar½P8%:Ëªá<×Ã_»^6"=×½„8X½Ép”<˜ã/½
+Ÿ<Þ	e½�m=½È“0»Ÿ •=YÑ„=!kÉ=¨³=eQ="tB½¦=
+¹½®k=ßLØ<!d’½$Íç»HýA=F\à¼˜­[=¬i7= ¦ô¼ßÿÜ»ðtê¼KŸ´½‘¹7½m,ÿ¼ÑÆ=wú<f<Ÿ<'€°=®±…½³O|=©†E½žþª½·½ò²½ñ Ž½ôp =;¸½ï�(=R2–½W×¥=z›%= —ª½x§½ˆ'Û<tÌ°½—¾d½5“c¼õ
+n½bw�= 0©=SÛ·<Þ¤=.ç+½Ê«;½½Ñ¼½`Ê¼þ2Ç½¬'d½¹ÖÖ¼˜$½àíd=ÎÇW<ÝoU<“_w=‘p…½O+½¬¦Í;/á§=ã+±=�Î±¼yä=“'<{n=S'¼¡ÐŸ<„R"½L«¼*,p½bÜ=ºLd=�3É¼,6m½6ql½Hœ}=º¡1=õà‰=ËàÁ½¯
+¶½âô=»_Ôi¼;§=´%=× ½Ïù½{¸ü<ýC¤½»Ñ–½}„È<ï¨Xº]v¿¼˜¼ºYí»¢<½¶Ñ<{§~;©›¯=ú©Ž½8P�½ÎK�½½5=pvƒ»©!<=+í½·y=ýjf½O½N³;*(	= ;½,‹½�?<¢é,½¤ÒÌ<ÇYÕ¼wK³;¦Á¾=}½L;¼�ƒ=ÍV–9Ìû(¼˜Š =
+š½P=	½ÝR‹½À\¡¼oœ€=Pvž=D¸Ú=bgÊ=‰K´<]e�<Ÿœ;=‚g½…ð–=p†Ä=)�ûº¢Ó¯¼‰P©=Ö@=ÏG[=îÔ½ÛÞP=oÆÕ»��=4:À¼u(´=
+$»¼‡Ì�=“*‚½8kC¼O›#½Iÿª»òíÄ¼4H½n6½½Ô3Š½n\×¼ó8Š¼!r…½a÷-<‹=@Œ6=O ²<è'½ÔCý»ì-)¼}šé¼Yÿ†=ó*œ=^·Ã<MèÒ»Ÿà”=•3½uß�½|.«<Ó,¼Ábð¼zT“=h A=;\³=\£Ì=Í]¼	øg='´5¼ˆH ½bÚ8;í@Å½o¼¯½�·«=¡î1==óx½
+Ç³<"¬=êÅÞ={Â»ìgh¼¬c<!C½C}4<?a&=Æû¢½Ìíí<Üÿ´=:ž	½Ö®H¼ßß½mú�½”Ö==tDD½ÕÍ”½Lä“½zf=6ì£»gå¼Ìßœ<‡½0
+¥½ëÆ|=Và¼Ï¦á<,=„S‰½hh:Ó4½ñêž½ÄŒ”<<©5<Än½=¸àh¼ Œ=àa[½¦Ÿ=øO½�O…»DÔ¼µ²¯º\Á¼$yš=é¡w=1¶½Ôý�¼,äŸ<ž…Û;"àJ<x¸ò¼|v¬=;rÜ¼máª=ÔR?=ßÄT¼ühÊ<\U½ó›Š½4‡=ÐO‡½â9„½ËM…=4¶~½a#³<(¬4½ CÏ¼>åð<À| ¼«¨¾½1ÚU¼AR9=Å„=´l½P ‹=FN¹=ýƒ´=–‰£½GÇ½U‚½¦«´½›¥½¼Ï(¼‘8<O½ÙÚ…½ý=¦œ
+<k²#½²£¼F'@¼»¥{¼˜¬G½ÛÔ¾¼-t½²º=¨à–¼pÝ%:£ã½0V¼;ëq=I6==¼‘¼ò©a½Ü½{^ª½ùÕž½}üš=9Eë¼—=ö»&¼ya«½«Îù»I®,½pß®¼uòÜ<£†½(›g=‹O=”k�=,9¥<	]=^!"=T©­½.s½kxM=¶ÁT=³^�½k<Î™À<mV=<=É¡=Fw³½‘bp½m'“=Åõ¯=õ
+ÿ<‰ý½ŸÍ³½dC*½É½gÑ%<¡#<ª½ü×§=.¯’=›ÎÛ¼ç`¤=5ˆ!½õl=îÂ1½Ò³?¼Ñ�º<
+�†;\Ê¿½5wT½k<¯0½èUB=Üö¯<QvJ½9¤q½ÇÇ:kÔ½Hø;�*=×8m;Èn½B¨P=WU˜½Àa<–Èª¼z›½˜M®=
+ -½ìhj½¼4E½êÖf=U Z½½rh½e »½ªc+½�„½‘cU½R~„½%¬=\9�=[Îˆ=Ô Q<‘2Ô»²¼Ey»½pÉ�½9Ž½yµ8²ÀZ=õ5ƒ¼3®È<.4I½ÅÑŽ¼,8<h7<Ÿ×d¼r^~;�(ª»½»)½Ö4¢<U<½oi¼{ùÈ=•Áî<Hü½�î¥¼÷ŽÊ;à1=VŒ/¼ÚÂd¹º<º•=¯°»Fp=F; ½¡ÒX½)õ&½1Š…»)i)=­gC=þs=˜˜Ø=oÀ=N69=“‘;=Ïê¤=N6|½` ˆ½g ½�’V½~%½Y ¤=î* =¤`Ù<¬Jõ»£�Ø¼€pð<îØŒ½7…«½¼€S=Y™=úÿ)½JÝ¨½Ài.½ú–t=Iä;½ÝÒ�½¨fè¼æ“#=­†r=÷iñº¨GO¼µ{‰<ø%=èôÝ¼i M½E}–;ÞÅ=½…ï<½¼Ö±=ÖÔS½@Š¼™ÝP<–êï¼¾Mh½…Œ·½oC©»už‰½æ‰0½�Ÿ]¼óc˜½OK9½~œß¼–}G½ Ï™=J=:õ³¼Ž²_½8|r½ˆP½ B˜=K§³½W‡‰=œJ½Nir½*^«=–sâ<Iï¶=pÍ¼08ƒ=QZ‹<nQ?=CM¶½<Ø½½¦é=ï¬>½cc“½ÇÃ(½³Û½x3O=*æX=	û€=êcX½Û^ª½TH.½Ø6n½gÎ;î-¡½e€=3S<ü¢ ½{‚=c3®¼T‹6;/•¯=¦Ê*¼'.Ç=Ø1Ž½Eî=ƒ¨¼·ó�<2Ø8=Ë2M½eî’=7Ã±½_çX½®eˆ:a„¢=zø´=+F²=­˜;¤’‡=§œd=Ž |=$Ê²½½×ú=È¹0b—=$‘Y¼3Æ·=ß«=ÒæH½Þ%¨½û’½nÝ.» ×»ñ¹¹½È–s=Š‘d½È%:¼mÊ·;mù£=r«¼ ùz½/w½­‹¯½¦9ù¼„“<Ö&{½�åñ<Èt¼zú>=·ÝÇ<§²=O0Ë<lV½-Ú½eI=¨H�=»Ø½1½¡=�Äx=YEó»“j‹½íëQ½.«B½Ê@•=+ý¼šçF½Ã™U½q¸ª=D`.½^E½½Üd‚=”tp=í]Á<ôÞ8=¥²½î>½*IÆ½™ß¬½r ‘½œï&½@Î¼mY.<~�,½$j³½‘aV½S’½R$N=&µ&½]–Š½ß '½·6Q=¡1½lÉü»d·&=_Sm½ùq;�Ö½ew²¼—P™;ðð©½SÑJ==Š=*Y�½3±‚½�‚½¨ÜB=ÀLÈ½e™½L¹Ÿ½ˆ®(½Ä_<9:”=Í	½¥ú/¼ÕÜºØxû;‡È<~B½…ÍX½»îÈ¼Ac=Š¥…½]¼r=¢=…Æ’½Ç2‚=û™€½³k�=”ó�=#~b½ß�˜=‘{O=D;½Õ%¢=W§=¡¢=øu=áco<!hp½¶E˜<ùÜ˜=iÆ½+áê¼8£½ÌÕ½S·=—ž=Ïˆ=Ï[j½<è½&=à$½ÁÖÃ; Ûp¼^‘=_ö‡<UÙ½«ö”¼´:.½Í¦ü<e|=*â›=)ªZ»ôz­½ÞŽw¼8§x½Ç‚;†Q£=œØ³=>&<„ËË¼ž'“=«†¬<Ånf½ëW =ÅÕð<©ˆ¼„¯)ºxóD<_½k½¿Â=�=mêp=ž9=ˆµ;°S="{‚½6SY=þ
+v=�‚½¾T=SÅr½5r$=©¤£< ¯¼æ³Ê;û“=-ÿƒ½Î"!=)bè¼ë¬½xÖ“<[	Ï<°$½Nk<k¡�»¼òG=Î±=½œ¡¥=½ˆ=Öw™½f½ÊL<½Ã=&=€.²½…Üš=žZº�
+
+=Â+A=p’=ÿò˜=AT”=í4¿½î> ½½2f<w�^¼ßŽÄ¼x<£=¨Ï*=ìÜ¼Uÿü»EÇ¼)tÈ<C˜H=	m.<N±½—U.=d—b=·"P½©mÃ½’+I¼‹½ÛÔ~½Ž–¼=ÂÔö<Rÿ4½¾�½d=«F0=ì˜M;íw‡=ªY½òù”½ÝÌ=ÌU	=õ8¯<–Šm=Èòª=à§½’½mM$½Ù†½D<˜½z/¥½¼·ç5½guw=T—}=¨“½è„½-.Ç<
+·=NH?½Ï`l=#OÔ<Tr}½D(=±—Ú<é‹�=ÀN¦º¡y0=}\“=-{¯=ä‹=‹t„½Lˆ½}ù¼PÆ{=Pä�=pr½Ý¹®=n¦±=o¦À=Í»f%=–Â<7¼)<°«<¸©‰½P#×»U‹q;5µŽ½3
+½R·l¼yö¼‡Š§½Ù•$½†3F= #==þ§¼�‚F½Ë¹C=®\ÿ;ªR~=ç©§½z½X=¶€U=ž}Ž=ât	=y;k<­6&½Ò¼½¸,»½ßY´¼ÍeY=GŠ¥½ÎM”½ðË=½»-¼ó0‡=Nhíºw½
+z¨½Ad³;ûv<kvc½d~½ëÑ…½2 ¥½óï˜=GYk½�±½:Žj=ì´«¼žïX½¯é–<*”¼´š=¯„ö<ü†f=¿ÌÅ=qÖ=Ùz=íä¯»ÖÁu¼àEˆ;Û‡�»?]½™ô¹½TU˜ºPJD½0bL=¡h>=Ð4¼‡ºŽ=ñŒ;—‹—=-C½ë�<";øùœ;ÅW¿½âÍ=
+SÜ»f‰D¼á2;\H= `…<~j\=î*Š=V‰¼‘9x»S[<ÈRï<úˆ«=é6	½´#½ÐM=ÂŒ�½ËIœ¼ïU¤=Îž½V“‚=Û‹=NX…=@Ñ ½`Eÿ<ê8Â=é©½ ‚}=p´½7j¼¢(Æ½ÿ¯‹=¿}´½éu¬=Òô´<o¨<€XÊ¼,Äj½Õ"‡¼™¼;=ß$�=ë´<dŠÈ½Ý›=·k~½IS=(Ào=e°<êxÏ¼Šº¨<S’½IS®½�•(=
+¤½/
+½[D=´õ�=Þƒ—=Þ€/½+¹ˆ½Ä~=ÿÜT=Ÿ›+=ÝÈ�½®Æ<�³½¼Ô�½Ýè¾=ÀB<`–²=G·=V |=˜,�½¨¯¼_3½ž
+¹½žk¦¼+<t½šF•½ 1 <ùA==àÞš=–•X=?š»‹€Â½çJ¸½�…½·ù¸<#°¼¼1æŸ=”ßb½C‘¼Ø½Í%e½µft¼íŒÄ½l¬–½>`U=õ9¼c�;�r‘=”|±=Å`¨=³ð^½€3´=‘N =º¹½Û¼
+»i°†½»ŽU½Gš‹=%Øó¼¹sr=é“½É²Á=0z<†y†½1ž=�
+˜;fS?<ü[¹½†D=[G	½�xÍ=WÈ=Öá={£~½–Ã!½G½	cQ=7Àµ¼>¿Ÿ½1üè<¬¥Õ=Ì=@x~½\Ä¢=��=�¢=XÉ×;¯›–=@ê„=!ž½5b�=ý´¾=(ŒK<“‡L¼Cí.½«\E=é5½;¹H½£Rh½°9B»¥Û”½ç ½IˆŠ½¤HZ;bï"=f+j=¾ò�½H;°½³|‰=tŽ¸<†O=œá¥¼Ü·,=™¯=
+…=ÿ½³½bç–¼M¥g¼|N½ßøp=ÛK»î»¿n½W@»
+r¼ ¶ã<øR,=ÜV=¯€ê<«?¬½Ûµ„½®0Ð½¹á=¸¸’½1'Œ½ÌÈï<¯Œ½¢¹¼Ç½39J½‰ˆ0½àÁ•<!fº½w®a=¤>s=¶(½ÙDÃ=ç©D»ˆ'½‹Ý¹<š�©¼eË$=µ$¼ð�½.Ë½½“ð;¬†=Ù�œ=„�/=€Yc=‰@ã»MH·½U©ƒ=×žq¼ês½•ÜI¼(›½šŠD¼øpN<˜ÝŸ½Òu
+½n?o;F�_=»\´½8:~½‚Uy=²Êç< Ñûºd7="¼	½b•=ïvZ½‡=¶Ï¼µ·½˜�Î¼è½@xX½TÇ^½Ó»n=õ….½¦ý=D€›¼Ôg<}Šð<Ôl½ëç“½h±¤»ùõ‰½}úF<]+½=ˆÁ<
+OÏ=I+<]¹E½öù-½³4i»AÆ¼`ºÀ½’(8:@%½ÌN‰½J2F=Œl!¼†¢<Ô €;Î§„=)Ÿ=„<dp½7¢m=ì”J=·³½O½r�=hä«=Å]£½H¿€= 'A=Óš¥½-‘=â	¤<�®Ó½~ßÍ¼Žã‡½ñD…½	;®½Ñ#›¼bŸX½ÖB=e¸1<½€;;baŠ=7[‚½*x<Bp�½¾�¤=È 	¼=ˆ(½lÎ;Û–e¼!™¡½r�"<?†Œ<ù’½Ý£½0¦=‰‡H¼6®,<ñÁ,<˜�=µs=åbÅ¼ôV„½Ó¸¼hÁ„½ÑØe½“C‡=:�K=ãç=9G•=Nã¹<5÷¢<JÎc¼çÎ�½£ÚŠ½;#½	ýˆ½©&�¼DáVºãK‘=Œö�<9n½Lq›=Ò-•½r�=˜yˆ½+e,=îª‹½ïúQ;å?ö<Råø¼ñü?¼
+=w'Š½3´½
+<�¦)½z‚äºPWó¼”C^=«ªI=`ÔF¼þº9<¨ ^=6&½Š¯‚<r¡¢½‰=ŽÅ;<!Dx½Ê?"=½‰6¼np&=Î)O½5:=Uú;½ü’=Î‡¢=­’X½Í\e=ð(ç<v
+Ý¼þ¹½Í ©=5x’=Êö;$gž=àžË:zà7¼³eÁ»<`ºoqA¼éú½è¼Ê ½¨‚±½m�Ÿ¼g³o½‡ó
+;‡Ã=äÿ¸P£¼Šr¦½+Í«½à’½Å9“½­3½G ;m«<<%=¾I=.nZ½g:=ôÖX½<AºÈò=œa=Ê}Å½~¤8=¯|�=–„ž=D¢=[ßq={´s<‹p½«Ü½ÔØ$<VÇJ½ûv£½‡êõ<}&¥½]V³=|½²·(<w]
+½ K½�½ÒÍœ½)0¢½Ó!=zv¼bª”=a9==Ô•½Ç1â<ð»¼kÐS½{'€¼‰¾=z|¶½Š©½j»œ=Îé»Ôn=Ÿr½µ]R½NÀ
+½Ê
+Õ½ªYn=$ãà»A‡=2ƒ=5¢=É==¢‹Œ<Â€=ôLR=Ø†½—æW<!p==ŒµŠ=­),½m·�<´º½íŠŠ½_2¡<oÉ«<°Ò`=î­Ï<=Æœ½T¦­=èý=¼þB½t.˜=
+æŽ½Ö$f½Ct™=»Ók½÷ø4¼ËZ¥<.½¡'‰=\¿#=&a’=åª<²ÀR=bœa=º©=>'”=¾�P¼:õÀ½ÖØ†½§<á»>=Ù#²<~½Ú¼R¸�½�¬=›š½ùÉ¡½Y=;M”¼Ö%<xúD½æ¤Í<ŽÓ·½+=<ô“=f@£<g
+T½:ÁŸ¼šL�;éYÛ¼'âÇ:íVŠ½TÇ½¥þÉ<B€z;¡;º=¬œ<³Â\:C½nƒ%½Á4C½EB;½t(½¼™Qe½¶1Ÿ=3û|½ð3‡½Ëu�=VÌ=� 4=š²=Y_½Õm¼‰ (=sÒ<<¨�A=ƒ©@½Eh�=û<G<™?=åZÃ¼¾2P=¾Íˆ½m9=©3=
+Á;žÞ¼‚
+¢=µ¥š=Øw½<¸c‹=ÒrŸ<jg=þl·½2î�½ò2­½ì–<¡¯¢½>ä®½u?‘¼þÜ‰=÷oŠ=ã•µ=úP†½è³_=,£	=Ð[<´îª¼ÇÎ <ðà–¼±ó=åž=°ÿ<¥�½;
+š¸<Çî
+»îŽ–½„T™9ø0/¼|=a`=ù—‹»E4Î<wžJ½Ùö ½?I<r÷½æAM½>½R¶D=½!ƒ=òŽ²<K˜E=Î³¬<þ–=¡…=û=b‰-=î„<<Ö{Ÿ½¤a�=tùÂ=Qª¦=ý+½$¢Ÿ<SÛq=ôù/¼:^B=v5=èMµ¼å ´½hõ<ð¬ã¼¯€_½ÍT­=]¦\=ÙZ›½="‘¼Gú½=˜tÉ¼>ö×;Õ_†=ª±ˆ½Ì¹²½ëÀ�= 	¦¼g^’=ÑŽ=ÜÈå<Õ—¬½”P…=ù~À:8f=¸™;‡XM=A+†½š’¤¼ OŠ=fÛ¡<ÀEŠ<þ-F=AõŽ<Ä/ž½÷¨Ó¼�]¥=øîœ½mk==;»½ñ²¬=«¸H<<´=ÖÄ=A�½S”�½£<Œ¼i¨7=£½½ŠÁ‹¼ë‘À=mL–½^ð¯=‹ý:¡ÿß;¬'=Ô‡<îê•½ú&L½Í;=YK�½<V½Ð†¶=Bœk<*–=a_=…Ñ½2�>½ÒFv½B2Ñ¼_Pd=¡Ò†=oŸÓ<IíÚ<œK¡¼8‘¼=Cè³=ç­#=ª°¥<�åR<9°<‚e½1Ì�=®Ž…<Úit=52=âŠ=ŸEF<´§¤½±Ã²½Âj¼®CØ¼+—u=ÑÒ€½´ä¨;Ðî°=åÛ³½ú‡=ò‰=O!=µâ“º¤A„=øb<B¯#=uê$½%©Ì¼ò®½_2#½2¢R=œŒ=õŠ¦¼Ý½£½‡–e»J·½‡û-¼á§Y=Åc…=/X½ó)ˆ=&ƒ½+=öi<,Žo=u"<4ÜC=ì¨¾=–ÿa½]vi=~T<¼âF<70=UâÄ=MèÙ»#'i9@QX=l5O½èÆŒ¼¼Â…=Lh­=Už¼*A‚½>ô™=ÚœQ½ª;£½oµ½º‰½Å¥a½lEA=-¹G=9¼E_—=�ƒá=«;½>Ç¿<ÉÌ½?´­¼mŒŽ=�ÐO¼‡¼=Po<Sgð<W2Ì=éýÌ=b½ÆÎ‚½Ã1¼˜Èò»î�=QÍg½\á÷¼ó‹ª=Ã»ÿ»ÓÍ"<V“§=	ÚË<Šº¥½Ó›½4–Ë½i�Â<ÿ^½,:¸<8ö=¥‘½2&½á9ß¹ÌG<!-=î”â¼ÁËZ=F"½t‹=åî#=š{½ÓA’<c‘±¼Ÿpÿ;òØ¦=pÈ›<Å¶½¡ô¼–û’=tæE½£5'=³6<éÄš=#u<oÐ>½Î»¢	¹=Á¸Ê½.e¯»¼ZÛ½ùY=nr<]Á
+¼ÚÒÅ½9‹º½žÃ¼©¦†»�ë…=×|�¼+w¼&î¯½ÿ‹~;ÞL]½ÅME=+ðw½ºvD½Åm=7�¼œ>|<ÕSÙ½ñüë¼0OÄ»Ð““½Ê5O½mé9½µ/‘=�…ó<â<Â9±=BÎD½�Õ=®œ½¼×K=}´k=àî³=°»=.}"=ZÉ<½¯9X=ƒJh=
+…½=³2½–En½ƒCb½ùë'=€š½ëÐ›½8@¤=îñœ;®D;:˜)ø<¨Qÿ¼ãX½ �=¥.=¦}¨=@jJ½‚8¬=9ìì;±OÚ=LÆ=#ÂÔ=‹ß¿=vè³½ÅÖø<-½°½3ƒæ<¥9=TÏ2=£	½óP�<ø#x»
+b=\¯ƒ»WÒ½ o<úö!½Ì€�=æv¼Zž=	…½»*=
+õ»»Þ«¼ÀÎ*½Œ~á¼¬;‚=³	=<!î°=W³µ=cl‹=Žä§¼ŽiÆ<à$ =n«s=†sV<©tÅ¼‚]¨½AÀW<	�.½Ê¨G=Ï¹l;^,=¬z,=ùt¬<4/=˜õ28(·=Ð7¼:È±=$Ã¶=0¡=•‘k<!ÒŒ=õv½=—°M½Ø2R=SÊ+=Ù«m½.+i=„¿:=”ô•=¹–=°”K½€,Ü;dV½ž„½þ½½»/ø¼}ÿ¼½¸·Ä½Ø`Š½s°£½ÔI’=ýc = %¼¼°R�=,]—½!€=ö0½Ä²Ð½±!½_O½¿š“½`;E=¢µþ<F�ª½{¦.="Ú•;³du¼BÔ¼•Ó”<ø µ½Ž=+à•½6}¼ê<<½hÝS½	Š`¼£~Ü<Áî!=Ý¼;½…½/â›;n¾›½Êî„½óø¿=bä«=WE=ÿzÑ;Å>“ºndy½Nñ€<·$�=.Ý¸½µ%‚=ä–ª=s+½€_N½g o½:AÉ=[’¼8”=Ý<h½
+
+==> /vendor/etc/camera/megviifacepp_model <==
+   K   {"expire": 222436857600, "auth": 0, "bundleId": "MG_FPP_NO_BUNDLEID_LIMIT"}€   u      7          q   mgf00001   i6 ð Né'AvÎšþYU à" <»u{ª[�®‰¬ à‰ 7(_X•ŽQ„_ ÈP �n|¿äÅNšctx/tracker/multidet   ÍÌÌ¾ÍÌÌ>š™?3   mgf00001   Œ   ˆ« �ãjÛ	×dctx/landmark_attributeQ   mgf00001   ½5 ð Né'AvÎšþ­T à" <»u{ª[�®�w+ 4 £3 ¡$t�ctx/detector   ÍÌÌ¾�,	ü¯ÇÌVÿY„3�dÅò<FrÜhÏød²T
+*|&•5>wtLg]‡9èÜ8õ:¹Èsq6Z@¶¹×ãÓ€MGáí�ïCXq4Ü…’E®¬ØÈ�Ráýz½å1`•Õ¤U0ê­_û¦¼Œ@$S“šáåíâÂ¶¸á‘ûòü Ö1m×äZ9×d
+eC’LáI¡ê+ÒáùxŽYq-¦ÊßL<Z¤âò—%£]¹@<óý1kô+·©êu—á.aÁ�’´ÙŒ)
+Ù¨z5ÿk±ñ¥’÷Í;4)?÷gª« ò†Ù˜†ýß¸Pr‚+£+Sf.™�øæ.ÍJÚy,ˆPsÖlf1§Ö�ìâ{ §™[¦ûíëbïÍðÇ¢H&õ?zõp¡qS Ðt–f�#8hZ±íšªV.Úãƒ"úà8J?ô€&p4´U,j±„"»4øX>½š‘×cè¾úŽÜdïRytÍ¿ÝPkXay,€¯= ùÝ¢Ö¼ÍúÓ¿&ÉKWQì—4–¬<Ê=xÎ¯8 Ž'[¼R$;ã>tñ(cÖcÄwÇTÜ¦Z–0mŒ`?7Àèi5y$ôp‹9¼¼¦ÝÙR
+b4ro4¿HOÓw�–0»×í=fƒKZ‰P°™s´t˜]øMAsQ�1X»gÿ�g©.ú^w
+ödBñ×Ñ-¼M*.¿‰¶Âîæ…hèº¿–ŒkX­óüÈ¬Õi£ìš¿ÖQÞFæÓ†FYï	E>¡d‘¹XQsÈ-€ÄvjÐ¶ãåŒ ‰CDˆmRÍ^†xq˜€^ÇY| xMn�"ÕÂr¾°
+õÉHšz#‰T\�s?Q0êOÍéCÉïÒxU›@�Bï¦°aÓXíë 3ÑêWäpÕ~-shÐ²€·’Ä‹Ô9\G‚2¡6y3¶¼w Ð‹¯§uõ¢ˆbÉ]Ù÷ú6VíºéØó.6R×{n¿`1hÔ†ãµM¬Ç” :Û=Lè<H ™Û·˜6×ÅÛ91äeNºÀ2‹"¿¥%PJ¹¡JæfºÜÎeÊm‹§†¿1|˜£GÑBKA5îuAž‘PßÓíËO[ 1¹R­ª³{qÕf�å�= \Ív#èVädrZa,njÀÌlêsYß:�jê—»„¼ØïU¡UÉ¬ÅSÖf@ÔØ¢j¯ À~AgZ~¯{Ù2Ó§wË�˜Ó°”ªX¬D³»SV“®ýìs[¶¹œúÍ�¸Ç’�¾GB
+eRAë“Ë%×�Z´Õq{H³}žÝüÙU¬JT� è$Éa,ÌÆ)¥ÕgN¨�£x@µŒßëðL*UK<=‹GÎÝ�j¨8aë‹v›\Í? ø ÓšŸÖV¼\þÌËÐ½ È§�`�Ìt,U3£%èˆì�–ùuýá¨í@%ËÑÞ£4éK’TÚ‹þã(}OH¦]H=zJYìr?²�	ƒYOö¨3²†–§-6‡�4ÇÝûƒ{u-
+W‘Ú³ež—DJ*<�&_F×¾KC]�(€ná.�|éXR¿~˜CõùÏèþY—�©¸k£lz(þ=‘Ú-¢!I¨ÉòŒûßa9“¡�sGÂàì%Ê½‚’ud´³Ù8ï§lÛvýŽãEÌX³±YÅ´oBt5€6ˆQbÒýùLvãØðAÔŽ½špZÌ^€ ¿48Å½ýÉ¸W¿Á+‹£T'vlEžç³ßh73DžÑÑ�°—O\pÄ®‚&!m[‹‚¤€ªEöÔIròßð!Ÿ–pA¨v=¹ÈráJÕðd¦„éJx,CWó
+í©ªÝ–J´ya=[HaAeÜR‰¤C.Ø!S�¥&~ÈâœÏÌ‚-¸z^†\ƒ°²
+…Óø5Æf‚¹¨!˜/àv;ÝÈò¡M&ÎãËX‰¥ƒÝ<Ïì{lÐ�³,DéÎØþ©�¦µ4PhúØé>OW·†Â ,ªQˆ�}@¬Ybæb_rZDŽ Pt%£Û~œÕÉñL¼ys–Ò°¢¯B
+õ"¡q~Å�IŸ#eÐfHÀÁ~Èa ìò$'¬ôí9j{Æd«ñ‹.Ë1Î¦^÷ç(�Fë—*�²÷²i÷Tž.C!Ç:$1´ï®ƒ8 Ý	ÈQ¿ÿu0hh$¡þGwÞÖ¿yÄè�é,õ‡‰ïŒ¬!»Ô‹�T‘3æØ”ŠTFÈ—MŠ©¶c/n”2ô­"}5Á÷súf¡	Iþ6§Aôë)zN¿wßaTïôhh+mJû+(¡nçÞ2a®‡»h=<éj,”Îîu`��lUmÁN¤¥öí?ì¯nu¼#f×Ô7#¦1s�ÍI½….[åDˆ¡ãÞ2WwSòŽ ×êqS&J},¸[´D-ô^¡OB™	ïd¤{›nWÛ]®»÷Ým1à®2l*{ZzÛÈírÓ­ßF¯Ï°xA©öR«uÑ@X#{Ö�D,¿²—5ñdÔ¨<eê¾÷Ç›A*k)]a‘L� „>÷.IãÌ: Ñ˜iðKá5�öY(y}@$q-„�ö;.¡)÷¤y=Æ
+—$±ÊÞÁ¸´v”Z&û?±cÌÝ8î#<äáQöÔ#J$›PEíg‘ñê‚@ÓÜ5é, n)A³Yù³1ŽËc¥u“GQ"°ùó3s°X¼ßso¢
+@°Q˜}nŒpW+ [^èüíÞ-œxXnÛ/ì%°Uo Ctb?.jqU1<¶*åÂ„…F­gÒ˜Pux÷I;\¨nÆö(,”`)÷÷÷Zâ6?Öé‹™o©è<r†ü
+×òH�õBYX„�5ïÉ¯‡ýJ¤ŠÊÜº—Æ‰Ïë¿j]™ö5™yY3›’Qˆ×Hì<8N±*ÐØÞõ$ÑÎlîÔÖ­Ñ	x®?3Ñ’ÒÙ3]œìÝ¼¸â¥N M—FÏÓµysÞS"EªTÑŒmá÷f½qìByËb¿£ÎDÆ6·Î£f8„äÜJ‡€8|Ó[©�ºôÁ¥•NöJz\¦ÍÐ¹TÿýàNäº3ë›¥�$ªíÂV×áäñú¼Ê™
+ÙcNN]Z£×:q¦¾Z‡ÌÛm9¡¾Œx#Z¥>Ëãs@…°#I…bë\¨ïXú^ÂMHm¢�|©Nh<E�…l¹Dá$Ük[Uªx©ÿZ8ªO9¶Ä-ÄVd°}°h¨y0µ‹òDœò¶{‡àËAˆnêÐ{É´yW×K€Ø·‡zƒòºÕlµŸó±-KpÐôqÛ/+�2Í†ÅÆLÏ0Ê±Î(ëÝÎŽo–E8žÿí×|A’¡Ý?ãÍïü¨Â.­ß¯<ûÆ™ŸæçŽ`iC>ÈÆ!ÇàÎéüzrMBÔÍfrË…„PÌHò£—½ƒ&G…Â—^§Ûq|Âåß$‰4pðµØ|ëyid.R_S©úÊßu~éô$ýLˆr/¡•¨�PþÙÜò.²Ñb ÞV;QLYjB�ã0rU#¢·†»‚ÍÎìn%Ñò9Ýdk~f¨{<
+%PèÆ’:n#! ‡ƒš¡ïž�¬b«‡ÈÜí|Ó6§Z�5o�0�nÀ²ùÅK]E%ÄèÂ¯¬ëÒd0µ\‚¶Åóêž¸L?ÒÜB?¨U	ŸV½ÌšNl�¦-³¯‡‚HuA©¢Ösnü+Í<¾Ýd�ÏîE0�}“ˆ*iat™Á|È¶òvÕ\5�Þe#y¡Í¨´„Fîß'T½y
+Ñ1¿©‰ÊxÉÜÒ
+§ ‡âÝ…Ålªw}4ÀVte«•uV ‹´Béà9p+Ô®#Í¡úÔ¯Ànžœð¿_ì´Z±­8±‡•Bi³·�dFÐ¶§&ñäºfA‰*•_}Am¯]úPÌ¡6 &þÎù§^ÿ2¢uY‹¢ïŠ´€_¼Æ6™'](é�F»¢‰íºä@¶&$Ã�ç	6uWè@™žïÍ¹øémì}ž�B!ÖcýÍÏ0aÜfyæÚ2gËódþZ7r¼Öî»äz4F OJ9â5’hžð’ÝÝ=Ã’÷äH®¬¥�E*­ä…X�ÃÓË¼¶F«û ë€¨¿/I‘ÍT™çÿ» RÅëºì <°N„g‰ã³Ë&¯ÉÊq Oiõ¡ßsÝ,»ò+mçŽA¢ÑÒ”ÙÃ§•8½ºú³0 çûÉ»Èêf�0F­ÎÑ$´ßlX˜S{á‡•‰Çqk|00m9<‘˜³ë®BÀ‡Î¦4& GlVÓ�
+0K‘¸r‘ýÖ¾çû|a›1ÀÔR0ò<“iøê7e]²,<äß/òwµë»rØíêËÕ¨Nìnÿq¥Ûêñz¥ÖpaÃ!+£Ç÷H¢öÐåF]“¼i
+!g'î¥NH90û´£M1š}ŒPÞ'màà´š#¯Çë‡�MèÝ¨ôù]›žQg¥¹7~ø´LÀ�³n¿—ÕOë�¿ô_O
+Ýj©L¦T‹¤ÙäŒu«’tÙQ[‡;Ï¿kIA´ÈÞéƒ9=¨¹P
+ód"�œÏRBN^&¡Ã6²‡¢Ï1�y=ã©ßr‘�`²¢éMû¤Å:èokžõ¢’�]rAB"G£eÁ ÐT¯rž'ÔTmWä¥4ý“žïÀ‘K'@×ŸÊDI¤ÿ¨^,ÒEã6–sÑi<Ï2ˆêòQLŠØä�fAeéŽ_{Ä l_*ÀeôÚê�Ïº	ÉÔ� ƒ;’€¢+6>Ø’Q¬"Â+0jüÇ6„€gé."¸lQåü<}†Ïí{fý¾¼YîyJ¬IºGþÏ¡ªF,Ä|ƒÃ&jôû%ÕéŠÏa#6”;!¤ûËá5…B`æhÕGÚþ±âÎëM}£Í%PxŽD=P`lMn¸ÆV „›è[èûù…R´®jûWeê½�RÚÍÄzŽVˆ\(dqm¦?]öÝífñ[ÜBxÑ�8ˆb¼4Ê)@õQ½†:¹ÈW¢ê¸³ö ˆtc£•nh’×œrî©R±µ+1ýà2.ØH1Ÿ°Âšö(Î<ÒíÂˆ¶NYZŽg¥‹V¯•¼×`ˆÁ¿yøÅ“‘S{¨\Ì®“Øã«Œ2óšûÆ$vS4	Z Ÿùõ›3peh#"Ï§çª­^ëí¾KfKYöM¬ÍŠ-š*Ü¤²Z}@<Ãº¢ Ë¯¿ñ=a+*úèÛ�Su*›Þ§¾˜ ý	®àSí?$3üEvR°‘ÆÖ¢XEƒ*6dóEæUmŽÚµ>®lÉ¬bÚèÉ€acµ¿·˜ã¿5ä]?�ßƒúüã`noÄ\È=žH|F$Ìz”§à¿DŠ¿…í[¾ÖV]�–i÷Y•ùÆ¦n¯ìk%hüY�z¤	¬{àÙÇB¤(ÕL­|rhš,ë:¼1†Uf<†-é©}Í7éÕ `lþë¥;’Òzã5¿ìEýMÍù¿+Ž¢±uJ7ï�¡ºÑ87)YåO¯Ü“6`´=ƒÿÆí
+µzÔ>Y±£²1Ž%p{ÜÜaK%ÇêÇF«AÓ¡ Ñ&—ë¡ctŽÉ
+ƒ.LW kØ»�ºbW
+5?ç™”?IñÛèï¼‡öz+üáDÃƒ4DõÞEME5MNŒCìÞÀñ ÄnÍPŠAa¥Ëd³WY^Nýì~®E(úö_„nG<àå�÷2Ó-¯õÒe”ÑûöAÞÂo‰Üé)­¶&/˜wzÅ ¿¼@ƒ¯þÙÛÃ�]±Ä¶ÕíÊ5¦‘#¾)F§ù�y)“§‚ÕÍçÍÁ±y�}ŽöÖaŠÅJƒf[9ìÁÿ>Xó'=�êÀ¢ô‹0]çÓ}$ŽýDï‹jP`ýÝxÐfAmwýTSzLBdI	¥;²é¬2K#låõxË7ßÙÖ`qË“
+Ï„ù¯.Z€X#­ @¢‰M5¬î¦C»úL½a´×5†ç@ÊN] žG«;*U è1>¡uAÃ…uG�fÛßÿ˜¹Jöm¢Zl¤—ë8¸ê7•T¢¦pË–¶CãœnÌû¾–#]‘wSmú 	t1b Í]Õ„·?1ì°Ø‰ó¿³]Oº)f;vÇ®Š\4¥½»§,‡¼(ÆˆF.dh†ž®¨^ÎÊ	hÌØ”vï>‰»®.#…^UìZCÂßŸdöúsÄsµØ?š,´}'¡ë§�ÌBx�¶¸oX´�{ßò=ÄÛ˜u©ß"¹Ü‰ezÙÃÌóÃaæ¸D‰Ãï¥®/AEyf°õ’�ðOõ¢mçÇñ/Ò¯#2lDM.­+o2e ÃûV>i½ÉVqj�€ž;"
+y¢þyFù ìÌ*=°º"”AØ“\»8¨ìKþžý5:…“´·qîãßâå4åÔ£eª““»¨Š“1.&ºËfð]'n¦	=t>oÞKyÐu5-çï‚,ÞÎg[{5`Ã	8]Jl�l$©#Î[@/eãh°üÏ£µvaÜi€šÂîÁZÐóÎ¤}ƒfïã÷Á+U@HQôýTG¢�IE—Û#Ðzp9\@¥2z•þÓlbûæ�Ç.»£Ç4�þ‰´Û´|åÒ~0Œ=|çäyrö¦§EÇ³ëEÙØYþm'êé}à@;à›ê­\5ó5¤öä¦Q=,]·~fô»D\«x
+ì)‡�Sm¦’ôŽ†íÕ›Ò[6ˆr–Í©Òµ%0úÐ€mH{‰ƒh@$Ï/¬HíT%ä�
+7£�²ó­~«Mr ¬W`‹ËYWäÆšêw¶hŽQ¶×º×Ý`ÑBÊêß7v"Y§jßÞ›½DÌSö” �Ù®«êE ÝÊìºoz¢àI+Éw]s#£Rda¥�“Jùƒ–“gëUõYÛ¨dYI:§8s6õsè<KÏâÊ¢æ¹ôšåõ8C0ÏÙ*?”Þ�;3:ÜWX›oîù'•
+ðD«ºÐÙ_ŸulÂu
+’m~—¶C0{3³ß3À»^ŒîÁ¨^p”¤0Vêl\©Ì BJfèÍ9ï=k�ÈJ€¥"\�@	�¶Šú¬¹ƒÕsË™Ï!j“ªà¶«„Ryºý#°[7¾2çÎ&Ï�A*;ã3€€À¨ö¡KIÒjSªˆŠ­}Ã‹¿°È,xy�I½‰
+õjŸ¦@Ð“Z¡_qá.Ø%›×ý–Ý¤ò1ÓëÙ4Â$ÄùŸ·œÐ‘¢Ë©ê¬å¸WèÎf7X26@c,…1‰íž£•fEzŸèå2ÌcêÿˆšõHròät¿ðËìGŸgÐ-r“9®åëN›åÎ[	…¼©IwŸ%\êâÿaõ‰fM¸ðªÑ
+2ãH~2·ñTöR¦ð‡ð*Þ·áîÓ÷wÀ§T(÷�ìu9_‹|ò ­3®¡Îf©Å‚`ÎèU±RFS½`à>|¬6ù¯$X¯8‹
+úyìsN–ž8�§K¸!@}ãåä™›ùg®5�ÆƒqÀ4·ŽÌQEàg©e,ð¯K?¼Ë#H¶pdô{%€:DÊ“Ã%ÞÓ`NŸjÔž�±¡í¥
+•ç7l²¯�ä¿Ù¿Û-4ß\ŽQ#¾Nø§§t¦lt^@>á¥îC´Î¬M=m‰–,uzÙ0²w¥Á•‹Æm»ëë=¸¼Ž‰¬1Æ‹Zê¼º¥(ë[­d‹Ä®¸0ÈáØˆïXÌ®Gé„‹‡ªý¹EjHÍå…¨�„eKx¶*‘š„À}erßÏ¹Gqî—­ÜÑEšxÀ‹Ó E˜vóÜ¦w`Åb—0Ž~ˆr]–¦Š,Òa´}_ÚH?&‚›ì³Pý
+†MÀ«ýÅÁ–�~¤ˆÇ
+ÖT“ŠZXºø!·¬ŽƒÙÖ„YRA1¡-q•ÉI©Œ/d[$u÷–çÂÉÄÖF2°‘�¦…WÒÍ_"Ø`‡îôüÖ— H‹¨öµ²D
+ð;úþœ’þlr~ÏGƒ[3ÄËYä¨¤‹¹øš{PFÐ°”Z^¨f„�üiVHæA/KNçÜQj>¢¾"Ý'€ÒCW¦g¦’JKÀsè[fHbß¶IëF|×ïŒ°Ç±z8NA¤¼sÃhHB	
+iÝ:<Á$Sá%ãÂHÞB×É›Êfœ¸ùýô¹9$¼>mnyÎÛz
+šjûÃ�µ•N9p,�‡@²�¸TÛ¿ú·)ø8ã„x([ŽØh]¨À—à‹Î¨¼’ÇIÉvÜ§nÑvš�xøoæFS,iÅ@ñ»kvAº�	d‚¹·²ÔÊÕ|žnS»á%y‘u‰o½3["’G¹Ü2äÅM—%yìœ5á%Rh˜:)£±Hà…ð †,(r9â»,R¥½ŒC–_ýÃ´²ÚÌüÊFlÅ5)ÕæëÅÁFÃ—’Œ–mÐ·<Üƒ ¡Öw´(o²b3]LÅ6[ÃÀ‹nv9í#QŸ›¯ª5ôB¶Íÿê{øMKáÄ%žVGÝ}„T4˜˜¡j­ëÇc®­Mt¨:Ú…„ ˜7Â·O>Êå4aQ‘—cL)Ê#xÐ[W¹�¸J‚ä>>ˆ�ÚIC
+ò‚t»î?hs|U™´þXå¬§¸TðO©ÝóEgâuP&ƒlâ�¡÷Dò -Ú]¦äGn§~ò“Èu/qªÈ²�m-Ç$lNŽ¥–Ø[C³«‹}ëm¯eéÐ92 Å^ÒûdøÏ¦3¾Õg±IzF1˜gÚ´_ áþåJS{¥œë’þ‹Ä±n+¤ZÀi¾â.J4YQµ‹_¹*°Ç˜ÞÖŽ‚�ãY.ë’œyŸ €9(»*sÆ¦¸Ò ¤’V÷f¥g»�VDc3ÿt0°–¶W¨£�|Â[þQÊ£²duzóg\w8@4‰@=Ú§Þ0Ã–F?Œæƒ{ø˜ZÛnS ¯Ò]«“ÚC3ÈFs¹4ÀÞ›ñæôÐT¢î@¢S“I{žäû+¢�|'ß�¼®Iª2Ú˜Üpö^{-D_=M]yßá×öHzól~ö;rÿ«÷	(lLR…ÃEV±ƒí€Æ0Êþ¦'”¬éeLÛÃ|×}ÑÃqØÑ»
+�±Ïàä¤]"•|‰¶ÿPÊ»¯¤œh— ¥\Æ(}DóÕ@rÒÃ×÷‘:4­=”<µî|D^Û½Ê>žyÀÔ7~ˆøý™ŸkÝ°Ó·¯,›u6ºCÇÎ–sÐwòïxÃË’àXÇ3²ó€˜< ûj«Üöhì¶Ÿè£•öÞÇ‘D1Ñ¸¼×…´ß'7ÙßÔÆ¸‘‡ÿŒùN~Òy•FxÙà�!�^ÓG·NyñµõúËÝÁ¹þ@ù9ìöôSKÒ’úê‰3öþQù™Óàîý@Ô ³~‰3ìYð®ðæÕ9“8¦¥HÍ‹Ÿ«ÁÔ	¸×� 4ÆºDÄáÈšÂ½¯çø#Àþf™f� ”Æ°ëKyúÆ¢QÅw
+Jc­/­OMÎ¤ß€�JÏÚå&uÚÙ¼ŒQÈ Á’?1xdP@4 ¤b³ì�ï‚kne0–Å%˜ž(eþrA^»@RñDžÐ±M˜ø–`WÊË´ò Óéö¾u•ÐíÑ{‡¯4’/N‚™|–¤àoŸ‰Œh½)£ÖHkæh‚ÿ$œ“e’û)‚Ï¥O¥¾
+à•L[Õ5Øî1C–š‘ø@¨íôZú©FeXÕ¼Ø´ÎÅ$xù‹“úÈ¦WÎ¶Ñ‚`}*ìŽ´áð`Ñ/ª?À¹ÿý[Nœ®ö-À—[í$PAÊ9²ŽÀ0ÿÚ½úNYç%9¤Ä»'S¢Z†ÑÝ]üsóR)"é©9®P?^·Ö¬ÉµÙ×Læàp�ŠÞÆ"��ÅoHd¾FZÄMÔ9 °Ÿ ÂR…›Í6êjÈ/[×|¾zÎ.+&¥/<ã	°Ãœ<ò¯ŠaTäxñ�i'ÕÏÉaÝ`1?lÌ]zà]8ÏÝÓSÒ³zfå¬wYá¬^ÃýÇs
+×N®`ch²�>ÁK†òü„ çGV×=Âg¶©ãV�®à&5h<0²Ÿ´C½n`NÉ#q`§ò‚ªBB€].‡_SéøU»TÓät·ü’zÚ½`ÕUJÊÒ-UCcLOFJz-’SÞÃó÷/0„à¹b,üòÖ©.R@ºûHþw¾ÓÑ%–bƒ¦ÖôòzòG:V_œyÊƒgØ�XF¢Y¯b·Ÿ°Wü·¨µ§[ˆgÆ]¢3C¬*qr(w:RJöZéß%äÖÌ ˜”1úØ{a“Cœa: Y¬¬ÂheÉf'‚nx0èÃsCyùÁ3™yÜÂÃàÇÊl(�‘ßm;óY‘|•5iÝQtÆûef†â
+ÙŸã?4kæü='�Cz²Héj¡2eL&¨ãŒQîuðVŠ ªþM”!Ìö¯-¸;íT§WTNz�!vÀ£ù¯`V-¢=M}m*%ë»!ÿù*™kù±îOé%§ïúòúoè™©c±ÞØmüÁ(@†r7°á#šÓrYÃïæà/Ù}U+|Ux#ªüÞHpß¬Æ{1L-¦«Ì¦{ŒÓ²ôåoOÄ&’�M,.ìxóË£Ÿø!�oN9¥ÇfEJ^m‹_WÚ9ÎÛ¤ÓksÑÈc2kw �f1¢ÛÆÖYÙã60›U#ªf¾½½N¿zNÔ>Wð ñhZ›¬…\i�Ê™)5WÃÈðÊ©J§µ7®ujcÚ�†â2ÿÈ
+¸•{®N¯(–FŠ¯£iqjónúb  n‡._=]±‡fi]>3ñ`­›iˆŠð³”4“ý)_Fl¸Á ÉÅØ©*oî8fTÓ†;!ïÆIlR–8÷ff¯çïÞÝµNÚø¤ÜÌ"×8á#§!‚i&d˜¿_hðä<P”³×7Çà®°¦Àó\œ’�ƒ˜9iÙêowyþóŸ~cfNÅBÅ´BèVµ@ë6[†k³MÃ„ž’Žª÷Ç¬U¦tË?ÆáfÈÎ•”“ãu,�!s`Cù•ëb9ô_Íê¼1i¨úxŠçÇ§¸eÞêqâ÷?d©Ï±Ð¿'»W8R×¹´±Ju½ÜŽÕ×7S×zâíÆx�¡£èÝÀWŽ=x~åÛQà.æÑíØp�§�è‡ôùPë.BX´jYÍ ww¨¬¢�…>©ï’Ò]e	àJ)Wéº¸ÖìÂ+™1%6Ë˜Ë¶òCäo«¬wØ„ä6E-IŸ£<òÙ×¢»‚ÈUWk±²J¨§ü›ºHB™Ë´øÐ€=7¡ì›/ßÎÂàXLÚw Tµ½
+�P±å	uº*Ž[÷•Pý(gÆÎ,s”†°+4FYGÔ–zî«RÇ´–Â	žíU%®¤ë_¬A˜m�+©òÓVVR¥adPÄk žîÑ6ìƒ÷}Z<ÓI	ÙXE�ì“’‚F'X&?›n1\¯«þBœ9š” ,1ú�UÑÝ›á”`vÌI¥Ü)Shª‘dÀ_íã98—êcŒåù§ƒZÌ¢û¹¶3õITK'�ÂËåÐ_–Ö}n¦]…ÛÅ¹LƒnÔfÐäC@R“—Ù8hÁ™”EYÊC˜ÍX0m!}¾w‡‘]©‰èV‘àÐûyÛôuOâÜ¤cnäË.Í¶¤¹eGz³
+¬äê„“ƒhØQ^Fo.Â ¶‰oÄØŠrÛîvk‰*w-“%ÀªÚŠË~8Áˆž®Ný¼awâCY.Wv¹›¨¡MplÆü8?ÛqobT~9#NÐ#Øù‡œˆzp/*ã‡s©VÐ¯�|Wåf¬skóü½J`d$V×Á�W…¨nGáÒj‹ñØh•I¸íø3î±¨«qe´ê%^°biz¶ãpé1´s{¶ ŸÝ,¥Á'z›•Äãi«®Ò}·¨îÙ¡SDö¶Þ;î€ü8°ÐöpÕÕÅ-òM¥d´²]fæ�l<»íÀýòõº8wBÆºMMrg|J¾ÃJCmÏ]_ðñ×Â8£§éŠÐ�i[…¥Ã[[§ÑFi!	ÕH"
+Y÷G³"©¯kn4fb‹a­D«!3~²Å»´U1ù	Ôì'Ö¡F™x[ä(Âfyð4i çX‰àtWë‡°YŽ ôÔ"Á¤´ýîÇ¦í¶^Ûdâ¢DV4B1ÄAÿ<Ä@2ÉÏcp#Aõ�™PÒÅÅý×«çà-šzÿê’—´`ƒ‡í)Ñy‡YëßÓP‘kÿÑvLú,tÇuCu²ãw™…ÔE��}{e4êF\õI ¸·wGu½‚E˜ômÈ`©
+e•{Ë]®¸ô³î+¦çn‘Ã w›öÝ_¯)³ª7´¥hÜÅó7ßR§¾CüVÎã<¿²ÿ‘~Ç–ú	öC¿Ñ»40¡¶'1ÔÐèÞík”æ	ä!£Æu�§*¡Ò�T^§’©šªî½�Œ šg‹õ!WO#à;ÓóŠÂll${¡<½K5?7†áôˆ]
+ Ó›CNÌ#·0 ¹‰Ãì?DSB/ $_§BÂ—ž™‡�TÈ ùPy–Â½—RÜ	½¼‡U®Jc¨®ÁëñÏŒ~çñÉimˆy–Èµˆ­€¦_öúöž«)ýàø¦Á
+ò{¨ú!÷D½Ë
+
+==> /vendor/etc/camera/model_back.dlc <==
+¨:C~H´ÿÙ•²–þâW5Â�>'"¦Âo!ß:zž `×FVŒ¾œr,”¿‚�`±ÕRá_«ºÑg40f¢«òºeP¹ÅN.�œYgñÆšÜKZPÝÔ}hÈy5–æã<ºòŒ'£äLaÇ]XFáéX"Ð!tÛL€âÛô.4‹Ëÿ?ø’£=‚Çý²T{L*–Î£[îÉ¸æ±êµ]çÅ4sÒ=F'£’¸h1žÞåT¯Š»gh_yï~ G9,ØÛ`H¥A»¦¯]D²ê®TŸÂ‡V‹0|IÈÝô±¿,zQ¶ƒ¤3íEs	ËYNTÊÆlŽ›{{)ÕÝ’§pžbR]|C�¼¼ùº€–xQ�‘¶•Ä¿ã±Ý�RB¹ªZ+²±“©Ã_³Vs¼¢Áÿ¯3|¼«á~F¾HH¨ ¹£€Š¹‘Sµ‚º MÁ¨³‰TÀ=çè‰h±Ò�§Ñû*^XúŠ!YE"Ÿ«–Êa¾¦xè)aé2Iõû¼:»“ëTNp¨H(h~ë›`ÃAmHA·|z¨ÙuæR:Ç#*ä÷mºØuY¦*„¡çÂ©wÒpÆ6'jÏÿŽ…É)šœrç*ØåHìVl^ê Ö«å˜+h’ÍïFø¢g è`£Úƒ7}kà®^˜
+¶;kÎñÞéÎ
+XjY€«J8i>èâ!ËQÆ0+CŽSý×¾÷ü®†’Šœk® ªe»p$DéF›º²$:hÄdi2±ûˆšø¥˜ß�¦L@’pSÉ©º^‚,Ô„æùWÆmH~Kps•³'¯¨�" EUü\°{Nµ9\ôEjÊÃS$_pIfYCTëOÐ¸Y]Úl{-ý©e!<
+Ï(úýt—jÃ´~X¶A)lÅ’x%)R�òÅs\	Z÷;TÎÊbš ®ÀÕÀ·²’W×;kÙq9½ÇOÿÁê4z
+x¯˜0OÞSÞN~
+HFú¡Ô¼$�E.«G5›FoÆx
+ç4 |ëø-û�mÓ3·):èPïª‰Oì¹ºî´Àçšwñ`�î×$¢ÓàTbosÕ¥Ž@~—îv[¬âÎã-™”Ÿˆ¿ÚQ�")Þ~9§béÕÀ÷Èñ L­jãÐ�µD˜ãŸI“¬‡ÇðÜ|¥x‘‡¾7¿j¨ÉÉ6(uÑ‚rÐè,h÷Ë‰ÆðíªÑ
+-�¨]âô0ÀÅ~°�3²?Oô³Pâ`hæœ
+]H¸-Ù69gê÷ås·.	ø§m0Pâó‰èç÷m´ ¶osç4 |ëø-û�mÓ3·) m×î /µfÉôñŒåBòeš¤Iïž‚5©Ä	óàˆ™Îƒ¶B<
+â2ÂT±º«6èRMÔ¦3�sû:ç"�»ÃþT ƒ•Kº:bÈŽ»Zo÷ÏèúßŒR§áÂØ¤Ãre³®Nû€Ú€â–4Œ€�9�n|‚t'ˆ`…åƒÅ¢û…¸ ^íËŽžvÂ=/³^5²ž„^Ý¯å:�ÙyÞôòM TÊ·
+ÛSPG÷{›qq)£Ÿ:”Ëóé
+šyOíyžíQ4 ì�jŽ4±³éî*2·ª-ºÞ9D0þ¡÷äÌ<KS·vîÿCªøI6Ô'‚Û´®á{ÿÉ×WBâÁð�‘Çúîg€•9›üä×|H*¦6,«òg¹ràtw^ŒEcË�ÌIP’ŽñÒ²©ð ›3+ªÊP#§Z‚Ì>dsò¤k7\É—$+.Ý/—`9dÛímå±®Õx.Ô©ìƒ¾Ý²€Î¶ÐbÏCþ$".˜~/rŸÒ‘FÜµ×°w»úMÖGœ³ræPYÛd?HSÁIxpÂG³S—P�Û±YãïôGÈÒU•ù©»fÀÕ*æ
+Ä©_5S×tÿû‚.¡ò¼½ZX¨�g9ã>ïŠuà1fñoj¼ÿ
+àÕND%/E`7€Eg
+�÷dËîàÆ¼z[Ötìl]T[3örƒ­\]þÒhÆF4Y=Y°ØáÊ/$OùÓ`)Û÷ÎPg÷I”éÂ Ï�wR¡Ä�ý§(
+¼t+ËßgÄa
+¹3b§„¿HÔ_ Þõ\è²UŒœa$ÂKŠ!•]E/{«#Z,§W%Õ9g[yîéú«‘p‘hÀÏ ðä2AöŠØçªÖÑXÈˆ¤xý|¦4Ç†>erý@ÌYPil¸P7îIñì“#¼_«ï`'LS	v;»4¹Ô¹˜>ZúªÎÅâ¤ Üò»„Õªï¼ÎC£oA~c%#nÖH<>ÇñŽ�¨)0�ÂEÙMA~ºãø¼îT’5�ÇÃRÄ¹ÏƒƒAcIŒ=È:N2S0vUê	[²80-�@ƒtåƒ,ÊvskùÁ%ÀDhW®VÈæß°ŠE·QöHÈ·NS¤Ù* ?fãD~Š¼Ìa›F"àÿê†¢!|\…¨ñŽå1±gºÐçf‡ñ(˜E¦q´ço_¼_¬
+ˆ?3~âêá£Ç]‹
+¾©îðmÙø	%›Jâ\×¦Ò=£MÉ/?öI1xœÌ!ÕÀ÷>Ëf)ëä©†R3+"Y'?7AíŽ:÷ç‚
+$—0­ã(û&
+÷ë)'0ž=§X:<p¤ƒoñ™|È–Öh›sòÆ‡,Ùd
+ï2tPVF®5Î¸Èë>¸¬/¡H–èŒËSRÛ^ÔˆœÔ$—0­ã(û&
+÷ë)'0úM4]þ®`Â|Ç÷Z‡ò¼6Ýˆ¼ÂìÅ¨WwŸ½+C4†�j±Ô°è &Æï¸Du¨…bãÒ,6‚ý b0û.QmáË'2pPÖæ$™¹Ò»Tô63�l:A †\ø¡€Éâ³jÈhØB.3«üö¨‘LàN
+WN€³»Š2›ûô:EêÝBI™.;¼o9£÷B&¦'2pPÖæ$™¹Ò»Tô6ÞÏÊ¦Á�,ÙÍSV"è‡Õ@äÂ•ÿ‹¥¸— Ô‰+$—0­ã(û&
+÷ë)'0Ÿˆ¢@¾¢Ú\F<´™6·¿J4ÕW"÷s#
+á;K’‰œêåjÇCtCh× Ú
+UUû•~PÈ¶ît0ÊõúmK%íÙ�(ä	Í~�c,¾Læ,53‡ÄýÈh}õâu¡ÕU™>C><ÜúñE„åŒÉÇ`Š�ÃÂÚ$¶,¼€«›­õ6²6‚ü
+µ‚M+X¶‹àØiæÊPæó(­¡d‹6ŒíMÀ¹Óõôj6NévþHØiæÊPæó(­¡d‹6\}`tÉ’<­ü0œÔUÃ�Ð,öøÿ‘\Ž5É2Cj¶J'IL(>ïDö™l± ïÍT#Ë\Fà`7¢p�Ø
+ºùMç>ðBc:ß5ÀÞ´ðºF½…A®Ð–Ep�$–¢£i_ûÖÙwø(PzæQ.–)àHqÉS±Ì+Þ9[g˜ß7–a é.�ŽWPrfŒïûÎ©¹!mlYì³ªƒšèŽ†2„Ò½V_®"©±åq¦³Ó"Ù³é$×€Œ­ñ…køÐìû½¸Â…l[ÝA.
+wÕwZâk	P˜þK`û‚G¢�—U�ÀILñ°U¿sOŠ‰xuA&™`3	Fk`n”AËnLi@Ðþá=ïÎó¥UPGè­®›Áib¢z4ZXÏ5
+|ë†ZÖ
+ ØÂâ'~�•À¼ïMv±Õ6|Ù†C¥bá³¢å·MPºÆo·üæ7™ÍP<¦0Ö&gˆà¬�Î…j¥ó¡¬Ð#ÅøÆrH€Æ0ŸhÍ~ÕtåÒSó·öA}ÛÆâö-R}è„WÒuÔ@!àXêO…R£íJùÊKÖ|™ iA/ßð;‘2�˜ÐVã`C!B»¨È5ò±`Ú‚Œ84k3�!äQµ±¦‰ü@ù�±'ÃvLvzj—�ŽVi�8?¸m#IcX�ü
+_é—t8œÅã/kUXëºòå¸ˆ>í3£.’g¼±ˆï›Ô­‘èe�ðÇ£3x;SbF»Y‡�A$ÆñÙ×§18‹õ'~Å_d2Ù …È
+ÿ ÞÉ…Ý'æ_x ôú»–gtÇ¼-‹-Ï·ÿƒrÑ0…o„-Ûôöüº%¡&mÇû©Æ:BopTMÜ6c×9ÿßÉþÚ&ÚT¨�&…cí(uÏìßþ6æÀr�dr|²4/šƒ¢4¦øÔ€ ØŠ©»‚ÒÀGñ‡7ŠEŸÉô­ˆ0†ý#„@
+¤±ø¤Í©F$$“W¦a$­‚w[Þ™/tÉÛ::3@m"iƒó¬^5cuïÏ ÿQÎcÕÔBz:nRóÊÀ-´o®Üê¾®ÝÌÈÉAš=…¹ÅÙÒyh¥×¶`˜+Òíé$Ä¾×(qkKd\2R'µá=/DÌZè¨$S5Š�öá�z#§�>©%n¬x!þ¤ Q5}öDV‰]JÁX›ð�=+mån;Slâ0´ãa/ALC�®ÕBJþ{ ‰”ùåÀ§>"ýX´lÑâú‚ã”åÓ¢�ÛZ\Ð¤ñË»²­+ÀA¬ŽüN$^%u0ÝJ"‰‘îðôËßä}÷y{þìÌ;)$êÚ~ãÖø-Xà3 üÕU�³F „ÁS>­‡0TÚø}FgõÿthY–rÛ}U${»{¿‚òCÀ¸‰NLAX%¬g}]@zPÅF–QkÂº¤›l‡†`LûÇ0ü—@ê‹ˆ‹‡ÚèQŽÿ&ÙÜÿaBÚ;m"âÝ*ìVêT¡Ò�$?òTl
+6d«2«�"yðaƒ5$€ Hg…__ÖäyÎ|+s´˜¬°\¥k{h²¤¡Hk˜žõçL>/Ïò•^<—ø+‘þn�H:½:L*Õì¢ð#Ð/
+_P¸ÃQH£jî
+Ÿb�’%êîç…#V­D¸ld¯K•9œ²ºÅYöòÄÁ€Danå.LKÌåÍ×a¯¿ì²%¸d&µ�%ôyfJ_YºhÝœ³<É Ü�Šwç­YE[NÞ†_Dœä§+ya¸ PÅ°ÖË+Ä¢äÌ�NÓèµà>pV)/¥O´rLr4~³âUAA$¡
+Á�‘±‘zÆÅù¼Sö`ƒXuü€Ž`T�3(3K¡¨ß/Ðï2±®õò¡…‚f|ð¨×ñ®¹ð‘1\;¶JM-ñÚ›‡%Ö0ï~ð5‹ýÌR¼¬|«(Q±‡ˆ ¸€G»ã˜³‘Ÿ3Ÿ6	M«¶ÎöX‚Ç`q¬Y,%Èã¯OUkw£¾õb.Ñ°…qCƒÜh�Š
+¸ÖG¤ñxW¼L	‘‘H@n@0¯VVO)2ŸwM tÄ! ˆ¸iëæÂŸ¬ì¥-É'ýýY
+2ØÉLw$ÞÈ�d^ÃTI4ã™ ;Q/ÕÝ6w‹¾©]Gòpfùp„“ ÎÝO“ 
+‚·�½8ÑŠ¸ nê‹U!O° Ä!n‰7]§<|¾5Çd<ïw–WÔ3§}!KÑ˜É&À
+×8,·•Aïà2æË‡ìØ‚I‹Åû@4ÉŽ¢’y�å—]Ì
+X)5ÙCvl[¼ß‹vf"Ê®3¨ð|Æ½,‚Ð{I*ôÄ°Àdcœ ’¶ËY�[ÿîÓÝü‚­võ’¼zB!D¿„fÄ•o²¢(/ Æý
+ÛKô
+%¬_?4µa¶„'nôbÍ ¦Øè¢Õ€5£%”±<rˆ9Šø¼ûÈ©ñ¾�@uƒ³>ræBªQÖÊ%4a
+y žoÊïwOK^[ÅQA)c«hò_ðQU¿&Õ&…c[ùd0ëš�ã¥Ûñ gŽ^2JWÖe›8*Ëåm’t‡  ¹ãV¿­èû I /-·¯Ë�-Ë2˜ÅueBJ¯Fn/Þšî�å‡p*Š›Ó¦Tšñž€r™Æ§:!¯Œ3W
+Ú«Pp$zœº‘à…ª�¡žñ•¯³ NÑ]VäCÇ„`çååÁ\gê4³"%ãV<‡}iž”~n›Wk‘¤ÈÀÙ_,ªwo Ôê�‘‘¢>p²J4›ÔñÓ¾[aµ5ÎÔ~²Õ8ß1MQÖkd’ÿƒ,„7QÌqÙÀDi@ˆï`,±ªvöšE`)C¢û°Íï/YCs,ôXF¬˜Á¾]Â±ŒUC´„ ´({{É_œ’î‚ö ™\Ý““å)«H¶ûk¯¬êU	�W[‡ �¢Oyz(ç5Š1¢«–
+ïÖ/ë\vS5bàY¸DX�ˆþYW%À´N«Xž;•ªí6‘h×W+{/bîêºC¬z›‚+¥Õ~¤2}ññå›A¶Û¤)»5º�½õÿ”Rßu³:;”
+&cYh-É#M—I+ü,T
+¨¬+µï),>ä©1õ\öf,ÍSó
+£Ùü9²l{3O[Q¦—YT áœ¥àØuïÅ¬Â“dLŽÞ3ƒ³÷Â8#öEJŸïç�¿ú¨r$e¼:Ð¨¾­ «0þ¶	ÏpW—$ìBþ´\ë†¯FÍ ´ÐîD]Š§£Öê… ÷�*Ù>Åû¡o’‹ui¹(¶XLts_Aý¬0Çg~(ÂÚùðXH¼Ê[ÛáÊg—ló
+6‹Äè<´A~ø4%)Çšš¤òaÜbL)òžü*¯C.a¾/wžøïÇe^\hb€¯NÓpb¹;¶®öˆD›_û
+3ÁÜ-YÁ1FŠÝï¨ÁÌãÏó”Iª$ÄÄÐóšPùú5s^ñŠ¢‡5S"†•ú&òaýz	Ø»vßïT¶€
+<EtÅ r›�ôÅ¹áI¿ßh¹Ê¶0Ä~Ì»ãl»Í#A!%¦êŒjçòbž¡w\Y²EÉkSRò|Ã±šœ R­�ƒÝôRµO˜49šˆ]¢CÆ°«Ø�APäˆU«‘Q„¡WöäÜžêÝ‰}ÊÒ€÷¹…y8tù8‡H.‰O)hª�|J´Q;$ê“æ)$mK ­ÝÒÙcA¿hŽuû¡�`r{îü(ËwÆì’ƒÎ�5•¶ÂéJ·ÒÆÄÆ¢K¾ÜeJ3Â¾2©˜
+óêzá?ÑC™·…DÏ0»e€`^|‡+3§�n^£ñ[È®	ô¼b»Ý�Ìq”\ÄÜCþ?©M�¤Ê«–xõ°[:dCrÝ=ñ€ô dƒì§¾¤U(Ý…kè>ôk{í±P v+œ­Q¦=‚ŠUn•”gÔÒÇM…çëe¿¯ênJÁdAÌÂûødwo½ÈŒåŸWŒ[—ÆÅ‹öG£ê×[ÌÖÏj®¥ðÞ¥·ôQ‹ˆ°¦Þ„d\bµ¬›Ú�0ûí4/^M7=[÷+Ù!ÿV*ñ3ÄDôé=²Tˆ
+¾Æ”œ£Á3Ÿî·¿GhÇñ§€áóôB½‘Úº3>ËMv�%.M¦b2MW×w)«éOÒgÛÙPh“+fUåÔOÐ6}5�RAˆ–»µ›a!¬–Šk?}ôpx–]¨‹0L[Ç®¡‚¸êwXàÏ91Rû‘®¾ÀÓKÍ�Ð)¶GãÚÙæž¬Rƒ�ÝÞ'
+¨¥ˆ�rž‚&ÿT5¶0p”û‰æª¼ã=¦B4Ëéû ïõ¬p£0Ÿò–ú{cmÚ¦¢¤ÊÕí‡3¼¿’Ýî%ã{…YFF²Ž-€0Ïg=A`¶£€°Ø»P$²¾‘‚Ìs*<y¯Í¤¾y3ç|÷Õ+¸³µ¬l£/ëQ’as.¯ŸN6K{±4O5äîbZ"`º¤z²ééœãÑV$/R¾3vž†Ž¤RE}JÇý×CD\{,Hf
+ÖÌ+êè+Â£vf0]ùž{O(´ Ä
+§y¦H8ïýÆ,,1ˆRÀ¨á*ý9jÜ�sq‹I*£ïøäBVÙåQøE“[äštÄ~ðtö$¬ÏŒóò=}L³Ÿí?n„Ijˆ�J)
+…o¨””½áó¼PMìíã2oÕM^ÀT8
+…—¤-I´ã\U<›†·0D™.Yp?�·ÇgH'TÅz~W{Ì¯¹ËC“a»-(¢©§SD:¦©Y›69ý¼ˆÖ>dÞ±À¹ºt$IÞýÒ½<_~Ž3iyã?›“„$Ë9Ñlt7	­k
+Â(áKÍÚuWØý-°)*H_ãVÖ´”¹/…ÌŠ6Qjyº…Ïºšë½÷½×/GH¸ß/!6 Þ�$ßS@Ì+„ëkÒ#ÛþÛ0ýæ³Q»=]šJ�ûJX»]|ºA+"X}v¢´„^Wñ�–…GHØÚÉUš]b<}]B¸�sÂ×À*Ÿž³½÷
+Ð—÷e�œ“�}q@ðšH£®äµ€ü?[0ò«©[Ì¯ ¹µ¸ôÿÃ»ÞyiõŽ¤•Æ¡´$æ7*8Yg“ö9àŒQ¶¯“¦îÁä 2a¾äPêaÏ"Ý‚Î[èaƒ|’Øê¸÷ŠNPÖAHþùýG÷ÙÖh£\œB¯Óîæ3ëKKc
+‰|ä«	™ ‘RX$´³ÃuláÙ�d}‰‰ü—�ˆÈ™d}O°BŒóËVŒÓoT+‘r”+‹>êm}%àáÐf…m™dua»«m2Ú%jÒÖ÷_-Ÿ ª9Ø¢Q~
+
+==> /vendor/etc/camera/model_front.dlc <==
+„×_*htÙBaŽ…a5Â�>'"¦Âo!ß:zž `×FVŒ¾œr,”¿‚�`±ÕRá_«ºÑg40f¢«òºeP¹ÅN.�œYgñÆšÜKZPÝÔ}hÈy5–æã<ºòŒ'£äLaÇ]XFáéX"Ð!tÛL€âÛô.4‹Ëÿ?ø’£=‚Çý²T{L*–Î£[îÉ¸æ±êµ]çÅ4sÒ=F'£’¸h1žÞåT¯Š»gh_yï~ G9,ØÛ`H¥A»¦¯]D²ê®TŸÂ‡V‹0|IÈÝô±¿,zQ¶ƒ¤3íEs	ËYNTÊÆlŽ›{{)ÕÝ’§pžbR]|C�¼¼ùº€–xQ�‘¶•Ä¿ã±Ý�RB¹ªZ+²±“©Ã_³Vs¼¢Áÿ¯3|¼«á~F¾HH¨ ¹£€Š¹‘Sµ‚º MÁ¨³‰TÀ=çè‰h±Ò�§Ñû*^XúŠ!•Žá‡uñÁ­Ü'´œmíÅÊS£ùî2¬¶EˆW,Âœ"6‰ÑÛ.¨3�{ÈËÚ}ŒÐÞªQü ,)9vSHœºØuY¦*„¡çÂ©wÒpÆ6'jÏÿŽ…É)šœrç*ØåHìVl^ê Ö«å˜+h’ÍïFø¢g è`£Úƒ7}kà®^˜
+¶;kÎñÞéÎ
+XjY€«J8i>èâ!ËQÆ0+CŽSý×¾÷ü®†’Šœk® ªe»p$DéF›º²$:hÄdi2±ûˆšø¥˜ß�¦L@’pSÉ©º^‚,Ô„æùWÆmH~Kps•³'¯¨�" EUü\°{Nµ9\ôEjÊÃS$_pIfYCTëOÐ¸Y]Úl{-ý©e!<
+Ï(úýt—jÃ´~X¶A)lÅ’x%)R�òÅs\	Z÷;TÎÊbš ®ÀÕÀ·²’W×;kÙq9½ÇOÿÁê4z
+x¯˜0OÞSÞN~
+HFú¡Ô¼$�E.«G5›FoÆx
+ç4 |ëø-û�mÓ3·):èPïª‰Oì¹ºî´Àçšwñ`�î×$¢ÓàTbosÕ¥Ž@~—îv[¬âÎã-™”Ÿˆ¿ÚQ�")Þ~9§béÕÀ÷Èñ L­jãÐ�µD˜ãŸI“¬‡ÇðÜ|¥x‘‡¾7¿j¨ÉÉ6(uÑ‚rÐè,h÷Ë‰ÆðíªÑ
+-�¨]âô0ÀÅ~°�3²?Oô³Pâ`hæœ
+]H¸-Ù69gê÷ås·.	ø§m0Pâó‰èç÷m´ ¶osç4 |ëø-û�mÓ3·) m×î /µfÉôñŒåBòeš¤Iïž‚5©Ä	óàˆ™Îƒ¶B<
+â2ÂT±º«6èRMÔ¦3�sû:ç"�»ÃþT ƒ•Kº:bÈŽ»Zo÷ÏèúßŒR§áÂØ¤Ãre³®Nû€Ú€â–4Œ€�9�n|‚t'ˆ`…åƒÅ¢û…¸ ^íËŽžvÂ=/³^5²ž„^Ý¯å:�ÙyÞôòM TÊ·
+ÛSPG÷{›qq)£Ÿ:”Ëóé
+šyOíyžíQ4 ì�jŽ4±³éî*2·ª-ºÞ9D0þ¡÷äÌ<KS·vîÿCªøI6Ô'‚Û´®á{ÿÉ×WBâÁð�‘Çúîg€•9›üä×|H*¦6,«òg¹ràtw^ŒEcË�ÌIP’ŽñÒ²©ð ›3+ªÊP#§Z‚Ì>dsò¤k7\É—$+.Ý/—`9dÛímå±®Õx.Ô©ìƒ¾Ý²€Î¶ÐbÏCþ$".˜~/rŸÒ‘FÜµ×°w»úMÖGœ³ræPYÛd?HSÁIxpÂG³S—P�Û±YãïôGÈÒU•ù©»fÀÕ*æ
+Ä©_5S×tÿû‚.¡ò¼½ZX¨�g9ã>ïŠuà1fñoj¼ÿ
+àÕND%/E`7€Eg
+�÷dËîàÆ¼z[Ötìl]T[3örƒ­\]þÒhÆF4Y=Y°ØáÊ/$OùÓ`)Û÷ÎPg÷I”éÂ Ï�wR¡Ä�ý§(
+¼t+ËßgÄa
+¹3b§„¿HÔ_ Þõ\è²UŒœa$ÂKŠ!•]E/{«#Z,§W%Õ9g[yîéú«‘p‘hÀÏ ðä2AöŠØçªÖÑXÈˆ¤xý|¦4Ç†>erý@ÌYPil¸P7îIñì“#¼_«ï`'LS	v;»4¹Ô¹˜>ZúªÎÅâ¤ Üò»„Õªï¼ÎC£oA~c%#nÖH<>ÇñŽ�¨)0�ÂEÙMA~ºãø¼îT’5�ÇÃRÄ¹ÏƒƒAcIŒ=È:N2S0vUê	[²80-�@ƒtåƒ,ÊvskùÁ%ÀDhW®VÈæß°ŠE·QöHÈ·NS¤Ù* ?fãD~Š¼Ìa›F"àÿê†¢!|\…¨ñŽå1±gºÐçf‡ñ(˜E¦q´ço_¼_¬
+ˆ?3~âêá£Ç]‹
+¾©îðmÙø	%›Jâ\×¦Ò=£MÉ/?öI1xœÌ!ÕÀ÷>Ëf)ëä©†R3+"Y'?7AíŽ:÷ç‚
+$—0­ã(û&
+÷ë)'0ž=§X:<p¤ƒoñ™|È–Öh›sòÆ‡,Ùd
+ï2tPVF®5Î¸Èë>¸¬/¡H–èŒËSRÛ^ÔˆœÔ$—0­ã(û&
+÷ë)'0úM4]þ®`Â|Ç÷Z‡ò¼6Ýˆ¼ÂìÅ¨WwŸ½+C4†�j±Ô°è &Æï¸Du¨…bãÒ,6‚ý b0û.QmáË'2pPÖæ$™¹Ò»Tô63�l:A †\ø¡€Éâ³jÈhØB.3«üö¨‘LàN
+WN€³»Š2›ûô:EêÝBI™.;¼o9£÷B&¦'2pPÖæ$™¹Ò»Tô6ÞÏÊ¦Á�,ÙÍSV"è‡Õ@äÂ•ÿ‹¥¸— Ô‰+$—0­ã(û&
+÷ë)'0Ÿˆ¢@¾¢Ú\F<´™6·¿J4ÕW"÷s#
+á;K’‰œêåjÇCtCh× Ú
+UUû•~PÈ¶ît0ÊõúmK%íÙ�(ä	Í~�c,¾Læ,53‡ÄýÈh}õâu¡ÕU™>C><ÜúñE„åŒÉÇ`Š�ÃÂÚ$¶,¼€«›­õ6²6‚ü
+µ‚M+X¶‹àØiæÊPæó(­¡d‹6ŒíMÀ¹Óõôj6NévþHØiæÊPæó(­¡d‹6\}`tÉ’<­ü0œÔUÃ�Ð,öøÿ‘\Ž5É2Cj¶J'IL(>ïDö™l± ïÍT#Ë\Fà`7¢p�Ø
+ºùMç>ðBc:ß5ÀÞ´ðºF½…A®Ð–Ep�$–¢£i_ûÖÙwø(PzæQ.–)àHqÉS±Ì+Þ9[g˜ß7–a é.�ŽWPrfŒïûÎ©¹!mlYË£Q¼÷ñ·qæcF¬nzðf_®"©±åq¦³Ó"Ùú«+Öàt�æ¹ù¼¿z±Áìû½¸Â…l[ÝA.
+wÕwZâk	P˜þK`û‚G¢�—U�ÀILñ°U¿sOŠ‰xuA&™`3	Fk`n”AËnLi@Ðþá=ïÎó¥UPGè­®›Áib¢z4ZXÏ5
+|ë†ZÖ
+ ØÂâ'~�•À¼ïMv±Õ6|Ù†C¥bá³¢å·MPºÆo·üæ7™ÍPú<
+	ZEWÔY‘å´B¢ª@NFÿïóäDÙ«Äo•°´e” õ!¾ÃB5ùÄhšÍ†j
+ÒÍæ‰:Ön f/ÍK“ D’kM³&G¢¸Ìl5Cª×©Ã6AF»£qûº¾:ÏøŒ-3?:a¨·˜Cj}UB/›ÚG{}žÜlÝÈGæœ6nsÚ½
+TÛhê9<HœàÅÂq¢wW_9Mëþ?3ÏÔ¦N‰÷gg8MŽ°ÔÖ~˜fbÐ÷ô¨Xš�RDI¼Ñi�E3µ[È8çð¥Hj87§ªFÌ•Ÿ!\"ˆ/Ä×þ¥�N˜nT‚•0‰-­�³¶YÑFmÔwÌÌ®@Ò½|‚ãým�·‘’
+Ì9‘µÔŒX±ì¾óÑÑZMHn¨d#‚Ó,s£Ú³ÕÿÁ°ú¸Ø�aFNÊÜðŒi��ÍPYýŽï¦\a—Ë îjð*!ÖÅ/¼q’cÞY×mrûw“óRsÒ[¦H§êœÅIàÚ>IÖ·ö¹‘µ+×æ$”ŒÇÑ€²3ÄHÜð�ià:_Y<#:¨Mñpˆûï¬$‰|•�Lš¬çè¥Éì©4æ‚™a¹áL8 üGƒ³Ô—«g
+ç
+êƒ˜¾æ²Çƒ|SqzâÝÌ1£Ü´'÷‰ð.úØÀeIjHf|ó¬”3½¼Ø¯§Ì²’´”ÖYr„†b;îÀ\3÷¨¾2>A†è§_ý¹ÓtP(¥=<�qÃçwü%ÞîÒþ½@„ƒáá�\]µL,ú#œµlŒÒ½7™V_Þm½‚jëgÜIàjëTmDm˜ôµ¯ñìYM×ND¼À+ÍÎSçü0“¤Wã»E¾�_Ì,¾¦^ò¹M…0³±ãkíêŽ ²¶æÂ£¾uÛ€køîC~}¬y€¤ Þü«ÂA~Óþ5ýw�Ð]Zìt53xuøF8¸šáµƒðòÆýAl¸²õ;…»iç¡Û@<žú’ÕsJ@ì_ú›ù¿ñ…É±õ"A .WPj[%ßéy¥ÙUÓJöœÅKuM‡yÁåØ¦ÞÏöÔùœ^Üè�´gƒ~×¯á' ßGÚƒÆV«ˆpjñA»˜è�Ì½;ks»ÌuewZQø"ISé<Žpƒz�dR2Ôö3wY�:eR&s
+ú}”òC±òj#òH ‚Òk¤¶GÓ^åµí.IH4€í"G\:ú6ã„´Õ¼6týBGpq¥Ñ\íÃ°À&C×0aÆqñ\2fÅµÙ_î~�…—´DÖ¶àrímŒÏß,ÿÆðR†¼ØfC®çI
+û”ô•ý'ÿ‰ùH3†ç—ø ybŽ*äd;Ê²ÇRÙ=C|ÂÄ[Fã?\Â©Ù(‘(RZ€Èö›ÄÄh6ÍÅ[ÜÍÑk)ûá“›Þ¢/Ãj�,½JhŽ.ÊD%ej`s>#î.µLÇhøAUÂßãMœ
+u’tW‚É²ÿk(­œç´`í\¾§/OI0Eã˜ê*-h¥gÜ¿Þ„í29’?½L
+"b>éu”YÍY×‘»°©€ó×B˜a0UM›T�TéZwZNDÕQäê†ñ3°9ª¨L.ÇKNÚMŠÂ³B¸’ TÒ¡X\æ¶I3rñ£®ƒ$L„}¥R
+Ùc6�§¡,s
+Õ5¤.öº#SXiâÇ~-ûspõ{JY˜B~ÎzÒiÖó
+D
+¢àû…ƒ�aûÚr„P™ˆ\¿±åÇ�ý—/ÍÆÐås’�öÍû›+Æ†›0/b×NîÏiÇ?§ÿˆãsèÓŠíz©Ëj $ˆáEÚäž8^fCú3Z°¾øóÚt Öç€-…ú~TžïÿÞƒ6Åªòe 25Ôp"fD_˜ù#H¬\\µÊë;EÜÄ•ìm;•»Š˜Y™ƒ……¢vacÉV�äÞ¦xTmÒ­Ó‰ôþêü³…I¼cþr5d?-(Î»$¨’Õ¾ ªsù+~\%K¹™<†÷xÐ¶‡éYÚ�#˜W¶ ~É{£É>�òf_+!wÚpÓr\~Év?É„3í`Ì85ÈëÜ Ä†lì¬Z£þ HILh„lø¨˜gsòOÇTâŸžÎßß	'uoÈ”I™©ùÜÓÜ+#¨edžFYíäw‡Fm¤ßõ­›ÔRvOæèˆtHe2)fÜÐi±¨G9F*ö›?NQJ"ŠÑ³Pq€M«"AHµP@Âq.ì´ì)B¼Ï9a>SÄSü£jš9†00¬6É!X°DÉù�ï?0/·:ìçÎîEµ-sø(ÖŠº¢»	e‹Öáòw†ÛÒ´sŒblRV9~L”Þ\y2!v
+ ³Áë8’'P”³Ð-2nb½PcœQÿ
+|/U,tßç�Y^º¾¡Ï	?X^’1¦·>3�ƒ”I~ÈX.iC6F–‡
+’Oö•æà¯¥ Æá0§ÉÁÇM]5B¬‡ÏÑú�*ÛMûê_R>Tûs*cðº¾†Hh‡-�š==&¸v›:æy¢‚½Xæ
+p»ˆM…èšìÚDÈ*F£ïÝ5À0­™Ä·Åm¾‹Ü#M�	ÇM˜¢œ!"$ñ¹}Ú(8$eH¼òÉbžðŒºBÖÕòŒ™PÆsév`[©EÁÙvºh’1I’S2¹{f -kÓ$vôºÂN~;aDÂü!µ¾jò*LS
+SŸÚQT•BîÚ,S$�üâOMñ.oW9eæ’¯kþ�nSâ’­„"rç;Á»±vUpešê•m°ü\XÝØGzoå¤íyÞ€hùÞ‚ù®zªt²ÊCï],j)‚è[)�UnRWWù½Ìð+˜ºa9ºDj2½WIM"Ö%�/¦ Ðréœ´	•ƒï
+à´1/}=íº¹Ä\\úïÊÚ¤wjµÝ6ÁïxCáú2¯¯69elót‘³°{0€	ˆ6¨�o7×d=æzÁðŒ(!úN#ªÜ;Ø-èìUÓ&îV¬WÃô!à”LY¢z)zÀ\%Ï–cfß)W—-¨átÏ?#Õ%õò,lþ+Ôæ|ö‰>'´/·CUD‘ÒdûäNÉ¹Ý9n¨5¯þT¦ùZœîó”‘©yËµUÑ‘eíÐü‰Gñ¿mtû(Ï
++²â·Ÿkƒ£5Üyý”s*œß°‘!£Ü8ûu^T7[S½Õ^@,
+rûyN–¼³¦èo��ó¼-
+�ÎŸÛÌ\<Ð�/þO"?/µ~\òïýÿ>‘©Ò± ö˜½�È˜&3ZÎßÀÿ1C“ Tœ·3Yäý´�4¡ã¦&ž‰Á·,¾,g –Ž%5ÁƒùKT.Ú|¬Q¯‹„¨‡Z´Ñƒ²•ÌªÜ#õõ‰òx¶Euµb©2¨¼G×lì=üætFÿWBÕßMÂ­QGgs„Æ²,�ÇÖŠ¶¡×�>9éùÛ;ÆþÅC)÷Ÿˆ(²6Ó‰Ã1Zœ‡‰§zfIÂß‹r±f {+ïdÔ�…7hÜd "Hs½]3½ÝqwkƒúÖ…jð,,+XØ{j²  �6Î.ÝœP[ºÑ,OÌ]­ÁbJú•PñøÖR¢bNÞaìœ„TOP×0”­,Õ”¼²›Ø]½R¬YRC
+
+==> /vendor/etc/camera/sdm_ys_32p_120_21_5_perturb50.bin <==
+    x         )      @ÕA@?ÍA¡k¡AEBÅÐhBM£“BM<¨BÛÄ°BÍÌ°Bƒ“A£?»A{{ïA”â
+B" íAo'¼Aä¶jBFY}Br‹‹B-e•Bzž‹B1UBÓ4B³
+"B½
+ZB)ÇnB³AïA=%Be†WBÊ?�B51[B¢"BžX@§ ËAbm:B·Ë€B‚±—B'¬–B.¥{B›"3Bü:¼A   @•dÑ@(Ðc@N`b@ï«Þ@Â¼A==A@¥Ô@D½G@þ7A@8×½@Ç1ý@Ù A”>ÛAB[B ¿BÚA›x@B&Q-B�Ö,BC>Bt`B}LaBÊG„=V×X<@ª?º´YÀZþ?s¾	=¿þÒ¶¼™èd>õTØ¾A¨ð;Þ¼
+¿KÄw>-rR¿#•�¾Ìì?W˜¾_ò§¾pBë¾e“„¾ä«‹?é˜L¿Ø"k>Î)@“™"?´­¿ðß‰?˜:>‘æ�¿»Cþ>Vqþ>oÈ©??ØË’¾"o?dbà¾ÍÚ´>d]B>›ê&>_0>”¤G?ï�š¿bWù¿%éÖ¾Î'¿ò£�¿ø=h?ãb¿Gî?0¹•?Î=Ê>Ã]¿ñ�‹?B4n¿ùê>ã¢?40?ivI¿YŽ½–m>áÎ×>žÄa;¦"d¾þ—½7÷g@9ä†>Æ#è¿0¶“<º·¾–Æ¬¾dç<¾¶Ô
+¿&Ø	¿@¼Ø?¬“¿á4>)»“¿¼Îi?—¡2>ð‡¿?\EA¿ô'='¬P?fX´¾î­Ÿ¾Ð/³?.µ÷>%;Š¾
+ƒ?DØ’¿jC ¿îù ¿²à½‰[ÀZ<‹¿œ|S?äÓB¿ÔÝ™¾çäC??Ÿø>u®d¿#=e=YI¾1>v,s?/³-?R¾dåÍ>‰¤‰¿??"?
+Ÿ¾e¿ÙZÊ½‡”ê=_‰??2ì="O
+¾½Ý>î¦?Fåh¾R÷¾Ý%?y2}¿Áý“½icÌ>Z­ž?]Ùw¿ÄšT½¬¹�¼j ¾½Ú‚C¿èô¢>i¾2 ý>lÏ>I¯¾sþØ½`/?üíü>×Ç_?ƒ¤Ó>ì…¾­lm?B`&¿Ø8<¿©f#>Uç½ŽŠ6?
+Œ”>W@Ð¾ò�¿x‘¾vçé<ÈŽ“?Êúš¾�Òs?„‰Ž>o”J?³�Ý>ß°¾ƒ�4¾U­N¿÷i”>†î¼iF ¿ZÆy>))7¿ßi>98|½½O@?o©ÿ<5Që=òÈ‘>�±>îÕ€¿‚`Ö>•"”>U+<Ô·¥¿ÎEå¿_s ?5Ò ¾¾®ï9ïBR?¾Mÿ¾©ð¤?{\M¾˜rc¼Ã5¾%oµ?ž¿Ñs¿ôÑx¿k<b?¹Ï<?=õ'¾  €¿`¸p?›²e<bm ¿ãñÃ¾œÿŸ>íÅË>¡nÝ¾D±	?BFž>´7—>…Ú‹¿:‡Ã½a=c™ý½Áœ?ëÐ¾èVó¹àÞá>È–ñ¾iÕ§?ÆŽ¢½ó¼¶¾µÂw¿ ÚØ¿ãBp?la)¿„R¾Sn?qäe=åA?Q¯å½j€¾¥a¿ï"ü¾nÎÓ½3»°=¡-Â¿p;E?6—Ž¾îâQ¿*S@>€�=�>;?Ú�ž¾>ŒŸ?;ã¤>ú7¾*øù¾Oˆ¿Á+Õ½oÀÓ¾‰ª1¿oÄÂ;’V„¾6ï°=~\¿¾÷õ½^Î¾¯æß>Çb“?KåK>zwF?WÈ=~ÔO½íí¿­úq¾L”@¿ËÀ#?Tåá¾Oäî=‹é‚¿KÃr>i­1>“W>­¹¿joY¾4Mé>Øãr¿Ç>¿_y¯>˜:’=f"µ>¾­=÷wÎ¾K»5¿¾)x>çäJ>�Í·>$[Ã¾»ýb¾ã+½e²¼ÝAª>&¹È¿OÎ^>)²J=Š"a¿g|>:_¿g
+>fe|?µu?0É¾Éód½¸ò&¿@Ni¿»|	?œ¿«°5?~gÝ¿$É¿ùØ–¾þù¤=H?aå?A¾ö¾½Ð]ç¾å˜!¿DÄ=¾à‰Z?€‘¿Ó·¿·EÎ>A¬>ö4?^’é¾¥1>Ÿc¿Ÿk¦>Vì_=·kW>%ùd=­ž?ã$¿ï½"w‚¾65q>þ…¿ÃSœ>_´¤½ä×º>,Û¾®¶>R è¾�„?¿@Îƒ¿üy¿?‡Á¾u�¾óœ1>{5¨>‡¾Ï¾“…m=Õë@ÌŽ<¾Á}"¿½›ç¾ëvj¿4[É>ÜC6>;	s>d”¿ÇW½ø{Æ½©ld=¨×>Ç §¾*ã8?ã§‹¾kZ¦>Þz½Û”¼bÌ—?‡Û>§è0¿M„=;Yñ=;»Ý¾gF>Whþ>aG>€²ž¿ÓñŠ¿!Íº=6³m¿ŠËÂ>ÈT¿´B©>¸kü=˜\>Îºy¾Ê3?¡Þ<~^A¾Ã»£>�$¢¾äZ>† ¾ì{Ã¿Y¤C?„¾Ò·?×Ú¿x:0¿ÁA/?ž	‰>‘{¿qk²=ëØ¼½KP¿^'Œ¾é=‰?5B¾èÓÙ¾¨Q.Àª)À,´¾ŒÉc=›(À4ÿ^¿ù¹ô¾ˆ>µ¾+6>ç^î¾ñ)?oŠR?ÉÌ¢?yà˜>²Œª¾?Û–?S9¿O__¾¨Ð?ÊÞÀ¼”r>e‘@ú¾K>Cíj¿Ø›?{C¬¾Ô]]?‰Ì>Uy?]›–? [ À·ìÎ?’V¿û=¿Á:> 2u¿ñ™ ?¥,Ÿ¼¤þ¾G¥>h«?"œ»>›jÀÅü;*P¸¼iµÀ£˜¿6I¿ x¿¦áI?Ìö@£ù¾„òÙ?ÛÄo>,£?9Ÿ~?j?{SÜ½rÃ>ºD¿^1<?îÖ>øÓl=‹]4>Ú“>TœA>ïø=¿¶B}¿>~š?\g?Á”¥¿ŽYK¿N­?„€v¼~A€?ñâ�½’™i½&(@«…�¾n)é=Ä½Ü@5¿[x÷>ÀÃ2ÀÚcS>ìâN>6š¿±·>)‰?¬=ø¾‡çL>¥]@:‡¿ái?‚ß¿^L³?ò�Â=¸É[?–0¿~öu>¨ÏÀÆo>CtÉ>¬ßx¿éêÃ¾3Ä©>¿óâ>8Õ�?L&È?
+“í>¼©Ë>>�¿†k¹¾Ð‰½�(l¾‡j§?îo¾l�=¾Î –»c·�¾+¸>L0«=ÿIÀŒP @s­ó¿%a,?ô¡¿È¡Y¿®è¿¡+¿ Š¾EXc=r#@_ÞZ?/¿
+i´¿¶¬>×úw?·…¾lMœ?,À�?ŒÙ>Ô ]?-4+½¸F¨?"ð‘¿f*‘¿ò¿…~ä?^R�¾æÆ³?í�Ê½žŠ§>‚x¿‚¸L?½ÛË¾Ô±?à.?ÆaF¿å#"¿ân¾ä¨…¾“=y¿ ¸¾ê:°>üÚÎ¿|$j½Òã=µjÀ�¡™¿Ä¤À“ r¿Ïød?1‹ó>©ã >·l?£k&¿Òž·¿
+R(¿Ž)¿<ª¾.:/?|’Ž?XcE>�?¿A‡?É¶­¿W9¾žéA>IôA>Ì¿SÙ,¿K¸?êl¿F~À¤‡¼ü®¾ƒ_x¾Ï­Ê>ÝlT½Æz"¾Dˆ¾Z÷�¾K]ß¾Ç´|¿\ã¹¿Ù'Àæ˜¾÷#<æ%s¿iÑ®¿YåL>òøK¿Qu­;ò„Àß�D?R½õ>Ås4?)¾KÀŒdX¿‘‡?á)%?‚}¿ù;? ŒØ¿®£¾
+êˆ?ÉU?'?£a¦½¡‚=@ç?=ué¾ó=»>ñ6¿²r�¿qX¢?.¹ä¾4V®¿/ïÌ>Î7 ?�2¿Òµè>©Ó`¿›<ø¾fÂ«=µ+¡¿kíd¾½ïŸ>‰éc>;‚#?Kâ'¿Á?´³
+¾ÏT‰¿ï¬&¾�¶ž?û´Ê<¤Ñº=XŸÖ?‚û¾ÄF>¾Êµþ>ÑÎ‡¾Å¿“¿–Ðâ¿É(¾ü>,¿˜dI?ì–e?éi„?¯Û�>K*.>Î“Ü=5�0¿0u)¿Ì¢Ï¿Œ˜8?(Xà¿ËÊ?¿e;¾a«·½Hs²>v@Q¾
+­i¿œNG½ì¸×?
+%¿Ñò/¿}p)?Cv�<q;"?Ë€’>ªFÚ?­0>3"-?O�¿dT[?Ã¸	?¼ÍÈ>z|»½²¾5Â¾_LÚ>Ê 8¿-¹ø½`¿/µ½¤œ?àë­¾õï9¿™ É¼´6ò>p-´¿ÝbÄ½=K¿|•¾–Öp¿€p?v;>IÍ¥<PÂ?­n¼=59(?w?],°¼Ey>šA}¿a/¿ýô?ë!R¾1¢\>ŽÄ±¾›t<EXó?îÛ½#‰@jkÀ÷ÜÝ?Ä ¿‰¡1¿±¿N.²¾�i¿­\?³<o¿†ƒ…>×ëá=Í‘>³»>`Õä=Œœi¾»óB?Ö¤T¿‘j¿ñgÖ¿™¹À¾ôC
+>Å\ˆ¿Ñ-»?þ7Ç>Ü~˜?ÿ`s¿õæ”=œ�æ?ŠjÎ¾ä++?¢‡Î=È;>[¡W¿”Ð&?ì,4¾¼©‡>‹?Î¾ºâ­¾¼zz>o>¡?9Ñ$ÀÖV¿3>ÀbR>�²¤¾É[¾5—>8¼@¿
+ú¿6ŠA¿]Tÿ¿f>“¿Ú>´V>¶Â­¾†öA¿Eî±>T�Ú>¯iG¿?¿ø.�¾é¿Í¿Pì™?y:þ=
+¸—?}MÒ¾Kº¼³+>N'	¿¶=±>%Wùº?Ç	¿ªÕO¾2N‰?†Ñ(>,Cµ½¤_ò>Û;n½lT	ÀÝ�è>^ 8?ÛÕR¿8÷
+¾ê6e>êÄL?ÌNc?„÷¿›œh?åY†=éXœ¿]“¿z$Ï>¬z¡½QA¿‚Ü¿L÷Ç>?f¿ßZ>8^L¾™ ‡?=>ŽÙ> Ÿ>’_?vPn?°w¿oª ?4¢ƒ=Q„V¿¾Ìù>ì«D?,½÷™Š¿�+	¾²?F>s=Ã^t=Ì¡=?Mñ)>¬|¿ê,ˆ>Q¿Š=íÛ½‡°?Yµž½{�ö?£w¬>,õ>Ž®;>B=¿g˜C?€¿Á%®¿Æˆ0¾1µ}½«�Œ=ú–¾2+ˆ¿ŠÏR?iò¾,Ô¿ž¨E¾ƒÍO¾¦c>‡Ü;²V>¿ªƒ¿ó‰–>'Ì‡= 8¿iÞÖ<®ªÀßŸæ¾`k>×Œo¾gð¿0ì¾Çi?iY²¿±¥?^g?ºx›?„S{?©?ÔO×?Gª¾ó5º?¿Â™?L
+?²xÝ¾¸Ú¾‚Ì‚¾ý~Ê>”T0Àòl¿u'?äoq?ºÛw><`	¾ÝM©¾dµ¾õw>?  g<pª¿×p>x?S¿Ô� ?ü\?Anc>�"˜¿õø„>™fb¾0ñ=£Ìé>¬�8?ÍËó=*nž>�?’#2?-Õ!? �™¿:ù5?¸‘}:Â‹=?lŒ?*Á¨¾kq¼WvF?/í‘¿ðØ³¾“Z„>„3¿øŒv¾oé¾¤Yò=}Ï‘?óly=eÂ¿´?Ä>»º:?êØ=R#¿¼;¿ØÜ½ÚrH¿W o½ˆ0¿HÆ¬?Cf¹>—ñ¾-±>ùB?÷e^¿`‰B>Î¥8<-+’>’ÌÌ>„|9¾æ}w¿XÂ¾°S¿O>Ú¾I'¿)Me=N¥¾;»Q?¿õ'¿‹W�?¹Â>6Çt¾ñ"¿ƒÃ½ç–¿Ý,¿
+Û‡>ˆ&G¿¯Ôz?mëS>©n?†¢·¾o1?:Œ
+¾ÉÝ?>˜^>z:o¾¾m³½ØÆ
+?Ì1?[q¿™¯X¿<¶¿¡­_¾ Ü?î8?ç–¾«‰?\`†¿Îtm?x*¿^#^?uê»¾Ó¶€¿¦:°?'Ì¾ˆÎ#?Ø=u‡?­!œ¿˜Æª?\Ô�?ø)7¾X1k¿Åƒ¿Ëd–?Ô×Æ¿—¢Ž>YTf?ƒ¬’=F@¿†ß‹¿šön¾@¬8?ÀŸ¢<|îÊ>g^Z¿ê	=?2•?*å3?Ç´«¾Îl¾¾Žä½©2[<Ã¦n¾14¦¾*v¯?ñ´?šãƒ¿ï4¼?°G¿ …‘¿ƒàK¾^ ¯¿Îž½ø½*6è>qÀß„¬?�“¾:%r?Ý†@ø~¿sñŸ¾¿Tz?—øY¿író¾�o5¿®;È? Uø>˜Õ.=×G�¿?©½9µV¿½=/¿£Â=*ˆ?ãS¦?r›¿üÄÄ>"#ƒ¿æh¿5P�¿w?nP¼>Þ=Š›I?ìv ?ÛE6¾¸¶?)óÐ?á4>oÜq¿‰¨§?bíâ>†(¾,´¼LÂt?ßT@ÚtK¿Ôc?¾È²p¾ikÒ?$–¨?MCŠ¾ÙúŒ?eÝi¿¿V¼�ÅC>®·?çò—¿è?ypš¾çÞ$=�?[½¦ë¶>dz>•U&¿_­?ã£Y¿B²³¾
+O¿­®?!~Ú¾µòÎ¼‹[Ê>æ¦ø¾Š;ï>í –½àiò¿…3@nØf?àäQ>ÅWè¾…~h¿Ð§}=âÝö?¼\ù¾¨{¾>|�y?Ó
+;¿ä:?2e¾ó<+?UÑŒ>úZ¿l|‹¿¹µ7¿B¡O¿Áq¶>�Ù¸;ô[E>*mz>™³)?$Å>C¿�>BúŠ¿Å¾Ÿgn½ä£˜>:Ï¾aÂg¿éB€¾]V¿ÿÙÞ¾´+Ô>¦U	¾°»¨>P²î>[Kµ<(à’¿4“¾K=X¿Cñ¿NT$¾"pÔ¿ÍŽ	>”‰½� N¿ ™-?{?É¼=V³7¾FU4?~?õ$¹¾âL­>½Þ%?Ô——¿V
+‰?™ �¾þ{¾Âøü?†“¾ï6†>ÝEG?j«6¿Mº‹¾Š\‰?.<Š¿¾Kó¾@ì+?—Üö»”ka¿Gu6>‚ôq;÷þ½�>ºzn¾Á±à¾ÓŽ5¿ê³¿ªäÀ?1`?8ð2¾‚Õ>×6O=øý=0MÈ?>»ù¿Î2DÀÓù‹?>IÀdD‹?®n®?cƒ•>Cñ ?ðN¿B�?¸o£= ?è»¶¾w]?0û?ø­¾$—P?ž¿Á1¢>ÑÎ">övA¿¥^”?±T>Ÿ ¿[_�½hÙ¿x­¾DŠ>€Ÿ.>‹?Z2¿\£=?§l²?õH@/ k¿žˆ=jRû¾yŒœ=!çˆ¿CH-@±Nd¿ÓT_¿D±@ŠÞú¾6ë?dþ–¿âx¡?[àV¿âF×¾Ö¥@¾™J‹>ZNì½!�Ý?'È>T¿–oû¾bÜ&<Æäe?€Š€¿± ¿ÙÚ`¾Þ!Û¾$é!?Žr>}eÖ½ãù½¾`K
+¿»¦>÷Ê>îZk½%ô?{Ý?–mFÀ+J¾Ïw¿%ï_¼ãêÀóV«>¬'�=,
+Ú¾ën>RE…>Gƒ@¾4½¿-%&¾VLK½¥Œå¾23¾¿\Ë?.¨J>Äa¼²sÚ¾,½¤½A¿e?€Þ¾Ë£> r@w¦¼ÝÜS¿Zßn?Kª?| `¿c{œ=á¼“ ¡?1u™>™ó¼QO?ËòL½ní>@nÒ>nŠ{?ûÐÄ=<ø’>)É˜¿Þ6ÀÔˆ¿´I.??ú˜¿1ov?rˆ¿\
+þ?Ô“�?�7?q!J¿¸­?Ûx¿7ë+?ec?›ÕÍ¾uÛˆ¿“QÝ=^Þø>€s?©Ô‚¾[ž¾·n=n
+|@åŒ>IÃ¿0û£>+$±>cí¿Iò¾‰Ó{¾@˜¿u;�?ºõ‘¾Í|®=,Ÿs¿Ëî_?¸Òñ>&@üv¿ãKÝ¼ðW?Èð¿úp>?o†»?ðj-?¡¢µ¾KïÓ?Å¿‹¢ˆ¿”�7¿y{>1Íà¿wbb¿üù]?ÃÓr¿¢Ì´½)jB?¿BR>Àz¹¿bÖ¬¾náY½°1Á=U,?3¿Áø€¾ƒ-R½‹_&¿a"c?M :¾¡´¿^õœ¿È½¸½Á�¹?f1[½­ª–= éÿ>/XÄ?jß�¾Ž§°¾ár9?]ó�¿Ò¥9¾ëÛ–>TçÔ?ï”Ó¿ÑÙ$¾«¥>”Á¿¼Ð¾NAu?8”ü¾Í“*>k3?»m¤¾h ¿MTø>¸¾Ô?‘¾Ž?¡Hó>*ßõ½¶L?¬gE¿C9h¿€Ê¾Cú\?pE…?$�>8©…¾žtm¾môf¾¾/=”¼F?Ÿ>‘zÀ?A>>ŠI?½¶u>1× ¾Ú6È¾Š.ê¾a¦œ>Ê¬=+8b¿Íå?¿zòE>œr>¢ç‡?še{¾ºÊ‰½ZSq?”Ÿ?’-r¿Ÿ™?Û@?`ò2¾û"¿ƒœó¿â‡¾?F
+>XåA?àÒ_?À Ø¾hº¼?¥ß9¿xŸ> =b®?hªÁ¾dBÁ¾n«K¿ðîc?¶W÷º¯TÔ¾ÈûS¿»��?j°>¥”3¿¬½Ï¾¥¯„>ÄÔ¦>Ð¤¿ÖE?>
+ð< $?ì£�¿U/¾Ñ'ã=9ðþ=C�ï>4u@¿Gv¿7?‡‘>7Ò?—+u>45%>È{¾&;Ø¿“Ii?�A£¾g?w¶û>N†½ùÛ÷>óF¿g¿�°Ê¾±þ¾@‰Ä¾­ Z»JNÂ¿-Ü?ÄÝÚ¾ðg¿²Ïb>ëQ:½S?”Ž¾ÿõ“?£Ð=8¢D¾v’A¾:¶�¿‰[@¾bib<Š.9¿�ÇO¾ð¾¥x>l¿§@n¾ h±¾ëã±>Lþ¤?žoô½A¨>¶C?>¥®D¾’‘•¿Ï%”¾9d¿+š.?ò v¾)Œº¾�¿ÉÑK¾[–‹½hú¾V|¿F<i¾ìn?e‡ˆ¿J˜|¿,NÆ>ªú½;ßr?¬d…½[þ™¾ö¯¯¾Åó>ÒèU>m?g`e¾¶¢X¾TïT={&�>
+š­>ÚY¿DùÂ=ÒM„=GÎþ¾²qS½‚ü>¿J¢€=7?D"?µ)]=¯å_¾¨3¿Àp¢¿›½=Ò‹Y¿º/C?�m’¿ =8¿X�>ûD¾³†?‡qõ>±èà¾¤;>¾Ñìô¾d�Ñ=Sº�>	¡=¿>ÙÐ¾L¶À½8?]d!?`¥¾e1Ì=ÚÇ¾iðr>Ô™=)Ow>‚ Q¼^´ß>C*‹>Ó…½ð2:¾;s>åMD¿š‡~½•{R>)«>Ómp>+ l>yS¿y›@¿�b”¾�&Ã½gV¿aeÄ¾ïú9¾6n=B<¿-»¨=fã
+@tX½µz¿t-Í¾'d…¾Õ×—<T9Î<›Ë>óV¿š4H¾Ù»·"}»M½3?²w½'ú¥>¯Ã½f%S>ÃÚN=®Ûâ½e‘?	©½§Ý=ZÁ=žÇ”>çVÌ¾á}@>µƒ½¡¦é>ù]‚¿uL¿¶?ü>ö‹¿;ü?#6„¾È[>ð¶ƒ>DB>«ÎÑ¾Ý›Ë>P)¿}_<¾ˆ» ?Ô¬¾! >k½—=Ž¿3³÷>ìq•½Ÿä
+?—×Á¾·|6¿ºžû>—�=½Þs¾�Ñ½bø¼Tž1½X£*¾ÇN�?ìø¾!B¿§ˆAÀ€øÀ¥­[¾ �p>êT"ÀüÚ#¿Tù”¿Rít¾°;–>H ¬¾N0ü>ôC†?\é”?vü=B�¿±Ur?€?¿©Pî¾×5?‘†Ý¿B°¨=+ñâ?)¼[¼!S-¿<�c?6Å¿4_-?‡€5½.Ï<?,¯>?“íô¿QÉ¢?p7»¾”)Q¿åjÊ¼%1M¿OO?Bu¾n^¿;kn>NöT?„jÉ½u¬ø¿g•�>‚n¨»Ü Ó¿Q‰¿ºeÇ¾ÅÁ¾i«]?‘A@6¼Œ>¤Ý˜?›3½É‘Ž?íX?þÔ÷>ÍM‹»¬U¾àë¾†«A?kw.>î€Ä< 7Ç=Ö?=�ì¾r¿Ÿó¾Ú“?s/”?EÎY¿4ø$¿¥Ú>IkÄ>ÀÞ^?â‘=Aeà½J•@‹.ª¼I=Q=û¡ ¾9óŠ¿3§²?YØ×¿ÕLF>Ø¡7>Æ´¿É`÷>'H?Ü^¿­Ø!?#U1@î™N¿Õx?le=¿o±¨?Ô±=³Ù>;¸,¿5C¿:ÈÖ¿’šE=_nc>ô%¿©2Ó½†H?"§¾+<>.«r?5kŠ>¡Œƒ?1ÿ•¿Û¼øè%¾l2>�m´?²Ý¾0ùÄ¾°³¿ƒ1¾ßâ
+¾-CT>Hb¾¿¨¾@sPŸ¿�õß>3+ö¾ÝÛÊ=áYl¿P$H¿�=”Lé=íQ@åA?ö’T¾¼¨Ú¿sk?6gÛ>$S>¸Äa?ôË=?èH.?Ò#N=nQ¾ŽôÐ?§ß3¿›Ch¿†¬-¿‡î”?wÒ>DÙ‰?#žA¾7£~>Ñ\¿üÙ?úƒ]½DN¥?,£#?’f¿øÎ¿¨ê—¾Û8á<‡Âe¿ý_”>ch%?'P]¿yâ½žƒ,=+ù'ÀˆQ]¿¬ÜÀÜ Z¿™L?òa²¼Ò·í>:e$?¼¯Ä¾2-ž¿mE‹¾
+¢=½~¤<¦Ì¤?œ%4?èß­>!£7¿x>y?Nàš¿ßßN½8>¡WE¿6¾¿‹I¿˜ 4?jk"¿‰LÆ¿zÎù½^@µ¾âû>
+sÊ¾ßÅ¾/= ¿R_~¾bð>ˆåƒ¾hA¾ÔÙ¿æÛ)À,Ø¨¾Æ½^½è ô¾Ã¼f¿À6.¾&ýò¾aMd>½ˆÀ¿C�?Ü€S¾Ûo?]óÀû F¾ün0?ÉŠ	?Ð¬c¿¸——?*­‚¿¯ÁÄ¾÷?+%?Fð>œA•½çø7¾©|?’ˆ£¾áúš½EÊo¿ñp¿ ‚­?ÃÆã=5t¿îRŽ=Ï�½•ñ%¿Ö ã>5'§¿yÚ¸¾Îßí>^¿ï/a¾(ëÜ>›>³s†?·‰›¾†?HÙÔ½¸w¿§µÎ>y¯?Ù¹=>I`/¿Œh?T�¾è\ž=Ç“>ÍÛ°¾‘¿¸’†¿5.~¾Óçh¾!Èo?tK9?}·¨?˜KC½éë%¾›oó=Q7*¿òÐ€¿4ü°¿µ"Þ>¯º€¿!:¿Ú'¾:wÓ“¾öÀÈ>T„™¾�Ì¾-þ ¾M€ú?ö®>f®F¾ñ‘9?§(»© ^?‰E˜>�0Ê?’50>x˜…¾€£R¾þYƒ?a]í>yN<>¦©¼ê—‘¼ÄŸ™>/¾Çœ*¾Ø¶"=£a	¿»¨U¾r.²<YWŽ>ÝON¿Ê.½¾„Ò0>Š�µ¾�›¾"Õ¶¾*X	¿8ÖF¿œE+?A%	>.àD=	 Ë?þ6?¾€·Ú>P€>_±¾gì¼„)†¿�®¿‰šö>Á[�¾¤¯ê=n.¾J¾î\Ö?þÏ½"Jâ?ÜW]ÀÅÔI?sä‚¿ED—¾\_¾>"H´¾VqD¿½ñS?mªâ½Òp<ÿ—/><;/½g?É>Ÿ:.>2P¿ä "¿>W¿4lÚ¾ôýÇ¿%k:/tó>µ[›¿ö¯œ?–ü>c”Œ?W¿kW>XL¥?»cY¾0+?Ë°=›”Œ½V”¿
+ž?
+�Ê¾qÊ¦>«§?¶oy>[8<=“ØH>ØC­?wÀ½.G¾¾¬´½q�?N->_l½®¯>WY¿5,¿ðŽ.¿,²ÀžV¼`ðò>¹�Å>$}c¾·ßQ¿þ1B>Û	~>™Eg¿€ C¾0á„¾ë¤¿I?Úã“>WÅ†?ó¡Ž¾´M>IÑÍ=ÇÈ—¾¶3ˆ>	=2>M=NŸ¿=–ô?$â¾!
+½NÊZ?›¯í>;ÞÚ¿{?ù??Vš$¿Âš¼ ü¦½/È•?"Èê>•G¾�Š?°^€>á ¡¾{S®¿Ð»>{€7½°²¾mv=°Sõ>©úí¾Þ¯q>¼ø‰> cq?Èc²¾|¶Å>8Œ½>7›>Ì(¡>ÂQ¿±%	>îåð=Ãê¿™Œ¹>bOº>;î¼=óˆ>ûsá¾’×Ô<
+B¼Á‹‹<ËÄ.?¦Æ:?.ãÍ¾¯äz>1+>¨^ß¾h*Ê?b×¿%¹Þ?Óy˜=vá?Û—ý¾z%<°�û= /æ¾©€„¿´³"¾Æ§¾è½v>º@ò¾�k”¿ž<©>v›6¿Øvª¾úž»¾òÎa¿”XÑ=4Õî½ÓŽt½Î(¿™Þ¾<}0¾eÛ!¿žâ¬=¾³¿.š¿R‰>FJ…</Î}¿’¾Â¾‰O?q™¾õ�->|`¦?ÞMˆ?“W�>‹3æ=ùlÃ?3s±¾ÕÒZ?‚×È?’Ìö>/šÅ¾
+n¿/-†¾¦	~=ÍvÀ¨e�¿D<F?E²+?Å¹?®”§=Ã@=½TO�¾ö$?ÂÎ¬¾@É¾&ó¿è“?§òþ¾}Ë>g
+	>>yƒ=©…?¿C°>=©&>
+_y>cÁd?Þ?…oÌ=AFÐ>‹e?DI?,A¾õ@Õ¿|©?y|r¾Í"¾þ]j?Z!=¿s™N?ó±?äž«¿S›¿½•~?
+V:¿ré�¾å§G¾Ac)>›’?ü{d>,”›¿#D·>ƒ†?Q‡õ½§î#¿ÀÂ¿·€ã>Î…¿„½§·A¿…*­?¬-Ã¹<_ß½Ê÷Q>¬Áe?+Þ³¾ÞQ¡>¿å¾ÎnÈ½>˜`>*R@¾<¯™¾èV­>%åh¾˜?ÄÂ¾Îk¿r!ö½Oaã¼Ëz½>Q�È¾û)5?á‡à9‚Z¤>]ÑÕ¾Ëš=¾C¿fÇ ¿9ez>ÍÜ¾¾™=£?œ¬>f$í>(Á8¿pd>ï<Ï½¯Ô/?˜´½€Ë¿s ¸¾ÕR?Öœ!>0$¿º¶4¿ctœ¿�Å—>³Xj?èZ?—
+¾qÙm?^O¿åR@?a"Ð=¸ ?Á¸[¿	áˆ¿Æ1¿?"b+¿VÇK¿%vœ¾Ze`?Öñ›¿&r¯?˜„Š? Ÿ´=åBš¿hÑ;¾�?t?"aÝ¿oœ?|š?‘É>Ç«'¿ohj¿.R¿Žë=Œ>�ŒP>¤Ö€¿áj²>æÁh?ÈRË>'¤k¾Àþ.¿CÌÎ=ý_²<ä—¾-1 ½ mÕ?uÈ?Ó#g=ßÅN?Ð‡¿lF©¿ñ˜Z?×Ýï¿WNŸ?¿[©>¬íï>õb÷¿C

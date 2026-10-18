@@ -1,0 +1,11 @@
+=== /proc/bus/input/devices ===
+
+
+=== Touch Device Sysfs (/sys/class/input/) ===
+--- /sys/class/input/input0 ---
+--- /sys/class/input/input1 ---
+--- /sys/class/input/input2 ---
+--- /sys/class/input/input3 ---
+--- /sys/class/input/input4 ---
+--- /sys/class/input/input5 ---
+--- /sys/class/input/input6 ---

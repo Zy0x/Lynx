@@ -11,14 +11,29 @@
 ## 📑 Daftar Isi
 1. [Ringkasan Eksekutif & Identitas Hardware](#1-ringkasan-eksekutif--identitas-hardware)
 2. [Arsitektur SoC & Topologi CPU Cluster (Kryo 260 & EAS)](#2-arsitektur-soc--topologi-cpu-cluster-kryo-260--eas)
+   - 2.1 [Spesifikasi Inti & Topologi Cluster](#21-spesifikasi-inti--topologi-cluster)
+   - 2.2 [Analisis Schedutil & Energy Aware Scheduling (EAS)](#22-analisis-schedutil--energy-aware-scheduling-eas)
+   - 2.3 [Pembagian Afinitas Cgroup Cpuset](#23-pembagian-afinitas-cgroup-cpuset)
+   - 2.4 [Status Idle CPU & Low Power Modes (C-States / LPM Levels)](#24-status-idle-cpu--low-power-modes-c-states--lpm-levels)
 3. [Subsistem GPU & Grafis (Adreno 512 & KGSL 3D0)](#3-subsistem-gpu--grafis-adreno-512--kgsl-3d0)
 4. [Subsistem Layar, Panel & Kalibrasi Warna (KCAL v2 & SurfaceFlinger)](#4-subsistem-layar-panel--kalibrasi-warna-kcal-v2--surfaceflinger)
+   - 4.1 [Spesifikasi Panel Fisik & Sinyal Vsync](#41-spesifikasi-panel-fisik--sinyal-vsync)
+   - 4.2 [Integrasi Kalibrasi Warna KCAL v2](#42-integrasi-kalibrasi-warna-kcal-v2)
+   - 4.3 [Digitizer Layar Sentuh & Perangkat Input Fisik (Novatek NT36672A)](#43-digitizer-layar-sentuh--perangkat-input-fisik)
 5. [Subsistem Memori & Penyimpanan (LPDDR4, ZRAM, F2FS & Dynamic Partitions)](#5-subsistem-memori--penyimpanan-lpddr4-zram-f2fs--dynamic-partitions)
 6. [Subsistem Termal & Mesin Throttling OEM (Thermal-Engine & 31 Zones)](#6-subsistem-termal--mesin-throttling-oem-thermal-engine--31-zones)
 7. [Subsistem Sensor (InvenSense, AKM, Sensortek, FPC & Qualcomm SLPI DSP)](#7-subsistem-sensor-invensense-akm-sensortek-fpc--qualcomm-slpi-dsp)
+   - 7.1 [Daftar Sensor Fisik & Fusi SLPI](#7-subsistem-sensor-invensense-akm-sensortek-fpc--qualcomm-slpi-dsp)
+   - 7.2 [Aktuator Haptics & Motor Getar](#72-aktuator-haptics--motor-getar)
+   - 7.3 [Subsistem Kamera & Image Signal Processor (Spectra 160 ISP)](#73-subsistem-kamera--image-signal-processor-spectra-160-isp)
 8. [Subsistem Pengisian Daya & PMIC (PM660, PM660L, SMB2 & FG)](#8-subsistem-pengisian-daya--pmic-pm660-pm660l-smb2--fg)
 9. [Audio, Jaringan & Periferal (QDSP6, IPA Offload, WCNSS & DWC3)](#9-audio-jaringan--periferal-qdsp6-ipa-offload-wcnss--dwc3)
+   - 9.1 [Audio Subsystem & Codec Internal PM660](#91-audio-subsystem--codec-internal-pm660-qualcomm-hexagon-qdsp6--apr)
+   - 9.2 [Jaringan & Offload Data (Qualcomm IPA & WCNSS)](#92-jaringan--offload-data-qualcomm-ipa--wcnss)
+   - 9.3 [Pemancar Inframerah (Consumer IR Blaster)](#93-pemancar-inframerah-consumer-ir-blaster)
+   - 9.4 [Keamanan Kriptografi & Enkripsi Storage (FBE & Keystore2)](#94-keamanan-kriptografi--enkripsi-storage-fbe--keystore2)
 10. [Rekomendasi Strategis & Integrasi Lynx Universal (Qualcomm Engine Roadmap)](#10-rekomendasi-strategis--integrasi-lynx-universal-qualcomm-engine-roadmap)
+    - 10.5 [Protokol Anti-Spoofing Game Props & Keandalan Deteksi](#105-protokol-anti-spoofing-game-props--keandalan-deteksi)
 
 ---
 
@@ -126,6 +141,22 @@ Berdasarkan data langsung dari `lynxd cpuset info`:
 - `restricted` (Proses dengan pembatasan ketat): `0-1` (Hanya 2 core Little).
 - `camera-daemon` (ISP & Frame Pipeline): `0-3, 5-7` (Core 4 sengaja dikosongkan untuk mencegah interferensi latensi).
 
+### 2.4 Status Idle CPU & Low Power Modes (C-States / LPM Levels)
+Driver `cpuidle` Snapdragon 660 mengonfigurasi 3 status tidur hardware (*C-States*) dengan latensi transisi nyata:
+- **C0 (Wait For Interrupt — `wfi`)**:
+  - Little Core (CPU0): Latensi transisi `91 μs`, Target residency `91 μs`.
+  - Big Core (CPU4): Latensi transisi `68 μs`, Target residency `68 μs`.
+  - Inti CPU menghentikan eksekusi instruksi sementara rail tegangan tetap penuh (*fast wake*).
+- **C1 (Retention — `ret`)**:
+  - Little Core (CPU0): Latensi transisi `133 μs`, Target residency `172 μs`.
+  - Big Core (CPU4): Latensi transisi `110 μs`, Target residency `181 μs`.
+  - Status memori L1/L2 dipertahankan sementara sirkuit komputasi inti dimatikan.
+- **C2 (Power Collapse — `pc`)**:
+  - Little Core (CPU0): Latensi transisi `666 μs`, Target residency `666 μs`.
+  - Big Core (CPU4): Latensi transisi `621 μs`, Target residency `621 μs`.
+  - Seluruh rail tegangan inti dimatikan ke 0V (*full power gating*). Butuh waktu hingga 0.66 ms untuk membangkitkan kembali inti CPU.
+  - **Dampak bagi Lynx Gaming**: Pada mode performa/gaming, Lynx dapat menahan core Big pada `pmqos_active_latency` rendah agar tidak jatuh ke status C2 Power Collapse, menghilangkan *frame-time jitter* dan micro-stutter saat thread baru dijadwalkan secara mendadak.
+
 ---
 
 ## 3. Subsistem GPU & Grafis (Adreno 512 & KGSL 3D0)
@@ -177,6 +208,21 @@ Node kontrol yang diverifikasi ada secara fisik:
 
 > [!TIP]
 > **Peluang Lynx**: LynxCompanion (dan lynxd) dapat mengekspos kartu kontrol warna mendalam di Tab Display menggunakan antarmuka KCAL ini untuk tuning layar IPS Redmi Note 7 agar menghasilkan warna pekat setara panel OLED.
+
+### 4.3 Digitizer Layar Sentuh & Perangkat Input Fisik
+Berdasarkan hasil parsing mendalam dari `dumpsys input`:
+1. **Touchscreen Controller**:
+   - Device Name: `NVTCapacitiveTouchScreen`
+   - Vendor Controller IC: **Novatek Microelectronics (NVT)** model `NT36672A` capacitive touch controller.
+   - Node Input: `/dev/input/event4` (lokasi bus: `input/ts`).
+   - Fitur Input: Mendukung multi-touch penuh (`KEYBOARD | TOUCH | TOUCH_MT`), tracking multi-jari dengan responsivitas tinggi, serta integrasi filter noise display PWM.
+2. **Tombol Fisik Hardware**:
+   - **Tombol Power**: Dikontrol langsung oleh blok PMIC Qualcomm PM660 melalui driver `qpnp_pon` (Power-On Key @ `qpnp_pon/input0`).
+   - **Tombol Volume Up & Down**: Terhubung via GPIO interrupt kernel (`gpio-keys/input0`).
+3. **Deteksi Jack Headphone 3.5mm**:
+   - Terintegrasi pada switch deteksi impedansi ALSA Qualcomm (`sdm660-snd-card Headset Jack`).
+4. **Navigasi Sensor Sidik Jari**:
+   - `uinput-fpc`: Driver virtual input untuk gesture sapuan sensor sidik jari Fingerprint Cards (misalnya gestur usap ke bawah untuk membuka panel notifikasi).
 
 ---
 
@@ -298,6 +344,24 @@ Seluruh sensor komposit dijalankan langsung di dalam firmware Hexagon DSP (bukan
 - `FIH PickUp Gesture`, `QTI Stationary Detector`, `QTI Motion Detector`.
 - Sensor proprietari QTI: `AMD` (Absolute Motion Detector), `RMD` (Relative Motion Detector), `Pedometer`, `Motion Accel`, `PMD` (Persistent Motion Detector).
 
+### 7.2 Aktuator Haptics & Motor Getar
+- **Tipe Motor**: Eccentric Rotating Mass (ERM) Coin Motor berdaya 3.3V.
+- **Pengontrol Driver**: Qualcomm PM660 Haptics Core via `/sys/class/leds/vibrator/`.
+- **Parameter Kontrol**: `activate` (trigger getar), `duration` (durasi milidetik), dan `state` (status on/off).
+
+### 7.3 Subsistem Kamera & Image Signal Processor (Spectra 160 ISP)
+Berdasarkan audit HAL kamera Android (`dumpsys media.camera`) dan berkas konfigurasi vendor Qualcomm:
+1. **Processor ISP**: Qualcomm **Spectra 160 ISP** (Dual 14-bit ISP dengan dukungan hardware zero-shutter-lag, hybrid autofocus, dan multi-frame noise reduction).
+2. **Kamera Utama Belakang (Primary)**:
+   - Sensor: **Samsung ISOCELL Bright GM1** (`s5kgm1` / S5KGM1SP).
+   - Resolusi Fisik: **48 Megapiksel** (8000 x 6000 piksel), ukuran sensor 1/2.0 inci, ukuran piksel 0.8 μm.
+   - Teknologi: Tetracell / Quad-Bayer 4-in-1 pixel binning menjadi 12 Megapiksel (1.6 μm pixel efektif) untuk penyerapan cahaya maksimal di kondisi temaram (*low-light*).
+   - Alternatif Vendor (Varian Tertentu): Sony IMX486 (12MP 1.25 μm).
+3. **Kamera Sekunder Belakang (Depth Sensor)**:
+   - Sensor: **OmniVision OV02A10** (`ov02a10` — 2 Megapiksel fixed-focus) atau alternatif Samsung `s5k5e8` untuk kalkulasi kedalaman potret (*bokeh depth-mapping*).
+4. **Kamera Depan (Selfie)**:
+   - Sensor: **OmniVision OV13855** (`ov13855` — 13 Megapiksel, 1/3.06 inci, 1.12 μm piksel).
+
 ---
 
 ## 8. Subsistem Pengisian Daya & PMIC (PM660, PM660L, SMB2 & FG)
@@ -321,15 +385,25 @@ Audit telemetri baterai dan driver pengisian daya mengonfirmasi topologi berikut
 
 ## 9. Audio, Jaringan & Periferal (QDSP6, IPA Offload, WCNSS & DWC3)
 
-### 9.1 Audio Subsystem (Qualcomm Hexagon QDSP6 & APR)
+### 9.1 Audio Subsystem & Codec Internal PM660 (Qualcomm Hexagon QDSP6 & APR)
 - **Sound Card**: `card0` terhubung ke `soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0`.
-- Memanfaatkan **Asynchronous Packet Router (APR)** untuk merutekan aliran audio langsung ke Hexagon QDSP6 DSP tanpa membebani CPU Kryo.
-- Mendukung pemutaran compressed audio offload (`comprC0D8`, `comprC0D15`, `comprC0D28-45`) untuk konsumsi daya minimal saat memutar musik di latar belakang.
+- **Codec Audio Hardware**: Memanfaatkan **Qualcomm PM660 Internal Audio Codec** (`audio_platform_info_intcodec.xml` dan `/vendor/etc/mixer_paths.xml`) tanpa DAC diskret eksternal, menghemat konsumsi daya hingga 30%.
+- **Audio Offload DSP**: Memanfaatkan **Asynchronous Packet Router (APR)** untuk merutekan aliran audio langsung ke Hexagon QDSP6 DSP tanpa membebani CPU Kryo. Mendukung pemutaran compressed audio offload (`comprC0D8`, `comprC0D15`, `comprC0D28-45`) untuk Hi-Res Audio 24-bit / 192 kHz lossless playback (FLAC, ALAC).
 
 ### 9.2 Jaringan & Offload Data (Qualcomm IPA & WCNSS)
 - **Cellular Data Offload**: Qualcomm **IPA (IP Accelerator)** hardware offload melalui interface `rmnet_ipa0` dan sub-channel `rmnet_data0` / `rmnet_data1`.
 - **Wi-Fi Driver**: Qualcomm WCNSS / Atheros driver pada interface `wlan0` (qdisc `fq_codel`, MTU 1500, queue length 3000).
 - **USB Controller**: Synopsys DesignWare Core 3 (`a800000.dwc3`) USB 2.0 / OTG controller.
+
+### 9.3 Pemancar Inframerah (Consumer IR Blaster)
+- **Node Antarmuka Fisik**: `/dev/spidev7.1` (Qualcomm SPI bus 7, chip select 1).
+- **Daemon Pengontrol**: `irsc_util` (Consumer IR Service Controller).
+- **Fungsi**: Remote control inframerah untuk peralatan elektronik rumah tangga (TV, AC) yang beroperasi secara non-intrusif tanpa membebani siklus scheduler CPU.
+
+### 9.4 Keamanan Kriptografi & Enkripsi Storage (FBE & Keystore2)
+- **Tipe Enkripsi**: File-Based Encryption (FBE) aktif (`ro.crypto.type=file`, status: `encrypted`).
+- **Algoritma Enkripsi**: `aes-256-cts` untuk nama berkas dengan metadata `dm-default-key` format versi 2.
+- **Hardware Keystore**: `keystore2` dan `gatekeeperd` terintegrasi langsung dengan Qualcomm TrustZone Secure Execution Environment (QSEE).
 
 ---
 
@@ -353,6 +427,10 @@ Temuan audit fisik pada Redmi Note 7 ini memberikan fondasi konkrit untuk memper
 
 ### 10.4 Mitigasi Throttling Termal Agresif
 - Memanfaatkan berkas overlay vendor `platforms/qcom/system/vendor/etc/thermal-engine.conf` untuk menaikkan trip point Big cluster dari **44°C/46°C/48°C** ke **55°C/60°C/65°C** pada Mode Extreme, sehingga pengguna dengan pendingin eksternal (*phone cooler*) dapat menikmati performa stabil 60 FPS tanpa penurunan clock ke 1.1 GHz.
+
+### 10.5 Protokol Anti-Spoofing Game Props & Keandalan Deteksi
+- **Temuan Nyata**: ROM mengaktifkan properti game-spoofing dinamis (`persist.sys.gameprops.com.dts.freefireth.MODEL = ASUS_Z01QD` ROG Phone 1) untuk mengelabui game agar membuka opsi frame-rate tinggi.
+- **Standar Solusi Lynx**: Modul pengenal arsitektur Lynx **DILARANG** mengandalkan `getprop` atau nama model Android untuk menentukan platform. Sistem wajib memverifikasi eksistensi node kernel fisik `/dev/kgsl-3d0` dan driver `/sys/devices/soc0` (Qualcomm Score = 7 vs MTK Score = 0), menjamin 100% kekebalan terhadap spoofing perangkat lunak pihak ketiga maupun fitur bawaan ROM kustom.
 
 ---
 

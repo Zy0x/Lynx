@@ -1,0 +1,45 @@
+=== CPU0 Idle States ===
+--- state0 ---
+Name: C0
+Desc: wfi
+Disable: 0
+Latency: 91 us
+Residency: 91 us
+Time: 9280973425
+Usage: 17195484
+--- state1 ---
+Name: C1
+Desc: ret
+Disable: 0
+Latency: 133 us
+Residency: 172 us
+Time: 0
+Usage: 0
+--- state2 ---
+Name: C2
+Desc: pc
+Disable: 0
+Latency: 666 us
+Residency: 666 us
+Time: 0
+Usage: 0
+
+=== CPU4 (Big Core) Idle States ===
+--- state0 ---
+Name: C0
+Desc: wfi
+Latency: 68 us
+Residency: 68 us
+--- state1 ---
+Name: C1
+Desc: ret
+Latency: 110 us
+Residency: 181 us
+--- state2 ---
+Name: C2
+Desc: pc
+Latency: 621 us
+Residency: 621 us
+
+=== LPM Levels (/sys/module/lpm_levels/parameters/) ===
+
