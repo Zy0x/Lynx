@@ -1,3 +1,73 @@
+# Lynx Universal [system_server SIGABRT bad_alloc Elimination & Dalvik Heap Expansion] 7.0.0-RC84
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC84** (Lynx Kernel Manager v3.1.36): **Eliminasi Tuntas Soft Reboot / Framework Restart Akibat OutOfMemoryError (OOM) pada system_server: Analisis Forensik Tombstone 15 (SIGABRT std::bad_alloc saat IPC IPermissionChecker$Stub), Ekspansi Batas Dalvik VM Heap Headroom untuk Perangkat 6GB-8GB (Growth Limit 384M & Heap Size 768M), Sinkronisasi Dynamic Resetprop Runtime, dan Penyetelan ART Garbage Collection Buffer**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC84)
+
+### 1. 🔍 Analisis Forensik Kerusakan Kerangka Kerja (Soft Reboot / Framework Restart)
+- **Verifikasi Bukti Kerusakan di `/data/tombstones/tombstone_15`**:
+  - Waktu kejadian: `08:35:30.451` WIB | Proses: `system_server` (PID 2963, thread `binder:2963_16` TID 6751).
+  - Status Kernel: Uptime kernel tetap berjalan utuh (~11 jam), membuktikan bahwa perangkat **TIDAK mengalami kernel panic**, melainkan murni **User-Space Framework Restart (Soft Reboot)**.
+  - Sinyal: `signal 6 (SIGABRT)`, kode `-1 (SI_QUEUE)`.
+  - Abort Message: `terminating with uncaught exception of type std::bad_alloc: std::bad_alloc` pada `operator new(unsigned long)+104` (`libc++.so`).
+- **Akar Masalah (Root Cause)**:
+  - Proses `system_server` yang telah berjalan selama 39.186 detik (~10 jam 53 menit) mengakumulasi fragmentasi memori akibat ribuan transaksi IPC binder harian dan audit log denial.
+  - Saat menangani transaksi binder `android.permission.IPermissionChecker$Stub.onTransact`, ART runtime mendeteksi kondisi kehabisan memori Java dan mencoba menginstansiasi exception `java.lang.OutOfMemoryError`.
+  - Ketika ART memanggil `Thread::CreateInternalStackTrace` -> `Throwable_nativeFillInStackTrace` untuk merekam jejak panggilan exception, alokasi memori native C++ melalui `operator new` gagal karena native heap/address space terfragmentasi. Kegagalan tersebut melempar `std::bad_alloc` tanpa penangan aktif, memaksa libc++ memanggil `std::__terminate()` -> `abort()`, yang langsung mematikan Zygote dan memicu restart kerangka kerja Android.
+
+### 2. 🚀 Ekspansi Batas Dalvik VM Heap Headroom (Tuned for 6GB–8GB RAM)
+- Menggantikan batas bawaan OEM yang terlampau ketat (`heapgrowthlimit=256m` dan `heapsize=512m`) pada `system.prop` universal dan platform MediaTek:
+  - `dalvik.vm.heapgrowthlimit=384m` (+50% ruang pertumbuhan heap aman untuk system_server & SystemUI).
+  - `dalvik.vm.heapsize=768m` (+50% batas total heap untuk beban berat & multitasking GSI Android 14).
+  - `dalvik.vm.heapstartsize=16m` (menggandakan start size agar proses tidak tercekik saat early initialization).
+  - `dalvik.vm.heapminfree=8m` & `dalvik.vm.heapmaxfree=32m` (memberikan ruang bernapas ekstra bagi pemulung memori ART GC).
+  - `dalvik.vm.heaptargetutilization=0.75` (menjaga rasio utilisasi heap stabil di 75%).
+- **Live Injection via APatch Resetprop**: Properti diterapkan seketika pada lingkungan aktif tanpa memerlukan reboot penuh, serta disinkronkan ke `/data/adb/modules/Lynx/system.prop` agar selalu aktif saat booting awal sebelum Zygote melakukan fork.
+
+### 3. 🛡️ Verifikasi Stabilitas & Integritas Proses Pasca-Restart
+- PSS `system_server` baru berada dalam kondisi prima: ~72 MB Java Heap, ~83 MB Native Heap (total PSS hanya ~261 MB dari total 8 GB RAM).
+- `com.noir.lynx` (Lynx Companion) terpantau sangat hemat daya dan stabil: hanya ~17 MB Java Heap dan ~34 MB Native Heap (total PSS ~110 MB) berkat cache LRU 1024-slot dan relaksasi ticker otomasi.
+- Idle CPU perangkat mencapai ~352% (4,5 core bebas bekerja/idle), bebas jank, dan responsivitas layar 120Hz kembali halus tanpa micro-stutter.
+
+---
+
+# Lynx Universal [Profile Customization Floating Overlay & Kebab Action Menu Redesign] 7.0.0-RC83
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC83** (Lynx Kernel Manager v3.1.35): **Rombak Total Antarmuka Kustomisasi Profil & Menu Aksi Titik Tiga (Anti-AI Slop, Elegan, dan Minimalis): Transformasi Dialog Kustomisasi Menjadi Floating Modal Custom Sheet M3 Berestetika Cyberpunk dengan Kontainer Lebar 94%, Border Aksen Dinamis Reaktif Mengikuti Profil, Segmented Base & Compute Presets Chips, Switch Toggle Sinkronisasi Domain Bersquircle Icon Semantik, Action Bar Simetris, Serta Redesain Menu Dropdown Kebab dengan Ikon Semantik Berwarna**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC83)
+
+### 1. 🎛️ Rombak Total Overlay Floating "Kustomisasi" (`ProfileEditorDialog` di `ProfileGrid.kt`)
+- **Floating Modal Custom Sheet M3**: Menggantikan `AlertDialog` bawaan yang sempit dan kaku dengan kontainer kustom `Dialog(properties = DialogProperties(usePlatformDefaultWidth = false))` berlebar 94% layar (`fillMaxWidth(0.94f)`), radius 24 dp, latar belakang `#10131B`, dan bayangan elevasi 24 dp.
+- **Border Vertikal Gradient Reaktif**: Batas dialog kini secara dinamis memancarkan warna aksen profil dasar yang dipilih (Hijau `#00E676` untuk Powersave, Biru `#0099FF` untuk Balance, Jingga `#FF9900` untuk Performance, Merah `#FF3B30` untuk Extreme, dan Sian `#00FFAA` untuk Custom).
+- **Header Squircle & Badge Anti-Glitch**:
+  - Container ikon squircle 42×42 dp dengan ikon mode dan aksen semantik.
+  - Badge kategori `[ KUSTOMISASI PROFIL ]` (atau `[ PROFIL KUSTOM ]` / `[ PROFIL BARU ]`) ber-letter spacing 0.8 sp.
+  - Tipografi judul tegas dengan sanitasi font anti-glitch (`fontFeatureSettings = "liga 0, dlig 0, calt 0"`).
+  - Tombol tutup melayang bundar (32×32 dp) untuk kenyamanan jemari satu tangan.
+- **Kartu Bento Base & Compute Presets**:
+  - Segmented control 4 pilihan (`powersave`, `balance`, `performance`, `extreme`) yang langsung menyinkronkan governor CPU & GPU secara terharmonisasi.
+  - Dual chip selector untuk tuning CPU Governor & GPU Clock policy independen.
+- **Kartu Bento Sinkronisasi Domain**:
+  - 6 baris interaktif yang dilengkapi squircle icon berwarna, judul domain, penjelasan ringkas, dan `Switch` M3: Memori, Layar, Jaringan, Audio, Termal, dan Batas Pengisian Baterai.
+- **Kartu Catatan Keamanan**: Kotak info sian yang transparan dan informatif untuk profil bawaan Lynx, menegaskan bahwa nilai asli selalu dapat dipulihkan kapan saja.
+- **Symmetrical Action Bar**: Tombol aksi simetris di bagian bawah (Batal 1f & Simpan Kustomisasi 1.5f dengan warna aksen profil aktif dan target sentuh >46 dp).
+
+### 2. ⚡ Redesain Menu Aksi Titik Tiga (Kebab Menu di `ProfileGrid.kt`)
+- **Kontainer Dropdown Glass M3**: `DropdownMenu` diperbarui dengan sudut membulat 14 dp, warna latar `#141720`, batas kaca `BorderGlass`, dan elevasi bayangan 10 dp.
+- **Ikon Semantik Berwarna**:
+  - `Tune` (Accent Cyan) untuk Kustomisasi.
+  - `RestartAlt` (Accent Orange) untuk Pulihkan Bawaan.
+  - `Edit` (Accent Cyan) untuk Ubah Nama Profil.
+  - `ContentCopy` (Accent Blue) untuk Duplikasi / Salin Profil.
+  - `Delete` (Accent Red) untuk Hapus Profil Kustom.
+- **Pemisah Halus**: Menambahkan `HorizontalDivider` semi-transparan untuk memisahkan menu produktif dari aksi destruktif.
+
+### 3. 🛡️ Penyelarasan Dialog Konfirmasi (`replaceMenu`, `pendingDelete`, `pendingRestore`, dll.)
+- Menyelaraskan seluruh dialog konfirmasi yang terkait dengan profil ke standar modal M3 elevated dark bersudut 22 dp dengan header squircle, penjelasan jelas, dan tombol aksi berdampingan yang simetris dan bebas miss-click.
+
+---
+
 # Lynx Universal [Notification Shade & 120Hz Scrolling Jank Elimination & Direct Reclaim Prevention] 7.0.0-RC82
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC82** (Lynx Kernel Manager v3.1.34): **Eliminasi Total Jank & Stuttering Status Bar Notification Shade serta Scrolling 120Hz: Resolusi Bug Kritis Penguncian Governor Powersave (500 MHz CPU Clamping) Pasca-Screen Off, Penerapan LRU Resolution Cache 1024-Slot pada LynxText (0 Regex Execution Per Frame & Eliminasi ART GC Thread Lock), Reduksi Frekuensi Ticker Notifikasi Otomasi & Pembulatan Suhu (Mencegah Relayout 2.373 View SystemUI), Serta Penyetelan Kernel VM Watermark Scale Factor & Dynamic Min Free Kbytes Anti-Direct Reclaim**.

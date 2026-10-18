@@ -25,6 +25,15 @@ dalvik.vm.dexopt.thermal-cutoff=0
 debug.graphics.game_default_frame_rate.disabled=true
 ro.config.nocheckin=1
 
+# Dalvik VM Heap Headroom & Garbage Collection (Tuned for 6GB-8GB RAM)
+# Prevents system_server heap fragmentation, IPC buffer starvation, and SIGABRT bad_alloc
+dalvik.vm.heapgrowthlimit=384m
+dalvik.vm.heapsize=768m
+dalvik.vm.heapstartsize=16m
+dalvik.vm.heapminfree=8m
+dalvik.vm.heapmaxfree=32m
+dalvik.vm.heaptargetutilization=0.75
+
 # ── 4. Universal Media Stagefright Hardware Acceleration ───────────────────────
 media.stagefright.enable-player=true
 media.stagefright.enable-meta=true

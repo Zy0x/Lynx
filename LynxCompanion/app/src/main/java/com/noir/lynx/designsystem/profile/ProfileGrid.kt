@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -264,10 +265,9 @@ fun ProfileGrid(
                             DropdownMenu(
                                 expanded = cardMenuExpanded,
                                 onDismissRequest = { cardMenuExpanded = false },
-                                shape = RoundedCornerShape(14.dp),
-                                containerColor = Color(0xFF141720),
-                                border = BorderStroke(0.8.dp, BorderGlass),
-                                shadowElevation = 10.dp
+                                modifier = Modifier
+                                    .background(Color(0xFF141720), RoundedCornerShape(14.dp))
+                                    .border(0.8.dp, BorderGlass, RoundedCornerShape(14.dp))
                             ) {
                                 if (!profile.builtIn) {
                                     DropdownMenuItem(
@@ -823,9 +823,9 @@ private fun ProfileEditorDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.94f)
-                .heightIn(max = 760.dp)
+                .fillMaxHeight(0.85f)
                 .wrapContentHeight()
-                .padding(vertical = 16.dp),
+                .padding(vertical = 12.dp),
             shape = RoundedCornerShape(24.dp),
             color = Color(0xFF10131B),
             border = BorderStroke(
@@ -981,7 +981,8 @@ private fun ProfileEditorDialog(
                                         text = "Templat Bawaan: ${source.name}",
                                         color = TextPrimary,
                                         fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
                                     )
                                     Text(
                                         text = "Kustomisasi ini menyesuaikan parameter eksekusi tanpa mengubah berkas inti sistem.",
@@ -1053,7 +1054,8 @@ private fun ProfileEditorDialog(
                                                 text = label,
                                                 color = if (isSelected) chipColor else TextSecondary,
                                                 fontSize = 10.5.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
                                             )
                                         }
                                     }
@@ -1084,7 +1086,13 @@ private fun ProfileEditorDialog(
                                                 Spacer(Modifier.width(6.dp))
                                                 Column {
                                                     Text("CPU PRESET", color = TextSecondary, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-                                                    Text(cpu.uppercase(), color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                                    Text(
+                                                        text = cpu.uppercase(),
+                                                        color = TextPrimary,
+                                                        fontSize = 11.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
                                                 }
                                             }
                                             Icon(Icons.Default.ArrowDropDown, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
@@ -1093,13 +1101,21 @@ private fun ProfileEditorDialog(
                                     DropdownMenu(
                                         expanded = presetMenu == "cpu",
                                         onDismissRequest = { presetMenu = "" },
-                                        shape = RoundedCornerShape(12.dp),
-                                        containerColor = Color(0xFF141720),
-                                        border = BorderStroke(0.8.dp, BorderGlass)
+                                        modifier = Modifier
+                                            .background(Color(0xFF141720), RoundedCornerShape(12.dp))
+                                            .border(0.8.dp, BorderGlass, RoundedCornerShape(12.dp))
                                     ) {
                                         listOf("powersave", "balance", "performance", "extreme").forEach { id ->
                                             DropdownMenuItem(
-                                                text = { Text(id.uppercase(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (cpu == id) AccentCyan else TextPrimary) },
+                                                text = {
+                                                    Text(
+                                                        id.uppercase(),
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = if (cpu == id) AccentCyan else TextPrimary,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
+                                                },
                                                 onClick = { cpu = id; presetMenu = "" }
                                             )
                                         }
@@ -1125,7 +1141,13 @@ private fun ProfileEditorDialog(
                                                 Spacer(Modifier.width(6.dp))
                                                 Column {
                                                     Text("GPU PRESET", color = TextSecondary, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-                                                    Text(gpu.uppercase(), color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                                    Text(
+                                                        text = gpu.uppercase(),
+                                                        color = TextPrimary,
+                                                        fontSize = 11.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
                                                 }
                                             }
                                             Icon(Icons.Default.ArrowDropDown, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
@@ -1134,13 +1156,21 @@ private fun ProfileEditorDialog(
                                     DropdownMenu(
                                         expanded = presetMenu == "gpu",
                                         onDismissRequest = { presetMenu = "" },
-                                        shape = RoundedCornerShape(12.dp),
-                                        containerColor = Color(0xFF141720),
-                                        border = BorderStroke(0.8.dp, BorderGlass)
+                                        modifier = Modifier
+                                            .background(Color(0xFF141720), RoundedCornerShape(12.dp))
+                                            .border(0.8.dp, BorderGlass, RoundedCornerShape(12.dp))
                                     ) {
                                         listOf("battery", "balanced", "esports", "extreme").forEach { id ->
                                             DropdownMenuItem(
-                                                text = { Text(id.uppercase(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (gpu == id) AccentOrange else TextPrimary) },
+                                                text = {
+                                                    Text(
+                                                        id.uppercase(),
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = if (gpu == id) AccentOrange else TextPrimary,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
+                                                },
                                                 onClick = { gpu = id; presetMenu = "" }
                                             )
                                         }
