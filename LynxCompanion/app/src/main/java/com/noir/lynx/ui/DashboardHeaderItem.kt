@@ -482,17 +482,15 @@ internal fun LazyListScope.dashboardHeaderItem(
                         )
                         Surface(
                             onClick = {
-                                if (!isPhysicallyActive || isAutoProfile) {
-                                    viewModel.triggerModeFeedback(
-                                        modeId = item.id,
-                                        modeLabel = item.label,
-                                        accentColorHex = item.accentColor.toHexLong()
-                                    )
-                                    if (item.id == "extreme") {
-                                        onExtremeConfirmRequired()
-                                    } else {
-                                        viewModel.selectKernelPerformanceProfile(item.id, context, true)
-                                    }
+                                viewModel.triggerModeFeedback(
+                                    modeId = item.id,
+                                    modeLabel = item.label,
+                                    accentColorHex = item.accentColor.toHexLong()
+                                )
+                                if (item.id == "extreme" && !isPhysicallyActive) {
+                                    onExtremeConfirmRequired()
+                                } else {
+                                    viewModel.selectKernelPerformanceProfile(item.id, context, true)
                                 }
                             },
                             shape = RoundedCornerShape(12.dp),

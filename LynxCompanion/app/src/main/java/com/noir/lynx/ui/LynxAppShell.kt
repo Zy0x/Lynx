@@ -138,7 +138,7 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.setProfile("extreme", context)
+                        viewModel.selectKernelPerformanceProfile("extreme", context, true)
                         showExtremeDialog = false
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = AccentRed),

@@ -237,26 +237,16 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
             return@launch
         }
         val base = profile.baseProfile
-        val profileApplied = if (_uiState.value.isModuleInstalled) {
+        if (_uiState.value.isModuleInstalled) {
             LynxRepository.setProfile(id, "user")
         } else {
             val targetBaseline = if (id == "auto") "balance" else id
-            com.topjohnwu.superuser.Shell.cmd("echo '$targetBaseline' > /data/adb/lynx/baseline_profile 2>/dev/null").exec()
-            val baselineWritten = LynxRepository.writeStateKey("active_profile", base, "str")
-            val overridesWritten = if (clearOverrides) LynxRepository.writeStateKey("profile_overrides", "", "str") else true
-            baselineWritten && overridesWritten
+            com.topjohnwu.superuser.Shell.cmd("mkdir -p /data/adb/lynx 2>/dev/null; echo '$targetBaseline' > /data/adb/lynx/baseline_profile 2>/dev/null; echo '$id' > /data/adb/lynx/active_profile 2>/dev/null; setprop lynx.mode '$id' 2>/dev/null").exec()
+            LynxRepository.writeStateKey("active_profile", base, "str")
+            LynxRepository.writeStateKey("kernel_profile_id", id, "str")
+            if (clearOverrides) LynxRepository.writeStateKey("profile_overrides", "", "str")
         }
-        if (!profileApplied) {
-            // ── Phase 3 Rollback: Revert to previous profile if kernel application fails ──
-            _uiState.update { current ->
-                current.copy(
-                    state = current.state.copy(activeProfile = previousActiveProfile, profileOverrides = previousOverrides),
-                    kernelProfileCatalog = catalog.copy(activeId = previousCatalogActiveId),
-                    errorMessage = "Profil dasar $base gagal diterapkan. Mengembalikan ke mode $previousActiveProfile."
-                )
-            }
-            return@launch
-        }
+        LynxRepository.lastActiveProfile = id
 
         val cpuOverride = if (clearOverrides) null else previousOverrides[ProfileDomain.CPU]
         if (cpuOverride == KernelProfileSelection.CUSTOM_OVERRIDE) {

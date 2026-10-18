@@ -33,6 +33,8 @@ impl SysfsReader {
     }
 
     /// Read raw node content and trim trailing newlines, whitespace, and null characters.
+    /// Strictly capped to 4096 bytes (standard Linux PAGE_SIZE) to prevent memory ballooning
+    /// on streaming/continuous kernel nodes (e.g. printk_devkmsg, trace_pipe).
     pub fn read_trimmed(path: impl AsRef<Path>) -> Result<String> {
         let p = path.as_ref();
         let path_buf: PathBuf = p.to_path_buf();
@@ -41,17 +43,13 @@ impl SysfsReader {
             return Err(SysfsError::NotFound(path_buf));
         }
 
-        match fs::read_to_string(p) {
-            Ok(content) => {
-                let trimmed = content.trim_matches(|c: char| c.is_whitespace() || c == '\0').to_string();
-                Ok(trimmed)
-            }
-            Err(_e) => {
-                // If read_to_string fails due to invalid UTF-8 (common in some binary DTB nodes),
-                // fall back to reading raw bytes and lossy UTF-8 conversion.
-                match fs::read(p) {
-                    Ok(bytes) => {
-                        let text = String::from_utf8_lossy(&bytes)
+        use std::io::Read;
+        match fs::File::open(p) {
+            Ok(mut file) => {
+                let mut buf = [0u8; 4096];
+                match file.read(&mut buf) {
+                    Ok(n) => {
+                        let text = String::from_utf8_lossy(&buf[..n])
                             .trim_matches(|c: char| c.is_whitespace() || c == '\0')
                             .to_string();
                         Ok(text)
@@ -66,6 +64,16 @@ impl SysfsReader {
                             })
                         }
                     }
+                }
+            }
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::PermissionDenied {
+                    Err(SysfsError::PermissionDenied(path_buf))
+                } else {
+                    Err(SysfsError::IoError {
+                        path: path_buf,
+                        source: e,
+                    })
                 }
             }
         }

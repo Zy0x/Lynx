@@ -88,19 +88,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.setProfile(profile: String, context: Context? = null) {
-        // The dashboard profile is the master: apply its CPU baseline, then its GPU baseline.
-        gpuProfileJob?.cancel()
-        applyComprehensiveCpuProfile(profile, context, asMasterProfile = true)
-        val gpuProfile = when (profile.lowercase().trim()) {
-            "powersave", "battery" -> "battery"
-            "performance", "gaming" -> "esports"
-            "extreme" -> "extreme"
-            else -> "balanced"
-        }
-        viewModelScope.launch(Dispatchers.IO) {
-            cpuProfileJob?.join()
-            applyGpuProfile(gpuProfile, context ?: com.noir.lynx.LynxApp.instance, fromMasterProfile = true)
-        }
+        selectKernelPerformanceProfile(profile, context ?: com.noir.lynx.LynxApp.instance, clearOverrides = true)
     }
 
 

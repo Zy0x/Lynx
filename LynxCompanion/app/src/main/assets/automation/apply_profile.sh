@@ -27,7 +27,17 @@ pick_dynamic_gov() {
     echo "schedutil"
 }
 
-OEM_TARGET_PROCS="mi_thermald thermal-engine thermal-engine-v2 ituxd com.samsung.android.game.gos"
+IS_QCOM=false
+if [ -d "/sys/class/kgsl" ] || [ -c "/dev/kgsl-3d0" ] || [ -d "/sys/devices/soc0" ] || [ -d "/sys/class/power_supply/bms" ]; then
+    IS_QCOM=true
+fi
+
+if [ "$IS_QCOM" = "true" ]; then
+    OEM_TARGET_PROCS="mi_thermald ituxd com.samsung.android.game.gos"
+    killall -CONT thermal-engine thermal-engine-v2 2>/dev/null
+else
+    OEM_TARGET_PROCS="mi_thermald thermal-engine thermal-engine-v2 ituxd com.samsung.android.game.gos"
+fi
 
 is_bluetooth_audio() {
     dumpsys audio 2>/dev/null | grep -iE "a2dp.*connected|device.*bluetooth_a2dp" | grep -qv "state=0"

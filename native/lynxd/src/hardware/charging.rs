@@ -558,12 +558,13 @@ impl ChargingRegulator {
                             }
                         }
                         if matches {
-                            // Critical Guard: NEVER stop system server, Android hardware thermal HAL, or core services
+                            // Critical Guard: NEVER stop system server, Android hardware thermal HAL, thermal-engine, or core services
                             if stop
                                 && (cmd.contains("hardware.thermal")
                                     || cmd.contains("thermal@")
                                     || cmd.contains("system_server")
-                                    || cmd.contains("init"))
+                                    || cmd.contains("init")
+                                    || cmd.contains("thermal-engine"))
                             {
                                 continue;
                             }
@@ -1305,9 +1306,26 @@ impl ChargingRegulator {
             Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
         }
 
+        let is_qcom = Self::is_qualcomm_soc();
         let mtk_input_ma = Self::calculate_regulated_input_current_ma(effective_ma, adpv_clean);
         let mtk_input_str = mtk_input_ma.to_string();
         let mtk_input_ua_str = (mtk_input_ma as u64 * 1000).to_string();
+
+        let (usb_max_ua_str, input_limit_ua_str, qc_restrict_str, qc_restricted) = if is_qcom {
+            // Qualcomm PM660 / SMB1380 / SMB1351 USB-PD:
+            // Do NOT downscale USB input current with MTK Pump Express formula!
+            // PD contract allows 3.0A at 5V/9V.
+            let qcom_usb_ua = if effective_ma <= 1500 {
+                (effective_ma as u64 * 1000).to_string()
+            } else {
+                "3000000".to_string()
+            };
+            let qcom_in_ua = (effective_ma as u64 * 1000).to_string();
+            let restrict = if effective_ma <= 1500 { "1" } else { "0" };
+            (qcom_usb_ua, qcom_in_ua, effective_ma_str.clone(), restrict)
+        } else {
+            (mtk_input_ua_str.clone(), mtk_input_ua_str.clone(), mtk_input_str.clone(), "1")
+        };
 
         // Actively write limit to hardware registers with permission lock!
         Self::write_node_lock(&format!("{}/input_current", MTK_DIR), &mtk_input_str);
@@ -1317,21 +1335,24 @@ impl ChargingRegulator {
 
         Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
         Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-        Self::write_node_lock(&format!("{}/current_max", USB_DIR), &mtk_input_ua_str);
-        Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &mtk_input_ua_str);
-        Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &mtk_input_ua_str);
-        Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &mtk_input_str);
-        Self::write_node(&format!("{}/restricted_charging", QC_DIR), "1");
+        Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_max_ua_str);
+        Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+        Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &input_limit_ua_str);
+        Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
+        Self::write_node(&format!("{}/restricted_charging", QC_DIR), qc_restricted);
 
         // Dynamic Sysfs Charger Topology Regulation Sweeper
         for node in Self::crawl_dynamic_power_supply_nodes() {
             let leaf = Path::new(&node).file_name().and_then(|n| n.to_str()).unwrap_or("");
             match leaf {
-                "constant_charge_current_max" | "constant_charge_current" | "current_max" | "input_current_limit" | "hw_current_max" => {
-                    Self::write_node_lock(&node, &mtk_input_ua_str);
+                "constant_charge_current_max" | "constant_charge_current" => {
+                    Self::write_node_lock(&node, &effective_ua_str);
+                }
+                "current_max" | "input_current_limit" | "hw_current_max" => {
+                    Self::write_node_lock(&node, &usb_max_ua_str);
                 }
                 "fastcharge_mode" | "fast_charge" => {
-                    Self::write_node(&node, "0");
+                    Self::write_node(&node, if is_qcom && effective_ma >= 2000 { "1" } else { "0" });
                 }
                 "charging_enabled" => {
                     Self::write_node(&node, "1");
@@ -1457,8 +1478,6 @@ impl ChargingRegulator {
     pub const THERMAL_PROCESS_NAMES: &[&str] = &[
         "com.xiaomi.joyose",
         "mi_thermald",
-        "thermal-engine",
-        "thermal-engine-v2",
     ];
 
     pub fn apply_charger_thermal_neutralization() {
@@ -1523,7 +1542,9 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower.contains("battery") || t_lower.contains("bcct") || t_lower.contains("abcct") {
+                        if t_lower.contains("battery") || t_lower.contains("bcct") || t_lower.contains("abcct")
+                            || t_lower.contains("isolate") || t_lower.contains("thermal-cpufreq")
+                        {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             Self::write_node_lock(&cur_path, "0");
                         }
@@ -1537,6 +1558,18 @@ impl ChargingRegulator {
         Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/temp_state", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+
+        // 7b. Preserve all CPU cores online and prevent thermal isolation while charging
+        for i in 0..16 {
+            let cpu_isolate = format!("/sys/devices/system/cpu/cpu{}/isolate", i);
+            let cpu_online = format!("/sys/devices/system/cpu/cpu{}/online", i);
+            if Path::new(&cpu_isolate).exists() {
+                Self::write_node(&cpu_isolate, "0");
+            }
+            if Path::new(&cpu_online).exists() {
+                Self::write_node(&cpu_online, "1");
+            }
+        }
 
         // 8. Suspend aggressive userspace thermal throttlers via SIGSTOP (Transsion/MTK/etc.)
         // On Qualcomm Snapdragon, thermal-engine communicates via IPC sockets with Android Thermal HAL.
@@ -1825,11 +1858,11 @@ impl ChargingRegulator {
 
         let is_hyper = cfg.charging_mode == "hyper" || cfg.extreme_charging_enabled;
 
-        // Tier 1: Critical Hardware Thermal Guard (Active in Non-Hyper modes).
+        // Tier 1: Critical Hardware Thermal Guard (Active in Non-Hyper modes if enabled).
         // In Hyper Mode, all restrictions are released so charging stays at peak speed.
-        if !is_hyper {
-            const EMERGENCY_CUTOFF_DC: i64 = 500;   // 50.0°C
-            const EMERGENCY_RECOVERY_DC: i64 = 450; // 45.0°C hysteresis buffer
+        if !is_hyper && cfg.emergency_temp_guard_enabled {
+            const EMERGENCY_CUTOFF_DC: i64 = 550;   // 55.0°C (Real hardware thermal danger)
+            const EMERGENCY_RECOVERY_DC: i64 = 480; // 48.0°C hysteresis buffer
 
             let is_emergency_latched = Path::new("/dev/lynx_charging_guard").exists();
 
@@ -1839,11 +1872,12 @@ impl ChargingRegulator {
                     format!("guard_active=true emergency_cutoff=true temp={}\n", real_dc),
                 );
                 let _ = fs::remove_file("/dev/lynx_extreme_charging");
-                // Drop charge pump and clamp input current to 750 mA safe cooling level
-                Self::apply_regulated_charging(750);
+                // Safe gentle cooling level (keep at least 1500–2500mA for smooth charging)
+                let fallback_ma = cfg.limit_current_ma.clamp(1500, 2500) as u32;
+                Self::apply_regulated_charging(fallback_ma);
                 return;
             } else if is_emergency_latched && real_dc <= EMERGENCY_RECOVERY_DC {
-                // Temperature safely recovered below 45.0°C: clear emergency latch
+                // Temperature safely recovered below 48.0°C: clear emergency latch
                 let _ = fs::remove_file("/dev/lynx_charging_guard");
             }
         } else {

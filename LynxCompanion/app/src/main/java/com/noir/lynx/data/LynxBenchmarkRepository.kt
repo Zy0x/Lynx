@@ -10,14 +10,14 @@ import kotlinx.coroutines.withContext
 object LynxBenchmarkRepository {
     suspend fun getTopAppPackage(): String = withContext(Dispatchers.IO) {
         try {
-            val topAppRes = Shell.cmd("dumpsys activity activities 2>/dev/null | grep -m1 'topResumedActivity' | awk '{print \$3}' | cut -d'/' -f1").exec()
-            val detected = topAppRes.out.firstOrNull()?.trim() ?: ""
+            val focusRes = Shell.cmd("dumpsys window 2>/dev/null | grep -m1 'mCurrentFocus'").exec()
+            val line = focusRes.out.firstOrNull() ?: ""
+            val match = Regex("""([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.]*""").find(line)
+            val detected = match?.groupValues?.get(1)?.trim() ?: ""
             if (detected.isNotBlank() && !detected.contains("com.noir.lynx") && !detected.contains("launcher") && !detected.contains("systemui")) {
                 detected
             } else {
-                val focusRes = Shell.cmd("dumpsys window 2>/dev/null | grep -E 'mCurrentFocus' | awk '{print \$3}' | cut -d'/' -f1 | tr -d '{'").exec()
-                val gf = focusRes.out.firstOrNull()?.trim() ?: ""
-                if (gf.isNotBlank() && !gf.contains("com.noir.lynx") && !gf.contains("systemui")) gf else ""
+                ""
             }
         } catch (_: Exception) { "" }
     }

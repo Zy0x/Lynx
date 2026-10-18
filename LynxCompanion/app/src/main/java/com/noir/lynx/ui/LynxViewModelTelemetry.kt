@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
                 if (isBatteryScreenActive) {
                     counter++
                     val current = _uiState.value
-                    if (counter % 3 == 0 && current.state.charging.extremeChargingEnabled &&
+                    if (counter % 30 == 0 && current.state.charging.extremeChargingEnabled &&
                         (current.batteryDetails?.isCharging == true || (current.batteryDetails?.currentMa ?: 0) > 200) &&
                         current.nativeStatus?.daemonRunning != true) {
                         LynxRepository.reapplyExtremeChargingLock()
@@ -130,7 +130,7 @@ import kotlinx.coroutines.launch
                     val procs: List<CpuProcessInfo> = emptyList()
 
                     if (_uiState.value.state.charging.extremeChargingEnabled && (batt?.isCharging == true || _uiState.value.batteryDetails?.isCharging == true || (batt?.currentMa ?: _uiState.value.batteryDetails?.currentMa ?: 0) > 200)) {
-                        if (counter % 3 == 0 && _uiState.value.nativeStatus?.daemonRunning != true) {
+                        if (counter % 30 == 0 && _uiState.value.nativeStatus?.daemonRunning != true) {
                             LynxRepository.reapplyExtremeChargingLock()
                         }
                     }

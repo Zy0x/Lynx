@@ -33,6 +33,18 @@ object StandardChargingScript {
             esac
             if [ "${'$'}?" -eq 0 ]; then applied=1; else failed=1; fi
         done
+        if [ -d /sys/class/qcom-battery ]; then
+            echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+            echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+        fi
+        for cd in /sys/class/thermal/cooling_device*; do
+            if [ -f "${'$'}cd/type" ]; then
+                read -r t < "${'$'}cd/type" 2>/dev/null
+                case "${'$'}t" in
+                    *isolate*|*thermal-cpufreq*|battery|*batt*) echo 0 > "${'$'}cd/cur_state" 2>/dev/null ;;
+                esac
+            fi
+        done
         if [ "${'$'}failed" -eq 0 ] && [ "${'$'}applied" -eq 1 ]; then
             rm -f /dev/lynx_extreme_charging /dev/lynx_bypass_active /dev/lynx_charging_state
         else

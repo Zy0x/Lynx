@@ -135,14 +135,20 @@ fallback_hyper() {
     write_node_lock "/proc/driver/thermal/clabcct" "70000 1000 200000 6000 6000 0 1 1 0"
     write_node_lock "/proc/driver/thermal/clabcct_lcmoff" "1 70000 1000 200000 6000 6000 0 6000 0"
 
-    # Dynamic Cooling Device Detection: only touch battery charge cooling devices (bcct / abcct / battery)
+    # Dynamic Cooling Device Detection: battery cooling devices + prevent CPU thermal isolation
     for cd in /sys/class/thermal/cooling_device*; do
         if [ -f "$cd/type" ]; then
             cd_t=$(cat "$cd/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
             case "$cd_t" in
-                *bcct*|*abcct*|*battery*) write_node_lock "$cd/cur_state" "0" ;;
+                *bcct*|*abcct*|*battery*|*isolate*|*thermal-cpufreq*) write_node_lock "$cd/cur_state" "0" ;;
             esac
         fi
+    done
+
+    # Preserve all CPU cores online and prevent thermal isolation while charging
+    for c in /sys/devices/system/cpu/cpu[0-9]*; do
+        [ -f "$c/isolate" ] && echo 0 > "$c/isolate" 2>/dev/null
+        [ -f "$c/online" ] && echo 1 > "$c/online" 2>/dev/null
     done
 
     # Dynamic Thermal Zone Detection: only disable battery thermal zones, never touch CPU/GPU

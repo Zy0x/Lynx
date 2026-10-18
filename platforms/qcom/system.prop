@@ -12,4 +12,5 @@ sdm.debug.disable_skip_validate=1
 vendor.display.disable_skip_validate=1
 vendor.gralloc.enable_fb_ubwc=1
 persist.hwc.mdpcomp.enable=true
+persist.vendor.qti.core_ctl_min_cpu=4
 

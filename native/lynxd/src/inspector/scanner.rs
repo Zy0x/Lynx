@@ -136,7 +136,7 @@ impl TunableScanner {
             return None;
         }
 
-        let content = fs::read_to_string(path).ok()?;
+        let content = SysfsReader::read_trimmed(path).ok()?;
         let mut help_parts = Vec::new();
         let mut val_line = String::new();
 
@@ -387,7 +387,6 @@ impl TunableScanner {
                             | "perf_cpu_time_max_percent"
                             | "pid_max"
                             | "printk"
-                            | "printk_devkmsg"
                     )
                 {
                     candidates.insert(entry.path().to_string_lossy().to_string());

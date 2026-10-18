@@ -70,7 +70,31 @@ object ExtremeChargingScript {
                 done
             else
                 killall -CONT thermal-engine thermal-engine-v2 2>/dev/null
+                for node in /sys/class/power_supply/battery/constant_charge_current_max \
+                            /sys/class/power_supply/battery/constant_charge_current \
+                            /sys/class/power_supply/battery/input_current_limit \
+                            /sys/class/power_supply/main/current_max; do
+                    [ -e "${'$'}node" ] && echo 3500000 > "${'$'}node" 2>/dev/null
+                done
+                [ -e /sys/class/power_supply/usb/current_max ] && echo 3000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+                if [ -d /sys/class/qcom-battery ]; then
+                    echo 1 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+                    echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+                    echo 3500 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+                fi
             fi
+            for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                [ -f "${'$'}c/isolate" ] && echo 0 > "${'$'}c/isolate" 2>/dev/null
+                [ -f "${'$'}c/online" ] && echo 1 > "${'$'}c/online" 2>/dev/null
+            done
+            for cd in /sys/class/thermal/cooling_device*; do
+                if [ -f "${'$'}cd/type" ]; then
+                    read -r t < "${'$'}cd/type" 2>/dev/null
+                    case "${'$'}t" in
+                        *isolate*|*thermal-cpufreq*|battery|*batt*) echo 0 > "${'$'}cd/cur_state" 2>/dev/null ;;
+                    esac
+                fi
+            done
             """ else ""}
             [ "${'$'}failed" -eq 0 ] && [ "${'$'}applied" -eq 1 ]
         """.trimIndent()

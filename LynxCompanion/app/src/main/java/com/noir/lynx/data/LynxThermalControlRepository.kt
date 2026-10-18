@@ -158,10 +158,32 @@ internal object LynxThermalControlRepository {
             val txRes = com.noir.lynx.safety.ThermalTransaction.execute("HARDWARE_SAFETY_DOMINANT", targetWrites)
 
             // Stop/freeze user-space throttling daemons without killing hardware watchdog
-            val daemonCmd = """
-                killall -STOP mi_thermald thermal-engine thermal-engine-v2 ituxd com.xiaomi.joyose com.samsung.android.game.gos 2>/dev/null
-                cmd thermalservice override-status 0 2>/dev/null
-            """.trimIndent()
+            // On Qualcomm, NEVER freeze thermal-engine / thermal-engine-v2 or system_server thermal IPC deadlocks!
+            val isQcom = caps.socVendor == "qualcomm" || caps.socVendor == "qcom"
+            val daemonCmd = if (isQcom) {
+                """
+                    killall -STOP mi_thermald ituxd com.xiaomi.joyose com.samsung.android.game.gos 2>/dev/null
+                    killall -CONT thermal-engine thermal-engine-v2 2>/dev/null
+                    cmd thermalservice override-status 0 2>/dev/null
+                    for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                        [ -f "${'$'}c/isolate" ] && echo 0 > "${'$'}c/isolate" 2>/dev/null
+                        [ -f "${'$'}c/online" ] && echo 1 > "${'$'}c/online" 2>/dev/null
+                    done
+                    for cd in /sys/class/thermal/cooling_device*; do
+                        if [ -f "${'$'}cd/type" ]; then
+                            read -r t < "${'$'}cd/type" 2>/dev/null
+                            case "${'$'}t" in
+                                *isolate*|*thermal-cpufreq*|battery|*batt*) echo 0 > "${'$'}cd/cur_state" 2>/dev/null ;;
+                            esac
+                        fi
+                    done
+                """.trimIndent()
+            } else {
+                """
+                    killall -STOP mi_thermald ituxd com.xiaomi.joyose com.samsung.android.game.gos 2>/dev/null
+                    cmd thermalservice override-status 0 2>/dev/null
+                """.trimIndent()
+            }
             Shell.cmd(daemonCmd).exec()
 
             txRes is com.noir.lynx.safety.ThermalTransactionResult.Success
@@ -326,15 +348,15 @@ internal object LynxThermalControlRepository {
                 }
             }
 
-            // Tier 1: Ultra-fast fallback Shell Script (Zero unnecessary forks, skips 350 trip point checks)
+            // Tier 1: Ultra-fast zero-fork Shell Script (<30ms, builtin read -r, zero process forks)
             val script = """
                 for tz in /sys/class/thermal/thermal_zone[0-9]*; do
                     [ -d "${'$'}tz" ] || continue
-                    id=${'$'}{tz##*thermal_zone}
-                    type=${'$'}(cat "${'$'}tz/type" 2>/dev/null)
+                    read -r type < "${'$'}tz/type" 2>/dev/null || continue
                     [ -z "${'$'}type" ] && continue
-                    temp=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
+                    read -r temp < "${'$'}tz/temp" 2>/dev/null || continue
                     [ -z "${'$'}temp" ] && continue
+                    id=${'$'}{tz##*thermal_zone}
                     echo "${'$'}id|${'$'}type|${'$'}temp"
                 done
             """.trimIndent()

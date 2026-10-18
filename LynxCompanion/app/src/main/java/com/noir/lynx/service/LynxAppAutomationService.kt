@@ -370,7 +370,7 @@ class LynxAppAutomationService : Service() {
 
         // 2. Fallback to lightweight single-line grep shell only if UsageStatsManager returns null
         return try {
-            val resAct = Shell.cmd("dumpsys activity activities 2>/dev/null | grep -m1 'topResumedActivity='").exec()
+            val resAct = Shell.cmd("dumpsys window 2>/dev/null | grep -m1 'mCurrentFocus='").exec()
             val actLine = resAct.out.firstOrNull()
             if (!actLine.isNullOrBlank()) {
                 val match = Regex("""([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.]*""").find(actLine)

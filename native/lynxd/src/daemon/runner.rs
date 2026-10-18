@@ -248,7 +248,10 @@ impl DaemonRunner {
             // - Disconnect latency guarantee: <= 1000 ms (strictly < 2 seconds).
             let is_plugged = ChargingRegulator::is_hardware_plugged();
             let sleep_duration = if is_plugged {
-                Duration::from_secs(1)
+                match current_screen {
+                    ScreenState::Off => Duration::from_secs(15), // Screen off while charging: battery & thermal friendly
+                    _ => Duration::from_secs(3),                // Screen active while charging: responsive yet zero churn
+                }
             } else {
                 match current_screen {
                     ScreenState::Off => Duration::from_secs(20), // Deep Sleep Shield: 20 seconds

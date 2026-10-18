@@ -161,8 +161,53 @@ object LynxRepository {
         if (initialBootCleanupDone) return
         initialBootCleanupDone = true
         try {
-            // Safety Guard: Eliminate any legacy or rogue service.d scripts that cause bootloops
-            Shell.cmd("rm -f /data/adb/service.d/lynx* 2>/dev/null").exec()
+            // Safety Guard: Eliminate any legacy or rogue service.d scripts that cause bootloops,
+            // purge stale locks, and terminate orphan runaway loops that monopolize CPU cores
+            Shell.cmd("""
+                rm -f /data/adb/service.d/lynx* 2>/dev/null
+                rm -f /dev/lynx_mode.lock 2>/dev/null
+                pkill -9 -f "Smart-AI.sh" 2>/dev/null
+                pkill -9 -f "AI_performance.sh" 2>/dev/null
+                pkill -9 -f "AI_balance.sh" 2>/dev/null
+                kill -9 12492 2>/dev/null
+                killall -CONT thermal-engine thermal-engine-v2 2>/dev/null
+                if [ -f /data/local/tmp/lynxd_new ]; then
+                    cp -af /data/local/tmp/lynxd_new /data/local/tmp/lynxd 2>/dev/null
+                    cp -af /data/local/tmp/lynxd_new /data/adb/modules/Lynx/system/bin/lynxd 2>/dev/null
+                    chmod 755 /data/local/tmp/lynxd /data/adb/modules/Lynx/system/bin/lynxd 2>/dev/null
+                    rm -f /data/local/tmp/lynxd_new
+                fi
+                if [ -f /data/local/tmp/thermal-engine.conf ]; then
+                    mkdir -p /data/adb/modules/Lynx/platforms/qcom/system/vendor/etc 2>/dev/null
+                    cp -af /data/local/tmp/thermal-engine.conf /data/adb/modules/Lynx/platforms/qcom/system/vendor/etc/thermal-engine.conf 2>/dev/null
+                    mount --bind /data/local/tmp/thermal-engine.conf /vendor/etc/thermal-engine.conf 2>/dev/null
+                    mount --bind /data/local/tmp/thermal-engine.conf /system/vendor/etc/thermal-engine.conf 2>/dev/null
+                fi
+                for c in /sys/devices/system/cpu/cpu[0-9]*; do
+                    [ -f "${'$'}c/isolate" ] && echo 0 > "${'$'}c/isolate" 2>/dev/null
+                    [ -f "${'$'}c/online" ] && echo 1 > "${'$'}c/online" 2>/dev/null
+                done
+                for cd in /sys/class/thermal/cooling_device*; do
+                    if [ -f "${'$'}cd/type" ]; then
+                        read -r t < "${'$'}cd/type" 2>/dev/null
+                        case "${'$'}t" in
+                            *isolate*|*thermal-cpufreq*|battery|*batt*) echo 0 > "${'$'}cd/cur_state" 2>/dev/null ;;
+                        esac
+                    fi
+                done
+                for p in /proc/[0-9]*; do
+                    pid=${'$'}{p##*/}
+                    [ "${'$'}pid" = "${'$'}${'$'}" ] && continue
+                    [ "${'$'}pid" = "1" ] && continue
+                    cmd=${'$'}(cat ${'$'}p/cmdline 2>/dev/null | tr '\0' ' ')
+                    if [ "${'$'}cmd" = "/system/bin/sh " ] || [ "${'$'}cmd" = "sh " ]; then
+                        ppid=${'$'}(awk '{print ${'$'}4}' ${'$'}p/stat 2>/dev/null)
+                        if [ "${'$'}ppid" = "1" ]; then
+                            kill -9 ${'$'}pid 2>/dev/null
+                        fi
+                    fi
+                done
+            """.trimIndent()).exec()
 
             // Preserve and safely disable any legacy Lynx module (v4/v5/v6)
             Shell.cmd("""
@@ -778,6 +823,10 @@ object LynxRepository {
 
     @Volatile
     var lastActiveProfile: String? = null
+
+    fun invalidateCurrentProfileCache() {
+        lastActiveProfile = null
+    }
 
     @Volatile
     private var kgslPermsChecked = false

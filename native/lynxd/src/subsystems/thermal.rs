@@ -98,35 +98,48 @@ impl ThermalController {
         out
     }
 
+    /// Un-isolates any thermal-isolated CPU cores and resets core isolation cooling devices.
+    pub fn un_isolate_all_cpus() {
+        for i in 0..16 {
+            let cpu_isolate = format!("/sys/devices/system/cpu/cpu{}/isolate", i);
+            let cpu_online = format!("/sys/devices/system/cpu/cpu{}/online", i);
+            if Path::new(&cpu_isolate).exists() {
+                Self::write_opt(&cpu_isolate, "0");
+            }
+            if Path::new(&cpu_online).exists() {
+                Self::write_opt(&cpu_online, "1");
+            }
+        }
+        for id in 0..128 {
+            let cdev_type_path = format!("/sys/class/thermal/cooling_device{}/type", id);
+            if let Some(c_type) = Self::read_trimmed(&cdev_type_path) {
+                let lower = c_type.to_lowercase();
+                if lower.contains("isolate") || lower.contains("thermal-cpufreq") || lower.contains("battery") || lower == "battery" {
+                    Self::write_opt(format!("/sys/class/thermal/cooling_device{}/cur_state", id), "0");
+                }
+            }
+        }
+    }
+
     /// Freezes aggressive OEM thermal daemons with SIGSTOP.
     pub fn freeze_oem_throttlers() {
         let (vendor, _) = crate::hardware::detector::ScoreBoard::evaluate();
-        let targets: &[&str] = if vendor == crate::hardware::Vendor::Qualcomm {
-            // On Qualcomm (like Sony Xperia, Xiaomi Snapdragon), thermal-engine provides
-            // android.hardware.thermal@1.0-service HIDL HAL.
-            // Do NOT freeze it with SIGSTOP, or system_server and charge_service IPC calls will hang!
-            &[
-                "mi_thermald",
-                "ituxd",
-                "com.samsung.android.game.gos",
-                "com.xiaomi.joyose",
-            ]
-        } else {
-            // On MediaTek Transsion, thermalloadalgod is the travel adapter (TA) netlink listener.
-            // Do NOT freeze it with SIGSTOP, or ta_nl_send_to_user fails (-11) and halts fast charging!
-            &[
-                "mi_thermald",
-                "thermal-engine",
-                "thermal-engine-v2",
-                "ituxd",
-                "com.samsung.android.game.gos",
-                "com.xiaomi.joyose",
-            ]
-        };
+        // NEVER freeze thermal-engine on Qualcomm! Freezing it breaks Thermal HAL IPC and freezes system_server / SystemUI.
+        let targets: &[&str] = &[
+            "mi_thermald",
+            "ituxd",
+            "com.samsung.android.game.gos",
+            "com.xiaomi.joyose",
+        ];
         for target in targets {
             let _ = Command::new("killall").arg("-STOP").arg(target).output();
         }
+        if vendor == crate::hardware::Vendor::Qualcomm {
+            let _ = Command::new("killall").arg("-CONT").arg("thermal-engine").output();
+            let _ = Command::new("killall").arg("-CONT").arg("thermal-engine-v2").output();
+        }
         let _ = Command::new("cmd").args(&["thermalservice", "override-status", "0"]).output();
+        Self::un_isolate_all_cpus();
     }
 
     /// Unfreezes OEM thermal daemons with SIGCONT.
@@ -144,6 +157,7 @@ impl ThermalController {
             let _ = Command::new("killall").arg("-CONT").arg(target).output();
         }
         let _ = Command::new("cmd").args(&["thermalservice", "reset"]).output();
+        Self::un_isolate_all_cpus();
     }
 
     /// Applies thermal mode (conservative, balanced, stable, gaming, extreme, bypass).

@@ -192,10 +192,15 @@ impl ProfileExecutor {
 
         // ── Phase 6c: OEM Throttler Process Neutralization & Active Marker ──
         let is_perf_or_ext = matches!(plan.base_profile, "extreme" | "performance");
-        ChargingRegulator::signal_processes(
-            &["mi_thermald", "thermal-engine", "thermal-engine-v2", "ituxd"],
-            is_perf_or_ext,
-        );
+        let is_qcom = plan.vendor == crate::hardware::Vendor::Qualcomm;
+        if is_qcom {
+            // NEVER freeze thermal-engine on Qualcomm! It provides Thermal HAL and IPC deadlock freezes system_server.
+            ChargingRegulator::signal_processes(&["mi_thermald", "ituxd"], is_perf_or_ext);
+            ChargingRegulator::signal_processes(&["thermal-engine", "thermal-engine-v2"], false);
+        } else {
+            ChargingRegulator::signal_processes(&["mi_thermald", "ituxd"], is_perf_or_ext);
+        }
+        crate::subsystems::thermal::ThermalController::un_isolate_all_cpus();
 
         // Synchronize Thermal Controller & Hardware Bypass with Profile
         match plan.base_profile {
