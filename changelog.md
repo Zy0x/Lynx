@@ -1,3 +1,26 @@
+# Lynx Universal [Harmonized 2-Tier App Rule Bento Architecture & Dedicated Lower Telemetry Row] 7.0.0-RC92
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC92** (Lynx Kernel Manager v3.1.44): **Penyesuaian Proporsional Tata Letak App Rule Bento Card: Pemisahan Jernih Baris 1 (Nama Aplikasi & Tag GAME), Baris 2 (Nama Paket Aplikasi), Serta Baris Baru Khusus di Bawah untuk Mode Profil, Refresh Rate, dan Floating HUD (Anti Menumpuk & Tinggi Proporsional), Serta Pembaruan Biner Release**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC92)
+
+### 1. 🎴 Arsitektur 2-Tier Proporsional Tanpa Penumpukan
+- **Pemisahan Elemen Jernih**: Menjawab kebutuhan tampilan yang lega namun tetap compact:
+  - **Baris 1**: Nama aplikasi berbobot tebal (14sp) didampingi tag neon `[GAME]` jika aplikasi terdaftar sebagai game.
+  - **Baris 2**: Nama paket aplikasi lengkap (`packageName`) dengan kontras lembut (11.5sp), memberikan kejelasan identitas aplikasi tanpa terpotong atau berdesakan.
+  - **Sisi Kanan Atas**: Master Switch (scale 0.82f) dengan touch target aman dan responsif.
+- **Baris Baru di Bawah (Dedicated Telemetry Row)**:
+  - Menempatkan seluruh parameter otomasi pada baris tersendiri di bawah garis pemisah kaca halus:
+    - Mode-mode profil aktif (`● Ekstrem`, `● Performa`, `● Seimbang`, `● Hemat Daya`) dengan status dot bercahaya.
+    - Kunci refresh rate panel (`90 Hz`, `120 Hz`) saat aktif.
+    - Floating Game HUD (`HUD ON`) saat aktif.
+  - Teks affordance `Kustomisasi >` di pojok kanan bawah memandu pengguna untuk mengakses dialog overlay kustomisasi mendalam.
+
+### 2. 📏 Proporsi Tinggi Ideal (~95dp)
+- Menemukan titik temu estetika antara kartu lawas yang terlalu tinggi (~135dp) dan layout tunggal yang terlalu padat, menghasilkan tinggi kartu ideal ~95dp dengan padding `horizontal = 14.dp, vertical = 10.dp` yang nyaman di mata dan optimal pada navigasi jari satu tangan.
+
+---
+
 # Lynx Universal [Compact App Automation Bento Cards & Fluid Screen Utilization Architecture] 7.0.0-RC91
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC91** (Lynx Kernel Manager v3.1.43): **Redesain Menyeluruh App Rule Bento Card Menjadi Format Ultra-Compact (~58dp vs Sebelumnya ~135dp), Penghematan Ruang Vertikal >50% Memungkinkan 7–8 Kartu Aplikasi Terlihat Sekaligus dalam Satu Layar, Eliminasi Divider Statis dan Spacer Berlebih Tanpa Mengorbankan Kelengkapan Tag & Telemetri, Pengetatan Spacing Virtualized LazyColumn (8dp), Serta Interaktivitas Penuh Tap-to-Customize Dialog Overlay**.
