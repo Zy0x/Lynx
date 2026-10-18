@@ -264,6 +264,17 @@ class LynxViewModel : ViewModel() {
 
     fun startCpuMonitorStream() {
         if (cpuMonitorStreamJob?.isActive == true) return
+        val cached = LynxRepository.getCachedTopProcesses()
+        if (cached.isNotEmpty() && _uiState.value.topCpuProcesses.isEmpty()) {
+            _uiState.update { it.copy(topCpuProcesses = cached) }
+        }
+        // Background one-shot process fetch for immediate Live Monitor display (<70ms)
+        viewModelScope.launch(Dispatchers.IO) {
+            val procs = LynxRepository.readTopCpuProcesses()
+            if (procs.isNotEmpty()) {
+                _uiState.update { it.copy(topCpuProcesses = procs) }
+            }
+        }
         cpuMonitorStreamJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 LynxRepository.streamCpuMonitor().collect { snapshot ->

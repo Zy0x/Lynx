@@ -81,10 +81,18 @@ class LynxAppAutomationService : Service() {
         }
     }
 
+    private var lastPowerConnectedTime = 0L
+
     private val powerReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_POWER_CONNECTED -> {
+                    val now = System.currentTimeMillis()
+                    if (now - lastPowerConnectedTime < 3000L) {
+                        Log.d(TAG, "Ignoring duplicate ACTION_POWER_CONNECTED (debounced)")
+                        return
+                    }
+                    lastPowerConnectedTime = now
                     Log.i(TAG, "Charger connected: re-asserting hardware charging bypass")
                     serviceScope.launch(Dispatchers.IO) {
                         val state = LynxRepository.readState().charging
@@ -164,16 +172,22 @@ class LynxAppAutomationService : Service() {
         currentInstance = this
         createNotificationChannel()
 
-        val initialProfile = runBlocking(Dispatchers.IO) {
-            LynxRepository.readBaselineProfile().ifBlank {
+        // 1. Immediately claim Foreground status with zero-IO static notification to satisfy Android strict FGS contract
+        startForeground(NOTIF_ID, buildNotification(formatModeTitle("balance"), "Otomasi Siaga • Lynx Deity", "balance"))
+        isRunning = true
+
+        // 2. Asynchronously resolve live baseline and battery telemetry without blocking Android main looper
+        serviceScope.launch(Dispatchers.IO) {
+            val initialProfile = LynxRepository.readBaselineProfile().ifBlank {
                 LynxRepository.readState().activeProfile
             }.ifBlank { "balance" }
+            val safeProfile = if (initialProfile.isBlank() || initialProfile == "dormant") "balance" else initialProfile
+            baselineProfile = safeProfile
+            val (pct, tempC) = getLiveBatteryTelemetry()
+            withContext(Dispatchers.Main) {
+                updateNotification(formatModeTitle(safeProfile), getStandbySubtitle(safeProfile, pct, tempC), safeProfile)
+            }
         }
-        val safeProfile = if (initialProfile.isBlank() || initialProfile == "dormant") "balance" else initialProfile
-        baselineProfile = safeProfile
-        val (pct, tempC) = getLiveBatteryTelemetry()
-        startForeground(NOTIF_ID, buildNotification(formatModeTitle(safeProfile), getStandbySubtitle(safeProfile, pct, tempC), safeProfile))
-        isRunning = true
 
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)

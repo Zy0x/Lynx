@@ -6,6 +6,10 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 internal object LynxCpuCoreRepository {
     suspend fun readCpuCores(): List<CpuCoreInfo> = withContext(Dispatchers.IO) {
+        val direct = readCpuCoresDirect()
+        if (direct != null && direct.isNotEmpty()) {
+            return@withContext direct
+        }
         try {
             val script = """
                 head -n 9 /proc/stat 2>/dev/null
@@ -179,4 +183,77 @@ internal object LynxCpuCoreRepository {
         LynxBatteryTelemetryRepository.readBatteryInfoStats(currentDetails)
 
 
+    private fun readCpuCoresDirect(): List<CpuCoreInfo>? {
+        return try {
+            val totalCores = LynxCpuTelemetryRepository.getTotalCpuCores().coerceIn(1, 16)
+            val cores = mutableListOf<CpuCoreInfo>()
+            val perCoreLoads = LynxRepository.latestPerCoreLoads
+
+            for (id in 0 until totalCores) {
+                val cDir = java.io.File("/sys/devices/system/cpu/cpu$id")
+                if (!cDir.exists()) continue
+
+                val onlineFile = java.io.File(cDir, "online")
+                val switchable = onlineFile.exists()
+                val online = if (switchable) {
+                    try { onlineFile.readText().trim() == "1" } catch (_: Exception) { true }
+                } else true
+
+                val scf = java.io.File(cDir, "cpufreq/scaling_cur_freq")
+                val ccf = java.io.File(cDir, "cpufreq/cpuinfo_cur_freq")
+                val freq = try {
+                    when {
+                        scf.exists() && scf.canRead() -> scf.readText().trim().toLongOrNull() ?: 0L
+                        ccf.exists() && ccf.canRead() -> ccf.readText().trim().toLongOrNull() ?: 0L
+                        else -> 0L
+                    }
+                } catch (_: Exception) { 0L }
+
+                val sMin = java.io.File(cDir, "cpufreq/scaling_min_freq")
+                val cMin = java.io.File(cDir, "cpufreq/cpuinfo_min_freq")
+                val rawMin = try {
+                    when {
+                        sMin.exists() && sMin.canRead() -> sMin.readText().trim().toLongOrNull() ?: 500000L
+                        cMin.exists() && cMin.canRead() -> cMin.readText().trim().toLongOrNull() ?: 500000L
+                        else -> 500000L
+                    }
+                } catch (_: Exception) { 500000L }
+
+                val sMax = java.io.File(cDir, "cpufreq/scaling_max_freq")
+                val cMax = java.io.File(cDir, "cpufreq/cpuinfo_max_freq")
+                val rawMax = try {
+                    when {
+                        sMax.exists() && sMax.canRead() -> sMax.readText().trim().toLongOrNull() ?: 2000000L
+                        cMax.exists() && cMax.canRead() -> cMax.readText().trim().toLongOrNull() ?: 2000000L
+                        else -> 2000000L
+                    }
+                } catch (_: Exception) { 2000000L }
+
+                val policyId = LynxRepository.lockedClusterBounds.keys.filter { it <= id }.maxOrNull() ?: 0
+                val isExplicitlyUnlocked = LynxRepository.explicitlyUnlockedClusters.contains(policyId)
+                val lockedRange = if (isExplicitlyUnlocked) null else LynxRepository.lockedClusterBounds[policyId]
+                val isCoreLocked = !isExplicitlyUnlocked && lockedRange != null
+                val minKhz = lockedRange?.first ?: rawMin
+                val maxKhz = lockedRange?.second ?: rawMax
+
+                val load = if (online) (perCoreLoads[id] ?: LynxRepository.latestTotalCpuLoadPercent.coerceIn(0, 100)).coerceIn(0, 100) else 0
+
+                cores.add(
+                    CpuCoreInfo(
+                        coreId = id,
+                        isOnline = online,
+                        isSwitchable = switchable,
+                        curFreqKhz = freq,
+                        loadPercent = load,
+                        minFreqKhz = minKhz,
+                        maxFreqKhz = maxKhz,
+                        isLocked = isCoreLocked
+                    )
+                )
+            }
+            if (cores.isNotEmpty()) cores.sortedBy { it.coreId } else null
+        } catch (_: Exception) {
+            null
+        }
+    }
 }

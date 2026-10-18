@@ -9,20 +9,24 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
 internal object LynxGpuTelemetryRepository {
+    @Volatile private var cachedBackendFeatures: List<GpuHardwareFeature>? = null
+    @Volatile private var lastFeatureScanMs = 0L
+
     suspend fun readTopGraphicsProcesses(force: Boolean = false): List<GpuProcessInfo> = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        if (!force && now - LynxRepository.lastTopGraphicsScanMs < 2500L && LynxRepository.cachedTopGraphicsProcesses.isNotEmpty()) {
+        if (!force && now - LynxRepository.lastTopGraphicsScanMs < 3000L && LynxRepository.cachedTopGraphicsProcesses.isNotEmpty()) {
             return@withContext LynxRepository.cachedTopGraphicsProcesses
         }
         LynxRepository.lastTopGraphicsScanMs = now
         try {
-            val lines = Shell.cmd("top -b -n 1 -m 30 2>/dev/null || top -b -n 1 2>/dev/null").exec().out
+            // Fast ps sort (<70ms) instead of heavy 2500ms top -b -n 1
+            val lines = Shell.cmd("ps -A -o PID,%CPU,CMD --sort=-%cpu 2>/dev/null | head -n 25 || ps -A -o PID,%CPU,CMD 2>/dev/null | head -n 25").exec().out
             val result = mutableListOf<GpuProcessInfo>()
             val numCores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
             var headerPassed = false
             var pidIdx = 0
-            var cpuIdx = 8
-            var argsIdx = 11
+            var cpuIdx = 1
+            var argsIdx = 2
 
             for (line in lines) {
                 val trimmed = line.trim()
@@ -111,9 +115,8 @@ internal object LynxGpuTelemetryRepository {
                 }
             }
 
-            // Ensure core graphics daemons (SurfaceFlinger / HWC Composer) are represented if idle during snapshot
             if (result.size < 3) {
-                val psLines = Shell.cmd("ps -A -o PID,%CPU,NAME 2>/dev/null || ps -A 2>/dev/null").exec().out
+                val psLines = Shell.cmd("ps -A -o PID,%CPU,CMD 2>/dev/null | grep -E 'surfaceflinger|composer|systemui' | head -n 6").exec().out
                 for (pLine in psLines) {
                     val pTrimmed = pLine.trim()
                     if (pTrimmed.isBlank() || pTrimmed.startsWith("USER") || pTrimmed.startsWith("PID")) continue
@@ -210,9 +213,16 @@ internal object LynxGpuTelemetryRepository {
                             val loadHistory = synchronized(LynxRepository.gpuLoadRingBuffer) { LynxRepository.gpuLoadRingBuffer.toList() }
                             val topProcs = readTopGraphicsProcesses()
 
-                            // Query Universal Dynamic HAL Adapter
+                            // Query Universal Dynamic HAL Adapter (cached with 30s TTL to prevent sysfs lock starvation)
                             val activeAdapter = GpuBackendManager.getActiveAdapter()
-                            val backendFeatures = try { activeAdapter.scanFeatures() } catch (_: Exception) { emptyList() }
+                            val nowMs = System.currentTimeMillis()
+                            val backendFeatures = cachedBackendFeatures?.takeIf { nowMs - lastFeatureScanMs < 30_000L }
+                                ?: try {
+                                    val scanned = activeAdapter.scanFeatures()
+                                    cachedBackendFeatures = scanned
+                                    lastFeatureScanMs = nowMs
+                                    scanned
+                                } catch (_: Exception) { emptyList() }
                             val backendConfidence = try {
                                 if (backendFeatures.isNotEmpty()) {
                                     val writableCount = backendFeatures.count { it.accessState == FeatureAccessState.VERIFIED_WORKING }

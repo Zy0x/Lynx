@@ -204,6 +204,9 @@ fun LynxViewModel.applyComprehensiveCpuProfile(
             if (asMasterProfile) clearProfileOverridesForMasterSelection()
             val ok = LynxRepository.applyCpuBatchProfile(params, context)
             if (ok) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(successMessage = successMsg) }
+                }
                 if (companionModuleProfile == "auto") {
                     context?.let { LynxRepository.startAppAutomation(it) }
                 } else {
@@ -211,15 +214,10 @@ fun LynxViewModel.applyComprehensiveCpuProfile(
                 }
             }
 
-            // Single consolidated read pass after settling
-            delay(250L)
+            // Fast-path hardware OPP synchronization (avoids swamping root shell with 471-line scheduler probe)
+            delay(100L)
             ensureActive()
             val freshClusters = LynxRepository.readClusters()
-            val freshSched = LynxRepository.readSchedulerInfo(context)
-            val freshIdle = LynxRepository.readCpuIdleInfo(context)
-            val freshSets = LynxRepository.readCpuSetsInfo(context)
-            val freshGpu = mergeGpuInfoWithIntent(LynxRepository.readGpuInfo())
-            val freshRr = mergeRefreshRateWithIntent(LynxRepository.readDisplayRefreshRate())
 
             withContext(Dispatchers.Main) {
                 _uiState.update { current ->
@@ -233,11 +231,6 @@ fun LynxViewModel.applyComprehensiveCpuProfile(
                     current.copy(
                         clusters = finalClusters,
                         cpuCores = syncedCores,
-                        schedulerInfo = freshSched,
-                        cpuIdle = freshIdle,
-                        cpuSets = freshSets,
-                        gpuInfo = freshGpu,
-                        displayRefreshRate = freshRr,
                         isCpuModified = current.state.profileOverrides.containsKey(ProfileDomain.CPU),
                         successMessage = successMsg
                     )

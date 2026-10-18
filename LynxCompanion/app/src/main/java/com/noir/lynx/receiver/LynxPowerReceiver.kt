@@ -14,11 +14,25 @@ import kotlinx.coroutines.launch
  * when charger cable is plugged into the device.
  */
 class LynxPowerReceiver : BroadcastReceiver() {
+    companion object {
+        @Volatile
+        private var lastConnectedTime = 0L
+        @Volatile
+        private var lastDisconnectedTime = 0L
+        private const val DEBOUNCE_MS = 3000L
+    }
+
     override fun onReceive(context: Context?, intent: Intent?) {
         if (context == null || intent == null) return
         val action = intent.action ?: return
+        val now = System.currentTimeMillis()
 
         if (action == Intent.ACTION_POWER_CONNECTED) {
+            if (now - lastConnectedTime < DEBOUNCE_MS) {
+                Log.d("LynxPowerReceiver", "Ignoring duplicate ACTION_POWER_CONNECTED (debounced)")
+                return
+            }
+            lastConnectedTime = now
             Log.i("LynxPowerReceiver", "Charger cable connected! Verifying charging bypass state...")
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
@@ -35,6 +49,11 @@ class LynxPowerReceiver : BroadcastReceiver() {
                 }
             }
         } else if (action == Intent.ACTION_POWER_DISCONNECTED) {
+            if (now - lastDisconnectedTime < DEBOUNCE_MS) {
+                Log.d("LynxPowerReceiver", "Ignoring duplicate ACTION_POWER_DISCONNECTED (debounced)")
+                return
+            }
+            lastDisconnectedTime = now
             Log.i("LynxPowerReceiver", "Charger cable unplugged! Reverting fast charging & restoring thermal baseline...")
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {

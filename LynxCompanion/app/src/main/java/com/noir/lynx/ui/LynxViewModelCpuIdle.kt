@@ -69,17 +69,7 @@ fun LynxViewModel.setCpuIdleStateDisabled(stateIndex: Int, disabled: Boolean, co
     }
     viewModelScope.launch {
         val ok = LynxRepository.setCpuIdleStateDisabled(stateIndex, disabled, context)
-        if (ok) {
-            val fresh = safeReadCpuIdleInfo(context)
-            _uiState.update { current ->
-                current.copy(
-                    cpuIdle = fresh.copy(
-                        applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
-                    ),
-                    isCpuModified = true
-                )
-            }
-        } else {
+        if (!ok) {
             _uiState.update { it.copy(errorMessage = "Gagal mengubah status C-State $stateIndex") }
         }
     }
@@ -102,7 +92,6 @@ fun LynxViewModel.applyCpuIdlePreset(preset: String, context: Context? = null, f
     viewModelScope.launch {
         val ok = LynxRepository.applyCpuIdlePreset(preset, context)
         if (ok) {
-            val fresh = safeReadCpuIdleInfo(context)
             val presetTitle = when (preset.lowercase()) {
                 "gaming" -> context?.let { AppLocale.getString(it, R.string.cpu_idle_preset_gaming) } ?: "Gaming (Zero Latency)"
                 "battery" -> context?.let { AppLocale.getString(it, R.string.cpu_idle_preset_battery) } ?: "Hemat Baterai (Deep Sleep)"
@@ -110,14 +99,10 @@ fun LynxViewModel.applyCpuIdlePreset(preset: String, context: Context? = null, f
             }
             _uiState.update { current ->
                 current.copy(
-                    cpuIdle = fresh.copy(
-                        applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
-                    ),
                     successMessage = if (fromMasterProfile) current.successMessage else context?.let { AppLocale.getString(it, R.string.dynamic_cpu_idle_preset_applied, presetTitle) } ?: "Profil Efisiensi '$presetTitle' berhasil diterapkan",
                     isCpuModified = if (fromMasterProfile) current.isCpuModified else true
                 )
             }
-            refreshCpuCores()
         } else {
             if (!fromMasterProfile) {
                 _uiState.update { it.copy(errorMessage = context?.let { AppLocale.getString(it, R.string.dynamic_cpu_idle_preset_failed, preset) } ?: "Gagal menerapkan preset CPU Idle '$preset'") }
@@ -141,7 +126,6 @@ fun LynxViewModel.setCoreParkingMode(mode: String, totalCores: Int = 8, context:
     viewModelScope.launch {
         val ok = LynxRepository.setCoreParkingMode(mode, totalCores, context)
         if (ok) {
-            val fresh = safeReadCpuIdleInfo(context)
             val modeLabel = when (mode.lowercase()) {
                 "unpark_all" -> context?.let { AppLocale.getString(it, R.string.cpu_parking_unpark_all) } ?: "Unpark Semua Core (Anti-Stutter)"
                 "park_big" -> context?.let { AppLocale.getString(it, R.string.cpu_parking_park_big) } ?: "Park Big Core (Hemat Daya)"
@@ -149,14 +133,10 @@ fun LynxViewModel.setCoreParkingMode(mode: String, totalCores: Int = 8, context:
             }
             _uiState.update { current ->
                 current.copy(
-                    cpuIdle = fresh.copy(
-                        applyOnBoot = if (fresh.applyOnBoot) true else current.cpuIdle.applyOnBoot
-                    ),
                     successMessage = if (fromMasterProfile) current.successMessage else context?.let { AppLocale.getString(it, R.string.cpu_parking_mode_changed, modeLabel) } ?: "Mode Core Parking diubah ke '$modeLabel'",
                     isCpuModified = if (fromMasterProfile) current.isCpuModified else true
                 )
             }
-            refreshCpuCores()
         } else {
             if (!fromMasterProfile) {
                 _uiState.update { current -> current.copy(errorMessage = context?.let { AppLocale.getString(it, R.string.cpu_parking_mode_failed, mode) } ?: "Gagal mengubah mode Core Parking ke '$mode'") }

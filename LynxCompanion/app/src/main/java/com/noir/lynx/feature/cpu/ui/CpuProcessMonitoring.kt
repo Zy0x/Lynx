@@ -60,6 +60,7 @@ import com.noir.lynx.ui.*
 
 private val appIconCache = java.util.concurrent.ConcurrentHashMap<String, ImageBitmap>()
 private val appLabelCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+private val failedPkgs = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +84,7 @@ fun ProcessIcon(
     }
 
     LaunchedEffect(cleanPkg) {
-        if (cachedBitmap == null && cleanPkg.contains(".")) {
+        if (cachedBitmap == null && cleanPkg.contains(".") && !failedPkgs.contains(cleanPkg)) {
             withContext(Dispatchers.IO) {
                 runCatching {
                     val pm = context.packageManager
@@ -100,6 +101,8 @@ fun ProcessIcon(
                     imageBitmap
                 }.getOrNull()?.let {
                     cachedBitmap = it
+                } ?: run {
+                    failedPkgs.add(cleanPkg)
                 }
             }
         }
@@ -158,8 +161,9 @@ fun TopProcessListCard(
 ) {
     val context = LocalContext.current
     val pm = context.packageManager
-    val scrollState = rememberScrollState()
     var selectedProcess by remember { mutableStateOf<Pair<CpuProcessInfo, String>?>(null) }
+
+    val activeProcs = if (procs.isNotEmpty()) procs else LynxRepository.getCachedTopProcesses()
 
     LynxCard(
         title = "PROSES CPU AKTIF (SNAPSHOT)",
@@ -168,7 +172,7 @@ fun TopProcessListCard(
         accentColor = AccentOrange,
         modifier = modifier
     ) {
-        if (procs.isEmpty()) {
+        if (activeProcs.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -179,33 +183,29 @@ fun TopProcessListCard(
             }
         } else {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 450.dp)
-                    .verticalScroll(scrollState),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                procs.forEach { p ->
+                activeProcs.take(15).forEach { p ->
                     val cleanPkg = if (p.packageName.contains(":")) p.packageName.substringBefore(":") else p.packageName
                     val displayName = remember(p.packageName, p.name) {
-                        if (cleanPkg.contains(".")) {
+                        if (cleanPkg.contains(".") && !failedPkgs.contains(cleanPkg)) {
                             appLabelCache[cleanPkg] ?: runCatching {
                                 val appInfo = pm.getApplicationInfo(cleanPkg, 0)
                                 val label = pm.getApplicationLabel(appInfo).toString()
                                 appLabelCache[cleanPkg] = label
                                 label
-                            }.getOrNull() ?: p.name
+                            }.getOrElse {
+                                failedPkgs.add(cleanPkg)
+                                appLabelCache[cleanPkg] = p.name
+                                p.name
+                            }
                         } else {
                             p.name
                         }
                     }
 
                     val loadNormalized = (p.cpuPercent / 100f).coerceIn(0.04f, 1f)
-                    val animatedLoad by animateFloatAsState(
-                        targetValue = loadNormalized,
-                        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-                        label = "proc_load_${p.pid}"
-                    )
 
                     Row(
                         modifier = Modifier
@@ -284,7 +284,7 @@ fun TopProcessListCard(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxWidth(fraction = animatedLoad)
+                                            .fillMaxWidth(fraction = loadNormalized)
                                             .fillMaxHeight()
                                             .background(if (p.cpuPercent >= 15f) AccentOrange else AccentCyan)
                                     )

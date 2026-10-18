@@ -38,8 +38,10 @@ import kotlinx.coroutines.launch
  * Uses [StateFileObserver] for real-time inotify-based 2-way sync.
  */
 
+private var gpuFreqDebounceJob: Job? = null
+
 fun LynxViewModel.refreshGpuInfo() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val raw = LynxRepository.readGpuInfo()
             val gpu = mergeGpuInfoWithIntent(raw)
@@ -62,13 +64,11 @@ fun LynxViewModel.setGpuBoostLevel(level: Int) {
         adrenoBoostLevel = if (curPlat == "adreno") level else it.gpuInfo.adrenoBoostLevel,
         gedBoostLevel = if (curPlat == "mali_ged") level else it.gpuInfo.gedBoostLevel,
     )) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setGpuBoostLevel(level)
         if (!ok) {
             _uiState.update { it.copy(errorMessage = "GPU Boost tidak didukung kernel ini") }
         }
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -87,12 +87,12 @@ fun LynxViewModel.setGpuFreq(minMhz: Int?, maxMhz: Int?) {
             maxFreqMhz = maxMhz ?: current.gpuInfo.maxFreqMhz,
         ))
     }
-    viewModelScope.launch {
+    gpuFreqDebounceJob?.cancel()
+    gpuFreqDebounceJob = viewModelScope.launch(Dispatchers.IO) {
+        delay(120L)
         val minHz = minMhz?.let { it.toLong() * 1_000_000L }
         val maxHz = maxMhz?.let { it.toLong() * 1_000_000L }
         LynxRepository.setGpuFreq(minHz, maxHz)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -114,10 +114,8 @@ fun LynxViewModel.setGpuLock(locked: Boolean) {
 fun LynxViewModel.setGpuGovernor(governor: String) {
     recordStateMutation(com.noir.lynx.profiles.ProfileDomain.GPU)
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(currentGovernor = governor)) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setGpuGovernor(governor)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -126,8 +124,6 @@ fun LynxViewModel.setGpuPowerPolicy(policy: String) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(maliPowerPolicy = policy)) }
     viewModelScope.launch {
         LynxRepository.setGpuPowerPolicy(policy)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -136,8 +132,6 @@ fun LynxViewModel.setGpuThermalBypass(enabled: Boolean) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isThrottlingBypassed = enabled)) }
     viewModelScope.launch {
         LynxRepository.setGpuThermalBypass(enabled)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -146,8 +140,6 @@ fun LynxViewModel.setGpuBusAlwaysOn(enabled: Boolean) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isBusAlwaysOn = enabled)) }
     viewModelScope.launch {
         LynxRepository.setGpuBusAlwaysOn(enabled)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -156,8 +148,6 @@ fun LynxViewModel.setGpuFramePacing(enabled: Boolean) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isFramePacingActive = enabled)) }
     viewModelScope.launch {
         LynxRepository.setGpuFramePacing(enabled)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -218,8 +208,7 @@ fun LynxViewModel.setGpuFeature(feature: GpuHardwareFeature, targetValue: String
         val result = LynxRepository.writeGpuFeature(feature.nodePath, actualNodeValue)
         when (result) {
             is WriteResult.Applied -> {
-                delay(200L)
-                refreshGpuInfo()
+                // Feature applied successfully, UI is updated optimistically
             }
             is WriteResult.Rejected -> {
                 // Rollback optimistic update and mark as locked
@@ -259,8 +248,6 @@ fun LynxViewModel.setGpuIdleTimer(ms: Int) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(idleTimerMs = ms)) }
     viewModelScope.launch {
         LynxRepository.setGpuIdleTimer(ms)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -269,8 +256,6 @@ fun LynxViewModel.setMaliDvfsMargin(margin: Int) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(maliDvfsMargin = margin)) }
     viewModelScope.launch {
         LynxRepository.setMaliDvfsMargin(margin)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -279,8 +264,6 @@ fun LynxViewModel.setAdrenoPwrLevel(pwrLevel: Int) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(adrenoPwrLevel = pwrLevel)) }
     viewModelScope.launch {
         LynxRepository.setAdrenoPwrLevel(pwrLevel)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -289,8 +272,6 @@ fun LynxViewModel.setAdrenoTzTargetLoad(targetLoad: Int) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(adrenoTzTargetLoad = targetLoad)) }
     viewModelScope.launch {
         LynxRepository.setAdrenoTzTargetLoad(targetLoad)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -299,8 +280,6 @@ fun LynxViewModel.setAdrenoForceRail(enabled: Boolean) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(adrenoForceRail = enabled)) }
     viewModelScope.launch {
         LynxRepository.setAdrenoForceRail(enabled)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -309,8 +288,6 @@ fun LynxViewModel.setFpsgoUltraRescue(enabled: Boolean) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isFpsgoUltraRescue = enabled)) }
     viewModelScope.launch {
         LynxRepository.setFpsgoUltraRescue(enabled)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -319,8 +296,6 @@ fun LynxViewModel.setMaliCoreMask(unmaskAll: Boolean) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isMaliAllCoresActive = unmaskAll)) }
     viewModelScope.launch {
         LynxRepository.setMaliCoreMask(unmaskAll)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -329,8 +304,6 @@ fun LynxViewModel.setMaliPowerPolicy(policy: String) {
     _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(maliPowerPolicy = policy)) }
     viewModelScope.launch {
         LynxRepository.setMaliPowerPolicy(policy)
-        delay(200L)
-        refreshGpuInfo()
     }
 }
 
@@ -342,9 +315,6 @@ fun LynxViewModel.setSurfaceFlingerDisableBackpressure(enabled: Boolean) {
     ) }
     viewModelScope.launch {
         LynxRepository.setSurfaceFlingerDisableBackpressure(enabled)
-        delay(200L)
-        refreshGraphicsHwui()
-        refreshGpuInfo()
     }
 }
 
@@ -405,8 +375,12 @@ fun LynxViewModel.applyGpuProfile(profile: String, context: android.content.Cont
             )
         )
     }
-    gpuProfileJob = viewModelScope.launch {
-        val ok = LynxRepository.applyGpuProfile(profile, curGpu)
+    gpuProfileJob = viewModelScope.launch(Dispatchers.IO) {
+        val ok = if (fromMasterProfile && LynxRepository.isModuleInstalled()) {
+            true // Already applied natively by lynxd profile apply (<5ms)
+        } else {
+            LynxRepository.applyGpuProfile(profile, curGpu)
+        }
         if (ok) {
             val label = when (profile) {
                 "battery" -> "Profil GPU Hemat Daya Aktif"
@@ -421,17 +395,16 @@ fun LynxViewModel.applyGpuProfile(profile: String, context: android.content.Cont
                 "esports" -> 0xFFFF9100
                 else -> 0xFFFF5252
             }
-            triggerUniversalToast(
-                title = label,
-                statusTag = "GPU",
-                type = com.noir.lynx.data.ToastType.PRESET,
-                accentColorHex = accentHex,
-                iconType = "gpu"
-            )
+            withContext(Dispatchers.Main) {
+                triggerUniversalToast(
+                    title = label,
+                    statusTag = "GPU",
+                    type = com.noir.lynx.data.ToastType.PRESET,
+                    accentColorHex = accentHex,
+                    iconType = "gpu"
+                )
+            }
         }
-        delay(300L)
-        refreshGpuInfo()
-        refreshGraphicsHwui()
     }
 }
 
@@ -449,8 +422,6 @@ fun LynxViewModel.setUpdatableGameDriver(mode: String) {
     _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(updatableGameDriver = mode)) }
     viewModelScope.launch {
         LynxRepository.setUpdatableGameDriver(mode)
-        delay(200L)
-        refreshGraphicsHwui()
     }
 }
 
@@ -459,8 +430,6 @@ fun LynxViewModel.setHwuiRenderer(backend: String) {
     _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(hwuiRenderer = backend)) }
     viewModelScope.launch {
         LynxRepository.setHwuiRenderer(backend)
-        delay(200L)
-        refreshGraphicsHwui()
     }
 }
 
@@ -469,8 +438,6 @@ fun LynxViewModel.setSurfaceFlingerLatch(enabled: Boolean) {
     _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(surfaceFlingerLatchUnsignaled = enabled)) }
     viewModelScope.launch {
         LynxRepository.setSurfaceFlingerLatch(enabled)
-        delay(200L)
-        refreshGraphicsHwui()
     }
 }
 
@@ -479,8 +446,6 @@ fun LynxViewModel.setForceMsaa(enabled: Boolean) {
     _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(force4xMsaa = enabled)) }
     viewModelScope.launch {
         LynxRepository.setForceMsaa(enabled)
-        delay(200L)
-        refreshGraphicsHwui()
     }
 }
 
@@ -490,8 +455,6 @@ fun LynxViewModel.setOemThrottlerShield(disabled: Boolean) {
     _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(isOemThrottlerDisabled = disabled)) }
     viewModelScope.launch {
         LynxRepository.setOemThrottlerShield(oem, disabled)
-        delay(200L)
-        refreshGraphicsHwui()
     }
 }
 
@@ -500,8 +463,6 @@ fun LynxViewModel.setSurfaceFlingerEarlyPhase(enabled: Boolean) {
     _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(isEarlyPhaseOffset = enabled)) }
     viewModelScope.launch {
         LynxRepository.setSurfaceFlingerEarlyPhase(enabled)
-        delay(200L)
-        refreshGraphicsHwui()
     }
 }
 
@@ -515,8 +476,6 @@ fun LynxViewModel.setDcDimming(enabled: Boolean) {
         } else {
             _uiState.update { it.copy(errorMessage = "Hardware DC Dimming tidak didukung oleh panel ini") }
         }
-        delay(200L)
-        refreshGraphicsHwui()
     }
 }
 

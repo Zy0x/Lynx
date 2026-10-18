@@ -29,6 +29,40 @@ internal object LynxCpuBatchProfileRepository {
                 }
             }
 
+            // Tier 0 Fast-Path: lynxd native Rust engine (<50ms, zero shell choke)
+            val lynxdPath = LynxRepository.getLynxdPath()
+            val hasLynxd = Shell.cmd("[ -x '$lynxdPath' ] && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
+
+            if (hasLynxd && params.companionProfile != "auto") {
+                val resolvedProfile = when (params.companionProfile.lowercase()) {
+                    "powersave", "battery" -> "powersave"
+                    "performance", "gaming", "esports" -> "performance"
+                    "extreme" -> "extreme"
+                    else -> "balanced"
+                }
+                val fastCmd = buildString {
+                    if (params.updateMasterProfile) {
+                        append("'$lynxdPath' profile apply '$resolvedProfile' 2>/dev/null; ")
+                    }
+                    params.clusterTargets.forEach { (cid, tgt) ->
+                        if (tgt.isLocked) {
+                            append("'$lynxdPath' cluster lock $cid '${tgt.minFreq}' '${tgt.maxFreq}' 2>/dev/null; ")
+                        } else if (tgt.minFreq > 0 && tgt.maxFreq > 0) {
+                            append("'$lynxdPath' cluster set-freq $cid '${tgt.minFreq}' '${tgt.maxFreq}' 2>/dev/null; ")
+                        }
+                    }
+                    append("echo ok")
+                }
+                val res = Shell.cmd(fastCmd).exec()
+                if (res.isSuccess) {
+                    if (params.updateMasterProfile) {
+                        LynxRepository.writeStateKey("active_profile", params.companionProfile, "str")
+                    }
+                    updateSharedPreferences(params, context)
+                    return@withContext true
+                }
+            }
+
             val script = buildString {
                 // A subpage CPU profile is a scoped override and must not mutate the master profile.
                 if (params.updateMasterProfile && params.companionProfile != "auto") {
@@ -490,41 +524,7 @@ internal object LynxCpuBatchProfileRepository {
             val res = Shell.cmd(script).exec()
             val ok = res.isSuccess
             if (ok) {
-                if (context != null) LynxRepository.appContext = context.applicationContext
-                val ctx = context ?: LynxRepository.appContext
-                val batchBusProfile = when (params.companionProfile.lowercase()) {
-                    "powersave", "battery" -> "eco"
-                    "performance", "extreme" -> "max"
-                    else -> "auto"
-                }
-                val isPerfOrExt = params.companionProfile.equals("performance", true) || params.companionProfile.equals("extreme", true)
-                val mtkPwrMode = when (params.companionProfile.lowercase()) {
-                    "powersave", "battery" -> 1
-                    "performance", "extreme" -> 3
-                    else -> 0
-                }
-                ctx?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
-                    ?.edit()
-                    ?.putString("active_preset", params.schedPreset)
-                    ?.putInt("sched_upmigrate", params.schedHystUp)
-                    ?.putInt("sched_downmigrate", params.schedHystDown)
-                    ?.putString("bus_bandwidth_profile", batchBusProfile)
-                    ?.putBoolean("mtk_cci_ddr_boost", isPerfOrExt)
-                    ?.putInt("mtk_cpu_power_mode", mtkPwrMode)
-                    ?.putBoolean("universal_touch_boost", isPerfOrExt)
-                    ?.putBoolean("qcom_touchboost", isPerfOrExt)
-                    ?.putBoolean("anti_throttling_guard", isPerfOrExt)
-                    ?.putBoolean("mtk_dlpt_imax_bypass", isPerfOrExt)
-                    ?.apply()
-                ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
-                    ?.edit()
-                    ?.putString("active_preset", params.idlePreset)
-                    ?.putString("core_parking_mode", params.parkingMode)
-                    ?.apply()
-                ctx?.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
-                    ?.edit()
-                    ?.putString("active_preset", params.cpuSetPreset)
-                    ?.apply()
+                updateSharedPreferences(params, context)
             }
             ok
         } catch (e: Exception) {
@@ -536,4 +536,42 @@ internal object LynxCpuBatchProfileRepository {
     // ----------------------------------------------------------------
     //  Phase 1 Quick Wins: GPU Advanced Control & Graphics Processes
     // ----------------------------------------------------------------
+
+    private fun updateSharedPreferences(params: CpuBatchProfileParams, context: Context?) {
+        if (context != null) LynxRepository.appContext = context.applicationContext
+        val ctx = context ?: LynxRepository.appContext
+        val batchBusProfile = when (params.companionProfile.lowercase()) {
+            "powersave", "battery" -> "eco"
+            "performance", "extreme" -> "max"
+            else -> "auto"
+        }
+        val isPerfOrExt = params.companionProfile.equals("performance", true) || params.companionProfile.equals("extreme", true)
+        val mtkPwrMode = when (params.companionProfile.lowercase()) {
+            "powersave", "battery" -> 1
+            "performance", "extreme" -> 3
+            else -> 0
+        }
+        ctx?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+            ?.edit()
+            ?.putString("active_preset", params.schedPreset)
+            ?.putInt("sched_upmigrate", params.schedHystUp)
+            ?.putInt("sched_downmigrate", params.schedHystDown)
+            ?.putString("bus_bandwidth_profile", batchBusProfile)
+            ?.putBoolean("mtk_cci_ddr_boost", isPerfOrExt)
+            ?.putInt("mtk_cpu_power_mode", mtkPwrMode)
+            ?.putBoolean("universal_touch_boost", isPerfOrExt)
+            ?.putBoolean("qcom_touchboost", isPerfOrExt)
+            ?.putBoolean("anti_throttling_guard", isPerfOrExt)
+            ?.putBoolean("mtk_dlpt_imax_bypass", isPerfOrExt)
+            ?.apply()
+        ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
+            ?.edit()
+            ?.putString("active_preset", params.idlePreset)
+            ?.putString("core_parking_mode", params.parkingMode)
+            ?.apply()
+        ctx?.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
+            ?.edit()
+            ?.putString("active_preset", params.cpuSetPreset)
+            ?.apply()
+    }
 }

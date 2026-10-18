@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * LynxViewModel: Manages UI state and orchestrates root operations.
@@ -33,6 +34,8 @@ import kotlinx.coroutines.launch
  * Exposes a single [uiState] StateFlow consumed by MainActivity Compose UI.
  * Uses [StateFileObserver] for real-time inotify-based 2-way sync.
  */
+
+private val schedulerDebounceJobs = ConcurrentHashMap<String, Job>()
 
 fun LynxViewModel.refreshSchedulerInfo(context: Context? = null) {
     viewModelScope.launch {
@@ -77,13 +80,35 @@ fun LynxViewModel.setSchedulerTunable(tunable: String, value: Long, context: Con
         val finalSched = if (tunable != "apply_on_boot") updated.copy(activePreset = "custom") else updated
         current.copy(schedulerInfo = finalSched, isCpuModified = true)
     }
-    viewModelScope.launch {
+
+    schedulerDebounceJobs[tunable]?.cancel()
+    schedulerDebounceJobs[tunable] = viewModelScope.launch(Dispatchers.IO) {
+        delay(120L)
         val ok = LynxRepository.setSchedulerTunable(tunable, value, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
+            LynxSchedulerInfoRepository.updateCache { cur ->
+                when (tunable) {
+                    "up_rate_limit_us" -> cur.copy(upRateLimitUs = value)
+                    "down_rate_limit_us" -> cur.copy(downRateLimitUs = value)
+                    "sched_latency_ns" -> cur.copy(schedLatencyNs = value)
+                    "sched_min_granularity_ns" -> cur.copy(schedMinGranularityNs = value)
+                    "sched_wakeup_granularity_ns" -> cur.copy(schedWakeupGranularityNs = value)
+                    "sched_migration_cost_ns" -> cur.copy(schedMigrationCostNs = value)
+                    "sched_child_runs_first" -> cur.copy(schedChildRunsFirst = value == 1L)
+                    "sched_energy_aware" -> cur.copy(schedEnergyAware = value == 1L)
+                    "sched_boost" -> cur.copy(schedBoost = value.toInt())
+                    "uclamp_min" -> cur.copy(uclampMin = value.toInt(), topAppSchedtuneBoost = value.toInt())
+                    "uclamp_max" -> cur.copy(uclampMax = value.toInt())
+                    "sched_upmigrate" -> cur.copy(schedUpmigrate = value.toInt())
+                    "sched_downmigrate" -> cur.copy(schedDownmigrate = value.toInt())
+                    "sched_init_task_load" -> cur.copy(schedInitTaskLoad = value.toInt())
+                    "sched_spill_nr_run" -> cur.copy(schedSpillNrRun = value.toInt())
+                    "sched_spill_load" -> cur.copy(schedSpillLoad = value.toInt())
+                    else -> cur
+                }
+            }
             _uiState.update {
                 it.copy(
-                    schedulerInfo = fresh,
                     successMessage = if (tunable != "apply_on_boot") "Parameter $tunable diperbarui (Mode Kustom)" else "Pengaturan boot diperbarui"
                 )
             }
@@ -104,9 +129,14 @@ fun LynxViewModel.setSchedulerHysteresis(upmigrate: Int, downmigrate: Int, conte
             activePreset = if (fromMasterProfile) current.schedulerInfo.activePreset else "custom"
         ), isCpuModified = if (fromMasterProfile) current.isCpuModified else true)
     }
-    viewModelScope.launch {
+    schedulerDebounceJobs["hysteresis"]?.cancel()
+    schedulerDebounceJobs["hysteresis"] = viewModelScope.launch(Dispatchers.IO) {
+        delay(120L)
         val ok = LynxRepository.setSchedulerHysteresis(safeUp, safeDown, context)
         if (ok) {
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(schedUpmigrate = safeUp, schedDownmigrate = safeDown)
+            }
             if (!fromMasterProfile) {
                 _uiState.update { it.copy(successMessage = "Hysteresis migrasi diperbarui ($safeUp% / $safeDown% - Mode Kustom)") }
             }
@@ -140,14 +170,14 @@ fun LynxViewModel.setSchedulerArchitectureMode(mode: String, context: Context? =
             activePreset = if (fromMasterProfile) current.schedulerInfo.activePreset else "custom"
         ), isCpuModified = if (fromMasterProfile) current.isCpuModified else true)
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setSchedulerArchitectureMode(mode, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(activeArchitectureMode = mode)
+            }
             if (!fromMasterProfile) {
-                _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Mode arsitektur ${mode.uppercase()} aktif (Mode Kustom)") }
-            } else {
-                _uiState.update { it.copy(schedulerInfo = fresh) }
+                _uiState.update { it.copy(successMessage = "Mode arsitektur ${mode.uppercase()} aktif (Mode Kustom)") }
             }
         } else {
             if (!fromMasterProfile) {
@@ -179,17 +209,19 @@ fun LynxViewModel.applySchedulerPreset(preset: String, context: Context? = null,
             isCpuModified = if (fromMasterProfile) it.isCpuModified else true
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applySchedulerPreset(preset, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(activePreset = preset, uclampMin = boostPct, topAppSchedtuneBoost = boostPct)
+            }
             val presetTitle = when (preset.lowercase()) {
                 "extreme" -> "Extreme (Unrestricted)"
                 "gaming" -> "Responsif (Gaming)"
                 "battery" -> "Efisiensi Daya"
                 else -> "Seimbang"
             }
-            _uiState.update { it.copy(schedulerInfo = fresh, successMessage = if (fromMasterProfile) it.successMessage else "Preset Penjadwal '$presetTitle' berhasil diterapkan", isCpuModified = if (fromMasterProfile) it.isCpuModified else true) }
+            _uiState.update { it.copy(successMessage = if (fromMasterProfile) it.successMessage else "Preset Penjadwal '$presetTitle' berhasil diterapkan", isCpuModified = if (fromMasterProfile) it.isCpuModified else true) }
         } else {
             if (!fromMasterProfile) {
                 _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset penjadwal '$preset'") }
@@ -220,13 +252,12 @@ fun LynxViewModel.applyCpuSetPreset(preset: String, context: Context? = null, fr
     viewModelScope.launch {
         val ok = LynxRepository.applyCpuSetPreset(preset, totalCores, context)
         if (ok) {
-            val fresh = safeReadCpuSetsInfo(context)
             val presetTitle = when (preset.lowercase()) {
                 "gaming" -> "Gaming Isolation (Big Core Reserved)"
                 "battery" -> "Hemat Ekstrem"
                 else -> "Standar Android"
             }
-            _uiState.update { it.copy(cpuSets = fresh, successMessage = if (fromMasterProfile) it.successMessage else "Profil CPU Sets '$presetTitle' berhasil diterapkan", isCpuModified = if (fromMasterProfile) it.isCpuModified else true) }
+            _uiState.update { it.copy(successMessage = if (fromMasterProfile) it.successMessage else "Profil CPU Sets '$presetTitle' berhasil diterapkan", isCpuModified = if (fromMasterProfile) it.isCpuModified else true) }
         } else {
             if (!fromMasterProfile) {
                 _uiState.update { it.copy(errorMessage = "Gagal menerapkan profil CPU Sets '$preset'") }
@@ -280,10 +311,7 @@ fun LynxViewModel.toggleCpuSetCore(group: String, coreId: Int, context: Context?
     _uiState.update { it.copy(cpuSets = updatedSets, isCpuModified = true) }
     viewModelScope.launch {
         val ok = LynxRepository.setCpuSetCores(group, newCoresStr, context)
-        if (ok) {
-            val fresh = safeReadCpuSetsInfo(context)
-            _uiState.update { it.copy(cpuSets = fresh, isCpuModified = true) }
-        } else {
+        if (!ok) {
             _uiState.update { it.copy(errorMessage = "Gagal memperbarui Core $coreId pada $group") }
         }
     }
@@ -313,11 +341,17 @@ fun LynxViewModel.setSchedtuneBoost(group: String, boost: Int, context: Context?
         }
         current.copy(schedulerInfo = updated)
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setSchedtuneBoost(group, boost, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
-            _uiState.update { it.copy(schedulerInfo = fresh) }
+            LynxSchedulerInfoRepository.updateCache { cur ->
+                when (group.lowercase()) {
+                    "top-app", "topapp" -> cur.copy(topAppSchedtuneBoost = boost, uclampMin = boost, activePreset = "custom")
+                    "foreground", "fg" -> cur.copy(fgSchedtuneBoost = boost, activePreset = "custom")
+                    "background", "bg" -> cur.copy(bgSchedtuneBoost = boost, activePreset = "custom")
+                    else -> cur
+                }
+            }
         }
     }
 }
@@ -337,11 +371,17 @@ fun LynxViewModel.setSchedtunePreferIdle(group: String, preferIdle: Boolean, con
         }
         current.copy(schedulerInfo = updated)
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setSchedtunePreferIdle(group, preferIdle, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
-            _uiState.update { it.copy(schedulerInfo = fresh) }
+            LynxSchedulerInfoRepository.updateCache { cur ->
+                when (group.lowercase()) {
+                    "top-app", "topapp" -> cur.copy(topAppPreferIdle = preferIdle, activePreset = "custom")
+                    "foreground", "fg" -> cur.copy(fgPreferIdle = preferIdle, activePreset = "custom")
+                    "background", "bg" -> cur.copy(bgPreferIdle = preferIdle, activePreset = "custom")
+                    else -> cur
+                }
+            }
         }
     }
 }
@@ -358,11 +398,17 @@ fun LynxViewModel.setSchedulerHint(hintKey: String, enabled: Boolean, context: C
         }
         current.copy(schedulerInfo = updated)
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setSchedulerHint(hintKey, enabled, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
-            _uiState.update { it.copy(schedulerInfo = fresh) }
+            LynxSchedulerInfoRepository.updateCache { cur ->
+                when (hintKey) {
+                    "sched_big_task_rotation" -> cur.copy(schedBigTaskRotation = enabled)
+                    "sched_sync_hint_enable" -> cur.copy(schedSyncHintEnable = enabled)
+                    "sched_cstate_aware" -> cur.copy(schedCstateAware = enabled)
+                    else -> cur
+                }
+            }
         }
     }
 }
@@ -376,13 +422,12 @@ fun LynxViewModel.setWorkqueuePowerEfficient(enabled: Boolean, context: Context?
             isCpuModified = true
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setWorkqueuePowerEfficient(enabled, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
+            LynxSchedulerInfoRepository.updateCache { it.copy(workqueuePowerEfficient = enabled) }
             _uiState.update {
                 it.copy(
-                    schedulerInfo = fresh,
                     successMessage = "Power-Efficient Workqueue ${if (enabled) "diaktifkan (Hemat Daya)" else "dinonaktifkan (Latensi Rendah)"}"
                 )
             }
@@ -412,11 +457,19 @@ fun LynxViewModel.setPpmPolicy(policyIdx: Int, enabled: Boolean, context: Contex
         }
         current.copy(schedulerInfo = updated, isCpuModified = true)
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setPpmPolicy(policyIdx, enabled, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
-            _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Kebijakan PPM diperbarui") }
+            LynxSchedulerInfoRepository.updateCache { cur ->
+                when (policyIdx) {
+                    0 -> cur.copy(ppmPwrThrottlingEnabled = enabled)
+                    1 -> cur.copy(ppmThermalThrottlingEnabled = enabled)
+                    2 -> cur.copy(ppmSysBoostEnabled = enabled)
+                    4 -> cur.copy(ppmDlptBypassEnabled = enabled)
+                    else -> cur
+                }
+            }
+            _uiState.update { it.copy(successMessage = "Kebijakan PPM diperbarui") }
         } else {
             _uiState.update { it.copy(errorMessage = "Gagal mengubah kebijakan PPM") }
         }
@@ -435,11 +488,13 @@ fun LynxViewModel.setQcomTouchboost(enabled: Boolean, context: Context? = null) 
             isCpuModified = true
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setQcomTouchboost(enabled, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
-            _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Qualcomm Touchboost ${if (enabled) "diaktifkan" else "dinonaktifkan"}") }
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(qcomTouchboostEnabled = enabled, universalTouchBoostEnabled = enabled)
+            }
+            _uiState.update { it.copy(successMessage = "Qualcomm Touchboost ${if (enabled) "diaktifkan" else "dinonaktifkan"}") }
         } else {
             _uiState.update { it.copy(errorMessage = "Gagal mengubah status Touchboost") }
         }
@@ -448,11 +503,22 @@ fun LynxViewModel.setQcomTouchboost(enabled: Boolean, context: Context? = null) 
 
 fun LynxViewModel.setQcomInputBoost(freq: Long, durationMs: Int, context: Context? = null) {
     recordStateMutation(com.noir.lynx.profiles.ProfileDomain.CPU)
-    viewModelScope.launch {
+    _uiState.update { current ->
+        current.copy(
+            schedulerInfo = current.schedulerInfo.copy(
+                qcomInputBoostFreq = freq,
+                qcomInputBoostMs = durationMs
+            ),
+            isCpuModified = true
+        )
+    }
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setQcomInputBoost(freq, durationMs, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
-            _uiState.update { it.copy(schedulerInfo = fresh, successMessage = "Qualcomm Input Boost diperbarui") }
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(qcomInputBoostFreq = freq, qcomInputBoostMs = durationMs)
+            }
+            _uiState.update { it.copy(successMessage = "Qualcomm Input Boost diperbarui") }
         }
     }
 }
@@ -469,13 +535,14 @@ fun LynxViewModel.setMtkInterconnectBusBoost(enabled: Boolean, context: Context?
             isCpuModified = true
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setMtkInterconnectBusBoost(enabled, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(mtkCciPerfMode = enabled, mtkDvfsrcBoostEnabled = enabled)
+            }
             _uiState.update {
                 it.copy(
-                    schedulerInfo = fresh,
                     successMessage = "Akselerasi Bus CCI & Memori DDR ${if (enabled) "diaktifkan" else "dinonaktifkan"}"
                 )
             }
@@ -499,10 +566,12 @@ fun LynxViewModel.setMtkCpuPowerMode(mode: Int, context: Context? = null) {
             isCpuModified = true
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setMtkCpuPowerMode(safeMode, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(mtkCpuPowerMode = safeMode)
+            }
             val label = when (safeMode) {
                 1 -> "Hemat [1]"
                 3 -> "Performa [3]"
@@ -510,7 +579,6 @@ fun LynxViewModel.setMtkCpuPowerMode(mode: Int, context: Context? = null) {
             }
             _uiState.update {
                 it.copy(
-                    schedulerInfo = fresh,
                     successMessage = "Mode Daya DVFS Silikon diatur ke $label"
                 )
             }
@@ -529,13 +597,14 @@ fun LynxViewModel.setMtkDlptImaxBypass(enabled: Boolean, context: Context? = nul
             isCpuModified = true
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setMtkDlptImaxBypass(enabled, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(ppmDlptBypassEnabled = enabled)
+            }
             _uiState.update {
                 it.copy(
-                    schedulerInfo = fresh,
                     successMessage = "Bypass Limit Arus Puncak (DLPT & Imax) ${if (enabled) "diaktifkan" else "dinonaktifkan"}"
                 )
             }
@@ -554,13 +623,14 @@ fun LynxViewModel.setQcomDevfreqBusBoost(enabled: Boolean, context: Context? = n
             isCpuModified = true
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setQcomDevfreqBusBoost(enabled, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(qcomDevfreqBusBoostEnabled = enabled)
+            }
             _uiState.update {
                 it.copy(
-                    schedulerInfo = fresh,
                     successMessage = "Akselerasi Bus Memori & Cache L3 (Devfreq) ${if (enabled) "diaktifkan" else "dinonaktifkan"}"
                 )
             }
@@ -590,10 +660,17 @@ fun LynxViewModel.setUniversalBusBandwidthProfile(profile: String, context: Cont
             isCpuModified = true
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setUniversalBusBandwidthProfile(safeProfile, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(
+                    busBandwidthProfile = safeProfile,
+                    mtkCciPerfMode = isBoost,
+                    mtkDvfsrcBoostEnabled = isBoost,
+                    qcomDevfreqBusBoostEnabled = isBoost
+                )
+            }
             val label = when (safeProfile) {
                 "eco" -> "Efisien"
                 "balanced" -> "Seimbang"
@@ -602,7 +679,6 @@ fun LynxViewModel.setUniversalBusBandwidthProfile(profile: String, context: Cont
             }
             _uiState.update {
                 it.copy(
-                    schedulerInfo = fresh,
                     successMessage = "Frekuensi Bus Memori & Interkoneksi diatur ke $label"
                 )
             }
@@ -624,13 +700,14 @@ fun LynxViewModel.setUniversalTouchBoost(enabled: Boolean, context: Context? = n
             isCpuModified = true
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setUniversalTouchBoost(enabled, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(universalTouchBoostEnabled = enabled, qcomTouchboostEnabled = enabled)
+            }
             _uiState.update {
                 it.copy(
-                    schedulerInfo = fresh,
                     successMessage = "Akselerasi Respons Sentuhan ${if (enabled) "diaktifkan" else "dinonaktifkan"}"
                 )
             }
@@ -654,13 +731,19 @@ fun LynxViewModel.setUniversalAntiThrottlingGuard(enabled: Boolean, context: Con
             isCpuModified = true
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setUniversalAntiThrottlingGuard(enabled, context)
         if (ok) {
-            val fresh = safeReadSchedulerInfo(context)
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(
+                    antiThrottlingGuardEnabled = enabled,
+                    ppmDlptBypassEnabled = enabled,
+                    ppmPwrThrottlingEnabled = !enabled,
+                    ppmSysBoostEnabled = enabled
+                )
+            }
             _uiState.update {
                 it.copy(
-                    schedulerInfo = fresh,
                     successMessage = "Pertahankan Plafon Clock Puncak ${if (enabled) "diaktifkan" else "dinonaktifkan"}"
                 )
             }

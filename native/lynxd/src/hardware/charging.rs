@@ -513,7 +513,7 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower.contains("bcct") || t_lower.contains("abcct") {
+                        if t_lower.contains("bcct") || t_lower.contains("abcct") || t_lower.contains("battery") {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             Self::set_perm(&cur_path, 0o666);
                             let _ = fs::write(&cur_path, "0");
@@ -784,77 +784,125 @@ impl ChargingRegulator {
         let _ = fs::write("/dev/lynx_bypass_active", "1");
         Self::unlock_extreme_nodes();
 
-        // 1. MediaTek Platform Hardware Zero Cutoff (Vsys powered, battery decoupled)
-        Self::set_bcct_throttle(true);
-        Self::write_node_lock("/sys/devices/platform/charger/pdc_max_watt", "0");
-        Self::write_node("/sys/devices/platform/charger/pe20", "0");
-        Self::write_node("/sys/devices/platform/charger/pe40", "0");
-        Self::write_node_lock(&format!("{}/input_current", MTK_DIR), "0");
-        Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), "0");
-        Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), "0");
-        Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
-        Self::write_node_lock(&format!("{}/enable_sc", MTK_DIR), "0");
-        Self::write_node_lock(&format!("{}/tran_charger_full", MTK_DIR), "1");
-        Self::write_node("/sys/devices/platform/charger/bypass_charger", "1");
+        let is_qcom = Self::is_qualcomm_soc();
+        let is_single_path_qcom = is_qcom && Self::detect_hw_bypass_node().is_none();
 
-        // Transsion 33W+ Direct Pump Suspend & CallState Clamp
-        Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "1");
-        Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "1");
-        // 2. Universal Linux & Android Charge Rails Zero Cutoff
-        for node in [
-            format!("{}/constant_charge_current", BATT_DIR),
-            format!("{}/constant_charge_current_max", BATT_DIR),
-            format!("{}/current_max", BATT_DIR),
-            format!("{}/input_current_limit", BATT_DIR),
-        ] {
-            Self::write_node_lock(&node, "0");
+        // 1. MediaTek Platform Hardware Zero Cutoff (Vsys powered, battery decoupled)
+        if !is_qcom {
+            Self::set_bcct_throttle(true);
+            Self::write_node_lock("/sys/devices/platform/charger/pdc_max_watt", "0");
+            Self::write_node("/sys/devices/platform/charger/pe20", "0");
+            Self::write_node("/sys/devices/platform/charger/pe40", "0");
+            Self::write_node_lock(&format!("{}/input_current", MTK_DIR), "0");
+            Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), "0");
+            Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), "0");
+            Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
+            Self::write_node_lock(&format!("{}/enable_sc", MTK_DIR), "0");
+            Self::write_node_lock(&format!("{}/tran_charger_full", MTK_DIR), "1");
+            Self::write_node("/sys/devices/platform/charger/bypass_charger", "1");
+
+            // Transsion 33W+ Direct Pump Suspend & CallState Clamp
+            Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "1");
+            Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "1");
         }
 
-        Self::write_node_lock(&format!("{}/charge_control_limit_max", BATT_DIR), "1");
-        Self::write_node_lock(&format!("{}/charge_control_limit", BATT_DIR), "0");
-        Self::write_node_lock(&format!("{}/charging_enabled", BATT_DIR), "0");
+        // 2. Universal Linux & Android Charge Rails Zero Cutoff or Trickle Float
+        if is_single_path_qcom {
+            // Trickle Maintenance Float Mode:
+            // Single-path Qualcomm PMICs (e.g. PM660) share input FET with battery charging path.
+            // Cutting charging_enabled or restrict_cur to 0 drops VBUS entirely, causing flapping!
+            // Instead, float battery at minimal current (100mA) and provide 1500mA input rail for Vsys:
+            for node in [
+                format!("{}/constant_charge_current", BATT_DIR),
+                format!("{}/constant_charge_current_max", BATT_DIR),
+                format!("{}/current_max", BATT_DIR),
+            ] {
+                Self::write_node(&node, "100000");
+            }
+            Self::write_node(&format!("{}/input_current_limit", BATT_DIR), "1500000");
+            Self::write_node(&format!("{}/current_max", USB_DIR), "1500000");
+            Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+            Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
 
-        // Universal Android Store/Demo Mode
-        Self::write_node(&format!("{}/device/smart_charging", BATT_DIR), "1");
-        Self::write_node(&format!("{}/charging_limit_mode", BATT_DIR), "1");
-        Self::write_node(&format!("{}/smart_charging_activation", BATT_DIR), "1");
-        Self::write_node(&format!("{}/store_mode", BATT_DIR), "1");
-        Self::write_node(&format!("{}/batt_slate_mode", BATT_DIR), "1");
-        Self::write_node_lock(&format!("{}/siop_level", BATT_DIR), "100");
-        Self::write_node_lock(&format!("{}/cool_mode", BATT_DIR), "0");
-        Self::write_node_lock(&format!("{}/call_mode", BATT_DIR), "0");
-        Self::write_node(&format!("{}/bd_trickle_dry_run", BATT_DIR), "1");
+            // Qualcomm Snapdragon Restrict Current
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), "100");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "1");
+            Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "1500000");
+        } else {
+            for node in [
+                format!("{}/constant_charge_current", BATT_DIR),
+                format!("{}/constant_charge_current_max", BATT_DIR),
+                format!("{}/current_max", BATT_DIR),
+                format!("{}/input_current_limit", BATT_DIR),
+            ] {
+                Self::write_node_lock(&node, "0");
+            }
 
-        let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(80);
-        let cap_str = cur_cap.to_string();
-        Self::write_node(&format!("{}/charge_stop_level", BATT_DIR), &cap_str);
-        Self::write_node("/sys/devices/platform/google,battery/charge_stop_level", &cap_str);
-        Self::write_node("/sys/devices/platform/google,charger/charge_stop_level", &cap_str);
+            Self::write_node_lock(&format!("{}/charge_control_limit_max", BATT_DIR), "1");
+            Self::write_node_lock(&format!("{}/charge_control_limit", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/charging_enabled", BATT_DIR), "0");
 
-        // 3. Qualcomm Snapdragon Zero Cutoff
-        Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), "0");
-        Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "1");
-        Self::write_node_lock(&format!("{}/direct_charging", QC_DIR), "0");
-        Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "0");
+            // Universal Android Store/Demo Mode
+            Self::write_node(&format!("{}/device/smart_charging", BATT_DIR), "1");
+            Self::write_node(&format!("{}/charging_limit_mode", BATT_DIR), "1");
+            Self::write_node(&format!("{}/smart_charging_activation", BATT_DIR), "1");
+            Self::write_node(&format!("{}/store_mode", BATT_DIR), "1");
+            Self::write_node(&format!("{}/batt_slate_mode", BATT_DIR), "1");
+            Self::write_node_lock(&format!("{}/siop_level", BATT_DIR), "100");
+            Self::write_node_lock(&format!("{}/cool_mode", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/call_mode", BATT_DIR), "0");
+            Self::write_node(&format!("{}/bd_trickle_dry_run", BATT_DIR), "1");
 
-        if let Some(byp_node) = Self::detect_hw_bypass_node() {
-            Self::write_node(byp_node, "1");
+            let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(80);
+            let cap_str = cur_cap.to_string();
+            Self::write_node(&format!("{}/charge_stop_level", BATT_DIR), &cap_str);
+            Self::write_node("/sys/devices/platform/google,battery/charge_stop_level", &cap_str);
+            Self::write_node("/sys/devices/platform/google,charger/charge_stop_level", &cap_str);
+
+            // 3. Qualcomm Snapdragon Zero Cutoff
+            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "1");
+            Self::write_node_lock(&format!("{}/direct_charging", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "0");
+
+            if let Some(byp_node) = Self::detect_hw_bypass_node() {
+                Self::write_node(byp_node, "1");
+            }
         }
 
         // 4. Dynamic Sysfs Charger Topology Zero Cutoff
         for node in Self::crawl_dynamic_power_supply_nodes() {
             let leaf = Path::new(&node).file_name().and_then(|n| n.to_str()).unwrap_or("");
-            match leaf {
-                "constant_charge_current" | "constant_charge_current_max" | "current_max" | "input_current_limit" => {
-                    Self::write_node_lock(&node, "0");
+            if is_single_path_qcom {
+                match leaf {
+                    "constant_charge_current" | "constant_charge_current_max" | "current_max" => {
+                        Self::write_node(&node, "100000");
+                    }
+                    "input_current_limit" => {
+                        Self::write_node(&node, "1500000");
+                    }
+                    "charging_enabled" => {
+                        Self::write_node(&node, "1");
+                    }
+                    "input_suspend" => {
+                        Self::write_node(&node, "0");
+                    }
+                    _ => {}
                 }
-                "charge_control_limit" => {
-                    Self::write_node_lock(&node, "0");
+            } else {
+                match leaf {
+                    "constant_charge_current" | "constant_charge_current_max" | "current_max" | "input_current_limit" => {
+                        Self::write_node_lock(&node, "0");
+                    }
+                    "charge_control_limit" => {
+                        Self::write_node_lock(&node, "0");
+                    }
+                    "charging_enabled" => {
+                        Self::write_node_lock(&node, "0");
+                    }
+                    _ => {}
                 }
-                "charging_enabled" => {
-                    Self::write_node_lock(&node, "0");
-                }
-                _ => {}
             }
         }
 
@@ -921,14 +969,20 @@ impl ChargingRegulator {
         let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
         let v_clean_mv = if volt_raw.abs() >= 10_000 { volt_raw.abs() / 1000 } else { volt_raw.abs() } as u32;
 
-        let (platform, _, _) = Self::detect_charging_platform();
-        let is_qcom = platform == ChargingHardwarePlatform::QualcommGeneric;
+        let (_platform, _, _) = Self::detect_charging_platform();
+        let is_qcom = Self::is_qualcomm_soc();
 
         let hw_ceiling = Self::probe_hardware_ceiling_ma();
         let target_peak_ma = if is_qcom && !Path::new("/sys/class/power_supply/smb1390").exists() && !Path::new("/sys/class/power_supply/charge_pump").exists() {
-            // Qualcomm single-cell without dual charge pump (e.g. Sony PM8150B):
-            // bound to hardware capability (max 3500-4500mA) to protect battery health and prevent PMIC overheat fault
-            requested_ma.min(hw_ceiling).min(4500)
+            // Qualcomm single-cell without dual charge pump (e.g. SDM660 PM660, SD845, SM8150 single):
+            // Target peak current: 3000mA - 3500mA (QC3.0 18W max physical ceiling)
+            if requested_ma >= 3500 {
+                3500
+            } else if requested_ma >= 3000 {
+                requested_ma.min(3500)
+            } else {
+                3500
+            }
         } else if requested_ma >= 2000 {
             requested_ma.max(hw_ceiling)
         } else {
@@ -1017,9 +1071,8 @@ impl ChargingRegulator {
         // 3. Universal Linux & Qualcomm Uncaps (Ugreen / Anker PD PPS 5A uncap)
         let usb_current_cap_ua = if is_qcom {
             // Qualcomm USB-PD contract bounds:
-            // Do NOT force 5A on a 3A charger contract (causes trigger_tx_msg timeout & Hard Reset).
-            // Cap to effective_ma (max 3000mA for standard single-cell Type-C PHY) in uA:
-            (effective_ma.min(3000) as u64 * 1000).to_string()
+            // Cap to 3000mA for standard single-cell Type-C PHY in uA:
+            "3000000".to_string()
         } else if effective_ma > 5000 {
             effective_ua_str.clone()
         } else {
@@ -1031,11 +1084,15 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
             Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
             Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-            Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &effective_ua_str);
+            Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &usb_current_cap_ua);
 
             Self::write_node(&format!("{}/direct_charging", QC_DIR), "1");
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
             Self::write_node(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
         } else {
             Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
             Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
@@ -1056,7 +1113,22 @@ impl ChargingRegulator {
             }
             let leaf = Path::new(&node).file_name().and_then(|n| n.to_str()).unwrap_or("");
             match leaf {
-                "constant_charge_current_max" | "constant_charge_current" | "current_max" | "input_current_limit" | "hw_current_max" => {
+                "constant_charge_current_max" | "constant_charge_current" | "current_max" => {
+                    if is_qcom {
+                        Self::write_node(&node, &effective_ua_str);
+                    } else {
+                        Self::write_node_lock(&node, &effective_ua_str);
+                    }
+                }
+                "input_current_limit" | "hw_current_max" => {
+                    let in_limit = if is_qcom { &usb_current_cap_ua } else { &effective_ua_str };
+                    if is_qcom {
+                        Self::write_node(&node, in_limit);
+                    } else {
+                        Self::write_node_lock(&node, in_limit);
+                    }
+                }
+                "charge_control_limit" => {
                     if is_qcom {
                         Self::write_node(&node, &effective_ua_str);
                     } else {
@@ -1113,10 +1185,9 @@ impl ChargingRegulator {
     /// Momentarily toggles input charging FET or kicks Pump_Express / rerun_aicl
     /// to reset PMIC Type-C / BC1.2 state machine without physical cable replugging.
     pub fn trigger_charger_soft_reconnect() {
-        let (platform, _, _) = Self::detect_charging_platform();
-        if platform == ChargingHardwarePlatform::QualcommGeneric {
-            // NEVER pulse input_suspend or kick AICL blindly on Qualcomm:
-            // USB-PD Type-C PHY handles negotiation in hardware, and pulsing input_suspend drops the PD contract!
+        if Self::is_qualcomm_soc() {
+            // NEVER pulse input_suspend or kick AICL on Qualcomm:
+            // USB-PD / QC HVDCP Type-C PHY handles negotiation in hardware, and pulsing input_suspend drops the contract!
             return;
         }
 
@@ -1448,6 +1519,15 @@ impl ChargingRegulator {
                             }
                         }
                     }
+                } else if name_str.starts_with("cooling_device") {
+                    let type_path = format!("/sys/class/thermal/{}/type", name_str);
+                    if let Ok(t) = fs::read_to_string(&type_path) {
+                        let t_lower = t.trim().to_lowercase();
+                        if t_lower.contains("battery") || t_lower.contains("bcct") || t_lower.contains("abcct") {
+                            let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
+                            Self::write_node_lock(&cur_path, "0");
+                        }
+                    }
                 }
             }
         }
@@ -1458,11 +1538,13 @@ impl ChargingRegulator {
         Self::write_node_lock(&format!("{}/temp_state", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
 
-        // 8. Suspend aggressive userspace thermal throttlers via SIGSTOP (Transsion/Xiaomi/etc.)
-        // Qualcomm generic uses thermal-engine for android.hardware.thermal@1.0-service HIDL, do NOT freeze!
-        let (platform, _, _) = Self::detect_charging_platform();
-        if platform != ChargingHardwarePlatform::QualcommGeneric {
+        // 8. Suspend aggressive userspace thermal throttlers via SIGSTOP (Transsion/MTK/etc.)
+        // On Qualcomm Snapdragon, thermal-engine communicates via IPC sockets with Android Thermal HAL.
+        // Freezing thermal-engine causes IPC deadlock and thermal service failure!
+        if !Self::is_qualcomm_soc() {
             Self::signal_processes(Self::THERMAL_PROCESS_NAMES, true);
+        } else {
+            Self::signal_processes(&["thermal-engine", "thermal-engine-v2"], false);
         }
 
         // 9. Override Android framework thermal status to 0 (THERMAL_STATUS_NONE)
@@ -1993,13 +2075,14 @@ impl ChargingRegulator {
     }
 
     pub fn is_hardware_plugged() -> bool {
-        // Vector 1: Primary check - Online power supply rails across USB, AC, Charger, MAIN
+        // Vector 1: Primary check - Online power supply rails across USB, AC, Charger, MAIN, DC
         let usb_online = Self::read_node(&format!("{}/online", USB_DIR)).unwrap_or_default();
         let ac_online = Self::read_node(&format!("{}/ac/online", PS_DIR)).unwrap_or_default();
         let chg_online = Self::read_node(&format!("{}/charger/online", PS_DIR)).unwrap_or_default();
         let main_online = Self::read_node(&format!("{}/online", MAIN_DIR)).unwrap_or_default();
+        let dc_online = Self::read_node(&format!("{}/dc/online", PS_DIR)).unwrap_or_default();
 
-        let has_online_rail = usb_online == "1" || ac_online == "1" || chg_online == "1" || main_online == "1";
+        let has_online_rail = usb_online == "1" || ac_online == "1" || chg_online == "1" || main_online == "1" || dc_online == "1";
 
         // Vector 2: Battery status
         let batt_status = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_default();
@@ -2148,6 +2231,45 @@ impl ChargingRegulator {
         (brand, mfg)
     }
 
+    /// Checks whether the underlying physical hardware is a Qualcomm Snapdragon SoC.
+    pub fn is_qualcomm_soc() -> bool {
+        if let Ok(compat) = fs::read_to_string("/sys/firmware/devicetree/base/compatible")
+            .or_else(|_| fs::read_to_string("/proc/device-tree/compatible"))
+        {
+            let lower = compat.to_lowercase();
+            if lower.contains("qcom") || lower.contains("qualcomm") {
+                return true;
+            }
+        }
+        Path::new("/sys/class/qcom-battery").exists()
+            || Path::new("/sys/class/power_supply/bms").exists()
+            || Path::new("/sys/devices/soc0").exists()
+            || Path::new("/sys/class/kgsl").exists()
+            || Path::new("/dev/kgsl-3d0").exists()
+            || Path::new("/sys/bus/platform/drivers/qcom,qpnp-smb2").exists()
+            || Path::new("/sys/bus/platform/drivers/pm8150b_charger").exists()
+            || Path::new("/sys/bus/platform/drivers/pm660_charger").exists()
+            || Path::new("/sys/bus/platform/drivers/qpnp-pdphy").exists()
+    }
+
+    /// Checks whether the underlying physical hardware is a MediaTek SoC.
+    pub fn is_mediatek_soc() -> bool {
+        if let Ok(compat) = fs::read_to_string("/sys/firmware/devicetree/base/compatible")
+            .or_else(|_| fs::read_to_string("/proc/device-tree/compatible"))
+        {
+            let lower = compat.to_lowercase();
+            if lower.contains("mediatek") || lower.contains("mtk") {
+                return true;
+            }
+        }
+        Path::new("/sys/devices/platform/charger").exists()
+            || Path::new("/sys/devices/platform/mt_charger").exists()
+            || Path::new("/proc/ppm").exists()
+            || Path::new("/proc/ged").exists()
+            || Path::new("/dev/ged").exists()
+            || Path::new("/dev/mali0").exists()
+    }
+
     /// Ground Truth Hardware Platform Detection (Immune to User-Space Props Spoofing).
     ///
     /// Spoofing modules (Game Unlocker, Play Integrity Fix, MagiskHide Props Config,
@@ -2167,6 +2289,8 @@ impl ChargingRegulator {
             || Path::new("/sys/bus/i2c/drivers/rt9759").exists()
             || Path::new("/sys/devices/platform/charger/BN_TestMode").exists();
 
+        let has_qcom_hw = Self::is_qualcomm_soc();
+
         let has_xiaomi_hw = Path::new("/sys/class/power_supply/battery/fastcharge_mode").exists()
             || Path::new("/sys/class/thermal/thermal_message").exists()
             || Path::new("/sys/class/power_supply/battery/turbo_power").exists()
@@ -2185,17 +2309,10 @@ impl ChargingRegulator {
             || Path::new("/sys/devices/platform/google,charger").exists()
             || Path::new("/sys/bus/i2c/drivers/max77759").exists();
 
-        let has_qcom_hw = Path::new("/sys/class/qcom-battery").exists()
-            || Path::new("/sys/class/power_supply/bms").exists()
-            || Path::new("/sys/class/power_supply/smb1390").exists()
-            || Path::new("/sys/class/power_supply/smb1355").exists()
-            || Path::new("/sys/class/power_supply/smb1351").exists()
-            || Path::new("/sys/devices/soc0").exists()
-            || Path::new("/sys/class/kgsl").exists()
-            || Path::new("/sys/bus/platform/drivers/pm8150b_charger").exists();
-
         let platform = if has_tran_hw {
             ChargingHardwarePlatform::Transsion
+        } else if has_qcom_hw {
+            ChargingHardwarePlatform::QualcommGeneric
         } else if has_xiaomi_hw {
             ChargingHardwarePlatform::Xiaomi
         } else if has_oplus_hw {
@@ -2204,8 +2321,6 @@ impl ChargingRegulator {
             ChargingHardwarePlatform::Samsung
         } else if has_pixel_hw {
             ChargingHardwarePlatform::GooglePixel
-        } else if has_qcom_hw {
-            ChargingHardwarePlatform::QualcommGeneric
         } else {
             // Tier 2: System Properties Fallback
             if brand.contains("INFINIX") || brand.contains("TECNO") || brand.contains("ITEL")
@@ -2270,9 +2385,9 @@ impl ChargingRegulator {
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
 
         let (platform, _, _) = Self::detect_charging_platform();
-        let is_pe_platform = platform == ChargingHardwarePlatform::Transsion
+        let is_pe_platform = !Self::is_qualcomm_soc() && (platform == ChargingHardwarePlatform::Transsion
             || Path::new(MTK_DIR).exists()
-            || Path::new("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger").exists();
+            || Path::new("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger").exists());
         let reconnect_already_done = Path::new("/dev/lynx_soft_reconnect_done").exists();
 
         if is_hyper && is_pe_platform && !reconnect_already_done && cur_cap < 80 {

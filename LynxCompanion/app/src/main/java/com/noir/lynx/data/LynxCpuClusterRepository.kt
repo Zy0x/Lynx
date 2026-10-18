@@ -1,4 +1,5 @@
 package com.noir.lynx.data
+import java.io.File
 import android.content.Context
 import android.util.Log
 import com.topjohnwu.superuser.Shell
@@ -42,13 +43,77 @@ internal object LynxCpuClusterRepository {
         } catch (_: Exception) {}
     }
 
+    private var cachedTopology: List<CpuClusterInfo>? = null
+
     /**
      * Discover dynamic CPU cluster topology.
      * Works both with module and standalone root.
      */
     suspend fun readClusters(): List<CpuClusterInfo> = withContext(Dispatchers.IO) {
         try {
-            val moduleClusters = if (LynxRepository.isModuleInstalled()) {
+            // Tier 0: Direct Kotlin Sysfs Read (<0.2ms, zero root shell execution)
+            val directList = runCatching {
+                val cpufreqDir = File("/sys/devices/system/cpu/cpufreq")
+                if (cpufreqDir.isDirectory && cpufreqDir.canRead()) {
+                    val pDirs = cpufreqDir.listFiles()?.filter { it.isDirectory && it.name.startsWith("policy") }?.sortedBy { it.name }
+                    if (!pDirs.isNullOrEmpty()) {
+                        val list = mutableListOf<CpuClusterInfo>()
+                        val totalClusters = pDirs.size
+                        for ((idx, pDir) in pDirs.withIndex()) {
+                            val id = pDir.name.removePrefix("policy").toIntOrNull() ?: idx
+                            val cpus = runCatching {
+                                val affFile = File(pDir, "related_cpus")
+                                if (affFile.canRead()) affFile.readText().trim() else File(pDir, "affected_cpus").readText().trim()
+                            }.getOrDefault("$id")
+                            val min = runCatching { File(pDir, "scaling_min_freq").readText().trim().toLongOrNull() }.getOrNull() ?: 0L
+                            val max = runCatching { File(pDir, "scaling_max_freq").readText().trim().toLongOrNull() }.getOrNull() ?: 0L
+                            val gov = runCatching { File(pDir, "scaling_governor").readText().trim() }.getOrDefault("schedutil")
+
+                            val cached = cachedTopology?.find { it.id == id }
+                            val freqs = cached?.availFreqs?.ifEmpty { null } ?: runCatching {
+                                File(pDir, "scaling_available_frequencies").readText().trim().split(Regex("\\s+")).mapNotNull { it.toLongOrNull() }.sorted()
+                            }.getOrDefault(emptyList())
+
+                            val govs = cached?.availGovs?.ifEmpty { null } ?: runCatching {
+                                File(pDir, "scaling_available_governors").readText().trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                            }.getOrDefault(emptyList())
+
+                            val maxFile = File(pDir, "scaling_max_freq")
+                            val isLocked = !maxFile.canWrite()
+
+                            val dynamicRole = when {
+                                totalClusters <= 1 -> "Kluster Utama"
+                                totalClusters == 2 -> if (idx == 0) "Efisiensi Little" else "Performa Big"
+                                else -> when (idx) {
+                                    0 -> "Efisiensi Little"
+                                    totalClusters - 1 -> "Prime Super"
+                                    else -> "Performa Mid"
+                                }
+                            }
+
+                            list.add(
+                                CpuClusterInfo(
+                                    id = id,
+                                    role = dynamicRole,
+                                    cpus = cpus,
+                                    curMin = min,
+                                    curMax = max,
+                                    curGov = gov,
+                                    availFreqs = freqs,
+                                    availGovs = govs,
+                                    isLocked = isLocked
+                                )
+                            )
+                        }
+                        if (list.isNotEmpty()) {
+                            cachedTopology = list
+                            list
+                        } else null
+                    } else null
+                } else null
+            }.getOrNull()
+
+            val moduleClusters = if (directList == null && LynxRepository.isModuleInstalled()) {
                 try {
                     val cmd = "'$LYNXD_PATH' cluster topology 2>/dev/null"
                     val result = Shell.cmd(cmd).exec()
@@ -97,7 +162,9 @@ internal object LynxCpuClusterRepository {
                 }
             } else null
 
-            val rawList = if (moduleClusters != null && moduleClusters.isNotEmpty()) {
+            val rawList = if (directList != null && directList.isNotEmpty()) {
+                directList
+            } else if (moduleClusters != null && moduleClusters.isNotEmpty()) {
                 moduleClusters
             } else {
                 val script = """
@@ -214,7 +281,14 @@ internal object LynxCpuClusterRepository {
      */
     suspend fun setClusterFreq(policyId: Int, minFreq: Long?, maxFreq: Long?): Boolean = withContext(Dispatchers.IO) {
         try {
-            // Safety Bounds Regulation: clamp to kernel cpuinfo limits
+            // Tier 0 Fast-Path: lynxd native engine (<2ms, verified safe in Rust)
+            if (LynxRepository.isModuleInstalled()) {
+                val cmd = "'$LYNXD_PATH' cluster set-freq $policyId '${minFreq ?: 0}' '${maxFreq ?: 0}'"
+                val res = Shell.cmd(cmd).exec()
+                if (res.isSuccess) return@withContext true
+            }
+
+            // Standalone Fallback: Safety Bounds Regulation & Direct Sysfs Write
             val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
             val minNode = "$pDir/cpuinfo_min_freq"
             val maxNode = "$pDir/cpuinfo_max_freq"
@@ -375,7 +449,14 @@ internal object LynxCpuClusterRepository {
      */
     suspend fun setClusterGov(policyId: Int, gov: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            // Safety Regulation: Only apply if governor is in scaling_available_governors
+            // Tier 0 Fast-Path: lynxd native governor setter (<2ms)
+            if (LynxRepository.isModuleInstalled()) {
+                val cmd = "'$LYNXD_PATH' cluster set-gov $policyId '$gov'"
+                val res = Shell.cmd(cmd).exec()
+                if (res.isSuccess) return@withContext true
+            }
+
+            // Standalone Fallback: Safety Regulation: Only apply if governor is in scaling_available_governors
             val availGovs = Shell.cmd("cat /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_available_governors 2>/dev/null").exec().out.firstOrNull() ?: ""
             if (availGovs.isNotBlank() && !availGovs.contains(gov)) {
                 Log.w("LynxRepository", "Governor '$gov' is not in available governors ($availGovs), aborting for safety")

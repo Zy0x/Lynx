@@ -214,6 +214,48 @@ internal object LynxThermalControlRepository {
 
     suspend fun readThermalZones(): List<ThermalZoneInfo> = withContext(Dispatchers.IO) {
         try {
+            // Tier 0: Direct Kotlin Sysfs Read (<0.5ms, zero root shell execution)
+            val thermalDir = File("/sys/class/thermal")
+            if (thermalDir.isDirectory && thermalDir.canRead()) {
+                val tzDirs = thermalDir.listFiles { f -> f.isDirectory && f.name.startsWith("thermal_zone") }
+                if (!tzDirs.isNullOrEmpty()) {
+                    val list = mutableListOf<ThermalZoneInfo>()
+                    for (tz in tzDirs) {
+                        val idStr = tz.name.removePrefix("thermal_zone")
+                        val id = idStr.toIntOrNull() ?: continue
+                        val type = runCatching { File(tz, "type").readText().trim() }.getOrNull() ?: continue
+                        val rawTemp = runCatching { File(tz, "temp").readText().trim().toFloatOrNull() }.getOrNull() ?: continue
+                        val tempC = if (rawTemp > 1000f) rawTemp / 1000f else rawTemp
+                        if (tempC !in 10f..120f) continue
+
+                        val mode = runCatching { File(tz, "mode").readText().trim() }.getOrDefault("enabled")
+                        val policy = runCatching { File(tz, "policy").readText().trim() }.getOrDefault("step_wise")
+                        val modeWritable = File(tz, "mode").canWrite()
+                        val tripFiles = tz.listFiles { f -> f.isFile && f.name.startsWith("trip_point_") && f.name.endsWith("_temp") }
+                        val tpTot = tripFiles?.size ?: 0
+                        val tpW = tripFiles?.count { it.canWrite() } ?: 0
+                        val isW = modeWritable || tpW > 0
+
+                        list.add(
+                            ThermalZoneInfo(
+                                id = id,
+                                type = type,
+                                tempC = tempC,
+                                isWritable = isW,
+                                tripPointsCount = tpTot,
+                                writableTripPointsCount = tpW,
+                                mode = mode,
+                                policy = policy
+                            )
+                        )
+                    }
+                    if (list.isNotEmpty()) {
+                        return@withContext list.sortedBy { it.type }
+                    }
+                }
+            }
+
+            // Tier 1: Fallback Shell Script (Only if direct file read returns empty)
             val script = """
                 for tz in /sys/class/thermal/thermal_zone*; do
                     [ -d "${'$'}tz" ] || continue

@@ -6,8 +6,84 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 internal object LynxCpuIdleRepository {
-    suspend fun readCpuIdleInfo(context: Context? = null): CpuIdleInfo = withContext(Dispatchers.IO) {
+    private var cachedCpuIdle: CpuIdleInfo? = null
+
+    fun updateCache(transform: (CpuIdleInfo) -> CpuIdleInfo) {
+        val cur = cachedCpuIdle ?: CpuIdleInfo()
+        cachedCpuIdle = transform(cur)
+    }
+
+    private fun readCpuIdleInfoDirect(context: Context?): CpuIdleInfo? {
+        val idleDir = java.io.File("/sys/devices/system/cpu/cpu0/cpuidle")
+        if (!idleDir.isDirectory || !idleDir.canRead()) return null
+        val stateDirs = idleDir.listFiles { f -> f.isDirectory && f.name.startsWith("state") }?.sortedBy { it.name }
+        if (stateDirs.isNullOrEmpty()) return null
+
+        val statesList = mutableListOf<CpuIdleStateItem>()
+        for ((idx, sDir) in stateDirs.withIndex()) {
+            val name = runCatching { java.io.File(sDir, "name").readText().trim() }.getOrDefault("state$idx")
+            val desc = runCatching { java.io.File(sDir, "desc").readText().trim() }.getOrDefault("")
+            val disabled = runCatching { java.io.File(sDir, "disable").readText().trim() == "1" }.getOrDefault(false)
+            val lat = runCatching { java.io.File(sDir, "latency").readText().trim().toLongOrNull() }.getOrNull() ?: 0L
+            val res = runCatching { java.io.File(sDir, "residency").readText().trim().toLongOrNull() }.getOrNull() ?: 0L
+            val usage = runCatching { java.io.File(sDir, "usage").readText().trim().toLongOrNull() }.getOrNull() ?: 0L
+            val time = runCatching { java.io.File(sDir, "time").readText().trim().toLongOrNull() }.getOrNull() ?: 0L
+            statesList.add(
+                CpuIdleStateItem(
+                    index = idx,
+                    name = name,
+                    desc = desc,
+                    latencyUs = lat,
+                    residencyUs = res,
+                    usageCount = usage,
+                    timeUs = time,
+                    isDisabled = disabled
+                )
+            )
+        }
+        val driver = runCatching { java.io.File("/sys/devices/system/cpu/cpuidle/current_driver").readText().trim() }.getOrDefault("generic_idle")
+        val gov = runCatching { java.io.File("/sys/devices/system/cpu/cpuidle/current_governor").readText().trim() }.getOrDefault("menu")
+        val totalCores = Runtime.getRuntime().availableProcessors().coerceAtLeast(8)
+        val ctx = context ?: LynxRepository.appContext
+        val prefs = ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
+        val savedPreset = prefs?.getString("active_preset", null)
+        val savedCoreParkingMode = prefs?.getString("core_parking_mode", "dynamic") ?: "dynamic"
+        val isDeepDisabled = statesList.filter { it.index >= 2 }.all { it.isDisabled } && statesList.isNotEmpty()
+        val activePreset = savedPreset ?: when {
+            isDeepDisabled -> "gaming"
+            else -> "balanced"
+        }
+        val applyOnBoot = prefs?.getBoolean("apply_on_boot", false) ?: false
+        return CpuIdleInfo(
+            isSupported = statesList.isNotEmpty(),
+            driver = driver,
+            governor = gov,
+            states = statesList,
+            mcdiEnabled = true,
+            armPllMode = false,
+            buckMode = false,
+            schedCstateAware = true,
+            isCstateAwareSupported = true,
+            isArmPllSupported = false,
+            coreParkingMode = savedCoreParkingMode,
+            totalCores = totalCores,
+            onlineCoresCount = totalCores,
+            isDeepSleepDisabled = isDeepDisabled,
+            activePreset = activePreset,
+            applyOnBoot = applyOnBoot
+        )
+    }
+
+    suspend fun readCpuIdleInfo(context: Context? = null, forceRefresh: Boolean = false): CpuIdleInfo = withContext(Dispatchers.IO) {
+        if (!forceRefresh && cachedCpuIdle != null) {
+            return@withContext cachedCpuIdle!!
+        }
         try {
+            val direct = readCpuIdleInfoDirect(context)
+            if (direct != null) {
+                cachedCpuIdle = direct
+                return@withContext direct
+            }
             // Tier 0: lynxd Native Fast-Path (<1ms, single native binary call)
             if (LynxRepository.isModuleInstalled()) {
                 val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
@@ -222,6 +298,12 @@ internal object LynxCpuIdleRepository {
             val res = Shell.cmd(script).exec()
             val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
             if (ok) {
+                updateCache { cur ->
+                    val updatedStates = cur.states.map { s ->
+                        if (s.index == stateIndex) s.copy(isDisabled = disabled) else s
+                    }
+                    cur.copy(states = updatedStates, activePreset = "custom")
+                }
                 if (context != null) LynxRepository.appContext = context.applicationContext
                 val ctx = context ?: LynxRepository.appContext
                 ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
@@ -337,12 +419,16 @@ internal object LynxCpuIdleRepository {
             val res = Shell.cmd(script).exec()
             val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
             if (ok) {
+                val parkingMode = if (preset.equals("battery", true)) "park_big" else if (preset.equals("gaming", true)) "unpark_all" else "dynamic"
+                updateCache { cur ->
+                    cur.copy(activePreset = preset.lowercase(), coreParkingMode = parkingMode)
+                }
                 if (context != null) LynxRepository.appContext = context.applicationContext
                 val ctx = context ?: LynxRepository.appContext
                 ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)
                     ?.edit()
                     ?.putString("active_preset", preset.lowercase())
-                    ?.putString("core_parking_mode", if (preset.equals("battery", true)) "park_big" else if (preset.equals("gaming", true)) "unpark_all" else "dynamic")
+                    ?.putString("core_parking_mode", parkingMode)
                     ?.apply()
             }
             ok
@@ -398,6 +484,7 @@ internal object LynxCpuIdleRepository {
             val res = Shell.cmd(script).exec()
             val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
             if (ok) {
+                updateCache { cur -> cur.copy(coreParkingMode = mode.lowercase(), activePreset = "custom") }
                 if (context != null) LynxRepository.appContext = context.applicationContext
                 val ctx = context ?: LynxRepository.appContext
                 ctx?.getSharedPreferences("lynx_cpuidle_prefs", Context.MODE_PRIVATE)

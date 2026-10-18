@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * LynxViewModel: Manages UI state and orchestrates root operations.
@@ -33,6 +34,8 @@ import kotlinx.coroutines.launch
  * Exposes a single [uiState] StateFlow consumed by MainActivity Compose UI.
  * Uses [StateFileObserver] for real-time inotify-based 2-way sync.
  */
+
+private val clusterFreqDebounceJobs = ConcurrentHashMap<Int, Job>()
 
 fun LynxViewModel.setClusterFrequency(policyId: Int, minFreq: Long?, maxFreq: Long?, fromMasterProfile: Boolean = false) {
     if (!fromMasterProfile) recordStateMutation(com.noir.lynx.profiles.ProfileDomain.CPU)
@@ -47,36 +50,39 @@ fun LynxViewModel.setClusterFrequency(policyId: Int, minFreq: Long?, maxFreq: Lo
         isLocked = prev?.isLocked ?: curCluster?.isLocked,
         timestamp = System.currentTimeMillis()
     )
-    viewModelScope.launch {
-        // Optimistic update for zero-latency touch response
-        _uiState.update { current ->
-            val updatedClusters = current.clusters.map { c ->
-                if (c.id == policyId) {
-                    c.copy(
-                        curMin = newMin ?: c.curMin,
-                        curMax = newMax ?: c.curMax
-                    )
-                } else c
-            }
-            val updatedCores = current.cpuCores.map { core ->
-                val parent = updatedClusters.find { it.containsCore(core.coreId) }
-                if (parent != null) {
-                    core.copy(
-                        minFreqKhz = parent.curMin,
-                        maxFreqKhz = parent.curMax,
-                        isLocked = parent.isLocked
-                    )
-                } else core
-            }
-            current.copy(
-                clusters = updatedClusters,
-                cpuCores = updatedCores,
-                isCpuModified = if (fromMasterProfile) current.isCpuModified else true
-            )
+
+    // 1. Synchronous optimistic UI update for instant zero-latency touch response (60/120 FPS)
+    _uiState.update { current ->
+        val updatedClusters = current.clusters.map { c ->
+            if (c.id == policyId) {
+                c.copy(
+                    curMin = newMin ?: c.curMin,
+                    curMax = newMax ?: c.curMax
+                )
+            } else c
         }
+        val updatedCores = current.cpuCores.map { core ->
+            val parent = updatedClusters.find { it.containsCore(core.coreId) }
+            if (parent != null) {
+                core.copy(
+                    minFreqKhz = parent.curMin,
+                    maxFreqKhz = parent.curMax,
+                    isLocked = parent.isLocked
+                )
+            } else core
+        }
+        current.copy(
+            clusters = updatedClusters,
+            cpuCores = updatedCores,
+            isCpuModified = if (fromMasterProfile) current.isCpuModified else true
+        )
+    }
+
+    // 2. Trailing debounce on root execution to prevent I/O queue flood during slider drag
+    clusterFreqDebounceJobs[policyId]?.cancel()
+    clusterFreqDebounceJobs[policyId] = viewModelScope.launch(Dispatchers.IO) {
+        delay(120L)
         LynxRepository.setClusterFreq(policyId, minFreq, maxFreq)
-        refreshClusters()
-        refreshCpuCores()
         if (fromMasterProfile) {
             _uiState.update { it.copy(isCpuModified = false) }
         }
@@ -94,17 +100,17 @@ fun LynxViewModel.setClusterGovernor(policyId: Int, gov: String, fromMasterProfi
         isLocked = prev?.isLocked ?: curCluster?.isLocked,
         timestamp = System.currentTimeMillis()
     )
-    viewModelScope.launch {
-        // Optimistic update for zero-latency touch response
-        _uiState.update { current ->
-            val updated = current.clusters.map { c ->
-                if (c.id == policyId) c.copy(curGov = gov) else c
-            }
-            current.copy(clusters = updated, isCpuModified = if (fromMasterProfile) current.isCpuModified else true)
+
+    // Optimistic update for zero-latency touch response
+    _uiState.update { current ->
+        val updated = current.clusters.map { c ->
+            if (c.id == policyId) c.copy(curGov = gov) else c
         }
+        current.copy(clusters = updated, isCpuModified = if (fromMasterProfile) current.isCpuModified else true)
+    }
+
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setClusterGov(policyId, gov)
-        refreshClusters()
-        refreshCpuCores()
         if (fromMasterProfile) {
             _uiState.update { it.copy(isCpuModified = false) }
         }
@@ -124,44 +130,39 @@ fun LynxViewModel.setClusterLock(policyId: Int, lock: Boolean, minFreq: Long? = 
         isLocked = lock,
         timestamp = System.currentTimeMillis()
     )
-    viewModelScope.launch {
-        // Optimistic update for zero-latency touch response
-        _uiState.update { current ->
-            val updatedClusters = current.clusters.map { c ->
-                if (c.id == policyId) {
-                    c.copy(
-                        isLocked = lock,
-                        curMin = effectiveMin ?: c.curMin,
-                        curMax = effectiveMax ?: c.curMax
-                    )
-                } else c
-            }
-            val updatedCores = current.cpuCores.map { core ->
-                val parent = updatedClusters.find { it.containsCore(core.coreId) }
-                if (parent != null) {
-                    core.copy(
-                        minFreqKhz = parent.curMin,
-                        maxFreqKhz = parent.curMax,
-                        isLocked = parent.isLocked
-                    )
-                } else core
-            }
-            current.copy(
-                clusters = updatedClusters,
-                cpuCores = updatedCores,
-                isCpuModified = if (fromMasterProfile) current.isCpuModified else true
-            )
+
+    // Optimistic update for zero-latency touch response
+    _uiState.update { current ->
+        val updatedClusters = current.clusters.map { c ->
+            if (c.id == policyId) {
+                c.copy(
+                    isLocked = lock,
+                    curMin = effectiveMin ?: c.curMin,
+                    curMax = effectiveMax ?: c.curMax
+                )
+            } else c
         }
+        val updatedCores = current.cpuCores.map { core ->
+            val parent = updatedClusters.find { it.containsCore(core.coreId) }
+            if (parent != null) {
+                core.copy(
+                    minFreqKhz = parent.curMin,
+                    maxFreqKhz = parent.curMax,
+                    isLocked = parent.isLocked
+                )
+            } else core
+        }
+        current.copy(
+            clusters = updatedClusters,
+            cpuCores = updatedCores,
+            isCpuModified = if (fromMasterProfile) current.isCpuModified else true
+        )
+    }
+
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setClusterLock(policyId, lock, effectiveMin, effectiveMax)
-        refreshClusters()
-        refreshCpuCores()
         if (fromMasterProfile) {
             _uiState.update { it.copy(isCpuModified = false) }
         }
     }
 }
-
-// ----------------------------------------------------------------
-//  Profile Management
-// ----------------------------------------------------------------
-

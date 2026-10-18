@@ -361,6 +361,14 @@ impl DaemonRunner {
                 let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644));
             }
         }
+        #[cfg(target_os = "android")]
+        {
+            let tmp_path = std::path::Path::new("/data/local/tmp/lynxd_telemetry.json");
+            if std::fs::write(tmp_path, content).is_ok() {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(tmp_path, std::fs::Permissions::from_mode(0o666));
+            }
+        }
     }
 
     fn write_status_snapshot(
@@ -382,7 +390,15 @@ impl DaemonRunner {
             profile, mod_name, mod_desc, app_desc, temp_c, battery_pct
         );
 
-        let _ = std::fs::write(Self::status_snapshot_path(), content);
+        let _ = std::fs::write(Self::status_snapshot_path(), &content);
+        #[cfg(target_os = "android")]
+        {
+            let tmp_path = std::path::Path::new("/data/local/tmp/lynxd_status.json");
+            if std::fs::write(tmp_path, &content).is_ok() {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(tmp_path, std::fs::Permissions::from_mode(0o666));
+            }
+        }
     }
 
     fn notify_profile_transition(profile: &str, reason: &str) {

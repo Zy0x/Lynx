@@ -108,7 +108,11 @@ internal object LynxCpuTopologyRepository {
         }
     }
 
+    @Volatile
+    private var cachedSiliconTopology: CpuSiliconTopologyDetails? = null
+
     suspend fun readCpuSiliconTopologyDetails(clusters: List<CpuClusterInfo>): CpuSiliconTopologyDetails = withContext(Dispatchers.IO) {
+        cachedSiliconTopology?.let { return@withContext it }
         try {
             val script = """
                 echo "===CPUINFO==="
@@ -388,7 +392,7 @@ internal object LynxCpuTopologyRepository {
                 else -> "Shared L3 / DSU Bus"
             }
 
-            CpuSiliconTopologyDetails(
+            val details = CpuSiliconTopologyDetails(
                 isaArchitecture = isaArch,
                 implementerName = implementerName,
                 scalingDriver = scalingDriver,
@@ -399,6 +403,8 @@ internal object LynxCpuTopologyRepository {
                 instructionSummary = instructionSummary,
                 clusterDetails = clusterDetailsMap
             )
+            cachedSiliconTopology = details
+            details
         } catch (e: Exception) {
             Log.e("LynxRepository", "readCpuSiliconTopologyDetails failed: ${e.message}")
             CpuSiliconTopologyDetails()

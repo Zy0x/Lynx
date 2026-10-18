@@ -103,6 +103,9 @@ object LynxRepository {
             currentRootStateField.isAccessible = true
             currentRootStateField.setInt(null, -1) // -1 = UNKNOWN / re-probe
 
+            isRootVerified = false
+            cachedModuleInstalled = null
+            resolvedLynxdPath = null
             Log.d(TAG, "LibSU internals successfully reset for fresh su acquisition")
         } catch (e: Throwable) {
             Log.w(TAG, "LibSU reflection reset: ${e.message}")
@@ -113,39 +116,40 @@ object LynxRepository {
     //  Root & Module Availability Check
     // ----------------------------------------------------------------
 
+    @Volatile
+    private var isRootVerified: Boolean = false
+    @Volatile
+    private var initialBootCleanupDone: Boolean = false
+
     suspend fun isRootAvailable(): Boolean = withContext(Dispatchers.IO) {
+        if (isRootVerified) {
+            val cached = Shell.getCachedShell()
+            if (cached != null && cached.isAlive && cached.isRoot) {
+                return@withContext true
+            }
+        }
         try {
             // 1. If we already have an active, validated root shell, fast-path return true
             val cached = Shell.getCachedShell()
             if (cached != null && cached.isAlive && cached.isRoot) {
                 val test = Shell.cmd("id").exec()
                 if (test.isSuccess && test.out.any { it.contains("uid=0") }) {
+                    isRootVerified = true
+                    performOneTimeBootCleanup()
                     return@withContext true
                 }
             }
 
-            // 2. Reset LibSU internals so any cached non-root or closed shell is evicted
-            forceResetRoot()
-
-            // 3. Probe direct su execution first (essential for KernelSU / Rekisuki / APatch)
+            // 2. Probe direct su execution first (essential for KernelSU / Rekisuki / APatch)
             val directSu = canExecuteSuDirectly()
 
-            // 4. Execute root probe via LibSU fresh shell
+            // 3. Execute root probe via LibSU fresh shell
             val result = Shell.cmd("id").exec()
             val available = (result.isSuccess && result.out.any { it.contains("uid=0") }) || directSu
 
             if (available) {
-                // Safety Guard: Eliminate any legacy or rogue service.d scripts that cause bootloops
-                Shell.cmd("rm -f /data/adb/service.d/lynx* 2>/dev/null").exec()
-
-                // Preserve and safely disable any legacy Lynx module (v4/v5/v6)
-                Shell.cmd("""
-                    if [ -d "$MODULE_DIR" ] && [ ! -f "$MODULE_DIR/system/bin/lynxd" ]; then
-                        mkdir -p /data/adb/modules/Lynx_legacy 2>/dev/null
-                        cp -af $MODULE_DIR/* /data/adb/modules/Lynx_legacy/ 2>/dev/null
-                        touch /data/adb/modules/Lynx_legacy/disable 2>/dev/null
-                    fi
-                """.trimIndent()).exec()
+                isRootVerified = true
+                performOneTimeBootCleanup()
             }
             available
         } catch (e: Exception) {
@@ -154,13 +158,41 @@ object LynxRepository {
         }
     }
 
+    private fun performOneTimeBootCleanup() {
+        if (initialBootCleanupDone) return
+        initialBootCleanupDone = true
+        try {
+            // Safety Guard: Eliminate any legacy or rogue service.d scripts that cause bootloops
+            Shell.cmd("rm -f /data/adb/service.d/lynx* 2>/dev/null").exec()
+
+            // Preserve and safely disable any legacy Lynx module (v4/v5/v6)
+            Shell.cmd("""
+                if [ -d "$MODULE_DIR" ] && [ ! -f "$MODULE_DIR/system/bin/lynxd" ]; then
+                    mkdir -p /data/adb/modules/Lynx_legacy 2>/dev/null
+                    cp -af $MODULE_DIR/* /data/adb/modules/Lynx_legacy/ 2>/dev/null
+                    touch /data/adb/modules/Lynx_legacy/disable 2>/dev/null
+                fi
+            """.trimIndent()).exec()
+        } catch (_: Exception) {}
+    }
+
+    @Volatile
+    private var cachedModuleInstalled: Boolean? = null
+
     suspend fun isModuleInstalled(): Boolean = withContext(Dispatchers.IO) {
+        cachedModuleInstalled?.let { return@withContext it }
         try {
             val result = Shell.cmd("[ -d '$MODULE_DIR' ] && echo 1 || echo 0").exec()
-            result.out.firstOrNull()?.trim() == "1"
+            val installed = result.out.firstOrNull()?.trim() == "1"
+            cachedModuleInstalled = installed
+            installed
         } catch (e: Exception) {
             false
         }
+    }
+
+    fun invalidateModuleInstalledCache() {
+        cachedModuleInstalled = null
     }
 
     fun getLocalConfigPath(): String = LynxAppStateRepository.getLocalConfigPath()
@@ -618,6 +650,7 @@ object LynxRepository {
     suspend fun readCpuStatLoads(): Pair<Int, Map<Int, Int>> = LynxCpuTelemetryRepository.readCpuStatLoads()
     fun getTotalCpuCores(): Int = LynxCpuTelemetryRepository.getTotalCpuCores()
     fun streamCpuMonitor(totalCores: Int = getTotalCpuCores().coerceAtLeast(1)): Flow<CpuMonitorSnapshot> = LynxCpuTelemetryRepository.streamCpuMonitor(totalCores)
+    fun getCachedTopProcesses(): List<CpuProcessInfo> = LynxCpuTelemetryRepository.getCachedTopProcesses()
     suspend fun readTopCpuProcesses(): List<CpuProcessInfo> = LynxCpuTelemetryRepository.readTopCpuProcesses()
     suspend fun getSocPlatformName(): String = LynxCpuTelemetryRepository.getSocPlatformName()
     fun getSocTopology(clusters: List<CpuClusterInfo>, totalCores: Int = 8): String = LynxCpuTelemetryRepository.getSocTopology(clusters, totalCores)
@@ -847,7 +880,8 @@ object LynxRepository {
     suspend fun setSchedulerHysteresis(upmigrate: Int, downmigrate: Int, context: Context? = null): Boolean = LynxCpuSchedulerControlRepository.setSchedulerHysteresis(upmigrate, downmigrate, context)
     suspend fun applySavedSchedulerConfig(context: Context): Boolean = LynxCpuSchedulerControlRepository.applySavedSchedulerConfig(context)
     suspend fun applySchedulerPreset(preset: String, context: Context? = null): Boolean = LynxCpuSchedulerControlRepository.applySchedulerPreset(preset, context)
-    suspend fun readCpuSetsInfo(context: Context? = null): CpuSetsInfo = LynxCpuSetsRepository.readCpuSetsInfo(context)
+    suspend fun readCpuSetsInfo(context: Context? = null, forceRefresh: Boolean = false): CpuSetsInfo = LynxCpuSetsRepository.readCpuSetsInfo(context, forceRefresh)
+    fun updateCpuSetsCache(transform: (CpuSetsInfo) -> CpuSetsInfo) = LynxCpuSetsRepository.updateCache(transform)
     suspend fun applyCpuSetPreset(preset: String, totalCores: Int = 8, context: Context? = null): Boolean = LynxCpuSetsRepository.applyCpuSetPreset(preset, totalCores, context)
     suspend fun setCpuSetCores(group: String, cores: String, context: Context? = null): Boolean = LynxCpuSetsRepository.setCpuSetCores(group, cores, context)
     suspend fun setCpuSetApplyOnBoot(enabled: Boolean, context: Context? = null): Boolean = LynxCpuSetsRepository.setCpuSetApplyOnBoot(enabled, context)
@@ -855,7 +889,8 @@ object LynxRepository {
     suspend fun setSchedtunePreferIdle(group: String, preferIdle: Boolean, context: Context? = null): Boolean = LynxCpuSetsRepository.setSchedtunePreferIdle(group, preferIdle, context)
     suspend fun setSchedulerHint(hintKey: String, enabled: Boolean, context: Context? = null): Boolean = LynxCpuSetsRepository.setSchedulerHint(hintKey, enabled, context)
     suspend fun setWorkqueuePowerEfficient(enabled: Boolean, context: Context? = null): Boolean = LynxCpuSetsRepository.setWorkqueuePowerEfficient(enabled, context)
-    suspend fun readCpuIdleInfo(context: Context? = null): CpuIdleInfo = LynxCpuIdleRepository.readCpuIdleInfo(context)
+    suspend fun readCpuIdleInfo(context: Context? = null, forceRefresh: Boolean = false): CpuIdleInfo = LynxCpuIdleRepository.readCpuIdleInfo(context, forceRefresh)
+    fun updateCpuIdleCache(transform: (CpuIdleInfo) -> CpuIdleInfo) = LynxCpuIdleRepository.updateCache(transform)
     suspend fun setCpuIdleStateDisabled(stateIndex: Int, disabled: Boolean, context: Context? = null): Boolean = LynxCpuIdleRepository.setCpuIdleStateDisabled(stateIndex, disabled, context)
     suspend fun applyCpuIdlePreset(preset: String, context: Context? = null): Boolean = LynxCpuIdleRepository.applyCpuIdlePreset(preset, context)
     suspend fun setCoreParkingMode(mode: String, totalCores: Int = 8, context: Context? = null): Boolean = LynxCpuIdleRepository.setCoreParkingMode(mode, totalCores, context)

@@ -51,13 +51,11 @@ fun LynxViewModel.selectNetworkTab(tab: Int) = setSelectedNetworkTab(tab)
                     }
                 }
                 2 -> {
-                    val freshCores = LynxRepository.readCpuCores()
-                    val freshSilicon = LynxRepository.readCpuSiliconTopologyDetails(_uiState.value.clusters)
-                    _uiState.update { current ->
-                        current.copy(
-                            cpuCores = if (freshCores.isNotEmpty()) mergeCoresWithActiveIntents(freshCores) else current.cpuCores,
-                            siliconTopologyDetails = freshSilicon
-                        )
+                    if (_uiState.value.siliconTopologyDetails.isaArchitecture.isBlank()) {
+                        val freshSilicon = LynxRepository.readCpuSiliconTopologyDetails(_uiState.value.clusters)
+                        _uiState.update { current ->
+                            current.copy(siliconTopologyDetails = freshSilicon)
+                        }
                     }
                 }
             }

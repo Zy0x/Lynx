@@ -7,7 +7,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 internal object LynxSchedulerInfoRepository {
-    suspend fun readSchedulerInfo(context: Context? = null): SchedulerInfo = withContext(Dispatchers.IO) {
+    @Volatile private var cachedSchedulerInfo: SchedulerInfo? = null
+    @Volatile private var lastSchedulerReadMs: Long = 0L
+
+    fun invalidateCache() {
+        cachedSchedulerInfo = null
+    }
+
+    fun updateCache(transform: (SchedulerInfo) -> SchedulerInfo) {
+        cachedSchedulerInfo = cachedSchedulerInfo?.let(transform)
+    }
+
+    suspend fun readSchedulerInfo(context: Context? = null, force: Boolean = false): SchedulerInfo = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        if (!force && cachedSchedulerInfo != null && (now - lastSchedulerReadMs < 12_000L)) {
+            return@withContext cachedSchedulerInfo!!
+        }
         try {
             val script = LynxSchedulerProbeScript.build()
             val res = Shell.cmd(script).exec()
@@ -236,7 +251,7 @@ internal object LynxSchedulerInfoRepository {
             val applyOnBoot = ctx?.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
                 ?.getBoolean("apply_on_boot", false) ?: false
 
-            SchedulerInfo(
+            val result = SchedulerInfo(
                 schedulerType = schedType,
                 schedulerName = schedName,
                 isBoreSupported = bore,
@@ -339,8 +354,11 @@ internal object LynxSchedulerInfoRepository {
                     },
                 applyOnBoot = applyOnBoot
             )
+            cachedSchedulerInfo = result
+            lastSchedulerReadMs = now
+            result
         } catch (e: Exception) {
-            SchedulerInfo()
+            cachedSchedulerInfo ?: SchedulerInfo()
         }
     }
 

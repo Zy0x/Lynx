@@ -53,8 +53,6 @@ fun LynxViewModel.setKsmEnabled(enabled: Boolean) {
         } else {
             _uiState.update { it.copy(errorMessage = "Fitur KSM tidak didukung oleh kernel ini") }
         }
-        delay(200L)
-        refreshKsmStats()
     }
 }
 
@@ -63,8 +61,6 @@ fun LynxViewModel.setKsmTunables(pagesToScan: Int, sleepMs: Int) {
     _uiState.update { it.copy(ksmStats = it.ksmStats.copy(pagesToScan = pagesToScan, sleepMs = sleepMs)) }
     viewModelScope.launch {
         LynxRepository.setKsmTunables(pagesToScan, sleepMs)
-        delay(200L)
-        refreshKsmStats()
     }
 }
 
@@ -92,8 +88,6 @@ fun LynxViewModel.setIoScheduler(device: String, scheduler: String) {
     }
     viewModelScope.launch {
         LynxRepository.setIoScheduler(device, scheduler)
-        delay(250L)
-        refreshIoDevices()
     }
 }
 
@@ -107,8 +101,6 @@ fun LynxViewModel.setReadAheadKb(device: String, kb: Int) {
     }
     viewModelScope.launch {
         LynxRepository.setReadAheadKb(device, kb)
-        delay(250L)
-        refreshIoDevices()
     }
 }
 
@@ -250,8 +242,6 @@ fun LynxViewModel.setGovernorTunable(policyId: Int, governor: String, key: Strin
     }
     viewModelScope.launch {
         LynxRepository.setGovernorTunable(policyId, governor, key, value)
-        delay(200L)
-        loadGovernorTunables(policyId, governor)
     }
 }
 

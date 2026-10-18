@@ -26,6 +26,9 @@ if [ -x "$LYNXD" ]; then
         custom)
             exec "$LYNXD" charging mode custom "$2" 2>/dev/null
             ;;
+        bypass)
+            exec "$LYNXD" charging bypass 2>/dev/null
+            ;;
         disconnect)
             exec "$LYNXD" charging disconnect 2>/dev/null
             ;;
@@ -71,9 +74,22 @@ fallback_hyper() {
     rm -f /dev/lynx_bypass_active /dev/lynx_standard_charging 2>/dev/null
 
     # 1. Native Battery & Linux Charge Rails Uncap
+    local is_qcom=false
+    if [ -d "$QC_DIR" ] || [ -d /sys/class/power_supply/bms ] || [ -d /sys/class/kgsl ] || [ -d /sys/devices/soc0 ]; then
+        is_qcom=true
+    fi
+
     local qcom_cur="12000000"
-    if [ ! -d /sys/class/power_supply/smb1390 ] && [ ! -d /sys/class/power_supply/charge_pump ] && { [ -d "$QC_DIR" ] || [ -d /sys/class/power_supply/bms ]; }; then
-        qcom_cur="4500000"
+    local usb_cur="5000000"
+    if [ "$is_qcom" = "true" ]; then
+        usb_cur="3000000"
+        if [ ! -d /sys/class/power_supply/smb1390 ] && [ ! -d /sys/class/power_supply/charge_pump ]; then
+            # Qualcomm single-cell without dual charge pump (e.g. SDM660 PM660):
+            # Target 3000mA - 3500mA peak
+            qcom_cur="3500000"
+        else
+            qcom_cur="4500000"
+        fi
     fi
 
     write_node_lock "$BATT_DIR/input_suspend" "0"
@@ -83,8 +99,8 @@ fallback_hyper() {
     write_node_lock "$BATT_DIR/boost_current" "1"
     write_node_lock "$BATT_DIR/constant_charge_current_max" "$qcom_cur"
     write_node_lock "$BATT_DIR/constant_charge_current" "$qcom_cur"
-    write_node_lock "$BATT_DIR/input_current_limit" "$qcom_cur"
-    write_node_lock "$USB_DIR/current_max" "5000000"
+    write_node_lock "$BATT_DIR/input_current_limit" "$usb_cur"
+    write_node_lock "$USB_DIR/current_max" "$usb_cur"
     write_node_lock "$MAIN_DIR/current_max" "$qcom_cur"
 
     # 2. R1 Screen-On Charging Throttle Bypass & CallState Lock
@@ -107,7 +123,7 @@ fallback_hyper() {
     write_node_lock "$BATT_DIR/temp_state" "0"
     write_node_lock "$BATT_DIR/thermal_input_current_limit" "-1"
     write_node_lock "$BATT_DIR/step_charging_enabled" "0"
-    write_node_lock "$BATT_DIR/current_max" "12000000"
+    write_node_lock "$BATT_DIR/current_max" "$qcom_cur"
     write_node_lock "$BATT_DIR/charge_control_limit_max" "0"
 
     # 4. Thermal Uncapped (Peak 6000mA at all temperatures)
@@ -119,12 +135,12 @@ fallback_hyper() {
     write_node_lock "/proc/driver/thermal/clabcct" "70000 1000 200000 6000 6000 0 1 1 0"
     write_node_lock "/proc/driver/thermal/clabcct_lcmoff" "1 70000 1000 200000 6000 6000 0 6000 0"
 
-    # Dynamic Cooling Device Detection: only touch battery charge cooling devices (bcct / abcct)
+    # Dynamic Cooling Device Detection: only touch battery charge cooling devices (bcct / abcct / battery)
     for cd in /sys/class/thermal/cooling_device*; do
         if [ -f "$cd/type" ]; then
             cd_t=$(cat "$cd/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
             case "$cd_t" in
-                *bcct*|*abcct*) write_node_lock "$cd/cur_state" "0" ;;
+                *bcct*|*abcct*|*battery*) write_node_lock "$cd/cur_state" "0" ;;
             esac
         fi
     done
@@ -144,9 +160,13 @@ fallback_hyper() {
         fi
     done
 
-    for daemon in com.xiaomi.joyose mi_thermald thermal-engine thermal-engine-v2; do
-        killall -STOP "$daemon" 2>/dev/null
-    done
+    if [ "$is_qcom" = "false" ]; then
+        for daemon in com.xiaomi.joyose mi_thermald; do
+            killall -STOP "$daemon" 2>/dev/null
+        done
+    else
+        killall -CONT thermal-engine thermal-engine-v2 2>/dev/null
+    fi
 
     # 5. Continuous Maximum Pump Current Enforcement (>6A Battery Current)
     write_node_lock "$MTK_DIR/pe20" "1"
@@ -362,9 +382,58 @@ fallback_custom() {
     fi
 }
 
+fallback_bypass() {
+    mkdir -p /dev 2>/dev/null
+    rm -f /dev/lynx_extreme_charging /dev/lynx_standard_charging 2>/dev/null
+    echo "1" > /dev/lynx_bypass_active 2>/dev/null
+    echo "state=bypass cap=80" > /dev/lynx_charging_state 2>/dev/null
+
+    local is_qcom=false
+    if [ -d "$QC_DIR" ] || [ -d /sys/class/power_supply/bms ] || [ -d /sys/class/kgsl ] || [ -d /sys/devices/soc0 ]; then
+        is_qcom=true
+    fi
+
+    local has_hw_bypass=false
+    for c in /sys/devices/platform/charger/bypass_charger /sys/class/power_supply/battery/device/smart_charging /sys/class/power_supply/battery/charging_limit_mode /sys/class/power_supply/battery/smart_charging_activation /sys/class/qcom-battery/direct_charging /sys/class/power_supply/battery/store_mode /sys/class/power_supply/battery/batt_slate_mode /sys/class/power_supply/battery/charge_stop_level; do
+        if [ -f "$c" ]; then
+            has_hw_bypass=true
+            break
+        fi
+    done
+
+    if [ "$is_qcom" = "true" ] && [ "$has_hw_bypass" = "false" ]; then
+        # Trickle Maintenance Float Mode for single-path Qualcomm PMIC (e.g. PM660):
+        # Keep charging_enabled=1 and float at 100mA, supply 1500mA input rail for Vsys
+        write_node_lock "$BATT_DIR/constant_charge_current_max" "100000"
+        write_node_lock "$BATT_DIR/constant_charge_current" "100000"
+        write_node_lock "$BATT_DIR/current_max" "100000"
+        write_node_lock "$BATT_DIR/input_current_limit" "1500000"
+        write_node_lock "$USB_DIR/current_max" "1500000"
+        write_node_lock "$BATT_DIR/input_suspend" "0"
+        write_node_lock "$BATT_DIR/charging_enabled" "1"
+        write_node_lock "$QC_DIR/restrict_cur" "100"
+        write_node_lock "$QC_DIR/restricted_charging" "1"
+        write_node_lock "$QC_DIR/direct_charging" "0"
+    else
+        write_node_lock "$BATT_DIR/constant_charge_current_max" "0"
+        write_node_lock "$BATT_DIR/constant_charge_current" "0"
+        write_node_lock "$BATT_DIR/current_max" "0"
+        write_node_lock "$BATT_DIR/input_current_limit" "0"
+        write_node_lock "$BATT_DIR/charging_enabled" "0"
+        write_node_lock "$QC_DIR/restrict_cur" "0"
+        write_node_lock "$QC_DIR/restricted_charging" "1"
+        write_node_lock "$QC_DIR/direct_charging" "0"
+        [ -e "$MTK_DIR/bypass_charger" ] && write_node_lock "$MTK_DIR/bypass_charger" "1"
+    fi
+    dumpsys battery reset 2>/dev/null
+}
+
 case "$1" in
     hyper|extreme)
         fallback_hyper
+        ;;
+    bypass)
+        fallback_bypass
         ;;
     cool)
         fallback_cool

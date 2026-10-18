@@ -126,7 +126,8 @@ import kotlinx.coroutines.launch
                     }
                     val isCpuCategoryActive = _uiState.value.selectedTuningCategory == "cpu"
                     val isThermalCategoryActive = _uiState.value.selectedTuningCategory == "thermal"
-                    val procs = if (isMonitorTabActive && (counter == 1 || counter % 4 == 0)) LynxRepository.readTopCpuProcesses() else emptyList()
+                    // Process monitoring is exclusively streamed by streamCpuMonitor() to eliminate shell lock contention
+                    val procs: List<CpuProcessInfo> = emptyList()
 
                     if (_uiState.value.state.charging.extremeChargingEnabled && (batt?.isCharging == true || _uiState.value.batteryDetails?.isCharging == true || (batt?.currentMa ?: _uiState.value.batteryDetails?.currentMa ?: 0) > 200)) {
                         if (counter % 3 == 0 && _uiState.value.nativeStatus?.daemonRunning != true) {
@@ -181,7 +182,7 @@ import kotlinx.coroutines.launch
                                 telemetry = tel ?: current.telemetry,
                                 nativeStatus = freshNatStatus ?: current.nativeStatus,
                                 cpuCores = syncedCores,
-                                topCpuProcesses = if (isMonitorTabActive) current.topCpuProcesses else if (procs.isNotEmpty()) procs else current.topCpuProcesses,
+                                topCpuProcesses = if (procs.isNotEmpty()) procs else current.topCpuProcesses,
                                 totalCpuLoadPercent = if (isMonitorTabActive) current.totalCpuLoadPercent else totalLoad,
                                 cpuLoadHistory = newHistory,
                                 batteryDetails = batt ?: current.batteryDetails,

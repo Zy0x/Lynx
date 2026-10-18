@@ -7,8 +7,76 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 internal object LynxCpuSetsRepository {
-    suspend fun readCpuSetsInfo(context: Context? = null): CpuSetsInfo = withContext(Dispatchers.IO) {
+    private var cachedCpuSets: CpuSetsInfo? = null
+
+    fun updateCache(transform: (CpuSetsInfo) -> CpuSetsInfo) {
+        val cur = cachedCpuSets ?: CpuSetsInfo()
+        cachedCpuSets = transform(cur)
+    }
+
+    private fun readCpuSetsInfoDirect(context: Context?): CpuSetsInfo? {
+        val rootDir = when {
+            File("/dev/cpuset").isDirectory -> File("/dev/cpuset")
+            File("/sys/fs/cgroup/cpuset").isDirectory -> File("/sys/fs/cgroup/cpuset")
+            else -> null
+        } ?: return null
+
+        fun readCpus(group: String): String? {
+            val f1 = File(rootDir, if (group.isEmpty()) "cpus" else "$group/cpus")
+            if (f1.canRead()) runCatching { f1.readText().trim() }.getOrNull()?.let { if (it.isNotBlank()) return it }
+            val f2 = File(rootDir, if (group.isEmpty()) "cpuset.cpus" else "$group/cpuset.cpus")
+            if (f2.canRead()) runCatching { f2.readText().trim() }.getOrNull()?.let { if (it.isNotBlank()) return it }
+            return null
+        }
+
+        val topApp = readCpus("top-app") ?: return null
+        val fg = readCpus("foreground") ?: "0-7"
+        val bg = readCpus("background") ?: "0-2"
+        val sysbg = readCpus("system-background") ?: "0-2"
+        val restricted = readCpus("restricted") ?: "0-3"
+        val totalStr = readCpus("") ?: runCatching { File("/sys/devices/system/cpu/present").readText().trim() }.getOrDefault("0-7")
+
+        val dummy = CpuSetsInfo()
+        val totalCoresSet = dummy.parseCores(totalStr)
+        val totalCount = if (totalCoresSet.isNotEmpty()) (totalCoresSet.maxOrNull() ?: 7) + 1 else 8
+        val bgSet = dummy.parseCores(bg)
+        val fgSet = dummy.parseCores(fg)
+        val taSet = dummy.parseCores(topApp)
+        val detectedPreset = when {
+            bgSet.size <= 2 && fgSet.size <= 4 && taSet.size >= 7 -> "gaming"
+            bgSet.size <= 2 && fgSet.size >= 6 -> "balanced"
+            bgSet.size >= 4 && fgSet.size >= 7 -> "multitasking"
+            taSet.size <= 4 -> "powersave"
+            else -> "balanced"
+        }
+        val ctx = context ?: LynxRepository.appContext
+        val prefs = ctx?.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
+        val activePreset = prefs?.getString("active_preset", detectedPreset) ?: detectedPreset
+        val applyOnBoot = prefs?.getBoolean("apply_on_boot", false) ?: false
+
+        return CpuSetsInfo(
+            isSupported = true,
+            topAppCpus = topApp,
+            foregroundCpus = fg,
+            backgroundCpus = bg,
+            systemBackgroundCpus = sysbg,
+            restrictedCpus = restricted,
+            totalCoresCount = totalCount,
+            activePreset = activePreset,
+            applyOnBoot = applyOnBoot
+        )
+    }
+
+    suspend fun readCpuSetsInfo(context: Context? = null, forceRefresh: Boolean = false): CpuSetsInfo = withContext(Dispatchers.IO) {
+        if (!forceRefresh && cachedCpuSets != null) {
+            return@withContext cachedCpuSets!!
+        }
         try {
+            val direct = readCpuSetsInfoDirect(context)
+            if (direct != null) {
+                cachedCpuSets = direct
+                return@withContext direct
+            }
             // Tier 0: lynxd Native Fast-Path (<1ms, single native binary call)
             if (LynxRepository.isModuleInstalled()) {
                 val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
@@ -249,11 +317,14 @@ internal object LynxCpuSetsRepository {
 
             val res = Shell.cmd(script).exec()
             val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
-            if (ok && context != null) {
-                context.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
-                    .edit()
-                    .putString("active_preset", preset.lowercase())
-                    .apply()
+            if (ok) {
+                updateCache { it.copy(activePreset = preset.lowercase()) }
+                if (context != null) {
+                    context.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
+                        .edit()
+                        .putString("active_preset", preset.lowercase())
+                        .apply()
+                }
             }
             ok
         } catch (e: Exception) {
@@ -286,12 +357,24 @@ internal object LynxCpuSetsRepository {
             """.trimIndent()
             val res = Shell.cmd(script).exec()
             val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
-            if (ok && context != null) {
-                context.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
-                    .edit()
-                    .putString(folder, cores)
-                    .putString("active_preset", "custom")
-                    .apply()
+            if (ok) {
+                updateCache { cur ->
+                    when (folder) {
+                        "top-app" -> cur.copy(topAppCpus = cores, activePreset = "custom")
+                        "foreground" -> cur.copy(foregroundCpus = cores, activePreset = "custom")
+                        "background" -> cur.copy(backgroundCpus = cores, activePreset = "custom")
+                        "system-background" -> cur.copy(systemBackgroundCpus = cores, activePreset = "custom")
+                        "restricted" -> cur.copy(restrictedCpus = cores, activePreset = "custom")
+                        else -> cur.copy(activePreset = "custom")
+                    }
+                }
+                if (context != null) {
+                    context.getSharedPreferences("lynx_cpuset_prefs", Context.MODE_PRIVATE)
+                        .edit()
+                        .putString(folder, cores)
+                        .putString("active_preset", "custom")
+                        .apply()
+                }
             }
             ok
         } catch (e: Exception) {

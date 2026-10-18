@@ -1,3 +1,43 @@
+# Lynx Universal [Qualcomm Snapdragon Charging Architecture & Flapping Elimination Overhaul] 7.0.0-RC99
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC99** (Lynx Kernel Manager v3.1.51): **Overhaul Arsitektur Pengisian Daya Qualcomm Snapdragon & PMIC PM660 / SDM660 (Redmi Note 7 `lavender`) — Eliminasi Total Bug Charger Mati-Nyala (1-Second Flapping Elimination) via Trickle Maintenance Float Mode, Optimalisasi Arus Maksimal Target 3.000 mA s/d 3.500 mA (QC 3.0 18W Limit), Clamping USB ICL 3.000 mA, Pencegahan Deadlock IPC Sockets `thermal-engine`, Penguncian Cooling Device Baterai ke State 0, Debounce Guard 3.000ms pada Power Broadcast Receivers, serta Dokumentasi Arsitektur Mendalam**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC99)
+
+### 1. ⚡ Eliminasi Total Bug Charger Mati-Nyala (1-Second Flapping Elimination)
+- **Akar Masalah**: Pada PMIC Qualcomm PM660 (topologi *single-path switching buck converter*), tidak terdapat sakelar bypass fisik terpisah. Ketika pengisian daya diputus total (`charging_enabled=0` atau `restrict_cur=0`), PM660 mematikan FET gerbang masukan `CHG_IN`. Hal ini menyebabkan beban arus pada kabel USB turun ke 0 mA, memicu adaptor Quick Charge 3.0 mematikan jalur tegangan VBUS (0V), memicu siaran Android `ACTION_POWER_DISCONNECTED`, yang kemudian memicu pemulihan `charging_enabled=1`, menyalakan charger kembali (`ACTION_POWER_CONNECTED`), lalu daemon memotongnya lagi dalam siklus flapping 1,1–1,5 detik.
+- **Solusi Rekayasa Hardware (*Trickle Maintenance Float*)**:
+  - Pada perangkat Qualcomm tanpa node bypass fisik terpisah (`detect_hw_bypass_node().is_none()`), sistem mengaktifkan mode **Trickle Maintenance Float**.
+  - `charging_enabled` dipertahankan **1** dan `input_suspend` dipertahankan **0**.
+  - Arus pengisian sel dibatasi pada 100 mA (`constant_charge_current = 100000`, `restrict_cur = 100`).
+  - Arus masukan USB (`input_current_limit` / `current_max`) disediakan hingga 1.500 mA untuk menyuplai seluruh konsumsi daya sistem papan induk (Vsys: CPU, layar, modem) langsung dari adaptor tanpa membebani baterai.
+  - VBUS adaptor tidak pernah drop, kabel tidak terputus, dan bug charger mati-nyala tuntas 100%.
+
+### 2. 🚀 Peningkatan Arus Pengisian Qualcomm: Target 3.000 mA s/d 3.500 mA (QC 3.0 Hardware Limit)
+- **Sebelumnya**: Deteksi platform yang keliru mengklasifikasikan Redmi Note 7 sebagai Xiaomi murni, memicu pembatasan generik atau permintaan arus ekstrem di luar batas IC (5A) yang memicu brownout PM660.
+- **Sesudahnya**:
+  - Arus pengisian baterai maksimum (`constant_charge_current_max` / FCC) pada single-cell Qualcomm QC 3.0 dibuka hingga **3.500 mA** (headroom maksimal 18W pada tegangan sel 3,8–4,2V).
+  - Batas masukan arus USB (`USB_ICL` / `current_max` pada rel USB) dikunci secara presisi pada **3.000 mA** untuk mencegah tersandungnya proteksi arus berlebih (*Overcurrent Protection / OCP*) pada PHY Type-C PM660.
+
+### 3. 🛡️ Pencegahan Deadlock IPC Thermal Engine & Penguncian Cooling Device Baterai
+- **Masalah**: Pembekuan proses melalui `killall -STOP thermal-engine` pada chipset Qualcomm SDM660 membekukan 4 domain socket IPC aktif di `/dev/socket/thermal-*`, menyebabkan layanan Android Hardware Thermal HAL HIDL mengalami kebuntuan (*deadlock*).
+- **Solusi**:
+  - Modul memastikan `thermal-engine` **TIDAK PERNAH** dibekukan pada SoC Qualcomm, melainkan di-resume (`SIGCONT`) untuk menjaga integritas socket IPC.
+  - Untuk mencegah penurunan arus akibat pembatasan termal OEM, modul secara otomatis memindai dan mengunci `cooling_device` ber-tipe `battery` ke `cur_state = 0` (locked 0444).
+  - Node `/sys/class/qcom-battery/system_temp_level` dikunci ke `0` dan `thermal_input_current_limit` dikunci ke `-1`.
+
+### 4. ⏱️ Debounce Guard 3.000 ms pada Power Broadcast Receivers
+- Menambahkan filter debounce 3.000 ms pada `LynxPowerReceiver` dan `LynxAppAutomationService`.
+- Mencegah ledakan eksekusi broadcast paralel (*broadcast storm*) saat charger ditancapkan atau saat terjadi fluktuasi transien tegangan pada kabel.
+
+### 5. 🔍 Penguatan Deteksi SoC Anti-Spoofing & Ground Truth Devicetree
+- Fungsi `is_qualcomm_soc()` dan `is_mediatek_soc()` kini memverifikasi langsung string `compatible` di Device Tree Blob (`/sys/firmware/devicetree/base/compatible`), driver platform `pm660_charger`, serta node karakter GPU `/dev/kgsl-3d0` dan `/dev/mali0`, kebal terhadap manipulasi modul spoofing props manapun.
+
+### 6. 📚 Publikasi Dokumen Arsitektur Hardware Qualcomm SDM660 / PM660
+- Dokumen komprehensif diterbitkan di `archive/device_reference/redmi_note_7_sdm660/ARCHITECTURE_CHARGING_QUALCOMM.md` yang merinci jalur SPMI bus, switching buck FET topology, diagram blok sirkuit, register sysfs Linux, dan tabel operasional charging states.
+
+---
+
 # Lynx Universal [Low-End Device Responsiveness & Performance Engine Overhaul] 7.0.0-RC97
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC97** (Lynx Kernel Manager v3.1.50): **Optimasi Menyeluruh Kinerja Perangkat Low-End & Mid-End (Snapdragon 660 / Redmi Note 7) — Staged Lazy Hydration (<200ms Cold Boot), Eliminasi Total Pemblokiran Sysfs di Main UI Thread, Virtualisasi Penuh Compose LazyList, Bundling Embedded Native Daemon (`lynxd`) di Assets dengan Sinkronisasi Ganda, Resolusi Dinamis LYNXD_PATH, dan Throttling Polling Cerdas Berbasis Layar Aktif**.

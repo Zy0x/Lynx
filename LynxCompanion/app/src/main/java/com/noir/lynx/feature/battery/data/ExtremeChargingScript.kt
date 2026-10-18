@@ -60,9 +60,17 @@ object ExtremeChargingScript {
             echo 33170 > /sys/devices/platform/charger/chg1_current 2>/dev/null
             echo 33170 > /sys/devices/platform/charger/chg2_current 2>/dev/null
             echo 120 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-            for daemon in thermalloadalgod com.xiaomi.joyose mi_thermald thermal-engine thermal-engine-v2 thermal; do
-                killall -STOP "${'$'}daemon" 2>/dev/null
-            done
+            is_qcom=false
+            if [ -d /sys/class/qcom-battery ] || [ -d /sys/class/power_supply/bms ] || [ -d /sys/class/kgsl ] || [ -d /sys/devices/soc0 ]; then
+                is_qcom=true
+            fi
+            if [ "${'$'}is_qcom" = "false" ]; then
+                for daemon in thermalloadalgod com.xiaomi.joyose mi_thermald; do
+                    killall -STOP "${'$'}daemon" 2>/dev/null
+                done
+            else
+                killall -CONT thermal-engine thermal-engine-v2 2>/dev/null
+            fi
             """ else ""}
             [ "${'$'}failed" -eq 0 ] && [ "${'$'}applied" -eq 1 ]
         """.trimIndent()
