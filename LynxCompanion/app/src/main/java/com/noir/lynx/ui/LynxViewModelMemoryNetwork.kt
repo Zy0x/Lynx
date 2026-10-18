@@ -130,7 +130,8 @@ fun LynxViewModel.refreshTcpAlgorithms() {
 }
 
 fun LynxViewModel.setPrivateDns(mode: String, specifier: String) {
-    recordStateMutation()
+    recordSettingIntent("network.private_dns_mode", mode)
+    recordSettingIntent("network.private_dns_specifier", specifier)
     _uiState.update { it.copy(
         privateDnsMode = mode,
         privateDnsSpecifier = specifier,
@@ -196,7 +197,7 @@ fun LynxViewModel.setAudioDirectDacOffload(enabled: Boolean) {
 }
 
 fun LynxViewModel.setTcpCongestion(algorithm: String) {
-    recordStateMutation()
+    recordSettingIntent("network.tcp_congestion", algorithm)
     _uiState.update { it.copy(
         currentTcpCongestion = algorithm,
         state = it.state.copy(network = it.state.network.copy(tcpCongestion = algorithm))

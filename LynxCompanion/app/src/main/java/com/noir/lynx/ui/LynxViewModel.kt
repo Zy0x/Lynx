@@ -445,6 +445,104 @@ class LynxViewModel : ViewModel() {
     )
     @Volatile internal var activeCpuSetIntent: CpuSetIntent? = null
 
+    internal val activeSettingIntents = java.util.concurrent.ConcurrentHashMap<String, Pair<Any, Long>>()
+
+    fun recordSettingIntent(key: String, value: Any) {
+        activeSettingIntents[key] = Pair(value, System.currentTimeMillis())
+        lastStateMutationTime = System.currentTimeMillis()
+    }
+
+    internal fun mergeStateWithActiveIntents(rawState: LynxState): LynxState {
+        val now = System.currentTimeMillis()
+        val ttl = 4500L
+        activeSettingIntents.entries.removeIf { now - it.value.second >= ttl }
+        if (activeSettingIntents.isEmpty()) return rawState
+
+        fun boolOf(key: String, def: Boolean): Boolean {
+            val entry = activeSettingIntents[key] ?: return def
+            return when (val v = entry.first) {
+                is Boolean -> v
+                is String -> v.equals("true", ignoreCase = true)
+                else -> def
+            }
+        }
+
+        fun intOf(key: String, def: Int): Int {
+            val entry = activeSettingIntents[key] ?: return def
+            return when (val v = entry.first) {
+                is Number -> v.toInt()
+                is String -> v.toIntOrNull() ?: def
+                else -> def
+            }
+        }
+
+        fun strOf(key: String, def: String): String {
+            val entry = activeSettingIntents[key] ?: return def
+            return entry.first.toString()
+        }
+
+        return rawState.copy(
+            activeProfile = strOf("active_profile", rawState.activeProfile),
+            charging = rawState.charging.copy(
+                chargingMode = strOf("charging.charging_mode", rawState.charging.chargingMode),
+                bypassEnabled = boolOf("charging.bypass_enabled", rawState.charging.bypassEnabled),
+                extremeChargingEnabled = boolOf("charging.extreme_charging_enabled", rawState.charging.extremeChargingEnabled),
+                limitCurrentMa = intOf("charging.limit_current_ma", rawState.charging.limitCurrentMa),
+                autoCutEnabled = boolOf("charging.auto_cut_enabled", rawState.charging.autoCutEnabled),
+                maxBatteryPercent = intOf("charging.max_battery_percent", rawState.charging.maxBatteryPercent),
+                highCurrentTargetPercent = intOf("charging.high_current_target_percent", rawState.charging.highCurrentTargetPercent),
+                emergencyTempGuardEnabled = boolOf("charging.emergency_temp_guard_enabled", rawState.charging.emergencyTempGuardEnabled),
+                thermalLockoutBypassEnabled = boolOf("charging.thermal_lockout_bypass_enabled", rawState.charging.thermalLockoutBypassEnabled),
+                smartTaperingEnabled = boolOf("charging.smart_tapering_enabled", rawState.charging.smartTaperingEnabled),
+                isUnconstrainedMaxHw = boolOf("charging.is_unconstrained_max_hw", rawState.charging.isUnconstrainedMaxHw),
+                nightSleepGuardEnabled = boolOf("charging.night_sleep_guard_enabled", rawState.charging.nightSleepGuardEnabled),
+            ),
+            network = rawState.network.copy(
+                wifiPingStabilizer = boolOf("network.wifi_ping_stabilizer", rawState.network.wifiPingStabilizer),
+                tcpCongestion = strOf("network.tcp_congestion", rawState.network.tcpCongestion),
+                fqCodelEnabled = boolOf("network.fq_codel_enabled", rawState.network.fqCodelEnabled),
+                wifiPowerSaveInGame = boolOf("network.wifi_power_save_in_game", rawState.network.wifiPowerSaveInGame),
+                tcpBuffers16m = boolOf("network.tcp_buffers_16m", rawState.network.tcpBuffers16m),
+                tcpFastOpen = boolOf("network.tcp_fast_open", rawState.network.tcpFastOpen),
+                antiJitterScan = boolOf("network.anti_jitter_scan", rawState.network.antiJitterScan),
+                mtkHardwareAggregation = boolOf("network.mtk_hardware_aggregation", rawState.network.mtkHardwareAggregation),
+                privateDnsMode = strOf("network.private_dns_mode", rawState.network.privateDnsMode),
+                privateDnsSpecifier = strOf("network.private_dns_specifier", rawState.network.privateDnsSpecifier),
+                wifiGameAutoTrigger = boolOf("network.wifi_game_auto_trigger", rawState.network.wifiGameAutoTrigger),
+            ),
+            displayTouch = rawState.displayTouch.copy(
+                touchboost = boolOf("display_touch.touchboost", rawState.displayTouch.touchboost),
+                refreshRateLock = intOf("display_touch.refresh_rate_lock", rawState.displayTouch.refreshRateLock),
+                surfaceFlingerOffsetNs = intOf("display_touch.surface_flinger_offset_ns", rawState.displayTouch.surfaceFlingerOffsetNs),
+                skiaVulkanEnabled = boolOf("display_touch.skia_vulkan_enabled", rawState.displayTouch.skiaVulkanEnabled),
+            ),
+            thermal = rawState.thermal.copy(
+                mode = strOf("thermal.mode", rawState.thermal.mode),
+                fullBypass = boolOf("thermal.full_bypass", rawState.thermal.fullBypass),
+                customTempLimitC = intOf("thermal.custom_temp_limit_c", rawState.thermal.customTempLimitC),
+                tripPointOverrideC = intOf("thermal.trip_point_override_c", rawState.thermal.tripPointOverrideC),
+                hardwareSafetyDominant = boolOf("thermal.hardware_safety_dominant", rawState.thermal.hardwareSafetyDominant),
+            ),
+            audio = rawState.audio.copy(
+                lowLatencyMmap = boolOf("audio.low_latency_mmap", rawState.audio.lowLatencyMmap),
+                fastTrackEnabled = boolOf("audio.fast_track_enabled", rawState.audio.fastTrackEnabled),
+                btCrackleGuard = boolOf("audio.bt_crackle_guard", rawState.audio.btCrackleGuard),
+                deepBufferBypass = boolOf("audio.deep_buffer_bypass", rawState.audio.deepBufferBypass),
+                directDacOffload = boolOf("audio.direct_dac_offload", rawState.audio.directDacOffload),
+            ),
+            oemNeutralizer = rawState.oemNeutralizer.copy(
+                joyoseNeutralize = boolOf("oem_neutralizer.joyose_neutralize", rawState.oemNeutralizer.joyoseNeutralize),
+                gosNeutralize = boolOf("oem_neutralizer.gos_neutralize", rawState.oemNeutralizer.gosNeutralize),
+            ),
+            memory = rawState.memory.copy(
+                zramSizeMb = intOf("memory.zram_size_mb", rawState.memory.zramSizeMb),
+                swappiness = intOf("memory.swappiness", rawState.memory.swappiness),
+                mglruEnabled = boolOf("memory.mglru_enabled", rawState.memory.mglruEnabled),
+                compAlgorithm = strOf("memory.comp_algorithm", rawState.memory.compAlgorithm),
+            )
+        )
+    }
+
     @Volatile internal var lastStateMutationTime = 0L
     internal var cpuProfileJob: Job? = null
     internal var gpuProfileJob: Job? = null

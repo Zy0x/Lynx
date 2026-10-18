@@ -277,6 +277,7 @@ internal object LynxAppStateRepository {
         val customProfile = if (profile !in builtInProfiles) {
             if (!com.noir.lynx.profiles.KernelPerformanceProfile.ID_PATTERN.matches(profile)) return@withContext false
             LynxKernelProfileCatalogRepository.read().find(profile) ?: return@withContext false
+        } else null
         val effectiveProfile = customProfile?.baseProfile ?: profile
 
         // Clear locks when leaving extreme mode so cluster frequencies can scale dynamically
@@ -325,10 +326,7 @@ internal object LynxAppStateRepository {
             append(baselineCmd)
             append("setprop lynx.mode '$profile' 2>/dev/null; ")
             if (lynxdPath != null) {
-                append("'$safeLynxd' state set active_profile '$profile' str 2>/dev/null; ")
-                append("'$safeLynxd' state set kernel_profile_id '$profile' str 2>/dev/null; ")
-                append("'$safeLynxd' state set baseline_profile '$targetBaseline' str 2>/dev/null; ")
-                append("'$safeLynxd' state set profile_overrides '' str 2>/dev/null; ")
+                append("'$safeLynxd' state set active_profile='$profile' kernel_profile_id='$profile' baseline_profile='$targetBaseline' profile_overrides='' 2>/dev/null; ")
             }
             if (applyCmd.isNotBlank()) {
                 append(applyCmd)
@@ -337,10 +335,6 @@ internal object LynxAppStateRepository {
 
         try {
             Shell.cmd(batchSetup).exec()
-            writeStateKey("active_profile", profile, "str")
-            writeStateKey("kernel_profile_id", profile, "str")
-            writeStateKey("baseline_profile", targetBaseline, "str")
-            writeStateKey("profile_overrides", "", "str")
             com.noir.lynx.service.LynxAppAutomationService.notifyProfileChanged(effectiveProfile, true)
             true
         } catch (e: Exception) {

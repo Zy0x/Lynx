@@ -57,18 +57,12 @@ fun LynxSwitch(
     var lastInteractionTime by remember { mutableLongStateOf(0L) }
     var lastClickTime by remember { mutableLongStateOf(0L) }
 
-    // Synchronize incoming external changes once background execution has settled (600ms)
+    // Synchronize incoming external changes once caller state updates
     LaunchedEffect(checked) {
         val now = System.currentTimeMillis()
-        if (now - lastInteractionTime > 600L) {
-            localChecked = checked
-        }
-    }
-
-    // If an interaction is canceled or not confirmed by caller, revert to single source of truth
-    LaunchedEffect(lastClickTime) {
-        if (lastClickTime > 0L) {
-            delay(650L)
+        if (checked == localChecked) {
+            lastInteractionTime = 0L
+        } else if (now - lastInteractionTime > 300L) {
             localChecked = checked
         }
     }

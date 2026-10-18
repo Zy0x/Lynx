@@ -207,6 +207,7 @@ class LynxAppAutomationService : Service() {
             addAction(Intent.ACTION_POWER_DISCONNECTED)
         }
         registerReceiver(powerReceiver, pFilter)
+        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 
         startWatcher()
     }
@@ -343,8 +344,7 @@ class LynxAppAutomationService : Service() {
     private fun getTopPackageFromCpuset(): String? {
         val cpusetFiles = arrayOf(
             java.io.File("/dev/cpuset/top-app/cgroup.procs"),
-            java.io.File("/sys/fs/cgroup/cpuset/top-app/cgroup.procs"),
-            java.io.File("/sys/fs/cgroup/top-app/cgroup.procs")
+            java.io.File("/sys/fs/cgroup/cpuset/top-app/cgroup.procs")
         )
         val file = cpusetFiles.firstOrNull { it.exists() && it.canRead() } ?: return null
         return try {
@@ -353,11 +353,11 @@ class LynxAppAutomationService : Service() {
                 val pid = pidStr.trim()
                 if (pid.isBlank() || !pid.all { it.isDigit() }) continue
 
-                // Check foreground priority (oom_score_adj == 0)
+                // Check foreground priority (oom_score_adj <= 200 for foreground apps/games)
                 val oomFile = java.io.File("/proc/$pid/oom_score_adj")
                 if (oomFile.exists()) {
                     val oom = try { oomFile.readText().trim().toIntOrNull() } catch (_: Exception) { null }
-                    if (oom != null && oom != 0) continue
+                    if (oom != null && oom > 200) continue
                 }
 
                 val cmdlineFile = java.io.File("/proc/$pid/cmdline")
@@ -367,7 +367,7 @@ class LynxAppAutomationService : Service() {
                 val raw = String(bytes)
                 val token = raw.split('\u0000').firstOrNull()?.trim() ?: ""
                 val pkg = if (token.contains(':')) token.substringBefore(':') else token
-                if (pkg.isBlank() || pkg == "null" || pkg == "system_server" || pkg.startsWith("/system/") || pkg.startsWith("/vendor/")) continue
+                if (pkg.isBlank() || pkg == "null" || pkg == "system_server" || pkg.startsWith("/system/") || pkg.startsWith("/vendor/") || pkg.contains("inputmethod") || pkg.contains("keyboard")) continue
                 if (pkg.contains('.')) {
                     lastDetectedTopPackage = pkg
                     return pkg
@@ -404,18 +404,30 @@ class LynxAppAutomationService : Service() {
     }
 
     private fun queryTopResumedPackage(): String? {
-        // 0. Ultra-fast direct kernel procfs/cpuset query (<0.1ms, ZERO shell fork, ZERO system_server lock contention)
+        // 0. Ultra-fast direct kernel procfs/cpuset query (<0.1ms, ZERO shell fork)
         getTopPackageFromCpuset()?.let { return it }
 
         // 1. Fast in-memory query via UsageStatsManager (<0.5ms)
         getTopPackageFromUsageStats()?.let { return it }
 
-        // 2. Fallback to lightweight single-line activities query only if direct procfs and UsageStats fail
+        // 2. High-speed window manager focused app query (<25ms, universal across all Android versions)
         return try {
-            val resAct = Shell.cmd("dumpsys activity activities 2>/dev/null | grep -m1 'topResumedActivity'").exec()
-            val actLine = resAct.out.firstOrNull()
-            if (!actLine.isNullOrBlank()) {
-                val match = Regex("""([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.]*""").find(actLine)
+            val resWin = Shell.cmd("dumpsys window 2>/dev/null | grep -m1 'mFocusedApp'").exec()
+            val winLine = resWin.out.firstOrNull()
+            if (!winLine.isNullOrBlank()) {
+                val match = Regex("""u0\s+([a-zA-Z0-9_.]+)/""").find(winLine)
+                    ?: Regex("""([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.]*""").find(winLine)
+                val pkg = match?.groupValues?.get(1)?.trim()
+                if (!pkg.isNullOrBlank() && pkg != "null") {
+                    lastDetectedTopPackage = pkg
+                    return pkg
+                }
+            }
+            // 3. Ultra-fast top activity stack dump (<20ms)
+            val resTop = Shell.cmd("dumpsys activity top 2>/dev/null | grep -m1 'ACTIVITY '").exec()
+            val topLine = resTop.out.firstOrNull()
+            if (!topLine.isNullOrBlank()) {
+                val match = Regex("""ACTIVITY\s+([a-zA-Z0-9_.]+)/""").find(topLine)
                 val pkg = match?.groupValues?.get(1)?.trim()
                 if (!pkg.isNullOrBlank() && pkg != "null") {
                     lastDetectedTopPackage = pkg
@@ -760,7 +772,25 @@ class LynxAppAutomationService : Service() {
         }
     }
 
+    @Volatile private var cachedBatteryPct = 0
+    @Volatile private var cachedBatteryTemp = 0f
+
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
+                val level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
+                val scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)
+                if (level >= 0 && scale > 0) cachedBatteryPct = (level * 100 / scale)
+                val rawTemp = intent.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, 0)
+                if (rawTemp > 0) cachedBatteryTemp = rawTemp / 10.0f
+            }
+        }
+    }
+
     private fun getLiveBatteryTelemetry(): Pair<Int, Float> {
+        if (cachedBatteryPct > 0 || cachedBatteryTemp > 0f) {
+            return Pair(cachedBatteryPct, cachedBatteryTemp)
+        }
         return try {
             val status: Intent? = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             val level = status?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
@@ -768,6 +798,8 @@ class LynxAppAutomationService : Service() {
             val pct = if (level >= 0 && scale > 0) (level * 100 / scale) else 0
             val rawTemp = status?.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
             val tempC = if (rawTemp > 0) rawTemp / 10.0f else 0f
+            if (pct > 0) cachedBatteryPct = pct
+            if (tempC > 0f) cachedBatteryTemp = tempC
             Pair(pct, tempC)
         } catch (_: Exception) {
             Pair(0, 0f)
@@ -877,6 +909,9 @@ class LynxAppAutomationService : Service() {
         } catch (_: Exception) {}
         try {
             unregisterReceiver(powerReceiver)
+        } catch (_: Exception) {}
+        try {
+            unregisterReceiver(batteryReceiver)
         } catch (_: Exception) {}
         isRunning = false
         isWatcherRunning = false

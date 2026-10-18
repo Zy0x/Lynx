@@ -175,8 +175,9 @@ fun LynxViewModel.setQuickCurrentPreset(ma: Int, isMaxHw: Boolean = false) {
         )
     }
 
+    recordSettingIntent("charging.limit_current_ma", ma)
+    recordSettingIntent("charging.is_unconstrained_max_hw", isMaxHw)
     viewModelScope.launch(Dispatchers.IO) {
-        recordStateMutation()
         LynxRepository.writeStateKey("charging.limit_current_ma", ma.toString(), "val")
         LynxRepository.writeStateKey("charging.is_unconstrained_max_hw", isMaxHw.toString(), "bool")
         recordStateMutation()

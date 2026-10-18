@@ -212,7 +212,8 @@ import kotlinx.coroutines.launch
                 if (System.currentTimeMillis() - lastStateMutationTime < 6000L) {
                     return@launch
                 }
-                val freshState = LynxRepository.readState()
+                val rawFreshState = LynxRepository.readState()
+                val freshState = mergeStateWithActiveIntents(rawFreshState)
                 val freshClusters = LynxRepository.readClusters()
                 val mergedClusters = if (freshClusters.isNotEmpty()) mergeClustersWithActiveIntents(freshClusters) else emptyList()
                 _uiState.update { current ->

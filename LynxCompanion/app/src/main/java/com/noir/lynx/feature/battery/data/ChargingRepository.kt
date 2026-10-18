@@ -56,7 +56,6 @@ class ChargingRepository(
 
     suspend fun setAutoCutEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
-            repository.writeStateKey("charging.auto_cut_enabled", enabled.toString(), "bool")
             val nativeResult = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging apply && echo lynx_applied; fi").exec()
             if (nativeResult.isSuccess && nativeResult.out.any { it.trim() == "lynx_applied" }) {
                 return@withContext true

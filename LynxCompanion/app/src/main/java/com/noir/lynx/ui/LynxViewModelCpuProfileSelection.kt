@@ -147,7 +147,7 @@ import kotlinx.coroutines.flow.update
     internal fun LynxViewModel.setKey(key: String, value: String, type: String) {
         // Generic persisted settings span several independent domains. Callers that
         // alter a profile-controlled subsystem record that scoped override themselves.
-        recordStateMutation()
+        recordSettingIntent(key, value)
         viewModelScope.launch(Dispatchers.IO) {
             LynxRepository.writeStateKey(key, value, type)
         }

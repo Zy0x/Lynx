@@ -230,58 +230,61 @@ impl ProfileExecutor {
         let _ = fs::create_dir_all("/data/adb/lynx");
         let _ = fs::write("/data/adb/lynx/active_profile", &plan.profile_name);
 
-        // ── Phase 7: Post-Commit Verification ───────────────────────────────
-        let mut verify_mismatches = 0;
-        for op in &plan.operations {
-            if op.current_value == "dynamic" {
-                continue;
-            }
-            if let Ok(actual) = SysfsReader::read_trimmed(&op.path) {
-                let lower = actual.to_lowercase();
-                let matches = actual == op.target_value
-                    || actual.contains(&format!("[{}]", op.target_value))
-                    || (op.target_value == "y" && (actual == "1" || lower.contains("enabled") || actual.starts_with("0x")))
-                    || (op.target_value == "0" && lower.contains("normal"))
-                    || (op.target_value == "1" && (lower.contains("low power") || lower.contains("performance")))
-                    || (op.target_value == "3" && lower.contains("performance"));
-                if !matches {
-                    verify_mismatches += 1;
-                }
-            }
-        }
-
-        // ── Phase 8: Post-Commit Persistence (Clean State) ──────────────────
+        // ── Phase 7 & 8: Asynchronous Post-Commit Persistence & Verification (Zero-Latency Fast Path) ──
         let prof_name_p8 = plan.profile_name.clone();
         let vendor_str_p8 = vendor_str.clone();
+        let plan_profile_name = plan.profile_name.clone();
+        let plan_base_profile = plan.base_profile;
+        let plan_ops = plan.operations.clone();
+        let elapsed = start.elapsed().as_micros();
+
         std::thread::spawn(move || {
+            let mut verify_mismatches = 0;
+            for op in &plan_ops {
+                if op.current_value == "dynamic" {
+                    continue;
+                }
+                if let Ok(actual) = SysfsReader::read_trimmed(&op.path) {
+                    let lower = actual.to_lowercase();
+                    let matches = actual == op.target_value
+                        || actual.contains(&format!("[{}]", op.target_value))
+                        || (op.target_value == "y" && (actual == "1" || lower.contains("enabled") || actual.starts_with("0x")))
+                        || (op.target_value == "0" && lower.contains("normal"))
+                        || (op.target_value == "1" && (lower.contains("low power") || lower.contains("performance")))
+                        || (op.target_value == "3" && lower.contains("performance"));
+                    if !matches {
+                        verify_mismatches += 1;
+                    }
+                }
+            }
+
             if let Err(e) = ProfileStateManager::record_post_commit(&prof_name_p8, &vendor_str_p8) {
                 Logger::warn(if is_english() { format!("Failed to record post-commit state: {}", e) } else { format!("Gagal merekam status setelah commit: {}", e) });
             }
+
+            let desc = match plan_base_profile {
+                "extreme" => "[ Extreme Mode Active ] Deity Hybrid Architecture",
+                "performance" => "[ Performance Mode Active ] Deity Hybrid Architecture",
+                "powersave" => "[ Powersave Mode Active ] Deity Hybrid Architecture",
+                "balanced" | "balance" => "[ Balance Mode Active ] Deity Hybrid Architecture",
+                _ => "[ Active Profile ] Deity Hybrid Architecture",
+            };
+            crate::utils::update_module_prop_description(desc);
+
+            if verify_mismatches == 0 {
+                Logger::info(if is_english() {
+                    format!("Profile '{}' applied and verified cleanly ({} nodes modified in {:.2} ms).", plan_profile_name, committed_count, elapsed as f64 / 1000.0)
+                } else {
+                    format!("Profil '{}' diterapkan dan terverifikasi ({} node diubah dalam {:.2} ms).", plan_profile_name, committed_count, elapsed as f64 / 1000.0)
+                });
+            } else {
+                Logger::info(if is_english() {
+                    format!("Profile '{}' applied ({} nodes committed in {:.2} ms; {} nodes clamped by kernel driver).", plan_profile_name, committed_count, elapsed as f64 / 1000.0, verify_mismatches)
+                } else {
+                    format!("Profil '{}' diterapkan ({} node di-commit dalam {:.2} ms; {} node dibatasi driver kernel).", plan_profile_name, committed_count, elapsed as f64 / 1000.0, verify_mismatches)
+                });
+            }
         });
-
-        let desc = match plan.base_profile {
-            "extreme" => "[ Extreme Mode Active ] Deity Hybrid Architecture",
-            "performance" => "[ Performance Mode Active ] Deity Hybrid Architecture",
-            "powersave" => "[ Powersave Mode Active ] Deity Hybrid Architecture",
-            "balanced" | "balance" => "[ Balance Mode Active ] Deity Hybrid Architecture",
-            _ => "[ Active Profile ] Deity Hybrid Architecture",
-        };
-        crate::utils::update_module_prop_description(desc);
-
-        let elapsed = start.elapsed().as_micros();
-        if verify_mismatches == 0 {
-            Logger::info(if is_english() {
-                format!("Profile '{}' applied and verified cleanly ({} nodes modified in {:.2} ms).", plan.profile_name, committed_count, elapsed as f64 / 1000.0)
-            } else {
-                format!("Profil '{}' diterapkan dan terverifikasi ({} node diubah dalam {:.2} ms).", plan.profile_name, committed_count, elapsed as f64 / 1000.0)
-            });
-        } else {
-            Logger::info(if is_english() {
-                format!("Profile '{}' applied ({} nodes committed in {:.2} ms; {} nodes clamped by kernel driver).", plan.profile_name, committed_count, elapsed as f64 / 1000.0, verify_mismatches)
-            } else {
-                format!("Profil '{}' diterapkan ({} node di-commit dalam {:.2} ms; {} node dibatasi driver kernel).", plan.profile_name, committed_count, elapsed as f64 / 1000.0, verify_mismatches)
-            });
-        }
 
         Ok(ExecutionReport {
             profile_name: plan.profile_name.clone(),
