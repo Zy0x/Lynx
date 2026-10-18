@@ -338,8 +338,10 @@ internal fun LazyListScope.dashboardHeaderItem(
                 // ── SMART AUTOMATION & BASELINE STATUS PILL ──
                 val isAutoRunning = uiState.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning
                 val isAutoProfile = state.activeProfile.equals("auto", ignoreCase = true)
-                val hasOverrides = state.profileOverrides.isNotEmpty()
-                val baselineId = if (isAutoProfile) "balance" else state.activeProfile
+                val activeGamePkg = com.noir.lynx.service.LynxAppAutomationService.activeGamePackage
+                val activeGameName = com.noir.lynx.service.LynxAppAutomationService.activeGameName
+                val hasOverrides = state.profileOverrides.isNotEmpty() || (activeGamePkg != null)
+                val baselineId = com.noir.lynx.service.LynxAppAutomationService.currentBaseline
                 val baselineDisplayName = when (baselineId.lowercase().trim()) {
                     "performance" -> "Performa Tinggi"
                     "extreme" -> "Ekstrem"
@@ -359,6 +361,7 @@ internal fun LazyListScope.dashboardHeaderItem(
                         else -> Icons.Default.Tune
                     }
                     val pillTitle = when {
+                        activeGameName != null -> "OVERRIDE AKTIF: $activeGameName"
                         hasOverrides -> "OVERRIDE OTOMASI AKTIF"
                         isAutoProfile -> "AUTO (AI) ENGINE AKTIF"
                         else -> "OTOMASI PROFIL SIAGA"

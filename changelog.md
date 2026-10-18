@@ -1,3 +1,26 @@
+# Lynx Universal [Live Dashboard Game Override Visualization & Real-time Baseline Recovery Architecture] 7.0.0-RC88
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC88** (Lynx Kernel Manager v3.1.40): **Penyelarasan Visualisasi Dashboard & Profil Card saat Game Berjalan: Refleksi Status Fisik Hardware Kernel pada 4-Way Selector, Smart Automation Status Pill Dinamis (Deteksi Paket Game & Nama Game Aktif Real-time), Arsitektur Dynamic Live Baseline Recovery Tanpa Redundansi, Serta Transparansi Alur Kerja Pemulihan Profil Otomasi**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC88)
+
+### 1. 🎮 Refleksi Status Fisik Hardware Kernel pada Dashboard Utama
+- **Kejujuran Status Fisik Hardware (*Physical Hardware Truth*)**: Menjawab kebutuhan transparansi performa saat pengguna membuka game lalu berpindah/mengecek Dashboard Lynx Companion. 4-Way Mode Selector (`Hemat Daya`, `Seimbang`, `Performa`, `Ekstrem`) secara real-time mencerminkan status profil kernel yang sesungguhnya sedang aktif (misalnya saat bermain game pemicu performa tinggi, tombol `Performa` atau `Ekstrem` akan menyala aktif).
+- **Zero Ambiguity**: Mencegah kebingungan di mana CPU/GPU bekerja pada clock maksimum namun antarmuka secara keliru tetap menampilkan "Seimbang".
+
+### 2. ⚡ Smart Automation Status Pill dengan Deteksi Game Aktif Real-Time
+- **Deteksi Otomatis & Identitas Game**: Smart Automation Status Pill di Dashboard kini terhubung langsung ke daemon pemantau `LynxAppAutomationService` melalui getter reaktif `activeGamePackage` dan `activeGameName`.
+- **Umpan Balik Visual Transparan**: Saat game terdeteksi berjalan di foreground, status pill beralih ke warna aksen Oranye menyala dengan pesan jelas:
+  - Header: `🎮 OVERRIDE AKTIF: [Nama Game]`
+  - Subtitle: `Kembali ke [Profil Dasar] saat keluar game`
+- **Siklus Pemulihan Otomatis**: Saat game diminimalkan atau ditutup dan jendela *cooldown buffer* berakhir, status pill kembali ke status siaga hijau/cyan dan selector mode secara mulus memulihkan posisi tombol ke profil dasar pengguna.
+
+### 3. 🛡️ Dynamic Live Baseline Recovery di Seluruh UI (Dashboard & Tab Profil)
+- **Akurasi Pemulihan Mutlak**: Memperbaiki pembacaan baseline di `DashboardHeaderItem.kt` dan hero card `TuningProfilesCategory.kt` dengan mengonsumsi `LynxAppAutomationService.currentBaseline` secara terpusat.
+- **Konsistensi Dua Arah**: Saat game sedang meng-override mode ke `Performa` atau `Ekstrem`, kartu "Profil Dasar Pemulihan" tidak akan keliru menampilkan profil game, melainkan tetap secara akurat menampilkan profil dasar asli yang dipilih pengguna (misalnya `Seimbang` atau `Hemat Daya`).
+
+---
+
 # Lynx Universal [Smart Automation Dashboard Sync, Educational Activation Dialog & Glassmorphic Customization Menu] 7.0.0-RC87
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC87** (Lynx Kernel Manager v3.1.39): **Sinkronisasi Cerdas Dashboard Utama & Smart Automation Status Pill, Dialog Edukasi & Konfirmasi Aktivasi Layanan Otomasi dengan Opsi Persistensi "Jangan Tampilkan Lagi", Redesain Total Dropdown Menu "Kustomisasi" Berbasis Cyberpunk Glassmorphic Card (Zero Corner Glitch), Serta Penyempurnaan Spacing Navigasi Bawah**.

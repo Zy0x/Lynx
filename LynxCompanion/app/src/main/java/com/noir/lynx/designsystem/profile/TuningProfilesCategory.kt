@@ -463,14 +463,16 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                         }
                                     }
 
-                                    if (state.profileOverrides.isNotEmpty()) {
+                                    val activeGamePkg = com.noir.lynx.service.LynxAppAutomationService.activeGamePackage
+                                    val activeGameName = com.noir.lynx.service.LynxAppAutomationService.activeGameName
+                                    if (state.profileOverrides.isNotEmpty() || activeGamePkg != null) {
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
                                             color = AccentOrange.copy(alpha = 0.18f),
                                             border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
                                         ) {
                                             Text(
-                                                text = "OVERRIDE AKTIF",
+                                                text = if (activeGameName != null) "OVERRIDE: ${activeGameName.take(15)}" else "OVERRIDE AKTIF",
                                                 color = AccentOrange,
                                                 fontSize = 9.sp,
                                                 fontWeight = FontWeight.Bold,
@@ -559,7 +561,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                             }
 
                             val isAutoRunning = uiState.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning
-                            val baselineId = if (activeProfileId == "auto") "balance" else activeProfileId
+                            val baselineId = com.noir.lynx.service.LynxAppAutomationService.currentBaseline
                             val baselineDisplayName = when (baselineId.lowercase().trim()) {
                                 "performance" -> "Performa Tinggi"
                                 "extreme" -> "Ekstrem"

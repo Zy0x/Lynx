@@ -137,6 +137,24 @@ class LynxAppAutomationService : Service() {
         fun reloadRules() {
             currentInstance?.reloadRulesInternal()
         }
+
+        val activeGamePackage: String?
+            get() = currentInstance?.activeCustomPkg
+
+        val activeGameName: String?
+            get() = currentInstance?.let { inst ->
+                val pkg = inst.activeCustomPkg ?: return@let null
+                inst.rulesCache.firstOrNull { it.packageName.equals(pkg, ignoreCase = true) }?.appName ?: pkg
+            }
+
+        val currentBaseline: String
+            get() {
+                val inst = currentInstance?.baselineProfile
+                if (!inst.isNullOrBlank() && inst != "dormant" && inst != "auto") return inst
+                val file = com.noir.lynx.data.LynxRepository.readBaselineProfile()
+                if (file.isNotBlank() && file != "dormant" && file != "auto") return file
+                return "balance"
+            }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
