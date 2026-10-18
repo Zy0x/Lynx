@@ -15,7 +15,7 @@ enum class TuningCategory(
     val icon: ImageVector,
     val accentColor: Color
 ) {
-    PROFILES("profiles", "Profil Performa Kernel", "Katalog Profil & Otomasi Per-Aplikasi", Icons.Default.Speed, AccentOrange),
+    PROFILES("profiles", "Profil Performa Kernel", "Manajemen Profil & Otomasi Per-Aplikasi", Icons.Default.Speed, AccentOrange),
     HUD("hud", "Floating Game HUD", "Overlay FPS, OSD Real-Time & Gaya Layout", Icons.Default.Visibility, AccentCyan),
     CPU("cpu", "CPU Performa", "Kluster, Respon Daya & Penjadwal", Icons.Default.Memory, AccentCyan),
     GPU("gpu", "GPU & Display", "Clock GPU, Driver Boost & Refresh Rate", Icons.Default.SportsEsports, AccentOrange),

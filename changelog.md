@@ -1,3 +1,36 @@
+# Lynx Universal [App Automation Subsystem Redesign & Cyberpunk Bento Architecture] 7.0.0-RC89
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC89** (Lynx Kernel Manager v3.1.41): **Penyelarasan Visual dan Redesain Menyeluruh Tab Otomasi Aplikasi: Transformasi Daftar Flat ke Cyberpunk Bento Cards (`AppRuleBentoCard`) dengan Ikon 42dp dan Target Profile Cycle Pill, Harmonisasi Hero Service Card dengan Live Override Badge dan Nothing OS Segmented Cooldown Capsule, Eliminasi Glitch Sudut Putih DropdownMenu secara Native, Serta Navigasi Virtualized Fluid 120 FPS LazyColumn Tanpa Nested Gesture Collision**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC89)
+
+### 1. 🎴 Transformasi ke Cyberpunk Bento Cards (`AppRuleBentoCard`)
+- **Desain Kartu Independen & Elegan**: Menggantikan divider list datar usang dengan kartu Bento mandiri (`RoundedCornerShape(16.dp)`, latar belakang `BgElevated`, dan border `AccentCyan` responsif).
+- **Hierarki Visual Jernih**:
+  - Ikon aplikasi berukuran 42dp rounded dengan caching cerdas `AppIconLoader`.
+  - Judul aplikasi tebal (14.5sp) disertai badge `[GAME]` bernuansa oranye neon.
+  - Subtitel nama paket dengan kontras tinggi yang nyaman di mata.
+- **One-Tap Profile Cycle Pill**: Tombol interaktif untuk mengganti profil target game/aplikasi secara instan (Powersave -> Seimbang -> Performa -> Ekstrem) lengkap dengan indikator dot warna status dan ikon swap, meminimalisir langkah navigasi bagi pengguna.
+- **Afodansi Kustomisasi**: Menambahkan indikator teks dan chevron `Kustomisasi >` di pojok kanan bawah setiap kartu untuk membuka dialog penyesuaian aturan mendalam.
+
+### 2. ⚡ Harmonisasi Hero Service Card (`AutomationHeroServiceCard`)
+- **Status Presence Tinggi**: Menyamakan bahasa desain dengan Hero Card di Tab Profile, dilengkapi:
+  - Badge status layanan: `OTOMASI PROFIL AKTIF` (Hijau/Cyan) dan `OTOMASI NONAKTIF` (Netral).
+  - Badge override reaktif: `OVERRIDE AKTIF: [Nama Game]` bernuansa oranye saat game sedang berjalan di foreground.
+  - Kartu indikator pemulihan profil dasar: `Profil Dasar Pemulihan: [Nama Profil]` serta counter aturan aktif real-time.
+- **Nothing OS Segmented Cooldown Capsule**: Selector waktu penahanan profil (`5s`, `30s`, `1m`, `3m`, `Tetap`) berbingkai kapsul dengan highlight Cyan dan teks panduan rekomendasi.
+
+### 3. 🌊 Virtualized Fluid 120 FPS Scrolling & Eliminasi Nested Scroll
+- **Single Root LazyColumn**: Mengeliminasi arsitektur statis dua zona yang memicu keterbatasan tinggi dan konflik gestur sentuh. Seluruh halaman kini mengalir dalam satu `LazyColumn` virtual dengan `rememberFluidFlingBehavior()`.
+- **Deselerasi Kinetik Natural**: Menjamin fluiditas 60/120 FPS bebas lag dan stutter pada layar refresh rate tinggi perangkat fisik.
+- **Floating Dock Clearance**: Spacer navigasi bawah dinamis (`115.dp + navigationBarsPadding()`) menjamin kartu aturan terakhir tidak pernah terhalang oleh floating dock bar.
+
+### 4. 🛡️ Eliminasi Glitch Sudut Putih DropdownMenu secara Native
+- **Solusi Material 3 Natively Themed**: Menghilangkan artefak sudut putih pada menu opsi overflow (⋮) dengan menyuplai `containerColor = BgElevated` dan bentuk sudut `RoundedCornerShape(12.dp)` terpotong rapi.
+- **Aksi Cepat & Jelas**: Menu dropdown menyajikan opsi "Pindai Game Terpasang" (Cyan) dan "Hapus Semua Aturan" (Merah) dengan ikon tajam dan batas pemisah kaca.
+
+---
+
 # Lynx Universal [Live Dashboard Game Override Visualization & Real-time Baseline Recovery Architecture] 7.0.0-RC88
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC88** (Lynx Kernel Manager v3.1.40): **Penyelarasan Visualisasi Dashboard & Profil Card saat Game Berjalan: Refleksi Status Fisik Hardware Kernel pada 4-Way Selector, Smart Automation Status Pill Dinamis (Deteksi Paket Game & Nama Game Aktif Real-time), Arsitektur Dynamic Live Baseline Recovery Tanpa Redundansi, Serta Transparansi Alur Kerja Pemulihan Profil Otomasi**.
