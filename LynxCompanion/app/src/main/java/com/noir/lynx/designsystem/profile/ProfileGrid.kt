@@ -72,11 +72,11 @@ fun ProfileGrid(
             val isModified = profile.builtIn && defaultProf != null && (profile.baseProfile != defaultProf.baseProfile || profile.domainProfiles != defaultProf.domainProfiles || profile.settings.isNotEmpty() || profile.includedSensitiveSettings.isNotEmpty())
 
             val shortDesc = when (profile.id.lowercase()) {
-                "auto" -> "Adaptif otomatis mendeteksi aplikasi & game aktif"
-                "powersave" -> "Maks 60 FPS • Hemat daya & idle downclock"
-                "balance" -> "Responsif, sejuk, dan stabil untuk tugas harian"
-                "performance" -> "Gaming stabil, devfreq cepat & latensi rendah"
-                "extreme" -> "Maksimal tanpa batas termal (butuh pendingin)"
+                "auto" -> "Adaptif otomatis • Seimbang di app biasa, boost saat gaming"
+                "powersave" -> "Hemat daya baterai • Dibatasi 60 FPS & downclock siaga"
+                "balance" -> "Ideal harian • Responsif, dingin & efisiensi daya seimbang"
+                "performance" -> "Fokus gaming • Clock tinggi, devfreq cepat & respons instan"
+                "extreme" -> "Performa tanpa batas • Bypass termal penuh (wajib pendingin)"
                 else -> profile.description.ifBlank { "Profil turunan ${profile.baseProfile}" }
             }
 
@@ -186,8 +186,9 @@ fun ProfileGrid(
                             color = TextSecondary,
                             fontSize = 11.sp,
                             lineHeight = 15.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
                         )
 
                         Spacer(Modifier.height(5.dp))

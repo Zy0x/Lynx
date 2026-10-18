@@ -25,10 +25,10 @@ dalvik.vm.dexopt.thermal-cutoff=0
 debug.graphics.game_default_frame_rate.disabled=true
 ro.config.nocheckin=1
 
-# Dalvik VM Heap Headroom & Garbage Collection (Tuned for 6GB-8GB RAM)
-# Prevents system_server heap fragmentation, IPC buffer starvation, and SIGABRT bad_alloc
-dalvik.vm.heapgrowthlimit=384m
-dalvik.vm.heapsize=768m
+# Dalvik VM Heap Baseline (Dynamically scaled per hardware RAM tier by customize.sh & lynxd)
+# Tiers: 3-4GB (Growth: 192M, Max: 512M) | 6GB (Growth: 256M, Max: 640M) | 8-10GB (Growth: 384M, Max: 768M) | 12GB+ (Growth: 512M, Max: 1024M)
+dalvik.vm.heapgrowthlimit=256m
+dalvik.vm.heapsize=512m
 dalvik.vm.heapstartsize=16m
 dalvik.vm.heapminfree=8m
 dalvik.vm.heapmaxfree=32m

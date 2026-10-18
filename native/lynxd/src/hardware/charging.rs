@@ -583,6 +583,10 @@ impl ChargingRegulator {
 
     /// Checks if connected power source is a laptop / computer USB port (SDP/CDP).
     pub fn is_laptop_port() -> bool {
+        let chg_type = Self::read_node(&format!("{}/Charger_Type", MTK_DIR)).unwrap_or_default();
+        if chg_type == "4" || chg_type == "9" || chg_type == "5" {
+            return false;
+        }
         let ptyp = Self::read_node(&format!("{}/type", USB_DIR))
             .or_else(|| Self::read_node(&format!("{}/real_type", USB_DIR)))
             .or_else(|| Self::read_node(&format!("{}/Charger_Type", MTK_DIR)))
@@ -961,7 +965,18 @@ impl ChargingRegulator {
         let is_tapered = effective_ma <= 2200;
         let is_trickle = effective_ma < 1500;
         let pe_protocol = if is_trickle { "0" } else { "1" };
-        let pump_enable = if is_trickle { "0" } else { "1" };
+
+        // Voltage Gating for Switched-Capacitor Pump (RT9759 2:1):
+        // If enabled when VBUS is at 5V, pump output is 2.5V (< V_BAT ~ 3.8-4.2V),
+        // triggering reverse current / UVLO fault which kills Pump Express handshake.
+        // Therefore, enable_sc is strictly voltage-gated: ONLY activate pump when adapter voltage >= 6.5V.
+        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+            .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+            .unwrap_or(0);
+        let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+        let is_voltage_boosted = adpv_clean >= 6500;
+        let pump_enable = if !is_trickle && is_voltage_boosted { "1" } else { "0" };
 
         Self::write_node_lock(&format!("{}/pe20", MTK_DIR), pe_protocol);
         Self::write_node_lock(&format!("{}/pe40", MTK_DIR), pe_protocol);
@@ -1105,19 +1120,36 @@ impl ChargingRegulator {
             return;
         }
 
-        // 1. Kick Qualcomm rerun_aicl if present (non-Qualcomm fallback if node somehow present)
+        // Never pulse if connected to a PC / laptop USB port or non-fast charger
+        if Self::is_laptop_port() {
+            return;
+        }
+        let chg_type = Self::read_node(&format!("{}/Charger_Type", MTK_DIR)).unwrap_or_default();
+        if chg_type == "1" || chg_type == "2" || chg_type == "3" {
+            // Standard host, charging host, or non-standard charger: do NOT pulse!
+            return;
+        }
+
+        // 1. Reset enable_sc to 0 first to prevent UVLO reverse-current fault during re-handshake
+        let sc_node = format!("{}/enable_sc", MTK_DIR);
+        if Path::new(&sc_node).exists() {
+            Self::set_perm(&sc_node, 0o666);
+            let _ = fs::write(&sc_node, "0");
+        }
+
+        // 2. Kick Qualcomm rerun_aicl if present (non-Qualcomm fallback if node somehow present)
         let rerun_node = format!("{}/rerun_aicl", USB_DIR);
         if Path::new(&rerun_node).exists() {
             Self::write_node(&rerun_node, "1");
         }
 
-        // 2. Kick MediaTek Pump_Express renegotiation if present
+        // 3. Kick MediaTek Pump_Express renegotiation if present
         let pe_node = format!("{}/Pump_Express", MTK_DIR);
         if Path::new(&pe_node).exists() {
             Self::write_node(&pe_node, "1");
         }
 
-        // 3. Universal Linux VBUS FET Soft-Pulse (ONLY for MediaTek/Transsion)
+        // 4. Universal Linux VBUS FET Soft-Pulse (ONLY for MediaTek/Transsion)
         let suspend_node = format!("{}/input_suspend", BATT_DIR);
         if Path::new(&suspend_node).exists() {
             Self::set_perm(&suspend_node, 0o666);
@@ -1832,11 +1864,18 @@ impl ChargingRegulator {
                 let pe20 = Self::read_node(&format!("{}/pe20", MTK_DIR)).unwrap_or_default();
                 let pe40 = Self::read_node(&format!("{}/pe40", MTK_DIR)).unwrap_or_default();
 
+                let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+                    .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+                    .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+                    .unwrap_or(0);
+                let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+                let is_voltage_boosted = adpv_clean >= 6500;
+
                 let is_trickle = cur_cap >= 99;
-                let expected_sc = if !is_trickle && cur_cap < 95 { "1" } else { "0" };
+                let expected_sc = if !is_trickle && cur_cap < 95 && is_voltage_boosted { "1" } else { "0" };
 
                 bn_test == "1"
-                    && (enable_sc == expected_sc || enable_sc == "1")
+                    && enable_sc == expected_sc
                     && (in_cur >= 30000 || in_cur >= 2000)
                     && sc_limit >= 1000
                     && (chg1 >= 30000 || chg1 >= 2000)
@@ -2237,27 +2276,36 @@ impl ChargingRegulator {
         let reconnect_already_done = Path::new("/dev/lynx_soft_reconnect_done").exists();
 
         if is_hyper && is_pe_platform && !reconnect_already_done && cur_cap < 80 {
-            let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
-                .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
-                .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
-                .unwrap_or(0);
-            let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+            let chg_type = Self::read_node(&format!("{}/Charger_Type", MTK_DIR)).unwrap_or_default();
+            let is_fast_charger = chg_type == "9" || chg_type == "4";
 
-            // If plugged, hyper mode active, battery < 80%, but PE adapter stuck in standard 5V USB (< 6000 mV)
-            // check if soft reconnect should be triggered to auto-kick fast charge negotiation (ONCE per session)
-            if adpv_clean > 3500 && adpv_clean < 6000 {
-                let marker_path = "/dev/lynx_stalled_5v_count";
-                let count = Self::read_i64(marker_path).unwrap_or(0);
-                if count >= 4 {
-                    // Stalled at 5V for 4+ seconds: trigger automated software reconnect ONCE per cable session!
-                    let _ = fs::remove_file(marker_path);
-                    let _ = fs::write("/dev/lynx_soft_reconnect_done", "1");
-                    Self::trigger_charger_soft_reconnect();
-                } else {
-                    let _ = fs::write(marker_path, (count + 1).to_string());
-                }
-            } else {
+            if !is_fast_charger || Self::is_laptop_port() {
+                // Not a fast charger or connected to a PC: do NOT attempt soft reconnect!
+                let _ = fs::write("/dev/lynx_soft_reconnect_done", "1");
                 let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
+            } else {
+                let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+                    .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+                    .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+                    .unwrap_or(0);
+                let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+
+                // If plugged, hyper mode active, battery < 80%, but PE adapter stuck in standard 5V USB (< 6000 mV)
+                // check if soft reconnect should be triggered to auto-kick fast charge negotiation (ONCE per session)
+                if adpv_clean > 3500 && adpv_clean < 6000 {
+                    let marker_path = "/dev/lynx_stalled_5v_count";
+                    let count = Self::read_i64(marker_path).unwrap_or(0);
+                    if count >= 4 {
+                        // Stalled at 5V for 4+ seconds: trigger automated software reconnect ONCE per cable session!
+                        let _ = fs::remove_file(marker_path);
+                        let _ = fs::write("/dev/lynx_soft_reconnect_done", "1");
+                        Self::trigger_charger_soft_reconnect();
+                    } else {
+                        let _ = fs::write(marker_path, (count + 1).to_string());
+                    }
+                } else {
+                    let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
+                }
             }
         } else {
             let _ = fs::remove_file("/dev/lynx_stalled_5v_count");

@@ -172,6 +172,82 @@ else
 fi
 [ -d "$MODPATH/system/vendor" ] && rmdir "$MODPATH/system/vendor" 2>/dev/null
 
+# ── 4b. Dynamic RAM-Proportional Dalvik Heap Tuning ──────────────
+tune_dalvik_heap() {
+    local mem_total_kb
+    mem_total_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null)
+    [ -z "$mem_total_kb" ] && mem_total_kb=4194304
+    local mem_total_mb=$((mem_total_kb / 1024))
+
+    local growth_limit="256m"
+    local heap_size="512m"
+    local start_size="8m"
+    local min_free="4m"
+    local max_free="16m"
+    local target_util="0.75"
+    local tier_label="6GB (Optimal)"
+
+    if [ "$mem_total_mb" -le 4500 ]; then
+        # ── Tier 1: 3GB - 4GB RAM (Conservative) ─────────────────────
+        # Prevents excessive heap bloat, thrashing, and aggressive LMK background app killing
+        tier_label="3GB-4GB (Konservatif)"
+        growth_limit="192m"
+        heap_size="512m"
+        start_size="8m"
+        min_free="4m"
+        max_free="16m"
+    elif [ "$mem_total_mb" -le 6500 ]; then
+        # ── Tier 2: 6GB RAM (Balanced Sweet Spot) ────────────────────
+        # Optimal multitasking headroom with balanced GC compaction cycles
+        tier_label="6GB (Seimbang)"
+        growth_limit="256m"
+        heap_size="640m"
+        start_size="16m"
+        min_free="6m"
+        max_free="24m"
+    elif [ "$mem_total_mb" -le 10500 ]; then
+        # ── Tier 3: 8GB - 10GB RAM (High Performance) ────────────────
+        # Ample headroom preventing system_server IPC fragmentation & bad_alloc OOM
+        tier_label="8GB-10GB (Performa Tinggi)"
+        growth_limit="384m"
+        heap_size="768m"
+        start_size="16m"
+        min_free="8m"
+        max_free="32m"
+    else
+        # ── Tier 4: 12GB+ RAM (Extreme Flagship) ─────────────────────
+        # Unrestricted heap space for heavy multi-window & high-end emulation
+        tier_label="12GB+ (Ekstrem / Unggulan)"
+        growth_limit="512m"
+        heap_size="1024m"
+        start_size="24m"
+        min_free="12m"
+        max_free="48m"
+    fi
+
+    ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    ui_print "  📊 Deteksi Kapasitas RAM: ~${mem_total_mb}MB [Tier: $tier_label]"
+    ui_print "  ⚡ Dalvik Heap Otomatis: Growth=$growth_limit | Max=$heap_size | Start=$start_size"
+    ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    # Bersihkan nilai statis sebelumnya jika ada di system.prop
+    if [ -f "$MODPATH/system.prop" ]; then
+        sed -i '/^dalvik\.vm\.heap/d' "$MODPATH/system.prop" 2>/dev/null
+    fi
+
+    {
+        echo ""
+        echo "# ── Dynamic Dalvik VM Heap Tuning (RAM: ${mem_total_mb}MB | $tier_label) ──"
+        echo "dalvik.vm.heapgrowthlimit=$growth_limit"
+        echo "dalvik.vm.heapsize=$heap_size"
+        echo "dalvik.vm.heapstartsize=$start_size"
+        echo "dalvik.vm.heapminfree=$min_free"
+        echo "dalvik.vm.heapmaxfree=$max_free"
+        echo "dalvik.vm.heaptargetutilization=$target_util"
+    } >> "$MODPATH/system.prop"
+}
+tune_dalvik_heap
+
 # ── 5. Non-Intrusive Selective BusyBox Installation ────────────────
 ui_print "$(lynx_t setup_busybox)"
 feravolt_dir="$MODPATH/system/bin/feravolt"

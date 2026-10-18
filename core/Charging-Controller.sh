@@ -151,7 +151,13 @@ fallback_hyper() {
     # 5. Continuous Maximum Pump Current Enforcement (>6A Battery Current)
     write_node_lock "$MTK_DIR/pe20" "1"
     write_node_lock "$MTK_DIR/pe40" "1"
-    write_node_lock "$MTK_DIR/enable_sc" "1"
+    local adpv=$(cat "$MTK_DIR/ADC_Charger_Voltage" 2>/dev/null || cat "$TRAN_ODM/Pump_Express_VCharger" 2>/dev/null || cat "$USB_DIR/voltage_now" 2>/dev/null || echo 0)
+    [ "$adpv" -gt 100000 ] 2>/dev/null && adpv=$((adpv / 1000))
+    if [ "$adpv" -ge 6500 ] 2>/dev/null; then
+        write_node_lock "$MTK_DIR/enable_sc" "1"
+    else
+        write_node_lock "$MTK_DIR/enable_sc" "0"
+    fi
     write_node_lock "$MTK_DIR/input_current" "33170"
     write_node_lock "$MTK_DIR/sc_ibat_limit" "12000"
     write_node_lock "$MTK_DIR/chg1_current" "33170"

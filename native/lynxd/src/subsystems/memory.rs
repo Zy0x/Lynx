@@ -47,18 +47,34 @@ impl MemoryController {
         Self::write_opt("/proc/sys/vm/compact_unevictable_allowed", "1");
 
         // Anti-stutter direct reclaim prevention:
-        // Set watermark_scale_factor to 50 (0.5% buffer) to wake kswapd early in the background
-        // before RAM becomes depleted, preventing UI threads from blocking in direct reclaim.
-        Self::write_opt("/proc/sys/vm/watermark_scale_factor", "50");
+        // Wake kswapd early in the background before RAM becomes depleted.
+        let (watermark, min_free_kb) = if mem.total_ram_mb <= 4500 {
+            ("30", "16384")
+        } else if mem.total_ram_mb <= 6500 {
+            ("40", "24576")
+        } else {
+            ("50", "32768")
+        };
+        Self::write_opt("/proc/sys/vm/watermark_scale_factor", watermark);
+        Self::write_opt("/proc/sys/vm/min_free_kbytes", min_free_kb);
+        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "100");
 
-        // Dynamic min_free_kbytes guarantees sufficient atomic headroom for 120Hz display & GPU buffers
-        if mem.total_ram_mb >= 6000 {
-            Self::write_opt("/proc/sys/vm/min_free_kbytes", "32768");
-            Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "100");
-        } else if mem.total_ram_mb >= 4000 {
-            Self::write_opt("/proc/sys/vm/min_free_kbytes", "24576");
-            Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "100");
-        }
+        // Runtime dynamic Dalvik VM Heap enforcement via resetprop
+        let (growth_limit, heap_size, start_size, max_free) = if mem.total_ram_mb <= 4500 {
+            ("192m", "512m", "8m", "16m")
+        } else if mem.total_ram_mb <= 6500 {
+            ("256m", "640m", "16m", "24m")
+        } else if mem.total_ram_mb <= 10500 {
+            ("384m", "768m", "16m", "32m")
+        } else {
+            ("512m", "1024m", "24m", "48m")
+        };
+
+        let _ = Command::new("resetprop").args(["dalvik.vm.heapgrowthlimit", growth_limit]).output();
+        let _ = Command::new("resetprop").args(["dalvik.vm.heapsize", heap_size]).output();
+        let _ = Command::new("resetprop").args(["dalvik.vm.heapstartsize", start_size]).output();
+        let _ = Command::new("resetprop").args(["dalvik.vm.heapmaxfree", max_free]).output();
+        let _ = Command::new("resetprop").args(["dalvik.vm.heaptargetutilization", "0.75"]).output();
 
         let default_swap = if mem.total_ram_mb <= 4500 { "90" } else { "80" };
         let swap_val = ConfigStore::get("swappiness")

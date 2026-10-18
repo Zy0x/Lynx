@@ -1,3 +1,43 @@
+# Lynx Universal [Adaptive Multi-Tier RAM Architecture & Dynamic Dalvik Scaling] 7.0.0-RC85
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC85** (Lynx Kernel Manager v3.1.37): **Arsitektur Memori Multi-Tier Adaptif: Deteksi Otomatis Kapasitas RAM Fisik (3GB-4GB, 6GB, 8GB-10GB, 12GB+) pada Installer `customize.sh` & Mesin Native `lynxd`, Penyetelan Presisi Dalvik VM Heap Headroom & Garbage Collection, Serta Kalibrasi VM Watermark & Min Free Kbytes Anti-Direct Reclaim & Anti-Aggressive LMK**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC85)
+
+### 1. 📊 Matriks Penyetelan Dalvik VM & VM Kernel Berbasis Kapasitas RAM
+Sistem secara otomatis mendeteksi kapasitas `MemTotal` dari `/proc/meminfo` saat instalasi modul maupun saat boot awal via `lynxd`, mengelompokkan perangkat ke dalam 4 tier presisi:
+
+| Parameter Tuning | Tier 1: 3GB – 4GB RAM (Konservatif) | Tier 2: 6GB RAM (Seimbang / Mid-Range) | Tier 3: 8GB – 10GB RAM (Performa Tinggi) | Tier 4: 12GB+ RAM (Unggulan / Ekstrem) |
+| :--- | :--- | :--- | :--- | :--- |
+| **`dalvik.vm.heapstartsize`** | `8m` | `16m` | `16m` | `24m` |
+| **`dalvik.vm.heapgrowthlimit`** | `192m` | `256m` | `384m` | `512m` |
+| **`dalvik.vm.heapsize`** | `512m` | `640m` | `768m` | `1024m` |
+| **`dalvik.vm.heapminfree`** | `4m` | `6m` | `8m` | `12m` |
+| **`dalvik.vm.heapmaxfree`** | `16m` | `24m` | `32m` | `48m` |
+| **`vm.watermark_scale_factor`** | `30` (hemat CPU kswapd) | `40` (stabil 90/120Hz) | `50` (buffer kswapd 0.5%) | `60` (buffer kswapd 0.6%) |
+| **`vm.min_free_kbytes`** | `16384` (16 MB) | `24576` (24 MB) | `32768` (32 MB) | `40960` (40 MB) |
+| **`vm.swappiness`** | `90` (maksimalkan ZRAM) | `80` (seimbang) | `80` (seimbang) | `70` (prioritaskan fisik) |
+| **`vm.dirty_ratio` / `bg`** | `15%` / `5%` | `20%` / `8%` | `20%` / `10%` | `20%` / `10%` |
+
+### 2. 🛡️ Mitigasi Masalah Spesifik RAM 4GB & 6GB
+- **Perangkat RAM 4GB**: Mencegah Low Memory Killer (LMK) membunuh aplikasi latar belakang secara agresif dan mencegah launcher me-reload saat berpindah aplikasi akibat alokasi heap yang terlalu rakus.
+- **Perangkat RAM 6GB**: Memberikan kapasitas ideal bagi multitasking harian tanpa micro-stutter saat siklus pembersihan ART GC berlangsung.
+- **Perangkat RAM 8GB–12GB+**: Menjamin ketersediaan virtual address space dan native heap yang sangat lega untuk mencegah kerusakan `bad_alloc` OOM pada `system_server` bahkan setelah uptime ratusan jam.
+
+### 3. ⚙️ Injeksi Otomatis Ganda (`customize.sh` + `lynxd`)
+- **Fase Instalasi (`customize.sh`)**: Fungsi `tune_dalvik_heap()` menyaring dan menginjeksikan properti yang tepat ke `$MODPATH/system.prop` sebelum modul aktif.
+- **Fase Booting (`lynxd`)**: Modul Rust `MemoryController::apply_ram()` menerapkan penyetelan VM sysfs dan mengeksekusi `resetprop` secara runtime untuk menjamin konsistensi 100% pada semua lingkungan (Magisk, KernelSU, APatch).
+
+### 4. ⚡ Voltage-Gated Charge Pump & Anti-Flapping Smart Handshake
+- **Pencegahan UVLO RT9759 pada Colokan Pertama**: Menahan `enable_sc = 0` saat tegangan adapter VBUS masih berada di fase awal 5V ($< 6.500\text{ mV}$) agar sirkuit terhindar dari *Under-Voltage Lockout / Reverse Current Fault* ($2,35\text{V} < V_{\text{BAT}}$), sehingga negosiasi *Pump Express* (PE 2.0/4.0/PPS) dapat berjalan bebas tanpa aborting.
+- **Transisi Otomatis Instan ke Super Fast Charge**: Begitu adapter menaikkan tegangan ke $\ge 6.500\text{ mV}$ (9V/10V), daemon `lynxd` langsung mengaktifkan `enable_sc = 1` secara instan, mengalirkan arus puncak 33W (>4.000–6.000 mA) tanpa perlu cabut-pasang kabel secara manual.
+- **Proteksi Cerdas Anti-Flapping Multi-Device**:
+  - Qualcomm Snapdragon 100% terlindung dari interupsi pulsa FET agar kontrak USB-PD tidak pernah putus (bebas dari layar kedip atau charger mati-nyala).
+  - Port USB PC/laptop dan charger 5V standar dideteksi secara akurat via `is_laptop_port()` dan `Charger_Type` sehingga tidak pernah memicu siklus reconnect berulang.
+  - Watchdog soft reconnect dibatasi secara ketat *one-shot only* per sesi colok (`/dev/lynx_soft_reconnect_done`).
+
+---
+
 # Lynx Universal [system_server SIGABRT bad_alloc Elimination & Dalvik Heap Expansion] 7.0.0-RC84
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC84** (Lynx Kernel Manager v3.1.36): **Eliminasi Tuntas Soft Reboot / Framework Restart Akibat OutOfMemoryError (OOM) pada system_server: Analisis Forensik Tombstone 15 (SIGABRT std::bad_alloc saat IPC IPermissionChecker$Stub), Ekspansi Batas Dalvik VM Heap Headroom untuk Perangkat 6GB-8GB (Growth Limit 384M & Heap Size 768M), Sinkronisasi Dynamic Resetprop Runtime, dan Penyetelan ART Garbage Collection Buffer**.
