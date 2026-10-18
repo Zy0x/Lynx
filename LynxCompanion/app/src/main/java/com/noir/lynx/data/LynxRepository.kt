@@ -52,30 +52,104 @@ object LynxRepository {
     val batteryRepository by lazy { com.noir.lynx.feature.battery.data.BatteryRepository(this) }
 
     // ----------------------------------------------------------------
+    //  LibSU Reset & Direct Root Probing (KernelSU / Rekisuki / Magisk / APatch)
+    // ----------------------------------------------------------------
+
+    private fun canExecuteSuDirectly(): Boolean {
+        return try {
+            val p = ProcessBuilder("su", "-c", "id").redirectErrorStream(true).start()
+            val reader = p.inputStream.bufferedReader()
+            val out = reader.readText()
+            val exit = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) p.exitValue() else {
+                    p.destroyForcibly()
+                    -1
+                }
+            } else {
+                p.waitFor()
+            }
+            exit == 0 && out.contains("uid=0")
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun forceResetRoot() {
+        try {
+            // 1. Close and nullify cached Shell in MainShell
+            val mainShellClass = Class.forName("com.topjohnwu.superuser.internal.MainShell")
+            val mainShellField = mainShellClass.getDeclaredField("mainShell")
+            mainShellField.isAccessible = true
+            val arr = mainShellField.get(null) as? Array<Any?>
+            if (arr != null && arr.isNotEmpty()) {
+                val oldShell = arr[0]
+                if (oldShell is java.io.Closeable) {
+                    try {
+                        oldShell.close()
+                    } catch (_: Throwable) {}
+                }
+                arr[0] = null
+            }
+
+            // 2. Reset isInitMain to allow fresh initialization of main shell
+            val isInitMainField = mainShellClass.getDeclaredField("isInitMain")
+            isInitMainField.isAccessible = true
+            isInitMainField.setBoolean(null, false)
+
+            // 3. Reset currentRootState in Utils so LibSU forgets that root was previously denied
+            val utilsClass = Class.forName("com.topjohnwu.superuser.internal.Utils")
+            val currentRootStateField = utilsClass.getDeclaredField("currentRootState")
+            currentRootStateField.isAccessible = true
+            currentRootStateField.setInt(null, -1) // -1 = UNKNOWN / re-probe
+
+            Log.d(TAG, "LibSU internals successfully reset for fresh su acquisition")
+        } catch (e: Throwable) {
+            Log.w(TAG, "LibSU reflection reset: ${e.message}")
+        }
+    }
+
+    // ----------------------------------------------------------------
     //  Root & Module Availability Check
     // ----------------------------------------------------------------
 
     suspend fun isRootAvailable(): Boolean = withContext(Dispatchers.IO) {
         try {
-            // Close any stale non-root cached shell so LibSU performs fresh su invocation
-            try {
-                Shell.getCachedShell()?.let { cached ->
-                    if (!cached.isRoot) {
-                        cached.close()
-                    }
+            // 1. If we already have an active, validated root shell, fast-path return true
+            val cached = Shell.getCachedShell()
+            if (cached != null && cached.isAlive && cached.isRoot) {
+                val test = Shell.cmd("id").exec()
+                if (test.isSuccess && test.out.any { it.contains("uid=0") }) {
+                    return@withContext true
                 }
-            } catch (_: Exception) {}
+            }
 
+            // 2. Reset LibSU internals so any cached non-root or closed shell is evicted
+            forceResetRoot()
+
+            // 3. Probe direct su execution first (essential for KernelSU / Rekisuki / APatch)
+            val directSu = canExecuteSuDirectly()
+
+            // 4. Execute root probe via LibSU fresh shell
             val result = Shell.cmd("id").exec()
-            val available = result.isSuccess && result.out.any { it.contains("uid=0") }
+            val available = (result.isSuccess && result.out.any { it.contains("uid=0") }) || directSu
+
             if (available) {
-                // Safety Guard: Proactively eliminate any legacy or rogue service.d scripts that cause bootloops
+                // Safety Guard: Eliminate any legacy or rogue service.d scripts that cause bootloops
                 Shell.cmd("rm -f /data/adb/service.d/lynx* 2>/dev/null").exec()
+
+                // Preserve and safely disable any legacy Lynx module (v4/v5/v6)
+                Shell.cmd("""
+                    if [ -d "$MODULE_DIR" ] && [ ! -f "$MODULE_DIR/system/bin/lynxd" ]; then
+                        mkdir -p /data/adb/modules/Lynx_legacy 2>/dev/null
+                        cp -af $MODULE_DIR/* /data/adb/modules/Lynx_legacy/ 2>/dev/null
+                        touch /data/adb/modules/Lynx_legacy/disable 2>/dev/null
+                    fi
+                """.trimIndent()).exec()
             }
             available
         } catch (e: Exception) {
             Log.w(TAG, "Root check failed: ${e.message}")
-            false
+            canExecuteSuDirectly()
         }
     }
 

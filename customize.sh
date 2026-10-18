@@ -37,6 +37,21 @@ check_root() {
 }
 check_root
 
+# ── 1.5 Legacy Lynx Module Preservation & Safe Deactivation ────────
+preserve_legacy_module() {
+    local mod_dir="/data/adb/modules/Lynx"
+    local backup_dir="/data/adb/modules/Lynx_legacy"
+    if [ -d "$mod_dir" ] && [ ! -f "$mod_dir/system/bin/lynxd" ]; then
+        ui_print "📦 Terdeteksi modul Lynx versi lama di $mod_dir"
+        ui_print "🛡️ Mengamankan ke $backup_dir dan menonaktifkannya..."
+        mkdir -p "$backup_dir" 2>/dev/null
+        cp -af "$mod_dir"/* "$backup_dir"/ 2>/dev/null
+        touch "$backup_dir/disable" 2>/dev/null
+        ui_print "✅ Modul Lynx lama berhasil diamankan & dinonaktifkan."
+    fi
+}
+preserve_legacy_module
+
 # ── 2. Hardware Anti-Spoofing Detection Protocol ───────────────────
 detect_soc() {
     TARGET_SOC="generic"

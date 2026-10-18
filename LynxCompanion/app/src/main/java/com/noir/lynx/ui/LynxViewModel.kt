@@ -356,6 +356,7 @@ class LynxViewModel : ViewModel() {
     }
 
     fun retryRootCheck() {
+        LynxRepository.forceResetRoot()
         initializeApp()
     }
 
@@ -364,6 +365,7 @@ class LynxViewModel : ViewModel() {
         if (foreground) {
             if (!_uiState.value.isRootAvailable) {
                 viewModelScope.launch {
+                    LynxRepository.forceResetRoot()
                     val rootNow = LynxRepository.isRootAvailable()
                     if (rootNow) {
                         initializeApp()

@@ -145,6 +145,11 @@ class MainActivity : ComponentActivity() {
         viewModel.setAppForeground(true)
     }
 
+    override fun onResume() {
+        super.onResume()
+        viewModel.setAppForeground(true)
+    }
+
     override fun onStop() {
         super.onStop()
         viewModel.setAppForeground(false)
