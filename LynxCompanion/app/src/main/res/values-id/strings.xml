@@ -463,7 +463,7 @@
     <string name="legacy_ui_0d033cefa44d1c" formatted="false">Kunci Port</string>
     <string name="legacy_ui_d0468e90026ae3" formatted="false">Kunci Refresh Rate Layar</string>
     <string name="legacy_ui_0a654e08ba2dfa" formatted="false">Kustomisasi</string>
-    <string name="legacy_ui_45f21d2a11b72f" formatted="false">LATENSI DVFS</string>
+    <string name="legacy_ui_45f21d2a11b72f" formatted="false">LATENSI TRANSISI</string>
     <string name="legacy_ui_bcc82bea8c8410" formatted="false">LIVE BENCHMARK STUDIO</string>
     <string name="legacy_ui_853a5e48e1c83a" formatted="false">LOG EKSEKUSI TERAKHIR:</string>
     <string name="legacy_ui_4b1759b5da5fe6" formatted="false">LYNX GAME BAR</string>
@@ -603,7 +603,7 @@
     <string name="legacy_ui_6fbdbbad67db53" formatted="false">Suhu GPU Puncak / Rata-rata</string>
     <string name="legacy_ui_0c51cc56e1bc67" formatted="false">Suhu:</string>
     <string name="legacy_ui_93ab6819a0985c" formatted="false">TELEMETRI HARDWARE SAAT PENGUJIAN</string>
-    <string name="legacy_ui_ad878a6bb0781b" formatted="false">TRANSISI DVFS</string>
+    <string name="legacy_ui_ad878a6bb0781b" formatted="false">TOTAL TRANSISI</string>
     <string name="legacy_ui_ba19469d3373ea" formatted="false">Tambah</string>
     <string name="legacy_ui_00bf52859da804" formatted="false">Tambah Skrip Shell Baru</string>
     <string name="legacy_ui_d00894842a26e3" formatted="false">Tambah profil</string>

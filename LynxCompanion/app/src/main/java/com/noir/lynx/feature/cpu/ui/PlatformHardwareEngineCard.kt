@@ -114,7 +114,11 @@ fun PlatformHardwareEngineCard(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Mode Daya Silikon (Hardware DVFS)",
+                                    text = when {
+                                        isMtk -> "Mode Daya Silikon (Hardware DVFS)"
+                                        isQcom -> "Mode Daya Silikon (Hardware Devfreq)"
+                                        else -> "Mode Daya Silikon"
+                                    },
                                     color = TextPrimary,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold

@@ -575,7 +575,12 @@ fun LazyListScope.tuningProfilesCategoryItems(
                             ) {
                                 val cpuGov = uiState.clusters.firstOrNull()?.curGov?.ifEmpty { "Schedutil" } ?: "Schedutil"
                                 val thermalMode = state.thermal.mode.ifEmpty { "Dynamic" }.replaceFirstChar { it.uppercase() }
-                                val gpuState = if (uiState.telemetry != null && uiState.telemetry.gpuFreq > 0) "${uiState.telemetry.gpuFreq}MHz" else "GED Boost"
+                                val defaultGpuFallback = when (uiState.gpuInfo.platform) {
+                                    "adreno" -> "Adreno Boost"
+                                    "mali_ged", "mali_kbase" -> "GED Boost"
+                                    else -> "GPU Boost"
+                                }
+                                val gpuState = if (uiState.telemetry != null && uiState.telemetry.gpuFreq > 0) "${uiState.telemetry.gpuFreq}MHz" else defaultGpuFallback
 
                                 listOf(
                                     "CPU: $cpuGov",
@@ -744,6 +749,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                         catalog = uiState.kernelProfileCatalog,
                         currentProfile = state.activeProfile,
                         hasOverrides = state.profileOverrides.isNotEmpty(),
+                        gpuPlatform = uiState.gpuInfo.platform,
                         onProfileSelected = { id, clearOverrides ->
                             val colorHex = when (id.lowercase()) {
                                 "powersave" -> 0xFF00E676L

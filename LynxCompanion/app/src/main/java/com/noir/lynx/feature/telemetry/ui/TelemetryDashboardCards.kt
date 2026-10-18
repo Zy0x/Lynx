@@ -137,7 +137,12 @@ fun TelemetryGaugesCard(
                         border = BorderStroke(0.8.dp, BorderSubtle)
                     ) {
                         val archSuffix = if (gpuArchLabel.isNotBlank()) " • $gpuArchLabel" else ""
-                        val gpuLoadText = if (effectiveGpuLoad > 0) "Load ${effectiveGpuLoad}%$archSuffix" else "Dynamic DVFS$archSuffix"
+                        val scalingTerm = when {
+                            gpuArchLabel.contains("Adreno", ignoreCase = true) -> "Dynamic Devfreq"
+                            gpuArchLabel.contains("Mali", ignoreCase = true) -> "Dynamic DVFS"
+                            else -> "Dynamic Scaling"
+                        }
+                        val gpuLoadText = if (effectiveGpuLoad > 0) "Load ${effectiveGpuLoad}%$archSuffix" else "$scalingTerm$archSuffix"
                         Text(
                             text = gpuLoadText,
                             fontSize = 10.sp,

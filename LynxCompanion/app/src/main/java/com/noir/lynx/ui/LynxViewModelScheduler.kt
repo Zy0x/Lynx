@@ -579,11 +579,11 @@ fun LynxViewModel.setMtkCpuPowerMode(mode: Int, context: Context? = null) {
             }
             _uiState.update {
                 it.copy(
-                    successMessage = "Mode Daya DVFS Silikon diatur ke $label"
+                    successMessage = "Mode Daya Silikon diatur ke $label"
                 )
             }
         } else {
-            _uiState.update { it.copy(errorMessage = "Gagal mengubah Mode Daya DVFS Silikon") }
+            _uiState.update { it.copy(errorMessage = "Gagal mengubah Mode Daya Silikon") }
         }
     }
 }

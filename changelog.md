@@ -1,3 +1,29 @@
+# Lynx Universal [Vendor-Dynamic Hardware Abstraction & Scaling Architecture] 7.0.0-RC110
+Released on: 2026-10-19
+> **Lynx Universal v7.0.0-RC110** (Lynx Kernel Manager v3.1.63): **Pembersihan Total Terminologi Vendor Hardcoded (DVFS vs Devfreq) Lintas Qualcomm & MediaTek; Arsitektur Penskalaan Frekuensi Adaptif Berdasarkan Driver GPU Fisik (Adreno KGSL vs Mali GED); Penghapusan Hardcoded GED Boost & Maks OPP pada Perangkat Snapdragon; Penyesuaian Dinamis Mode Daya Silikon & Telemetri Transisi Frekuensi CPU; serta Harmonisasi Penamaan Profil Ekstrem Bahasa Indonesia**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC110)
+
+### 1. ⚡ Arsitektur Penskalaan Vendor Cerdas: Devfreq (Qualcomm) vs DVFS (MediaTek)
+- **Klarifikasi Faktual**: Secara terminologi silikon semikonduktor, *DVFS (Dynamic Voltage and Frequency Scaling)* adalah prinsip penskalaan umum, namun dalam implementasi kernel driver Android:
+  - **Qualcomm Snapdragon** mengimplementasikan penskalaan GPU melalui subsistem **KGSL Devfreq** (`/sys/class/kgsl/kgsl-3d0/devfreq/`) dan CPU via EAS Schedutil / CPUFreq.
+  - **MediaTek** mengimplementasikan penskalaan melalui arsitektur subsistem khusus bernama **DVFS / DVFSRC** (`DVFSRC`, `mt_gpufreq_dvfs`, `GED DVFS Margin`, dan `dvfs_loading_mode`).
+- **Implementasi Solusi**:
+  - Mengeliminasi teks hardcoded "DVFS" pada perangkat Qualcomm Snapdragon di seluruh tampilan antarmuka (Native Jetpack Compose & WebUI).
+  - Pada kartu `ProfileGrid`: Menyesuaikan tag profil dan ringkasan secara dinamis berdasarkan `gpuPlatform`. Pada Qualcomm Adreno menampilkan tag `Dynamic Devfreq`, `Devfreq Boost`, dan `Maks Clock`. Pada MediaTek Mali menampilkan `Dynamic DVFS`, `GED Boost`, dan `Maks OPP`.
+  - Pada `TelemetryDashboardCards`: Teks idle GPU kini mendeteksi arsitektur secara real-time (`Dynamic Devfreq` untuk Adreno, `Dynamic DVFS` untuk Mali, dan `Dynamic Scaling` untuk generic).
+  - Pada `TuningProfilesCategory`: Fallback badge telemetri GPU kini dinamis (`Adreno Boost` pada Qualcomm, `GED Boost` pada MediaTek, `GPU Boost` pada generic), mengeliminasi kebocoran nama "GED Boost" pada ponsel Snapdragon saat telemetri inisialisasi.
+
+### 2. 🎛️ Penyesuaian Dinamis Mode Daya Silikon & Telemetri Transisi CPU
+- **Mode Daya Silikon**: Pada `PlatformHardwareEngineCard`, judul kini menyesuaikan otomatis: `Mode Daya Silikon (Hardware Devfreq)` untuk Qualcomm dan `Mode Daya Silikon (Hardware DVFS)` untuk MediaTek.
+- **Transisi & Latensi Frekuensi CPU**: Pada `CpuTopologyAndVerification`, mengganti label hardcoded `LATENSI DVFS` dan `TRANSISI DVFS` menjadi `LATENSI TRANSISI` dan `TOTAL TRANSISI` yang 100% akurat secara matematis dan teknis untuk Linux CPUFreq (`cpuinfo_transition_latency` dan `stats/total_trans`).
+- **Harmonisasi Bahasa Indonesia**: Mengubah label profil `"Extreme"` di `QuickProfileSwitcherCard` menjadi `"Ekstrem"` agar konsisten dengan standar antarmuka Lynx.
+
+### 3. 🌐 Sinkronisasi WebUI Universal
+- Memperbarui `webroot/app.js` dan `webroot/index.html` agar pemilih target frekuensi OPP GPU dan governor hardware mendeteksi platform secara otomatis (`Devfreq` pada Qualcomm vs `DVFS` pada MediaTek vs `Scaling` pada generic) tanpa teks hardcoded vendor.
+
+---
+
 # Lynx Universal [Zero-Jank Dispatchers.IO Pipeline & Touch Unblocking Architecture] 7.0.0-RC102
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC102** (Lynx Kernel Manager v3.1.55): **Eliminasi Total Pemblokiran Main UI Thread (ANR Unblocking) pada Inisialisasi Aplikasi dan Pengubahan Seluruh Tweak Subsystem; Migrasi 100% Seluruh Mutasi Root & Persistensi ke Dispatchers.IO; Tampilan Instan Matriks Sensor Termal Hardware Tanpa Layout Shift Melalui Eliminasi 200+ Sysfs Stat Calls dan Caching Dua Arah; Pembaruan Kontinu Proses Teratas pada CPU Live Monitor; serta Akselerasi Deteksi Aplikasi Terpasang via Native Android PackageManager Tanpa Shell JVM Forking**.

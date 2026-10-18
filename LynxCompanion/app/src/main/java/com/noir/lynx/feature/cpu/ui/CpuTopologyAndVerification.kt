@@ -299,7 +299,7 @@ fun CpuTopologySpecCard(
                                         color = TextPrimary
                                     )
                                 } else {
-                                    Text("LATENSI DVFS", fontSize = 8.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                                    Text("LATENSI TRANSISI", fontSize = 8.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
                                     Text(
                                         text = if (detail.transitionLatencyUs > 0) "${detail.transitionLatencyUs} us" else " Instan",
                                         fontSize = 10.sp,
@@ -313,7 +313,7 @@ fun CpuTopologySpecCard(
                                 modifier = Modifier.weight(1f),
                                 horizontalAlignment = Alignment.End
                             ) {
-                                Text("TRANSISI DVFS", fontSize = 8.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                                Text("TOTAL TRANSISI", fontSize = 8.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
                                 val transFormatted = when {
                                     detail.totalTransitions >= 1_000_000L ->
                                         String.format(Locale.US, "%.2f Juta", detail.totalTransitions / 1_000_000.0)

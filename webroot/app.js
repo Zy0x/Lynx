@@ -1049,7 +1049,10 @@ async function pollGpuInfo() {
             const freqSel = document.getElementById('web-gpu-freq-select');
             if (freqSel && data.avail_freqs && data.avail_freqs.length > 0) {
                 if (freqSel.options.length <= 1 || freqSel.dataset.loaded !== 'true') {
-                    freqSel.innerHTML = '<option value="0">Auto (Dynamic DVFS / Hemat Idle)</option>';
+                    const isQcom = (data.vendor && (data.vendor.toLowerCase().includes('adreno') || data.vendor.toLowerCase().includes('qualcomm')));
+                    const isMtk = (data.vendor && (data.vendor.toLowerCase().includes('mali') || data.vendor.toLowerCase().includes('mediatek')));
+                    const scalingName = isQcom ? 'Devfreq' : (isMtk ? 'DVFS' : 'Scaling');
+                    freqSel.innerHTML = `<option value="0">Auto (Dynamic ${scalingName} / Hemat Idle)</option>`;
                     // Sort descending for gamer intuition: highest clock first!
                     const sortedFreqs = [...data.avail_freqs].sort((a, b) => b - a);
                     const maxFreq = sortedFreqs[0];
@@ -1072,9 +1075,9 @@ async function setWebGpuFreq(freqMhz) {
     const freq = parseInt(freqMhz, 10);
     if (isNaN(freq)) return;
     if (freq <= 0) {
-        logToConsole("Melepas kuncian frekuensi GPU (Auto DVFS)...");
+        logToConsole("Melepas kuncian frekuensi GPU (Auto Dynamic Scaling)...");
         const res = await execCmd(`${LYNXD} gpu set_freq 0 0`);
-        logToConsole(res.stdout || "GPU dikembalikan ke Auto Dynamic DVFS", 'success');
+        logToConsole(res.stdout || "GPU dikembalikan ke Auto Dynamic Scaling", 'success');
     } else {
         logToConsole(`Mengunci frekuensi GPU ke ${freq} MHz...`);
         const res = await execCmd(`${LYNXD} gpu set_freq ${freq} ${freq}`);

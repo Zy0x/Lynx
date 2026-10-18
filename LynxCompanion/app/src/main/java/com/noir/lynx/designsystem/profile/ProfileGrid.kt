@@ -50,6 +50,7 @@ fun ProfileGrid(
     onProfileDeleted: (String) -> Unit,
     onProfileDuplicated: (String) -> Unit,
     onRestoreBuiltIn: (String) -> Unit,
+    gpuPlatform: String = "generic"
 ) {
     var editing by remember { mutableStateOf<KernelPerformanceProfile?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -58,6 +59,24 @@ fun ProfileGrid(
     var pendingDelete by remember { mutableStateOf<String?>(null) }
     var pendingRestore by remember { mutableStateOf<String?>(null) }
     val profiles = catalog.profiles
+
+    val isMtk = gpuPlatform == "mali_ged" || gpuPlatform == "mali_kbase"
+    val isQcom = gpuPlatform == "adreno"
+
+    val dynamicScalingTag = when {
+        isQcom -> "Dynamic Devfreq"
+        isMtk -> "Dynamic DVFS"
+        else -> "Dynamic Scaling"
+    }
+    val perfBoostTag = when {
+        isQcom -> "Devfreq Boost"
+        isMtk -> "GED Boost"
+        else -> "Turbo Boost"
+    }
+    val peakClockTag = when {
+        isMtk -> "Maks OPP"
+        else -> "Maks Clock"
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         profiles.forEach { profile ->
@@ -76,7 +95,11 @@ fun ProfileGrid(
                 "auto" -> "Adaptif otomatis • Seimbang di app biasa, boost saat gaming"
                 "powersave" -> "Hemat daya baterai • Dibatasi 60 FPS & downclock siaga"
                 "balance" -> "Ideal harian • Responsif, dingin & efisiensi daya seimbang"
-                "performance" -> "Fokus gaming • Clock tinggi, devfreq cepat & respons instan"
+                "performance" -> if (isMtk) {
+                    "Fokus gaming • Clock tinggi, GED boost cepat & respons instan"
+                } else {
+                    "Fokus gaming • Clock tinggi, devfreq cepat & respons instan"
+                }
                 "extreme" -> "Performa tanpa batas • Bypass termal penuh (wajib pendingin)"
                 else -> profile.description.ifBlank { "Profil turunan ${profile.baseProfile}" }
             }
@@ -84,9 +107,9 @@ fun ProfileGrid(
             val tags = when (profile.id.lowercase()) {
                 "auto" -> listOf("AI Dynamic", "Adaptive", "Zero-Lag")
                 "powersave" -> listOf("Maks 60 FPS", "Idle Clock", "Hemat Daya")
-                "balance" -> listOf("Schedutil", "Dynamic DVFS", "Sejuk & Stabil")
-                "performance" -> listOf("Devfreq Boost", "High Clock", "Gaming")
-                "extreme" -> listOf("Bypass Termal", "Maks OPP", "Performa Puncak")
+                "balance" -> listOf("Schedutil", dynamicScalingTag, "Sejuk & Stabil")
+                "performance" -> listOf(perfBoostTag, "High Clock", "Gaming")
+                "extreme" -> listOf("Bypass Termal", peakClockTag, "Performa Puncak")
                 else -> listOf(
                     "CPU: ${profile.domainProfiles[ProfileDomain.CPU] ?: profile.baseProfile}",
                     "GPU: ${profile.domainProfiles[ProfileDomain.GPU] ?: "balanced"}"

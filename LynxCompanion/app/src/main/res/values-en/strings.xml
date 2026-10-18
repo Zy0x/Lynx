@@ -439,7 +439,7 @@
     <string name="legacy_ui_0d033cefa44d1c" formatted="false">Lock Port</string>
     <string name="legacy_ui_d0468e90026ae3" formatted="false">Lock Screen Refresh Rate</string>
     <string name="legacy_ui_0a654e08ba2dfa" formatted="false">Customize</string>
-    <string name="legacy_ui_45f21d2a11b72f" formatted="false">DVFS LATENCY</string>
+    <string name="legacy_ui_45f21d2a11b72f" formatted="false">TRANSITION LATENCY</string>
     <string name="legacy_ui_bcc82bea8c8410" formatted="false">LIVE BENCHMARK STUDIO</string>
     <string name="legacy_ui_853a5e48e1c83a" formatted="false">LAST EXECUTION LOG:</string>
     <string name="legacy_ui_4b1759b5da5fe6" formatted="false">LYNX GAME BAR</string>
@@ -579,7 +579,7 @@
     <string name="legacy_ui_6fbdbbad67db53" formatted="false">Peak / Average GPU Temperature</string>
     <string name="legacy_ui_0c51cc56e1bc67" formatted="false">Temperature:</string>
     <string name="legacy_ui_93ab6819a0985c" formatted="false">HARDWARE TELEMETRY DURING TEST</string>
-    <string name="legacy_ui_ad878a6bb0781b" formatted="false">DVFS TRANSITIONS</string>
+    <string name="legacy_ui_ad878a6bb0781b" formatted="false">TOTAL TRANSITIONS</string>
     <string name="legacy_ui_ba19469d3373ea" formatted="false">Add</string>
     <string name="legacy_ui_00bf52859da804" formatted="false">Add New Shell Script</string>
     <string name="legacy_ui_d00894842a26e3" formatted="false">Add Profile</string>
