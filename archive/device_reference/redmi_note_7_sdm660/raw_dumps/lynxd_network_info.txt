@@ -1,0 +1,1 @@
+{"current_algo":"westwood","best_algo":"westwood","available_algos":["reno","westwood"]}

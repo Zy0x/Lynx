@@ -1,0 +1,860 @@
+=== dumpsys sensorservice ===
+Captured at: 02:02:42.966
+Sensor Device:
+Total 44 h/w sensors, 44 running 0 disabled clients:
+0x00000001) active-count = 2; sampling_period(ms) = {20.0, 200.0}, selected = 20.00 ms; batching_period(ms) = {2147483.8, 2000.0}, selected = 2000.00 ms
+0x00000005) active-count = 1; sampling_period(ms) = {250.0}, selected = 250.00 ms; batching_period(ms) = {0.0}, selected = 0.00 ms
+0x00000011) active-count = 1; sampling_period(ms) = {200.0}, selected = 200.00 ms; batching_period(ms) = {0.0}, selected = 0.00 ms
+0x00000012) active-count = 1; sampling_period(ms) = {66.7}, selected = 66.67 ms; batching_period(ms) = {0.0}, selected = 0.00 ms
+0x00000027) active-count = 1; sampling_period(ms) = {66.7}, selected = 66.67 ms; batching_period(ms) = {0.0}, selected = 0.00 ms
+Sensor List:
+0x00000001) ICM20607 Accelerometer    | InvenSense      | ver: 1 | type: android.sensor.accelerometer(1) | perm: n/a | flags: 0x00000000
+	continuous | minRate=1.00Hz | maxRate=250.00Hz | FIFO (max,reserved) = (40960, 3000) events | non-wakeUp | 
+0x00000002) ICM20607 Accelerometer Uncalibrated | InvenSense      | ver: 1 | type: android.sensor.accelerometer_uncalibrated(35) | perm: n/a | flags: 0x00000000
+	continuous | minRate=1.00Hz | maxRate=250.00Hz | FIFO (max,reserved) = (40960, 3000) events | non-wakeUp | 
+0x00000003) AK09918 Magnetometer      | AKM             | ver: 1 | type: android.sensor.magnetic_field(2) | perm: n/a | flags: 0x00000000
+	continuous | minRate=1.00Hz | maxRate=50.00Hz | FIFO (max,reserved) = (40960, 600) events | non-wakeUp | 
+0x00000004) AK09918 Magnetometer Uncalibrated | AKM             | ver: 1 | type: android.sensor.magnetic_field_uncalibrated(14) | perm: n/a | flags: 0x00000000
+	continuous | minRate=1.00Hz | maxRate=50.00Hz | FIFO (max,reserved) = (40960, 600) events | non-wakeUp | 
+0x00000005) ICM20607 Gyroscope        | InvenSense      | ver: 1 | type: android.sensor.gyroscope(4) | perm: n/a | flags: 0x00000000
+	continuous | minRate=1.00Hz | maxRate=250.00Hz | FIFO (max,reserved) = (40960, 0) events | non-wakeUp | 
+0x00000006) ICM20607 Gyroscope Uncalibrated | InvenSense      | ver: 1 | type: android.sensor.gyroscope_uncalibrated(16) | perm: n/a | flags: 0x00000000
+	continuous | minRate=1.00Hz | maxRate=250.00Hz | FIFO (max,reserved) = (40960, 0) events | non-wakeUp | 
+0x00000007) stk3x3x alsprx            | Sensortek       | ver: 2 | type: android.sensor.proximity(8) | perm: n/a | flags: 0x00000003
+	on-change | minRate=0.02Hz | minDelay=0us | FIFO (max,reserved) = (41912, 100) events | wakeUp | 
+0x00000008) stk3x3x alsprx            | Sensortek       | ver: 1 | type: android.sensor.light(5) | perm: n/a | flags: 0x00000002
+	on-change | minRate=0.02Hz | minDelay=0us | FIFO (max,reserved) = (40960, 0) events | non-wakeUp | 
+0x00000009) ICM20607 Accelerometer -Wakeup Secondary | InvenSense      | ver: 1 | type: android.sensor.accelerometer(1) | perm: n/a | flags: 0x00000001
+	continuous | minRate=1.00Hz | maxRate=250.00Hz | FIFO (max,reserved) = (40960, 0) events | wakeUp | 
+0x0000000a) ICM20607 Accelerometer Uncalibrated -Wakeup Secondary | InvenSense      | ver: 1 | type: android.sensor.accelerometer_uncalibrated(35) | perm: n/a | flags: 0x00000001
+	continuous | minRate=1.00Hz | maxRate=250.00Hz | FIFO (max,reserved) = (40960, 3000) events | wakeUp | 
+0x0000000b) AK09918 Magnetometer -Wakeup Secondary | AKM             | ver: 1 | type: android.sensor.magnetic_field(2) | perm: n/a | flags: 0x00000001
+	continuous | minRate=1.00Hz | maxRate=50.00Hz | FIFO (max,reserved) = (40960, 0) events | wakeUp | 
+0x0000000c) AK09918 Magnetometer Uncalibrated -Wakeup Secondary | AKM             | ver: 1 | type: android.sensor.magnetic_field_uncalibrated(14) | perm: n/a | flags: 0x00000001
+	continuous | minRate=1.00Hz | maxRate=50.00Hz | FIFO (max,reserved) = (40960, 0) events | wakeUp | 
+0x0000000d) ICM20607 Gyroscope -Wakeup Secondary | InvenSense      | ver: 1 | type: android.sensor.gyroscope(4) | perm: n/a | flags: 0x00000001
+	continuous | minRate=1.00Hz | maxRate=250.00Hz | FIFO (max,reserved) = (40960, 0) events | wakeUp | 
+0x0000000e) ICM20607 Gyroscope Uncalibrated -Wakeup Secondary | InvenSense      | ver: 1 | type: android.sensor.gyroscope_uncalibrated(16) | perm: n/a | flags: 0x00000001
+	continuous | minRate=1.00Hz | maxRate=250.00Hz | FIFO (max,reserved) = (40960, 0) events | wakeUp | 
+0x0000000f) stk3x3x alsprx -Non Wakeup Secondary | Sensortek       | ver: 2 | type: android.sensor.proximity(8) | perm: n/a | flags: 0x00000002
+	on-change | minRate=0.02Hz | minDelay=0us | FIFO (max,reserved) = (41912, 100) events | non-wakeUp | 
+0x00000010) stk3x3x alsprx -Wakeup Secondary | Sensortek       | ver: 1 | type: android.sensor.light(5) | perm: n/a | flags: 0x00000003
+	on-change | minRate=0.02Hz | minDelay=0us | FIFO (max,reserved) = (40960, 0) events | wakeUp | 
+0x00000011) Gravity                   | QTI             | ver: 2 | type: android.sensor.gravity(9) | perm: n/a | flags: 0x00000000
+	continuous | minRate=5.00Hz | maxRate=200.00Hz | FIFO (max,reserved) = (27941, 150) events | non-wakeUp | 
+0x00000012) Linear Acceleration       | QTI             | ver: 2 | type: android.sensor.linear_acceleration(10) | perm: n/a | flags: 0x00000000
+	continuous | minRate=5.00Hz | maxRate=200.00Hz | FIFO (max,reserved) = (27941, 150) events | non-wakeUp | 
+0x00000013) Rotation Vector           | QTI             | ver: 2 | type: android.sensor.rotation_vector(11) | perm: n/a | flags: 0x00000000
+	continuous | minRate=5.00Hz | maxRate=200.00Hz | FIFO (max,reserved) = (35924, 150) events | non-wakeUp | 
+0x00000014) Step Detector             | QTI             | ver: 2 | type: android.sensor.step_detector(18) | perm: android.permission.ACTIVITY_RECOGNITION | flags: 0x00000006
+	special-trigger | maxDelay=0us | minDelay=0us | FIFO (max,reserved) = (41912, 100) events | non-wakeUp | 
+0x00000015) Step Counter              | QTI             | ver: 2 | type: android.sensor.step_counter(19) | perm: android.permission.ACTIVITY_RECOGNITION | flags: 0x00000002
+	on-change | minRate=0.00Hz | minDelay=0us | FIFO (max,reserved) = (41912, 100) events | non-wakeUp | 
+0x00000016) Significant Motion Detector | QTI             | ver: 2 | type: android.sensor.significant_motion(17) | perm: n/a | flags: 0x00000005
+	one-shot | maxDelay=0us | minDelay=-1us | no batching | wakeUp | 
+0x00000017) Game Rotation Vector      | QTI             | ver: 2 | type: android.sensor.game_rotation_vector(15) | perm: n/a | flags: 0x00000000
+	continuous | minRate=5.00Hz | maxRate=200.00Hz | FIFO (max,reserved) = (35924, 300) events | non-wakeUp | 
+0x00000018) GeoMagnetic Rotation Vector | QTI             | ver: 2 | type: android.sensor.geomagnetic_rotation_vector(20) | perm: n/a | flags: 0x00000000
+	continuous | minRate=5.00Hz | maxRate=50.00Hz | FIFO (max,reserved) = (19344, 150) events | non-wakeUp | 
+0x00000019) Orientation               | QTI             | ver: 2 | type: android.sensor.orientation(3) | perm: n/a | flags: 0x00000000
+	continuous | minRate=5.00Hz | maxRate=200.00Hz | FIFO (max,reserved) = (35924, 150) events | non-wakeUp | 
+0x0000001a) Tilt Detector             | QTI             | ver: 2 | type: android.sensor.tilt_detector(22) | perm: n/a | flags: 0x00000007
+	special-trigger | maxDelay=0us | minDelay=0us | FIFO (max,reserved) = (125736, 150) events | wakeUp | 
+0x0000001b) PickUp                    | FIH             | ver: 1 | type: android.sensor.pick_up_gesture(25) | perm: n/a | flags: 0x00000005
+	one-shot | maxDelay=0us | minDelay=-1us | no batching | wakeUp | 
+0x0000001c) DeviceOrientation         | QTI             | ver: 2 | type: android.sensor.device_orientation(27) | perm: n/a | flags: 0x00000002
+	on-change | minRate=0.00Hz | minDelay=0us | no batching | non-wakeUp | 
+0x0000001d) Android Stationary Detector | QTI             | ver: 2 | type: android.sensor.stationary_detect(29) | perm: n/a | flags: 0x00000005
+	one-shot | maxDelay=0us | minDelay=-1us | no batching | wakeUp | 
+0x0000001e) Android Motion Detector   | QTI             | ver: 2 | type: android.sensor.motion_detect(30) | perm: n/a | flags: 0x00000005
+	one-shot | maxDelay=0us | minDelay=-1us | no batching | wakeUp | 
+0x0000001f) Gravity -Wakeup Secondary | QTI             | ver: 2 | type: android.sensor.gravity(9) | perm: n/a | flags: 0x00000001
+	continuous | minRate=5.00Hz | maxRate=200.00Hz | FIFO (max,reserved) = (27941, 150) events | wakeUp | 
+0x00000020) Linear Acceleration -Wakeup Secondary | QTI             | ver: 2 | type: android.sensor.linear_acceleration(10) | perm: n/a | flags: 0x00000001
+	continuous | minRate=5.00Hz | maxRate=200.00Hz | FIFO (max,reserved) = (27941, 150) events | wakeUp | 
+0x00000021) Rotation Vector -Wakeup Secondary | QTI             | ver: 2 | type: android.sensor.rotation_vector(11) | perm: n/a | flags: 0x00000001
+	continuous | minRate=5.00Hz | maxRate=200.00Hz | FIFO (max,reserved) = (35924, 150) events | wakeUp | 
+0x00000022) Step Detector -Wakeup Secondary | QTI             | ver: 2 | type: android.sensor.step_detector(18) | perm: android.permission.ACTIVITY_RECOGNITION | flags: 0x00000007
+	special-trigger | maxDelay=0us | minDelay=0us | FIFO (max,reserved) = (41912, 100) events | wakeUp | 
+0x00000023) Step Counter -Wakeup Secondary | QTI             | ver: 2 | type: android.sensor.step_counter(19) | perm: android.permission.ACTIVITY_RECOGNITION | flags: 0x00000003
+	on-change | minRate=0.00Hz | minDelay=0us | FIFO (max,reserved) = (41912, 100) events | wakeUp | 
+0x00000024) Game Rotation Vector -Wakeup Secondary | QTI             | ver: 2 | type: android.sensor.game_rotation_vector(15) | perm: n/a | flags: 0x00000001
+	continuous | minRate=5.00Hz | maxRate=200.00Hz | FIFO (max,reserved) = (35924, 300) events | wakeUp | 
+0x00000025) GeoMagnetic Rotation Vector -Wakeup Secondary | QTI             | ver: 2 | type: android.sensor.geomagnetic_rotation_vector(20) | perm: n/a | flags: 0x00000001
+	continuous | minRate=5.00Hz | maxRate=50.00Hz | FIFO (max,reserved) = (19344, 150) events | wakeUp | 
+0x00000026) Orientation -Wakeup Secondary | QTI             | ver: 2 | type: android.sensor.orientation(3) | perm: n/a | flags: 0x00000001
+	continuous | minRate=5.00Hz | maxRate=200.00Hz | FIFO (max,reserved) = (35924, 150) events | wakeUp | 
+0x00000027) DeviceOrientation -Wakeup Secondary | QTI             | ver: 2 | type: android.sensor.device_orientation(27) | perm: n/a | flags: 0x00000003
+	on-change | minRate=0.00Hz | minDelay=0us | no batching | wakeUp | 
+0x00000028) AMD                       | QTI             | ver: 2 | type:   com.qti.sensor.amd(33171006) | perm: n/a | flags: 0x00000002
+	on-change | minRate=0.00Hz | minDelay=0us | no batching | non-wakeUp | 
+0x00000029) RMD                       | QTI             | ver: 2 | type:   com.qti.sensor.rmd(33171007) | perm: n/a | flags: 0x00000002
+	on-change | minRate=0.00Hz | minDelay=0us | no batching | non-wakeUp | 
+0x0000002a) Pedometer                 | QTI             | ver: 2 | type: com.qti.sensor.pedometer(33171009) | perm: n/a | flags: 0x00000002
+	on-change | minRate=0.00Hz | minDelay=0us | FIFO (max,reserved) = (41912, 100) events | non-wakeUp | 
+0x0000002b) Motion Accel              | QTI             | ver: 2 | type: com.qti.sensor.motion_accel(33171011) | perm: n/a | flags: 0x00000006
+	special-trigger | maxDelay=0us | minDelay=0us | no batching | non-wakeUp | 
+0x0000002c) Persistent Motion Detector | QTI             | ver: 2 | type:   com.qti.sensor.pmd(33171024) | perm: n/a | flags: 0x00000003
+	on-change | minRate=0.00Hz | minDelay=0us | no batching | wakeUp | 
+0x5f636779) Corrected Gyroscope Sensor | AOSP            | ver: 1 | type: android.sensor.gyroscope(4) | perm: n/a | flags: 0x00000000
+	continuous | maxDelay=0us | maxRate=250.00Hz | no batching | non-wakeUp | 
+0x5f676172) Game Rotation Vector Sensor | AOSP            | ver: 3 | type: android.sensor.game_rotation_vector(15) | perm: n/a | flags: 0x00000000
+	continuous | maxDelay=0us | maxRate=250.00Hz | no batching | non-wakeUp | 
+0x5f676273) Gyroscope Bias (debug)    | AOSP            | ver: 1 | type: android.sensor.accelerometer(1) | perm: n/a | flags: 0x00000000
+	continuous | maxDelay=0us | maxRate=250.00Hz | no batching | non-wakeUp | 
+0x5f67656f) GeoMag Rotation Vector Sensor | AOSP            | ver: 3 | type: android.sensor.geomagnetic_rotation_vector(20) | perm: n/a | flags: 0x00000000
+	continuous | maxDelay=0us | maxRate=250.00Hz | no batching | non-wakeUp | 
+0x5f677276) Gravity Sensor            | AOSP            | ver: 3 | type: android.sensor.gravity(9) | perm: n/a | flags: 0x00000000
+	continuous | maxDelay=0us | maxRate=250.00Hz | no batching | non-wakeUp | 
+0x5f6c696e) Linear Acceleration Sensor | AOSP            | ver: 3 | type: android.sensor.linear_acceleration(10) | perm: n/a | flags: 0x00000000
+	continuous | maxDelay=0us | maxRate=250.00Hz | no batching | non-wakeUp | 
+0x5f726f76) Rotation Vector Sensor    | AOSP            | ver: 3 | type: android.sensor.rotation_vector(11) | perm: n/a | flags: 0x00000000
+	continuous | maxDelay=0us | maxRate=250.00Hz | no batching | non-wakeUp | 
+0x5f797072) Orientation Sensor        | AOSP            | ver: 1 | type: android.sensor.orientation(3) | perm: n/a | flags: 0x00000000
+	continuous | maxDelay=0us | maxRate=250.00Hz | no batching | non-wakeUp | 
+Fusion States:
+9-axis fusion disabled (0 clients), gyro-rate= 200.00Hz, q=< 0, 0, 0, 0 > (0), b=< 0, 0, 0 >
+game fusion(no mag) disabled (0 clients), gyro-rate= 200.00Hz, q=< 0, 0, 0, 0 > (0), b=< 0, 0, 0 >
+geomag fusion (no gyro) disabled (0 clients), gyro-rate= 200.00Hz, q=< 0, 0, 0, 0 > (0), b=< 0, 0, 0 >
+Recent Sensor events:
+DeviceOrientation -Wakeup Secondary: last 10 events
+	 1 (ts=14939.129222826, wall=01:56:29.156) 1.00, 
+	 2 (ts=15035.898668247, wall=01:58:05.953) 0.00, 
+	 3 (ts=15185.085290648, wall=02:00:35.029) 3.00, 
+	 4 (ts=15189.766868454, wall=02:00:39.742) 0.00, 
+	 5 (ts=15201.414060806, wall=02:00:51.412) 3.00, 
+	 6 (ts=15236.554057874, wall=02:01:26.493) 1.00, 
+	 7 (ts=15236.903972425, wall=02:01:26.902) 0.00, 
+	 8 (ts=15273.386785841, wall=02:02:03.399) 3.00, 
+	 9 (ts=15302.222996006, wall=02:02:32.327) 0.00, 
+	10 (ts=15308.521459814, wall=02:02:38.465) 3.00, 
+Significant Motion Detector: last 6 events
+	 1 (ts=91.818402350, wall=21:49:03.054) 1.00, 
+	 2 (ts=339.560382737, wall=21:53:10.573) 1.00, 
+	 3 (ts=383.745808630, wall=21:53:54.255) 1.00, 
+	 4 (ts=4939.607088257, wall=23:09:50.580) 1.00, 
+	 5 (ts=12478.047738134, wall=01:15:28.674) 1.00, 
+	 6 (ts=15256.337593482, wall=02:01:46.964) 1.00, 
+Rotation Vector: last 10 events
+	 1 (ts=8925.265392809, wall=00:16:15.122) 0.03, 0.00, 0.81, 0.59, 0.17, 
+	 2 (ts=8925.285503893, wall=00:16:15.142) 0.03, 0.00, 0.81, 0.59, 0.17, 
+	 3 (ts=8925.305645495, wall=00:16:15.162) 0.03, 0.00, 0.81, 0.59, 0.17, 
+	 4 (ts=8925.325787096, wall=00:16:15.183) 0.03, 0.00, 0.81, 0.59, 0.17, 
+	 5 (ts=8925.345898180, wall=00:16:15.203) 0.03, 0.00, 0.81, 0.59, 0.17, 
+	 6 (ts=8925.366039782, wall=00:16:15.223) 0.03, 0.00, 0.81, 0.59, 0.17, 
+	 7 (ts=8925.386181384, wall=00:16:15.243) 0.03, 0.00, 0.81, 0.59, 0.17, 
+	 8 (ts=8925.406313292, wall=00:16:15.263) 0.03, 0.00, 0.81, 0.59, 0.17, 
+	 9 (ts=8925.426424376, wall=00:16:15.283) 0.03, 0.00, 0.81, 0.59, 0.17, 
+	10 (ts=8925.446565978, wall=00:16:15.303) 0.03, 0.00, 0.80, 0.59, 0.17, 
+Linear Acceleration: last 10 events
+	 1 (ts=15312.534521338, wall=02:02:42.411) 0.00, -0.00, -0.03, 
+	 2 (ts=15312.594915625, wall=02:02:42.471) -0.01, 0.00, 0.03, 
+	 3 (ts=15312.655309912, wall=02:02:42.532) 0.01, -0.00, -0.01, 
+	 4 (ts=15312.715704199, wall=02:02:42.592) -0.00, -0.00, -0.03, 
+	 5 (ts=15312.776098486, wall=02:02:42.652) 0.01, 0.01, 0.04, 
+	 6 (ts=15312.836492773, wall=02:02:42.713) -0.00, -0.00, -0.01, 
+	 7 (ts=15312.896887060, wall=02:02:42.773) 0.01, -0.00, -0.02, 
+	 8 (ts=15312.957281348, wall=02:02:42.834) -0.01, 0.00, 0.03, 
+	 9 (ts=15313.017645117, wall=02:02:42.894) -0.00, 0.00, -0.02, 
+	10 (ts=15313.078039404, wall=02:02:42.954) 0.00, 0.00, -0.00, 
+Gravity: last 10 events
+	 1 (ts=15311.035284277, wall=02:02:41.022) 0.89, -0.11, 9.77, 
+	 2 (ts=15311.236578223, wall=02:02:41.205) 0.90, -0.11, 9.76, 
+	 3 (ts=15311.437902685, wall=02:02:41.384) 0.90, -0.12, 9.76, 
+	 4 (ts=15311.639196631, wall=02:02:41.627) 0.91, -0.12, 9.76, 
+	 5 (ts=15311.840490576, wall=02:02:41.807) 0.91, -0.13, 9.76, 
+	 6 (ts=15312.041784521, wall=02:02:41.988) 0.91, -0.13, 9.76, 
+	 7 (ts=15312.243108984, wall=02:02:42.230) 0.91, -0.13, 9.76, 
+	 8 (ts=15312.444372412, wall=02:02:42.411) 0.91, -0.13, 9.76, 
+	 9 (ts=15312.645696875, wall=02:02:42.592) 0.91, -0.13, 9.76, 
+	10 (ts=15312.846990820, wall=02:02:42.834) 0.91, -0.13, 9.76, 
+stk3x3x alsprx: last 50 events
+	 1 (ts=1757.335630941, wall=22:16:47.189) 197.03, 0.00, 0.00, 
+	 2 (ts=1757.735685872, wall=22:16:47.589) 191.97, 0.00, 0.00, 
+	 3 (ts=1757.935667562, wall=22:16:47.790) 202.02, 0.00, 0.00, 
+	 4 (ts=1758.135710286, wall=22:16:47.990) 197.03, 0.00, 0.00, 
+	 5 (ts=1758.335722493, wall=22:16:48.190) 191.97, 0.00, 0.00, 
+	 6 (ts=1758.535704183, wall=22:16:48.390) 202.02, 0.00, 0.00, 
+	 7 (ts=1758.735746907, wall=22:16:48.590) 212.01, 0.00, 0.00, 
+	 8 (ts=1759.135771321, wall=22:16:48.990) 218.02, 0.00, 0.00, 
+	 9 (ts=1759.335753011, wall=22:16:49.190) 228.01, 0.00, 0.00, 
+	10 (ts=1759.535795736, wall=22:16:49.390) 244.01, 0.00, 0.00, 
+	11 (ts=1759.735777425, wall=22:16:49.590) 249.00, 0.00, 0.00, 
+	12 (ts=1759.935820150, wall=22:16:49.790) 254.00, 0.00, 0.00, 
+	13 (ts=1760.135801839, wall=22:16:49.990) 263.99, 0.00, 0.00, 
+	14 (ts=1760.335875081, wall=22:16:50.190) 268.98, 0.00, 0.00, 
+	15 (ts=1760.935881185, wall=22:16:50.790) 263.99, 0.00, 0.00, 
+	16 (ts=1761.535948323, wall=22:16:51.390) 268.98, 0.00, 0.00, 
+	17 (ts=1761.735899495, wall=22:16:51.590) 263.99, 0.00, 0.00, 
+	18 (ts=1762.335939016, wall=22:16:52.190) 258.99, 0.00, 0.00, 
+	19 (ts=1762.735993948, wall=22:16:52.590) 244.01, 0.00, 0.00, 
+	20 (ts=1762.936006155, wall=22:16:52.790) 249.00, 0.00, 0.00, 
+	21 (ts=1763.136018362, wall=22:16:52.990) 258.99, 0.00, 0.00, 
+	22 (ts=1763.336030569, wall=22:16:53.190) 249.00, 0.00, 0.00, 
+	23 (ts=1763.536042776, wall=22:16:53.390) 254.00, 0.00, 0.00, 
+	24 (ts=1764.336885061, wall=22:16:54.191) 258.99, 0.00, 0.00, 
+	25 (ts=1764.536103811, wall=22:16:54.390) 254.00, 0.00, 0.00, 
+	26 (ts=1764.736085501, wall=22:16:54.590) 249.00, 0.00, 0.00, 
+	27 (ts=1764.936128225, wall=22:16:54.790) 258.99, 0.00, 0.00, 
+	28 (ts=1765.336152639, wall=22:16:55.190) 263.99, 0.00, 0.00, 
+	29 (ts=1765.536164846, wall=22:16:55.390) 258.99, 0.00, 0.00, 
+	30 (ts=1765.736146536, wall=22:16:55.590) 268.98, 0.00, 0.00, 
+	31 (ts=1765.936189261, wall=22:16:55.790) 279.99, 0.00, 0.00, 
+	32 (ts=1766.136201468, wall=22:16:55.990) 294.97, 0.00, 0.00, 
+	33 (ts=1766.336213675, wall=22:16:56.190) 228.01, 0.00, 0.00, 
+	34 (ts=1766.536225882, wall=22:16:56.390) 197.03, 0.00, 0.00, 
+	35 (ts=1766.736207571, wall=22:16:56.590) 159.97, 0.00, 0.00, 
+	36 (ts=1766.936219778, wall=22:16:56.790) 133.99, 0.00, 0.00, 
+	37 (ts=1767.136262503, wall=22:16:56.990) 124.00, 0.00, 0.00, 
+	38 (ts=1767.336274710, wall=22:16:57.190) 109.01, 0.00, 0.00, 
+	39 (ts=1767.536286917, wall=22:16:57.390) 98.01, 0.00, 0.00, 
+	40 (ts=1767.736299124, wall=22:16:57.590) 88.02, 0.00, 0.00, 
+	41 (ts=1767.936311331, wall=22:16:57.790) 0.00, 0.00, 0.00, 
+	42 (ts=5486.163098227, wall=23:18:56.017) 0.00, 0.00, 0.00, 
+	43 (ts=5486.363079917, wall=23:18:56.220) 0.00, 0.00, 0.00, 
+	44 (ts=5488.962755505, wall=23:18:58.818) 0.00, 0.00, 0.00, 
+	45 (ts=5493.563559156, wall=23:19:03.418) 0.00, 0.00, 0.00, 
+	46 (ts=5503.764146753, wall=23:19:13.618) 0.00, 0.00, 0.00, 
+	47 (ts=5505.764298074, wall=23:19:15.618) 0.00, 0.00, 0.00, 
+	48 (ts=5509.163895242, wall=23:19:19.019) 0.00, 0.00, 0.00, 
+	49 (ts=5515.765224367, wall=23:19:25.619) 0.00, 0.00, 0.00, 
+	50 (ts=5521.165444612, wall=23:19:31.020) 0.00, 0.00, 0.00, 
+stk3x3x alsprx: last 6 events
+	 1 (ts=41.304721428, wall=21:48:11.160) 5.00, 0.00, 0.00, 
+	 2 (ts=48.604218299, wall=21:48:18.459) 5.00, 0.00, 0.00, 
+	 3 (ts=5486.735291694, wall=23:18:56.591) 5.00, 0.00, 0.00, 
+	 4 (ts=5488.934587780, wall=23:18:58.789) 5.00, 0.00, 0.00, 
+	 5 (ts=5505.736282937, wall=23:19:15.598) 5.00, 0.00, 0.00, 
+	 6 (ts=5520.337507843, wall=23:19:30.327) 5.00, 0.00, 0.00, 
+ICM20607 Gyroscope Uncalibrated: last 10 events
+	 1 (ts=15253.765206323, wall=02:01:43.620) 0.11, 0.20, -0.08, 0.01, 0.01, -0.00, 
+	 2 (ts=15253.775277124, wall=02:01:43.631) -0.03, -0.06, 0.01, 0.01, 0.01, -0.00, 
+	 3 (ts=15253.785347924, wall=02:01:43.641) -0.11, -0.26, 0.09, 0.01, 0.01, -0.00, 
+	 4 (ts=15253.795418725, wall=02:01:43.650) -0.03, -0.30, 0.11, 0.01, 0.01, -0.00, 
+	 5 (ts=15253.805459008, wall=02:01:43.661) 0.15, -0.11, 0.08, 0.01, 0.01, -0.00, 
+	 6 (ts=15253.815529809, wall=02:01:43.672) 0.33, 0.16, 0.00, 0.01, 0.01, -0.00, 
+	 7 (ts=15253.825600610, wall=02:01:43.683) 0.41, 0.31, -0.06, 0.01, 0.01, -0.00, 
+	 8 (ts=15253.835671411, wall=02:01:43.691) 0.36, 0.31, -0.10, 0.01, 0.01, -0.00, 
+	 9 (ts=15253.845742212, wall=02:01:43.701) 0.22, 0.19, -0.09, 0.01, 0.01, -0.00, 
+	10 (ts=15253.855782495, wall=02:01:43.713) 0.09, 0.01, -0.03, 0.01, 0.01, -0.00, 
+ICM20607 Gyroscope: last 10 events
+	 1 (ts=15310.693212744, wall=02:02:40.660) -0.00, -0.00, 0.00, 
+	 2 (ts=15310.934789893, wall=02:02:40.901) 0.00, -0.00, -0.00, 
+	 3 (ts=15311.176336523, wall=02:02:41.143) 0.00, -0.00, 0.00, 
+	 4 (ts=15311.417913672, wall=02:02:41.385) -0.00, -0.00, -0.00, 
+	 5 (ts=15311.659460303, wall=02:02:41.626) -0.00, 0.00, 0.00, 
+	 6 (ts=15311.901037451, wall=02:02:41.867) -0.00, -0.00, 0.00, 
+	 7 (ts=15312.142584082, wall=02:02:42.109) -0.00, -0.00, 0.00, 
+	 8 (ts=15312.384161230, wall=02:02:42.351) 0.00, 0.00, -0.00, 
+	 9 (ts=15312.625707861, wall=02:02:42.592) -0.00, 0.00, 0.00, 
+	10 (ts=15312.867285010, wall=02:02:42.834) 0.00, -0.00, 0.00, 
+AK09918 Magnetometer Uncalibrated: last 10 events
+	 1 (ts=15253.678109155, wall=02:01:43.536) 25.22, 27.14, -60.36, -14.29, 10.31, -64.88, 
+	 2 (ts=15253.698098169, wall=02:01:43.556) 24.15, 27.44, -61.10, -14.29, 10.31, -64.88, 
+	 3 (ts=15253.718087182, wall=02:01:43.576) 22.47, 27.27, -60.51, -14.29, 10.31, -64.88, 
+	 4 (ts=15253.738076196, wall=02:01:43.596) 23.85, 28.34, -61.55, -14.29, 10.31, -64.88, 
+	 5 (ts=15253.758095727, wall=02:01:43.616) 23.83, 26.82, -58.84, -14.29, 10.31, -64.88, 
+	 6 (ts=15253.778084741, wall=02:01:43.636) 23.85, 28.04, -58.81, -14.29, 10.31, -64.88, 
+	 7 (ts=15253.798073755, wall=02:01:43.656) 24.60, 27.29, -58.38, -14.29, 10.31, -64.88, 
+	 8 (ts=15253.818032251, wall=02:01:43.676) 25.22, 27.74, -60.34, -14.29, 10.31, -64.88, 
+	 9 (ts=15253.838021264, wall=02:01:43.696) 22.79, 28.04, -60.19, -14.29, 10.31, -64.88, 
+	10 (ts=15253.858010278, wall=02:01:43.716) 23.85, 29.10, -61.24, -14.29, 10.31, -64.88, 
+AK09918 Magnetometer: last 10 events
+	 1 (ts=15253.678109155, wall=02:01:43.536) 39.50, 16.82, 4.52, 
+	 2 (ts=15253.698098169, wall=02:01:43.556) 38.43, 17.12, 3.78, 
+	 3 (ts=15253.718087182, wall=02:01:43.576) 36.75, 16.95, 4.37, 
+	 4 (ts=15253.738076196, wall=02:01:43.596) 38.13, 18.02, 3.33, 
+	 5 (ts=15253.758095727, wall=02:01:43.616) 38.13, 16.51, 6.04, 
+	 6 (ts=15253.778084741, wall=02:01:43.636) 38.13, 17.72, 6.07, 
+	 7 (ts=15253.798073755, wall=02:01:43.656) 38.90, 16.97, 6.50, 
+	 8 (ts=15253.818032251, wall=02:01:43.676) 39.50, 17.42, 4.54, 
+	 9 (ts=15253.838021264, wall=02:01:43.696) 37.07, 17.72, 4.69, 
+	10 (ts=15253.858010278, wall=02:01:43.716) 38.13, 18.79, 3.66, 
+ICM20607 Accelerometer: last 50 events
+	 1 (ts=15310.360357519, wall=02:02:41.204) 0.87, -0.12, 9.53, 
+	 2 (ts=15310.380499121, wall=02:02:41.204) 0.86, -0.12, 9.44, 
+	 3 (ts=15310.400640723, wall=02:02:41.204) 0.88, -0.14, 9.41, 
+	 4 (ts=15310.420751807, wall=02:02:41.204) 0.88, -0.13, 9.48, 
+	 5 (ts=15310.440893408, wall=02:02:41.204) 0.88, -0.12, 9.48, 
+	 6 (ts=15310.461035010, wall=02:02:41.204) 0.88, -0.14, 9.46, 
+	 7 (ts=15310.481146094, wall=02:02:41.204) 0.89, -0.12, 9.46, 
+	 8 (ts=15310.501287695, wall=02:02:41.205) 0.88, -0.12, 9.47, 
+	 9 (ts=15310.521429297, wall=02:02:41.205) 0.88, -0.12, 9.50, 
+	10 (ts=15310.541540381, wall=02:02:41.205) 0.88, -0.11, 9.52, 
+	11 (ts=15310.561681982, wall=02:02:41.205) 0.87, -0.12, 9.48, 
+	12 (ts=15310.581823584, wall=02:02:41.205) 0.87, -0.14, 9.42, 
+	13 (ts=15310.601934668, wall=02:02:41.205) 0.89, -0.14, 9.40, 
+	14 (ts=15310.622076269, wall=02:02:41.205) 0.90, -0.13, 9.46, 
+	15 (ts=15310.642187353, wall=02:02:41.205) 0.89, -0.13, 9.52, 
+	16 (ts=15310.662328955, wall=02:02:41.205) 0.88, -0.11, 9.48, 
+	17 (ts=15310.682470557, wall=02:02:41.205) 0.88, -0.12, 9.46, 
+	18 (ts=15310.702581641, wall=02:02:41.205) 0.88, -0.12, 9.47, 
+	19 (ts=15310.722723242, wall=02:02:41.205) 0.88, -0.13, 9.51, 
+	20 (ts=15310.742864844, wall=02:02:41.205) 0.86, -0.15, 9.42, 
+	21 (ts=15310.762975928, wall=02:02:41.205) 0.90, -0.13, 9.58, 
+	22 (ts=15310.783087012, wall=02:02:41.205) 0.91, -0.14, 9.52, 
+	23 (ts=15310.803228613, wall=02:02:41.205) 0.88, -0.12, 9.32, 
+	24 (ts=15310.823370215, wall=02:02:41.205) 0.87, -0.12, 9.52, 
+	25 (ts=15310.843481299, wall=02:02:41.205) 0.89, -0.11, 9.63, 
+	26 (ts=15310.863622900, wall=02:02:41.205) 0.86, -0.10, 9.45, 
+	27 (ts=15310.883764502, wall=02:02:41.205) 0.85, -0.12, 9.29, 
+	28 (ts=15310.903875586, wall=02:02:41.205) 0.84, -0.14, 9.33, 
+	29 (ts=15310.924017187, wall=02:02:41.205) 0.89, -0.13, 9.65, 
+	30 (ts=15310.944158789, wall=02:02:41.205) 0.93, -0.13, 9.64, 
+	31 (ts=15310.964269873, wall=02:02:41.205) 0.89, -0.14, 9.28, 
+	32 (ts=15310.984411475, wall=02:02:41.205) 0.87, -0.12, 9.27, 
+	33 (ts=15311.004553076, wall=02:02:41.205) 0.87, -0.11, 9.53, 
+	34 (ts=15311.024664160, wall=02:02:41.205) 0.89, -0.11, 9.77, 
+	35 (ts=15311.044805762, wall=02:02:41.205) 0.88, -0.12, 9.44, 
+	36 (ts=15311.064916846, wall=02:02:41.205) 0.89, -0.13, 9.26, 
+	37 (ts=15311.085058447, wall=02:02:41.205) 0.89, -0.13, 9.40, 
+	38 (ts=15311.105200049, wall=02:02:41.205) 0.87, -0.14, 9.50, 
+	39 (ts=15311.125311133, wall=02:02:41.205) 0.86, -0.14, 9.68, 
+	40 (ts=15311.145452734, wall=02:02:41.205) 0.94, -0.11, 9.74, 
+	41 (ts=15311.165594336, wall=02:02:41.205) 0.92, -0.12, 9.50, 
+	42 (ts=15311.185705420, wall=02:02:41.205) 0.85, -0.13, 9.27, 
+	43 (ts=15311.205816504, wall=02:02:41.205) 0.83, -0.14, 9.36, 
+	44 (ts=15311.225958105, wall=02:02:41.205) 0.90, -0.12, 9.68, 
+	45 (ts=15311.246099707, wall=02:02:41.205) 0.90, -0.14, 9.55, 
+	46 (ts=15311.266210791, wall=02:02:41.205) 0.88, -0.13, 9.24, 
+	47 (ts=15311.286352393, wall=02:02:41.205) 0.87, -0.14, 9.37, 
+	48 (ts=15311.306493994, wall=02:02:41.205) 0.89, -0.14, 9.55, 
+	49 (ts=15311.326605078, wall=02:02:41.205) 0.84, -0.13, 9.40, 
+	50 (ts=15311.346746680, wall=02:02:41.205) 0.90, -0.12, 9.45, 
+Active sensors:
+ICM20607 Accelerometer (handle=0x00000001, connections=2)
+ICM20607 Gyroscope (handle=0x00000005, connections=1)
+Gravity (handle=0x00000011, connections=1)
+Linear Acceleration (handle=0x00000012, connections=1)
+DeviceOrientation -Wakeup Secondary (handle=0x00000027, connections=1)
+Socket Buffer size = 984 events
+WakeLock Status: not held 
+Mode : NORMAL
+Sensor Privacy: disabled
+5 open event connections
+Connection Number: 0 
+	Operating Mode: NORMAL
+	 X.8Yw | WakeLockRefCount 0 | uid 10558 | cache size 0 | max cache size 0 | has sensor access: false
+	 Linear Acceleration 0x00000012 | first flush pending: false | pending flush events 0 
+Connection Number: 1 
+	Operating Mode: NORMAL
+	 com.applovin.impl.u4 | WakeLockRefCount 0 | uid 10606 | cache size 0 | max cache size 0 | has sensor access: false
+	 ICM20607 Gyroscope 0x00000005 | first flush pending: false | pending flush events 0 
+	 Gravity 0x00000011 | first flush pending: false | pending flush events 0 
+Connection Number: 2 
+	Operating Mode: NORMAL
+	 com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener | WakeLockRefCount 0 | uid 10449 | cache size 0 | max cache size 0 | has sensor access: true
+	 ICM20607 Accelerometer 0x00000001 | first flush pending: false | pending flush events 0 
+Connection Number: 3 
+	Operating Mode: NORMAL
+	 com.android.server.power.FaceDownDetector | WakeLockRefCount 0 | uid 1000 | cache size 0 | max cache size 0 | has sensor access: true
+	 ICM20607 Accelerometer 0x00000001 | first flush pending: false | pending flush events 0 
+Connection Number: 4 
+	Operating Mode: NORMAL
+	 com.android.server.wm.WindowOrientationListener$OrientationSensorJudge | WakeLockRefCount 0 | uid 1000 | cache size 0 | max cache size 0 | has sensor access: true
+	 DeviceOrientation -Wakeup Secondary 0x00000027 | first flush pending: false | pending flush events 0 
+0 open direct connections
+Previous Registrations:
+02:01:57 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+02:01:53 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+02:01:53 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+02:01:50 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+02:01:50 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+02:01:46 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+02:01:46 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+02:01:43 - 0x00000003 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , unknown_package_pid_7370)
+02:01:43 - 0x00000006 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope Uncalibrated, unknown_package_pid_7370)
+02:01:43 - 0x00000004 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer Uncalibrated, unknown_package_pid_7370)
+02:01:43 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , unknown_package_pid_7370)
+02:01:43 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.gms.libs.location.validation.platform.SensorListenerAdapter)
+02:01:42 + 0x00000003 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , unknown_package_pid_7370)
+02:01:42 + 0x00000006 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope Uncalibrated, unknown_package_pid_7370)
+02:01:42 + 0x00000004 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer Uncalibrated, unknown_package_pid_7370)
+02:01:42 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , unknown_package_pid_7370)
+02:01:42 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.gms.libs.location.validation.platform.SensorListenerAdapter)
+02:01:36 - 0x00000003 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , unknown_package_pid_7370)
+02:01:36 - 0x00000006 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope Uncalibrated, unknown_package_pid_7370)
+02:01:36 - 0x00000004 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer Uncalibrated, unknown_package_pid_7370)
+02:01:36 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , unknown_package_pid_7370)
+02:01:36 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.gms.libs.location.validation.platform.SensorListenerAdapter)
+02:01:34 + 0x00000003 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , unknown_package_pid_7370)
+02:01:34 + 0x00000006 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope Uncalibrated, unknown_package_pid_7370)
+02:01:34 + 0x00000004 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer Uncalibrated, unknown_package_pid_7370)
+02:01:34 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , unknown_package_pid_7370)
+02:01:34 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.gms.libs.location.validation.platform.SensorListenerAdapter)
+01:29:08 - 0x00000001 pid= 7638 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+01:29:07 + 0x00000001 pid= 7638 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+01:26:29 + 0x00000016 pid= 7370 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, dref)
+01:18:43 - 0x00000005 pid= 6150 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+01:18:43 - 0x00000003 pid= 6150 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+01:18:43 - 0x00000001 pid= 6150 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+01:18:00 + 0x00000005 pid= 6150 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+01:18:00 + 0x00000003 pid= 6150 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+01:18:00 + 0x00000001 pid= 6150 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+01:17:50 + 0x00000005 pid= 6150 uid=10606 samplingPeriod=  250000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.applovin.impl.u4)
+01:17:50 + 0x00000011 pid= 6150 uid=10606 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Gravity                    , com.applovin.impl.u4)
+01:15:35 + 0x00000016 pid= 7370 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+01:15:35 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+01:15:35 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+01:15:32 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+01:15:32 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+01:15:29 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+01:15:28 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+01:15:28 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+01:15:28 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+01:10:47 - 0x00000005 pid=17931 uid=10554 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope         , com.shopee.shpssdk.uuwwvuvuv.vwwwwuvwv.uwwvwwuvv.uwuvwuvuv)
+01:10:47 - 0x00000003 pid=17931 uid=10554 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , com.shopee.shpssdk.uuwwvuvuv.vwwwwuvwv.uwwvwwuvv.uwuvwuvuv)
+01:10:47 - 0x00000001 pid=17931 uid=10554 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.shopee.shpssdk.uuwwvuvuv.vwwwwuvwv.uwwvwwuvv.uwuvwuvuv)
+01:09:55 + 0x00000005 pid=17931 uid=10554 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.shopee.shpssdk.uuwwvuvuv.vwwwwuvwv.uwwvwwuvv.uwuvwuvuv)
+01:09:55 + 0x00000003 pid=17931 uid=10554 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , com.shopee.shpssdk.uuwwvuvuv.vwwwwuvwv.uwwvwwuvv.uwuvwuvuv)
+01:09:55 + 0x00000001 pid=17931 uid=10554 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.shopee.shpssdk.uuwwvuvuv.vwwwwuvwv.uwwvwwuvv.uwuvwuvuv)
+01:05:02 - 0x00000001 pid= 7638 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+01:05:01 + 0x00000001 pid= 7638 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+00:39:52 + 0x00000012 pid=27647 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+00:26:10 + 0x00000016 pid= 7370 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, dref)
+00:18:40 - 0x00000005 pid=15437 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+00:18:40 - 0x00000003 pid=15437 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+00:18:40 - 0x00000001 pid=15437 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+00:17:59 + 0x00000005 pid=15437 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+00:17:59 + 0x00000003 pid=15437 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+00:17:59 + 0x00000001 pid=15437 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+00:17:49 + 0x00000005 pid=15437 uid=10606 samplingPeriod=  250000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.applovin.impl.u4)
+00:17:49 + 0x00000011 pid=15437 uid=10606 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Gravity                    , com.applovin.impl.u4)
+00:16:15 - 0x00000012 pid=14279 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+00:16:15 - 0x00000013 pid=14279 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+00:16:13 + 0x00000013 pid=14279 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+00:16:13 + 0x00000012 pid=14279 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+00:16:08 - 0x00000012 pid=14279 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+00:16:08 - 0x00000013 pid=14279 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+00:16:06 + 0x00000013 pid=14279 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+00:16:06 + 0x00000012 pid=14279 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+00:16:02 - 0x00000003 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , unknown_package_pid_7370)
+00:16:02 - 0x00000006 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope Uncalibrated, unknown_package_pid_7370)
+00:16:02 - 0x00000004 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer Uncalibrated, unknown_package_pid_7370)
+00:16:02 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , unknown_package_pid_7370)
+00:16:02 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.gms.libs.location.validation.platform.SensorListenerAdapter)
+00:16:02 + 0x00000003 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , unknown_package_pid_7370)
+00:16:02 + 0x00000006 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope Uncalibrated, unknown_package_pid_7370)
+00:16:02 + 0x00000004 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer Uncalibrated, unknown_package_pid_7370)
+00:16:02 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , unknown_package_pid_7370)
+00:16:02 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.gms.libs.location.validation.platform.SensorListenerAdapter)
+00:15:50 - 0x00000003 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , unknown_package_pid_7370)
+00:15:50 - 0x00000006 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope Uncalibrated, unknown_package_pid_7370)
+00:15:50 - 0x00000004 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer Uncalibrated, unknown_package_pid_7370)
+00:15:50 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , unknown_package_pid_7370)
+00:15:50 - 0x00000001 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.gms.libs.location.validation.platform.SensorListenerAdapter)
+00:15:49 - 0x00000016 pid= 7370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Significant Motion Detector, dref)
+00:15:47 + 0x00000003 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , unknown_package_pid_7370)
+00:15:47 + 0x00000006 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope Uncalibrated, unknown_package_pid_7370)
+00:15:47 + 0x00000004 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer Uncalibrated, unknown_package_pid_7370)
+00:15:47 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , unknown_package_pid_7370)
+00:15:47 + 0x00000016 pid= 7370 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, dref)
+00:15:47 + 0x00000001 pid= 7370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.gms.libs.location.validation.platform.SensorListenerAdapter)
+00:14:36 + 0x00000012 pid=12562 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+00:10:55 + 0x00000016 pid= 7370 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+00:10:00 + 0x00000016 pid= 3429 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+00:09:50 - 0x00000001 pid= 1652 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+00:09:49 + 0x00000001 pid= 1652 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+00:09:44 + 0x00000016 pid= 1565 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+00:09:06 + 0x00000012 pid=32382 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+00:04:54 + 0x00000012 pid=29962 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+00:03:31 - 0x00000005 pid=28544 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+00:03:31 - 0x00000003 pid=28544 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+00:03:31 - 0x00000001 pid=28544 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+00:02:48 + 0x00000012 pid=28619 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+00:02:48 + 0x00000005 pid=28544 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+00:02:48 + 0x00000003 pid=28544 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+00:02:48 + 0x00000001 pid=28544 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+00:02:39 + 0x00000005 pid=28544 uid=10606 samplingPeriod=  250000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.applovin.impl.u4)
+00:02:39 + 0x00000011 pid=28544 uid=10606 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Gravity                    , com.applovin.impl.u4)
+00:01:14 + 0x00000016 pid=17030 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, dref)
+23:59:44 + 0x00000012 pid=26492 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+23:55:42 + 0x00000012 pid=25041 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+23:50:00 + 0x00000012 pid= 5488 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+23:49:45 - 0x00000012 pid=20362 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:49:45 - 0x00000013 pid=20362 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:49:43 + 0x00000013 pid=20362 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:49:43 + 0x00000012 pid=20362 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:48:13 + 0x00000016 pid=17030 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+23:42:11 + 0x00000016 pid=31254 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, dref)
+23:42:09 + 0x00000016 pid=31254 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+23:42:09 - 0x00000001 pid=31254 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+23:35:48 - 0x00000001 pid= 1568 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:35:47 + 0x00000001 pid= 1568 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:32:29 - 0x00000005 pid= 7012 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+23:32:29 - 0x00000003 pid= 7012 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+23:32:29 - 0x00000001 pid= 7012 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+23:32:27 + 0x00000005 pid= 7012 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+23:32:27 + 0x00000003 pid= 7012 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+23:32:27 + 0x00000001 pid= 7012 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+23:32:17 + 0x00000005 pid= 7012 uid=10606 samplingPeriod=  250000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.applovin.impl.u4)
+23:32:17 + 0x00000011 pid= 7012 uid=10606 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Gravity                    , com.applovin.impl.u4)
+23:32:13 + 0x00000012 pid= 6249 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+23:30:07 - 0x00000001 pid=31254 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:30:04 + 0x00000001 pid=31254 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:30:03 - 0x00000001 pid=31254 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:30:00 - 0x00000001 pid=31254 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:29:59 + 0x00000001 pid=31254 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:29:59 + 0x00000001 pid=31254 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+23:29:59 + 0x00000001 pid=31254 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:29:21 - 0x00000001 pid=30094 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:29:18 + 0x00000001 pid=30094 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:29:17 - 0x00000001 pid=30094 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:29:14 + 0x00000001 pid=30094 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:29:14 - 0x00000001 pid=30094 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:29:11 - 0x00000001 pid=30094 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:29:11 + 0x00000001 pid=30094 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:29:10 + 0x00000001 pid=30094 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+23:29:10 + 0x00000001 pid=30094 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:21:59 - 0x00000001 pid=23931 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:21:56 + 0x00000001 pid=23931 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:21:55 - 0x00000001 pid=23931 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:21:51 - 0x00000001 pid=23931 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:21:51 + 0x00000001 pid=23931 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:21:51 + 0x00000001 pid=23931 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+23:21:50 + 0x00000001 pid=23931 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:21:36 + 0x00000001 pid=23370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:21:36 - 0x00000001 pid=23370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:21:33 - 0x00000001 pid=23370 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:21:32 + 0x00000001 pid=23370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:21:32 + 0x00000001 pid=23370 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+23:21:32 + 0x00000001 pid=23370 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:19:44 - 0x00000012 pid=20288 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:19:44 - 0x00000013 pid=20288 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:19:42 + 0x00000013 pid=20288 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:19:42 + 0x00000012 pid=20288 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:19:32 - 0x00000007 pid= 2813 uid=10504 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.systemui.util.sensors.ThresholdSensorImpl$1)
+23:19:31 - 0x00000008 pid= 2094 uid= 1000 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:19:30 + 0x00000008 pid=    0 uid=10504 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:19:30 - 0x00000008 pid= 2094 uid= 1000 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:19:30 + 0x00000007 pid= 2813 uid=10504 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.systemui.util.sensors.ThresholdSensorImpl$1)
+23:19:25 - 0x00000008 pid= 2094 uid= 1000 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:19:24 - 0x00000007 pid= 2813 uid=10504 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.systemui.util.sensors.ThresholdSensorImpl$1)
+23:19:22 + 0x00000008 pid= 2094 uid= 1000 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:19:20 + 0x00000001 pid= 2094 uid= 1000 samplingPeriod=  200000us batchingPeriod= 2000000us result=OK (sensor, package): (ICM20607 Accelerometer     , com.android.server.power.FaceDownDetector)
+23:19:18 - 0x00000008 pid= 2094 uid= 1000 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:19:15 - 0x00000001 pid= 2094 uid= 1000 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.android.server.power.FaceDownDetector)
+23:19:15 + 0x00000008 pid= 2094 uid= 1000 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:19:15 + 0x00000008 pid=    0 uid=10504 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:19:15 + 0x00000007 pid= 2813 uid=10504 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.systemui.util.sensors.ThresholdSensorImpl$1)
+23:19:14 + 0x00000027 pid= 2094 uid= 1000 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (DeviceOrientation -Wakeup Secondary, com.android.server.wm.WindowOrientationListener$OrientationSensorJudge)
+23:19:14 - 0x00000007 pid= 2813 uid=10504 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.systemui.util.sensors.ThresholdSensorImpl$1)
+23:19:14 - 0x00000008 pid=    0 uid=10504 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:19:13 - 0x00000008 pid= 2094 uid= 1000 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.display.AutomaticBrightnessController$2)
+23:19:13 + 0x00000008 pid= 2094 uid= 1000 samplingPeriod=  250000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.display.AutomaticBrightnessController$2)
+23:19:13 - 0x00000027 pid= 2094 uid= 1000 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (DeviceOrientation -Wakeup Secondary, com.android.server.wm.WindowOrientationListener$OrientationSensorJudge)
+23:19:11 - 0x00000001 pid=18021 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:19:08 + 0x00000001 pid=18021 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:19:07 - 0x00000001 pid=18021 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:19:05 + 0x00000001 pid= 2094 uid= 1000 samplingPeriod=  200000us batchingPeriod= 2000000us result=OK (sensor, package): (ICM20607 Accelerometer     , com.android.server.power.FaceDownDetector)
+23:19:03 + 0x00000001 pid=18021 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:19:03 - 0x00000008 pid= 2094 uid= 1000 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:19:02 - 0x00000001 pid=18021 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:19:01 - 0x00000001 pid= 2094 uid= 1000 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.android.server.power.FaceDownDetector)
+23:19:00 - 0x00000001 pid=18021 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:19:00 + 0x00000008 pid= 2094 uid= 1000 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:18:59 + 0x00000001 pid=18021 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:18:59 + 0x00000001 pid=18021 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+23:18:59 + 0x00000001 pid=18021 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:18:58 + 0x00000008 pid=    0 uid=10504 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:18:58 + 0x00000007 pid= 2813 uid=10504 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.systemui.util.sensors.ThresholdSensorImpl$1)
+23:18:58 - 0x00000007 pid= 2813 uid=10504 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.systemui.util.sensors.ThresholdSensorImpl$1)
+23:18:56 + 0x00000007 pid= 2813 uid=10504 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.systemui.util.sensors.ThresholdSensorImpl$1)
+23:18:56 - 0x00000008 pid=    0 uid=10504 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:18:56 + 0x0000001b pid= 2813 uid=10504 samplingPeriod=       0us batchingPeriod=       0us result=PERMISSION_DENIED (sensor, package): (PickUp                     , com.android.systemui.deviceentry.ui.binder.LiftToRunFaceAuthBinder$listener$1)
+23:18:56 - 0x00000008 pid= 2094 uid= 1000 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.display.AutomaticBrightnessController$2)
+23:18:55 + 0x00000027 pid= 2094 uid= 1000 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (DeviceOrientation -Wakeup Secondary, com.android.server.wm.WindowOrientationListener$OrientationSensorJudge)
+23:18:55 + 0x00000008 pid= 2094 uid= 1000 samplingPeriod=  250000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.display.AutomaticBrightnessController$2)
+23:18:55 + 0x00000008 pid= 2094 uid= 1000 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , com.android.server.biometrics.log.ALSProbe$1)
+23:18:55 - 0x00000027 pid= 2094 uid= 1000 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (DeviceOrientation -Wakeup Secondary, com.android.server.wm.WindowOrientationListener$OrientationSensorJudge)
+23:18:50 - 0x00000001 pid=17142 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:18:49 + 0x00000001 pid=17142 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:18:49 + 0x00000001 pid=17142 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+23:18:49 + 0x00000001 pid=17142 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:17:42 - 0x00000005 pid=15529 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+23:17:42 - 0x00000003 pid=15529 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+23:17:42 - 0x00000001 pid=15529 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+23:17:41 + 0x00000005 pid=15529 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+23:17:41 + 0x00000003 pid=15529 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+23:17:40 + 0x00000001 pid=15529 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+23:17:31 + 0x00000005 pid=15529 uid=10606 samplingPeriod=  250000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.applovin.impl.u4)
+23:17:31 + 0x00000011 pid=15529 uid=10606 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Gravity                    , com.applovin.impl.u4)
+23:16:35 + 0x00000012 pid=14375 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+23:15:16 - 0x00000001 pid= 9610 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:15:16 + 0x00000001 pid= 9610 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:14:25 - 0x00000012 pid=10818 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:14:25 - 0x00000013 pid=10818 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:14:25 - 0x00000012 pid=10818 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:14:25 - 0x00000013 pid=10818 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:14:22 - 0x00000001 pid= 9610 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:14:20 + 0x00000001 pid= 9610 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:14:19 + 0x00000013 pid=10818 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:14:19 + 0x00000012 pid=10818 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:14:17 + 0x00000013 pid=10818 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:14:17 + 0x00000012 pid=10818 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:14:17 - 0x00000012 pid=10818 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:14:17 - 0x00000012 pid=10818 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:14:17 - 0x00000013 pid=10818 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:14:17 - 0x00000013 pid=10818 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:14:17 + 0x00000013 pid=10818 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:14:17 + 0x00000012 pid=10818 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:14:13 + 0x00000013 pid=10818 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:14:13 + 0x00000012 pid=10818 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:14:09 - 0x00000013 pid=10818 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:14:09 - 0x00000012 pid=10818 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:13:59 + 0x00000013 pid=10818 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+23:13:59 + 0x00000012 pid=10818 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+23:13:58 - 0x00000001 pid= 9539 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:13:55 + 0x00000001 pid= 9539 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:13:54 - 0x00000001 pid= 9539 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:13:51 - 0x00000001 pid= 9539 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:13:50 + 0x00000001 pid= 9539 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:13:50 + 0x00000001 pid= 9539 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+23:13:50 + 0x00000001 pid= 9539 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:11:36 - 0x00000001 pid=22909 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:11:36 + 0x00000001 pid=22909 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:10:26 - 0x00000001 pid=22909 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:10:26 + 0x00000001 pid=22909 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:10:13 - 0x00000001 pid=22909 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:10:12 + 0x00000001 pid=22909 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:10:02 - 0x00000001 pid=22909 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:10:01 + 0x00000001 pid=22909 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:10:00 - 0x00000001 pid=21962 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:09:57 + 0x00000001 pid=21962 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:09:57 - 0x00000001 pid=21962 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:09:54 + 0x00000001 pid=21962 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:09:54 - 0x00000001 pid=21962 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:09:51 - 0x00000001 pid=21962 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:09:50 + 0x00000001 pid=21962 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+23:09:50 + 0x00000001 pid=21962 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+23:09:50 + 0x00000001 pid=21962 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorTimestampCalibrator$CalibrationSensorListener)
+23:07:32 + 0x00000016 pid=21962 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, dref)
+23:04:23 - 0x00000001 pid=22909 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:04:22 + 0x00000001 pid=22909 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+23:03:47 - 0x00000005 pid=30645 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+23:03:47 - 0x00000003 pid=30645 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+23:03:47 - 0x00000001 pid=30645 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+23:03:06 + 0x00000005 pid=30645 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+23:03:06 + 0x00000003 pid=30645 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+23:03:06 + 0x00000001 pid=30645 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+23:03:03 + 0x00000012 pid=30748 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+23:02:57 + 0x00000005 pid=30645 uid=10606 samplingPeriod=  250000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.applovin.impl.u4)
+23:02:57 + 0x00000011 pid=30645 uid=10606 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Gravity                    , com.applovin.impl.u4)
+23:02:48 + 0x00000005 pid=14456 uid=10554 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.shopee.shpssdk.uuwwvuvuv.vwwwwuvwv.uwwvwwuvv.uwuvwuvuv)
+23:02:48 + 0x00000003 pid=14456 uid=10554 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , com.shopee.shpssdk.uuwwvuvuv.vwwwwuvwv.uwwvwwuvv.uwuvwuvuv)
+23:02:48 + 0x00000001 pid=14456 uid=10554 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.shopee.shpssdk.uuwwvuvuv.vwwwwuvwv.uwwvwwuvv.uwuvwuvuv)
+22:54:29 + 0x00000016 pid=21962 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+22:53:58 + 0x00000016 pid=20885 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+22:53:11 - 0x00000001 pid=16804 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:53:11 + 0x00000001 pid=16804 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:53:11 - 0x00000001 pid=16804 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:53:10 - 0x00000001 pid=16804 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:53:10 + 0x00000001 pid=16804 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:53:10 + 0x00000001 pid=16804 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:52:46 - 0x00000012 pid=19471 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+22:52:46 - 0x00000013 pid=19471 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+22:52:44 + 0x00000013 pid=19471 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+22:52:44 + 0x00000012 pid=19471 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+22:52:40 - 0x00000012 pid=19471 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+22:52:40 - 0x00000013 pid=19471 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+22:52:33 + 0x00000013 pid=19471 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+22:52:33 + 0x00000012 pid=19471 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+22:52:04 + 0x00000016 pid=16811 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+22:51:50 + 0x00000016 pid=15608 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+22:41:55 - 0x00000001 pid= 3113 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:41:55 + 0x00000001 pid= 3113 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:39:53 - 0x00000001 pid= 3113 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:39:52 + 0x00000001 pid= 3113 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:38:41 - 0x00000008 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (stk3x3x alsprx             , X.0WE0)
+22:38:40 - 0x00000001 pid= 3113 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:38:40 + 0x00000001 pid= 3113 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:38:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:38:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:36:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:36:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:34:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:34:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:32:29 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:32:27 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:32:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:32:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:30:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:30:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:28:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:28:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:26:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:26:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:24:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:24:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:22:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:22:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:20:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:20:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:18:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:18:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:16:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:16:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:14:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:14:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:12:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:12:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:10:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:10:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:08:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:08:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:07:39 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:07:38 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:07:22 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:07:20 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:07:19 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:07:18 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:06:53 - 0x00000001 pid= 3113 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:06:53 + 0x00000001 pid= 3113 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+22:06:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:06:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:04:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:04:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:03:30 - 0x00000005 pid=27092 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+22:03:30 - 0x00000003 pid=27092 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+22:03:30 - 0x00000001 pid=27092 uid=10606 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+22:03:18 + 0x00000016 pid= 2578 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+22:03:18 - 0x00000001 pid= 2578 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+22:03:10 + 0x00000005 pid=27092 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.pgl.ssdk.k0)
+22:03:10 + 0x00000003 pid=27092 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , com.pgl.ssdk.k0)
+22:03:10 + 0x00000001 pid=27092 uid=10606 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.pgl.ssdk.k0)
+22:03:01 + 0x00000005 pid=27092 uid=10606 samplingPeriod=  250000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.applovin.impl.u4)
+22:03:01 + 0x00000011 pid=27092 uid=10606 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Gravity                    , com.applovin.impl.u4)
+22:02:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:02:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:00:45 + 0x00000016 pid= 2578 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, dref)
+22:00:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+22:00:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+21:58:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+21:58:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+21:57:57 - 0x00000012 pid=25128 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:57:57 - 0x00000013 pid=25128 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:57:57 + 0x00000013 pid=25128 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:57:57 + 0x00000012 pid=25128 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:56:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+21:56:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+21:54:30 + 0x00000012 pid=20784 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+21:54:23 - 0x00000005 pid=21042 uid=10593 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope         , com.shopee.shpssdk.uuwvuwvww.vvuvwwuwv.uvwwwuvuv.wwwwvwuvu)
+21:54:23 - 0x00000003 pid=21042 uid=10593 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , com.shopee.shpssdk.uuwvuwvww.vvuvwwuwv.uvwwwuvuv.wwwwvwuvu)
+21:54:23 - 0x00000001 pid=21042 uid=10593 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.shopee.shpssdk.uuwvuwvww.vvuvwwuwv.uvwwwuvuv.wwwwvwuvu)
+21:54:23 + 0x00000005 pid=21042 uid=10593 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , com.shopee.shpssdk.uuwvuwvww.vvuvwwuwv.uvwwwuvuv.wwwwvwuvu)
+21:54:23 + 0x00000003 pid=21042 uid=10593 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , com.shopee.shpssdk.uuwvuwvww.vvuvwwuwv.uvwwwuvuv.wwwwvwuvu)
+21:54:23 + 0x00000001 pid=21042 uid=10593 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.shopee.shpssdk.uuwvuwvww.vvuvwwuwv.uvwwwuvuv.wwwwvwuvu)
+21:54:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+21:54:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+21:54:05 - 0x00000001 pid= 2578 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:54:01 + 0x00000001 pid= 2578 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:54:01 - 0x00000001 pid= 2578 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:53:58 + 0x00000001 pid= 2578 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:53:58 - 0x00000001 pid= 2578 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:53:54 + 0x00000001 pid= 2578 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:53:54 + 0x00000001 pid= 2578 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+21:53:21 + 0x00000016 pid= 2578 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+21:53:21 - 0x00000001 pid= 2578 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+21:53:19 - 0x00000001 pid= 2578 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:53:16 + 0x00000001 pid= 2578 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:53:15 - 0x00000001 pid= 2578 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:53:11 + 0x00000001 pid= 2578 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:53:11 + 0x00000001 pid= 2578 uid=10449 samplingPeriod=   20000us batchingPeriod=2147483647us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+21:53:11 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:53:11 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:53:10 - 0x00000013 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , ms.bd.o.e2)
+21:53:10 - 0x00000012 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , ms.bd.o.e2)
+21:53:10 - 0x00000011 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Gravity                    , ms.bd.o.e2)
+21:53:10 - 0x00000005 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope         , ms.bd.o.e2)
+21:53:10 - 0x00000003 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (AK09918 Magnetometer       , ms.bd.o.e2)
+21:53:10 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.e2)
+21:53:10 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:53:10 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:53:00 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:53:00 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:59 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:59 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:57 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:57 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:56 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:56 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:53 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:53 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:53 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:53 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:50 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:50 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:50 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:50 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:46 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:46 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:46 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:46 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:46 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:46 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:45 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:45 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+21:52:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+21:52:13 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:13 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:52:03 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:52:03 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:59 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:59 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:58 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:58 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:57 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:57 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:57 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:57 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:55 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:55 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:54 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:54 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:48 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:48 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:48 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:48 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:48 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:48 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:38 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:38 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:38 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:38 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:37 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:37 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:33 - 0x00000013 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:33 - 0x00000012 pid=11174 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:51:22 + 0x00000013 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , com.google.ccc.abuse.droidguard.events.b)
+21:51:22 + 0x00000012 pid=11174 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , com.google.ccc.abuse.droidguard.events.b)
+21:50:34 - 0x00000013 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Rotation Vector            , ms.bd.o.d2)
+21:50:34 - 0x00000011 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (Gravity                    , ms.bd.o.d2)
+21:50:34 - 0x00000005 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Gyroscope         , ms.bd.o.d2)
+21:50:34 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.d2)
+21:50:29 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+21:50:26 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+21:50:26 + 0x00000008 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (stk3x3x alsprx             , X.0WE0)
+21:50:24 + 0x00000013 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , ms.bd.o.d2)
+21:50:24 + 0x00000005 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , ms.bd.o.d2)
+21:50:24 + 0x00000011 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Gravity                    , ms.bd.o.d2)
+21:50:24 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.d2)
+21:50:16 + 0x00000003 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (AK09918 Magnetometer       , ms.bd.o.e2)
+21:50:16 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.e2)
+21:50:16 + 0x00000013 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Rotation Vector            , ms.bd.o.e2)
+21:50:16 + 0x00000005 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Gyroscope         , ms.bd.o.e2)
+21:50:16 + 0x00000011 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Gravity                    , ms.bd.o.e2)
+21:50:16 + 0x00000012 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , ms.bd.o.e2)
+21:50:15 - 0x00000001 pid=10220 uid=10649 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+21:50:14 + 0x00000001 pid=10220 uid=10649 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , ms.bd.o.f2)
+21:49:54 - 0x00000001 pid= 3113 uid=10502 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+21:49:54 + 0x00000001 pid= 3113 uid=10502 samplingPeriod=  200000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , android.view.OrientationEventListener)
+21:49:43 + 0x00000012 pid= 5735 uid=10558 samplingPeriod=   66667us batchingPeriod=       0us result=OK (sensor, package): (Linear Acceleration        , X.8Yw)
+21:49:17 + 0x00000016 pid= 2578 uid=10449 samplingPeriod=       0us batchingPeriod=       0us result=OK (sensor, package): (Significant Motion Detector, hpvf)
+21:49:17 - 0x00000001 pid= 2578 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.BatchSignalCollector$BatchSensorEventListener)
+21:49:16 - 0x00000001 pid= 2578 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:49:13 + 0x00000001 pid= 2578 uid=10449 samplingPeriod=   20000us batchingPeriod=       0us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+21:49:12 - 0x00000001 pid= 2578 uid=10449 samplingPeriod=   N/A  us batchingPeriod=   N/A  us result=OK (sensor, package): (ICM20607 Accelerometer     , com.google.android.location.collectionlib.SensorScanner$SensorEventListenerAdapter)
+
+
+=== Sensor Sysfs Nodes ===

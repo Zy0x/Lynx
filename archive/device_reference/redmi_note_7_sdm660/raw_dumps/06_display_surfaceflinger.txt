@@ -1,0 +1,97 @@
+=== DRM Graphics Class ===
+
+
+
+=== Framebuffer fb0 ===
+==> /sys/class/graphics/fb0/mdp <==
+
+==> /sys/class/graphics/fb0/mdss_fb <==
+
+==> /sys/class/graphics/fb0/power <==
+
+==> /sys/class/graphics/fb0/subsystem <==
+
+
+=== Backlight Nodes ===
+total 0
+drwxr-xr-x  2 root root 0 2026-10-19 02:02 .
+drwxr-xr-x 84 root root 0 1970-05-31 16:05 ..
+
+
+
+=== KCAL / Color Control (if present) ===
+total 0
+drwxr-xr-x  3 root root 0 2026-10-19 02:00 .
+drwxr-xr-x 17 root root 0 1970-05-31 16:05 ..
+lrwxrwxrwx  1 root root 0 2026-10-19 02:00 driver -> ../../../bus/platform/drivers/kcal_ctrl
+-?????????  ? ?    ?    ?                ? driver_override
+-?????????  ? ?    ?    ?                ? kcal
+-?????????  ? ?    ?    ?                ? kcal_cont
+-?????????  ? ?    ?    ?                ? kcal_enable
+-?????????  ? ?    ?    ?                ? kcal_hue
+-?????????  ? ?    ?    ?                ? kcal_min
+-?????????  ? ?    ?    ?                ? kcal_sat
+-?????????  ? ?    ?    ?                ? kcal_val
+-?????????  ? ?    ?    ?                ? modalias
+drwxr-xr-x  2 root root 0 2026-10-19 02:00 power
+lrwxrwxrwx  1 root root 0 2026-10-19 02:00 subsystem -> ../../../bus/platform
+-?????????  ? ?    ?    ?                ? uevent
+==> /sys/devices/platform/kcal_ctrl.0/driver <==
+
+==> /sys/devices/platform/kcal_ctrl.0/power <==
+
+==> /sys/devices/platform/kcal_ctrl.0/subsystem <==
+
+
+=== SurfaceFlinger Dumpsys ===
+Display 0 (HWC display 0): empty display identification data
+Display identification data:
+Display 0 (HWC display 0): empty display identification data
+DisplayColorSetting: Managed
+Display 0 color modes:
+    pacesetterDisplayId=0
+Pacesetter Display 0
+debugDisplayModeSetByBackdoor=false
+	mDisplayModePtr={id=0, hwcId=0, resolution=1080x2340, vsyncRate=60.00 Hz, dpi=409.43x409.90, group=0, vrrConfig=N/A, supportedHdrTypes=INVALID}
+	Refresh Rate Map:
+    bounds={0,80,2340,1080} toDisplayTransform={ tx=0.0000 ty=80.0000 }
+    bounds={1010,306,506,1110} toDisplayTransform={ tx=1010.0000 ty=306.0000 }
+    bounds={0,2270,2340,1080} toDisplayTransform={ tx=0.0000 ty=2270.0000 }
+    bounds={0,2270,2340,1080} toDisplayTransform={ tx=0.0000 ty=2270.0000 }
+    bounds={-10800,-23400,23400,10800} toDisplayTransform={ tx=0.0000 ty=2340.0000 }
+    bounds={1010,306,506,1110} toDisplayTransform={ tx=1010.0000 ty=306.0000 }
+    bounds={0,1031,3291,1080} toDisplayTransform={ tx=0.0000 ty=1031.0000 }
+    bounds={0,80,2340,1080} toDisplayTransform={ tx=0.0000 ty=80.0000 }
+    bounds={470,1746.6,1886.6,610} toDisplayTransform={ scale x=0.1296 y=0.0598  tx=470.0000 ty=1746.6047 }
+    bounds={165,327,1952,915} toDisplayTransform={ scale x=0.6944 y=0.6944  tx=165.0000 ty=327.0000 }
+    bounds={-36,-78,2418,1189.6} toDisplayTransform={ scale x=0.9696 y=0.9697  tx=-36.0000 ty=-78.0000 }
+    bounds={-10800,-23400,23400,10800} toDisplayTransform={ scale x=0.9696 y=0.9697  tx=-36.0000 ty=-78.0000 }
+    bounds={-54,-117,2457,1203.3} toDisplayTransform={ scale x=1.0002 y=1.0000  tx=-54.0000 ty=-117.0000 }
+    bounds={-10800,-23400,23400,10800} toDisplayTransform={ scale x=1.0002 y=1.0000  tx=-54.0000 ty=-117.0000 }
+ â”œâ”€ Display 0 name="Built-in Screen"#43 pid=2094 uid=1000
+ â”‚  â”‚  â”œâ”€ HideDisplayCutout:0:14#4 pid=2094 uid=1000
+ â”‚  â”‚  â”‚     â”‚  â”œâ”€ DefaultTaskDisplayArea#8 pid=2094 uid=1000
+ â”‚  â”‚  â”œâ”€ HideDisplayCutout:16:16#15 pid=2094 uid=1000
+ â”‚  â”‚  â”œâ”€ HideDisplayCutout:18:23#22 pid=2094 uid=1000
+ â”‚  â”‚  â””â”€ HideDisplayCutout:26:31#27 pid=2094 uid=1000
+ â”‚  â”œâ”€ HideDisplayCutout:32:35#34 pid=2094 uid=1000
+ â”‚  â””â”€ Display Overlays#44 pid=2094 uid=1000
+Display 0 (active) HWC layers:
+Displays (1 entries)
+Display 0
+Display 0 (physical, "Primary display")
+   Composition Display State:
+   layerFilter={layerStack=0 toInternalDisplay=true }
+   orientedDisplaySpace=ProjectionSpace{bounds=Rect(0, 0, 1080, 2340), content=Rect(0, 0, 1080, 2340), orientation=ROTATION_0} 
+   Composition Display Color State:
+RenderEngine supports protected context: 0
+RenderEngine is in protected context: 0
+RenderEngine shaders cached since last dump/primeCache: 0
+RenderEngine tracked buffers: 27
+RenderEngine AHB/BackendTexture cache size: 27
+RenderEngine runtime effects: 0
+----------Color Modes---------
+Display Attributes:
+ Display WxH: 1080x2340 MixerWxH: 1080x2340 DPI: 409.433x409.903 LM_Split: false
+Current Color Mode: hal_srgb
+Available Color Modes:

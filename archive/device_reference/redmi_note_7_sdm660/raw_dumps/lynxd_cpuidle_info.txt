@@ -1,0 +1,1 @@
+{"states":[{"index":0,"name":"C0","desc":"wfi","latency_us":91,"disabled":false},{"index":1,"name":"C1","desc":"ret","latency_us":133,"disabled":false},{"index":2,"name":"C2","desc":"pc","latency_us":666,"disabled":false}],"armpll_mode":"N/A","sched_cstate_aware":"N/A","sleep_disabled":"N/A"}

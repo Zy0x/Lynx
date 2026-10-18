@@ -1,0 +1,16 @@
+=== /proc/version ===
+Linux version 4.19.325-st19-San-Kernel-Aegis-R1.1.108 (user_why_red@ZeroTwo) (Neutron clang version 24.0.0git, Neutron LLD 24.0.0) #1 SMP PREEMPT Sat Sep 5 19:29:51 IST 2026
+
+
+=== /proc/cmdline ===
+
+
+=== uname -a ===
+Linux localhost 4.19.325-st19-San-Kernel-Aegis-R1.1.108 #1 SMP PREEMPT Sat Sep 5 19:29:51 IST 2026 aarch64 Toybox
+
+
+=== getenforce ===
+Enforcing
+
+
+=== /proc/sys/kernel/osrelease & version ===

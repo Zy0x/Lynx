@@ -1,0 +1,1 @@
+{"min_refresh_rate":"60.0","peak_refresh_rate":"60.0","override_active":false}

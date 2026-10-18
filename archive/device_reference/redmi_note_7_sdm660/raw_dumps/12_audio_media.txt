@@ -1,0 +1,243 @@
+=== /proc/asound ===
+
+
+=== Sound Card Devices ===
+total 0
+drwxr-xr-x  2 root root 0 2026-10-19 02:02 .
+drwxr-xr-x 84 root root 0 1970-05-31 16:05 ..
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 card0 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D15 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D15
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D28 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D28
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D29 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D29
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D30 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D30
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D31 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D31
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D32 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D32
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D41 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D41
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D42 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D42
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D43 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D43
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D44 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D44
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D45 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D45
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 comprC0D8 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/comprC0D8
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 controlC0 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/controlC0
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D10 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D10
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D1000 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D1000
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D103 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D103
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D104 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D104
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D11 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D11
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D119 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D119
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D12 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D12
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D120 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D120
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D13 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D13
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D14 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D14
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D15 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D15
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D152 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D152
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D153 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D153
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D154 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D154
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D156 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D156
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D157 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D157
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D158 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D158
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D159 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D159
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D16 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D16
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D160 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D160
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D161 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D161
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D162 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D162
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D167 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D167
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D169 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D169
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D209 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D209
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D210 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D210
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D3017 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D3017
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D3033 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D3033
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D32 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D32
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D33 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D33
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D35 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D35
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D39 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D39
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D40 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D40
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D41 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D41
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D42 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D42
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D43 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D43
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D44 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D44
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D45 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D45
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D46 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D46
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D48 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D48
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D49 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D49
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D52 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D52
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D53 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D53
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D55 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D55
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D56 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D56
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D71 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D71
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D72 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D72
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D87 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D87
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D88 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D88
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 hwC0D9 -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/hwC0D9
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D0c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D0c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D0p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D0p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D10c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D10c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D10p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D10p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D11c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D11c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D12c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D12c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D12p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D12p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D13c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D13c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D13p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D13p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D14c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D14c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D16c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D16c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D16p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D16p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D17c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D17c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D17p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D17p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D18p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D18p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D19c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D19c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D19p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D19p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D1c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D1c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D1p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D1p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D20c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D20c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D21c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D21c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D22c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D22c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D23c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D23c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D24c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D24c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D25c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D25c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D26c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D26c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D27c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D27c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D27p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D27p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D2c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D2c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D2p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D2p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D33c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D33c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D33p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D33p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D34c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D34c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D35p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D35p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D36p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D36p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D37p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D37p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D38p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D38p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D39c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D39c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D39p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D39p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D3c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D3c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D3p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D3p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D40c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D40c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D4p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D4p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D5p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D5p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D6p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D6p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D7c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D7c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D9c -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D9c
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 pcmC0D9p -> ../../devices/platform/soc/soc:qcom,msm-audio-apr/soc:qcom,msm-audio-apr:qcom,q6core-audio/soc:qcom,msm-audio-apr:qcom,q6core-audio:sound/sound/card0/pcmC0D9p
+lrwxrwxrwx  1 root root 0 2026-10-19 02:02 timer -> ../../devices/virtual/sound/timer
+
+
+=== dumpsys media.audio_policy ===
+Supported System Usages:
+  AUDIO_USAGE_CALL_ASSISTANT
+UID Policy:
+	mObserverRegistered=True
+	Assistants UIDs: 
+		UID[0]=10462
+	Active Assistants UIDs: 
+		No UIDs present.
+	Accessibility UIDs: 
+		UID[0]=10590
+	Input Method Service UID=10489
+	Is RTT Enabled: False
+AudioCommandThread: 0xb400006f60079480
+- Commands:
+   Command Time        Wait pParam
+  Last Command
+   00      000159.600  0    0xb400006f508a5e60
+OutputCommandThread: 0xb400006f60079600
+- Commands:
+   Command Time        Wait pParam
+  Last Command
+   10      003072.139  0    0xb400006f600f4280
+
+AudioPolicyManager Dump: 0xb400006f60087900
+ Primary Output I/O handle: 13
+ Phone state: AUDIO_MODE_NORMAL
+ Force use for communications: 0
+ Force use for media: 0
+ Force use for record: 0
+ Force use for dock: 9
+ Force use for system: 0
+ Force use for HDMI system audio: 0
+ Force use for encoded surround output: 0
+ Force use for vibrate ringing: 0
+ TTS output not available
+ Master mono: off
+ Communication Strategy id: 0
+ Config source: /vendor/etc/audio_policy_configuration.xml
+
+ Available output devices (5):
+  1. Port ID: 2; "Earpiece"; {AUDIO_DEVICE_OUT_EARPIECE, @:}
+     Encapsulation modes: 0, metadata types: 0
+   - Profiles (1):
+      1. ""; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 48000
+         channel masks: 0x0001
+         AUDIO_ENCAPSULATION_TYPE_NONE
+  2. Port ID: 3; "Speaker"; {AUDIO_DEVICE_OUT_SPEAKER, @:}
+     Encapsulation modes: 0, metadata types: 0
+   - Profiles (1):
+      1. ""; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 48000
+         channel masks: 0x0003
+         AUDIO_ENCAPSULATION_TYPE_NONE
+  3. Port ID: 26; "BT SCO Headset"; {AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET, @:64:68:76:61:47:A1}
+     Encapsulation modes: 0, metadata types: 0
+     "EDIFIER X3s"
+   - Profiles (2):
+      1. ""; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 8000, 16000
+         channel masks: 0x0001
+         AUDIO_ENCAPSULATION_TYPE_NONE
+      2. ""; [dynamic format][dynamic channels][dynamic rates]; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 8000, 16000
+         channel masks: 0x0001
+         AUDIO_ENCAPSULATION_TYPE_NONE
+  4. Port ID: 22; "BT A2DP Out"; {AUDIO_DEVICE_OUT_BLUETOOTH_A2DP, @:64:68:76:61:47:A1}
+     Encapsulation modes: 0, metadata types: 0
+     "EDIFIER X3s"
+   - Profiles (1):
+      1. ""; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 44100, 48000, 88200, 96000
+         channel masks: 0x0003
+         AUDIO_ENCAPSULATION_TYPE_NONE
+  5. Port ID: 10; "Telephony Tx"; {AUDIO_DEVICE_OUT_TELEPHONY_TX, @:}
+     Encapsulation modes: 0, metadata types: 0
+   - Profiles (1):
+      1. ""; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 8000, 16000
+         channel masks: 0x0001, 0x0003
+         AUDIO_ENCAPSULATION_TYPE_NONE
+
+ Available input devices (5):
+  1. Port ID: 13; "Built-In Mic"; {AUDIO_DEVICE_IN_BUILTIN_MIC, @:bottom}
+     Encapsulation modes: 0, metadata types: 0
+   - Profiles (1):
+      1. ""; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000
+         channel masks: 0x000c, 0x0010, 0x0030
+         AUDIO_ENCAPSULATION_TYPE_NONE
+  2. Port ID: 29; "BT SCO Headset Mic"; {AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET, @:64:68:76:61:47:A1}
+     Encapsulation modes: 0, metadata types: 0
+     "EDIFIER X3s"
+   - Profiles (2):
+      1. ""; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 8000, 16000
+         channel masks: 0x0010
+         AUDIO_ENCAPSULATION_TYPE_NONE
+      2. ""; [dynamic format][dynamic channels][dynamic rates]; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 8000, 16000
+         channel masks: 0x0010
+         AUDIO_ENCAPSULATION_TYPE_NONE
+  3. Port ID: 14; "Telephony Rx"; {AUDIO_DEVICE_IN_TELEPHONY_RX, @:}
+     Encapsulation modes: 0, metadata types: 0
+   - Profiles (2):
+      1. ""; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 8000, 16000, 48000
+         channel masks: 0x0010
+         AUDIO_ENCAPSULATION_TYPE_NONE
+      2. ""; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000
+         channel masks: 0x000c, 0x0010, 0x0030
+         AUDIO_ENCAPSULATION_TYPE_NONE
+  4. Port ID: 15; "Built-In Back Mic"; {AUDIO_DEVICE_IN_BACK_MIC, @:back}
+     Encapsulation modes: 0, metadata types: 0
+   - Profiles (1):
+      1. ""; AUDIO_FORMAT_PCM_16_BIT (0x1)
+         sampling rates: 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000
+         channel masks: 0x000c, 0x0010, 0x0030
+         AUDIO_ENCAPSULATION_TYPE_NONE

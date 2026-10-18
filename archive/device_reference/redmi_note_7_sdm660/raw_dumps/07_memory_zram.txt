@@ -1,0 +1,95 @@
+=== /proc/meminfo ===
+MemTotal:        3751688 kB
+MemFree:          114112 kB
+MemAvailable:     672516 kB
+Buffers:             684 kB
+Cached:           850980 kB
+SwapCached:        25828 kB
+Active:           746264 kB
+Inactive:         569872 kB
+Active(anon):     441796 kB
+Inactive(anon):   368556 kB
+Active(file):     304468 kB
+Inactive(file):   201316 kB
+Unevictable:      326932 kB
+Mlocked:          326932 kB
+SwapTotal:       4194300 kB
+SwapFree:        1978204 kB
+Dirty:             49020 kB
+Writeback:             0 kB
+AnonPages:        788360 kB
+Mapped:           770536 kB
+Shmem:             20596 kB
+KReclaimable:     177184 kB
+Slab:             299752 kB
+SReclaimable:     100352 kB
+SUnreclaim:       199400 kB
+KernelStack:       66784 kB
+PageTables:       111524 kB
+NFS_Unstable:          0 kB
+Bounce:                0 kB
+WritebackTmp:          0 kB
+CommitLimit:     6070144 kB
+Committed_AS:   103206488 kB
+VmallocTotal:   262930368 kB
+VmallocUsed:       43820 kB
+VmallocChunk:          0 kB
+Percpu:             8384 kB
+CmaTotal:         278528 kB
+CmaFree:            1764 kB
+
+
+=== /proc/vmstat ===
+nr_free_pages 28713
+nr_zone_inactive_anon 92139
+nr_zone_active_anon 110498
+nr_zone_inactive_file 50330
+nr_zone_active_file 76117
+nr_zone_unevictable 81733
+nr_zone_write_pending 12255
+nr_mlock 81733
+nr_page_table_pages 27925
+nr_kernel_stack 66800
+nr_bounce 0
+nr_zspages 183226
+nr_free_cma 441
+nr_inactive_anon 92139
+nr_active_anon 110457
+nr_inactive_file 50330
+nr_active_file 76117
+nr_unevictable 81733
+nr_slab_reclaimable 25088
+nr_slab_unreclaimable 49849
+nr_isolated_anon 0
+nr_isolated_file 0
+workingset_refault 68086534
+workingset_activate 61184935
+workingset_restore 9832101
+workingset_nodereclaim 0
+nr_anon_pages 197066
+nr_mapped 192722
+nr_file_pages 219373
+nr_dirty 12255
+nr_writeback 0
+nr_writeback_temp 0
+nr_shmem 5149
+nr_shmem_hugepages 0
+nr_shmem_pmdmapped 0
+nr_anon_transparent_hugepages 0
+nr_unstable 0
+nr_vmscan_write 67416444
+nr_vmscan_immediate_reclaim 22
+nr_dirtied 1049618
+nr_written 68232942
+nr_kernel_misc_reclaimable 19208
+nr_unreclaimable_pages 138088
+nr_ion_heap 0
+nr_ion_heap_pool 0
+nr_dirty_threshold 28625
+nr_dirty_background_threshold 14295
+
+
+=== /proc/sys/vm/* ===
+
+
+=== ZRAM Details ===

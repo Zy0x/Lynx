@@ -1,0 +1,155 @@
+=== /proc/cpuinfo ===
+Processor	: AArch64 Processor rev 2 (aarch64)
+processor	: 0
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid
+CPU implementer	: 0x51
+CPU architecture: 8
+CPU variant	: 0xa
+CPU part	: 0x801
+CPU revision	: 4
+
+processor	: 1
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid
+CPU implementer	: 0x51
+CPU architecture: 8
+CPU variant	: 0xa
+CPU part	: 0x801
+CPU revision	: 4
+
+processor	: 2
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid
+CPU implementer	: 0x51
+CPU architecture: 8
+CPU variant	: 0xa
+CPU part	: 0x801
+CPU revision	: 4
+
+processor	: 3
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid
+CPU implementer	: 0x51
+CPU architecture: 8
+CPU variant	: 0xa
+CPU part	: 0x801
+CPU revision	: 4
+
+processor	: 4
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid
+CPU implementer	: 0x51
+CPU architecture: 8
+CPU variant	: 0xa
+CPU part	: 0x800
+CPU revision	: 2
+
+processor	: 5
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid
+CPU implementer	: 0x51
+CPU architecture: 8
+CPU variant	: 0xa
+CPU part	: 0x800
+CPU revision	: 2
+
+processor	: 6
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid
+CPU implementer	: 0x51
+CPU architecture: 8
+CPU variant	: 0xa
+CPU part	: 0x800
+CPU revision	: 2
+
+processor	: 7
+BogoMIPS	: 38.40
+Features	: fp asimd evtstrm aes pmull sha1 sha2 crc32 cpuid
+CPU implementer	: 0x51
+CPU architecture: 8
+CPU variant	: 0xa
+CPU part	: 0x800
+CPU revision	: 2
+
+Hardware	: Qualcomm Technologies, Inc SDM660
+
+
+=== CPU Topology & Online Cores ===
+0-7
+present:
+0-7
+online:
+0-7
+
+
+--- CPU0 Topology ---
+0
+0f
+0-3
+0
+01
+0
+
+
+--- CPU1 Topology ---
+1
+0f
+0-3
+0
+02
+1
+
+
+--- CPU2 Topology ---
+2
+0f
+0-3
+0
+04
+2
+
+
+--- CPU3 Topology ---
+3
+0f
+0-3
+0
+08
+3
+
+
+--- CPU4 Topology ---
+0
+f0
+4-7
+1
+10
+4
+
+
+--- CPU5 Topology ---
+1
+f0
+4-7
+1
+20
+5
+
+
+--- CPU6 Topology ---
+2
+f0
+4-7
+1
+40
+6
+
+
+--- CPU7 Topology ---
+3
+f0
+4-7
+1
+80
+7

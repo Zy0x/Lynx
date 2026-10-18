@@ -1,0 +1,1 @@
+{"devices":[{"name":"mmcblk0","type":"unknown","current_scheduler":"","available_schedulers":[],"current_read_ahead_kb":null,"target_read_ahead_kb":null,"policy":"preserve_kernel"},{"name":"mmcblk1","type":"unknown","current_scheduler":"","available_schedulers":[],"current_read_ahead_kb":null,"target_read_ahead_kb":null,"policy":"preserve_kernel"}]}

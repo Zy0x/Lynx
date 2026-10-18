@@ -1,0 +1,1 @@
+{"dirty_ratio":20,"dirty_background_ratio":10,"vfs_cache_pressure":100,"swappiness":80,"dirty_expire_centisecs":500,"dirty_writeback_centisecs":200,"stat_interval":1}

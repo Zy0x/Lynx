@@ -1,0 +1,52 @@
+=== Thermal Zones Enumeration ===
+thermal_zone0: type=pm660-tz, temp=40971, mode=enabled, policy=step_wise
+thermal_zone1: type=pm660l-tz, temp=37000, mode=enabled, policy=step_wise
+thermal_zone10: type=cpu-1-2-usr, temp=48200, mode=enabled, policy=step_wise
+thermal_zone11: type=cpu-1-3-usr, temp=47500, mode=enabled, policy=step_wise
+thermal_zone12: type=cpuss-2-usr, temp=47200, mode=enabled, policy=step_wise
+thermal_zone13: type=gpu-usr, temp=47500, mode=enabled, policy=step_wise
+thermal_zone14: type=video-usr, temp=47800, mode=enabled, policy=step_wise
+thermal_zone15: type=mdm-core-usr, temp=47500, mode=enabled, policy=step_wise
+thermal_zone16: type=camera-usr, temp=47500, mode=enabled, policy=step_wise
+thermal_zone17: type=cpuss-3-usr, temp=45300, mode=enabled, policy=step_wise
+thermal_zone18: type=cdsp-usr, temp=45300, mode=enabled, policy=step_wise
+thermal_zone19: type=gpu-step, temp=47800, mode=enabled, policy=step_wise
+thermal_zone2: type=xo-therm-adc, temp=40984, mode=enabled, policy=step_wise
+thermal_zone20: type=quiet-therm-step, temp=39696, mode=enabled, policy=step_wise
+thermal_zone21: type=cpuss-0-step, temp=44900, mode=enabled, policy=step_wise
+thermal_zone22: type=cpu-1-0-step, temp=44600, mode=enabled, policy=step_wise
+thermal_zone23: type=cpu-1-1-step, temp=48500, mode=enabled, policy=step_wise
+thermal_zone24: type=cpu-1-2-step, temp=47500, mode=enabled, policy=step_wise
+thermal_zone25: type=cpu-1-3-step, temp=47500, mode=enabled, policy=step_wise
+thermal_zone26: type=mpm-lowf, temp=49400, mode=enabled, policy=low_limits_floor
+thermal_zone27: type=camera-lowf, temp=47200, mode=enabled, policy=low_limits_floor
+thermal_zone28: type=backlight_therm, temp=-40000, mode=enabled, policy=step_wise
+thermal_zone29: type=battery, temp=39500, mode=, policy=step_wise
+thermal_zone3: type=msm-therm-adc, temp=43134, mode=enabled, policy=step_wise
+thermal_zone30: type=bms, temp=39500, mode=, policy=step_wise
+thermal_zone4: type=quiet-therm-adc, temp=39690, mode=enabled, policy=step_wise
+thermal_zone5: type=mpm-usr, temp=47200, mode=enabled, policy=step_wise
+thermal_zone6: type=cpuss-0-usr, temp=45300, mode=enabled, policy=step_wise
+thermal_zone7: type=cpuss-1-usr, temp=45600, mode=enabled, policy=step_wise
+thermal_zone8: type=cpu-1-0-usr, temp=44300, mode=enabled, policy=step_wise
+thermal_zone9: type=cpu-1-1-usr, temp=46600, mode=enabled, policy=step_wise
+
+
+=== Cooling Devices Enumeration ===
+cooling_device0: type=thermal-cpufreq-0, cur=0, max=6
+cooling_device1: type=thermal-cpufreq-4, cur=0, max=5
+cooling_device10: type=cpu-isolate4, cur=0, max=1
+cooling_device11: type=cpu-isolate7, cur=0, max=1
+cooling_device12: type=cpu-isolate6, cur=0, max=1
+cooling_device2: type=thermal-devfreq-0, cur=0, max=6
+cooling_device3: type=cx-cdev, cur=0, max=1
+cooling_device4: type=battery, cur=0, max=7
+cooling_device5: type=cpu-isolate1, cur=0, max=1
+cooling_device6: type=cpu-isolate0, cur=0, max=1
+cooling_device7: type=cpu-isolate2, cur=0, max=1
+cooling_device8: type=cpu-isolate5, cur=0, max=1
+cooling_device9: type=cpu-isolate3, cur=0, max=1
+
+
+=== Thermal Configurations in /vendor/etc ===
+-rw-r--r-- 1 root root 2295 2009-01-01 08:00 /vendor/etc/thermal-engine.conf

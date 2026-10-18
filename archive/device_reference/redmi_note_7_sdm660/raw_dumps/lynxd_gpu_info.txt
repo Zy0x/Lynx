@@ -1,0 +1,1 @@
+{"vendor":"Qualcomm Adreno","platform":"adreno","cur_freq":0,"cur_mhz":0,"min_freq":0,"min_mhz":0,"max_freq":0,"max_mhz":0,"cur_gov":"msm-adreno-tz","load":0,"busy":0,"boost":0,"avail_freqs":[],"avail_govs":["msm-adreno-tz","performance","powersave","simple_ondemand"]}

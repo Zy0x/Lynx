@@ -1,0 +1,1 @@
+{"available":true,"live_reconfigure_requires_unused":true,"disksize_bytes":0,"active_algo":"","supported_algos":[],"total_ram_mb":3663,"max_safe_bytes":1920466944}

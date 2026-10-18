@@ -1,0 +1,34 @@
+=== Power Supply Nodes ===
+--- Power Supply: battery ---
+--- Power Supply: bms ---
+--- Power Supply: dc ---
+--- Power Supply: main ---
+--- Power Supply: pc_port ---
+--- Power Supply: usb ---
+
+
+=== dumpsys battery ===
+Current Battery Service state:
+  AC powered: false
+  USB powered: false
+  Wireless powered: false
+  Dock powered: false
+  Max charging current: 0
+ Time when the latest updated value of the Max charging current was sent via battery changed broadcast: 0
+  Max charging voltage: 0
+  Charge counter: 2514585
+  status: 3
+  health: 2
+  present: true
+  level: 81
+  scale: 100
+  voltage: 4060
+ Time when the latest updated value of the voltage was sent via battery changed broadcast: 0
+ The last voltage value sent via the battery changed broadcast: 4060
+  temperature: 395
+  technology: Li-poly
+  Charging state: 0
+  Charging policy: 0
+  Capacity level: -1
+  Maximum capacity: 3191000
+  Design capacity: 4000
