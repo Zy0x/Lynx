@@ -459,6 +459,7 @@ data class LynxUiState(
     val manualInspectResult: DeepTunable? = null,
     // Per-App Profile Rules & Floating Game HUD
     val appProfileRules: List<AppProfileRule> = emptyList(),
+    val isAppRulesLoading: Boolean = false,
     val isScanningInstalledGames: Boolean = false,
     val selectedTuningCategory: String? = null,
     val perAppGraphicsRules: List<PerAppGraphicsRule> = emptyList(),

@@ -454,12 +454,18 @@ object LynxRepository {
     //  Phase 2: Game Mode & Per-App Profiles (applist_perf)
     // ----------------------------------------------------------------
 
+    @Volatile
+    private var cachedApplistPerfPath: String? = null
+
     private fun getApplistPerfPath(): String {
-        return if (Shell.cmd("[ -f '$MODULE_DIR/core/applist_perf.txt' ]").exec().isSuccess) {
+        cachedApplistPerfPath?.let { return it }
+        val path = if (Shell.cmd("[ -f '$MODULE_DIR/core/applist_perf.txt' ]").exec().isSuccess) {
             "$MODULE_DIR/core/applist_perf.txt"
         } else {
             "/data/adb/lynx/applist_perf.txt"
         }
+        cachedApplistPerfPath = path
+        return path
     }
 
     suspend fun readApplistPerf(): List<String> = LynxAppProfileRulesRepository.readApplistPerf()
@@ -731,12 +737,18 @@ object LynxRepository {
 
     fun resolveFriendlyMetadata(tunable: DeepTunable): DeepTunable = LynxDeepTunableRepository.resolveFriendlyMetadata(tunable)
 
+    @Volatile
+    private var cachedAppRulesPath: String? = null
+
     private fun getAppRulesPath(): String {
-        return if (Shell.cmd("[ -d '$MODULE_DIR' ]").exec().isSuccess) {
+        cachedAppRulesPath?.let { return it }
+        val path = if (Shell.cmd("[ -d '$MODULE_DIR' ]").exec().isSuccess) {
             "$MODULE_DIR/core/app_rules.json"
         } else {
             "/data/adb/lynx/app_rules.json"
         }
+        cachedAppRulesPath = path
+        return path
     }
 
     internal fun getAppRulesPathForFeature(): String = getAppRulesPath()

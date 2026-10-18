@@ -7,22 +7,56 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+
 internal object LynxAppProfileRulesRepository {
     const val LEGACY_APP_RULES_PATH = "/storage/emulated/0/Lynx/app_rules.json"
     const val LEGACY_APPLIST_PERF_PATH = "/storage/emulated/0/Lynx/applist_perf.txt"
+    private const val INSTALLED_APPS_CACHE_FILE = "installed_apps_cache.json"
 
-    suspend fun readAppProfileRules(): List<AppProfileRule> = withContext(Dispatchers.IO) {
+    @Volatile
+    private var cachedRules: List<AppProfileRule>? = null
+
+    @Volatile
+    private var cachedAppPackages: List<String> = emptyList()
+
+    @Volatile
+    private var cachedAppInfos: List<AppInfo> = emptyList()
+
+    fun invalidateRulesCache() {
+        cachedRules = null
+    }
+
+    suspend fun readAppProfileRules(forceRefresh: Boolean = false): List<AppProfileRule> = withContext(Dispatchers.IO) {
+        if (!forceRefresh && cachedRules != null) {
+            return@withContext cachedRules!!
+        }
         try {
             val path = LynxRepository.getAppRulesPathForFeature()
-            var res = Shell.cmd("cat '$path' 2>/dev/null").exec()
-            var raw = res.out.joinToString("\n").trim()
-            if ((!raw.startsWith("[") || !raw.endsWith("]")) && Shell.cmd("[ -f '$LEGACY_APP_RULES_PATH' ]").exec().isSuccess) {
-                res = Shell.cmd("cat '$LEGACY_APP_RULES_PATH' 2>/dev/null").exec()
+            val directFile = File(path)
+            var raw = if (directFile.canRead()) {
+                try { directFile.readText().trim() } catch (_: Exception) { "" }
+            } else ""
+
+            if (raw.isBlank() || !raw.startsWith("[") || !raw.endsWith("]")) {
+                val res = Shell.cmd("cat '$path' 2>/dev/null").exec()
                 raw = res.out.joinToString("\n").trim()
             }
+
+            if ((!raw.startsWith("[") || !raw.endsWith("]")) && Shell.cmd("[ -f '$LEGACY_APP_RULES_PATH' ]").exec().isSuccess) {
+                val legacyFile = File(LEGACY_APP_RULES_PATH)
+                raw = if (legacyFile.canRead()) {
+                    try { legacyFile.readText().trim() } catch (_: Exception) { "" }
+                } else ""
+                if (raw.isBlank() || !raw.startsWith("[")) {
+                    val res = Shell.cmd("cat '$LEGACY_APP_RULES_PATH' 2>/dev/null").exec()
+                    raw = res.out.joinToString("\n").trim()
+                }
+            }
+
             if (raw.startsWith("[") && raw.endsWith("]")) {
-                val array = org.json.JSONArray(raw)
-                val list = mutableListOf<AppProfileRule>()
+                val array = JSONArray(raw)
+                val list = ArrayList<AppProfileRule>(array.length())
                 for (i in 0 until array.length()) {
                     val obj = array.getJSONObject(i)
                     val targetHz = obj.optInt("targetRefreshRate", -1).let { if (it > 0) it else null }
@@ -50,8 +84,11 @@ internal object LynxAppProfileRulesRepository {
                         )
                     )
                 }
-                return@withContext list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
+                val sorted = list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
+                cachedRules = sorted
+                return@withContext sorted
             }
+
             // Fallback: If app_rules.json doesn't exist yet, populate ONLY from installed apps that match templates or are games
             val allApps = LynxRepository.readInstalledAppInfos()
             val templates = readGameTemplates()
@@ -77,8 +114,10 @@ internal object LynxAppProfileRulesRepository {
             if (initialRules.isNotEmpty()) {
                 val sortedInitial = initialRules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
                 saveAllAppProfileRules(sortedInitial)
+                cachedRules = sortedInitial
                 sortedInitial
             } else {
+                cachedRules = initialRules
                 initialRules
             }
         } catch (e: Exception) {
@@ -90,10 +129,12 @@ internal object LynxAppProfileRulesRepository {
     suspend fun saveAllAppProfileRules(rules: List<AppProfileRule>): Boolean = withContext(Dispatchers.IO) {
         try {
             val sortedRules = rules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
-            val array = org.json.JSONArray()
+            cachedRules = sortedRules // Instant in-memory sync
+
+            val array = JSONArray()
             val perfPkgs = mutableSetOf<String>()
             sortedRules.forEach { r ->
-                val obj = org.json.JSONObject()
+                val obj = JSONObject()
                 obj.put("packageName", r.packageName)
                 obj.put("appName", r.appName)
                 obj.put("targetProfile", r.targetProfile)
@@ -114,43 +155,31 @@ internal object LynxAppProfileRulesRepository {
             val jsonStr = array.toString(2)
             val primaryRulesPath = LynxRepository.getAppRulesPathForFeature()
             val primaryRulesDir = primaryRulesPath.substringBeforeLast("/")
-            Shell.cmd(
-                "mkdir -p '$primaryRulesDir' /data/adb/lynx 2>/dev/null",
-                "cat << 'EOF' > '$primaryRulesPath'\n$jsonStr\nEOF",
-                "chmod 666 '$primaryRulesPath' 2>/dev/null"
-            ).exec()
 
             // Synchronize with app_rules.tsv for ultra-fast root daemon parsing
             val tsvLines = sortedRules.filter { it.enabled }.joinToString("\n") { r ->
                 "${r.packageName}|${r.targetProfile}|${r.targetRefreshRate ?: -1}|${if (r.autoFloatingHud) "1" else "0"}|${r.appName}|${r.gpuMinFreqKhz ?: -1}|${r.gpuMaxFreqKhz ?: -1}|${r.gpuBoostLevel ?: -1}|${r.adaptiveAuthority}|${r.colorProfile ?: ""}"
             }
-            Shell.cmd(
-                "cat << 'EOF' > /data/adb/lynx/app_rules.tsv\n$tsvLines\nEOF",
-                "chmod 666 /data/adb/lynx/app_rules.tsv 2>/dev/null"
-            ).exec()
-
-            // If user has /storage/emulated/0/Lynx directory, sync there as well
-            if (Shell.cmd("[ -d '/storage/emulated/0/Lynx' ]").exec().isSuccess) {
-                Shell.cmd(
-                    "cat << 'EOF' > '$LEGACY_APP_RULES_PATH'\n$jsonStr\nEOF",
-                    "chmod 666 '$LEGACY_APP_RULES_PATH' 2>/dev/null"
-                ).exec()
-            }
-
-            // Synchronize with runtime applist_perf.txt in /data/adb/lynx
             val lines = perfPkgs.joinToString("\n")
-            Shell.cmd(
-                "mkdir -p /data/adb/lynx 2>/dev/null",
-                "cat << 'EOF' > /data/adb/lynx/applist_perf.txt\n$lines\nEOF",
-                "chmod 666 /data/adb/lynx/applist_perf.txt 2>/dev/null"
-            ).exec()
 
-            if (Shell.cmd("[ -d '/storage/emulated/0/Lynx' ]").exec().isSuccess) {
-                Shell.cmd(
-                    "cat << 'EOF' > '$LEGACY_APPLIST_PERF_PATH'\n$lines\nEOF",
-                    "chmod 666 '$LEGACY_APPLIST_PERF_PATH' 2>/dev/null"
-                ).exec()
+            // Single atomic batch execution instead of 6 individual shell calls
+            val script = buildString {
+                appendLine("mkdir -p '$primaryRulesDir' /data/adb/lynx 2>/dev/null")
+                appendLine("cat << 'EOF' > '$primaryRulesPath'\n$jsonStr\nEOF")
+                appendLine("chmod 666 '$primaryRulesPath' 2>/dev/null")
+                appendLine("cat << 'EOF' > /data/adb/lynx/app_rules.tsv\n$tsvLines\nEOF")
+                appendLine("chmod 666 /data/adb/lynx/app_rules.tsv 2>/dev/null")
+                appendLine("cat << 'EOF' > /data/adb/lynx/applist_perf.txt\n$lines\nEOF")
+                appendLine("chmod 666 /data/adb/lynx/applist_perf.txt 2>/dev/null")
+                appendLine("if [ -d '/storage/emulated/0/Lynx' ]; then")
+                appendLine("  cat << 'EOF' > '$LEGACY_APP_RULES_PATH'\n$jsonStr\nEOF")
+                appendLine("  chmod 666 '$LEGACY_APP_RULES_PATH' 2>/dev/null")
+                appendLine("  cat << 'EOF' > '$LEGACY_APPLIST_PERF_PATH'\n$lines\nEOF")
+                appendLine("  chmod 666 '$LEGACY_APPLIST_PERF_PATH' 2>/dev/null")
+                appendLine("fi")
             }
+            Shell.cmd(script).exec()
+
             com.noir.lynx.service.LynxAppAutomationService.reloadRules()
             true
         } catch (e: Exception) {
@@ -164,7 +193,7 @@ internal object LynxAppProfileRulesRepository {
     }
 
     suspend fun autoDetectAndSyncInstalledRules(): Pair<Int, List<AppProfileRule>> = withContext(Dispatchers.IO) {
-        val currentRules = readAppProfileRules().toMutableList()
+        val currentRules = (cachedRules ?: readAppProfileRules()).toMutableList()
         val existingPackages = currentRules.map { it.packageName.lowercase() }.toSet()
         val allApps = LynxRepository.readInstalledAppInfos()
         val templates = readGameTemplates()
@@ -198,12 +227,15 @@ internal object LynxAppProfileRulesRepository {
             }
         }
 
-        val sorted = currentRules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
         if (newlyDetected.isNotEmpty()) {
+            currentRules.addAll(newlyDetected)
+            val sorted = currentRules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
             saveAllAppProfileRules(sorted)
+            Pair(newlyDetected.size, sorted)
+        } else {
+            val sorted = currentRules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
+            Pair(0, sorted)
         }
-
-        Pair(newlyDetected.size, sorted)
     }
 
     private fun isBenchmarkPackage(pkg: String): Boolean {
@@ -248,7 +280,7 @@ internal object LynxAppProfileRulesRepository {
     }
 
     suspend fun saveAppProfileRule(rule: AppProfileRule): Boolean = withContext(Dispatchers.IO) {
-        val current = readAppProfileRules().toMutableList()
+        val current = (cachedRules ?: readAppProfileRules()).toMutableList()
         val index = current.indexOfFirst { it.packageName == rule.packageName }
         if (index >= 0) {
             current[index] = rule
@@ -260,13 +292,13 @@ internal object LynxAppProfileRulesRepository {
     }
 
     suspend fun deleteAppProfileRule(packageName: String): Boolean = withContext(Dispatchers.IO) {
-        val current = readAppProfileRules().toMutableList()
+        val current = (cachedRules ?: readAppProfileRules()).toMutableList()
         current.removeAll { it.packageName == packageName }
         saveAllAppProfileRules(current)
     }
 
     suspend fun toggleAppProfileRule(packageName: String, enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
-        val current = readAppProfileRules().toMutableList()
+        val current = (cachedRules ?: readAppProfileRules()).toMutableList()
         val index = current.indexOfFirst { it.packageName == packageName }
         if (index >= 0) {
             current[index] = current[index].copy(enabled = enabled)
@@ -275,8 +307,6 @@ internal object LynxAppProfileRulesRepository {
             false
         }
     }
-
-
 
     suspend fun readApplistPerf(): List<String> = withContext(Dispatchers.IO) {
         try {
@@ -335,55 +365,90 @@ internal object LynxAppProfileRulesRepository {
         } catch (e: Exception) { false }
     }
 
-
-    @Volatile
-    private var cachedAppPackages: List<String> = emptyList()
-    @Volatile
-    private var cachedAppInfos: List<AppInfo> = emptyList()
-
     suspend fun readInstalledApps(): List<String> = withContext(Dispatchers.IO) {
         if (cachedAppPackages.isNotEmpty()) return@withContext cachedAppPackages
-        try {
-            val pm = LynxApp.instance.packageManager
-            val installed = pm.getInstalledApplications(0)
-            val list = installed.filter { app ->
-                (app.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 ||
-                (app.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-            }.map { it.packageName }.sorted()
-            cachedAppPackages = list
-            list
-        } catch (_: Exception) {
-            emptyList()
-        }
+        val infos = readInstalledAppInfos()
+        val list = infos.map { it.packageName }.sorted()
+        cachedAppPackages = list
+        list
     }
 
     suspend fun readInstalledAppInfos(): List<AppInfo> = withContext(Dispatchers.IO) {
         if (cachedAppInfos.isNotEmpty()) return@withContext cachedAppInfos
         try {
-            val pm = LynxApp.instance.packageManager
+            val context = LynxApp.instance
+            val pm = context.packageManager
+
+            // 1. Load persistent disk cache
+            val diskCache = mutableMapOf<String, Pair<String, Boolean>>() // pkg -> (label, isGame)
+            val cacheFile = File(context.filesDir, INSTALLED_APPS_CACHE_FILE)
+            if (cacheFile.exists()) {
+                try {
+                    val json = JSONObject(cacheFile.readText())
+                    val keys = json.keys()
+                    while (keys.hasNext()) {
+                        val pkg = keys.next()
+                        val item = json.getJSONObject(pkg)
+                        diskCache[pkg] = Pair(item.getString("label"), item.getBoolean("isGame"))
+                    }
+                } catch (_: Exception) {}
+            }
+
+            // 2. Query installed apps from PM (single fast IPC)
             val installed = pm.getInstalledApplications(0)
-            val list = installed.filter { app ->
+            val filtered = installed.filter { app ->
                 (app.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 ||
                 (app.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-            }.map { app ->
-                val label = try {
-                    pm.getApplicationLabel(app).toString()
-                } catch (_: Exception) {
-                    app.packageName
-                }
-                val isGame = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    app.category == android.content.pm.ApplicationInfo.CATEGORY_GAME ||
-                    (app.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0
+            }
+
+            var diskCacheModified = false
+            val resultList = ArrayList<AppInfo>(filtered.size)
+
+            for (app in filtered) {
+                val pkg = app.packageName
+                val cached = diskCache[pkg]
+                if (cached != null) {
+                    resultList.add(AppInfo(packageName = pkg, label = cached.first, isGame = cached.second))
                 } else {
-                    (app.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0
+                    // New or uncached app: resolve label and game status
+                    val label = try {
+                        pm.getApplicationLabel(app).toString()
+                    } catch (_: Exception) {
+                        pkg
+                    }
+                    val isGame = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        app.category == android.content.pm.ApplicationInfo.CATEGORY_GAME ||
+                        (app.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0
+                    } else {
+                        (app.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0
+                    }
+                    diskCache[pkg] = Pair(label, isGame)
+                    diskCacheModified = true
+                    resultList.add(AppInfo(packageName = pkg, label = label, isGame = isGame))
                 }
-                AppInfo(packageName = app.packageName, label = label, isGame = isGame)
-            }.sortedBy { it.label.lowercase() }
-            cachedAppInfos = list
-            list
+            }
+
+            val sorted = resultList.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
+            cachedAppInfos = sorted
+            cachedAppPackages = sorted.map { it.packageName }
+
+            // 3. Save disk cache asynchronously if modified
+            if (diskCacheModified) {
+                try {
+                    val json = JSONObject()
+                    for ((pkg, data) in diskCache) {
+                        val item = JSONObject()
+                        item.put("label", data.first)
+                        item.put("isGame", data.second)
+                        json.put(pkg, item)
+                    }
+                    cacheFile.writeText(json.toString())
+                } catch (_: Exception) {}
+            }
+
+            sorted
         } catch (_: Exception) {
             emptyList()
         }
     }
 }
-

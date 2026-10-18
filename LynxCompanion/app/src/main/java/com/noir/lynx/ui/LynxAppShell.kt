@@ -340,16 +340,23 @@ fun ErrorScreen(uiState: LynxUiState, onRetry: () -> Unit = {}) {
 
 object AppIconLoader {
     val cache = android.util.LruCache<String, ImageBitmap>(500)
-    private val iconDispatcher = Dispatchers.IO.limitedParallelism(2)
-    private val scope = CoroutineScope(iconDispatcher + SupervisorJob())
+    // High-priority dispatcher for visible on-screen icons (3 threads)
+    private val foregroundDispatcher = Dispatchers.IO.limitedParallelism(3)
+    // Low-priority single-thread dispatcher for background preloading (never starves foreground)
+    private val preloadDispatcher = Dispatchers.IO.limitedParallelism(1)
+    private val scope = CoroutineScope(preloadDispatcher + SupervisorJob())
 
-    fun getCached(packageName: String): ImageBitmap? = cache.get(packageName)
+    fun getCached(packageName: String): ImageBitmap? {
+        if (packageName.isBlank()) return null
+        return cache.get(packageName)
+    }
 
     suspend fun loadIcon(context: android.content.Context, packageName: String): ImageBitmap? {
+        if (packageName.isBlank()) return null
         val cached = cache.get(packageName)
         if (cached != null) return cached
 
-        return withContext(iconDispatcher) {
+        return withContext(foregroundDispatcher) {
             try {
                 val pm = context.packageManager
                 val drawable = pm.getApplicationIcon(packageName)
@@ -371,17 +378,23 @@ object AppIconLoader {
         if (packageNames.isEmpty()) return
         scope.launch {
             val pm = context.packageManager
+            val targetSize = 96
+            var count = 0
             for (pkg in packageNames) {
-                if (cache.get(pkg) != null) continue
+                if (pkg.isBlank() || cache.get(pkg) != null) continue
                 try {
                     val drawable = pm.getApplicationIcon(pkg)
-                    val targetSize = 96
                     val bmp = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
                     val canvas = Canvas(bmp)
                     drawable.setBounds(0, 0, targetSize, targetSize)
                     drawable.draw(canvas)
                     cache.put(pkg, bmp.asImageBitmap())
                 } catch (_: Exception) {}
+                count++
+                if (count % 3 == 0) {
+                    kotlinx.coroutines.yield()
+                    kotlinx.coroutines.delay(10L) // Small breather to avoid CPU & IPC starvation on low-end
+                }
             }
         }
     }
@@ -389,6 +402,20 @@ object AppIconLoader {
 
 @Composable
 fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
+    if (packageName.isBlank()) {
+        Box(
+            modifier = modifier,
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.Android,
+                contentDescription = null,
+                tint = AccentCyan.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxSize(0.6f)
+            )
+        }
+        return
+    }
     val context = LocalContext.current
     var bitmapState by remember(packageName) { mutableStateOf(AppIconLoader.getCached(packageName)) }
 
@@ -408,12 +435,17 @@ fun AppIconImage(packageName: String, modifier: Modifier = Modifier) {
             modifier = modifier
         )
     } else {
-        Icon(
-            Icons.Default.Android,
-            contentDescription = null,
-            tint = AccentCyan.copy(alpha = 0.6f),
-            modifier = modifier
-        )
+        Box(
+            modifier = modifier,
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.Android,
+                contentDescription = null,
+                tint = AccentCyan.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxSize(0.6f)
+            )
+        }
     }
 }
 

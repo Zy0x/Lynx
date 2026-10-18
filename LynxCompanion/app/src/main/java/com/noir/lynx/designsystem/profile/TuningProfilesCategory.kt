@@ -997,7 +997,7 @@ fun ProfilesAutomationScreen(
     }
 
     LaunchedEffect(uiState.appProfileRules) {
-        val pkgs = uiState.appProfileRules.map { it.packageName }
+        val pkgs = uiState.appProfileRules.take(20).map { it.packageName }
         AppIconLoader.preload(context, pkgs)
     }
 
@@ -1063,13 +1063,43 @@ fun ProfilesAutomationScreen(
         // 4. RULES BENTO CARDS OR EMPTY STATES
         // ══════════════════════════════════════════════════════════════
         if (uiState.appProfileRules.isEmpty()) {
-            item(key = "auto_empty_rules_card") {
-                AutomationEmptyRulesCard(
-                    uiState = uiState,
-                    viewModel = viewModel,
-                    context = context,
-                    onAddAppClick = onAddAppClick
-                )
+            if (uiState.isAppRulesLoading) {
+                item(key = "auto_loading_rules_card") {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(24.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = AccentCyan,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = "Memuat otomasi aplikasi...",
+                                color = TextSecondary,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            } else {
+                item(key = "auto_empty_rules_card") {
+                    AutomationEmptyRulesCard(
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        context = context,
+                        onAddAppClick = onAddAppClick
+                    )
+                }
             }
         } else if (filteredRules.isEmpty()) {
             item(key = "auto_empty_search_card") {

@@ -649,7 +649,7 @@ fun MainDashboard(
         }
 
         LaunchedEffect(availableApps) {
-            val pkgs = availableApps.take(80).map { it.packageName }
+            val pkgs = availableApps.take(25).map { it.packageName }
             AppIconLoader.preload(context, pkgs)
         }
 
