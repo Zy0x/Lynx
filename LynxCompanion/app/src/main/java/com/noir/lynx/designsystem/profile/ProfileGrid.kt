@@ -285,228 +285,279 @@ fun ProfileGrid(
                                     modifier = Modifier
                                         .background(Color(0xFF141722), RoundedCornerShape(16.dp))
                                         .border(1.dp, BorderGlass.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
-                                        .widthIn(min = 190.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .padding(vertical = 4.dp)
+                                        .widthIn(min = 210.dp)
                                 ) {
-                                if (!profile.builtIn) {
-                                    DropdownMenuItem(
-                                        text = {
-                                            Column {
-                                                Text(
-                                                    "Edit Profil",
-                                                    color = TextPrimary,
-                                                    fontSize = 12.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                )
-                                                Text(
-                                                    "Ubah nama & parameter",
-                                                    color = TextSecondary.copy(alpha = 0.7f),
-                                                    fontSize = 10.sp,
-                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                )
-                                            }
-                                        },
-                                        leadingIcon = {
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = AccentCyan.copy(alpha = 0.14f),
-                                                border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f)),
-                                                modifier = Modifier.size(32.dp)
+                                    if (!profile.builtIn) {
+                                        Surface(
+                                            onClick = {
+                                                cardMenuExpanded = false
+                                                editing = profile
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = Color.Transparent,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        Icons.Default.Edit,
-                                                        contentDescription = null,
-                                                        tint = AccentCyan,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = AccentCyan.copy(alpha = 0.14f),
+                                                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f)),
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(
+                                                            Icons.Default.Edit,
+                                                            contentDescription = null,
+                                                            tint = AccentCyan,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
                                                 }
-                                            }
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                        onClick = {
-                                            cardMenuExpanded = false
-                                            editing = profile
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = {
-                                            Column {
-                                                Text(
-                                                    "Salin Profil",
-                                                    color = TextPrimary,
-                                                    fontSize = 12.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                )
-                                                Text(
-                                                    "Duplikasi sebagai profil baru",
-                                                    color = TextSecondary.copy(alpha = 0.7f),
-                                                    fontSize = 10.sp,
-                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                )
-                                            }
-                                        },
-                                        leadingIcon = {
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = AccentBlue.copy(alpha = 0.14f),
-                                                border = BorderStroke(0.6.dp, AccentBlue.copy(alpha = 0.35f)),
-                                                modifier = Modifier.size(32.dp)
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        Icons.Default.ContentCopy,
-                                                        contentDescription = null,
-                                                        tint = AccentBlue,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                        onClick = {
-                                            cardMenuExpanded = false
-                                            onProfileDuplicated(profile.id)
-                                        }
-                                    )
-                                    HorizontalDivider(
-                                        color = BorderGlass.copy(alpha = 0.4f),
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                    )
-                                    DropdownMenuItem(
-                                        text = {
-                                            Column {
-                                                Text(
-                                                    "Hapus Profil",
-                                                    color = AccentRed,
-                                                    fontSize = 12.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                )
-                                                Text(
-                                                    "Hapus permanen dari katalog",
-                                                    color = TextSecondary.copy(alpha = 0.7f),
-                                                    fontSize = 10.sp,
-                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                )
-                                            }
-                                        },
-                                        leadingIcon = {
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = AccentRed.copy(alpha = 0.14f),
-                                                border = BorderStroke(0.6.dp, AccentRed.copy(alpha = 0.35f)),
-                                                modifier = Modifier.size(32.dp)
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        Icons.Default.Delete,
-                                                        contentDescription = null,
-                                                        tint = AccentRed,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                        onClick = {
-                                            cardMenuExpanded = false
-                                            pendingDelete = profile.id
-                                        }
-                                    )
-                                } else {
-                                    DropdownMenuItem(
-                                        text = {
-                                            Column {
-                                                Text(
-                                                    "Kustomisasi",
-                                                    color = TextPrimary,
-                                                    fontSize = 12.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                )
-                                                Text(
-                                                    "Sesuaikan parameter profil",
-                                                    color = TextSecondary.copy(alpha = 0.7f),
-                                                    fontSize = 10.sp,
-                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                )
-                                            }
-                                        },
-                                        leadingIcon = {
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = AccentCyan.copy(alpha = 0.14f),
-                                                border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f)),
-                                                modifier = Modifier.size(32.dp)
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        Icons.Default.Tune,
-                                                        contentDescription = null,
-                                                        tint = AccentCyan,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                        onClick = {
-                                            cardMenuExpanded = false
-                                            editing = profile
-                                        }
-                                    )
-                                    val default = KernelPerformanceProfile.builtIns().firstOrNull { it.id == profile.id }
-                                    if (default != null && (profile.baseProfile != default.baseProfile || profile.domainProfiles != default.domainProfiles || profile.settings.isNotEmpty() || profile.includedSensitiveSettings.isNotEmpty())) {
-                                        HorizontalDivider(
-                                            color = BorderGlass.copy(alpha = 0.4f),
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                        )
-                                        DropdownMenuItem(
-                                            text = {
+                                                Spacer(Modifier.width(12.dp))
                                                 Column {
                                                     Text(
-                                                        "Pulihkan Bawaan",
-                                                        color = AccentOrange,
+                                                        "Edit Profil",
+                                                        color = TextPrimary,
                                                         fontSize = 12.5.sp,
                                                         fontWeight = FontWeight.Bold,
                                                         style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
                                                     )
                                                     Text(
-                                                        "Reset ke nilai pabrik Lynx",
+                                                        "Ubah nama & parameter",
                                                         color = TextSecondary.copy(alpha = 0.7f),
                                                         fontSize = 10.sp,
                                                         style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
                                                     )
                                                 }
+                                            }
+                                        }
+
+                                        Surface(
+                                            onClick = {
+                                                cardMenuExpanded = false
+                                                onProfileDuplicated(profile.id)
                                             },
-                                            leadingIcon = {
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = Color.Transparent,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
                                                 Surface(
                                                     shape = RoundedCornerShape(8.dp),
-                                                    color = AccentOrange.copy(alpha = 0.14f),
-                                                    border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.35f)),
+                                                    color = AccentBlue.copy(alpha = 0.14f),
+                                                    border = BorderStroke(0.6.dp, AccentBlue.copy(alpha = 0.35f)),
                                                     modifier = Modifier.size(32.dp)
                                                 ) {
                                                     Box(contentAlignment = Alignment.Center) {
                                                         Icon(
-                                                            Icons.Default.RestartAlt,
+                                                            Icons.Default.ContentCopy,
                                                             contentDescription = null,
-                                                            tint = AccentOrange,
+                                                            tint = AccentBlue,
                                                             modifier = Modifier.size(16.dp)
                                                         )
                                                     }
                                                 }
-                                            },
-                                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                                Spacer(Modifier.width(12.dp))
+                                                Column {
+                                                    Text(
+                                                        "Salin Profil",
+                                                        color = TextPrimary,
+                                                        fontSize = 12.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
+                                                    Text(
+                                                        "Duplikasi sebagai profil baru",
+                                                        color = TextSecondary.copy(alpha = 0.7f),
+                                                        fontSize = 10.sp,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        HorizontalDivider(
+                                            color = BorderGlass.copy(alpha = 0.4f),
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        )
+
+                                        Surface(
                                             onClick = {
                                                 cardMenuExpanded = false
-                                                pendingRestore = profile.id
+                                                pendingDelete = profile.id
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = Color.Transparent,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = AccentRed.copy(alpha = 0.14f),
+                                                    border = BorderStroke(0.6.dp, AccentRed.copy(alpha = 0.35f)),
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(
+                                                            Icons.Default.Delete,
+                                                            contentDescription = null,
+                                                            tint = AccentRed,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                                Spacer(Modifier.width(12.dp))
+                                                Column {
+                                                    Text(
+                                                        "Hapus Profil",
+                                                        color = AccentRed,
+                                                        fontSize = 12.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
+                                                    Text(
+                                                        "Hapus permanen dari katalog",
+                                                        color = TextSecondary.copy(alpha = 0.7f),
+                                                        fontSize = 10.sp,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
+                                                }
                                             }
-                                        )
+                                        }
+                                    } else {
+                                        Surface(
+                                            onClick = {
+                                                cardMenuExpanded = false
+                                                editing = profile
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = Color.Transparent,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = AccentCyan.copy(alpha = 0.14f),
+                                                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f)),
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(
+                                                            Icons.Default.Tune,
+                                                            contentDescription = null,
+                                                            tint = AccentCyan,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                                Spacer(Modifier.width(12.dp))
+                                                Column {
+                                                    Text(
+                                                        "Kustomisasi",
+                                                        color = TextPrimary,
+                                                        fontSize = 12.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
+                                                    Text(
+                                                        "Sesuaikan parameter profil",
+                                                        color = TextSecondary.copy(alpha = 0.7f),
+                                                        fontSize = 10.sp,
+                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        val default = KernelPerformanceProfile.builtIns().firstOrNull { it.id == profile.id }
+                                        if (default != null && (profile.baseProfile != default.baseProfile || profile.domainProfiles != default.domainProfiles || profile.settings.isNotEmpty() || profile.includedSensitiveSettings.isNotEmpty())) {
+                                            HorizontalDivider(
+                                                color = BorderGlass.copy(alpha = 0.4f),
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                            )
+                                            Surface(
+                                                onClick = {
+                                                    cardMenuExpanded = false
+                                                    pendingRestore = profile.id
+                                                },
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = Color.Transparent,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        color = AccentOrange.copy(alpha = 0.14f),
+                                                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.35f)),
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Box(contentAlignment = Alignment.Center) {
+                                                            Icon(
+                                                                Icons.Default.RestartAlt,
+                                                                contentDescription = null,
+                                                                tint = AccentOrange,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                    Spacer(Modifier.width(12.dp))
+                                                    Column {
+                                                        Text(
+                                                            "Pulihkan Bawaan",
+                                                            color = AccentOrange,
+                                                            fontSize = 12.5.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                        )
+                                                        Text(
+                                                            "Reset ke nilai pabrik Lynx",
+                                                            color = TextSecondary.copy(alpha = 0.7f),
+                                                            fontSize = 10.sp,
+                                                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
-                            }
                         }
                     }
                     }
@@ -515,6 +566,7 @@ fun ProfileGrid(
         }
 
         // Action CTA: Create / Save Current Profile (Symmetrical Cyberpunk Button)
+        Spacer(Modifier.height(4.dp))
         Surface(
             onClick = { creating = true },
             shape = RoundedCornerShape(14.dp),
@@ -523,7 +575,6 @@ fun ProfileGrid(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .padding(top = 2.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
@@ -1196,7 +1247,7 @@ private fun ProfileEditorDialog(
                                     modifier = Modifier.weight(1f).height(48.dp)
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -1242,7 +1293,7 @@ private fun ProfileEditorDialog(
                                     modifier = Modifier.weight(1f).height(48.dp)
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {

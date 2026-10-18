@@ -3,6 +3,7 @@ package com.noir.lynx.ui
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -1724,7 +1725,7 @@ fun AutomationSectionHeader(
                     shape = RoundedCornerShape(10.dp),
                     color = BgElevated,
                     border = BorderStroke(0.8.dp, BorderGlass),
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         if (uiState.isScanningInstalledGames) {
@@ -1756,62 +1757,109 @@ fun AutomationSectionHeader(
                         expanded = showOverflowMenu,
                         onDismissRequest = onOverflowMenuDismiss,
                         modifier = Modifier
-                            .background(BgElevated, RoundedCornerShape(12.dp))
-                            .clip(RoundedCornerShape(12.dp))
+                            .background(BgElevated, RoundedCornerShape(14.dp))
+                            .border(1.dp, BorderGlass.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
+                            .clip(RoundedCornerShape(14.dp))
+                            .padding(vertical = 4.dp)
+                            .widthIn(min = 210.dp)
                     ) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = if (uiState.isScanningInstalledGames) "Memindai Game..." else "Pindai Game Terpasang",
-                                    color = if (uiState.isScanningInstalledGames) AccentCyan else TextPrimary,
-                                    fontSize = 13.sp
-                                )
-                            },
-                            leadingIcon = {
-                                if (uiState.isScanningInstalledGames) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        color = AccentCyan,
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = null,
-                                        tint = AccentCyan,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            },
-                            enabled = !uiState.isScanningInstalledGames,
+                        Surface(
                             onClick = {
                                 onOverflowMenuDismiss()
                                 viewModel.autoDetectAndSyncInstalledRules(context)
+                            },
+                            enabled = !uiState.isScanningInstalledGames,
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color.Transparent,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = AccentCyan.copy(alpha = 0.14f),
+                                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f)),
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        if (uiState.isScanningInstalledGames) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                color = AccentCyan,
+                                                strokeWidth = 2.dp
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.Refresh,
+                                                contentDescription = null,
+                                                tint = AccentCyan,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    text = if (uiState.isScanningInstalledGames) "Memindai Game..." else "Pindai Game Terpasang",
+                                    color = if (uiState.isScanningInstalledGames) AccentCyan else TextPrimary,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
-                        )
+                        }
+
                         if (uiState.appProfileRules.isNotEmpty()) {
-                            HorizontalDivider(color = BorderGlass.copy(alpha = 0.5f), thickness = 0.6.dp)
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = "Hapus Semua Aturan",
-                                        color = AccentRed,
-                                        fontSize = 13.sp
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.DeleteOutline,
-                                        contentDescription = null,
-                                        tint = AccentRed,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                },
+                            HorizontalDivider(
+                                color = BorderGlass.copy(alpha = 0.4f),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                            Surface(
                                 onClick = {
                                     onOverflowMenuDismiss()
                                     onClearAllClick()
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color.Transparent,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = AccentRed.copy(alpha = 0.14f),
+                                        border = BorderStroke(0.6.dp, AccentRed.copy(alpha = 0.35f)),
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Default.DeleteOutline,
+                                                contentDescription = null,
+                                                tint = AccentRed,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(
+                                        text = "Hapus Semua Aturan",
+                                        color = AccentRed,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
-                            )
+                            }
                         }
                     }
                 }
@@ -2274,9 +2322,8 @@ fun AppRuleBentoCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    // Target Profile Mode Pill (Opens overlay on click, low-profile height)
+                    // Target Profile Mode Pill (low-profile height)
                     Surface(
-                        onClick = onRowClick,
                         shape = RoundedCornerShape(6.dp),
                         color = BgDeepOled,
                         border = BorderStroke(0.7.dp, profDotColor.copy(alpha = 0.45f))
