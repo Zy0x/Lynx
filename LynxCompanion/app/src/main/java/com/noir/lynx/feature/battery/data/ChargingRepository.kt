@@ -90,57 +90,66 @@ class ChargingRepository(
                 if [ "${'$'}cur_cap" -ge $maxBatteryPercent ] || [ "${'$'}cur_cap" -ge 100 ]; then
                     chmod 666 /sys/class/power_supply/battery/input_suspend 2>/dev/null
                     echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
-                    echo 6000 > /sys/devices/platform/charger/input_current 2>/dev/null
-                    echo 4500000 > /sys/class/power_supply/usb/current_max 2>/dev/null
-                    echo 4500000 > /sys/class/power_supply/main/current_max 2>/dev/null
 
-                    # 1. MediaTek / Transsion Hardware Bypass
-                    echo 1 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                    echo "${'$'}cur_cap" > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                    echo 0 > /sys/devices/platform/charger/input_current 2>/dev/null
-                    echo "[30,0,35,0,0]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null
-                    echo 1 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+                    # Check for genuine hardware bypass switches
+                    has_hw_bypass=0
+                    for n in /sys/devices/platform/charger/bypass_charger /sys/class/power_supply/battery/device/smart_charging /sys/class/power_supply/battery/battery_care /sys/class/power_supply/battery/store_mode /sys/class/power_supply/battery/charge_stop_level; do
+                        if [ -e "${'$'}n" ]; then has_hw_bypass=1; break; fi
+                    done
+
+                    if [ "${'$'}has_hw_bypass" -eq 1 ]; then
+                        # 1. MediaTek / Transsion Hardware Bypass
+                        echo 1 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
+                        echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+                        echo "${'$'}cur_cap" > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null
+                        echo 0 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                        echo 0 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+                        echo 0 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+                        echo 0 > /sys/devices/platform/charger/input_current 2>/dev/null
+                        echo "[30,0,35,0,0]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null
+                        echo 1 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+
+                        # 2. ASUS ROG Hardware Bypass
+                        echo 1 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
+                        echo 1 > /sys/class/power_supply/battery/charging_limit_mode 2>/dev/null
+                        echo 1 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
+
+                        # 3. Sony Xperia Hardware Bypass
+                        echo 1 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
+                        echo 1 > /sys/class/power_supply/battery/battery_care 2>/dev/null
+
+                        # 4. Samsung One UI Slate / Store Mode Bypass
+                        echo 1 > /sys/class/power_supply/battery/store_mode 2>/dev/null
+                        echo 1 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
+                        echo 1 > /sys/class/power_supply/battery/wc_control 2>/dev/null
+
+                        # 5. Google Pixel (Tensor) Stop Level Latch
+                        echo "${'$'}cur_cap" > /sys/class/power_supply/battery/charge_stop_level 2>/dev/null
+                        echo "${'$'}cur_cap" > /sys/devices/platform/google,battery/charge_stop_level 2>/dev/null
+                        echo "${'$'}cur_cap" > /sys/devices/platform/google,charger/charge_stop_level 2>/dev/null
+                        echo 1 > /sys/class/power_supply/battery/bd_trickle_dry_run 2>/dev/null
+
+                        # Universal Hardware Bypass Rails: keep Vsys input alive at 1.5A
+                        echo 1500000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null
+                        echo 1500000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+                        echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
+                        echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
+                        echo 0 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+                        echo 0 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                        echo 0 > /sys/class/power_supply/battery/current_max 2>/dev/null
+                    else
+                        # Single-Path PMIC Anti-Flapping Float Mode (Redmi, Xiaomi, Poco, generic MTK/QCOM)
+                        # NEVER cut charging_enabled to 0 or enable direct_charging on single-path devices!
+                        echo 100000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+                        echo 100000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+                        echo 100000 > /sys/class/power_supply/battery/current_max 2>/dev/null
+                        echo 1500000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null
+                        echo 1500000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+                        echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
+                        echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
+                        echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+                    fi
                     dumpsys battery reset 2>/dev/null
-
-                    # 2. ASUS ROG Hardware Bypass
-                    echo 1 > /sys/class/power_supply/battery/device/smart_charging 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/charging_limit_mode 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
-
-                    # 3. Sony Xperia Hardware Bypass
-                    echo 1 > /sys/class/power_supply/battery/smart_charging_activation 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/battery_care 2>/dev/null
-
-                    # 4. Qualcomm Snapdragon Direct Bypass
-                    echo 1 > /sys/class/qcom-battery/direct_charging 2>/dev/null
-                    echo 1 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
-                    echo 0 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
-
-                    # 5. Samsung One UI Slate / Store Mode Bypass
-                    echo 1 > /sys/class/power_supply/battery/store_mode 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/batt_slate_mode 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/wc_control 2>/dev/null
-
-                    # 6. Google Pixel (Tensor) Stop Level Latch
-                    echo "${'$'}cur_cap" > /sys/class/power_supply/battery/charge_stop_level 2>/dev/null
-                    echo "${'$'}cur_cap" > /sys/devices/platform/google,battery/charge_stop_level 2>/dev/null
-                    echo "${'$'}cur_cap" > /sys/devices/platform/google,charger/charge_stop_level 2>/dev/null
-                    echo 1 > /sys/class/power_supply/battery/bd_trickle_dry_run 2>/dev/null
-
-                    # 7. Motorola / BBK / Xiaomi Switches
-                    echo 0 > /sys/class/power_supply/battery/mmi_charging_enable 2>/dev/null
-                    echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
-
-                    # 8. Universal Linux Kernel Power Supply Class Bypass Rails
-                    echo 1 > /sys/class/power_supply/battery/charge_control_limit_max 2>/dev/null
-                    echo 0 > /sys/class/power_supply/battery/charge_control_limit 2>/dev/null
-                    echo 0 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
-                    echo 0 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
-                    echo 0 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
                 else
                     # Below target: unlock fast charging to reach target percent quickly
                     echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
@@ -155,9 +164,12 @@ class ChargingRepository(
                     echo 6000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
                     echo 6000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
                     echo 6000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
+                    echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+                    echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
                     echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                     echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
                     ${if (lockoutBypass) "echo 28 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null" else "echo 33 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null"}
+                    dumpsys battery reset 2>/dev/null
                 fi
                 echo ok
                 """.trimIndent()

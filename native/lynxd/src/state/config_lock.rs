@@ -19,13 +19,25 @@ impl ConfigLock {
             extern "C" {
                 fn flock(fd: i32, operation: i32) -> i32;
             }
-            let file = OpenOptions::new()
+            let file_res = OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true)
-                .mode(0o600)
-                .open(path)
-                .map_err(|_| "config_lock_unavailable".to_string())?;
+                .mode(0o666)
+                .open(path);
+            let file = match file_res {
+                Ok(f) => f,
+                Err(_) => {
+                    let fallback_path = Path::new("/data/local/tmp/lynx_config.lock");
+                    OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .create(true)
+                        .mode(0o666)
+                        .open(fallback_path)
+                        .map_err(|_| "config_lock_unavailable".to_string())?
+                }
+            };
             for _ in 0..80 {
                 // LOCK_EX | LOCK_NB; the kernel releases this lock when the descriptor closes.
                 if unsafe { flock(file.as_raw_fd(), 2 | 4) } == 0 {

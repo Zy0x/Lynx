@@ -1415,6 +1415,7 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/fastcharge_mode", BATT_DIR), "0");
         Self::write_node(&format!("{}/fast_charge", BATT_DIR), "0");
         Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
+        Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
 
         // Unlock all sysfs charger nodes permissions so kernel OEM algorithms control them
         for node in &[
@@ -1926,7 +1927,12 @@ impl ChargingRegulator {
                     let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
                     Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
                     Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
+                    Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+                    Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
+                    Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
+                    Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
                     Self::unlock_extreme_nodes();
+                    Self::apply_standard_mode();
                 }
             } else if cur_cap >= smart_limit {
                 // Battery is at or above limit (e.g. limit=90, battery=92): immediately engage hardware bypass!
