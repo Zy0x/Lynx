@@ -1,3 +1,25 @@
+# Lynx Universal [Elegant Notification & Feedback Bottom Sheet Redesign] 7.0.0-RC94
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC94** (Lynx Kernel Manager v3.1.46): **Redesain Elegan Komponen Notifikasi & Feedback — Tombol Bel Header Ghost/Minimal (Tanpa Fill Cyan Terang), Bottom Sheet Dark Minimal dengan Drag Handle Ramping, Header Ikon Low-Alpha, Option Card Compact, Radio Indicator 2-Layer Presisi, Divider Halus, Switch Morpher Rapi, dan Tombol Live Test Subtle**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC94)
+
+### 1. 🔔 Redesain Tombol Bel (Header Subscreen Profile)
+- **Sebelumnya**: Kotak `36dp` dengan fill `AccentCyan 14%` dan border cyan terang — terlalu mencolok dan tidak selaras dengan elemen header sekitarnya.
+- **Sesudahnya**: Ghost button `34dp` dengan warna dasar `#141820` dan border `#2A2E3A` subtle. Ikon bel kini berwarna `AccentCyan.copy(alpha = 0.75f)` — tampil hadir tanpa mendominasi.
+
+### 2. 📋 Redesain ProfilesFeedbackBottomSheet (Bottom Sheet Gaya Notifikasi)
+- **Drag Handle**: Dirampingkan dari `38×4dp pill putih 33%` menjadi `36×3dp surface `#2A2E38`` dengan border-radius kotak — lebih modern dan diskrit.
+- **Container Color**: `#0D1017 FA` → `#0E1118 FF` (solid tanpa alpha bocoran).
+- **Header**: Icon tile dari `Surface 36dp fill cyan 15%` → `Box 34dp clip + background cyan 8%` — lebih ringan secara visual.
+- **Option Cards**: Spacing `6dp` → `5dp`, padding `vertical=10dp` → `vertical=9dp`, border lebih tipis dan warna background `#141820` lebih gelap-bersih.
+- **Radio Indicator**: Dari circle `16dp` polos → **2-layer precision**: outer ring `18dp BorderStroke 1.5dp AccentCyan` + inner filled dot `8dp AccentCyan` saat selected. Unselected: `18dp BorderStroke 1dp #3A3E4A`. Jauh lebih terbaca dan premium.
+- **Divider**: Dari `BorderGlass 60%` → `#1E222C 0.7dp` — divider solid gelap bersih.
+- **Morph Switch**: Teks lebih ringkas, subtitle `alpha 0.65`, Switch unchecked thumb/track konsisten dengan palet gelap.
+- **Live Test Button**: Dari `BgElevated border 0.8dp cyan 50%` → `#141820 border 0.7dp cyan 35%` — subtle, tidak bersaing dengan pilihan utama.
+
+---
+
 # Lynx Universal [Low-Profile Telemetry Badge Row & Ergonomic Vertical Padding Optimization] 7.0.0-RC93
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC93** (Lynx Kernel Manager v3.1.45): **Optimalisasi Presisi Tinggi Baris Badge Otomasi Aplikasi: Pengetatan Padding Vertikal Bawah (*Bottom Chin* dari 10dp ke 5dp), Perampingan Spacer Pemisah Kaca (4–5dp), Format Low-Profile Badge Kapsul Mode, Refresh Rate, dan HUD (Tinggi Ramping & Elegan Tanpa Ruang Kosong Berlebih), Serta Pembaruan Biner Release**.

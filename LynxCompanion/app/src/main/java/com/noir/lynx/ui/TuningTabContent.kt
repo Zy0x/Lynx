@@ -400,17 +400,17 @@ fun TuningTabContent(
                                             if (currentCategory == "profiles") {
                                                 Surface(
                                                     onClick = { showProfilesFeedbackSheet = true },
-                                                    shape = RoundedCornerShape(10.dp),
-                                                    color = AccentCyan.copy(alpha = 0.14f),
-                                                    border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.45f)),
-                                                    modifier = Modifier.size(36.dp)
+                                                    shape = RoundedCornerShape(9.dp),
+                                                    color = Color(0xFF141820),
+                                                    border = BorderStroke(0.7.dp, Color(0xFF2A2E3A)),
+                                                    modifier = Modifier.size(34.dp)
                                                 ) {
                                                     Box(contentAlignment = Alignment.Center) {
                                                         Icon(
                                                             imageVector = Icons.Default.NotificationsActive,
                                                             contentDescription = "Gaya Feedback Notifikasi HUD",
-                                                            tint = AccentCyan,
-                                                            modifier = Modifier.size(18.dp)
+                                                            tint = AccentCyan.copy(alpha = 0.75f),
+                                                            modifier = Modifier.size(17.dp)
                                                         )
                                                     }
                                                 }

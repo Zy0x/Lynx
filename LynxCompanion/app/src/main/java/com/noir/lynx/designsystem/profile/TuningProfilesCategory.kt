@@ -112,7 +112,7 @@ fun ProfilesCategoryTabRow(
 }
 
 /**
- * ProfilesFeedbackBottomSheet — Cyberpunk ModalBottomSheet for HUD & Notification Style Selection.
+ * ProfilesFeedbackBottomSheet — Elegant Dark Minimal ModalBottomSheet for Notification & Feedback Style Selection.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,69 +124,78 @@ fun ProfilesFeedbackBottomSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFA0D1017),
-        scrimColor = Color.Black.copy(alpha = 0.65f),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        containerColor = Color(0xFF0E1118),
+        scrimColor = Color.Black.copy(alpha = 0.72f),
+        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
         dragHandle = {
-            Surface(
-                color = Color(0x33FFFFFF),
-                shape = CircleShape,
+            Box(
                 modifier = Modifier
-                    .padding(top = 10.dp, bottom = 6.dp)
-                    .size(width = 38.dp, height = 4.dp)
-            ) {}
+                    .padding(top = 12.dp, bottom = 4.dp)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    color = Color(0xFF2A2E38),
+                    shape = RoundedCornerShape(3.dp),
+                    modifier = Modifier.size(width = 36.dp, height = 3.dp)
+                ) {}
+            }
         }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 36.dp)
+                .padding(horizontal = 18.dp)
+                .padding(top = 6.dp, bottom = 32.dp)
         ) {
-            // Header
+            // ── Header ────────────────────────────────────────────────────────────────
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 12.dp)
+                modifier = Modifier.padding(bottom = 16.dp)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentCyan.copy(alpha = 0.15f),
-                    modifier = Modifier.size(36.dp)
+                // Minimal icon tile — no heavy fill
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(AccentCyan.copy(alpha = 0.08f)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.NotificationsActive,
-                            contentDescription = null,
-                            tint = AccentCyan,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.NotificationsActive,
+                        contentDescription = null,
+                        tint = AccentCyan.copy(alpha = 0.85f),
+                        modifier = Modifier.size(17.dp)
+                    )
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(11.dp))
                 Column {
                     Text(
-                        text = "Gaya Notifikasi & Feedback Mode",
+                        text = "Gaya Notifikasi & Feedback",
                         color = TextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.2).sp
                     )
                     Text(
-                        text = "Visual umpan balik saat profil performa kernel beralih",
-                        color = TextSecondary,
-                        fontSize = 11.sp
+                        text = "Visual umpan balik saat profil performa beralih",
+                        color = TextSecondary.copy(alpha = 0.7f),
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp
                     )
                 }
             }
 
+            // ── Option List ───────────────────────────────────────────────────────────
             val feedbackOptions = listOf(
-                Triple("jewel_top", "Jewel Dynamic Island (HUD)", "Kapsul permata melayang di atas layar • Cyberpunk HUD"),
-                Triple("jewel_bottom", "Jewel Bottom Capsule (HUD)", "Kapsul permata melayang di bawah layar • Cyberpunk HUD"),
-                Triple("system_toast", "System Toast (OS Text)", "Gelembung teks standar Android di bawah layar • Ringan (~8 MB)"),
+                Triple("jewel_top", "Jewel Dynamic Island (HUD)", "Kapsul permata melayang di atas layar — Cyberpunk HUD"),
+                Triple("jewel_bottom", "Jewel Bottom Capsule (HUD)", "Kapsul permata melayang di bawah layar — Cyberpunk HUD"),
+                Triple("system_toast", "System Toast (OS Text)", "Gelembung teks standar Android • Ringan (~8 MB RAM)"),
                 Triple("status_bar", "Status Bar Saja (0 MB RAM)", "Notifikasi hening di status bar • Tanpa pop-up layar"),
-                Triple("disabled", "Nonaktifkan Feedback", "Hening total tanpa notifikasi atau pop-up visual")
+                Triple("disabled", "Nonaktifkan Feedback", "Hening total — tanpa notifikasi atau pop-up visual")
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 feedbackOptions.forEach { (key, title, subtitle) ->
                     val isSelected = uiState.modeFeedbackStyle == key
                     Surface(
@@ -194,87 +203,117 @@ fun ProfilesFeedbackBottomSheet(
                             viewModel.setModeFeedbackStyle(context, key)
                             viewModel.triggerModeFeedback("balance", "Seimbang", 0xFF00A3FFL)
                         },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) AccentCyan.copy(alpha = 0.12f) else BgElevated,
+                        shape = RoundedCornerShape(11.dp),
+                        color = if (isSelected) AccentCyan.copy(alpha = 0.09f) else Color(0xFF141820),
                         border = BorderStroke(
-                            if (isSelected) 1.2.dp else 0.8.dp,
-                            if (isSelected) AccentCyan else BorderSubtle
+                            if (isSelected) 1.dp else 0.6.dp,
+                            if (isSelected) AccentCyan.copy(alpha = 0.7f) else Color(0xFF252830)
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                                .padding(horizontal = 13.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Left: Title + description
+                            Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
                                     Text(
                                         text = title,
                                         color = if (isSelected) AccentCyan else TextPrimary,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                                     )
                                     if (key == "jewel_top") {
-                                        Spacer(Modifier.width(6.dp))
                                         Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = AccentCyan.copy(alpha = 0.2f),
-                                            border = BorderStroke(0.5.dp, AccentCyan.copy(alpha = 0.4f))
+                                            shape = RoundedCornerShape(3.dp),
+                                            color = AccentCyan.copy(alpha = 0.15f)
                                         ) {
                                             Text(
                                                 text = "DEFAULT",
-                                                color = AccentCyan,
-                                                fontSize = 8.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                color = AccentCyan.copy(alpha = 0.9f),
+                                                fontSize = 7.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 0.4.sp,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
                                             )
                                         }
                                     }
                                 }
-                                Spacer(Modifier.height(2.dp))
+                                Spacer(Modifier.height(1.5.dp))
                                 Text(
                                     text = subtitle,
-                                    color = TextSecondary,
-                                    fontSize = 10.sp,
-                                    lineHeight = 13.5.sp
+                                    color = TextSecondary.copy(alpha = 0.6f),
+                                    fontSize = 9.5.sp,
+                                    lineHeight = 13.sp
                                 )
                             }
 
-                            Surface(
-                                shape = CircleShape,
-                                color = if (isSelected) AccentCyan else Color.Transparent,
-                                border = BorderStroke(1.5.dp, if (isSelected) AccentCyan else TextSecondary.copy(alpha = 0.4f)),
-                                modifier = Modifier.size(16.dp)
-                            ) {}
+                            // Right: Radio indicator — clean filled dot
+                            Box(
+                                modifier = Modifier.size(18.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isSelected) {
+                                    // Outer ring
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color.Transparent,
+                                        border = BorderStroke(1.5.dp, AccentCyan),
+                                        modifier = Modifier.size(18.dp)
+                                    ) {}
+                                    // Inner filled dot
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = AccentCyan,
+                                        modifier = Modifier.size(8.dp)
+                                    ) {}
+                                } else {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color.Transparent,
+                                        border = BorderStroke(1.dp, Color(0xFF3A3E4A)),
+                                        modifier = Modifier.size(18.dp)
+                                    ) {}
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 12.dp))
+            // ── Divider ───────────────────────────────────────────────────────────────
+            HorizontalDivider(
+                color = Color(0xFF1E222C),
+                thickness = 0.7.dp,
+                modifier = Modifier.padding(vertical = 14.dp)
+            )
 
-            // Dual Morph Switch
+            // ── Dual Morph Switch ─────────────────────────────────────────────────────
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                     Text(
-                        text = "Sinkronisasi Morpher Header Bersamaan",
+                        text = "Sinkronisasi Morpher Header",
                         color = TextPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
+                    Spacer(Modifier.height(1.5.dp))
                     Text(
-                        text = "Teks 'Codename: Deity' ikut bertransisi serasi saat Jewel Toast aktif",
-                        color = TextSecondary,
-                        fontSize = 10.sp
+                        text = "Teks header ikut bertransisi serasi saat Jewel Toast aktif",
+                        color = TextSecondary.copy(alpha = 0.65f),
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp
                     )
                 }
                 Switch(
@@ -283,16 +322,16 @@ fun ProfilesFeedbackBottomSheet(
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = BgDeepOled,
                         checkedTrackColor = AccentCyan,
-                        uncheckedThumbColor = TextSecondary,
-                        uncheckedTrackColor = BgElevated,
-                        uncheckedBorderColor = BorderGlass
+                        uncheckedThumbColor = Color(0xFF4A4E5A),
+                        uncheckedTrackColor = Color(0xFF141820),
+                        uncheckedBorderColor = Color(0xFF252830)
                     )
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // Live Test Button
+            // ── Live Test Button ──────────────────────────────────────────────────────
             Surface(
                 onClick = {
                     val sampleModes = listOf(
@@ -305,8 +344,8 @@ fun ProfilesFeedbackBottomSheet(
                     viewModel.triggerModeFeedback(randomSample.first, randomSample.second, randomSample.third)
                 },
                 shape = RoundedCornerShape(10.dp),
-                color = BgElevated,
-                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f)),
+                color = Color(0xFF141820),
+                border = BorderStroke(0.7.dp, AccentCyan.copy(alpha = 0.35f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
