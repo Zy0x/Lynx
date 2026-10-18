@@ -45,7 +45,7 @@
     "temp_cutoff_c": 45,
     "limit_current_ma": 4500,
     "max_battery_percent": 80,
-    "auto_cut_enabled": true
+    "auto_cut_enabled": false
   },
   "uclamp": {
     "game_min_ratio": 70,

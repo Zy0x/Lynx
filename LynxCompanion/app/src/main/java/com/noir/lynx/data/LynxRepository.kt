@@ -484,6 +484,8 @@ object LynxRepository {
 
     suspend fun setMaxBatteryPercent(percent: Int): Boolean = chargingRepository.setMaxBatteryPercent(percent)
 
+    suspend fun setAutoCutEnabled(enabled: Boolean): Boolean = chargingRepository.setAutoCutEnabled(enabled)
+
     suspend fun setChargingMode(mode: String, customMa: Int = 2000): Boolean = chargingRepository.setChargingMode(mode, customMa)
 
     suspend fun applyChargingMode(

@@ -63,7 +63,7 @@ internal object LynxStateParser {
             limitCurrentMa = j?.optInt("limit_current_ma", 6000) ?: 6000,
             isUnconstrainedMaxHw = j?.optBoolean("is_unconstrained_max_hw", false) ?: false,
             customLimitCurrentMa = j?.optInt("custom_limit_current_ma", 6000) ?: 6000,
-            autoCutEnabled = j?.optBoolean("auto_cut_enabled", true) ?: true,
+            autoCutEnabled = j?.optBoolean("auto_cut_enabled", false) ?: false,
             maxBatteryPercent = j?.optInt("max_battery_percent", 80) ?: 80,
             highCurrentTargetPercent = j?.optInt("high_current_target_percent", 90) ?: 90,
             emergencyTempGuardEnabled = j?.optBoolean("emergency_temp_guard_enabled", true) ?: true,

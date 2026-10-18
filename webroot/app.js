@@ -125,12 +125,28 @@ function renderUI(state) {
         bypassToggle.checked = !!(state.charging && state.charging.bypass_enabled);
     }
 
+    const autocutToggle = document.getElementById('autocut-toggle');
+    if (autocutToggle && !autocutToggle.matches(':focus')) {
+        autocutToggle.checked = !!(state.charging && state.charging.auto_cut_enabled);
+    }
+
+    const isAutoCut = !!(state.charging && state.charging.auto_cut_enabled);
     const smartLimitSlider = document.getElementById('smart-limit-slider');
     const smartLimitVal = document.getElementById('smart-limit-val');
-    if (smartLimitSlider && !smartLimitSlider.matches(':active')) {
-        const lim = (state.charging && state.charging.max_battery_percent != null) ? state.charging.max_battery_percent : 100;
-        smartLimitSlider.value = lim;
-        if (smartLimitVal) smartLimitVal.textContent = lim >= 100 ? '100% (Penuh & AutoCut)' : `${lim}% (Bypass Langsung)`;
+    if (smartLimitSlider) {
+        smartLimitSlider.disabled = !isAutoCut;
+        smartLimitSlider.style.opacity = isAutoCut ? '1' : '0.45';
+        if (!smartLimitSlider.matches(':active')) {
+            const lim = (state.charging && state.charging.max_battery_percent != null) ? state.charging.max_battery_percent : 80;
+            smartLimitSlider.value = lim;
+            if (smartLimitVal) {
+                if (!isAutoCut) {
+                    smartLimitVal.textContent = 'Nonaktif (Normal 100%)';
+                } else {
+                    smartLimitVal.textContent = lim >= 100 ? '100% (Penuh & AutoCut)' : `${lim}% (Bypass Langsung)`;
+                }
+            }
+        }
     }
 
     const nightGuardToggle = document.getElementById('night-guard-toggle');
@@ -258,6 +274,17 @@ async function updateStateKey(key, value, isString = false) {
     isUpdating = false;
     await syncState();
 }
+
+window.toggleAutoCut = function(el) {
+    if (el.checked) {
+        const msg = "Perhatian Kompatibilitas Hardware:\n\n• Perangkat dengan IC Bypass (Dual-Path PMIC / ROG / Infinix): Daya charger dialirkan langsung ke mesin.\n• Perangkat Tanpa IC Bypass (Single-Path PMIC seperti Redmi Note 7, POCO): Arus charger akan diputus total sehingga ponsel menyala murni dari baterai (Discharging) hingga turun 3% di bawah batas.\n\nApakah Anda memahami hal ini dan ingin mengaktifkan Batas Pengisian Cerdas?";
+        if (!confirm(msg)) {
+            el.checked = false;
+            return;
+        }
+    }
+    updateStateKey('charging.auto_cut_enabled', el.checked);
+};
 
 async function toggleAdbKeepAlive(enabled) {
     const portEl = document.getElementById('adb-custom-port');

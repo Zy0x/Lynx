@@ -146,6 +146,13 @@
     <string name="battery_bypass_switch" formatted="false">Direct Power to Phone (Bypass)</string>
     <string name="battery_bypass_desc" formatted="false">Routes charger power directly to the phone without charging the battery. Useful while gaming to reduce phone heat and battery wear.</string>
     <string name="battery_smart_charge_limit" formatted="false">Smart Charging Limit</string>
+    <string name="battery_smart_limit_switch_desc" formatted="false">Limit battery charging to a specific percentage to extend battery lifespan.</string>
+    <string name="battery_smart_limit_disabled_note" formatted="false">Disabled (Standard charging up to 100%)</string>
+    <string name="battery_smart_limit_dialog_title" formatted="false">Smart Charging Limit Confirmation</string>
+    <string name="battery_smart_limit_dialog_desc" formatted="false">Smart Charging Limit stops battery charging at your selected percentage to protect long-term battery health.\n\n⚠️ Hardware Compatibility Notice:\n\n• Devices with Dedicated Hardware Bypass IC (Dual-Path PMIC / ROG Phone / Infinix / Black Shark): Charger power is routed directly to the motherboard without charging the battery cell.\n\n• Devices without Hardware Bypass (Single-Path PMIC like Redmi Note 7, POCO, and standard smartphones): The device lacks a physical bypass circuit. When the limit is reached, the system completely cuts off the charger input, causing the phone to run solely on battery power (Discharging). Once the battery drops 3% below the limit, charging resumes (on/off hysteresis cycle).\n\nDo you understand this hardware behavior and wish to enable it?</string>
+    <string name="battery_bypass_dialog_title" formatted="false">Motherboard Bypass Confirmation</string>
+    <string name="battery_bypass_dialog_desc" formatted="false">Motherboard Bypass forces charging to stop and routes power directly to the phone hardware.\n\n⚠️ Devices without Physical Hardware Bypass (Single-Path PMIC): Charging input will be completely disconnected and the phone will run solely on battery power.\n\nDo you wish to proceed?</string>
+    <string name="action_understand_activate" formatted="false">Understand &amp; Enable</string>
     <string name="battery_smart_limit_full" formatted="false">100% (Full &amp; AutoCut)</string>
     <string name="battery_smart_limit_bypass">%1$d%% (Direct Bypass)</string>
     <string name="battery_smart_charge_limit_desc" formatted="false">Stops charging the battery cell at your selected level (50%–100%) and routes power directly to the phone. A smart 3% hysteresis buffer (for example, an 80% limit stops at 80% and resumes at 77%) prevents repeated connect/disconnect cycles.</string>

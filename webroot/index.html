@@ -362,12 +362,20 @@
                     </label>
                 </div>
 
-                <div class="control-group" style="margin-top: 10px;">
+                <div class="switch-row" style="margin-top: 10px;">
+                    <span class="switch-label">Batas Pengisian Cerdas</span>
+                    <label class="switch">
+                        <input type="checkbox" id="autocut-toggle" onchange="toggleAutoCut(this)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="control-group" id="smart-limit-group" style="margin-top: 10px;">
                     <div class="control-label">
-                        <span>Batas Pengisian Cerdas</span>
-                        <strong id="smart-limit-val">100% (Penuh & AutoCut)</strong>
+                        <span>Batas Persentase Pengisian</span>
+                        <strong id="smart-limit-val">Nonaktif (Normal 100%)</strong>
                     </div>
-                    <input type="range" id="smart-limit-slider" min="50" max="100" step="1" value="100"
+                    <input type="range" id="smart-limit-slider" min="50" max="100" step="1" value="80"
                            oninput="document.getElementById('smart-limit-val').textContent = this.value >= 100 ? '100% (Penuh & AutoCut)' : this.value + '% (Bypass Langsung)'"
                            onchange="updateStateKey('charging.max_battery_percent', parseInt(this.value))">
                 </div>

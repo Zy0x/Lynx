@@ -43,6 +43,7 @@ fun LynxSlider(
     displayValue: String,
     formatDisplay: ((Float) -> String)? = null,
     accentColor: Color = AccentCyan,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val start = if (valueRange.start.isFinite()) valueRange.start else 0f
@@ -69,6 +70,8 @@ fun LynxSlider(
 
     val activeDisplay = formatDisplay?.invoke(localValue) ?: displayValue
 
+    val effectiveAccent = if (enabled) accentColor else TextSecondary.copy(alpha = 0.5f)
+
     Column(modifier = modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -79,24 +82,25 @@ fun LynxSlider(
                 text = label,
                 fontSize = 12.5.sp,
                 fontWeight = FontWeight.Medium,
-                color = TextSecondary
+                color = if (enabled) TextSecondary else TextSecondary.copy(alpha = 0.45f)
             )
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = accentColor.copy(alpha = 0.12f),
-                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
+                color = effectiveAccent.copy(alpha = if (enabled) 0.12f else 0.06f),
+                border = BorderStroke(1.dp, effectiveAccent.copy(alpha = if (enabled) 0.3f else 0.15f))
             ) {
                 Text(
                     text = activeDisplay,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = accentColor,
+                    color = effectiveAccent,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                 )
             }
         }
         Slider(
             value = localValue.coerceIn(safeRange),
+            enabled = enabled,
             onValueChange = { newVal ->
                 isDragging = true
                 lastInteractionTime = System.currentTimeMillis()
@@ -111,8 +115,8 @@ fun LynxSlider(
             valueRange = safeRange,
             steps = safeSteps,
             colors = SliderDefaults.colors(
-                thumbColor = accentColor,
-                activeTrackColor = accentColor,
+                thumbColor = effectiveAccent,
+                activeTrackColor = effectiveAccent,
                 inactiveTrackColor = BgElevated,
             ),
             modifier = Modifier.fillMaxWidth(),

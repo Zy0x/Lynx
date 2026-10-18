@@ -7,14 +7,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +41,8 @@ fun BatteryProtectionCard(
     modifier: Modifier = Modifier
 ) {
     val state = uiState.state
+    var showSmartLimitWarningDialog by remember { mutableStateOf(false) }
+    var showBypassWarningDialog by remember { mutableStateOf(false) }
 
     LynxCard(
         title = stringResource(R.string.battery_protection_bypass_title),
@@ -41,12 +50,34 @@ fun BatteryProtectionCard(
         accentColor = AccentGreen,
         modifier = modifier
     ) {
-        // Motherboard Bypass Switch
+        // 1. Motherboard Bypass Switch
         LynxSwitch(
             label = stringResource(R.string.battery_bypass_switch),
             subLabel = stringResource(R.string.battery_bypass_desc),
             checked = state.charging.bypassEnabled,
-            onCheckedChange = { viewModel.setBypassCharging(it) }
+            onCheckedChange = { checked ->
+                if (checked) {
+                    showBypassWarningDialog = true
+                } else {
+                    viewModel.setBypassCharging(false)
+                }
+            }
+        )
+
+        Spacer(Modifier.height(4.dp))
+
+        // 2. Batas Pengisian Cerdas Toggle Switch (Default: ALWAYS OFF)
+        LynxSwitch(
+            label = stringResource(R.string.battery_smart_charge_limit),
+            subLabel = stringResource(R.string.battery_smart_limit_switch_desc),
+            checked = state.charging.autoCutEnabled,
+            onCheckedChange = { checked ->
+                if (checked) {
+                    showSmartLimitWarningDialog = true
+                } else {
+                    viewModel.setAutoCutEnabled(false)
+                }
+            }
         )
 
         var maxBatteryValue by remember {
@@ -63,26 +94,44 @@ fun BatteryProtectionCard(
 
         val context = LocalContext.current
         val smartLimitFull = stringResource(R.string.battery_smart_limit_full)
+        val isSmartLimitOn = state.charging.autoCutEnabled
+        val disabledNote = stringResource(R.string.battery_smart_limit_disabled_note)
 
+        // 3. Batas Pengisian Cerdas Slider (Controlled by isSmartLimitOn)
         LynxSlider(
             label = stringResource(R.string.battery_smart_charge_limit),
             value = maxBatteryValue,
+            enabled = isSmartLimitOn,
             onValueChange = {
-                isInteractingSafety = true
-                lastSafetyInteraction = System.currentTimeMillis()
-                maxBatteryValue = round(it)
+                if (isSmartLimitOn) {
+                    isInteractingSafety = true
+                    lastSafetyInteraction = System.currentTimeMillis()
+                    maxBatteryValue = round(it)
+                }
             },
             onValueChangeFinished = {
-                isInteractingSafety = false
-                lastSafetyInteraction = System.currentTimeMillis()
-                viewModel.setMaxBatteryPercent(round(maxBatteryValue).toInt())
+                if (isSmartLimitOn) {
+                    isInteractingSafety = false
+                    lastSafetyInteraction = System.currentTimeMillis()
+                    viewModel.setMaxBatteryPercent(round(maxBatteryValue).toInt())
+                }
             },
             valueRange = 50f..100f,
             steps = 49,
-            displayValue = if (maxBatteryValue >= 99.5f) smartLimitFull else context.getString(R.string.battery_smart_limit_bypass, round(maxBatteryValue).toInt()),
+            displayValue = if (!isSmartLimitOn) {
+                disabledNote
+            } else if (maxBatteryValue >= 99.5f) {
+                smartLimitFull
+            } else {
+                context.getString(R.string.battery_smart_limit_bypass, round(maxBatteryValue).toInt())
+            },
             formatDisplay = { v ->
-                val p = round(v).toInt()
-                if (p >= 100) smartLimitFull else context.getString(R.string.battery_smart_limit_bypass, p)
+                if (!isSmartLimitOn) {
+                    disabledNote
+                } else {
+                    val p = round(v).toInt()
+                    if (p >= 100) smartLimitFull else context.getString(R.string.battery_smart_limit_bypass, p)
+                }
             },
             accentColor = AccentGreen
         )
@@ -91,12 +140,12 @@ fun BatteryProtectionCard(
             text = stringResource(R.string.battery_smart_charge_limit_desc),
             style = MaterialTheme.typography.bodySmall,
             fontSize = 11.sp,
-            color = TextSecondary,
+            color = if (isSmartLimitOn) TextSecondary else TextSecondary.copy(alpha = 0.5f),
             lineHeight = 15.sp,
             modifier = Modifier.padding(bottom = 6.dp)
         )
 
-        // Overnight Gentle Charging Switch (Slow 1.5A)
+        // 4. Overnight Gentle Charging Switch (Slow 1.5A)
         LynxSwitch(
             label = stringResource(R.string.battery_night_sleep_guard),
             subLabel = stringResource(R.string.battery_night_sleep_guard_desc),
@@ -104,8 +153,7 @@ fun BatteryProtectionCard(
             onCheckedChange = { viewModel.setNightSleepGuard(it) }
         )
 
-
-        // Silent Emergency Guard Status Banner
+        // 5. Silent Emergency Guard Status Banner
         Surface(
             shape = RoundedCornerShape(8.dp),
             color = BgCard,
@@ -126,5 +174,91 @@ fun BatteryProtectionCard(
                 )
             }
         }
+    }
+
+    // Confirmation Dialog for Smart Charging Limit (Batas Pengisian Cerdas)
+    if (showSmartLimitWarningDialog) {
+        AlertDialog(
+            onDismissRequest = { showSmartLimitWarningDialog = false },
+            icon = { Icon(Icons.Default.Shield, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(28.dp)) },
+            title = {
+                Text(
+                    text = stringResource(R.string.battery_smart_limit_dialog_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.battery_smart_limit_dialog_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSmartLimitWarningDialog = false
+                        viewModel.setAutoCutEnabled(true)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black)
+                ) {
+                    Text(stringResource(R.string.action_understand_activate), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSmartLimitWarningDialog = false }) {
+                    Text(stringResource(R.string.action_cancel), color = TextSecondary)
+                }
+            },
+            containerColor = BgCard,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary
+        )
+    }
+
+    // Confirmation Dialog for Motherboard Bypass
+    if (showBypassWarningDialog) {
+        AlertDialog(
+            onDismissRequest = { showBypassWarningDialog = false },
+            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(28.dp)) },
+            title = {
+                Text(
+                    text = stringResource(R.string.battery_bypass_dialog_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.battery_bypass_dialog_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showBypassWarningDialog = false
+                        viewModel.setBypassCharging(true)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange, contentColor = Color.Black)
+                ) {
+                    Text(stringResource(R.string.action_understand_activate), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBypassWarningDialog = false }) {
+                    Text(stringResource(R.string.action_cancel), color = TextSecondary)
+                }
+            },
+            containerColor = BgCard,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary
+        )
     }
 }

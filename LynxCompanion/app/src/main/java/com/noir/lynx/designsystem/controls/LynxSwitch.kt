@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,6 +61,14 @@ fun LynxSwitch(
     LaunchedEffect(checked) {
         val now = System.currentTimeMillis()
         if (now - lastInteractionTime > 600L) {
+            localChecked = checked
+        }
+    }
+
+    // If an interaction is canceled or not confirmed by caller, revert to single source of truth
+    LaunchedEffect(lastClickTime) {
+        if (lastClickTime > 0L) {
+            delay(650L)
             localChecked = checked
         }
     }

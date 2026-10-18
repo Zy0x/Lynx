@@ -1899,7 +1899,7 @@ impl ChargingRegulator {
         }
 
         // Tier 3: AutoCut when 100% Full (Overnight / Safe Full AutoCut)
-        if cur_cap >= 100 || cur_stat == "Full" {
+        if cfg.auto_cut_enabled && (cur_cap >= 100 || cur_stat == "Full") {
             let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_100 cap={}\n", cur_cap));
             Self::apply_bypass_charging();
             return;
@@ -1908,7 +1908,7 @@ impl ChargingRegulator {
         // Tier 4: Smart battery limit (50%–99%).
         // With 3% hysteresis buffer to prevent continuous flapping
         let smart_limit = cfg.max_battery_percent.clamp(0, 100) as u32;
-        if smart_limit > 0 && smart_limit < 100 {
+        if cfg.auto_cut_enabled && smart_limit > 0 && smart_limit < 100 {
             let is_currently_bypassed = Path::new("/dev/lynx_bypass_active").exists();
             let lower_hysteresis_bound = smart_limit.saturating_sub(3);
 
@@ -1943,6 +1943,17 @@ impl ChargingRegulator {
                 Self::apply_bypass_charging();
                 return;
             }
+        } else if Path::new("/dev/lynx_bypass_active").exists() && !cfg.bypass_enabled {
+            // AutoCut is disabled and manual bypass is disabled: clear any lingering bypass state
+            let _ = fs::remove_file("/dev/lynx_bypass_active");
+            let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
+            Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
+            Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
+            Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+            Self::unlock_extreme_nodes();
         }
 
         // Tier 5: Gentle overnight charging (23:00–06:00, 1500 mA).
@@ -2616,7 +2627,7 @@ impl ChargingRegulator {
         let effective_temp_dc = if temp_raw > 0 { temp_raw } else { real_dc };
 
         format!(
-            "{{\n  \"capacity\": {},\n  \"status\": \"{}\",\n  \"health\": \"{}\",\n  \"temperature_c\": {:.1},\n  \"real_physical_temp_c\": {:.1},\n  \"voltage_mv\": {},\n  \"current_ma\": {},\n  \"adapter_voltage_mv\": {},\n  \"adapter_current_ma\": {},\n  \"active_ic\": \"{}\",\n  \"detected_hardware_chips\": \"{}\",\n  \"dynamic_scanned_nodes_count\": {},\n  \"fast_charge_protocol\": \"{}\",\n  \"rfc_authenticated\": {},\n  \"hardware_platform\": \"{}\",\n  \"is_props_spoofed\": {},\n  \"spoof_detail\": \"{}\",\n  \"emergency_guard_active\": {},\n  \"overnight_bypass_latched\": {},\n  \"smart_limit_latched\": {},\n  \"bypass_active\": {},\n  \"smart_tapering_active\": {},\n  \"charging_mode\": \"{}\",\n  \"bypass_enabled\": {},\n  \"extreme_charging_enabled\": {},\n  \"limit_current_ma\": {},\n  \"max_battery_percent\": {},\n  \"high_current_target_percent\": {},\n  \"temp_cutoff_c\": {},\n  \"thermal_lockout_bypass_enabled\": {},\n  \"smart_tapering_enabled\": {},\n  \"emergency_temp_guard_enabled\": {},\n  \"night_sleep_guard_enabled\": {}\n}}",
+            "{{\n  \"capacity\": {},\n  \"status\": \"{}\",\n  \"health\": \"{}\",\n  \"temperature_c\": {:.1},\n  \"real_physical_temp_c\": {:.1},\n  \"voltage_mv\": {},\n  \"current_ma\": {},\n  \"adapter_voltage_mv\": {},\n  \"adapter_current_ma\": {},\n  \"active_ic\": \"{}\",\n  \"detected_hardware_chips\": \"{}\",\n  \"dynamic_scanned_nodes_count\": {},\n  \"fast_charge_protocol\": \"{}\",\n  \"rfc_authenticated\": {},\n  \"hardware_platform\": \"{}\",\n  \"is_props_spoofed\": {},\n  \"spoof_detail\": \"{}\",\n  \"emergency_guard_active\": {},\n  \"overnight_bypass_latched\": {},\n  \"smart_limit_latched\": {},\n  \"bypass_active\": {},\n  \"smart_tapering_active\": {},\n  \"charging_mode\": \"{}\",\n  \"bypass_enabled\": {},\n  \"extreme_charging_enabled\": {},\n  \"limit_current_ma\": {},\n  \"max_battery_percent\": {},\n  \"high_current_target_percent\": {},\n  \"temp_cutoff_c\": {},\n  \"thermal_lockout_bypass_enabled\": {},\n  \"smart_tapering_enabled\": {},\n  \"emergency_temp_guard_enabled\": {},\n  \"night_sleep_guard_enabled\": {},\n  \"auto_cut_enabled\": {}\n}}",
             cap,
             stat,
             hlth,
@@ -2649,7 +2660,8 @@ impl ChargingRegulator {
             cfg.thermal_lockout_bypass_enabled,
             cfg.smart_tapering_enabled,
             cfg.emergency_temp_guard_enabled,
-            cfg.night_sleep_guard_enabled
+            cfg.night_sleep_guard_enabled,
+            cfg.auto_cut_enabled
         )
     }
 

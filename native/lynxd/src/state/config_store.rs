@@ -36,7 +36,7 @@ impl Default for ChargingConfigState {
             limit_current_ma: 6000,
             is_unconstrained_max_hw: false,
             custom_limit_current_ma: 6000,
-            auto_cut_enabled: true,
+            auto_cut_enabled: false,
             max_battery_percent: 80,
             high_current_target_percent: 90,
             emergency_temp_guard_enabled: true,
@@ -122,7 +122,7 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
     "temp_cutoff_c": 45,
     "limit_current_ma": 2000,
     "max_battery_percent": 80,
-    "auto_cut_enabled": true
+    "auto_cut_enabled": false
   },
   "uclamp": {
     "game_min_ratio": 70,
@@ -503,7 +503,7 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
             }
         }
         if let Some(v) = Self::get_from_str(&content, "charging.auto_cut_enabled") {
-            cfg.auto_cut_enabled = v != "false";
+            cfg.auto_cut_enabled = v == "true";
         }
         if let Some(v) = Self::get_from_str(&content, "charging.max_battery_percent") {
             if let Ok(n) = v.parse::<i32>() {

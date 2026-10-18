@@ -58,7 +58,7 @@ data class ChargingConfig(
     val extremeChargingEnabled: Boolean = false,
     val tempCutoffC: Int = 45,
     val limitCurrentMa: Int = 6000,
-    val autoCutEnabled: Boolean = true,
+    val autoCutEnabled: Boolean = false,
     val maxBatteryPercent: Int = 80,
     val highCurrentTargetPercent: Int = 90,
     val emergencyTempGuardEnabled: Boolean = true,

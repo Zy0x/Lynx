@@ -156,6 +156,13 @@
     <string name="battery_bypass_switch">Daya Langsung ke Mesin (Bypass)</string>
     <string name="battery_bypass_desc">Mengalirkan listrik charger langsung ke mesin tanpa mengisi baterai. Sangat berguna saat bermain game agar suhu ponsel tetap dingin dan baterai tidak cepat aus.</string>
     <string name="battery_smart_charge_limit">Batas Pengisian Cerdas</string>
+    <string name="battery_smart_limit_switch_desc">Batasi pengisian daya baterai pada persentase tertentu untuk memperpanjang usia baterai.</string>
+    <string name="battery_smart_limit_disabled_note">Nonaktif (Pengisian normal hingga 100%)</string>
+    <string name="battery_smart_limit_dialog_title">Konfirmasi Batas Pengisian Cerdas</string>
+    <string name="battery_smart_limit_dialog_desc" formatted="false">Fitur Batas Pengisian Cerdas membatasi pengisian baterai pada persentase yang Anda tentukan.\n\n⚠️ Catatan Kompatibilitas Hardware:\n\n• Perangkat dengan IC Bypass Khusus (Dual-Path PMIC / ROG Phone / Infinix / Black Shark): Daya adaptor dialirkan langsung ke mesin tanpa mengisi baterai cell.\n\n• Perangkat Tanpa IC Bypass (Single-Path PMIC seperti Redmi Note 7, POCO, dan ponsel standar): Perangkat tidak memiliki jalur bypass fisik. Ketika batas tercapai, sistem akan memutus total arus charger sehingga ponsel menyala murni dari baterai (Discharging). Setelah baterai turun 3% di bawah batas, charger akan aktif kembali (siklus histeresis mati-nyala).\n\nApakah Anda memahami hal ini dan ingin mengaktifkannya?</string>
+    <string name="battery_bypass_dialog_title">Konfirmasi Bypass Motherboard</string>
+    <string name="battery_bypass_dialog_desc" formatted="false">Fitur Bypass Motherboard memaksa penghentian pengisian sel baterai dan mengalirkan daya langsung ke mesin ponsel.\n\n⚠️ Perangkat Tanpa IC Bypass Fisik (Single-Path PMIC): Arus pengisian akan diputus total dan perangkat akan beroperasi menggunakan daya baterai sepenuhnya.\n\nApakah Anda ingin melanjutkan?</string>
+    <string name="action_understand_activate">Pahami &amp; Aktifkan</string>
     <string name="battery_smart_limit_full">100% (Penuh &amp; AutoCut)</string>
     <string name="battery_smart_limit_bypass">%1$d%% (Bypass Langsung)</string>
     <string name="battery_smart_charge_limit_desc" formatted="false">Menghentikan pengisian sel baterai pada persentase pilihan Anda (50% - 100%) dan mengalirkan daya langsung ke mesin. Dilengkapi buffer histeresis 3% pintar (contoh: batas 80% akan berhenti di 80% dan hanya melanjutkan pengisian saat turun ke 77%) untuk mencegah siklus colok-cabut berulang.</string>

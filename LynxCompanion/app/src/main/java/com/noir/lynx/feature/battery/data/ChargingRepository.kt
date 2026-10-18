@@ -54,6 +54,34 @@ class ChargingRepository(
         }
     }
 
+    suspend fun setAutoCutEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            repository.writeStateKey("charging.auto_cut_enabled", enabled.toString(), "bool")
+            val nativeResult = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging apply && echo lynx_applied; fi").exec()
+            if (nativeResult.isSuccess && nativeResult.out.any { it.trim() == "lynx_applied" }) {
+                return@withContext true
+            }
+            if (!enabled) {
+                Shell.cmd("""
+                    for node in /sys/class/power_supply/battery/charge_control_limit_max /sys/class/power_supply/battery/charge_control_limit; do
+                        [ -w "${'$'}node" ] && printf '100\n' > "${'$'}node" 2>/dev/null
+                    done
+                    for node in /sys/class/power_supply/battery/charging_enabled /sys/class/power_supply/battery/battery_charging_enabled; do
+                        [ -w "${'$'}node" ] && printf '1\n' > "${'$'}node" 2>/dev/null
+                    done
+                    for node in /sys/class/power_supply/battery/input_suspend; do
+                        [ -w "${'$'}node" ] && printf '0\n' > "${'$'}node" 2>/dev/null
+                    done
+                    rm -f /dev/lynx_bypass_active 2>/dev/null
+                    dumpsys battery reset 2>/dev/null
+                """.trimIndent()).exec()
+            }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     /**
      * Apply OEM bypass, fast-charge negotiation, or standard-rate charging mode.
      * Supports Qualcomm Snapdragon, MediaTek (Dimensity/Helio), Samsung Exynos,

@@ -61,6 +61,37 @@ fun LynxViewModel.setBypassCharging(enabled: Boolean) {
     }
 }
 
+fun LynxViewModel.setAutoCutEnabled(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(
+            state = current.state.copy(
+                charging = current.state.charging.copy(autoCutEnabled = enabled)
+            ),
+            batteryDetails = if (!enabled) {
+                current.batteryDetails?.copy(
+                    isSmartLimitLatched = false,
+                    isBypassActive = current.batteryDetails?.isBypassActive == true && current.state.charging.bypassEnabled
+                )
+            } else current.batteryDetails
+        )
+    }
+    setKey("charging.auto_cut_enabled", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.setAutoCutEnabled(enabled)
+        refreshBatteryDetails()
+        _uiState.update {
+            it.copy(
+                successMessage = if (enabled) {
+                    "Batas Pengisian Cerdas diaktifkan (${_uiState.value.state.charging.maxBatteryPercent}%)."
+                } else {
+                    "Batas Pengisian Cerdas dinonaktifkan (Pengisian normal hingga 100%)."
+                }
+            )
+        }
+    }
+}
+
 fun LynxViewModel.setExtremeCharging(enabled: Boolean) {
     recordStateMutation()
     _uiState.update { current ->

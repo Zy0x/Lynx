@@ -178,9 +178,10 @@ fun FastChargingControlCard(
         val curLevel = battDetails?.level ?: 0
         val isBypassFeatureEnabled = state.charging.bypassEnabled
         val smartLimit = state.charging.maxBatteryPercent.coerceIn(50, 100)
-        val isOvernightLatched = isPlugged && (battDetails?.isOvernightBypassLatched == true || curLevel >= 100)
-        val isLimitLatched = isPlugged && smartLimit < 100 && (battDetails?.isSmartLimitLatched == true || (battDetails?.isBypassActive == true && curLevel >= (smartLimit - 2)))
-        val isLimitUnapplied = isPlugged && smartLimit < 100 && curLevel >= smartLimit && !isLimitLatched
+        val isAutoCut = state.charging.autoCutEnabled
+        val isOvernightLatched = isPlugged && isAutoCut && (battDetails?.isOvernightBypassLatched == true || curLevel >= 100)
+        val isLimitLatched = isPlugged && isAutoCut && smartLimit < 100 && (battDetails?.isSmartLimitLatched == true || (battDetails?.isBypassActive == true && curLevel >= (smartLimit - 2)))
+        val isLimitUnapplied = isPlugged && isAutoCut && smartLimit < 100 && curLevel >= smartLimit && !isLimitLatched
         val isManualBypass = isPlugged && isBypassFeatureEnabled && battDetails?.isBypassActive == true
         val isNightGentle = isPlugged && (battDetails?.isNightGentleActive == true || (state.charging.nightSleepGuardEnabled && isCharging && Calendar.getInstance().get(Calendar.HOUR_OF_DAY).let { it >= 23 || it < 6 })) && !isManualBypass
         val isSmartTapering = isPlugged && isCharging && battDetails?.isSmartTaperingActive == true && state.charging.smartTaperingEnabled && !isManualBypass
