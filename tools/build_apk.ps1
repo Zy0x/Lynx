@@ -34,7 +34,7 @@ if ($freeRam -lt 2.0) {
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location "$repoRoot\LynxCompanion"
-$buildOptions = @("--no-configuration-cache", "--max-workers=1")
+$buildOptions = @("--no-daemon", "--no-configuration-cache", "--max-workers=1")
 if ($DisableBuildCache) { $buildOptions += "--no-build-cache" }
 $unitTasks = @()
 if ($RunUnitTests) { $unitTasks += (":app:test" + $Variant + "UnitTest") }

@@ -73,93 +73,124 @@ internal object LynxVmTuningRepository {
         } catch (e: Exception) { false }
     }
 
+    @Volatile
+    private var cachedVmConfig: VirtualMemoryAdvancedConfig? = null
+
+    private fun readVmInt(path: String, default: Int): Int {
+        return try {
+            val file = java.io.File(path)
+            if (file.exists() && file.canRead()) {
+                file.readText().trim().toIntOrNull() ?: default
+            } else {
+                Shell.cmd("cat $path 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: default
+            }
+        } catch (_: Exception) {
+            default
+        }
+    }
+
     suspend fun readDirtyRatio(): Int = withContext(Dispatchers.IO) {
-        try {
-            Shell.cmd("cat /proc/sys/vm/dirty_ratio 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 20
-        } catch (e: Exception) { 20 }
+        cachedVmConfig?.dirtyRatio ?: readVmInt("/proc/sys/vm/dirty_ratio", 20)
     }
 
     suspend fun setDirtyRatio(ratio: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             val cmd = "echo $ratio > /proc/sys/vm/dirty_ratio 2>/dev/null && [ \"$(cat /proc/sys/vm/dirty_ratio 2>/dev/null)\" = \"$ratio\" ] && echo ok"
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyRatio = ratio)
+            }
+            ok
         } catch (e: Exception) { false }
     }
 
     suspend fun readVfsCachePressure(): Int = withContext(Dispatchers.IO) {
-        try {
-            Shell.cmd("cat /proc/sys/vm/vfs_cache_pressure 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 100
-        } catch (e: Exception) { 100 }
+        cachedVmConfig?.vfsCachePressure ?: readVmInt("/proc/sys/vm/vfs_cache_pressure", 100)
     }
 
     suspend fun setVfsCachePressure(pressure: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             val cmd = "echo $pressure > /proc/sys/vm/vfs_cache_pressure 2>/dev/null && [ \"$(cat /proc/sys/vm/vfs_cache_pressure 2>/dev/null)\" = \"$pressure\" ] && echo ok"
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(vfsCachePressure = pressure)
+            }
+            ok
         } catch (e: Exception) { false }
     }
 
     suspend fun readDirtyBackgroundRatio(): Int = withContext(Dispatchers.IO) {
-        try {
-            Shell.cmd("cat /proc/sys/vm/dirty_background_ratio 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 5
-        } catch (_: Exception) { 5 }
+        cachedVmConfig?.dirtyBackgroundRatio ?: readVmInt("/proc/sys/vm/dirty_background_ratio", 5)
     }
 
     suspend fun setDirtyBackgroundRatio(ratio: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             val cmd = "echo $ratio > /proc/sys/vm/dirty_background_ratio 2>/dev/null && [ \"$(cat /proc/sys/vm/dirty_background_ratio 2>/dev/null)\" = \"$ratio\" ] && echo ok"
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyBackgroundRatio = ratio)
+            }
+            ok
         } catch (_: Exception) { false }
     }
 
     suspend fun readDirtyExpireCentisecs(): Int = withContext(Dispatchers.IO) {
-        try {
-            Shell.cmd("cat /proc/sys/vm/dirty_expire_centisecs 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 3000
-        } catch (_: Exception) { 3000 }
+        cachedVmConfig?.dirtyExpireCentisecs ?: readVmInt("/proc/sys/vm/dirty_expire_centisecs", 3000)
     }
 
     suspend fun setDirtyExpireCentisecs(cs: Int): Boolean = withContext(Dispatchers.IO) {
         try {
-            Shell.cmd("echo $cs > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null; echo ok")
+            val ok = Shell.cmd("echo $cs > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null; echo ok")
                 .exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyExpireCentisecs = cs)
+            }
+            ok
         } catch (_: Exception) { false }
     }
 
     suspend fun readDirtyWritebackCentisecs(): Int = withContext(Dispatchers.IO) {
-        try {
-            Shell.cmd("cat /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 500
-        } catch (_: Exception) { 500 }
+        cachedVmConfig?.dirtyWritebackCentisecs ?: readVmInt("/proc/sys/vm/dirty_writeback_centisecs", 500)
     }
 
     suspend fun setDirtyWritebackCentisecs(cs: Int): Boolean = withContext(Dispatchers.IO) {
         try {
-            Shell.cmd("echo $cs > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null; echo ok")
+            val ok = Shell.cmd("echo $cs > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null; echo ok")
                 .exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyWritebackCentisecs = cs)
+            }
+            ok
         } catch (_: Exception) { false }
     }
 
     suspend fun readVmStatInterval(): Int = withContext(Dispatchers.IO) {
-        try {
-            Shell.cmd("cat /proc/sys/vm/stat_interval 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 1
-        } catch (_: Exception) { 1 }
+        cachedVmConfig?.statInterval ?: readVmInt("/proc/sys/vm/stat_interval", 1)
     }
 
     suspend fun setVmStatInterval(interval: Int): Boolean = withContext(Dispatchers.IO) {
         try {
-            Shell.cmd("echo $interval > /proc/sys/vm/stat_interval 2>/dev/null; echo ok")
+            val ok = Shell.cmd("echo $interval > /proc/sys/vm/stat_interval 2>/dev/null; echo ok")
                 .exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(statInterval = interval)
+            }
+            ok
         } catch (_: Exception) { false }
     }
 
-    suspend fun readVirtualMemoryAdvancedConfig(): VirtualMemoryAdvancedConfig = withContext(Dispatchers.IO) {
+    suspend fun readVirtualMemoryAdvancedConfig(forceRefresh: Boolean = false): VirtualMemoryAdvancedConfig = withContext(Dispatchers.IO) {
+        if (!forceRefresh && cachedVmConfig != null) {
+            return@withContext cachedVmConfig!!
+        }
         try {
-            val swappiness = Shell.cmd("cat /proc/sys/vm/swappiness 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 100
-            val dirtyRatio = readDirtyRatio()
-            val dirtyBackground = readDirtyBackgroundRatio()
-            val vfsPressure = readVfsCachePressure()
-            val expire = readDirtyExpireCentisecs()
-            val writeback = readDirtyWritebackCentisecs()
-            val stat = readVmStatInterval()
+            val swappiness = readVmInt("/proc/sys/vm/swappiness", 100)
+            val dirtyRatio = readVmInt("/proc/sys/vm/dirty_ratio", 20)
+            val dirtyBackground = readVmInt("/proc/sys/vm/dirty_background_ratio", 5)
+            val vfsPressure = readVmInt("/proc/sys/vm/vfs_cache_pressure", 100)
+            val expire = readVmInt("/proc/sys/vm/dirty_expire_centisecs", 3000)
+            val writeback = readVmInt("/proc/sys/vm/dirty_writeback_centisecs", 500)
+            val stat = readVmInt("/proc/sys/vm/stat_interval", 1)
 
             val preset = when {
                 dirtyRatio == 10 && dirtyBackground == 5 && vfsPressure == 150 -> "gaming"
@@ -168,7 +199,7 @@ internal object LynxVmTuningRepository {
                 else -> "custom"
             }
 
-            VirtualMemoryAdvancedConfig(
+            val cfg = VirtualMemoryAdvancedConfig(
                 swappiness = swappiness,
                 dirtyRatio = dirtyRatio,
                 dirtyBackgroundRatio = dirtyBackground,
@@ -178,6 +209,8 @@ internal object LynxVmTuningRepository {
                 statInterval = stat,
                 activePreset = preset
             )
+            cachedVmConfig = cfg
+            cfg
         } catch (_: Exception) {
             VirtualMemoryAdvancedConfig()
         }

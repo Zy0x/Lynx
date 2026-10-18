@@ -5,7 +5,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 internal object LynxSystemTuningRepository {
-    suspend fun readKsmStats(): KsmStats = withContext(Dispatchers.IO) {
+    @Volatile
+    private var cachedKsmStats: KsmStats? = null
+    @Volatile
+    private var cachedIoDevices: List<IoDeviceInfo>? = null
+    @Volatile
+    private var cachedTcpAlgos: List<String>? = null
+    @Volatile
+    private var cachedTcpCurrent: String? = null
+
+    suspend fun readKsmStats(forceRefresh: Boolean = false): KsmStats = withContext(Dispatchers.IO) {
+        if (!forceRefresh && cachedKsmStats != null) {
+            return@withContext cachedKsmStats!!
+        }
         try {
             val r = Shell.cmd("""
                 K=/sys/kernel/mm/ksm
@@ -27,8 +39,10 @@ internal object LynxSystemTuningRepository {
                 }
             }
             val savedMb = ((sharing - shared).coerceAtLeast(0L) * 4096L / 1024f / 1024f)
-            KsmStats(enabled = enabled, pagesShared = shared, pagesSharing = sharing,
+            val stats = KsmStats(enabled = enabled, pagesShared = shared, pagesSharing = sharing,
                 savedMb = savedMb, pagesToScan = scan, sleepMs = sleep)
+            cachedKsmStats = stats
+            stats
         } catch (e: Exception) { Log.e("LynxRepository", "readKsmStats: ${e.message}"); KsmStats() }
     }
 
@@ -39,19 +53,27 @@ internal object LynxSystemTuningRepository {
 
             val v = if (enabled) "1" else "0"
             val cmd = "chmod 644 /sys/kernel/mm/ksm/run 2>/dev/null && echo $v > /sys/kernel/mm/ksm/run 2>/dev/null && [ \"$(cat /sys/kernel/mm/ksm/run 2>/dev/null)\" = \"$v\" ] && echo ok"
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                cachedKsmStats = cachedKsmStats?.copy(enabled = enabled)
+            }
+            ok
         } catch (e: Exception) { false }
     }
 
     suspend fun setKsmTunables(pagesToScan: Int, sleepMs: Int): Boolean = withContext(Dispatchers.IO) {
         try {
-            Shell.cmd("""
+            val ok = Shell.cmd("""
                 chmod 644 /sys/kernel/mm/ksm/pages_to_scan 2>/dev/null
                 echo $pagesToScan > /sys/kernel/mm/ksm/pages_to_scan 2>/dev/null
                 chmod 644 /sys/kernel/mm/ksm/sleep_millisecs 2>/dev/null
                 echo $sleepMs > /sys/kernel/mm/ksm/sleep_millisecs 2>/dev/null
                 echo ok
             """.trimIndent()).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                cachedKsmStats = cachedKsmStats?.copy(pagesToScan = pagesToScan, sleepMs = sleepMs)
+            }
+            ok
         } catch (e: Exception) { false }
     }
 
@@ -59,7 +81,10 @@ internal object LynxSystemTuningRepository {
     //  Phase 1 Quick Wins: I/O Scheduler (per block device)
     // ----------------------------------------------------------------
 
-    suspend fun readIoDevices(): List<IoDeviceInfo> = withContext(Dispatchers.IO) {
+    suspend fun readIoDevices(forceRefresh: Boolean = false): List<IoDeviceInfo> = withContext(Dispatchers.IO) {
+        if (!forceRefresh && cachedIoDevices != null) {
+            return@withContext cachedIoDevices!!
+        }
         try {
             if (LynxRepository.isModuleInstalled()) {
                 val lynxRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' io info 2>/dev/null; fi").exec()
@@ -82,6 +107,7 @@ internal object LynxSystemTuningRepository {
                                 list.add(IoDeviceInfo(device = name, currentScheduler = cur, availableSchedulers = avail,
                                     readAheadKb = d.optInt("current_read_ahead_kb", 0)))
                             }
+                            cachedIoDevices = list
                             return@withContext list
                         }
                     }
@@ -109,6 +135,7 @@ internal object LynxSystemTuningRepository {
                 val cur = Regex("\\[([^]]+)]").find(schedRaw)?.groupValues?.getOrNull(1) ?: avail.firstOrNull() ?: "none"
                 list.add(IoDeviceInfo(device = dev, currentScheduler = cur, availableSchedulers = avail, readAheadKb = ra))
             }
+            cachedIoDevices = list
             list
         } catch (e: Exception) { Log.e("LynxRepository", "readIoDevices: ${e.message}"); emptyList() }
     }
@@ -117,15 +144,26 @@ internal object LynxSystemTuningRepository {
         try {
             val d = device.replace(Regex("[^a-zA-Z0-9_-]"), "")
             val s = scheduler.replace(Regex("[^a-zA-Z0-9\\-]"), "")
+            var ok = false
             if (LynxRepository.isModuleInstalled()) {
                 val cmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' io set-scheduler '$d' '$s' && echo ok; fi"
                 val res = Shell.cmd(cmd).exec()
                 val json = res.out.firstOrNull { it.trim().startsWith("{") }
                     ?.let { runCatching { JSONObject(it) }.getOrNull() }
-                if (json != null) return@withContext json.optBoolean("ok", false) && json.optInt("updated", 0) > 0
+                if (json != null) {
+                    ok = json.optBoolean("ok", false) && json.optInt("updated", 0) > 0
+                }
             }
-            val cmd = "if [ -f '/sys/block/$d/queue/scheduler' ]; then echo '$s' > '/sys/block/$d/queue/scheduler' 2>/dev/null && grep -q '\\[$s\\]' '/sys/block/$d/queue/scheduler' && echo ok; fi"
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            if (!ok) {
+                val cmd = "if [ -f '/sys/block/$d/queue/scheduler' ]; then echo '$s' > '/sys/block/$d/queue/scheduler' 2>/dev/null && grep -q '\\[$s\\]' '/sys/block/$d/queue/scheduler' && echo ok; fi"
+                ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            }
+            if (ok) {
+                cachedIoDevices = cachedIoDevices?.map {
+                    if (it.device == d) it.copy(currentScheduler = s) else it
+                }
+            }
+            ok
         } catch (e: Exception) { false }
     }
 
@@ -134,7 +172,13 @@ internal object LynxSystemTuningRepository {
         try {
             val d = device.replace(Regex("[^a-zA-Z0-9_-]"), "")
             val cmd = "if [ -f '/sys/block/$d/queue/read_ahead_kb' ]; then echo $kb > '/sys/block/$d/queue/read_ahead_kb' 2>/dev/null && [ \"$(cat /sys/block/$d/queue/read_ahead_kb 2>/dev/null)\" = \"$kb\" ] && echo ok; fi"
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                cachedIoDevices = cachedIoDevices?.map {
+                    if (it.device == d) it.copy(readAheadKb = kb) else it
+                }
+            }
+            ok
         } catch (e: Exception) { false }
     }
 
@@ -142,8 +186,19 @@ internal object LynxSystemTuningRepository {
     //  Phase 1 Quick Wins: TCP Congestion Control
     // ----------------------------------------------------------------
 
-    suspend fun readAvailableTcpAlgorithms(): List<String> = withContext(Dispatchers.IO) {
+    suspend fun readAvailableTcpAlgorithms(forceRefresh: Boolean = false): List<String> = withContext(Dispatchers.IO) {
+        if (!forceRefresh && cachedTcpAlgos != null) {
+            return@withContext cachedTcpAlgos!!
+        }
         try {
+            val direct = java.io.File("/proc/sys/net/ipv4/tcp_available_congestion_control")
+            if (direct.exists() && direct.canRead()) {
+                val algos = direct.readText().trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                if (algos.isNotEmpty()) {
+                    cachedTcpAlgos = algos
+                    return@withContext algos
+                }
+            }
             if (LynxRepository.isModuleInstalled()) {
                 val lynxRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' network info 2>/dev/null; fi").exec()
                 if (lynxRes.isSuccess && lynxRes.out.isNotEmpty()) {
@@ -154,18 +209,32 @@ internal object LynxSystemTuningRepository {
                         if (arr != null && arr.length() > 0) {
                             val list = mutableListOf<String>()
                             for (i in 0 until arr.length()) list.add(arr.optString(i))
+                            cachedTcpAlgos = list
                             return@withContext list
                         }
                     }
                 }
             }
-            Shell.cmd("cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null")
+            val algos = Shell.cmd("cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null")
                 .exec().out.firstOrNull()?.trim()?.split(Regex("\\s+"))?.filter { it.isNotBlank() } ?: emptyList()
+            cachedTcpAlgos = algos
+            algos
         } catch (e: Exception) { emptyList() }
     }
 
-    suspend fun readCurrentTcpCongestion(): String = withContext(Dispatchers.IO) {
+    suspend fun readCurrentTcpCongestion(forceRefresh: Boolean = false): String = withContext(Dispatchers.IO) {
+        if (!forceRefresh && cachedTcpCurrent != null) {
+            return@withContext cachedTcpCurrent!!
+        }
         try {
+            val direct = java.io.File("/proc/sys/net/ipv4/tcp_congestion_control")
+            if (direct.exists() && direct.canRead()) {
+                val cur = direct.readText().trim()
+                if (cur.isNotBlank()) {
+                    cachedTcpCurrent = cur
+                    return@withContext cur
+                }
+            }
             if (LynxRepository.isModuleInstalled()) {
                 val lynxRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' network info 2>/dev/null; fi").exec()
                 if (lynxRes.isSuccess && lynxRes.out.isNotEmpty()) {
@@ -173,25 +242,37 @@ internal object LynxSystemTuningRepository {
                     if (raw.startsWith("{")) {
                         val root = JSONObject(raw)
                         val cur = root.optString("current_algo", "")
-                        if (cur.isNotBlank()) return@withContext cur
+                        if (cur.isNotBlank()) {
+                            cachedTcpCurrent = cur
+                            return@withContext cur
+                        }
                     }
                 }
             }
-            Shell.cmd("cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null")
+            val cur = Shell.cmd("cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null")
                 .exec().out.firstOrNull()?.trim() ?: ""
+            cachedTcpCurrent = cur
+            cur
         } catch (_: Exception) { "" }
     }
 
     suspend fun setTcpCongestion(algorithm: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val safe = algorithm.replace(Regex("[^a-zA-Z0-9_]"), "")
+            var ok = false
             if (LynxRepository.isModuleInstalled()) {
                 val cmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' network set-algo '$safe' && echo ok; fi"
                 val res = Shell.cmd(cmd).exec()
-                if (res.out.any { it.contains("ok") || it.contains("set to") }) return@withContext true
+                if (res.out.any { it.contains("ok") || it.contains("set to") }) ok = true
             }
-            val cmd = "echo '$safe' > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null && [ \"$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null)\" = \"$safe\" ] && echo ok"
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            if (!ok) {
+                val cmd = "echo '$safe' > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null && [ \"$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null)\" = \"$safe\" ] && echo ok"
+                ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            }
+            if (ok) {
+                cachedTcpCurrent = safe
+            }
+            ok
         } catch (e: Exception) { false }
     }
 
