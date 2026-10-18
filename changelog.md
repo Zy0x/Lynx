@@ -1,3 +1,26 @@
+# Lynx Universal [Deterministic Alphabetical App Rule Ordering & Overlay-Guided Profile Configuration] 7.0.0-RC90
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC90** (Lynx Kernel Manager v3.1.42): **Pengurutan Deterministik Alfabetis Aturan Aplikasi (A-Z Case-Insensitive) di Seluruh Lapisan State & Repository, Eliminasi Bug Mutasi Urutan Daftar saat Konfigurasi Aplikasi Berurutan, Transformasi Profile Mode Badge Menjadi Pemicu Overlay Dialog Kustomisasi Aman (Pencegahan Miss-Touch & Cycling Langsung yang Membingungkan), Serta Isolasi State Dialog Berbasis Rule Signature**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC90)
+
+### 1. 🔤 Pengurutan Deterministik Alfabetis (A-Z) di Seluruh Lapisan
+- **Konsistensi Urutan Mutlak**: Seluruh daftar aturan aplikasi (`AppProfileRule`) kini diurutkan secara ketat menurut abjad nama aplikasi (`appName` dengan fallback `packageName`) case-insensitive di seluruh lapisan:
+  - Repository disk (`LynxAppProfileRulesRepository` saat load, save individual, save all, dan auto-detect).
+  - ViewModel reactive state (`LynxViewModel` & `LynxViewModelAutomation` pada inisialisasi state, mutasi update, dan sinkronisasi game).
+  - UI Composable filtering (`TuningProfilesCategory` pada query pencarian maupun filter kategori).
+  - Dialog pemilihan aplikasi baru (`availableApps` terurut rapi menurut label aplikasi).
+- **Eliminasi Bug Melompatnya Urutan (*List Jumbling Elimination*)**: Memperbaiki kelemahan filter-and-append (`filter + rule`) yang sebelumnya memindahkan aplikasi yang baru saja dikonfigurasi ke posisi paling bawah, sehingga daftar tidak lagi melompat atau menggeser posisi item lain saat pengguna mengonfigurasi beberapa aplikasi secara beruntun.
+
+### 2. 🛡️ Mode Badge Aman: Beralih ke Dialog Kustomisasi (Anti Miss-Touch)
+- **Penghapusan Direct In-Place Cycling**: Menghapus tombol swap dan aksi siklus profil langsung (`onCycleProfile`) pada badge profil kartu aturan. Penggantian profil secara tidak sengaja akibat sentuhan cepat kini dicegah sepenuhnya.
+- **Pemicu Dialog Overlay Terpadu**: Mengetuk badge profil kini membuka Overlay Floating Dialog Kustomisasi secara aman, di mana pengguna dapat memilih profil target (`Hemat Daya`, `Seimbang`, `Performa`, `Ekstrem`), refresh rate, serta opsi HUD dengan pratinjau dan konfirmasi yang jelas.
+
+### 3. 🧩 Isolasi State Dialog Berbasis Objek Rule
+- **Pembersihan Cache State Form**: Memperbaiki deklarasi `remember` pada form edit aturan aplikasi di `MainDashboard.kt` dari yang sebelumnya hanya berbasis `rule.packageName` menjadi berbasis referensi penuh objek `rule`. Hal ini memastikan perpindahan edit antar aplikasi yang berbeda selalu memuat nilai parameter yang segar dan akurat tanpa residu state lama.
+
+---
+
 # Lynx Universal [App Automation Subsystem Redesign & Cyberpunk Bento Architecture] 7.0.0-RC89
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC89** (Lynx Kernel Manager v3.1.41): **Penyelarasan Visual dan Redesain Menyeluruh Tab Otomasi Aplikasi: Transformasi Daftar Flat ke Cyberpunk Bento Cards (`AppRuleBentoCard`) dengan Ikon 42dp dan Target Profile Cycle Pill, Harmonisasi Hero Service Card dengan Live Override Badge dan Nothing OS Segmented Cooldown Capsule, Eliminasi Glitch Sudut Putih DropdownMenu secara Native, Serta Navigasi Virtualized Fluid 120 FPS LazyColumn Tanpa Nested Gesture Collision**.

@@ -194,12 +194,12 @@ fun MainDashboard(
     // ── Edit App Profile Rule Dialog ───────────────────────
     if (editingRule != null) {
         val rule = editingRule!!
-        var targetProf by remember(rule.packageName) { mutableStateOf(rule.targetProfile) }
-        var targetHz by remember(rule.packageName) { mutableStateOf(rule.targetRefreshRate) }
-        var autoHud by remember(rule.packageName) { mutableStateOf(rule.autoFloatingHud) }
-        var isRuleEnabled by remember(rule.packageName) { mutableStateOf(rule.enabled) }
+        var targetProf by remember(rule) { mutableStateOf(rule.targetProfile) }
+        var targetHz by remember(rule) { mutableStateOf(rule.targetRefreshRate) }
+        var autoHud by remember(rule) { mutableStateOf(rule.autoFloatingHud) }
+        var isRuleEnabled by remember(rule) { mutableStateOf(rule.enabled) }
 
-        val isExistingRule = remember(rule.packageName, uiState.appProfileRules) {
+        val isExistingRule = remember(rule, uiState.appProfileRules) {
             uiState.appProfileRules.any { it.packageName == rule.packageName }
         }
 
@@ -637,6 +637,7 @@ fun MainDashboard(
         }
         val availableApps = remember(allApps, configuredPkgs) {
             allApps.filter { !configuredPkgs.contains(it.packageName) }
+                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
         }
         val availableGameCount = remember(availableApps) { availableApps.count { it.isGame } }
         val availableRegularCount = remember(availableApps) { availableApps.count { !it.isGame } }

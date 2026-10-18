@@ -789,17 +789,19 @@ fun ProfilesAutomationScreen(
     var selectedFilter by remember { mutableStateOf("all") } // "all", "game", "active"
 
     val filteredRules = remember(uiState.appProfileRules, searchQuery, selectedFilter) {
-        uiState.appProfileRules.filter { rule ->
-            val matchesSearch = searchQuery.isBlank() ||
-                rule.appName.contains(searchQuery, ignoreCase = true) ||
-                rule.packageName.contains(searchQuery, ignoreCase = true)
-            val matchesFilter = when (selectedFilter) {
-                "game" -> rule.isGame
-                "active" -> rule.enabled
-                else -> true
+        uiState.appProfileRules
+            .filter { rule ->
+                val matchesSearch = searchQuery.isBlank() ||
+                    rule.appName.contains(searchQuery, ignoreCase = true) ||
+                    rule.packageName.contains(searchQuery, ignoreCase = true)
+                val matchesFilter = when (selectedFilter) {
+                    "game" -> rule.isGame
+                    "active" -> rule.enabled
+                    else -> true
+                }
+                matchesSearch && matchesFilter
             }
-            matchesSearch && matchesFilter
-        }
+            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
     }
 
     if (showClearAllDialog) {
@@ -2097,18 +2099,6 @@ fun AppRuleBentoCard(
     val onToggle = remember(rule.packageName) {
         { enabled: Boolean -> viewModel.toggleAppProfileRule(context, rule.packageName, enabled) }
     }
-    val onCycleProfile = remember(rule.packageName, rule.targetProfile) {
-        {
-            val nextProfile = when (rule.targetProfile.lowercase()) {
-                "powersave" -> "balance"
-                "balance" -> "performance"
-                "performance" -> "extreme"
-                "extreme" -> "powersave"
-                else -> "balance"
-            }
-            viewModel.addOrUpdateAppProfileRule(context, rule.copy(targetProfile = nextProfile))
-        }
-    }
 
     Surface(
         onClick = onRowClick,
@@ -2211,17 +2201,17 @@ fun AppRuleBentoCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // One-Tap Profile Cycle Pill
+                    // Target Profile Mode Badge (Opens customization overlay)
                     Surface(
-                        onClick = onCycleProfile,
+                        onClick = onRowClick,
                         shape = RoundedCornerShape(8.dp),
                         color = BgDeepOled,
-                        border = BorderStroke(0.8.dp, profDotColor.copy(alpha = 0.5f))
+                        border = BorderStroke(0.8.dp, profDotColor.copy(alpha = 0.45f))
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Surface(
                                 shape = CircleShape,
@@ -2234,12 +2224,6 @@ fun AppRuleBentoCard(
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                            )
-                            Icon(
-                                imageVector = Icons.Default.SwapHoriz,
-                                contentDescription = "Ganti Profil",
-                                tint = profDotColor.copy(alpha = 0.75f),
-                                modifier = Modifier.size(13.dp)
                             )
                         }
                     }

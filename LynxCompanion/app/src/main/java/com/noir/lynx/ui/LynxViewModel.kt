@@ -228,7 +228,7 @@ class LynxViewModel : ViewModel() {
                         siliconTopologyDetails = siliconDetails,
                         batteryDetails = batteryDetails,
                         deepTunables = cachedTunables,
-                        appProfileRules = appRules,
+                        appProfileRules = appRules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } }),
                         isGameHudActive = isHudRunning,
                         isAppAutomationActive = isAutoRunning,
                         voltageInfo = voltageInfo,

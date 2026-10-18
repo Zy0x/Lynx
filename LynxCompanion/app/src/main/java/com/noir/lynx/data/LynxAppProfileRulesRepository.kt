@@ -8,13 +8,16 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 internal object LynxAppProfileRulesRepository {
+    const val LEGACY_APP_RULES_PATH = "/storage/emulated/0/Lynx/app_rules.json"
+    const val LEGACY_APPLIST_PERF_PATH = "/storage/emulated/0/Lynx/applist_perf.txt"
+
     suspend fun readAppProfileRules(): List<AppProfileRule> = withContext(Dispatchers.IO) {
         try {
             val path = LynxRepository.getAppRulesPathForFeature()
             var res = Shell.cmd("cat '$path' 2>/dev/null").exec()
             var raw = res.out.joinToString("\n").trim()
-            if ((!raw.startsWith("[") || !raw.endsWith("]")) && Shell.cmd("[ -f '$LynxRepository.LEGACY_APP_RULES_PATH' ]").exec().isSuccess) {
-                res = Shell.cmd("cat '$LynxRepository.LEGACY_APP_RULES_PATH' 2>/dev/null").exec()
+            if ((!raw.startsWith("[") || !raw.endsWith("]")) && Shell.cmd("[ -f '$LEGACY_APP_RULES_PATH' ]").exec().isSuccess) {
+                res = Shell.cmd("cat '$LEGACY_APP_RULES_PATH' 2>/dev/null").exec()
                 raw = res.out.joinToString("\n").trim()
             }
             if (raw.startsWith("[") && raw.endsWith("]")) {
@@ -47,7 +50,7 @@ internal object LynxAppProfileRulesRepository {
                         )
                     )
                 }
-                return@withContext list
+                return@withContext list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
             }
             // Fallback: If app_rules.json doesn't exist yet, populate ONLY from installed apps that match templates or are games
             val allApps = LynxRepository.readInstalledAppInfos()
@@ -72,9 +75,12 @@ internal object LynxAppProfileRulesRepository {
                 )
             }
             if (initialRules.isNotEmpty()) {
-                saveAllAppProfileRules(initialRules)
+                val sortedInitial = initialRules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
+                saveAllAppProfileRules(sortedInitial)
+                sortedInitial
+            } else {
+                initialRules
             }
-            initialRules
         } catch (e: Exception) {
             Log.e("LynxRepository", "readAppProfileRules error: ${e.message}")
             emptyList()
@@ -83,9 +89,10 @@ internal object LynxAppProfileRulesRepository {
 
     suspend fun saveAllAppProfileRules(rules: List<AppProfileRule>): Boolean = withContext(Dispatchers.IO) {
         try {
+            val sortedRules = rules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
             val array = org.json.JSONArray()
             val perfPkgs = mutableSetOf<String>()
-            rules.forEach { r ->
+            sortedRules.forEach { r ->
                 val obj = org.json.JSONObject()
                 obj.put("packageName", r.packageName)
                 obj.put("appName", r.appName)
@@ -114,7 +121,7 @@ internal object LynxAppProfileRulesRepository {
             ).exec()
 
             // Synchronize with app_rules.tsv for ultra-fast root daemon parsing
-            val tsvLines = rules.filter { it.enabled }.joinToString("\n") { r ->
+            val tsvLines = sortedRules.filter { it.enabled }.joinToString("\n") { r ->
                 "${r.packageName}|${r.targetProfile}|${r.targetRefreshRate ?: -1}|${if (r.autoFloatingHud) "1" else "0"}|${r.appName}|${r.gpuMinFreqKhz ?: -1}|${r.gpuMaxFreqKhz ?: -1}|${r.gpuBoostLevel ?: -1}|${r.adaptiveAuthority}|${r.colorProfile ?: ""}"
             }
             Shell.cmd(
@@ -125,8 +132,8 @@ internal object LynxAppProfileRulesRepository {
             // If user has /storage/emulated/0/Lynx directory, sync there as well
             if (Shell.cmd("[ -d '/storage/emulated/0/Lynx' ]").exec().isSuccess) {
                 Shell.cmd(
-                    "cat << 'EOF' > '$LynxRepository.LEGACY_APP_RULES_PATH'\n$jsonStr\nEOF",
-                    "chmod 666 '$LynxRepository.LEGACY_APP_RULES_PATH' 2>/dev/null"
+                    "cat << 'EOF' > '$LEGACY_APP_RULES_PATH'\n$jsonStr\nEOF",
+                    "chmod 666 '$LEGACY_APP_RULES_PATH' 2>/dev/null"
                 ).exec()
             }
 
@@ -140,8 +147,8 @@ internal object LynxAppProfileRulesRepository {
 
             if (Shell.cmd("[ -d '/storage/emulated/0/Lynx' ]").exec().isSuccess) {
                 Shell.cmd(
-                    "cat << 'EOF' > '$LynxRepository.LEGACY_APPLIST_PERF_PATH'\n$lines\nEOF",
-                    "chmod 666 '$LynxRepository.LEGACY_APPLIST_PERF_PATH' 2>/dev/null"
+                    "cat << 'EOF' > '$LEGACY_APPLIST_PERF_PATH'\n$lines\nEOF",
+                    "chmod 666 '$LEGACY_APPLIST_PERF_PATH' 2>/dev/null"
                 ).exec()
             }
             com.noir.lynx.service.LynxAppAutomationService.reloadRules()
@@ -191,12 +198,12 @@ internal object LynxAppProfileRulesRepository {
             }
         }
 
+        val sorted = currentRules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
         if (newlyDetected.isNotEmpty()) {
-            currentRules.addAll(newlyDetected)
-            saveAllAppProfileRules(currentRules)
+            saveAllAppProfileRules(sorted)
         }
 
-        Pair(newlyDetected.size, currentRules)
+        Pair(newlyDetected.size, sorted)
     }
 
     private fun isBenchmarkPackage(pkg: String): Boolean {
@@ -248,7 +255,8 @@ internal object LynxAppProfileRulesRepository {
         } else {
             current.add(rule)
         }
-        saveAllAppProfileRules(current)
+        val sorted = current.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
+        saveAllAppProfileRules(sorted)
     }
 
     suspend fun deleteAppProfileRule(packageName: String): Boolean = withContext(Dispatchers.IO) {

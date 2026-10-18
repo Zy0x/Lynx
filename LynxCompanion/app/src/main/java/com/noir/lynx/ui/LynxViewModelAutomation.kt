@@ -150,7 +150,8 @@ import kotlinx.coroutines.flow.update
     fun LynxViewModel.addOrUpdateAppProfileRule(context: android.content.Context, rule: com.noir.lynx.data.AppProfileRule) {
         recordStateMutation()
         _uiState.update { current ->
-            val updated = current.appProfileRules.filter { it.packageName != rule.packageName } + rule
+            val updated = (current.appProfileRules.filter { it.packageName != rule.packageName } + rule)
+                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
             current.copy(appProfileRules = updated)
         }
         viewModelScope.launch {
@@ -235,7 +236,8 @@ import kotlinx.coroutines.flow.update
             _uiState.update { it.copy(isScanningInstalledGames = true) }
             try {
                 val (addedCount, updatedRules) = LynxRepository.autoDetectAndSyncInstalledRules()
-                _uiState.update { it.copy(isScanningInstalledGames = false, appProfileRules = updatedRules) }
+                val sorted = updatedRules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
+                _uiState.update { it.copy(isScanningInstalledGames = false, appProfileRules = sorted) }
                 if (addedCount > 0) {
                     _uiState.update { it.copy(successMessage = "$addedCount game terpasang berhasil ditambahkan!") }
                     if (_uiState.value.isAppAutomationActive) {
