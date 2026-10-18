@@ -97,189 +97,135 @@ class LynxViewModel : ViewModel() {
                             lastSyncedAt = System.currentTimeMillis(),
                         )
                     }
-                    if (nativeStatus?.daemonRunning != true) {
-                        LynxRepository.ensureDaemonRunning()
-                    }
-                    val backups = LynxRepository.listBackups()
-                    val ksmStats = LynxRepository.readKsmStats()
-                    val ioDevices = LynxRepository.readIoDevices()
-                    val tcpAlgs = LynxRepository.readAvailableTcpAlgorithms()
-                    val currentTcp = LynxRepository.readCurrentTcpCongestion()
-                    val vmAdvanced = LynxRepository.readVirtualMemoryAdvancedConfig()
-                    val wlBlocker = LynxRepository.readWakelockBlockerInfo()
-                    val applistPerf = LynxRepository.readApplistPerf()
-                    val installedApps = emptyList<String>()
-                    val wakelocks = LynxRepository.readWakelocks()
-                    val refreshRate = LynxRepository.readDisplayRefreshRate()
-                    val supportedRates = LynxRepository.readSupportedRefreshRates()
-                    val socOverride = LynxRepository.readSocOverride()
-                    val capReport = LynxRepository.scanKernelCapabilities()
-                    val zramComp = LynxRepository.readZramCompAlgorithms()
-                    val thermalZones = LynxRepository.readThermalZones()
-                    val customRules = LynxRepository.readCustomRules()
-                    val installedAppList = emptyList<AppInfo>()
-                    val selinux = LynxRepository.readSelinuxMode()
-                    val printkSilent = LynxRepository.readPrintkSilent()
-                    val dirtyRatio = LynxRepository.readDirtyRatio()
-                    val vfsPressure = LynxRepository.readVfsCachePressure()
-                    val topCpuProcesses = LynxRepository.readTopCpuProcesses()
-                    val siliconDetails = LynxRepository.readCpuSiliconTopologyDetails(clusters)
-                    val topWakelocks = LynxRepository.readTopWakelocks()
-                    val appRules = LynxRepository.readAppProfileRules()
-                    val isHudRunning = com.noir.lynx.service.LynxFloatingHudService.isRunning
-                    val isAutoRunning = LynxRepository.isAppAutomationRunning()
-                    val voltageInfo = LynxRepository.readVoltageInfo()
-                    val batteryHealthStats = LynxRepository.readBatteryHealth()
-                    val displayCalibration = LynxRepository.readDisplayCalibration()
-                    val soundControl = LynxRepository.readSoundControl()
-                    val memoryEntropy = LynxRepository.readMemoryEntropy()
-                    val customScripts = LynxRepository.readCustomScripts()
-                    val schedInfo = LynxRepository.readSchedulerInfo()
-                    val cpuSets = LynxRepository.readCpuSetsInfo()
-                    val cpuIdle = LynxRepository.readCpuIdleInfo()
+                    // Start background observers immediately so UI is live, interactive, and responsive (<200ms)
+                    startFileObserver()
+                    startPeriodicSync()
+                    startTelemetryPolling()
 
-                    val appContext = LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance
-                    if (isAutoRunning && !com.noir.lynx.service.LynxAppAutomationService.isRunning) {
-                        try {
-                            LynxRepository.startAppAutomation(appContext)
-                        } catch (_: Exception) {}
-                    }
-                    CpuPolicyManager.initialize(appContext)
-                    val recoveryInfo = RecoveryManager.getRecoveryInfo(appContext)
-                    val protectedTasks = ProtectedTaskManager.getDefaultProtectedTasks()
-                    val cpusetBackend = CpuSetBackendFactory.detect()
-                    val schedBackend = SchedulerBackendFactory.detect()
-                    val clusterIdle = CpuIdleDetector.detectClusterIdle(cpuCores.size.coerceAtLeast(8))
-
-                    val graphicsCaps = LynxRepository.readGraphicsCapabilities()
-                    val displayPipe = LynxRepository.readDisplayPipeline()
-                    val colorConflict = LynxRepository.checkColorConflict()
-                    val isColorCalEnabled = LynxRepository.isColorCalibrationEnabled()
-                    val savedColorProf = LynxRepository.readSavedColorProfile()
-                    val perAppGfxRules = LynxRepository.readPerAppGraphicsRules(appContext)
-                    val savedSessions = LynxRepository.listLabSessions(appContext)
-                    val adbConfig = LynxRepository.readAdbKeepAliveConfig()
-                    val adbStatusJson = LynxRepository.getAdbStatus()
-                    val isAdbListening = adbStatusJson.contains("\"is_listening\":true")
-
-                    val resolvedState = if (currentTcp.isNotBlank()) {
-                        state.copy(network = state.network.copy(tcpCongestion = currentTcp))
-                    } else state
-
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            isRootAvailable = true,
-                            isModuleInstalled = moduleInstalled,
-                            state = resolvedState,
-                            nativeStatus = nativeStatus,
-                            cpuComprehensiveProfile = resolveCpuProfileForState(resolvedState),
-                            isCpuModified = resolvedState.profileOverrides.containsKey(ProfileDomain.CPU),
-                            clusters = clusters,
-                            telemetry = telemetry,
-                            backups = backups,
-                            gpuInfo = gpuInfo,
-                            graphicsCapabilities = graphicsCaps,
-                            displayPipeline = displayPipe,
-                        colorConflictWarning = colorConflict,
-                        isColorCalibrationEnabled = isColorCalEnabled,
-                        colorMatrixProfile = savedColorProf,
-                        perAppGraphicsRules = perAppGfxRules,
-                        savedLabSessions = savedSessions,
-                        ksmStats = ksmStats,
-                        ioDevices = ioDevices,
-                        availableTcpAlgorithms = tcpAlgs,
-                        currentTcpCongestion = currentTcp,
-                        vmAdvanced = vmAdvanced,
-                        wakelockBlockerInfo = wlBlocker,
-                        schedulerInfo = schedInfo,
-                        cpuSets = cpuSets,
-                        cpuIdle = cpuIdle,
-                        isCpuMasterOverride = CpuPolicyManager.isMasterOverride,
-                        activeCpuControlProfile = CpuPolicyManager.activeProfile,
-                        recoveryInfo = recoveryInfo,
-                        protectedTasks = protectedTasks,
-                        isCpusetSupported = cpusetBackend.isSupported(),
-                        schedulerBackendType = schedBackend.displayName,
-                        clusterIdleInfo = clusterIdle,
-                        applistPerf = applistPerf,
-                        installedApps = installedApps,
-                        installedAppList = installedAppList,
-                        wakelocks = wakelocks,
-                        topWakelocks = topWakelocks,
-                        displayRefreshRate = refreshRate,
-                        supportedRefreshRates = supportedRates,
-                        socOverride = socOverride,
-                        capabilityReport = capReport,
-                        zramCompAlgorithm = zramComp.first,
-                        availZramCompAlgorithms = zramComp.second,
-                        thermalZones = thermalZones,
-                        customRulesScript = customRules,
-                        selinuxMode = selinux,
-                        isPrintkSilent = printkSilent,
-                        dirtyRatio = dirtyRatio,
-                        vfsCachePressure = vfsPressure,
-                        cpuCores = cpuCores,
-                        topCpuProcesses = topCpuProcesses,
-                        totalCpuLoadPercent = statLoads.first,
-                        cpuLoadHistory = listOf(statLoads.first),
-                        socPlatformName = socPlatformName,
-                        socTopology = socTopology,
-                        siliconTopologyDetails = siliconDetails,
-                        batteryDetails = batteryDetails,
-                        deepTunables = cachedTunables,
-                        appProfileRules = appRules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } }),
-                        isGameHudActive = isHudRunning,
-                        isAppAutomationActive = isAutoRunning,
-                        voltageInfo = voltageInfo,
-                        batteryHealthStats = batteryHealthStats,
-                        displayCalibration = displayCalibration,
-                        soundControl = soundControl,
-                        memoryEntropy = memoryEntropy,
-                        customScripts = customScripts,
-                        adbKeepAliveEnabled = adbConfig.first,
-                        isAdbListening = isAdbListening,
-                        adbPort = adbConfig.second,
-                        adbPortInput = adbConfig.second.toString(),
-                        adbStatus = adbStatusJson,
-                        lastSyncedAt = System.currentTimeMillis(),
-                    )
-                }
-
-                if (adbConfig.first && !isAdbListening) {
+                    // Stage 2: Staged background hydration of secondary subsystem metadata (Zero-Jank Dispatchers.IO)
                     viewModelScope.launch(Dispatchers.IO) {
-                        LynxRepository.setAdbKeepAlive(true, adbConfig.second)
-                        val healedStatus = LynxRepository.getAdbStatus()
+                        if (nativeStatus?.daemonRunning != true) {
+                            LynxRepository.ensureDaemonRunning()
+                        }
+                        val appContext = LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance
+                        val isAutoRunning = LynxRepository.isAppAutomationRunning()
+                        if (isAutoRunning && !com.noir.lynx.service.LynxAppAutomationService.isRunning) {
+                            try {
+                                LynxRepository.startAppAutomation(appContext)
+                            } catch (_: Exception) {}
+                        }
+                        val isHudRunning = com.noir.lynx.service.LynxFloatingHudService.isRunning
+
+                        delay(100L)
+                        CpuPolicyManager.initialize(appContext)
+                        val recoveryInfo = RecoveryManager.getRecoveryInfo(appContext)
+                        val protectedTasks = ProtectedTaskManager.getDefaultProtectedTasks()
+                        val cpusetBackend = CpuSetBackendFactory.detect()
+                        val schedBackend = SchedulerBackendFactory.detect()
+                        val clusterIdle = CpuIdleDetector.detectClusterIdle(cpuCores.size.coerceAtLeast(8))
+                        val schedInfo = LynxRepository.readSchedulerInfo()
+                        val cpuSets = LynxRepository.readCpuSetsInfo()
+                        val cpuIdle = LynxRepository.readCpuIdleInfo()
+
                         _uiState.update {
                             it.copy(
-                                isAdbListening = healedStatus.contains("\"is_listening\":true"),
-                                adbStatus = healedStatus
+                                isGameHudActive = isHudRunning,
+                                isAppAutomationActive = isAutoRunning,
+                                schedulerInfo = schedInfo,
+                                cpuSets = cpuSets,
+                                cpuIdle = cpuIdle,
+                                isCpusetSupported = cpusetBackend.isSupported(),
+                                schedulerBackendType = schedBackend.displayName,
+                                clusterIdleInfo = clusterIdle,
+                                recoveryInfo = recoveryInfo,
+                                protectedTasks = protectedTasks,
+                                isCpuMasterOverride = CpuPolicyManager.isMasterOverride,
+                                activeCpuControlProfile = CpuPolicyManager.activeProfile,
                             )
                         }
-                    }
-                }
 
-                // Auto-discover deep hardware tree in background (non-blocking)
-                viewModelScope.launch {
-                    if (cachedTunables.isEmpty()) {
-                        _uiState.update { it.copy(isDeepScanning = true) }
-                    }
-                    val freshTunables = LynxRepository.scanDeepTunables()
-                    if (freshTunables.isNotEmpty()) {
+                        delay(150L)
+                        val graphicsCaps = LynxRepository.readGraphicsCapabilities()
+                        val displayPipe = LynxRepository.readDisplayPipeline()
+                        val colorConflict = LynxRepository.checkColorConflict()
+                        val isColorCalEnabled = LynxRepository.isColorCalibrationEnabled()
+                        val savedColorProf = LynxRepository.readSavedColorProfile()
+                        val refreshRate = LynxRepository.readDisplayRefreshRate()
+                        val supportedRates = LynxRepository.readSupportedRefreshRates()
+                        val perAppGfxRules = LynxRepository.readPerAppGraphicsRules(appContext)
+                        val savedSessions = LynxRepository.listLabSessions(appContext)
+
                         _uiState.update {
                             it.copy(
-                                deepTunables = freshTunables,
-                                isDeepScanning = false
+                                graphicsCapabilities = graphicsCaps,
+                                displayPipeline = displayPipe,
+                                colorConflictWarning = colorConflict,
+                                isColorCalibrationEnabled = isColorCalEnabled,
+                                colorMatrixProfile = savedColorProf,
+                                displayRefreshRate = refreshRate,
+                                supportedRefreshRates = supportedRates,
+                                perAppGraphicsRules = perAppGfxRules,
+                                savedLabSessions = savedSessions
                             )
                         }
-                    } else {
-                        _uiState.update { it.copy(isDeepScanning = false) }
-                    }
-                }
 
-                startFileObserver()
-                startPeriodicSync()
-                startTelemetryPolling()
+                        delay(150L)
+                        val appRules = LynxRepository.readAppProfileRules()
+                        val selinux = LynxRepository.readSelinuxMode()
+                        val printkSilent = LynxRepository.readPrintkSilent()
+                        val dirtyRatio = LynxRepository.readDirtyRatio()
+                        val vfsPressure = LynxRepository.readVfsCachePressure()
+                        val capReport = LynxRepository.scanKernelCapabilities()
+                        val adbConfig = LynxRepository.readAdbKeepAliveConfig()
+                        val adbStatusJson = LynxRepository.getAdbStatus()
+                        val isAdbListening = adbStatusJson.contains("\"is_listening\":true")
+
+                        _uiState.update {
+                            it.copy(
+                                appProfileRules = appRules.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { r -> r.appName.ifBlank { r.packageName } }),
+                                selinuxMode = selinux,
+                                isPrintkSilent = printkSilent,
+                                dirtyRatio = dirtyRatio,
+                                vfsCachePressure = vfsPressure,
+                                capabilityReport = capReport,
+                                adbKeepAliveEnabled = adbConfig.first,
+                                isAdbListening = isAdbListening,
+                                adbPort = adbConfig.second,
+                                adbPortInput = adbConfig.second.toString(),
+                                adbStatus = adbStatusJson,
+                            )
+                        }
+
+                        if (adbConfig.first && !isAdbListening) {
+                            LynxRepository.setAdbKeepAlive(true, adbConfig.second)
+                            val healedStatus = LynxRepository.getAdbStatus()
+                            _uiState.update {
+                                it.copy(
+                                    isAdbListening = healedStatus.contains("\"is_listening\":true"),
+                                    adbStatus = healedStatus
+                                )
+                            }
+                        }
+                    }
+
+                    // Auto-discover deep hardware tree in background (non-blocking)
+                    viewModelScope.launch(Dispatchers.IO) {
+                        delay(500L)
+                        if (cachedTunables.isEmpty()) {
+                            _uiState.update { it.copy(isDeepScanning = true) }
+                        }
+                        val freshTunables = LynxRepository.scanDeepTunables()
+                        if (freshTunables.isNotEmpty()) {
+                            _uiState.update {
+                                it.copy(
+                                    deepTunables = freshTunables,
+                                    isDeepScanning = false
+                                )
+                            }
+                        } else {
+                            _uiState.update { it.copy(isDeepScanning = false) }
+                        }
+                    }
 
                 // Asynchronously pre-cache installed apps in background without blocking startup
                 viewModelScope.launch(Dispatchers.IO) {
@@ -628,7 +574,7 @@ class LynxViewModel : ViewModel() {
     internal fun startPeriodicSync() {
         viewModelScope.launch(Dispatchers.IO) {
             while (true) {
-                delay(if (isForeground) 3000L else 20000L)
+                delay(if (isForeground) 8000L else 30000L)
                 if (isForeground) {
                     if (!isBatteryInformationScreenActive && !isBatteryScreenActive && System.currentTimeMillis() - lastStateMutationTime >= 4000L) {
                         refreshState()

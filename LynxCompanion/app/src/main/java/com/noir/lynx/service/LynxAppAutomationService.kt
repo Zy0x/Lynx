@@ -773,7 +773,7 @@ class LynxAppAutomationService : Service() {
         Log.i(TAG, "onTaskRemoved: Lynx UI closed by user. Ensuring Root Watcher Daemon is running!")
         serviceScope.launch {
             try {
-                val lynxdPath = "/data/adb/modules/Lynx/system/bin/lynxd"
+                val lynxdPath = com.noir.lynx.data.LynxRepository.getLynxdPath()
                 Shell.cmd(
                     "if [ -x '$lynxdPath' ]; then " +
                     "  pkill -f lynx_watcher.sh 2>/dev/null; " +

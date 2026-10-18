@@ -55,8 +55,8 @@ class LegacyCpusetBackend : CpuSetBackend {
     }
 
     override fun writeGroupMask(group: String, mask: String): Boolean {
-        if (mask.isBlank()) return false
-        val nativeRes = Shell.cmd("[ -x '/data/adb/modules/Lynx/system/bin/lynxd' ] && /data/adb/modules/Lynx/system/bin/lynxd cpuset set '$group' '$mask' 2>/dev/null").exec()
+        val path = com.noir.lynx.data.LynxRepository.getLynxdPath()
+        val nativeRes = Shell.cmd("[ -x '$path' ] && '$path' cpuset set '$group' '$mask' 2>/dev/null").exec()
         if (nativeRes.isSuccess) return true
         val cmd = "for n in /dev/cpuset/$group/cpus /dev/cpuset/$group/cpuset.cpus; do [ -f \"\$n\" ] && chmod 644 \"\$n\" 2>/dev/null && echo '$mask' > \"\$n\" 2>/dev/null; done"
         Shell.cmd(cmd).exec()
@@ -110,8 +110,8 @@ class ModernCgroupBackend : CpuSetBackend {
     }
 
     override fun writeGroupMask(group: String, mask: String): Boolean {
-        if (mask.isBlank()) return false
-        val nativeRes = Shell.cmd("[ -x '/data/adb/modules/Lynx/system/bin/lynxd' ] && /data/adb/modules/Lynx/system/bin/lynxd cpuset set '$group' '$mask' 2>/dev/null").exec()
+        val path = com.noir.lynx.data.LynxRepository.getLynxdPath()
+        val nativeRes = Shell.cmd("[ -x '$path' ] && '$path' cpuset set '$group' '$mask' 2>/dev/null").exec()
         if (nativeRes.isSuccess) return true
         val cmd = "for n in /sys/fs/cgroup/cpuset/$group/cpus /sys/fs/cgroup/cpuset/$group/cpuset.cpus; do [ -f \"\$n\" ] && chmod 644 \"\$n\" 2>/dev/null && echo '$mask' > \"\$n\" 2>/dev/null; done"
         Shell.cmd(cmd).exec()

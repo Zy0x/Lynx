@@ -279,7 +279,8 @@ import kotlinx.coroutines.flow.update
 
     fun LynxViewModel.refreshMountXStorageInfo() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val result = com.topjohnwu.superuser.Shell.cmd("/data/adb/modules/Lynx/system/bin/lynxd io mountx-info").exec()
+            val path = LynxRepository.getLynxdPath()
+            val result = com.topjohnwu.superuser.Shell.cmd("'$path' io mountx-info").exec()
             val out = result.out.joinToString("\n").trim()
             if (out.startsWith("{") && out.endsWith("}")) {
                 try {
@@ -316,10 +317,11 @@ import kotlinx.coroutines.flow.update
 
     fun LynxViewModel.triggerMountXBoost(context: Context, boost: Boolean) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val path = LynxRepository.getLynxdPath()
             val cmd = if (boost) {
-                "/data/adb/modules/Lynx/system/bin/lynxd io mountx-tune"
+                "'$path' io mountx-tune"
             } else {
-                "/data/adb/modules/Lynx/system/bin/lynxd io mountx-restore"
+                "'$path' io mountx-restore"
             }
             val res = com.topjohnwu.superuser.Shell.cmd(cmd).exec()
             val result = runCatching { org.json.JSONObject(res.out.joinToString("\n")) }.getOrNull()

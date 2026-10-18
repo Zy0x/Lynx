@@ -185,122 +185,132 @@ fun TuningTabContent(
                                     }
                                 }
 
-                                item(key = "hub_cards") {
-                                    // Vertical List of Full-width Subsystem Cards
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        // 0. Kernel Performance Profiles (Preset Catalog & Per-App Automation)
-                                        SubsystemCategoryCard(
-                                            category = TuningCategory.PROFILES,
-                                            badgeText = state.activeProfile.uppercase(),
-                                            detailText1 = "${uiState.kernelProfileCatalog.profiles.size} Profil",
-                                            detailText2 = "${uiState.appProfileRules.size} Aturan App",
-                                            onClick = { onSelectedCategoryChange("profiles") }
-                                        )
+                                item(key = "hub_card_profiles") {
+                                    SubsystemCategoryCard(
+                                        category = TuningCategory.PROFILES,
+                                        badgeText = state.activeProfile.uppercase(),
+                                        detailText1 = "${uiState.kernelProfileCatalog.profiles.size} Profil",
+                                        detailText2 = "${uiState.appProfileRules.size} Aturan App",
+                                        onClick = { onSelectedCategoryChange("profiles") },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+                                    )
+                                }
 
-                                        // 1. Floating Game HUD & OSD
-                                        val hudStyleName = when (uiState.hudStyle) {
-                                            1 -> "RTSS Pillar"
-                                            2 -> "Top Ribbon"
-                                            3 -> "Dual Esport"
-                                            4 -> "Quad Tiles"
-                                            5 -> "Steam Deck"
-                                            6 -> "Ghost Text"
-                                            else -> "RTSS Pillar"
-                                        }
-                                        val hudModeName = if (uiState.hudMode == 0) "Edge Drawer" else "Floating Window"
-                                        SubsystemCategoryCard(
-                                            category = TuningCategory.HUD,
-                                            badgeText = if (uiState.isGameHudActive) "AKTIF" else "NONAKTIF",
-                                            detailText1 = hudStyleName,
-                                            detailText2 = hudModeName,
-                                            onClick = { onSelectedCategoryChange("hud") }
-                                        )
-
-                                        // 1. CPU & Governor
-                                        SubsystemCategoryCard(
-                                            category = TuningCategory.CPU,
-                                            badgeText = "${uiState.cpuCores.count { it.isOnline }}/${uiState.cpuCores.size} Cores",
-                                            detailText1 = "${uiState.clusters.size} Cluster",
-                                            detailText2 = uiState.activeGovernorPreset.ifBlank { "Schedutil" },
-                                            onClick = { onSelectedCategoryChange("cpu") }
-                                        )
-
-                                        // 2. GPU & Display
-                                        SubsystemCategoryCard(
-                                            category = TuningCategory.GPU,
-                                            badgeText = if (uiState.gpuInfo.curFreqMhz > 0) "${uiState.gpuInfo.curFreqMhz} MHz" else "Dynamic",
-                                            detailText1 = "Load ${uiState.gpuInfo.gpuLoadPercent}%",
-                                            detailText2 = "${uiState.displayRefreshRate}Hz",
-                                            onClick = { onSelectedCategoryChange("gpu") }
-                                        )
-
-                                        // 3. Thermal & Anti-Throttling
-                                        val validThermalZones = uiState.thermalZones.filter { it.tempC in 15f..115f }
-                                        val maxT = validThermalZones.maxOfOrNull { it.tempC } ?: (uiState.telemetry?.temp?.toFloat() ?: 0f)
-                                        SubsystemCategoryCard(
-                                            category = TuningCategory.THERMAL,
-                                            badgeText = if (state.thermal.fullBypass) "BYPASS AKTIF" else "${state.thermal.customTempLimitC}°C LIMIT",
-                                            detailText1 = if (maxT > 0) "Maks ${String.format("%.1f", maxT)}°C" else "Normal",
-                                            detailText2 = if (state.oemNeutralizer.joyoseNeutralize) "Anti-Joyose" else "${validThermalZones.size} Sensor",
-                                            onClick = { onSelectedCategoryChange("thermal") }
-                                        )
-
-                                        // 4. Battery & Charging
-                                        SubsystemCategoryCard(
-                                            category = TuningCategory.CHARGING,
-                                            badgeText = if (state.charging.bypassEnabled) "BYPASS" else if (state.charging.extremeChargingEnabled) "EXTREME" else "${state.charging.limitCurrentMa} mA",
-                                            detailText1 = "${uiState.batteryDetails?.tempC ?: 0f}°C",
-                                            detailText2 = "${uiState.batteryDetails?.currentMa ?: 0} mA",
-                                            onClick = { onSelectedCategoryChange("charging") }
-                                        )
-
-                                        // 5. Memory & Storage
-                                        SubsystemCategoryCard(
-                                            category = TuningCategory.MEMORY,
-                                            badgeText = "ZRAM ${uiState.zramCompAlgorithm.ifBlank { "lz4" }.uppercase()}",
-                                            detailText1 = "Swap ${state.memory.swappiness}%",
-                                            detailText2 = "${uiState.ioDevices.size} I/O Dev",
-                                            onClick = { onSelectedCategoryChange("memory") }
-                                        )
-
-                                        // 6. Wi-Fi & Network Engine
-                                        SubsystemCategoryCard(
-                                            category = TuningCategory.NETWORK,
-                                            badgeText = uiState.currentTcpCongestion.ifBlank { "CUBIC" }.uppercase(),
-                                            detailText1 = if (state.network.wifiPingStabilizer) "CAM Mode" else "Standard",
-                                            detailText2 = if (uiState.wifiTelemetry.isConnected) "${uiState.wifiTelemetry.linkSpeedMbps} Mbps" else "Offline",
-                                            onClick = {
-                                                viewModel.selectNetworkTab(0)
-                                                onSelectedCategoryChange("network")
-                                            }
-                                        )
-
-                                        // 7. Sound & Audio Subsystem
-                                        SubsystemCategoryCard(
-                                            category = TuningCategory.AUDIO,
-                                            badgeText = if (state.audio.lowLatencyMmap) "MMAP DMA" else "Standard",
-                                            detailText1 = uiState.audioTelemetry.activeDevice,
-                                            detailText2 = if (uiState.soundControl.isSupported) "Faux Driver" else "AAudio HAL",
-                                            onClick = {
-                                                viewModel.selectNetworkTab(1)
-                                                onSelectedCategoryChange("audio")
-                                            }
-                                        )
-
-                                        // 8. Subsystem & Deep Tunables
-                                        SubsystemCategoryCard(
-                                            category = TuningCategory.SYSTEM,
-                                            badgeText = "${uiState.deepTunables.size} Tunables",
-                                            detailText1 = "SELinux ${uiState.selinuxMode}",
-                                            detailText2 = "Kernel Safety",
-                                            onClick = { onSelectedCategoryChange("system") }
-                                        )
+                                item(key = "hub_card_hud") {
+                                    val hudStyleName = when (uiState.hudStyle) {
+                                        1 -> "RTSS Pillar"
+                                        2 -> "Top Ribbon"
+                                        3 -> "Dual Esport"
+                                        4 -> "Quad Tiles"
+                                        5 -> "Steam Deck"
+                                        6 -> "Ghost Text"
+                                        else -> "RTSS Pillar"
                                     }
+                                    val hudModeName = if (uiState.hudMode == 0) "Edge Drawer" else "Floating Window"
+                                    SubsystemCategoryCard(
+                                        category = TuningCategory.HUD,
+                                        badgeText = if (uiState.isGameHudActive) "AKTIF" else "NONAKTIF",
+                                        detailText1 = hudStyleName,
+                                        detailText2 = hudModeName,
+                                        onClick = { onSelectedCategoryChange("hud") },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+                                    )
+                                }
+
+                                item(key = "hub_card_cpu") {
+                                    SubsystemCategoryCard(
+                                        category = TuningCategory.CPU,
+                                        badgeText = "${uiState.cpuCores.count { it.isOnline }}/${uiState.cpuCores.size} Cores",
+                                        detailText1 = "${uiState.clusters.size} Cluster",
+                                        detailText2 = uiState.activeGovernorPreset.ifBlank { "Schedutil" },
+                                        onClick = { onSelectedCategoryChange("cpu") },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+                                    )
+                                }
+
+                                item(key = "hub_card_gpu") {
+                                    SubsystemCategoryCard(
+                                        category = TuningCategory.GPU,
+                                        badgeText = if (uiState.gpuInfo.curFreqMhz > 0) "${uiState.gpuInfo.curFreqMhz} MHz" else "Dynamic",
+                                        detailText1 = "Load ${uiState.gpuInfo.gpuLoadPercent}%",
+                                        detailText2 = "${uiState.displayRefreshRate}Hz",
+                                        onClick = { onSelectedCategoryChange("gpu") },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+                                    )
+                                }
+
+                                item(key = "hub_card_thermal") {
+                                    val validThermalZones = uiState.thermalZones.filter { it.tempC in 15f..115f }
+                                    val maxT = validThermalZones.maxOfOrNull { it.tempC } ?: (uiState.telemetry?.temp?.toFloat() ?: 0f)
+                                    SubsystemCategoryCard(
+                                        category = TuningCategory.THERMAL,
+                                        badgeText = if (state.thermal.fullBypass) "BYPASS AKTIF" else "${state.thermal.customTempLimitC}°C LIMIT",
+                                        detailText1 = if (maxT > 0) "Maks ${String.format("%.1f", maxT)}°C" else "Normal",
+                                        detailText2 = if (state.oemNeutralizer.joyoseNeutralize) "Anti-Joyose" else "${validThermalZones.size} Sensor",
+                                        onClick = { onSelectedCategoryChange("thermal") },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+                                    )
+                                }
+
+                                item(key = "hub_card_charging") {
+                                    SubsystemCategoryCard(
+                                        category = TuningCategory.CHARGING,
+                                        badgeText = if (state.charging.bypassEnabled) "BYPASS" else if (state.charging.extremeChargingEnabled) "EXTREME" else "${state.charging.limitCurrentMa} mA",
+                                        detailText1 = "${uiState.batteryDetails?.tempC ?: 0f}°C",
+                                        detailText2 = "${uiState.batteryDetails?.currentMa ?: 0} mA",
+                                        onClick = { onSelectedCategoryChange("charging") },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+                                    )
+                                }
+
+                                item(key = "hub_card_memory") {
+                                    SubsystemCategoryCard(
+                                        category = TuningCategory.MEMORY,
+                                        badgeText = "ZRAM ${uiState.zramCompAlgorithm.ifBlank { "lz4" }.uppercase()}",
+                                        detailText1 = "Swap ${state.memory.swappiness}%",
+                                        detailText2 = "${uiState.ioDevices.size} I/O Dev",
+                                        onClick = { onSelectedCategoryChange("memory") },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+                                    )
+                                }
+
+                                item(key = "hub_card_network") {
+                                    SubsystemCategoryCard(
+                                        category = TuningCategory.NETWORK,
+                                        badgeText = uiState.currentTcpCongestion.ifBlank { "CUBIC" }.uppercase(),
+                                        detailText1 = if (state.network.wifiPingStabilizer) "CAM Mode" else "Standard",
+                                        detailText2 = if (uiState.wifiTelemetry.isConnected) "${uiState.wifiTelemetry.linkSpeedMbps} Mbps" else "Offline",
+                                        onClick = {
+                                            viewModel.selectNetworkTab(0)
+                                            onSelectedCategoryChange("network")
+                                        },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+                                    )
+                                }
+
+                                item(key = "hub_card_audio") {
+                                    SubsystemCategoryCard(
+                                        category = TuningCategory.AUDIO,
+                                        badgeText = if (state.audio.lowLatencyMmap) "MMAP DMA" else "Standard",
+                                        detailText1 = uiState.audioTelemetry.activeDevice,
+                                        detailText2 = if (uiState.soundControl.isSupported) "Faux Driver" else "AAudio HAL",
+                                        onClick = {
+                                            viewModel.selectNetworkTab(1)
+                                            onSelectedCategoryChange("audio")
+                                        },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+                                    )
+                                }
+
+                                item(key = "hub_card_system") {
+                                    SubsystemCategoryCard(
+                                        category = TuningCategory.SYSTEM,
+                                        badgeText = "${uiState.deepTunables.size} Tunables",
+                                        detailText1 = "SELinux ${uiState.selinuxMode}",
+                                        detailText2 = "Kernel Safety",
+                                        onClick = { onSelectedCategoryChange("system") },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+                                    )
                                 }
 
                                 item(key = "hub_bottom_spacer") {
@@ -517,14 +527,21 @@ fun TuningTabContent(
                                                 )
                                             }
                                             "gpu" -> tuningGpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context)
-                                            "cpu" -> item(key = "subscreen_cpu") { TuningCpuCategory(uiState = uiState, viewModel = viewModel) }
+                                            "cpu" -> tuningCpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context)
                                             "thermal" -> item(key = "subscreen_thermal") { TuningThermalCategory(uiState = uiState, viewModel = viewModel) }
                                             "memory" -> item(key = "subscreen_memory") { TuningMemoryCategory(uiState = uiState, viewModel = viewModel) }
                                             "charging" -> if (uiState.batterySubTab == 1) {
                                                 batteryInformationItems(uiState, viewModel)
                                             } else {
-                                                item(key = "subscreen_charging") {
-                                                    TuningChargingCategory(uiState, viewModel, manageLifecycle = false)
+                                                item(key = "charging_fast_control") {
+                                                    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                                                        FastChargingControlCard(uiState, viewModel)
+                                                    }
+                                                }
+                                                item(key = "charging_protection") {
+                                                    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                                                        BatteryProtectionCard(uiState, viewModel)
+                                                    }
                                                 }
                                             }
                                             "network", "audio" -> {

@@ -50,6 +50,8 @@ import com.noir.lynx.data.TelemetryData
 import com.noir.lynx.designsystem.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
 import kotlin.math.cos
@@ -161,8 +163,9 @@ fun ChargingHeroDisplayCard(
             File("/sys/class/power_supply/bms/status")
         )
 
-        while (true) {
-            // 1. Direct read of current (<0.05ms)
+        withContext(Dispatchers.IO) {
+            while (true) {
+                // 1. Direct read of current (<0.05ms)
             var readCurrentUa: Long? = null
             for (node in currentNodes) {
                 try {
@@ -342,7 +345,8 @@ fun ChargingHeroDisplayCard(
                 }
             } catch (_: Exception) {}
 
-            delay(1200L) // Guaranteed 1.2s fresh hardware tick
+                delay(2000L) // Calm 2.0s hardware tick on IO dispatcher
+            }
         }
     }
 
@@ -397,7 +401,7 @@ fun ChargingHeroDisplayCard(
         var counterAnchorUah = 0L
         var uncalibratedChargeSinceAnchorUah = 0.0
         while (true) {
-            delay(250L)
+            delay(1000L) // 1.0s tick prevents 4x/sec recompositions on low-end devices
             val nowNs = System.nanoTime()
             val fullUah = fullChargeUahState.value
             val measuredUah = counterUahState.value

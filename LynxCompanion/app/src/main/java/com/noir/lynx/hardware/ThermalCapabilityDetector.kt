@@ -53,8 +53,9 @@ object ThermalCapabilityDetector {
 
     suspend fun detect(): ThermalCapabilities = withContext(Dispatchers.IO) {
         try {
-            val lynxdPath = "/data/adb/modules/Lynx/system/bin/lynxd"
-            if (java.io.File(lynxdPath).canExecute()) {
+            val lynxdPath = com.noir.lynx.data.LynxRepository.getLynxdPath()
+            val canExec = Shell.cmd("[ -x '$lynxdPath' ] && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
+            if (canExec) {
                 val res = Shell.cmd("$lynxdPath thermal status 2>/dev/null").exec()
                 if (res.isSuccess && res.out.isNotEmpty()) {
                     val raw = res.out.joinToString("\n").trim()

@@ -69,7 +69,7 @@ internal object LynxAppProfileRepository {
                 "chmod 666 /data/adb/lynx/automation_enabled 2>/dev/null"
             ).exec()
 
-            val lynxdPath = "/data/adb/modules/Lynx/system/bin/lynxd"
+            val lynxdPath = LynxRepository.getLynxdPath()
             Shell.cmd(
                 "if [ -x '$lynxdPath' ]; then " +
                 "  pkill -f lynx_watcher.sh 2>/dev/null; " +
@@ -96,7 +96,7 @@ internal object LynxAppProfileRepository {
 
     suspend fun stopAppAutomation(context: Context): Boolean = withContext(Dispatchers.IO) {
         try {
-            val lynxdPath = "/data/adb/modules/Lynx/system/bin/lynxd"
+            val lynxdPath = LynxRepository.getLynxdPath()
             Shell.cmd(
                 "echo 0 > /data/adb/lynx/automation_enabled",
                 "if [ -x '$lynxdPath' ]; then '$lynxdPath' daemon stop 2>/dev/null; fi",

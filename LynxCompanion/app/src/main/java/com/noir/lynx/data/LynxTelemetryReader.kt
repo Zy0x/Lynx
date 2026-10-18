@@ -32,7 +32,7 @@ internal object LynxTelemetryReader {
                 }
 
                 // Tier 1: Reading RAM snapshot via root shell cat (<1ms, single cat binary)
-                if (LynxRepository.isModuleInstalled()) {
+                if (LynxRepository.isRootAvailable()) {
                     val catRes = Shell.cmd("cat /dev/lynxd_telemetry.json 2>/dev/null").exec()
                     if (catRes.isSuccess && catRes.out.isNotEmpty()) {
                         val raw = catRes.out.joinToString("\n").trim()

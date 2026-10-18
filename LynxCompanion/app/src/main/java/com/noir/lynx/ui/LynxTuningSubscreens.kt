@@ -8,6 +8,7 @@ import com.noir.lynx.data.AppProfileRule
 import com.noir.lynx.data.DeepTunable
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.feature.cpu.ui.CpuSubscreen
+import com.noir.lynx.feature.cpu.ui.tuningCpuCategoryItems as modularTuningCpuCategoryItems
 import com.noir.lynx.feature.gpu.ui.GpuSubscreen
 import com.noir.lynx.feature.gpu.ui.tuningGpuCategoryItems as modularTuningGpuCategoryItems
 import com.noir.lynx.feature.thermal.ui.ThermalSubscreen
@@ -35,6 +36,14 @@ fun TuningCpuCategory(
     modifier: Modifier = Modifier
 ) {
     CpuSubscreen(uiState = uiState, viewModel = viewModel, modifier = modifier)
+}
+
+fun LazyListScope.tuningCpuCategoryItems(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    context: Context
+) {
+    modularTuningCpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context)
 }
 
 fun LazyListScope.tuningGpuCategoryItems(

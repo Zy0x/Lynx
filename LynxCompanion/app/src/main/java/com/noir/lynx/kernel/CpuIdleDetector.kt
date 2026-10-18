@@ -107,7 +107,8 @@ object CpuIdleDetector {
     fun detectClusterIdle(totalCores: Int = 8): List<ClusterIdleInfo> {
         // Tier 1: Direct Native Rust lynxd cpuidle info (single IPC call)
         try {
-            val nativeRes = Shell.cmd("[ -x '/data/adb/modules/Lynx/system/bin/lynxd' ] && /data/adb/modules/Lynx/system/bin/lynxd cpuidle info 2>/dev/null").exec()
+            val path = com.noir.lynx.data.LynxRepository.getLynxdPath()
+            val nativeRes = Shell.cmd("[ -x '$path' ] && '$path' cpuidle info 2>/dev/null").exec()
             if (nativeRes.isSuccess && nativeRes.out.isNotEmpty()) {
                 val raw = nativeRes.out.joinToString("\n").trim()
                 if (raw.startsWith("{")) {
@@ -234,7 +235,8 @@ object CpuIdleDetector {
      */
     fun setIdleStateDisabled(stateId: Int, disable: Boolean, totalCores: Int = 8): Boolean {
         val flag = if (disable) "1" else "0"
-        val nativeRes = Shell.cmd("[ -x '/data/adb/modules/Lynx/system/bin/lynxd' ] && /data/adb/modules/Lynx/system/bin/lynxd cpuidle set-state $stateId $flag 2>/dev/null").exec()
+        val path = com.noir.lynx.data.LynxRepository.getLynxdPath()
+        val nativeRes = Shell.cmd("[ -x '$path' ] && '$path' cpuidle set-state $stateId $flag 2>/dev/null").exec()
         if (nativeRes.isSuccess) return true
 
         val sb = StringBuilder()
@@ -256,7 +258,8 @@ object CpuIdleDetector {
             IdleSemanticMode.DEEP_SLEEP_PRIORITY -> "deep_sleep"
             IdleSemanticMode.CUSTOM -> return true
         }
-        val nativeRes = Shell.cmd("[ -x '/data/adb/modules/Lynx/system/bin/lynxd' ] && /data/adb/modules/Lynx/system/bin/lynxd cpuidle apply $modeArg 2>/dev/null").exec()
+        val path = com.noir.lynx.data.LynxRepository.getLynxdPath()
+        val nativeRes = Shell.cmd("[ -x '$path' ] && '$path' cpuidle apply $modeArg 2>/dev/null").exec()
         if (nativeRes.isSuccess) return true
 
         return when (mode) {

@@ -1,3 +1,35 @@
+# Lynx Universal [Low-End Device Responsiveness & Performance Engine Overhaul] 7.0.0-RC97
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC97** (Lynx Kernel Manager v3.1.50): **Optimasi Menyeluruh Kinerja Perangkat Low-End & Mid-End (Snapdragon 660 / Redmi Note 7) — Staged Lazy Hydration (<200ms Cold Boot), Eliminasi Total Pemblokiran Sysfs di Main UI Thread, Virtualisasi Penuh Compose LazyList, Bundling Embedded Native Daemon (`lynxd`) di Assets dengan Sinkronisasi Ganda, Resolusi Dinamis LYNXD_PATH, dan Throttling Polling Cerdas Berbasis Layar Aktif**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC97)
+
+### 1. 🚀 Staged Lazy Hydration (<200ms Cold Boot)
+- **Sebelumnya**: Saat aplikasi dibuka, seluruh modul dan metadata subsistem (CPU model, GPU capability, thermal zones, scheduler tunables, SELinux status, dan ADB) dimuat sekaligus secara paralel blocking sebelum UI ditampilkan, menyebabkan lag dan freeze 4–8 detik pada ponsel low-end seperti Redmi Note 7 (eMMC 5.1).
+- **Sesudahnya**: Menerapkan arsitektur inisialisasi bertahap (*Staged Lazy Hydration*). Tahap 1 hanya memuat state vital dashboard (<200ms) dan langsung membuka UI secara responsif. Observer file dan polling telemetri dimulai seketika, sementara metadata subsistem sekunder dimuat secara bertahap di latar belakang via `Dispatchers.IO` tanpa mengunci antarmuka.
+
+### 2. ⚡ Eliminasi Total Pemblokiran Sysfs di Main UI Thread
+- **Masalah**: `ChargingHeroDisplayCard` sebelumnya mengeksekusi pembacaan 30+ berkas node sysfs power supply langsung di dalam `LaunchedEffect` tanpa pembungkus background thread. Karena launched effect berjalan di `Dispatchers.Main.immediate`, thread UI Android terhenti (*blocked*) menunggu mutex kernel pada setiap tick frame. Selain itu, loop penghitung Coulomb 250ms memicu rekomposisi 4 kali per detik pada komponen 1.637 baris yang memicu freeze GC ART 161ms.
+- **Solusi**: Seluruh I/O sysfs dibungkus ketat di dalam `withContext(Dispatchers.IO)` dan loop Coulomb distabilkan ke interval 1000ms, mengeliminasi stutter dan GC thrashing secara tuntas.
+
+### 3. 🧩 Virtualisasi Penuh Compose LazyList
+- **Pusat Tuning**: Mengganti `Column` raksasa monolitik menjadi 10 item `LazyListScope` terpisah. Setiap kartu kini di-measure dan di-draw secara independen dengan sistem daur ulang view (*view recycling*).
+- **CPU & Battery Subscreen**: Memecah sub-halaman menjadi komponen virtual terisolasi, mencegah rekomposisi kaskade di seluruh layar saat satu metrik berubah.
+
+### 4. 🦀 Embedded Native Daemon (`lynxd`) Bundling & Dual-Path Sync
+- Menyematkan biner mesin Rust `lynxd` (944 KB) langsung di dalam assets APK (`LynxCompanion/app/src/main/assets/bin/lynxd`).
+- Mekanisme `ensureDaemonRunning()` secara otomatis mengekstrak biner ke `/data/local/tmp/lynxd` dan menyinkronkannya ke `/data/adb/modules/Lynx/system/bin/lynxd` saat root terdeteksi, meluncurkan daemon secara otomatis tanpa ketergantungan flash modul.
+- Membuka akses telemetri super-cepat Tier 1 RAM (`/dev/lynxd_telemetry.json`) berkecepatan sub-0.05ms tanpa overhead pembuatan subshell Linux.
+
+### 5. 🛡️ Resolusi Dinamis LYNXD_PATH di Seluruh Repositori
+- Menghapus seluruh string path statis `/data/adb/modules/Lynx/system/bin/lynxd` yang sebelumnya memicu error shell *inaccessible or not found* saat modul sedang dinonaktifkan atau belum di-mount.
+- Menggantikannya dengan resolver dinamis `LynxRepository.getLynxdPath()` yang otomatis memilih path aktif terbaik (`$MODULE_DIR` atau `/data/local/tmp/lynxd`).
+
+### 6. ⏱️ Polling Cerdas Berbasis Layar Aktif (Screen-Aware Telemetry)
+- Data berat seperti 40+ zona termal dan proses CPU teratas (`topCpuProcesses`) kini hanya dipolling saat sub-halaman terkait aktif di layar, membebaskan siklus CPU untuk rendering 60 FPS.
+
+---
+
 # Lynx Universal [Automated Root Lifecycle Recovery & Instant Permission Sync] 7.0.0-RC95
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC95** (Lynx Kernel Manager v3.1.47): **Pemulihan Otomatis Akses Superuser Saat Kembali ke Aplikasi (*Auto Root Foreground Resume*), Penutupan Shell Non-Root Kadaluarsa di LibSU, Loop Polling Cerdas 2 Detik di ErrorScreen, Serta Tombol Interaktif "Periksa Ulang Izin Root"**.

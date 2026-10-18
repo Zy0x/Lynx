@@ -48,6 +48,97 @@ fun LynxViewModel.switchTab(tabIndex: Int) {
 
 fun LynxViewModel.setSelectedTuningCategory(category: String?) {
     _uiState.update { it.copy(selectedTuningCategory = category) }
+    if (category != null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            when (category) {
+                "thermal" -> loadThermalSubsystemData()
+                "memory" -> loadMemorySubsystemData()
+                "network" -> {
+                    refreshWifiTelemetry()
+                    refreshTcpAlgorithms()
+                }
+                "audio" -> loadAudioSubsystemData()
+                "system" -> loadSystemSubsystemData()
+                "gpu" -> {
+                    refreshGpuInfo()
+                    refreshGraphicsCapabilities()
+                    refreshDisplayRefreshRate()
+                }
+            }
+        }
+    }
+}
+
+fun LynxViewModel.loadThermalSubsystemData() {
+    viewModelScope.launch(Dispatchers.IO) {
+        refreshThermalCapabilities()
+        val tz = LynxRepository.readThermalZones()
+        if (tz.isNotEmpty()) {
+            _uiState.update { it.copy(thermalZones = tz) }
+        }
+    }
+}
+
+fun LynxViewModel.loadMemorySubsystemData() {
+    viewModelScope.launch(Dispatchers.IO) {
+        val ksmStats = LynxRepository.readKsmStats()
+        val ioDevices = LynxRepository.readIoDevices()
+        val vmAdvanced = LynxRepository.readVirtualMemoryAdvancedConfig()
+        val zramComp = LynxRepository.readZramCompAlgorithms()
+        val memoryEntropy = LynxRepository.readMemoryEntropy()
+        _uiState.update {
+            it.copy(
+                ksmStats = ksmStats,
+                ioDevices = ioDevices,
+                vmAdvanced = vmAdvanced,
+                zramCompAlgorithm = zramComp.first,
+                availZramCompAlgorithms = zramComp.second,
+                memoryEntropy = memoryEntropy
+            )
+        }
+    }
+}
+
+fun LynxViewModel.loadSystemSubsystemData() {
+    viewModelScope.launch(Dispatchers.IO) {
+        val customRules = LynxRepository.readCustomRules()
+        val customScripts = LynxRepository.readCustomScripts()
+        val voltageInfo = LynxRepository.readVoltageInfo()
+        val batteryHealth = LynxRepository.readBatteryHealth()
+        val backups = LynxRepository.listBackups()
+        _uiState.update {
+            it.copy(
+                customRulesScript = customRules,
+                customScripts = customScripts,
+                voltageInfo = voltageInfo,
+                batteryHealthStats = batteryHealth,
+                backups = backups
+            )
+        }
+    }
+}
+
+fun LynxViewModel.loadAudioSubsystemData() {
+    viewModelScope.launch(Dispatchers.IO) {
+        val sound = LynxRepository.readSoundControl()
+        _uiState.update { it.copy(soundControl = sound) }
+        refreshAudioSubsystem()
+    }
+}
+
+fun LynxViewModel.loadWakelocksData() {
+    viewModelScope.launch(Dispatchers.IO) {
+        val wl = LynxRepository.readWakelocks()
+        val wlBlocker = LynxRepository.readWakelockBlockerInfo()
+        val topWl = LynxRepository.readTopWakelocks()
+        _uiState.update {
+            it.copy(
+                wakelocks = wl,
+                wakelockBlockerInfo = wlBlocker,
+                topWakelocks = topWl
+            )
+        }
+    }
 }
 
 fun LynxViewModel.refreshBackups() {

@@ -50,8 +50,10 @@ import kotlinx.coroutines.launch
                     delay(1000L)
                     continue
                 }
+                var hasFastTel = false
                 try {
                     val tel = LynxRepository.readTelemetry()
+                    hasFastTel = tel != null && tel.cpu.isNotEmpty()
                     counter++
                     val isMonitorTabActive = _uiState.value.selectedCpuTab == 2 && _uiState.value.currentTab == 1
 
@@ -122,16 +124,18 @@ import kotlinx.coroutines.launch
                     } else {
                         LynxRepository.latestTotalCpuLoadPercent
                     }
-                    val procs = if (isMonitorTabActive) emptyList() else if (counter == 1 || counter % 6 == 0) LynxRepository.readTopCpuProcesses() else emptyList()
+                    val isCpuCategoryActive = _uiState.value.selectedTuningCategory == "cpu"
+                    val isThermalCategoryActive = _uiState.value.selectedTuningCategory == "thermal"
+                    val procs = if (isMonitorTabActive && (counter == 1 || counter % 4 == 0)) LynxRepository.readTopCpuProcesses() else emptyList()
 
                     if (_uiState.value.state.charging.extremeChargingEnabled && (batt?.isCharging == true || _uiState.value.batteryDetails?.isCharging == true || (batt?.currentMa ?: _uiState.value.batteryDetails?.currentMa ?: 0) > 200)) {
                         if (counter % 3 == 0 && _uiState.value.nativeStatus?.daemonRunning != true) {
                             LynxRepository.reapplyExtremeChargingLock()
                         }
                     }
-                    val therm = if (counter % 6 == 0) LynxRepository.readThermalZones() else null
-                    val freshClusters = if (counter == 1 || counter % 6 == 0) LynxRepository.readClusters() else null
-                    val freshNatStatus = if (counter == 1 || counter % 4 == 0) LynxRepository.readNativeStatus() else null
+                    val therm = if (isThermalCategoryActive && (counter == 1 || counter % 4 == 0)) LynxRepository.readThermalZones() else null
+                    val freshClusters = if (isCpuCategoryActive && (counter == 1 || counter % 6 == 0)) LynxRepository.readClusters() else null
+                    val freshNatStatus = if (counter == 1 || counter % 6 == 0) LynxRepository.readNativeStatus() else null
 
                     if (counter % 8 == 0 && _uiState.value.adbKeepAliveEnabled) {
                         val adbStatusJson = LynxRepository.getAdbStatus()
@@ -190,8 +194,9 @@ import kotlinx.coroutines.launch
                 } catch (e: Exception) {
                     // Ignore transient read errors
                 }
+                val targetInterval = if (hasFastTel) 1000L else 2000L
                 val elapsed = System.currentTimeMillis() - startMs
-                val nextDelay = (1000L - elapsed).coerceAtLeast(150L)
+                val nextDelay = (targetInterval - elapsed).coerceAtLeast(200L)
                 delay(nextDelay)
             }
         }

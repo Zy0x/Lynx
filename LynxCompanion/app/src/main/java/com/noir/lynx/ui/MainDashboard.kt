@@ -150,15 +150,8 @@ fun MainDashboard(
         subscreenLazyState.scrollToItem(0)
         if (selectedCategory == "gpu") {
             viewModel.refreshGpuInfo()
-            viewModel.refreshGraphicsHwui()
-            viewModel.refreshDisplayRefreshRate()
-            viewModel.refreshDisplayCalibration()
             viewModel.refreshGraphicsCapabilities()
-            viewModel.refreshDisplayPipeline()
-            viewModel.refreshColorConflict()
-            viewModel.refreshSavedLabSessions(context)
-            viewModel.loadPerAppGraphicsRules(context)
-            viewModel.refreshInstalledApps()
+            viewModel.refreshDisplayRefreshRate()
         }
     }
     var lastCpuTab by rememberSaveable { mutableStateOf(uiState.selectedCpuTab) }

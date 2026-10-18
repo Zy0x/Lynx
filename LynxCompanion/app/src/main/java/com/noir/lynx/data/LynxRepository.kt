@@ -31,7 +31,8 @@ private const val LOCAL_CONFIG_PATH = "/data/user/0/com.noir.lynx/files/config.j
 private const val LOCAL_CONFIG_PATH_DEBUG = "/data/user/0/com.noir.lynx.debug/files/config.json"
 private const val TARGET_SOC_PATH = "$MODULE_DIR/target_soc"
 private const val LXCORE_PATH = "$MODULE_DIR/system/bin/Lxcore"
-internal const val LYNXD_PATH = "$MODULE_DIR/system/bin/lynxd"
+internal val LYNXD_PATH: String
+    get() = LynxRepository.getLynxdPath()
 
 /**
  * LynxRepository: Single source of truth for reading/writing module state.
@@ -247,9 +248,55 @@ object LynxRepository {
      */
     suspend fun readNativeStatus(): NativeEngineStatus? = LynxNativeStatusRepository.readNativeStatus()
 
+    @Volatile
+    private var resolvedLynxdPath: String? = null
+
+    fun getLynxdPath(): String {
+        resolvedLynxdPath?.let { return it }
+        try {
+            val resMod = Shell.cmd("[ -f '$MODULE_DIR/system/bin/lynxd' ] && [ -x '$MODULE_DIR/system/bin/lynxd' ] && echo 1 || echo 0").exec()
+            if (resMod.out.firstOrNull()?.trim() == "1") {
+                resolvedLynxdPath = "$MODULE_DIR/system/bin/lynxd"
+                return "$MODULE_DIR/system/bin/lynxd"
+            }
+            val resTmp = Shell.cmd("[ -f '/data/local/tmp/lynxd' ] && [ -x '/data/local/tmp/lynxd' ] && echo 1 || echo 0").exec()
+            if (resTmp.out.firstOrNull()?.trim() == "1") {
+                resolvedLynxdPath = "/data/local/tmp/lynxd"
+                return "/data/local/tmp/lynxd"
+            }
+        } catch (_: Exception) {}
+        return "/data/local/tmp/lynxd"
+    }
+
     suspend fun ensureDaemonRunning(): Boolean = withContext(Dispatchers.IO) {
-        if (!isModuleInstalled()) return@withContext false
-        com.topjohnwu.superuser.Shell.cmd("[ -x '$MODULE_DIR/system/bin/lynxd' ] && '$MODULE_DIR/system/bin/lynxd' daemon start >/dev/null 2>&1").exec().isSuccess
+        if (!isRootAvailable()) return@withContext false
+        val path = getLynxdPath()
+        val exists = Shell.cmd("[ -f '$path' ] && [ -x '$path' ] && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
+        if (!exists) {
+            // Extract embedded lynxd from assets to /data/local/tmp/lynxd and module dir
+            try {
+                val ctx = appContext ?: com.noir.lynx.LynxApp.instance
+                ctx.assets.open("bin/lynxd").use { input ->
+                    val tmpAppFile = File(ctx.cacheDir, "lynxd_tmp")
+                    tmpAppFile.outputStream().use { out -> input.copyTo(out) }
+                    tmpAppFile.setReadable(true, false)
+                    tmpAppFile.setExecutable(true, false)
+                    Shell.cmd("""
+                        cp '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd && chmod 755 /data/local/tmp/lynxd && chcon u:object_r:system_file:s0 /data/local/tmp/lynxd 2>/dev/null
+                        if [ -d "$MODULE_DIR" ]; then
+                            mkdir -p "$MODULE_DIR/system/bin" 2>/dev/null
+                            cp '${tmpAppFile.absolutePath}' "$MODULE_DIR/system/bin/lynxd" && chmod 755 "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
+                        fi
+                    """.trimIndent()).exec()
+                    tmpAppFile.delete()
+                    resolvedLynxdPath = null
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed extracting embedded lynxd asset", e)
+            }
+        }
+        val targetPath = getLynxdPath()
+        Shell.cmd("[ -x '$targetPath' ] && '$targetPath' daemon start >/dev/null 2>&1").exec().isSuccess
     }
 
     val lockedClusterBounds = java.util.concurrent.ConcurrentHashMap<Int, Pair<Long, Long>>()

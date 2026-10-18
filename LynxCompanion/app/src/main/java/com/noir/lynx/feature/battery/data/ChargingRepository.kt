@@ -16,7 +16,7 @@ class ChargingRepository(
     companion object {
         private const val TAG = "LynxCharging"
         private const val MODULE_DIR = "/data/adb/modules/Lynx"
-        private const val LYNXD_PATH = "$MODULE_DIR/system/bin/lynxd"
+        private val LYNXD_PATH get() = LynxRepository.getLynxdPath()
     }
 
     suspend fun setMaxBatteryPercent(percent: Int): Boolean = withContext(Dispatchers.IO) {

@@ -23,7 +23,7 @@ data class MediaDecoderStatus(
 )
 
 object MediaDecoderRepository {
-    private const val ENGINE = "/data/adb/modules/Lynx/system/bin/lynxd"
+    private val ENGINE get() = com.noir.lynx.data.LynxRepository.getLynxdPath()
     val modes = listOf("system", "omx_compat", "prefer_hardware", "prefer_software")
 
     suspend fun read(): MediaDecoderStatus = withContext(Dispatchers.IO) {

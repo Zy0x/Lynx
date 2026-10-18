@@ -48,13 +48,10 @@ fun ThermalSubscreen(
     var activeTweakConfig by remember { mutableStateOf<TweakConfig?>(null) }
     var selectedSensorFilter by remember { mutableStateOf("Semua") }
 
-    // Auto-refresh thermal zones on screen load & periodic live radar ticker
+    // Auto-refresh thermal zones on screen load
     LaunchedEffect(Unit) {
         viewModel.refreshThermalCapabilities()
-        while (true) {
-            viewModel.refreshThermalZones()
-            delay(2500L)
-        }
+        viewModel.refreshThermalZones()
     }
 
     val validZones = remember(uiState.thermalZones) {

@@ -35,21 +35,9 @@ internal object LynxAppStateRepository {
     private var cachedLynxdPath: String? = null
 
     private fun getLynxdBinaryPath(): String? {
-        cachedLynxdPath?.let { return it }
-        val candidatePaths = listOf(
-            "/data/adb/modules_update/Lynx/system/bin/lynxd",
-            "$MODULE_DIR/system/bin/lynxd",
-            "/data/adb/modules/Lynx/system/bin/lynxd",
-            "/system/bin/lynxd"
-        )
-        for (p in candidatePaths) {
-            val check = Shell.cmd("[ -x '$p' ] && echo 1 || echo 0").exec()
-            if (check.out.firstOrNull()?.trim() == "1") {
-                cachedLynxdPath = p
-                return p
-            }
-        }
-        return null
+        val path = LynxRepository.getLynxdPath()
+        val check = Shell.cmd("[ -x '$path' ] && echo 1 || echo 0").exec()
+        return if (check.out.firstOrNull()?.trim() == "1") path else null
     }
 
     fun getLocalConfigPath(): String {
