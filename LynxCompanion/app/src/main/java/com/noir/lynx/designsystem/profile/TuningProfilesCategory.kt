@@ -368,6 +368,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                     "balance" -> AccentBlue
                     "performance" -> AccentOrange
                     "extreme" -> AccentRed
+                    "auto" -> AccentCyan
                     else -> AccentCyan
                 }
                 val activeIcon = when (activeProfileId.lowercase()) {
@@ -375,6 +376,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                     "balance" -> Icons.Default.Tune
                     "performance" -> Icons.Default.Bolt
                     "extreme" -> Icons.Default.LocalFireDepartment
+                    "auto" -> Icons.Default.AutoMode
                     else -> Icons.Default.Widgets
                 }
                 val activeTitle = when (activeProfileId.lowercase()) {
@@ -382,6 +384,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                     "balance" -> "Seimbang (Balance)"
                     "performance" -> "Performa Tinggi (Performance)"
                     "extreme" -> "Ekstrem (Extreme)"
+                    "auto" -> "Auto (AI Adaptive)"
                     else -> activeProfileId.replaceFirstChar { it.uppercase() }
                 }
                 val activeDesc = when (activeProfileId.lowercase()) {
@@ -389,6 +392,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                     "balance" -> "Responsif, dingin, dan optimal untuk seluruh aktivitas harian"
                     "performance" -> "Prioritas clock tinggi, devfreq responsif, dan frame rate stabil"
                     "extreme" -> "Bypass batasan termal, clock maksimal tanpa batas untuk gaming berat"
+                    "auto" -> "Otomatis berpindah profil performa saat bermain game dan kembali ke profil dasar"
                     else -> "Profil aktif saat ini"
                 }
 
@@ -422,27 +426,58 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                     ) {}
                                     Spacer(Modifier.width(6.dp))
                                     Text(
-                                        text = "STATUS ENGINE AKTIF",
+                                        text = if (activeProfileId == "auto") "AUTO (AI) ENGINE" else "STATUS ENGINE AKTIF",
                                         color = activeColor,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.ExtraBold,
-                                        letterSpacing = 0.8.sp
+                                        letterSpacing = 0.8.sp,
+                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
                                     )
                                 }
 
-                                if (state.profileOverrides.isNotEmpty()) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = AccentOrange.copy(alpha = 0.18f),
-                                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
-                                    ) {
-                                        Text(
-                                            text = "OVERRIDE AKTIF",
-                                            color = AccentOrange,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                                        )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    val isAutoRunning = uiState.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning
+                                    if (isAutoRunning) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = AccentGreen.copy(alpha = 0.16f),
+                                            border = BorderStroke(0.6.dp, AccentGreen.copy(alpha = 0.45f))
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                            ) {
+                                                Surface(shape = CircleShape, color = AccentGreen, modifier = Modifier.size(5.dp)) {}
+                                                Spacer(Modifier.width(4.dp))
+                                                Text(
+                                                    text = "OTOMASI AKTIF",
+                                                    color = AccentGreen,
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    if (state.profileOverrides.isNotEmpty()) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = AccentOrange.copy(alpha = 0.18f),
+                                            border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
+                                        ) {
+                                            Text(
+                                                text = "OVERRIDE AKTIF",
+                                                color = AccentOrange,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -518,6 +553,54 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            val isAutoRunning = uiState.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning
+                            val baselineId = if (activeProfileId == "auto") "balance" else activeProfileId
+                            val baselineDisplayName = when (baselineId.lowercase().trim()) {
+                                "performance" -> "Performa Tinggi"
+                                "extreme" -> "Ekstrem"
+                                "powersave" -> "Hemat Daya"
+                                else -> "Seimbang"
+                            }
+
+                            if (isAutoRunning || activeProfileId == "auto") {
+                                Spacer(Modifier.height(10.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = BgDeepOled,
+                                    border = BorderStroke(0.6.dp, BorderGlass),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Restore,
+                                                contentDescription = null,
+                                                tint = AccentCyan,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                text = "Profil Dasar Pemulihan:",
+                                                color = TextSecondary,
+                                                fontSize = 10.5.sp,
+                                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                            )
+                                        }
+                                        Text(
+                                            text = baselineDisplayName,
+                                            color = AccentCyan,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
                                         )
                                     }
                                 }

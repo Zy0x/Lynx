@@ -599,7 +599,7 @@ object LynxRepository {
         return try {
             val direct = Shell.cmd("cat /data/adb/lynx/baseline_profile 2>/dev/null").exec()
             val directProf = direct.out.firstOrNull()?.trim()?.lowercase() ?: ""
-            if (directProf in listOf("balance", "powersave", "dormant")) {
+            if (directProf.isNotBlank() && directProf != "auto" && directProf != "dormant") {
                 return directProf
             }
             val activePath = runCatching { getLocalConfigPath() }.getOrDefault(LOCAL_CONFIG_PATH_DEBUG)
@@ -608,7 +608,7 @@ object LynxRepository {
             if (text.contains("\"active_profile\"")) {
                 val match = Regex("\"active_profile\"\\s*:\\s*\"([^\"]+)\"").find(text)
                 val p = match?.groupValues?.get(1)?.lowercase() ?: "balance"
-                if (p in listOf("balance", "powersave", "dormant")) p else "balance"
+                if (p.isNotBlank() && p != "auto" && p != "dormant") p else "balance"
             } else "balance"
         } catch (e: Exception) { "balance" }
     }

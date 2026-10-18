@@ -240,6 +240,8 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
         val profileApplied = if (_uiState.value.isModuleInstalled) {
             LynxRepository.setProfile(id, "user")
         } else {
+            val targetBaseline = if (id == "auto") "balance" else id
+            com.topjohnwu.superuser.Shell.cmd("echo '$targetBaseline' > /data/adb/lynx/baseline_profile 2>/dev/null").exec()
             val baselineWritten = LynxRepository.writeStateKey("active_profile", base, "str")
             val overridesWritten = if (clearOverrides) LynxRepository.writeStateKey("profile_overrides", "", "str") else true
             baselineWritten && overridesWritten
@@ -342,6 +344,17 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
                 successMessage = if (note.isBlank()) "Profil ${profile.name} diterapkan"
                     else "${profile.name} diterapkan; domain perlu adaptasi: $note"
             )
+        }
+
+        // ── Phase 4: Dynamic Baseline & Automation Service Coordination ──
+        if (id == "auto") {
+            if (!com.noir.lynx.service.LynxAppAutomationService.isRunning) {
+                LynxRepository.startAppAutomation(context)
+                _uiState.update { it.copy(isAppAutomationActive = true) }
+            }
+            com.noir.lynx.service.LynxAppAutomationService.updateBaselineProfile(context, "balance")
+        } else {
+            com.noir.lynx.service.LynxAppAutomationService.updateBaselineProfile(context, id)
         }
     }
 }

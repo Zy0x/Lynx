@@ -69,11 +69,11 @@ class LynxAppAutomationService : Service() {
                     Log.i(TAG, "Screen ON detected: Resuming app automation polling")
                     isScreenOn = true
                     serviceScope.launch(Dispatchers.IO) {
-                        val base = if (baselineProfile.isBlank() || baselineProfile == "dormant" || baselineProfile == "powersave") "balance" else baselineProfile
+                        val base = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
                         LynxRepository.setProfile(base, caller = "watcher")
                         val (pct, tempC) = getLiveBatteryTelemetry()
                         withContext(Dispatchers.Main) {
-                            updateNotification(formatModeTitle(base), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + formatTelemetry(pct, tempC), base)
+                            updateNotification(formatModeTitle(base), getStandbySubtitle(base, pct, tempC), base)
                         }
                     }
                 }
@@ -151,9 +151,10 @@ class LynxAppAutomationService : Service() {
                 LynxRepository.readState().activeProfile
             }.ifBlank { "balance" }
         }
-        val safeProfile = if (initialProfile.isBlank() || initialProfile == "dormant" || initialProfile == "powersave") "balance" else initialProfile
+        val safeProfile = if (initialProfile.isBlank() || initialProfile == "dormant") "balance" else initialProfile
         baselineProfile = safeProfile
-        startForeground(NOTIF_ID, buildNotification(formatModeTitle(safeProfile), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active), safeProfile))
+        val (pct, tempC) = getLiveBatteryTelemetry()
+        startForeground(NOTIF_ID, buildNotification(formatModeTitle(safeProfile), getStandbySubtitle(safeProfile, pct, tempC), safeProfile))
         isRunning = true
 
         val filter = IntentFilter().apply {
@@ -193,7 +194,7 @@ class LynxAppAutomationService : Service() {
         baselineProfile = safeProfile
         if (activeCustomPkg == null) {
             val (pct, tempC) = getLiveBatteryTelemetry()
-            updateNotification(formatModeTitle(safeProfile), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + formatTelemetry(pct, tempC), safeProfile)
+            updateNotification(formatModeTitle(safeProfile), getStandbySubtitle(safeProfile, pct, tempC), safeProfile)
         }
     }
 
@@ -208,9 +209,10 @@ class LynxAppAutomationService : Service() {
                 val rule = rulesCache.firstOrNull { it.packageName.equals(activeCustomPkg, ignoreCase = true) }
                 val appName = rule?.appName ?: activeCustomPkg ?: AppLocale.getString(this@LynxAppAutomationService, R.string.automation_game_active)
                 val hzStr = rule?.targetRefreshRate?.takeIf { it > 0 }?.let { " • ${it}Hz" } ?: ""
-                "$appName$hzStr$tele"
+                val baseName = getProfileDisplayName(baselineProfile)
+                "$appName$hzStr • Kembali ke $baseName$tele"
             } else {
-                AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + tele
+                getStandbySubtitle(baselineProfile, pct, tempC)
             }
             updateNotification(title, sub, profile)
         }
@@ -271,9 +273,10 @@ class LynxAppAutomationService : Service() {
                         val activeProfile = rule?.targetProfile ?: baselineProfile
                         val appName = rule?.appName ?: activeCustomPkg ?: AppLocale.getString(this@LynxAppAutomationService, R.string.automation_game_active)
                         val hzInfo = rule?.targetRefreshRate?.takeIf { it > 0 }?.let { " • ${it}Hz" } ?: ""
-                        updateNotification(formatModeTitle(activeProfile), "$appName$hzInfo$tele", activeProfile)
+                        val baseName = getProfileDisplayName(baselineProfile)
+                        updateNotification(formatModeTitle(activeProfile), "$appName$hzInfo • Kembali ke $baseName$tele", activeProfile)
                     } else {
-                        updateNotification(formatModeTitle(baselineProfile), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + tele, baselineProfile)
+                        updateNotification(formatModeTitle(baselineProfile), getStandbySubtitle(baselineProfile, pct, tempC), baselineProfile)
                     }
                 } catch (_: Exception) {}
             }
@@ -482,7 +485,8 @@ class LynxAppAutomationService : Service() {
                 val hzInfo = matchingRule.targetRefreshRate?.takeIf { it > 0 }?.let { " • ${it}Hz" } ?: ""
                 val (pct, tempC) = getLiveBatteryTelemetry()
                 val tele = formatTelemetry(pct, tempC)
-                updateNotification(formatModeTitle(target), "${matchingRule.appName}$hzInfo$tele", target)
+                val baseName = getProfileDisplayName(baselineProfile)
+                updateNotification(formatModeTitle(target), "${matchingRule.appName}$hzInfo • Kembali ke $baseName$tele", target)
             }
         } else {
             // Not in rules: if we previously boosted an app, check if target app is still alive
@@ -493,7 +497,7 @@ class LynxAppAutomationService : Service() {
                     // App is CLOSED / TERMINATED: IMMEDIATELY cancel cooldown and restore baseline!
                     cooldownJob?.cancel()
                     cooldownJob = null
-                    val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant" || baselineProfile == "powersave") "balance" else baselineProfile
+                    val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
                     Log.i(TAG, "Target app [$targetPkg] closed: immediate restoration to baseline [$restoreTarget]")
 
                     if (autoStartedHud) {
@@ -514,8 +518,7 @@ class LynxAppAutomationService : Service() {
                     LynxRepository.setProfile(restoreTarget, caller = "watcher")
                     activeCustomPkg = null
                     val (pct, tempC) = getLiveBatteryTelemetry()
-                    val tele = formatTelemetry(pct, tempC)
-                    updateNotification(formatModeTitle(restoreTarget), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + tele, restoreTarget)
+                    updateNotification(formatModeTitle(restoreTarget), getStandbySubtitle(restoreTarget, pct, tempC), restoreTarget)
                 } else if (cooldownJob == null || !cooldownJob!!.isActive) {
                     // Target app is still alive in memory: start cooldown buffer
                     val cooldownMs = getBufferCooldownMs()
@@ -531,7 +534,7 @@ class LynxAppAutomationService : Service() {
                             }
                         }
 
-                        val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant" || baselineProfile == "powersave") "balance" else baselineProfile
+                        val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
                         Log.i(TAG, "Cooldown expired/terminated (${elapsed}ms), restoring baseline profile [$restoreTarget]")
 
                         if (autoStartedHud) {
@@ -552,8 +555,7 @@ class LynxAppAutomationService : Service() {
                         LynxRepository.setProfile(restoreTarget, caller = "watcher")
                         activeCustomPkg = null
                         val (pct, tempC) = getLiveBatteryTelemetry()
-                        val tele = formatTelemetry(pct, tempC)
-                        updateNotification(formatModeTitle(restoreTarget), AppLocale.getString(this@LynxAppAutomationService, R.string.automation_standby_active) + tele, restoreTarget)
+                        updateNotification(formatModeTitle(restoreTarget), getStandbySubtitle(restoreTarget, pct, tempC), restoreTarget)
                     }
                 }
             }
@@ -615,7 +617,7 @@ class LynxAppAutomationService : Service() {
         }
     }
 
-    private fun formatModeTitle(profile: String): String {
+    private fun getProfileDisplayName(profile: String): String {
         val profileNameRes = when (profile.lowercase().trim()) {
             "extreme" -> R.string.profile_name_extreme
             "performance" -> R.string.profile_name_performance
@@ -623,7 +625,17 @@ class LynxAppAutomationService : Service() {
             "auto" -> R.string.profile_name_auto
             else -> R.string.profile_name_balance
         }
-        val profileName = AppLocale.getString(this@LynxAppAutomationService, profileNameRes)
+        return AppLocale.getString(this@LynxAppAutomationService, profileNameRes)
+    }
+
+    private fun getStandbySubtitle(base: String, pct: Int, tempC: Float): String {
+        val tele = formatTelemetry(pct, tempC)
+        val baseName = getProfileDisplayName(base)
+        return "Otomasi Siaga • Profil Dasar: $baseName$tele"
+    }
+
+    private fun formatModeTitle(profile: String): String {
+        val profileName = getProfileDisplayName(profile)
         return AppLocale.getString(
             this@LynxAppAutomationService,
             R.string.automation_notification_title,

@@ -139,6 +139,11 @@ class LynxViewModel : ViewModel() {
                     val cpuIdle = LynxRepository.readCpuIdleInfo()
 
                     val appContext = LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance
+                    if (isAutoRunning && !com.noir.lynx.service.LynxAppAutomationService.isRunning) {
+                        try {
+                            LynxRepository.startAppAutomation(appContext)
+                        } catch (_: Exception) {}
+                    }
                     CpuPolicyManager.initialize(appContext)
                     val recoveryInfo = RecoveryManager.getRecoveryInfo(appContext)
                     val protectedTasks = ProtectedTaskManager.getDefaultProtectedTasks()

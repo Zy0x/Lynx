@@ -290,17 +290,18 @@ internal object LynxAppStateRepository {
             null
         } else {
             val fromFile = Shell.cmd("cat /data/adb/lynx/baseline_profile 2>/dev/null").exec().out.firstOrNull()?.trim()
-            if (!fromFile.isNullOrBlank() && fromFile in allowedProfiles && fromFile != "powersave") {
+            if (!fromFile.isNullOrBlank() && fromFile in allowedProfiles && fromFile != "dormant" && fromFile != "auto") {
                 fromFile
             } else {
                 val stateProf = readState().activeProfile
-                if (stateProf.isNotBlank() && stateProf != "powersave" && stateProf != "dormant") stateProf else "balance"
+                if (stateProf.isNotBlank() && stateProf != "dormant" && stateProf != "auto") stateProf else "balance"
             }
         }
         val lynxdPath = getLynxdBinaryPath()
         val safeLynxd = lynxdPath ?: LYNXD_PATH
         if (isManualSelection) {
-            val baselineCmd = if (profile != "auto") "'$safeLynxd' state set baseline_profile '$profile' str 2>/dev/null; " else ""
+            val targetBaseline = if (profile == "auto") "balance" else profile
+            val baselineCmd = "'$safeLynxd' state set baseline_profile '$targetBaseline' str 2>/dev/null; echo '$targetBaseline' > /data/adb/lynx/baseline_profile 2>/dev/null; "
             val batchSetup = "mkdir -p /data/adb/lynx 2>/dev/null; " +
                 "echo '$profile' > /data/adb/lynx/active_profile; " +
                 "setprop lynx.mode '$profile'; " +

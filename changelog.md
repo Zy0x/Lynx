@@ -1,3 +1,30 @@
+# Lynx Universal [Dynamic Baseline Architecture & Profile Automation Synchronization] 7.0.0-RC86
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC86** (Lynx Kernel Manager v3.1.38): **Arsitektur Model Baseline Dinamis & Sinkronisasi Layanan Otomasi Profil: Penyelarasan Penuh Mode Auto (AI) dan Profil Tetap (Performance, Balance, Extreme, Powersave), Dual-Badge Hero Card & Dynamic Baseline Recovery Card, Notifikasi Status Bar Informatif dengan Profil Pemulihan, Serta Redesain Deskripsi Profil Bebas Truncate**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC86)
+
+### 1. 🎯 Model Baseline Dinamis (*User Baseline Persistence*)
+- **Penyelarasan Logika Profil Tetap & Otomasi**: Menghilangkan kebingungan antara profil statis dan layanan otomasi. Profil manual yang dipilih pengguna (`Performance`, `Balance`, `Extreme`, atau `Powersave`) kini bertindak sebagai **User Baseline** yang persisten.
+- **Siklus Pemulihan Presisi**: Saat game atau aplikasi dengan aturan khusus dibuka, sistem beralih sementara ke profil target game. Saat game ditutup atau cooldown buffer habis, sistem secara konsisten kembali ke profil dasar pilihan pengguna, bukan lagi dipaksa kembali ke `Balance`.
+- **Dukungan Penuh Powersave & Extreme sebagai Baseline**: Memperbaiki `LynxRepository.readBaselineProfile()` dan `LynxAppStateRepository.setProfile()` agar mengakomodasi seluruh spektrum mode tanpa pembatasan `powersave` atau mode kustom.
+
+### 2. ⚡ Preset 1-Klik Auto (AI) & Aktivasi Layanan Otomasi
+- **Korespondensi Cerdas 1-Klik**: Memilih profil `Auto (AI)` kini bertindak sebagai jalan pintas cerdas yang mengunci profil dasar ke `Seimbang` (`balance`) dan secara otomatis mengaktifkan Layanan Otomasi Profil (`LynxAppAutomationService`) jika sebelumnya dalam keadaan nonaktif.
+- **Transisi Mulus**: Saat berpindah dari `Auto (AI)` ke profil tetap (misal `Performa`), layanan otomasi tetap berjalan aktif dengan profil baru tersebut sebagai profil pemulihan utama saat keluar dari game.
+
+### 3. 🎨 Dual-Badge Hero Card & Dynamic Baseline Recovery Card
+- **Dual-Badge Indikator Hero Card**: Menampilkan status engine aktif (`STATUS ENGINE AKTIF` atau `AUTO (AI) ENGINE`) berdampingan dengan badge status otomasi (`OTOMASI AKTIF`) dan badge override (`OVERRIDE AKTIF`).
+- **Dynamic Baseline Recovery Card**: Menampilkan kartu informatif reaktif instan (0 ms tanpa I/O overhead) di dalam Hero Card yang memperlihatkan profil dasar pemulihan aktif secara transparan kepada pengguna.
+- **Deskripsi Profil Padat & Anti-Truncate**: Seluruh kartu profil pada katalog kini menggunakan teks deskripsi 2-baris yang padat, jelas, dan bebas dari pemotongan teks (*zero text truncation*).
+
+### 4. 🔔 Notifikasi Status Bar Informatif
+- **Transparansi Status Bar**: Notifikasi latar depan kini menampilkan status profil aktif sekaligus profil dasar pemulihan:
+  - Saat Game Aktif: `[Nama Game] • 120Hz • Kembali ke [Profil Dasar] • [Suhu] • [Baterai%]`
+  - Saat Siaga / Standby: `Otomasi Siaga • Profil Dasar: [Profil Dasar] • [Suhu] • [Baterai%]`
+
+---
+
 # Lynx Universal [Adaptive Multi-Tier RAM Architecture & Dynamic Dalvik Scaling] 7.0.0-RC85
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC85** (Lynx Kernel Manager v3.1.37): **Arsitektur Memori Multi-Tier Adaptif: Deteksi Otomatis Kapasitas RAM Fisik (3GB-4GB, 6GB, 8GB-10GB, 12GB+) pada Installer `customize.sh` & Mesin Native `lynxd`, Penyetelan Presisi Dalvik VM Heap Headroom & Garbage Collection, Serta Kalibrasi VM Watermark & Min Free Kbytes Anti-Direct Reclaim & Anti-Aggressive LMK**.
