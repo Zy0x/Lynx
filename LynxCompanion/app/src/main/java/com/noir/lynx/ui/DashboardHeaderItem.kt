@@ -76,6 +76,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
@@ -334,10 +335,127 @@ internal fun LazyListScope.dashboardHeaderItem(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // ── SMART AUTOMATION & BASELINE STATUS PILL ──
+                val isAutoRunning = uiState.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning
+                val isAutoProfile = state.activeProfile.equals("auto", ignoreCase = true)
+                val hasOverrides = state.profileOverrides.isNotEmpty()
+                val baselineId = if (isAutoProfile) "balance" else state.activeProfile
+                val baselineDisplayName = when (baselineId.lowercase().trim()) {
+                    "performance" -> "Performa Tinggi"
+                    "extreme" -> "Ekstrem"
+                    "powersave" -> "Hemat Daya"
+                    else -> "Seimbang"
+                }
+
+                if (isAutoProfile || hasOverrides || isAutoRunning) {
+                    val pillAccent = when {
+                        hasOverrides -> AccentOrange
+                        isAutoProfile -> AccentCyan
+                        else -> AccentGreen
+                    }
+                    val pillIcon = when {
+                        hasOverrides -> Icons.Default.SportsEsports
+                        isAutoProfile -> Icons.Default.AutoMode
+                        else -> Icons.Default.Tune
+                    }
+                    val pillTitle = when {
+                        hasOverrides -> "OVERRIDE OTOMASI AKTIF"
+                        isAutoProfile -> "AUTO (AI) ENGINE AKTIF"
+                        else -> "OTOMASI PROFIL SIAGA"
+                    }
+                    val pillSubtext = when {
+                        hasOverrides -> "Kembali ke $baselineDisplayName saat keluar game"
+                        isAutoProfile -> "Adaptif Pintar • Profil Pemulihan: $baselineDisplayName"
+                        else -> "Profil Dasar Pemulihan: $baselineDisplayName"
+                    }
+
+                    Surface(
+                        onClick = onNavigateToProfilesCatalog,
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, pillAccent.copy(alpha = 0.45f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f, fill = false)
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = pillAccent.copy(alpha = 0.16f),
+                                    border = BorderStroke(0.6.dp, pillAccent.copy(alpha = 0.5f)),
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = pillIcon,
+                                            contentDescription = null,
+                                            tint = pillAccent,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = pillAccent,
+                                            modifier = Modifier.size(5.dp)
+                                        ) {}
+                                        Spacer(Modifier.width(5.dp))
+                                        Text(
+                                            text = pillTitle,
+                                            color = pillAccent,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.2.sp,
+                                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                        )
+                                    }
+                                    Text(
+                                        text = pillSubtext,
+                                        color = TextSecondary,
+                                        fontSize = 9.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                    )
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Detail",
+                                    color = pillAccent,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(Modifier.width(2.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = pillAccent,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // ── BARIS 2: 4-Way Segmented Kernel Performance Profiles ──
                 val standardProfiles = listOf(
                     HeaderModeItem("powersave", "Hemat", "Efisiensi Daya", Color(0xFF00E676), Icons.Default.BatteryChargingFull),
-                    HeaderModeItem("balance", "Seimbang", "Harian Seimbang", AccentBlue, Icons.Default.Tune),
+                    HeaderModeItem("balance", "Seimbang", if (isAutoProfile) "Basis Auto (AI)" else "Harian Seimbang", if (isAutoProfile) AccentCyan else AccentBlue, Icons.Default.Tune),
                     HeaderModeItem("performance", "Performa", "Gaming Responsif", AccentOrange, Icons.Default.Speed),
                     HeaderModeItem("extreme", "Extreme", "Clock Maksimal", AccentRed, Icons.Default.LocalFireDepartment),
                 )
@@ -347,7 +465,8 @@ internal fun LazyListScope.dashboardHeaderItem(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     standardProfiles.forEach { item ->
-                        val isSelected = state.activeProfile.equals(item.id, ignoreCase = true)
+                        val isPhysicallyActive = state.activeProfile.equals(item.id, ignoreCase = true)
+                        val isSelected = if (isAutoProfile) (item.id == "balance") else isPhysicallyActive
                         val animatedBgColor by animateColorAsState(
                             targetValue = if (isSelected) item.accentColor.copy(alpha = 0.18f) else BgElevated,
                             animationSpec = tween(durationMillis = 150),
@@ -360,7 +479,7 @@ internal fun LazyListScope.dashboardHeaderItem(
                         )
                         Surface(
                             onClick = {
-                                if (!isSelected) {
+                                if (!isPhysicallyActive || isAutoProfile) {
                                     viewModel.triggerModeFeedback(
                                         modeId = item.id,
                                         modeLabel = item.label,

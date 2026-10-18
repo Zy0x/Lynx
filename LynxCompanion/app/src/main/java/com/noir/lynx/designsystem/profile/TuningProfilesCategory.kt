@@ -1004,6 +1004,186 @@ fun AutomationServiceTopSection(
     context: Context,
     modifier: Modifier = Modifier
 ) {
+    var showActivationDialog by remember { mutableStateOf(false) }
+    var dontShowAgain by remember { mutableStateOf(false) }
+    val prefs = remember { context.getSharedPreferences("lynx_automation_prefs", Context.MODE_PRIVATE) }
+    val isSuppressed = remember { prefs.getBoolean("suppress_automation_confirm_dialog", false) }
+
+    if (showActivationDialog) {
+        AlertDialog(
+            onDismissRequest = { showActivationDialog = false },
+            containerColor = BgElevated,
+            shape = RoundedCornerShape(20.dp),
+            icon = {
+                Surface(
+                    shape = CircleShape,
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.35f)),
+                    modifier = Modifier.size(52.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.SportsEsports,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+            },
+            title = {
+                Text(
+                    text = "Aktifkan Otomasi Profil?",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Layanan ini memantau game dan aplikasi terdaftar secara cerdas untuk menerapkan profil performa secara dinamis.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.5.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = BgDeepOled.copy(alpha = 0.7f),
+                        border = BorderStroke(0.8.dp, BorderGlass),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text("⚡", fontSize = 13.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "Penimpaan Profil Sementara",
+                                        color = TextPrimary,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Saat game dibuka, parameter kernel (CPU/GPU/FPS) otomatis disesuaikan dengan aturan game tersebut.",
+                                        color = TextSecondary.copy(alpha = 0.8f),
+                                        fontSize = 10.5.sp,
+                                        lineHeight = 14.sp
+                                    )
+                                }
+                            }
+
+                            HorizontalDivider(color = BorderGlass.copy(alpha = 0.3f), thickness = 0.6.dp)
+
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text("🛡️", fontSize = 13.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "Pemulihan Otomatis ke Profil Dasar",
+                                        color = TextPrimary,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Saat keluar dari game, sistem aman kembali ke Profil Dasar Anda setelah masa cooldown berakhir.",
+                                        color = TextSecondary.copy(alpha = 0.8f),
+                                        fontSize = 10.5.sp,
+                                        lineHeight = 14.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Checkbox "Jangan tampilkan lagi"
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { dontShowAgain = !dontShowAgain }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = dontShowAgain,
+                            onCheckedChange = { dontShowAgain = it },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = AccentCyan,
+                                checkmarkColor = BgDeepOled,
+                                uncheckedColor = TextSecondary.copy(alpha = 0.6f)
+                            ),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Jangan tampilkan konfirmasi ini lagi",
+                            color = TextPrimary.copy(alpha = 0.9f),
+                            fontSize = 11.5.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Surface(
+                    onClick = {
+                        if (dontShowAgain) {
+                            prefs.edit().putBoolean("suppress_automation_confirm_dialog", true).apply()
+                        }
+                        showActivationDialog = false
+                        viewModel.toggleAppAutomation(context, true)
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    color = AccentCyan.copy(alpha = 0.18f),
+                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f)),
+                    modifier = Modifier.height(40.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Aktifkan Otomasi",
+                            color = AccentCyan,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp
+                        )
+                    }
+                }
+            },
+            dismissButton = {
+                Surface(
+                    onClick = { showActivationDialog = false },
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgDeepOled,
+                    border = BorderStroke(0.8.dp, BorderGlass),
+                    modifier = Modifier.height(40.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Batal",
+                            color = TextSecondary,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.5.sp
+                        )
+                    }
+                }
+            }
+        )
+    }
+
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = BgElevated,
@@ -1050,7 +1230,17 @@ fun AutomationServiceTopSection(
                 }
                 Switch(
                     checked = uiState.isAppAutomationActive,
-                    onCheckedChange = { viewModel.toggleAppAutomation(context, it) },
+                    onCheckedChange = { enable ->
+                        if (enable) {
+                            if (isSuppressed) {
+                                viewModel.toggleAppAutomation(context, true)
+                            } else {
+                                showActivationDialog = true
+                            }
+                        } else {
+                            viewModel.toggleAppAutomation(context, false)
+                        }
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = BgDeepOled,
                         checkedTrackColor = AccentCyan,

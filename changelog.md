@@ -1,3 +1,27 @@
+# Lynx Universal [Smart Automation Dashboard Sync, Educational Activation Dialog & Glassmorphic Customization Menu] 7.0.0-RC87
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC87** (Lynx Kernel Manager v3.1.39): **Sinkronisasi Cerdas Dashboard Utama & Smart Automation Status Pill, Dialog Edukasi & Konfirmasi Aktivasi Layanan Otomasi dengan Opsi Persistensi "Jangan Tampilkan Lagi", Redesain Total Dropdown Menu "Kustomisasi" Berbasis Cyberpunk Glassmorphic Card (Zero Corner Glitch), Serta Penyempurnaan Spacing Navigasi Bawah**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC87)
+
+### 1. 🎛️ Smart Automation & Baseline Status Pill di Dashboard Utama
+- **Sinkronisasi Status Real-time**: Menambahkan Smart Automation Status Pill tepat di atas 4-way mode selector di Dashboard utama yang secara transparan menampilkan status engine aktif:
+  - Mode Auto (AI): `AUTO (AI) ENGINE AKTIF • Adaptif Pintar • Profil Pemulihan: [Profil Dasar]` dengan tombol detail interaktif.
+  - Mode Override Game: `OVERRIDE OTOMASI AKTIF • Kembali ke [Profil Dasar] saat keluar game` berdenyut dengan aksen semantik.
+  - Mode Siaga: `OTOMASI PROFIL SIAGA • Profil Dasar Pemulihan: [Profil Dasar]`.
+- **Harmonisasi 4-Way Mode Selector**: Mengeliminasi bug tampilan unselected saat mode `Auto (AI)` aktif. Kini tombol `Seimbang` ditandai dengan aksen Cyan dan subjudul `"Basis Auto (AI)"`, memberikan umpan balik visual yang utuh tanpa kebingungan.
+
+### 2. 🛡️ Dialog Edukasi & Konfirmasi Pengaktifan Layanan Otomasi
+- **Penjelasan Transparan & Edukatif**: Mengaktifkan sakelar "Layanan Otomasi Profil" kini menampilkan dialog konfirmasi elegan yang menerangkan mekanisme penimpaan profil sementara saat game berjalan dan pemulihan otomatis ke profil dasar saat game ditutup.
+- **Persistensi "Jangan Tampilkan Lagi"**: Dilengkapi checkbox cerdas yang menyimpan preferensi pengguna di SharedPreferences, sehingga power user yang sudah paham alur kerja otomasi tidak terganggu oleh konfirmasi berulang.
+
+### 3. ✨ Redesain Menu "Kustomisasi" (Zero Corner Glitch & Cyberpunk Glassmorphism)
+- **Eliminasi Artefak Putih**: Memperbaiki container shape, elevation, dan border Material 3 DropdownMenu secara native sehingga menghilangkan glitch sudut putih yang mengganggu estetika.
+- **Desain Mewah Berbasis Glassmorphic Card**: Seluruh menu item dilengkapi ikon bernuansa neon dalam wadah rounded transparan, tipografi tajam, serta microcopy penjelas fungsi ("Sesuaikan parameter profil", "Reset ke nilai pabrik Lynx", "Duplikasi sebagai profil baru").
+- **Spacing Navigasi Bawah Presisi**: Menambahkan padding ekstra di bawah tombol simpan profil kustom sehingga konten tidak lagi tertutup oleh floating dock bar.
+
+---
+
 # Lynx Universal [Dynamic Baseline Architecture & Profile Automation Synchronization] 7.0.0-RC86
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC86** (Lynx Kernel Manager v3.1.38): **Arsitektur Model Baseline Dinamis & Sinkronisasi Layanan Otomasi Profil: Penyelarasan Penuh Mode Auto (AI) dan Profil Tetap (Performance, Balance, Extreme, Powersave), Dual-Badge Hero Card & Dynamic Baseline Recovery Card, Notifikasi Status Bar Informatif dengan Profil Pemulihan, Serta Redesain Deskripsi Profil Bebas Truncate**.
