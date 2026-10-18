@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.viewModelScope
 import com.noir.lynx.data.*
 import com.noir.lynx.profiles.CpuProfileBoostPolicies
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
 
@@ -96,7 +97,7 @@ import kotlinx.coroutines.flow.update
             "extreme" -> "extreme"
             else -> "balanced"
         }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             cpuProfileJob?.join()
             applyGpuProfile(gpuProfile, context ?: com.noir.lynx.LynxApp.instance, fromMasterProfile = true)
         }
@@ -109,7 +110,7 @@ import kotlinx.coroutines.flow.update
             current.copy(state = current.state.copy(overclock = current.state.overclock.copy(enabled = enabled)))
         }
         setKey("overclock.enabled", enabled.toString(), "bool")
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val ok = LynxRepository.applyOverclock(enabled)
             if (ok) {
                 _uiState.update { it.copy(successMessage = if (enabled) "Mode Kernel Overclock diaktifkan" else "Mode Kernel Overclock dinonaktifkan") }
@@ -133,7 +134,7 @@ import kotlinx.coroutines.flow.update
             current.copy(state = current.state.copy(memory = current.state.memory.copy(zramSizeMb = mb)))
         }
         setKey("memory.zram_size_mb", mb.toString(), "val")
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val algo = _uiState.value.zramCompAlgorithm
             LynxRepository.setZramCompAlgorithm(algo, mb)
         }
@@ -149,7 +150,7 @@ import kotlinx.coroutines.flow.update
             )
         }
         setKey("memory.swappiness", value.toString(), "val")
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             com.topjohnwu.superuser.Shell.cmd("echo $value > /proc/sys/vm/swappiness 2>/dev/null").exec()
         }
     }
@@ -159,7 +160,7 @@ import kotlinx.coroutines.flow.update
         // Generic persisted settings span several independent domains. Callers that
         // alter a profile-controlled subsystem record that scoped override themselves.
         recordStateMutation()
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             LynxRepository.writeStateKey(key, value, type)
         }
     }
@@ -173,7 +174,7 @@ import kotlinx.coroutines.flow.update
         if (policyId == null) {
             _uiState.update { it.copy(activeGovernorPreset = preset) }
         }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val ok = LynxRepository.applyGovernorPreset(preset, policyId)
             if (ok) {
                 val label = when (preset) {

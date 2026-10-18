@@ -70,6 +70,7 @@ internal object LynxCpuTelemetryRepository {
 
     fun streamCpuMonitor(totalCores: Int = getTotalCpuCores().coerceAtLeast(1)): Flow<CpuMonitorSnapshot> = flow {
         val intervalMs = if (totalCores >= 8) 1500L else 2000L
+        var iter = 0
         // Immediate First-Frame Emission (<16ms, zero-delay initial load)
         val initialSnapshot = CpuMonitorSnapshot(
             totalCpuLoadPercent = LynxRepository.latestTotalCpuLoadPercent.coerceIn(0, 100),
@@ -81,10 +82,19 @@ internal object LynxCpuTelemetryRepository {
         emit(initialSnapshot)
 
         while (true) {
+            iter++
             val (totalLoad, perCoreLoads) = sampleCpuStatLoads()
+            val procs = if (iter % 2 == 0 || cachedTopProcesses.isEmpty()) {
+                val fresh = readTopCpuProcesses()
+                if (fresh.isNotEmpty()) {
+                    cachedTopProcesses = fresh
+                    fresh
+                } else cachedTopProcesses
+            } else cachedTopProcesses
+
             val snapshot = CpuMonitorSnapshot(
                 totalCpuLoadPercent = totalLoad.coerceIn(0, 100),
-                topProcesses = cachedTopProcesses,
+                topProcesses = procs,
                 perCoreLoads = perCoreLoads.ifEmpty { LynxRepository.latestPerCoreLoads },
                 timestampMs = System.currentTimeMillis()
             )

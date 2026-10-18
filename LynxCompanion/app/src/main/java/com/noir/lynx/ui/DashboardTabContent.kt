@@ -172,14 +172,44 @@ fun DashboardTabContent(
 
                     // ── Live Hardware Thermal Zones Matrix ─────────────────
                     item(key = "thermal_zones") {
-                        val zones = uiState.thermalZones.filter { it.tempC in 15f..110f }
-                        if (zones.isNotEmpty()) {
-                            LynxCard(
-                                title = "Matriks Sensor Termal Hardware",
-                                icon = Icons.Default.Thermostat,
-                                accentColor = AccentRed
-                            ) {
-                                val displayZones = zones.take(6)
+                        val zones = remember(uiState.thermalZones) {
+                            uiState.thermalZones.filter { it.tempC in 15f..110f }
+                        }
+                        LynxCard(
+                            title = "Matriks Sensor Termal Hardware",
+                            icon = Icons.Default.Thermostat,
+                            accentColor = AccentRed
+                        ) {
+                            if (zones.isEmpty()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = AccentRed
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        text = "Sinkronisasi sensor termal kernel...",
+                                        color = TextSecondary,
+                                        fontSize = 11.5.sp
+                                    )
+                                }
+                            } else {
+                                val displayZones = remember(zones) {
+                                    zones.sortedWith(compareByDescending<com.noir.lynx.data.ThermalZoneInfo> {
+                                        when {
+                                            it.type.contains("cpu", ignoreCase = true) -> 4
+                                            it.type.contains("gpu", ignoreCase = true) -> 3
+                                            it.type.contains("batt", ignoreCase = true) || it.type.contains("bms", ignoreCase = true) -> 2
+                                            it.type.contains("pm", ignoreCase = true) || it.type.contains("soc", ignoreCase = true) -> 1
+                                            else -> 0
+                                        }
+                                    }).take(6)
+                                }
                                 displayZones.chunked(2).forEach { row ->
                                     Row(
                                         Modifier.fillMaxWidth().padding(bottom = 6.dp),
@@ -203,10 +233,13 @@ fun DashboardTabContent(
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
                                                     Column(Modifier.weight(1f)) {
-                                                        val cleanType = zone.type
-                                                            .replace("mtkts", "")
-                                                            .replace("tsens_tz_sensor", "sensor")
-                                                            .uppercase()
+                                                        val cleanType = when {
+                                                            zone.type.contains("cpu", ignoreCase = true) -> "CPU " + zone.type.replace(Regex("(?i)cpu[-_]?"), "").uppercase()
+                                                            zone.type.contains("gpu", ignoreCase = true) -> "GPU " + zone.type.replace(Regex("(?i)gpu[-_]?"), "").uppercase()
+                                                            zone.type.contains("battery", ignoreCase = true) || zone.type.contains("bms", ignoreCase = true) -> "BATERAI"
+                                                            zone.type.contains("pm", ignoreCase = true) -> "PMIC / SOC"
+                                                            else -> zone.type.replace("mtkts", "").replace("tsens_tz_sensor", "sensor").uppercase()
+                                                        }
                                                         Text(cleanType, color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                                                         Text(zone.type, color = TextSecondary.copy(alpha = 0.6f), fontSize = 8.5.sp, maxLines = 1)
                                                     }

@@ -134,7 +134,9 @@ import kotlinx.coroutines.launch
                             LynxRepository.reapplyExtremeChargingLock()
                         }
                     }
-                    val therm = if (isThermalCategoryActive && (counter == 1 || counter % 4 == 0)) LynxRepository.readThermalZones() else null
+                    val isDashboardActive = _uiState.value.currentTab == 0 && _uiState.value.selectedTuningCategory == null
+                    val shouldPollThermal = isThermalCategoryActive || isDashboardActive
+                    val therm = if (shouldPollThermal && (counter == 1 || counter % 3 == 0)) LynxRepository.readThermalZones() else null
                     val freshClusters = if (isCpuCategoryActive && (counter == 1 || counter % 6 == 0)) LynxRepository.readClusters() else null
                     val freshNatStatus = if (counter == 1 || counter % 6 == 0) LynxRepository.readNativeStatus() else null
 

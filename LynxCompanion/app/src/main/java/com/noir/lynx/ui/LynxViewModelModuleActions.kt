@@ -142,14 +142,14 @@ fun LynxViewModel.loadWakelocksData() {
 }
 
 fun LynxViewModel.refreshBackups() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val backups = LynxRepository.listBackups()
         _uiState.update { it.copy(backups = backups) }
     }
 }
 
 fun LynxViewModel.backupBoot() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         _uiState.update { it.copy(isBackingUp = true) }
         val result = LynxRepository.backupBoot()
         val backups = LynxRepository.listBackups()
@@ -165,7 +165,7 @@ fun LynxViewModel.backupBoot() {
 }
 
 fun LynxViewModel.restoreBoot(path: String) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val result = LynxRepository.restoreBoot(path)
         _uiState.update {
             it.copy(
@@ -177,7 +177,7 @@ fun LynxViewModel.restoreBoot(path: String) {
 }
 
 fun LynxViewModel.flashKernel(zipPath: String) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         _uiState.update { it.copy(isFlashing = true, flashLog = "Memulai proses flashing AnyKernel3...\n") }
         val result = LynxRepository.flashKernel(zipPath)
         val backups = LynxRepository.listBackups()
@@ -194,7 +194,7 @@ fun LynxViewModel.flashKernel(zipPath: String) {
 }
 
 fun LynxViewModel.installLynxModule(zipPath: String) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         _uiState.update { it.copy(isFlashing = true, flashLog = "Menginstal modul Lynx Deity...\n") }
         val result = LynxRepository.installLynxModule(zipPath)
         val installed = LynxRepository.isModuleInstalled()

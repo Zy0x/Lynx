@@ -23,7 +23,7 @@ internal fun LynxViewModel.recordProfileOverride(domain: ProfileDomain, profile:
         current.copy(state = current.state.copy(profileOverrides = current.state.profileOverrides + (domain to normalized)))
     }
     profileOverrideSaveJob?.cancel()
-    profileOverrideSaveJob = viewModelScope.launch {
+    profileOverrideSaveJob = viewModelScope.launch(Dispatchers.IO) {
         // Slider/drag controls may call this repeatedly; persist one consolidated override snapshot.
         delay(120L)
         val encoded = ProfileOverridesCodec.encode(_uiState.value.state.profileOverrides)
@@ -46,7 +46,7 @@ internal fun LynxViewModel.resetGpuProfileToMaster(context: android.content.Cont
     _uiState.update { current ->
         current.copy(state = current.state.copy(profileOverrides = current.state.profileOverrides - ProfileDomain.GPU - ProfileDomain.GRAPHICS))
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.writeStateKey(
             "profile_overrides",
             ProfileOverridesCodec.encode(_uiState.value.state.profileOverrides),
@@ -148,7 +148,7 @@ internal fun LynxViewModel.saveKernelPerformanceProfile(profile: KernelPerforman
 }
 
 internal fun LynxViewModel.deleteKernelPerformanceProfile(id: String) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         if (!LynxRepository.deleteKernelProfile(id)) {
             _uiState.update { it.copy(errorMessage = "Profil bawaan tidak dapat dihapus") }
             return@launch
@@ -160,7 +160,7 @@ internal fun LynxViewModel.deleteKernelPerformanceProfile(id: String) {
 }
 
 internal fun LynxViewModel.duplicateKernelPerformanceProfile(id: String) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.duplicateKernelProfile(id).onSuccess { catalog ->
             _uiState.update { it.copy(kernelProfileCatalog = catalog, successMessage = "Profil disalin") }
         }.onFailure { error ->
@@ -170,7 +170,7 @@ internal fun LynxViewModel.duplicateKernelPerformanceProfile(id: String) {
 }
 
 internal fun LynxViewModel.restoreBuiltInKernelProfile(id: String, context: android.content.Context) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         if (LynxRepository.restoreBuiltInKernelProfile(id)) {
             val catalog = LynxRepository.readKernelProfileCatalog()
             _uiState.update { it.copy(kernelProfileCatalog = catalog, successMessage = "Profil bawaan dipulihkan") }
@@ -185,7 +185,7 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
     context: android.content.Context,
     clearOverrides: Boolean,
 ) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val catalog = LynxRepository.readKernelProfileCatalog()
         val profile = catalog.find(id) ?: run {
             _uiState.update { it.copy(errorMessage = "Profil tidak ditemukan") }

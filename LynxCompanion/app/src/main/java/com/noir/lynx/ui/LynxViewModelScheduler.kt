@@ -38,7 +38,7 @@ import java.util.concurrent.ConcurrentHashMap
 private val schedulerDebounceJobs = ConcurrentHashMap<String, Job>()
 
 fun LynxViewModel.refreshSchedulerInfo(context: Context? = null) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val sched = safeReadSchedulerInfo(context)
         _uiState.update { it.copy(schedulerInfo = sched) }
     }
@@ -156,7 +156,7 @@ fun LynxViewModel.setSchedulerApplyOnBoot(enabled: Boolean, context: Context? = 
     _uiState.update { current ->
         current.copy(schedulerInfo = current.schedulerInfo.copy(applyOnBoot = enabled))
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setSchedulerTunable("apply_on_boot", if (enabled) 1L else 0L, context)
     }
 }
@@ -236,7 +236,7 @@ fun LynxViewModel.applySchedulerPreset(preset: String, context: Context? = null,
 // ── CPU Sets & Task Affinity Isolation (Task Shield) ───────────
 
 fun LynxViewModel.loadCpuSetsInfo(context: Context? = null) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val sets = safeReadCpuSetsInfo(context)
             _uiState.update { it.copy(cpuSets = sets) }
@@ -249,7 +249,7 @@ fun LynxViewModel.applyCpuSetPreset(preset: String, context: Context? = null, fr
     if (!fromMasterProfile) recordStateMutation(com.noir.lynx.profiles.ProfileDomain.CPU)
     val totalCores = _uiState.value.cpuSets.totalCoresCount
     _uiState.update { it.copy(cpuSets = it.cpuSets.copy(activePreset = preset), isCpuModified = if (fromMasterProfile) it.isCpuModified else true) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyCpuSetPreset(preset, totalCores, context)
         if (ok) {
             val presetTitle = when (preset.lowercase()) {
@@ -309,7 +309,7 @@ fun LynxViewModel.toggleCpuSetCore(group: String, coreId: Int, context: Context?
     }
 
     _uiState.update { it.copy(cpuSets = updatedSets, isCpuModified = true) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setCpuSetCores(group, newCoresStr, context)
         if (!ok) {
             _uiState.update { it.copy(errorMessage = "Gagal memperbarui Core $coreId pada $group") }
@@ -320,7 +320,7 @@ fun LynxViewModel.toggleCpuSetCore(group: String, coreId: Int, context: Context?
 fun LynxViewModel.setCpuSetApplyOnBoot(enabled: Boolean, context: Context? = null) {
     recordStateMutation(com.noir.lynx.profiles.ProfileDomain.CPU)
     _uiState.update { it.copy(cpuSets = it.cpuSets.copy(applyOnBoot = enabled)) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setCpuSetApplyOnBoot(enabled, context)
     }
 }

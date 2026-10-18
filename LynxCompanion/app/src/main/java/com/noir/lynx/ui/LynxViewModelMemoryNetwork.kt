@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
  */
 
 fun LynxViewModel.refreshKsmStats() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val ksm = LynxRepository.readKsmStats()
             _uiState.update { it.copy(ksmStats = ksm) }
@@ -46,7 +46,7 @@ fun LynxViewModel.refreshKsmStats() {
 fun LynxViewModel.setKsmEnabled(enabled: Boolean) {
     recordStateMutation()
     _uiState.update { it.copy(ksmStats = it.ksmStats.copy(enabled = enabled)) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setKsmEnabled(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = "KSM ${if (enabled) "diaktifkan" else "dinonaktifkan"}") }
@@ -59,7 +59,7 @@ fun LynxViewModel.setKsmEnabled(enabled: Boolean) {
 fun LynxViewModel.setKsmTunables(pagesToScan: Int, sleepMs: Int) {
     recordStateMutation()
     _uiState.update { it.copy(ksmStats = it.ksmStats.copy(pagesToScan = pagesToScan, sleepMs = sleepMs)) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setKsmTunables(pagesToScan, sleepMs)
     }
 }
@@ -69,7 +69,7 @@ fun LynxViewModel.setKsmTunables(pagesToScan: Int, sleepMs: Int) {
 // ----------------------------------------------------------------
 
 fun LynxViewModel.refreshIoDevices() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val raw = LynxRepository.readIoDevices()
             val devices = mergeIoDevicesWithIntents(raw)
@@ -86,7 +86,7 @@ fun LynxViewModel.setIoScheduler(device: String, scheduler: String) {
             if (it.device == device) it.copy(currentScheduler = scheduler) else it
         })
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setIoScheduler(device, scheduler)
     }
 }
@@ -99,7 +99,7 @@ fun LynxViewModel.setReadAheadKb(device: String, kb: Int) {
             if (it.device == device) it.copy(readAheadKb = kb) else it
         })
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setReadAheadKb(device, kb)
     }
 }
@@ -109,7 +109,7 @@ fun LynxViewModel.setReadAheadKb(device: String, kb: Int) {
 // ----------------------------------------------------------------
 
 fun LynxViewModel.refreshTcpAlgorithms() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val algs = LynxRepository.readAvailableTcpAlgorithms()
             val current = LynxRepository.readCurrentTcpCongestion()
@@ -136,7 +136,7 @@ fun LynxViewModel.setPrivateDns(mode: String, specifier: String) {
         privateDnsSpecifier = specifier,
         state = it.state.copy(network = it.state.network.copy(privateDnsMode = mode, privateDnsSpecifier = specifier))
     ) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyPrivateDns(mode, specifier)
         if (ok) {
             val label = if (mode == "hostname") specifier else "Off (ISP)"
@@ -150,7 +150,7 @@ fun LynxViewModel.setPrivateDns(mode: String, specifier: String) {
 }
 
 fun LynxViewModel.refreshAudioSubsystem() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val audioTelem = LynxRepository.readAudioTelemetry()
             val soundCtrl = LynxRepository.readSoundControl()
@@ -173,7 +173,7 @@ fun LynxViewModel.setAudioDeepBufferBypass(enabled: Boolean) {
         current.copy(state = current.state.copy(audio = current.state.audio.copy(deepBufferBypass = enabled)))
     }
     setKey("audio.deep_buffer_bypass", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyAudioDeepBufferBypass(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "Deep Buffer Bypass diaktifkan (Zero Latency)" else "Deep Buffer Bypass dinonaktifkan") }
@@ -187,7 +187,7 @@ fun LynxViewModel.setAudioDirectDacOffload(enabled: Boolean) {
         current.copy(state = current.state.copy(audio = current.state.audio.copy(directDacOffload = enabled)))
     }
     setKey("audio.direct_dac_offload", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyAudioDirectDacOffload(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "Direct DAC Offload (32KB buffer) diaktifkan" else "Direct DAC Offload dinonaktifkan") }
@@ -201,7 +201,7 @@ fun LynxViewModel.setTcpCongestion(algorithm: String) {
         currentTcpCongestion = algorithm,
         state = it.state.copy(network = it.state.network.copy(tcpCongestion = algorithm))
     ) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setTcpCongestion(algorithm)
         if (ok) {
             val current = LynxRepository.readCurrentTcpCongestion()
@@ -223,7 +223,7 @@ fun LynxViewModel.setTcpCongestion(algorithm: String) {
 // ----------------------------------------------------------------
 
 fun LynxViewModel.loadGovernorTunables(policyId: Int, governor: String) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val tunables = LynxRepository.readGovernorTunables(policyId, governor)
             _uiState.update { it.copy(
@@ -240,7 +240,7 @@ fun LynxViewModel.setGovernorTunable(policyId: Int, governor: String, key: Strin
         val updatedList = curList.map { if (it.key == key) it.copy(currentValue = value) else it }
         state.copy(governorTunables = state.governorTunables + (policyId to updatedList))
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setGovernorTunable(policyId, governor, key, value)
     }
 }
@@ -251,7 +251,7 @@ fun LynxViewModel.setGovernorTunable(policyId: Int, governor: String, key: Strin
 
 fun LynxViewModel.applyLmkPreset(preset: String) {
     recordStateMutation()
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyLmkPreset(preset)
         _uiState.update {
             if (ok) it.copy(successMessage = "LMK preset '$preset' diterapkan")
@@ -265,7 +265,7 @@ fun LynxViewModel.applyLmkPreset(preset: String) {
 // ----------------------------------------------------------------
 
 fun LynxViewModel.refreshApplistPerf() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val list = LynxRepository.readApplistPerf()
             _uiState.update { it.copy(applistPerf = list) }
@@ -274,7 +274,7 @@ fun LynxViewModel.refreshApplistPerf() {
 }
 
 fun LynxViewModel.addAppToPerf(pkg: String) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.addAppToPerf(pkg)
         if (ok) {
             refreshApplistPerf()
@@ -286,7 +286,7 @@ fun LynxViewModel.addAppToPerf(pkg: String) {
 }
 
 fun LynxViewModel.removeAppFromPerf(pkg: String) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.removeAppFromPerf(pkg)
         if (ok) {
             refreshApplistPerf()
@@ -298,7 +298,7 @@ fun LynxViewModel.removeAppFromPerf(pkg: String) {
 }
 
 fun LynxViewModel.refreshInstalledApps() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val apps = LynxRepository.readInstalledApps()
             val appList = LynxRepository.readInstalledAppInfos()
@@ -312,7 +312,7 @@ fun LynxViewModel.refreshInstalledApps() {
 // ----------------------------------------------------------------
 
 fun LynxViewModel.refreshWakelocks() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val w = LynxRepository.readWakelocks()
             val top = LynxRepository.readTopWakelocks()
@@ -334,7 +334,7 @@ fun LynxViewModel.toggleWakelockBlocked(name: String, blocked: Boolean) {
         val updated = if (blocked) blocker.blockedWakelocks + name else blocker.blockedWakelocks - name
         current.copy(wakelockBlockerInfo = blocker.copy(blockedWakelocks = updated))
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setWakelockBlocked(name, blocked)
         if (ok) {
             val blocker = LynxRepository.readWakelockBlockerInfo()
@@ -354,7 +354,7 @@ fun LynxViewModel.toggleAggressiveDoze(enabled: Boolean) {
         val blocker = current.wakelockBlockerInfo
         current.copy(wakelockBlockerInfo = blocker.copy(aggressiveDozeEnabled = enabled))
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.toggleAggressiveDoze(enabled)
         if (ok) {
             val blocker = LynxRepository.readWakelockBlockerInfo()

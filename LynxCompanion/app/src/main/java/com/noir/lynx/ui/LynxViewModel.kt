@@ -22,6 +22,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,27 +54,44 @@ class LynxViewModel : ViewModel() {
     // ----------------------------------------------------------------
 
     private fun initializeApp() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(isLoading = true, thermalZones = LynxRepository.getLastKnownThermalZones().ifEmpty { it.thermalZones }) }
 
             val rootAvailable = LynxRepository.isRootAvailable() || com.noir.lynx.BuildConfig.DEBUG
             val moduleInstalled = if (rootAvailable) LynxRepository.isModuleInstalled() else false
 
             if (rootAvailable) {
                 try {
-                    // Stage 1: Ultra-fast core state hydration (<400ms via native lynxd)
-                    val state = LynxRepository.readState()
-                    val kernelProfiles = LynxRepository.readKernelProfileCatalog()
-                    val clusters = LynxRepository.readClusters()
-                    val telemetry = LynxRepository.readTelemetry()
-                    val nativeStatus = LynxRepository.readNativeStatus()
-                    val gpuInfo = LynxRepository.readGpuInfo()
-                    val cpuCores = LynxRepository.readCpuCores()
-                    val statLoads = LynxRepository.readCpuStatLoads()
-                    val socPlatformName = LynxRepository.getSocPlatformName()
+                    LynxRepository.ensureKgslPermissions()
+
+                    // Stage 1: Ultra-fast parallelized core state hydration (<120ms via concurrent IO)
+                    val stateDeferred = async { LynxRepository.readState() }
+                    val kernelProfilesDeferred = async { LynxRepository.readKernelProfileCatalog() }
+                    val clustersDeferred = async { LynxRepository.readClusters() }
+                    val telemetryDeferred = async { LynxRepository.readTelemetry() }
+                    val nativeStatusDeferred = async { LynxRepository.readNativeStatus() }
+                    val gpuInfoDeferred = async { LynxRepository.readGpuInfo() }
+                    val cpuCoresDeferred = async { LynxRepository.readCpuCores() }
+                    val statLoadsDeferred = async { LynxRepository.readCpuStatLoads() }
+                    val socPlatformNameDeferred = async { LynxRepository.getSocPlatformName() }
+                    val batteryDetailsDeferred = async { LynxRepository.readBatteryDetails() }
+                    val thermalZonesDeferred = async { LynxRepository.readThermalZones() }
+                    val cachedTunablesDeferred = async { LynxRepository.loadCachedDeepTunables() }
+
+                    val state = stateDeferred.await()
+                    val kernelProfiles = kernelProfilesDeferred.await()
+                    val clusters = clustersDeferred.await()
+                    val telemetry = telemetryDeferred.await()
+                    val nativeStatus = nativeStatusDeferred.await()
+                    val gpuInfo = gpuInfoDeferred.await()
+                    val cpuCores = cpuCoresDeferred.await()
+                    val statLoads = statLoadsDeferred.await()
+                    val socPlatformName = socPlatformNameDeferred.await()
+                    val batteryDetails = batteryDetailsDeferred.await()
+                    val thermalZones = thermalZonesDeferred.await()
+                    val cachedTunables = cachedTunablesDeferred.await()
+
                     val socTopology = LynxRepository.getSocTopology(clusters, cpuCores.size.coerceAtLeast(8))
-                    val batteryDetails = LynxRepository.readBatteryDetails()
-                    val cachedTunables = LynxRepository.loadCachedDeepTunables()
 
                     _uiState.update {
                         it.copy(
@@ -88,6 +107,7 @@ class LynxViewModel : ViewModel() {
                             telemetry = telemetry,
                             gpuInfo = gpuInfo,
                             cpuCores = cpuCores,
+                            thermalZones = thermalZones.ifEmpty { it.thermalZones },
                             totalCpuLoadPercent = statLoads.first,
                             cpuLoadHistory = listOf(statLoads.first),
                             socPlatformName = socPlatformName,
@@ -116,7 +136,7 @@ class LynxViewModel : ViewModel() {
                         }
                         val isHudRunning = com.noir.lynx.service.LynxFloatingHudService.isRunning
 
-                        delay(100L)
+                        delay(500L)
                         CpuPolicyManager.initialize(appContext)
                         val recoveryInfo = RecoveryManager.getRecoveryInfo(appContext)
                         val protectedTasks = ProtectedTaskManager.getDefaultProtectedTasks()
@@ -144,7 +164,7 @@ class LynxViewModel : ViewModel() {
                             )
                         }
 
-                        delay(150L)
+                        delay(300L)
                         val graphicsCaps = LynxRepository.readGraphicsCapabilities()
                         val displayPipe = LynxRepository.readDisplayPipeline()
                         val colorConflict = LynxRepository.checkColorConflict()
@@ -169,7 +189,7 @@ class LynxViewModel : ViewModel() {
                             )
                         }
 
-                        delay(150L)
+                        delay(300L)
                         val appRules = LynxRepository.readAppProfileRules()
                         val selinux = LynxRepository.readSelinuxMode()
                         val printkSilent = LynxRepository.readPrintkSilent()
@@ -229,6 +249,7 @@ class LynxViewModel : ViewModel() {
 
                 // Asynchronously pre-cache installed apps in background without blocking startup
                 viewModelScope.launch(Dispatchers.IO) {
+                    delay(3500L)
                     refreshInstalledApps()
                 }
             } catch (e: Throwable) {
@@ -321,7 +342,7 @@ class LynxViewModel : ViewModel() {
         isForeground = foreground
         if (foreground) {
             if (!_uiState.value.isRootAvailable) {
-                viewModelScope.launch {
+                viewModelScope.launch(Dispatchers.IO) {
                     LynxRepository.forceResetRoot()
                     val rootNow = LynxRepository.isRootAvailable()
                     if (rootNow) {
@@ -572,7 +593,7 @@ class LynxViewModel : ViewModel() {
     internal fun startFileObserver() {
         fileObserver?.stopWatching()
         fileObserver = StateFileObserver {
-            viewModelScope.launch {
+            viewModelScope.launch(Dispatchers.IO) {
                 delay(300L)
                 if (!isBatteryInformationScreenActive && System.currentTimeMillis() - lastStateMutationTime >= 4000L) {
                     refreshState()

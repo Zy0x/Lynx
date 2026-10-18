@@ -5,6 +5,7 @@ import com.noir.lynx.R
 import com.noir.lynx.core.locale.AppLocale
 import androidx.lifecycle.viewModelScope
 import com.noir.lynx.data.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
 
@@ -12,7 +13,7 @@ import kotlinx.coroutines.flow.update
     fun LynxViewModel.toggleGameHud(context: android.content.Context, enable: Boolean) {
         recordStateMutation()
         _uiState.update { it.copy(isGameHudActive = enable) }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             if (enable) {
                 LynxRepository.grantOverlayPermission()
                 val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
@@ -135,7 +136,7 @@ import kotlinx.coroutines.flow.update
     fun LynxViewModel.toggleAppAutomation(context: android.content.Context, enable: Boolean) {
         recordStateMutation()
         _uiState.update { it.copy(isAppAutomationActive = enable) }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             if (enable) {
                 LynxRepository.startAppAutomation(context)
                 _uiState.update { it.copy(successMessage = "Otomasi Profil Per-App Diaktifkan") }
@@ -154,7 +155,7 @@ import kotlinx.coroutines.flow.update
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.appName.ifBlank { it.packageName } })
             current.copy(appProfileRules = updated)
         }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val ok = LynxRepository.saveAppProfileRule(rule)
             if (ok) {
                 _uiState.update { it.copy(successMessage = "Aturan profil untuk ${rule.appName} disimpan!") }
@@ -176,7 +177,7 @@ import kotlinx.coroutines.flow.update
         _uiState.update { current ->
             current.copy(appProfileRules = current.appProfileRules.filter { it.packageName != packageName })
         }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val ok = LynxRepository.deleteAppProfileRule(packageName)
             if (ok) {
                 _uiState.update { it.copy(successMessage = "Aturan aplikasi dihapus") }
@@ -198,7 +199,7 @@ import kotlinx.coroutines.flow.update
                 if (it.packageName == packageName) it.copy(enabled = enabled) else it
             })
         }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val ok = LynxRepository.toggleAppProfileRule(packageName, enabled)
             if (ok) {
                 if (_uiState.value.isAppAutomationActive) {
@@ -214,7 +215,7 @@ import kotlinx.coroutines.flow.update
     fun LynxViewModel.clearAllAppProfileRules(context: android.content.Context) {
         recordStateMutation()
         _uiState.update { it.copy(appProfileRules = emptyList()) }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val ok = LynxRepository.clearAllAppProfileRules()
             if (ok) {
                 _uiState.update { it.copy(successMessage = "Semua aturan profil aplikasi berhasil dihapus") }
@@ -232,7 +233,7 @@ import kotlinx.coroutines.flow.update
 
     fun LynxViewModel.autoDetectAndSyncInstalledRules(context: android.content.Context) {
         recordStateMutation()
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isScanningInstalledGames = true) }
             try {
                 val (addedCount, updatedRules) = LynxRepository.autoDetectAndSyncInstalledRules()
@@ -262,9 +263,11 @@ import kotlinx.coroutines.flow.update
             .putInt("app_cooldown_seconds", seconds)
             .apply()
 
-        com.topjohnwu.superuser.Shell.cmd(
-            "echo '$seconds' > /data/adb/lynx/cooldown_duration 2>/dev/null; chmod 644 /data/adb/lynx/cooldown_duration 2>/dev/null"
-        ).submit()
+        viewModelScope.launch(Dispatchers.IO) {
+            com.topjohnwu.superuser.Shell.cmd(
+                "echo '$seconds' > /data/adb/lynx/cooldown_duration 2>/dev/null; chmod 644 /data/adb/lynx/cooldown_duration 2>/dev/null"
+            ).submit()
+        }
 
         val label = if (seconds == 0) context.getString(R.string.audit_persistent)
             else context.resources.getQuantityString(R.plurals.audit_cooldown_seconds, seconds, seconds)

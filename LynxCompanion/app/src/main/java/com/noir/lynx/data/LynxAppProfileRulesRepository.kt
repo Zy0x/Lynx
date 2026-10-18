@@ -336,40 +336,54 @@ internal object LynxAppProfileRulesRepository {
     }
 
 
+    @Volatile
+    private var cachedAppPackages: List<String> = emptyList()
+    @Volatile
+    private var cachedAppInfos: List<AppInfo> = emptyList()
+
     suspend fun readInstalledApps(): List<String> = withContext(Dispatchers.IO) {
+        if (cachedAppPackages.isNotEmpty()) return@withContext cachedAppPackages
         try {
-            val r = Shell.cmd("pm list packages -3 2>/dev/null | cut -d: -f2 | sort").exec()
-            r.out.map { it.trim() }.filter { it.isNotBlank() }
-        } catch (e: Exception) {
+            val pm = LynxApp.instance.packageManager
+            val installed = pm.getInstalledApplications(0)
+            val list = installed.filter { app ->
+                (app.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 ||
+                (app.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+            }.map { it.packageName }.sorted()
+            cachedAppPackages = list
+            list
+        } catch (_: Exception) {
             emptyList()
         }
     }
 
     suspend fun readInstalledAppInfos(): List<AppInfo> = withContext(Dispatchers.IO) {
+        if (cachedAppInfos.isNotEmpty()) return@withContext cachedAppInfos
         try {
             val pm = LynxApp.instance.packageManager
-            val packages = Shell.cmd("pm list packages -3 2>/dev/null | cut -d: -f2 | sort").exec().out
-                .map { it.trim() }.filter { it.isNotBlank() }
-
-            packages.map { pkg ->
-                var label = pkg
-                var isGame = false
-                try {
-                    val appInfo = pm.getApplicationInfo(pkg, 0)
-                    label = pm.getApplicationLabel(appInfo).toString()
-                    isGame = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                        appInfo.category == android.content.pm.ApplicationInfo.CATEGORY_GAME ||
-                        (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0
-                    } else {
-                        (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0
-                    }
-                } catch (e: Exception) {
-                    label = pkg.split(".").lastOrNull()?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() } ?: pkg
+            val installed = pm.getInstalledApplications(0)
+            val list = installed.filter { app ->
+                (app.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 ||
+                (app.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+            }.map { app ->
+                val label = try {
+                    pm.getApplicationLabel(app).toString()
+                } catch (_: Exception) {
+                    app.packageName
                 }
-                AppInfo(packageName = pkg, label = label, isGame = isGame)
+                val isGame = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    app.category == android.content.pm.ApplicationInfo.CATEGORY_GAME ||
+                    (app.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0
+                } else {
+                    (app.flags and android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0
+                }
+                AppInfo(packageName = app.packageName, label = label, isGame = isGame)
             }.sortedBy { it.label.lowercase() }
-        } catch (e: Exception) {
+            cachedAppInfos = list
+            list
+        } catch (_: Exception) {
             emptyList()
         }
     }
 }
+

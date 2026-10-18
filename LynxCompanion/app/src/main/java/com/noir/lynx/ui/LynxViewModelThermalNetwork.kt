@@ -78,7 +78,7 @@ fun LynxViewModel.setThermalMode(mode: String) {
     setKey("thermal.mode", mode, "str")
     setKey("thermal.full_bypass", isDominant.toString(), "bool")
 
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val limit = _uiState.value.state.thermal.customTempLimitC
         val ok = LynxRepository.applyThermalMode(mode, limit)
         if (ok) {
@@ -108,7 +108,7 @@ fun LynxViewModel.setCustomTempLimit(temp: Int) {
         current.copy(state = current.state.copy(thermal = current.state.thermal.copy(customTempLimitC = temp)))
     }
     setKey("thermal.custom_temp_limit_c", temp.toString(), "val")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.applyCustomTempLimitLive(temp)
     }
 }
@@ -119,7 +119,7 @@ fun LynxViewModel.setWifiPingStabilizer(enabled: Boolean) {
         current.copy(state = current.state.copy(network = current.state.network.copy(wifiPingStabilizer = enabled)))
     }
     setKey("network.wifi_ping_stabilizer", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyWifiPingStabilizer(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "Wi-Fi Ping Stabilizer diaktifkan" else "Wi-Fi Ping Stabilizer dinonaktifkan") }
@@ -133,7 +133,7 @@ fun LynxViewModel.setAntiJitterScan(enabled: Boolean) {
         current.copy(state = current.state.copy(network = current.state.network.copy(antiJitterScan = enabled)))
     }
     setKey("network.anti_jitter_scan", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyAntiJitterScan(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "Anti-Lag Wi-Fi Scan Guard aktif" else "Anti-Lag Scan Guard dinonaktifkan") }
@@ -147,7 +147,7 @@ fun LynxViewModel.setFqCodelEnabled(enabled: Boolean) {
         current.copy(state = current.state.copy(network = current.state.network.copy(fqCodelEnabled = enabled)))
     }
     setKey("network.fq_codel_enabled", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyFqCodel(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "FQ-CoDel Bufferbloat Killer aktif" else "FQ-CoDel dinonaktifkan (Default FIFO)") }
@@ -161,7 +161,7 @@ fun LynxViewModel.setTcpBuffers16m(enabled: Boolean) {
         current.copy(state = current.state.copy(network = current.state.network.copy(tcpBuffers16m = enabled)))
     }
     setKey("network.tcp_buffers_16m", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyTcpBuffers16m(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "TCP High-Bandwidth 16MB Buffers aktif" else "TCP Buffers dikembalikan ke bawaan") }
@@ -175,7 +175,7 @@ fun LynxViewModel.setTcpFastOpen(enabled: Boolean) {
         current.copy(state = current.state.copy(network = current.state.network.copy(tcpFastOpen = enabled)))
     }
     setKey("network.tcp_fast_open", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyTcpFastOpen(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "TCP Fast Open & Anti-Corking aktif" else "TCP Fast Open dinonaktifkan") }
@@ -189,7 +189,7 @@ fun LynxViewModel.setMtkHardwareAggregation(enabled: Boolean) {
         current.copy(state = current.state.copy(network = current.state.network.copy(mtkHardwareAggregation = enabled)))
     }
     setKey("network.mtk_hw_aggregation", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyMtkHardwareAggregation(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "MediaTek Hardware Aggregation aktif" else "MediaTek Aggregation dinonaktifkan") }
@@ -198,14 +198,14 @@ fun LynxViewModel.setMtkHardwareAggregation(enabled: Boolean) {
 }
 
 fun LynxViewModel.refreshWifiTelemetry() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val tele = LynxRepository.readWifiTelemetry()
         _uiState.update { it.copy(wifiTelemetry = tele) }
     }
 }
 
 fun LynxViewModel.refreshAdbConfig() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val (enabled, port) = LynxRepository.readAdbKeepAliveConfig()
         val status = LynxRepository.getAdbStatus()
         val isListening = status.contains("\"is_listening\":true")
@@ -249,7 +249,7 @@ fun LynxViewModel.setAdbKeepAlive(enabled: Boolean) {
             adbPortInput = currentPort.toString()
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setAdbKeepAlive(enabled, currentPort)
         val status = LynxRepository.getAdbStatus()
         val isListening = status.contains("\"is_listening\":true")
@@ -280,7 +280,7 @@ fun LynxViewModel.applyAdbCustomPort(portStr: String) {
             adbPortInput = parsed.toString()
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val isEnabled = _uiState.value.adbKeepAliveEnabled
         val ok = if (isEnabled) {
             LynxRepository.setAdbKeepAlive(true, parsed)
@@ -306,7 +306,7 @@ fun LynxViewModel.setTouchboost(enabled: Boolean) {
         current.copy(state = current.state.copy(displayTouch = current.state.displayTouch.copy(touchboost = enabled)))
     }
     setKey("display_touch.touchboost", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyTouchboost(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "TouchBoost diaktifkan" else "TouchBoost dinonaktifkan") }
@@ -320,7 +320,7 @@ fun LynxViewModel.setAudioMmap(enabled: Boolean) {
         current.copy(state = current.state.copy(audio = current.state.audio.copy(lowLatencyMmap = enabled)))
     }
     setKey("audio.low_latency_mmap", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyAudioMmap(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "Audio MMAP Low-Latency diaktifkan" else "Audio MMAP Low-Latency dinonaktifkan") }
@@ -334,7 +334,7 @@ fun LynxViewModel.setJoyoseNeutralize(enabled: Boolean) {
         current.copy(state = current.state.copy(oemNeutralizer = current.state.oemNeutralizer.copy(joyoseNeutralize = enabled)))
     }
     setKey("oem_neutralizer.joyose_neutralize", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyJoyoseNeutralizer(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "OEM Neutralizer diaktifkan" else "OEM Neutralizer dinonaktifkan") }
@@ -348,7 +348,7 @@ fun LynxViewModel.setThermalBypass(enabled: Boolean) {
         current.copy(state = current.state.copy(thermal = current.state.thermal.copy(fullBypass = enabled)))
     }
     setKey("thermal.full_bypass", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyThermalBypass(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = if (enabled) "Thermal Bypass diaktifkan (Unrestricted)" else "Thermal Bypass dinonaktifkan") }
@@ -362,7 +362,7 @@ fun LynxViewModel.setMaxBatteryPercent(percent: Int) {
         current.copy(state = current.state.copy(charging = current.state.charging.copy(maxBatteryPercent = percent)))
     }
     setKey("charging.max_battery_percent", percent.toString(), "val")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val applied = LynxRepository.setMaxBatteryPercent(percent)
         _uiState.update {
             it.copy(

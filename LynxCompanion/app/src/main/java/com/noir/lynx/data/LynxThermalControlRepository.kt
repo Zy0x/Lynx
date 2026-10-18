@@ -212,46 +212,117 @@ internal object LynxThermalControlRepository {
         } catch (_: Exception) { false }
     }
 
+    private data class ThermalMeta(
+        val id: Int,
+        val type: String,
+        val isWritable: Boolean,
+        val tripPointsCount: Int,
+        val writableTripPointsCount: Int,
+        val mode: String,
+        val policy: String,
+        val tempFile: File
+    )
+
+    @Volatile
+    private var cachedZonesMeta: List<ThermalMeta>? = null
+    @Volatile
+    private var lastKnownZones: List<ThermalZoneInfo> = emptyList()
+
+    fun getLastKnownThermalZones(): List<ThermalZoneInfo> = lastKnownZones
+
     suspend fun readThermalZones(): List<ThermalZoneInfo> = withContext(Dispatchers.IO) {
         try {
-            // Tier 0: Direct Kotlin Sysfs Read (<0.5ms, zero root shell execution)
-            val thermalDir = File("/sys/class/thermal")
-            if (thermalDir.isDirectory && thermalDir.canRead()) {
-                val tzDirs = thermalDir.listFiles { f -> f.isDirectory && f.name.startsWith("thermal_zone") }
-                if (!tzDirs.isNullOrEmpty()) {
-                    val list = mutableListOf<ThermalZoneInfo>()
-                    for (tz in tzDirs) {
-                        val idStr = tz.name.removePrefix("thermal_zone")
-                        val id = idStr.toIntOrNull() ?: continue
-                        val type = runCatching { File(tz, "type").readText().trim() }.getOrNull() ?: continue
-                        val rawTemp = runCatching { File(tz, "temp").readText().trim().toFloatOrNull() }.getOrNull() ?: continue
-                        val tempC = if (rawTemp > 1000f) rawTemp / 1000f else rawTemp
-                        if (tempC !in 10f..120f) continue
-
-                        val mode = runCatching { File(tz, "mode").readText().trim() }.getOrDefault("enabled")
-                        val policy = runCatching { File(tz, "policy").readText().trim() }.getOrDefault("step_wise")
-                        val modeWritable = File(tz, "mode").canWrite()
-                        val tripFiles = tz.listFiles { f -> f.isFile && f.name.startsWith("trip_point_") && f.name.endsWith("_temp") }
-                        val tpTot = tripFiles?.size ?: 0
-                        val tpW = tripFiles?.count { it.canWrite() } ?: 0
-                        val isW = modeWritable || tpW > 0
-
+            // Fast-path: If static metadata is already discovered, sample temp files directly (<0.2ms, 0 shell commands)
+            val cached = cachedZonesMeta
+            if (cached != null && cached.isNotEmpty()) {
+                val list = mutableListOf<ThermalZoneInfo>()
+                for (meta in cached) {
+                    val rawTemp = runCatching { meta.tempFile.readText().trim().toFloatOrNull() }.getOrNull() ?: continue
+                    val tempC = if (rawTemp > 1000f) rawTemp / 1000f else rawTemp
+                    if (tempC in 10f..120f) {
                         list.add(
                             ThermalZoneInfo(
-                                id = id,
-                                type = type,
+                                id = meta.id,
+                                type = meta.type,
                                 tempC = tempC,
-                                isWritable = isW,
-                                tripPointsCount = tpTot,
-                                writableTripPointsCount = tpW,
-                                mode = mode,
-                                policy = policy
+                                isWritable = meta.isWritable,
+                                tripPointsCount = meta.tripPointsCount,
+                                writableTripPointsCount = meta.writableTripPointsCount,
+                                mode = meta.mode,
+                                policy = meta.policy
                             )
                         )
                     }
-                    if (list.isNotEmpty()) {
-                        return@withContext list.sortedBy { it.type }
-                    }
+                }
+                if (list.isNotEmpty()) {
+                    val sorted = list.sortedBy { it.type }
+                    lastKnownZones = sorted
+                    return@withContext sorted
+                }
+            }
+
+            // Tier 0 Discovery: Direct Kotlin Sysfs Read (<0.5ms, zero root shell execution)
+            val thermalDir = File("/sys/class/thermal")
+            val tzDirs = if (thermalDir.isDirectory) {
+                thermalDir.listFiles { f -> f.name.startsWith("thermal_zone") }?.toList()
+            } else null
+
+            val candidates = if (!tzDirs.isNullOrEmpty()) {
+                tzDirs
+            } else {
+                (0..35).mapNotNull { idx ->
+                    val f = File("/sys/class/thermal/thermal_zone$idx")
+                    if (f.exists()) f else null
+                }
+            }
+
+            if (candidates.isNotEmpty()) {
+                val metaList = mutableListOf<ThermalMeta>()
+                val resultList = mutableListOf<ThermalZoneInfo>()
+
+                for (tz in candidates) {
+                    val idStr = tz.name.removePrefix("thermal_zone")
+                    val id = idStr.toIntOrNull() ?: continue
+                    val type = runCatching { File(tz, "type").readText().trim() }.getOrNull() ?: continue
+                    val tempFile = File(tz, "temp")
+                    val rawTemp = runCatching { tempFile.readText().trim().toFloatOrNull() }.getOrNull() ?: continue
+                    val tempC = if (rawTemp > 1000f) rawTemp / 1000f else rawTemp
+                    if (tempC !in 10f..120f) continue
+
+                    val mode = "enabled"
+                    val policy = "step_wise"
+                    val isW = false
+
+                    val meta = ThermalMeta(
+                        id = id,
+                        type = type,
+                        isWritable = isW,
+                        tripPointsCount = 0,
+                        writableTripPointsCount = 0,
+                        mode = mode,
+                        policy = policy,
+                        tempFile = tempFile
+                    )
+                    metaList.add(meta)
+                    resultList.add(
+                        ThermalZoneInfo(
+                            id = id,
+                            type = type,
+                            tempC = tempC,
+                            isWritable = isW,
+                            tripPointsCount = 0,
+                            writableTripPointsCount = 0,
+                            mode = mode,
+                            policy = policy
+                        )
+                    )
+                }
+
+                if (metaList.isNotEmpty()) {
+                    cachedZonesMeta = metaList
+                    val sorted = resultList.sortedBy { it.type }
+                    lastKnownZones = sorted
+                    return@withContext sorted
                 }
             }
 

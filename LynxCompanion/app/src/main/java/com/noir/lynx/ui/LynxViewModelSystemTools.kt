@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
  */
 
 fun LynxViewModel.refreshDisplayRefreshRate() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val raw = LynxRepository.readDisplayRefreshRate()
             val isAuto = LynxRepository.readIsAutoRefreshRate()
@@ -49,7 +49,7 @@ fun LynxViewModel.setDisplayRefreshRate(hz: Int, isAuto: Boolean = false) {
     recordStateMutation()
     activeRefreshRateIntent = Pair(hz, System.currentTimeMillis())
     _uiState.update { it.copy(displayRefreshRate = hz, isAutoRefreshRate = isAuto) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setDisplayRefreshRate(hz, isAuto)
         if (ok) {
             val freshHz = LynxRepository.readDisplayRefreshRate()
@@ -70,7 +70,7 @@ fun LynxViewModel.setDisplayRefreshRate(hz: Int, isAuto: Boolean = false) {
 fun LynxViewModel.setSocOverride(soc: String) {
     recordStateMutation()
     _uiState.update { it.copy(socOverride = soc) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setSocOverride(soc)
         val gpu = LynxRepository.readGpuInfo()
         _uiState.update { it.copy(gpuInfo = gpu, successMessage = "Engine SoC diubah ke: $soc") }
@@ -78,7 +78,7 @@ fun LynxViewModel.setSocOverride(soc: String) {
 }
 
 fun LynxViewModel.scanKernelCapabilities() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val report = LynxRepository.scanKernelCapabilities()
         _uiState.update { it.copy(capabilityReport = report) }
     }
@@ -89,7 +89,7 @@ fun LynxViewModel.scanKernelCapabilities() {
 // ----------------------------------------------------------------
 
 fun LynxViewModel.runMaintenance() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         _uiState.update { it.copy(maintenanceRunning = true) }
         val result = LynxRepository.runMaintenance()
         _uiState.update {
@@ -102,7 +102,7 @@ fun LynxViewModel.runMaintenance() {
 }
 
 fun LynxViewModel.exportBugReport() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         _uiState.update { it.copy(exportRunning = true) }
         val result = LynxRepository.exportBugReport()
         _uiState.update {
@@ -115,7 +115,7 @@ fun LynxViewModel.exportBugReport() {
 }
 
 fun LynxViewModel.runCCleaner() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.runCCleaner()
     }
 }

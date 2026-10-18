@@ -178,6 +178,13 @@ class LynxAppAutomationService : Service() {
 
         // 2. Asynchronously resolve live baseline and battery telemetry without blocking Android main looper
         serviceScope.launch(Dispatchers.IO) {
+            try {
+                Shell.cmd(
+                    "pm grant $packageName android.permission.PACKAGE_USAGE_STATS 2>/dev/null; " +
+                    "appops set $packageName GET_USAGE_STATS allow 2>/dev/null"
+                ).submit()
+            } catch (_: Exception) {}
+
             val initialProfile = LynxRepository.readBaselineProfile().ifBlank {
                 LynxRepository.readState().activeProfile
             }.ifBlank { "balance" }
@@ -331,11 +338,13 @@ class LynxAppAutomationService : Service() {
         }
     }
 
+    private var lastDetectedTopPackage: String? = null
+
     private fun getTopPackageFromUsageStats(): String? {
         return try {
             val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
             val now = System.currentTimeMillis()
-            val events = usageStatsManager.queryEvents(now - 4000L, now)
+            val events = usageStatsManager.queryEvents(now - 15000L, now)
             val event = UsageEvents.Event()
             var latestPkg: String? = null
             var latestTimestamp: Long = 0
@@ -346,9 +355,12 @@ class LynxAppAutomationService : Service() {
                     latestTimestamp = event.timeStamp
                 }
             }
-            latestPkg?.takeIf { it.isNotBlank() && it != "null" }
+            if (!latestPkg.isNullOrBlank() && latestPkg != "null") {
+                lastDetectedTopPackage = latestPkg
+            }
+            lastDetectedTopPackage?.takeIf { it.isNotBlank() && it != "null" }
         } catch (_: Exception) {
-            null
+            lastDetectedTopPackage
         }
     }
 
@@ -356,19 +368,22 @@ class LynxAppAutomationService : Service() {
         // 1. Ultra-fast in-memory query via UsageStatsManager (<0.5ms, ZERO shell fork, ZERO system_server lock contention)
         getTopPackageFromUsageStats()?.let { return it }
 
-        // 2. Fallback to Shell only if UsageStatsManager returns null
+        // 2. Fallback to lightweight single-line grep shell only if UsageStatsManager returns null
         return try {
-            val resAct = Shell.cmd("dumpsys activity activities").exec()
-            val actLine = resAct.out.firstOrNull { it.contains("topResumedActivity=") }
+            val resAct = Shell.cmd("dumpsys activity activities 2>/dev/null | grep -m1 'topResumedActivity='").exec()
+            val actLine = resAct.out.firstOrNull()
             if (!actLine.isNullOrBlank()) {
                 val match = Regex("""([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.]*""").find(actLine)
                 val pkg = match?.groupValues?.get(1)?.trim()
-                if (!pkg.isNullOrBlank() && pkg != "null") return pkg
+                if (!pkg.isNullOrBlank() && pkg != "null") {
+                    lastDetectedTopPackage = pkg
+                    return pkg
+                }
             }
-            null
+            lastDetectedTopPackage
         } catch (e: Exception) {
             Log.w(TAG, "Failed to query top resumed pkg: ${e.message}")
-            null
+            lastDetectedTopPackage
         }
     }
 

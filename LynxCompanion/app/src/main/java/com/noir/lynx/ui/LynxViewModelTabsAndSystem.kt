@@ -73,7 +73,7 @@ fun LynxViewModel.selectCpuTab(tab: Int) = setSelectedCpuTab(tab)
     fun LynxViewModel.setSelinuxMode(enforcing: Boolean) {
         recordStateMutation()
         _uiState.update { it.copy(selinuxMode = if (enforcing) "Enforcing" else "Permissive") }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val ok = LynxRepository.setSelinuxMode(enforcing)
             if (ok) {
                 val mode = LynxRepository.readSelinuxMode()
@@ -88,7 +88,7 @@ fun LynxViewModel.selectCpuTab(tab: Int) = setSelectedCpuTab(tab)
     fun LynxViewModel.setPrintkSilent(silent: Boolean) {
         recordStateMutation()
         _uiState.update { it.copy(isPrintkSilent = silent) }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val ok = LynxRepository.setPrintkSilent(silent)
             if (ok) {
                 _uiState.update { it.copy(successMessage = if (silent) "Kernel Printk dimatikan (Zero Overhead)" else "Kernel Printk diaktifkan (Verbose)") }

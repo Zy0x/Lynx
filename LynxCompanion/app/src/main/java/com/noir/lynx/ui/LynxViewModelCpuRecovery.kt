@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.setMasterCpuControl(enabled: Boolean, context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
             CpuPolicyManager.setMasterControl(enabled, totalCores, context)
             refreshCpuControlCenterState(context)
@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.applyCpuControlProfile(profile: CpuControlProfile, context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
             CpuPolicyManager.applyProfile(profile, totalCores, context)
             refreshCpuControlCenterState(context)
@@ -37,7 +37,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.restoreLastKnownGood(context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
             RecoveryManager.restoreLastKnownGood(context, totalCores)
             refreshCpuControlCenterState(context)
@@ -48,7 +48,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.restoreOemFactory(context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
             RecoveryManager.restoreOemDefault(context, totalCores)
             refreshCpuControlCenterState(context)
@@ -59,7 +59,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.emergencyDisableCpuTweaks(context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
             RecoveryManager.emergencyDisableAll(context, totalCores)
             refreshCpuControlCenterState(context)
@@ -70,7 +70,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.refreshCpuControlCenterState(context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
             val recoveryInfo = RecoveryManager.getRecoveryInfo(context)
             val protectedTasks = ProtectedTaskManager.getDefaultProtectedTasks()
@@ -98,7 +98,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.resetClusterTuningToOem(context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             recordStateMutation(com.noir.lynx.profiles.ProfileDomain.CPU)
             val clusters = _uiState.value.clusters
             clusters.forEach { cluster ->
@@ -131,7 +131,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.resetCpuSetsToOem(context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             recordStateMutation(com.noir.lynx.profiles.ProfileDomain.CPU)
             val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
             CpuPolicyManager.resetCpuSetsToOem(totalCores)
@@ -143,7 +143,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.resetCpuIdleToOem(context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             recordStateMutation(com.noir.lynx.profiles.ProfileDomain.CPU)
             val totalCores = _uiState.value.cpuCores.size.coerceAtLeast(8)
             CpuPolicyManager.resetCpuIdleToOem(totalCores)
@@ -155,7 +155,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.resetSchedulerTunablesToOem(context: Context) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             recordStateMutation(com.noir.lynx.profiles.ProfileDomain.CPU)
             context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE).edit().clear().apply()
             CpuPolicyManager.resetSchedulerToOem()

@@ -139,10 +139,9 @@ import kotlinx.coroutines.flow.update
                         }
                     }
 
-                    // 2. Decoupled Deep Battery Stats (dumpsys batterystats --charged) only every 10s when needed
-                    val needDeepStats = forceDeepStats ||
-                        lastDeepBatteryStatsTimeMs == 0L ||
-                        (_uiState.value.batterySubTab == 1 && (now - lastDeepBatteryStatsTimeMs >= 10_000L))
+                    // 2. Decoupled Deep Battery Stats (dumpsys batterystats --charged) only when explicitly on the battery health screen
+                    val isBatteryScreenActive = isBatteryInformationScreenActive || (_uiState.value.currentTab == 1 && _uiState.value.selectedTuningCategory == "battery" && _uiState.value.batterySubTab == 1)
+                    val needDeepStats = forceDeepStats || (isBatteryScreenActive && (now - lastDeepBatteryStatsTimeMs >= 15_000L))
                     if (needDeepStats && !isRefreshingDeepBatteryStats) {
                         isRefreshingDeepBatteryStats = true
                         viewModelScope.launch(Dispatchers.IO) {

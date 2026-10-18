@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 fun LynxViewModel.setZramCompAlgorithm(algo: String) {
     recordStateMutation()
     _uiState.update { it.copy(zramCompAlgorithm = algo) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val zramMb = _uiState.value.state.memory.zramSizeMb
         val ok = LynxRepository.setZramCompAlgorithm(algo, zramMb)
         if (ok) {
@@ -50,14 +50,14 @@ fun LynxViewModel.setZramCompAlgorithm(algo: String) {
 }
 
 fun LynxViewModel.loadCustomRules() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val script = LynxRepository.readCustomRules()
         _uiState.update { it.copy(customRulesScript = script) }
     }
 }
 
 fun LynxViewModel.saveCustomRules(script: String) {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.saveCustomRules(script)
         if (ok) {
             _uiState.update { it.copy(customRulesScript = script, successMessage = "Aturan kustom custom_rules.sh berhasil disimpan!") }
@@ -68,7 +68,7 @@ fun LynxViewModel.saveCustomRules(script: String) {
 }
 
 fun LynxViewModel.executeCustomRules() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         _uiState.update { it.copy(customRulesRunning = true, customRulesOutput = "Mengeksekusi aturan kustom...\n") }
         val output = LynxRepository.executeCustomRules()
         _uiState.update { it.copy(customRulesRunning = false, customRulesOutput = output, successMessage = "Eksekusi skrip kustom selesai!") }
@@ -76,7 +76,7 @@ fun LynxViewModel.executeCustomRules() {
 }
 
 fun LynxViewModel.refreshThermalZones() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val zones = LynxRepository.readThermalZones()
         _uiState.update { current ->
             val writableCount = zones.count { it.isWritable }
@@ -92,7 +92,7 @@ fun LynxViewModel.refreshThermalZones() {
 }
 
 fun LynxViewModel.refreshThermalCapabilities() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         com.noir.lynx.safety.LynxPersistenceManager.checkKernelChangeAndInvalidate()
         val rootInfo = com.noir.lynx.hardware.RootCapabilityChecker.check()
         val caps = com.noir.lynx.hardware.ThermalCapabilityDetector.detect()
@@ -114,7 +114,7 @@ fun LynxViewModel.refreshThermalCapabilities() {
 fun LynxViewModel.cleanRam() {
     if (_uiState.value.isCleaningRam) return
     _uiState.update { it.copy(isCleaningRam = true) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val result = LynxRepository.cleanRam()
         val tel = LynxRepository.readTelemetry()
         val availableDeltaMb = result.availableDeltaMb
@@ -139,7 +139,7 @@ fun LynxViewModel.cleanRam() {
 }
 
 fun LynxViewModel.dropCaches() {
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.dropCaches()
         if (ok) {
             val tel = LynxRepository.readTelemetry()
@@ -156,7 +156,7 @@ fun LynxViewModel.setDirtyRatio(ratio: Int) {
         dirtyRatio = ratio,
         vmAdvanced = it.vmAdvanced.copy(dirtyRatio = ratio, activePreset = "custom")
     ) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setDirtyRatio(ratio)
         if (ok) {
             _uiState.update { it.copy(successMessage = "VM Dirty Ratio diatur ke $ratio%") }
@@ -169,7 +169,7 @@ fun LynxViewModel.setDirtyBackgroundRatio(ratio: Int) {
     _uiState.update { it.copy(
         vmAdvanced = it.vmAdvanced.copy(dirtyBackgroundRatio = ratio, activePreset = "custom")
     ) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setDirtyBackgroundRatio(ratio)
         if (ok) {
             _uiState.update { it.copy(successMessage = "VM Dirty Background: $ratio%") }
@@ -183,7 +183,7 @@ fun LynxViewModel.setVfsCachePressure(pressure: Int) {
         vfsCachePressure = pressure,
         vmAdvanced = it.vmAdvanced.copy(vfsCachePressure = pressure, activePreset = "custom")
     ) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setVfsCachePressure(pressure)
         if (ok) {
             _uiState.update { it.copy(successMessage = "VFS Cache Pressure diatur ke $pressure") }
@@ -196,7 +196,7 @@ fun LynxViewModel.setDirtyExpireCentisecs(cs: Int) {
     _uiState.update { it.copy(
         vmAdvanced = it.vmAdvanced.copy(dirtyExpireCentisecs = cs, activePreset = "custom")
     ) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setDirtyExpireCentisecs(cs)
         if (ok) {
             _uiState.update { it.copy(successMessage = "VM Expire Time: ${cs / 100}s") }
@@ -209,7 +209,7 @@ fun LynxViewModel.setDirtyWritebackCentisecs(cs: Int) {
     _uiState.update { it.copy(
         vmAdvanced = it.vmAdvanced.copy(dirtyWritebackCentisecs = cs, activePreset = "custom")
     ) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setDirtyWritebackCentisecs(cs)
         if (ok) {
             _uiState.update { it.copy(successMessage = "VM Writeback Interval: ${cs / 100}s") }
@@ -222,7 +222,7 @@ fun LynxViewModel.setVmStatInterval(interval: Int) {
     _uiState.update { it.copy(
         vmAdvanced = it.vmAdvanced.copy(statInterval = interval, activePreset = "custom")
     ) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setVmStatInterval(interval)
         if (ok) {
             _uiState.update { it.copy(successMessage = "VM Stat Interval: ${interval}s") }
@@ -233,7 +233,7 @@ fun LynxViewModel.setVmStatInterval(interval: Int) {
 fun LynxViewModel.applyVmPreset(preset: String) {
     recordStateMutation()
     _uiState.update { it.copy(vmAdvanced = it.vmAdvanced.copy(activePreset = preset)) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyVmPreset(preset)
         if (ok) {
             val freshVm = LynxRepository.readVirtualMemoryAdvancedConfig()
