@@ -400,16 +400,50 @@ fallback_bypass() {
     fi
 
     local has_hw_bypass=false
-    for c in /sys/devices/platform/charger/bypass_charger /sys/class/power_supply/battery/device/smart_charging /sys/class/power_supply/battery/charging_limit_mode /sys/class/power_supply/battery/smart_charging_activation /sys/class/qcom-battery/direct_charging /sys/class/power_supply/battery/store_mode /sys/class/power_supply/battery/batt_slate_mode /sys/class/power_supply/battery/charge_stop_level; do
+    for c in /sys/devices/platform/charger/bypass_charger \
+             /sys/class/power_supply/battery/device/smart_charging \
+             /sys/class/power_supply/battery/charging_limit_mode \
+             /sys/class/power_supply/battery/smart_charging_activation \
+             /sys/class/power_supply/battery/store_mode \
+             /sys/class/power_supply/battery/batt_slate_mode \
+             /sys/class/power_supply/battery/charge_stop_level \
+             /sys/devices/platform/google,battery/charge_stop_level \
+             /sys/devices/platform/google,charger/charge_stop_level \
+             /sys/class/power_supply/battery/bd_trickle_dry_run; do
         if [ -f "$c" ]; then
             has_hw_bypass=true
             break
         fi
     done
 
-    if [ "$is_qcom" = "true" ] && [ "$has_hw_bypass" = "false" ]; then
-        # Trickle Maintenance Float Mode for single-path Qualcomm PMIC (e.g. PM660):
-        # Keep charging_enabled=1 and float at 100mA, supply 1500mA input rail for Vsys
+    if [ "$has_hw_bypass" = "true" ]; then
+        # Dedicated hardware bypass:
+        [ -e "$MTK_DIR/bypass_charger" ] && write_node_lock "$MTK_DIR/bypass_charger" "1"
+        [ -e "$BATT_DIR/device/smart_charging" ] && write_node_lock "$BATT_DIR/device/smart_charging" "1"
+        [ -e "$BATT_DIR/charging_limit_mode" ] && write_node_lock "$BATT_DIR/charging_limit_mode" "1"
+        [ -e "$BATT_DIR/smart_charging_activation" ] && write_node_lock "$BATT_DIR/smart_charging_activation" "1"
+        [ -e "$BATT_DIR/store_mode" ] && write_node_lock "$BATT_DIR/store_mode" "1"
+        [ -e "$BATT_DIR/batt_slate_mode" ] && write_node_lock "$BATT_DIR/batt_slate_mode" "1"
+        if [ -f "$BATT_DIR/charge_stop_level" ]; then
+            cur_cap=$(cat "$BATT_DIR/capacity" 2>/dev/null || echo 80)
+            echo "$cur_cap" > "$BATT_DIR/charge_stop_level" 2>/dev/null
+        fi
+
+        # Keep VBUS input rail alive at 1500mA so motherboard has power!
+        write_node_lock "$BATT_DIR/constant_charge_current_max" "0"
+        write_node_lock "$BATT_DIR/constant_charge_current" "0"
+        write_node_lock "$BATT_DIR/current_max" "0"
+        write_node_lock "$BATT_DIR/input_current_limit" "1500000"
+        write_node_lock "$USB_DIR/current_max" "1500000"
+        write_node_lock "$BATT_DIR/input_suspend" "0"
+        write_node_lock "$BATT_DIR/charging_enabled" "1"
+        write_node_lock "$QC_DIR/restrict_cur" "0"
+        write_node_lock "$QC_DIR/restricted_charging" "1"
+        write_node_lock "$QC_DIR/direct_charging" "0"
+    else
+        # Single-Path PMIC Anti-Flapping Float Mode (Redmi, Xiaomi, Poco, generic MTK/QCOM):
+        # Keep VBUS input rail alive at 1500mA and charging_enabled=1 so connection never drops!
+        # Float battery at 100mA minimal current so cell does not charge or heat up:
         write_node_lock "$BATT_DIR/constant_charge_current_max" "100000"
         write_node_lock "$BATT_DIR/constant_charge_current" "100000"
         write_node_lock "$BATT_DIR/current_max" "100000"
@@ -417,19 +451,20 @@ fallback_bypass() {
         write_node_lock "$USB_DIR/current_max" "1500000"
         write_node_lock "$BATT_DIR/input_suspend" "0"
         write_node_lock "$BATT_DIR/charging_enabled" "1"
-        write_node_lock "$QC_DIR/restrict_cur" "100"
-        write_node_lock "$QC_DIR/restricted_charging" "1"
-        write_node_lock "$QC_DIR/direct_charging" "0"
-    else
-        write_node_lock "$BATT_DIR/constant_charge_current_max" "0"
-        write_node_lock "$BATT_DIR/constant_charge_current" "0"
-        write_node_lock "$BATT_DIR/current_max" "0"
-        write_node_lock "$BATT_DIR/input_current_limit" "0"
-        write_node_lock "$BATT_DIR/charging_enabled" "0"
-        write_node_lock "$QC_DIR/restrict_cur" "0"
-        write_node_lock "$QC_DIR/restricted_charging" "1"
-        write_node_lock "$QC_DIR/direct_charging" "0"
-        [ -e "$MTK_DIR/bypass_charger" ] && write_node_lock "$MTK_DIR/bypass_charger" "1"
+
+        if [ "$is_qcom" = "true" ]; then
+            write_node_lock "$QC_DIR/restrict_cur" "100"
+            write_node_lock "$QC_DIR/restricted_charging" "1"
+            write_node_lock "$QC_DIR/direct_charging" "0"
+        else
+            [ -e "$MTK_DIR/input_current" ] && write_node_lock "$MTK_DIR/input_current" "1500"
+            [ -e "$MTK_DIR/chg1_current" ] && write_node_lock "$MTK_DIR/chg1_current" "1500"
+            [ -e "$MTK_DIR/chg2_current" ] && write_node_lock "$MTK_DIR/chg2_current" "1500"
+            [ -e "$MTK_DIR/sc_ibat_limit" ] && write_node_lock "$MTK_DIR/sc_ibat_limit" "100"
+            [ -e "$MTK_DIR/enable_sc" ] && write_node_lock "$MTK_DIR/enable_sc" "0"
+            [ -e "$MTK_DIR/pe20" ] && write_node_lock "$MTK_DIR/pe20" "0"
+            [ -e "$MTK_DIR/pe40" ] && write_node_lock "$MTK_DIR/pe40" "0"
+        fi
     fi
     dumpsys battery reset 2>/dev/null
 }

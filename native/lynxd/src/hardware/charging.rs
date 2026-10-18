@@ -688,10 +688,12 @@ impl ChargingRegulator {
             "/sys/class/power_supply/battery/device/smart_charging",
             "/sys/class/power_supply/battery/charging_limit_mode",
             "/sys/class/power_supply/battery/smart_charging_activation",
-            "/sys/class/qcom-battery/direct_charging",
             "/sys/class/power_supply/battery/store_mode",
             "/sys/class/power_supply/battery/batt_slate_mode",
             "/sys/class/power_supply/battery/charge_stop_level",
+            "/sys/devices/platform/google,battery/charge_stop_level",
+            "/sys/devices/platform/google,charger/charge_stop_level",
+            "/sys/class/power_supply/battery/bd_trickle_dry_run",
         ];
         for &c in CANDIDATES {
             if Path::new(c).exists() {
@@ -779,6 +781,7 @@ impl ChargingRegulator {
     }
 
     /// Mode 1: True Hardware Bypass Charging (Zero Battery Current, Vsys powered by Adapter)
+    /// Mode 1: True Hardware Bypass / Anti-Flapping Single-Path Float (Zero Battery Degradation, Vsys powered by Adapter)
     pub fn apply_bypass_charging() {
         let _ = fs::remove_file("/dev/lynx_extreme_charging");
         let _ = fs::remove_file("/dev/lynx_standard_charging");
@@ -786,133 +789,129 @@ impl ChargingRegulator {
         Self::unlock_extreme_nodes();
 
         let is_qcom = Self::is_qualcomm_soc();
-        let is_single_path_qcom = is_qcom && Self::detect_hw_bypass_node().is_none();
+        let hw_bypass_node = Self::detect_hw_bypass_node();
+        let has_hw_bypass = hw_bypass_node.is_some();
 
-        // 1. MediaTek Platform Hardware Zero Cutoff (Vsys powered, battery decoupled)
-        if !is_qcom {
-            Self::set_bcct_throttle(true);
-            Self::write_node_lock("/sys/devices/platform/charger/pdc_max_watt", "0");
-            Self::write_node("/sys/devices/platform/charger/pe20", "0");
-            Self::write_node("/sys/devices/platform/charger/pe40", "0");
-            Self::write_node_lock(&format!("{}/input_current", MTK_DIR), "0");
-            Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), "0");
-            Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), "0");
-            Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
-            Self::write_node_lock(&format!("{}/enable_sc", MTK_DIR), "0");
-            Self::write_node_lock(&format!("{}/tran_charger_full", MTK_DIR), "1");
-            Self::write_node("/sys/devices/platform/charger/bypass_charger", "1");
-
-            // Transsion 33W+ Direct Pump Suspend & CallState Clamp
-            Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "1");
-            Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "1");
-        }
-
-        // 2. Universal Linux & Android Charge Rails Zero Cutoff or Trickle Float
-        if is_single_path_qcom {
-            // Trickle Maintenance Float Mode:
-            // Single-path Qualcomm PMICs (e.g. PM660) share input FET with battery charging path.
-            // Cutting charging_enabled or restrict_cur to 0 drops VBUS entirely, causing flapping!
-            // Instead, float battery at minimal current (100mA) and provide 1500mA input rail for Vsys:
-            for node in [
-                format!("{}/constant_charge_current", BATT_DIR),
-                format!("{}/constant_charge_current_max", BATT_DIR),
-                format!("{}/current_max", BATT_DIR),
-            ] {
-                Self::write_node(&node, "100000");
+        // 1. Hardware Bypass Path (Devices with physical bypass switches: Transsion, ROG, Sony, Samsung Store, Pixel)
+        if has_hw_bypass {
+            if let Some(byp_node) = hw_bypass_node {
+                if byp_node.contains("charge_stop_level") {
+                    let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(80);
+                    Self::write_node(byp_node, &cur_cap.to_string());
+                } else {
+                    Self::write_node(byp_node, "1");
+                }
             }
+
+            if !is_qcom {
+                Self::set_bcct_throttle(true);
+                Self::write_node("/sys/devices/platform/charger/pe20", "0");
+                Self::write_node("/sys/devices/platform/charger/pe40", "0");
+                Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
+                Self::write_node_lock(&format!("{}/enable_sc", MTK_DIR), "0");
+                Self::write_node_lock(&format!("{}/tran_charger_full", MTK_DIR), "1");
+                Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "1");
+                Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "1");
+            }
+
+            // CRITICAL: Even on hardware bypass devices, KEEP the input current rail alive at 1500mA
+            // so the charger powers the motherboard Vsys! NEVER set input_current_limit to 0!
             Self::write_node(&format!("{}/input_current_limit", BATT_DIR), "1500000");
             Self::write_node(&format!("{}/current_max", USB_DIR), "1500000");
             Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
             Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
-
-            // Qualcomm Snapdragon Restrict Current
-            Self::write_node(&format!("{}/restrict_cur", QC_DIR), "100");
-            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "1");
-            Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "1500000");
-        } else {
             for node in [
                 format!("{}/constant_charge_current", BATT_DIR),
                 format!("{}/constant_charge_current_max", BATT_DIR),
                 format!("{}/current_max", BATT_DIR),
-                format!("{}/input_current_limit", BATT_DIR),
             ] {
-                Self::write_node_lock(&node, "0");
+                Self::write_node(&node, "0");
             }
+        } else {
+            // 2. Anti-Flapping Single-Path Float Mode (Devices WITHOUT hardware bypass: Redmi, Xiaomi, Poco, generic MTK/QCOM)
+            // On single-path PMICs (e.g. PM660 / MT63xx), the input FET and battery charging converter are shared.
+            // Cutting charging_enabled=0 or input_current_limit=0 turns off VBUS input entirely, causing
+            // the charger to disconnect and reconnect in an endless loop (mati-nyala / flapping)!
+            //
+            // Solution: Keep VBUS input fully active at 1.5A for the motherboard (Vsys), but throttle the battery
+            // charging current to minimal float (~100mA). The battery stops heating up and stops charging, while
+            // the charger remains continuously connected with zero flapping!
+            if is_qcom {
+                for node in [
+                    format!("{}/constant_charge_current", BATT_DIR),
+                    format!("{}/constant_charge_current_max", BATT_DIR),
+                    format!("{}/current_max", BATT_DIR),
+                ] {
+                    Self::write_node(&node, "100000");
+                }
+                Self::write_node(&format!("{}/input_current_limit", BATT_DIR), "1500000");
+                Self::write_node(&format!("{}/current_max", USB_DIR), "1500000");
+                Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+                Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
 
-            Self::write_node_lock(&format!("{}/charge_control_limit_max", BATT_DIR), "1");
-            Self::write_node_lock(&format!("{}/charge_control_limit", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/charging_enabled", BATT_DIR), "0");
+                // Qualcomm Snapdragon Restrict Current
+                Self::write_node(&format!("{}/restrict_cur", QC_DIR), "100");
+                Self::write_node(&format!("{}/restricted_charging", QC_DIR), "1");
+                Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
+                Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "1500000");
+            } else {
+                // MediaTek single-path (e.g. Helio G96/G99 without bypass_charger):
+                Self::set_bcct_throttle(true);
+                Self::write_node("/sys/devices/platform/charger/pe20", "0");
+                Self::write_node("/sys/devices/platform/charger/pe40", "0");
+                Self::write_node_lock(&format!("{}/input_current", MTK_DIR), "1500");
+                Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), "1500");
+                Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), "1500");
+                Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), "100");
+                Self::write_node_lock(&format!("{}/enable_sc", MTK_DIR), "0");
+                Self::write_node_lock(&format!("{}/pdc_max_watt", MTK_DIR), "10");
+                Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "1");
+                Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "1");
 
-            // Universal Android Store/Demo Mode
-            Self::write_node(&format!("{}/device/smart_charging", BATT_DIR), "1");
-            Self::write_node(&format!("{}/charging_limit_mode", BATT_DIR), "1");
-            Self::write_node(&format!("{}/smart_charging_activation", BATT_DIR), "1");
-            Self::write_node(&format!("{}/store_mode", BATT_DIR), "1");
-            Self::write_node(&format!("{}/batt_slate_mode", BATT_DIR), "1");
-            Self::write_node_lock(&format!("{}/siop_level", BATT_DIR), "100");
-            Self::write_node_lock(&format!("{}/cool_mode", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/call_mode", BATT_DIR), "0");
-            Self::write_node(&format!("{}/bd_trickle_dry_run", BATT_DIR), "1");
-
-            let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(80);
-            let cap_str = cur_cap.to_string();
-            Self::write_node(&format!("{}/charge_stop_level", BATT_DIR), &cap_str);
-            Self::write_node("/sys/devices/platform/google,battery/charge_stop_level", &cap_str);
-            Self::write_node("/sys/devices/platform/google,charger/charge_stop_level", &cap_str);
-
-            // 3. Qualcomm Snapdragon Zero Cutoff
-            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "1");
-            Self::write_node_lock(&format!("{}/direct_charging", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "0");
-
-            if let Some(byp_node) = Self::detect_hw_bypass_node() {
-                Self::write_node(byp_node, "1");
+                for node in [
+                    format!("{}/constant_charge_current", BATT_DIR),
+                    format!("{}/constant_charge_current_max", BATT_DIR),
+                    format!("{}/current_max", BATT_DIR),
+                ] {
+                    Self::write_node(&node, "100000");
+                }
+                Self::write_node(&format!("{}/input_current_limit", BATT_DIR), "1500000");
+                Self::write_node(&format!("{}/current_max", USB_DIR), "1500000");
+                Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+                Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
             }
         }
 
-        // 4. Dynamic Sysfs Charger Topology Zero Cutoff
+        // 3. Dynamic Sysfs Charger Topology Sweeper (Safe Anti-Flapping Enforcement)
         for node in Self::crawl_dynamic_power_supply_nodes() {
             let leaf = Path::new(&node).file_name().and_then(|n| n.to_str()).unwrap_or("");
-            if is_single_path_qcom {
-                match leaf {
-                    "constant_charge_current" | "constant_charge_current_max" | "current_max" => {
-                        Self::write_node(&node, "100000");
-                    }
-                    "input_current_limit" => {
+            match leaf {
+                "constant_charge_current" | "constant_charge_current_max" => {
+                    let target = if has_hw_bypass { "0" } else { "100000" };
+                    Self::write_node(&node, target);
+                }
+                "current_max" => {
+                    if node.contains("battery") {
+                        let target = if has_hw_bypass { "0" } else { "100000" };
+                        Self::write_node(&node, target);
+                    } else if node.contains("usb") || node.contains("main") {
                         Self::write_node(&node, "1500000");
                     }
-                    "charging_enabled" => {
-                        Self::write_node(&node, "1");
-                    }
-                    "input_suspend" => {
-                        Self::write_node(&node, "0");
-                    }
-                    _ => {}
                 }
-            } else {
-                match leaf {
-                    "constant_charge_current" | "constant_charge_current_max" | "current_max" | "input_current_limit" => {
-                        Self::write_node_lock(&node, "0");
-                    }
-                    "charge_control_limit" => {
-                        Self::write_node_lock(&node, "0");
-                    }
-                    "charging_enabled" => {
-                        Self::write_node_lock(&node, "0");
-                    }
-                    _ => {}
+                "input_current_limit" => {
+                    Self::write_node(&node, "1500000");
                 }
+                "charging_enabled" => {
+                    Self::write_node(&node, "1");
+                }
+                "input_suspend" => {
+                    Self::write_node(&node, "0");
+                }
+                _ => {}
             }
         }
 
-        // Keep OEM thermal daemons and trip-point policies active during bypass.
-
         // Ensure Android Framework keeps live uevent synchronization with physical kernel battery.
-        // Calling 'dumpsys battery set' halts BatteryService updates ('UPDATES STOPPED'), which
-        // freezes the UI/status bar percentage and prevents the system from tracking actual battery
-        // drain or rise, risking sudden shutdown from undervoltage.
         let _ = std::process::Command::new("dumpsys")
             .args(["battery", "reset"])
             .output();
