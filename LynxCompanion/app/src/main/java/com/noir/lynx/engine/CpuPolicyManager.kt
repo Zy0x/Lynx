@@ -87,13 +87,17 @@ object CpuPolicyManager {
         }
     }
 
+    @Volatile
+    private var cachedSafeSplit: Pair<Int, String>? = null
+
     /**
      * Resolves safe Efficiency/Base core boundary and parkable Big/Prime cores.
      * Guarantees at least 4 active cores on 2+5+1 (SD 8 Gen 3), 1+3+2+2, or 10-core topologies.
      */
     private fun resolveSafeClusterSplit(totalCores: Int): Pair<Int, String> {
+        cachedSafeSplit?.let { return it }
         val fallbackLast = if (totalCores >= 8) (totalCores - 3).coerceAtLeast(3) else (totalCores / 2).coerceAtLeast(1)
-        return try {
+        val computed = try {
             val script = """
                 little_cores=""
                 big_cores=""
@@ -127,6 +131,8 @@ object CpuPolicyManager {
         } catch (_: Exception) {
             Pair(fallbackLast, if (totalCores >= 8) "6 7" else "")
         }
+        cachedSafeSplit = computed
+        return computed
     }
 
     /**

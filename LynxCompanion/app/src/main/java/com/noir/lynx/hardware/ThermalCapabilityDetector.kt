@@ -51,10 +51,16 @@ data class ThermalCapabilities(
  */
 object ThermalCapabilityDetector {
 
-    suspend fun detect(): ThermalCapabilities = withContext(Dispatchers.IO) {
+    @Volatile
+    private var cachedCaps: ThermalCapabilities? = null
+
+    suspend fun detect(forceRefresh: Boolean = false): ThermalCapabilities = withContext(Dispatchers.IO) {
+        if (!forceRefresh && cachedCaps != null) {
+            return@withContext cachedCaps!!
+        }
         try {
             val lynxdPath = com.noir.lynx.data.LynxRepository.getLynxdPath()
-            val canExec = Shell.cmd("[ -x '$lynxdPath' ] && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
+            val canExec = java.io.File(lynxdPath).canExecute()
             if (canExec) {
                 val res = Shell.cmd("$lynxdPath thermal status 2>/dev/null").exec()
                 if (res.isSuccess && res.out.isNotEmpty()) {
@@ -123,7 +129,7 @@ object ThermalCapabilityDetector {
                             modes.add("hardware_safety_dominant")
                         }
 
-                        return@withContext ThermalCapabilities(
+                        val caps = ThermalCapabilities(
                             socVendor = vendor,
                             totalZones = zonesList.size,
                             writableZonesCount = writableZones,
@@ -141,6 +147,8 @@ object ThermalCapabilityDetector {
                             zones = zonesList,
                             rawReport = "Native lynxd | Vendor: $vendor | Zones: ${zonesList.size} ($writableZones RW) | TripPoints: $totalTripPoints ($writableTripPoints RW)"
                         )
+                        cachedCaps = caps
+                        return@withContext caps
                     }
                 }
             }
@@ -203,7 +211,7 @@ object ThermalCapabilityDetector {
                 modes.add("hardware_safety_dominant")
             }
 
-            ThermalCapabilities(
+            val caps = ThermalCapabilities(
                 socVendor = vendor,
                 totalZones = zonesList.size,
                 writableZonesCount = writableZones,
@@ -221,6 +229,8 @@ object ThermalCapabilityDetector {
                 zones = zonesList,
                 rawReport = "Vendor: $vendor | Zones: ${zonesList.size} ($writableZones RW) | TripPoints: $totalTripPoints ($writableTripPoints RW)"
             )
+            cachedCaps = caps
+            caps
         } catch (e: Exception) {
             ThermalCapabilities(
                 socVendor = "error",

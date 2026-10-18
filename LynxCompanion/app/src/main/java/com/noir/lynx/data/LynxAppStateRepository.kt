@@ -119,23 +119,40 @@ internal object LynxAppStateRepository {
                 Log.w(STATE_TAG, "Config corrupted or invalid, attempting self-heal via lynxd...")
                 val healed = Shell.cmd("'$LYNXD_PATH' state list 2>/dev/null").exec().out.joinToString("\n")
                 if (healed.isNotBlank() && healed.trim().startsWith("{") && !healed.contains('\u0000')) {
-                    return@withContext LynxStateParser.parseStateJson(healed, readTargetSocFile(), LynxRepository.readCurrentProfileFast())
+                    val parsedHealed = LynxStateParser.parseStateJson(healed, readTargetSocFile(), baseProf)
+                    LynxRepository.lastActiveProfile = parsedHealed.activeProfile
+                    return@withContext parsedHealed
                 }
                 return@withContext LynxState(activeProfile = baseProf)
             }
 
-            LynxStateParser.parseStateJson(raw, readTargetSocFile(), LynxRepository.readCurrentProfileFast())
+            val parsed = LynxStateParser.parseStateJson(raw, readTargetSocFile(), baseProf)
+            LynxRepository.lastActiveProfile = parsed.activeProfile
+            parsed
         } catch (e: Exception) {
             Log.e(STATE_TAG, "readState failed: ${e.message}")
             LynxState(activeProfile = LynxRepository.readCurrentProfileFast())
         }
     }
 
+    @Volatile
+    private var cachedTargetSoc: String? = null
+
     private fun readTargetSocFile(): String {
+        cachedTargetSoc?.let { return it }
         return try {
+            val f = File(TARGET_SOC_PATH)
+            if (f.exists() && f.canRead()) {
+                val txt = f.readText().trim()
+                if (txt.isNotBlank() && txt != "generic") {
+                    cachedTargetSoc = txt
+                    return txt
+                }
+            }
             val r = Shell.cmd("cat '$TARGET_SOC_PATH' 2>/dev/null").exec()
             val fileSoc = r.out.firstOrNull()?.trim() ?: ""
             if (fileSoc.isNotBlank() && fileSoc != "generic") {
+                cachedTargetSoc = fileSoc
                 return fileSoc
             }
             // Multi-SoC dynamic hardware ground-truth probe

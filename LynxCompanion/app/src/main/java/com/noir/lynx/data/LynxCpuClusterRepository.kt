@@ -292,11 +292,15 @@ internal object LynxCpuClusterRepository {
             val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
             val minNode = "$pDir/cpuinfo_min_freq"
             val maxNode = "$pDir/cpuinfo_max_freq"
-            val hwMin = Shell.cmd("cat $minNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 300000L
-            val hwMax = Shell.cmd("cat $maxNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 2400000L
+            val hwMin = runCatching { java.io.File(minNode).readText().trim().toLongOrNull() }.getOrNull()
+                ?: Shell.cmd("cat $minNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 300000L
+            val hwMax = runCatching { java.io.File(maxNode).readText().trim().toLongOrNull() }.getOrNull()
+                ?: Shell.cmd("cat $maxNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 2400000L
 
-            val curMin = Shell.cmd("cat $pDir/scaling_min_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMin
-            val curMax = Shell.cmd("cat $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMax
+            val curMin = runCatching { java.io.File("$pDir/scaling_min_freq").readText().trim().toLongOrNull() }.getOrNull()
+                ?: Shell.cmd("cat $pDir/scaling_min_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMin
+            val curMax = runCatching { java.io.File("$pDir/scaling_max_freq").readText().trim().toLongOrNull() }.getOrNull()
+                ?: Shell.cmd("cat $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMax
 
             var safeMin = (minFreq ?: curMin).coerceIn(hwMin, hwMax)
             var safeMax = (maxFreq ?: curMax).coerceIn(hwMin, hwMax)
@@ -363,13 +367,17 @@ internal object LynxCpuClusterRepository {
             val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
             val minNode = "$pDir/cpuinfo_min_freq"
             val maxNode = "$pDir/cpuinfo_max_freq"
-            val hwMin = Shell.cmd("cat $minNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 300000L
-            val hwMax = Shell.cmd("cat $maxNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 2400000L
+            val hwMin = runCatching { java.io.File(minNode).readText().trim().toLongOrNull() }.getOrNull()
+                ?: Shell.cmd("cat $minNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 300000L
+            val hwMax = runCatching { java.io.File(maxNode).readText().trim().toLongOrNull() }.getOrNull()
+                ?: Shell.cmd("cat $maxNode 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: 2400000L
 
             if (lock) {
                 LynxRepository.explicitlyUnlockedClusters.remove(policyId)
-                val curMin = Shell.cmd("cat $pDir/scaling_min_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMin
-                val curMax = Shell.cmd("cat $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMax
+                val curMin = runCatching { java.io.File("$pDir/scaling_min_freq").readText().trim().toLongOrNull() }.getOrNull()
+                    ?: Shell.cmd("cat $pDir/scaling_min_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMin
+                val curMax = runCatching { java.io.File("$pDir/scaling_max_freq").readText().trim().toLongOrNull() }.getOrNull()
+                    ?: Shell.cmd("cat $pDir/scaling_max_freq 2>/dev/null").exec().out.firstOrNull()?.toLongOrNull() ?: hwMax
 
                 var safeMin = (minFreq ?: curMin).coerceIn(hwMin, hwMax)
                 var safeMax = (maxFreq ?: curMax).coerceIn(hwMin, hwMax)
@@ -457,7 +465,12 @@ internal object LynxCpuClusterRepository {
             }
 
             // Standalone Fallback: Safety Regulation: Only apply if governor is in scaling_available_governors
-            val availGovs = Shell.cmd("cat /sys/devices/system/cpu/cpufreq/policy$policyId/scaling_available_governors 2>/dev/null").exec().out.firstOrNull() ?: ""
+            val pDir = "/sys/devices/system/cpu/cpufreq/policy$policyId"
+            val cachedGovs = cachedTopology?.find { it.id == policyId }?.availGovs?.ifEmpty { null }
+            val availGovs = cachedGovs?.joinToString(" ")
+                ?: runCatching { java.io.File(pDir, "scaling_available_governors").readText().trim() }.getOrNull()
+                ?: Shell.cmd("cat $pDir/scaling_available_governors 2>/dev/null").exec().out.firstOrNull() ?: ""
+
             if (availGovs.isNotBlank() && !availGovs.contains(gov)) {
                 Log.w("LynxRepository", "Governor '$gov' is not in available governors ($availGovs), aborting for safety")
                 return@withContext false

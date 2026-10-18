@@ -30,7 +30,8 @@ internal object LynxNativeStatusRepository {
     suspend fun readNativeStatus(): NativeEngineStatus? = withContext(Dispatchers.IO) {
         if (!LynxRepository.isModuleInstalled()) return@withContext null
         try {
-            val cmd = "[ -x '$LynxRepository.MODULE_DIR/system/bin/lynxd' ] && '$LynxRepository.MODULE_DIR/system/bin/lynxd' status --json 2>/dev/null"
+            val lynxdPath = LynxRepository.getLynxdPath()
+            val cmd = "[ -x '$lynxdPath' ] && '$lynxdPath' status --json 2>/dev/null"
             val res = Shell.cmd(cmd).exec()
             if (res.isSuccess && res.out.isNotEmpty()) {
                 val raw = res.out.joinToString("\n").trim()

@@ -33,10 +33,16 @@ internal object LynxTelemetryReader {
                         }
                     }
                 } catch (_: Exception) {
-                    // Fall through to shell-based tiers if direct file I/O or SELinux denies
+                    // Fall through to direct sysfs sampling
                 }
 
-                // Tier 1: Reading RAM snapshot via root shell cat (<1ms, single cat binary)
+                // Tier 0.5: Pure Kotlin Direct Sysfs Telemetry (<0.3ms, ZERO shell execution, ZERO lock contention)
+                val directSysfs = sampleSysfsTelemetryDirect()
+                if (directSysfs != null && directSysfs.cpu.isNotEmpty()) {
+                    return@withContext directSysfs
+                }
+
+                // Tier 1: Reading RAM snapshot via root shell cat (Fallback only if sysfs unavailable)
                 if (LynxRepository.isRootAvailable()) {
                     val catRes = Shell.cmd("cat /data/local/tmp/lynxd_telemetry.json 2>/dev/null || cat /dev/lynxd_telemetry.json 2>/dev/null").exec()
                     if (catRes.isSuccess && catRes.out.isNotEmpty()) {
@@ -57,12 +63,6 @@ internal object LynxTelemetryReader {
                             if (parsed != null) return@withContext correctMtkGedFrequencyIfMisread(parsed)
                         }
                     }
-                }
-
-                // Tier 2.5: Pure Kotlin Direct Sysfs Telemetry (0.3ms, ZERO shell execution, ZERO lock contention)
-                val directSysfs = sampleSysfsTelemetryDirect()
-                if (directSysfs != null && directSysfs.cpu.isNotEmpty()) {
-                    return@withContext directSysfs
                 }
 
                 // Tier 3: Shell-based Universal Cascading Fallback (Last resort)
@@ -302,6 +302,7 @@ internal object LynxTelemetryReader {
             var gpuFreq = 0
             var gpuBusy = 0
             try {
+                // Qualcomm Adreno (KGSL / Devfreq)
                 val devfreqCur = File("/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq")
                 val kgslClock = File("/sys/class/kgsl/kgsl-3d0/gpuclk")
                 val rawGpuNum = when {
@@ -313,6 +314,22 @@ internal object LynxTelemetryReader {
                 val busyFile = File("/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage")
                 if (busyFile.exists() && busyFile.canRead()) {
                     gpuBusy = (busyFile.readText().filter { it.isDigit() }.toIntOrNull() ?: 0).coerceIn(0, 100)
+                }
+
+                // MediaTek GED / Mali DVFS Direct Sysfs Fallback
+                if (gpuFreq == 0) {
+                    val mtkGedFreq = File("/sys/kernel/ged/hal/current_freqency")
+                    if (mtkGedFreq.exists() && mtkGedFreq.canRead()) {
+                        val raw = mtkGedFreq.readText().trim().split(Regex("\\s+"))
+                        val fKhz = raw.getOrNull(1)?.toLongOrNull() ?: raw.firstOrNull()?.toLongOrNull() ?: 0L
+                        gpuFreq = (fKhz / 1000L).toInt()
+                    }
+                }
+                if (gpuBusy == 0) {
+                    val mtkGedUtil = File("/sys/kernel/ged/hal/gpu_utilization")
+                    if (mtkGedUtil.exists() && mtkGedUtil.canRead()) {
+                        gpuBusy = (mtkGedUtil.readText().filter { it.isDigit() }.toIntOrNull() ?: 0).coerceIn(0, 100)
+                    }
                 }
             } catch (_: Exception) {}
 

@@ -4,10 +4,59 @@ import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+import java.io.File
+
 /** Read-only kernel and hardware capability probe. */
 object LynxKernelCapabilityRepository {
+    @Volatile
+    private var cachedReport: KernelCapabilityReport? = null
+
     suspend fun scanKernelCapabilities(): KernelCapabilityReport = withContext(Dispatchers.IO) {
+        cachedReport?.let { return@withContext it }
         try {
+            // Direct pure Kotlin Sysfs Fast-Path (<0.2ms)
+            val relDirect = System.getProperty("os.version") ?: ""
+            val easDirect = File("/sys/devices/system/cpu/eas").exists() ||
+                runCatching { File("/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors").readText().contains("schedutil") }.getOrDefault(false)
+            val uclampDirect = File("/proc/sys/kernel/sched_util_clamp_min").exists()
+            val zramDirect = runCatching { File("/sys/block/zram0/comp_algorithm").readText().trim() }.getOrDefault("")
+            val ksmDirect = File("/sys/kernel/mm/ksm/run").exists()
+            val mglruDirect = File("/sys/kernel/mm/lru_gen/enabled").exists()
+            val gpuDirect = when {
+                File("/sys/class/kgsl/kgsl-3d0").exists() -> "Qualcomm Adreno (KGSL)"
+                File("/proc/gpufreq").exists() || File("/sys/module/ged").exists() || File("/dev/mali0").exists() -> "MediaTek Mali (GED/DVFS)"
+                File("/dev/mali").exists() -> "ARM Mali Generic"
+                else -> "none"
+            }
+            val tcpDirect = runCatching { File("/proc/sys/net/ipv4/tcp_available_congestion_control").readText().trim() }.getOrDefault("")
+            val thermalDir = File("/sys/class/thermal")
+            val tzCountDirect = if (thermalDir.isDirectory) {
+                thermalDir.listFiles { f -> f.name.startsWith("thermal_zone") }?.size ?: 0
+            } else 0
+            val ioDirect = runCatching {
+                val mmc = File("/sys/block/mmcblk0/queue/scheduler")
+                if (mmc.exists()) mmc.readText().trim() else File("/sys/block/sda/queue/scheduler").readText().trim()
+            }.getOrDefault("")
+
+            if (relDirect.isNotBlank() || zramDirect.isNotBlank() || tzCountDirect > 0) {
+                val items = mutableListOf<KernelCapabilityItem>()
+                items.add(KernelCapabilityItem("Energy Aware Scheduling (EAS)", if (easDirect) "Aktif (Schedutil governor didukung)" else "Tidak terdeteksi", easDirect))
+                items.add(KernelCapabilityItem("UCLAMP Task Clamping", if (uclampDirect) "Kernel mendukung sched_util_clamp" else "Tidak tersedia di kernel ini", uclampDirect))
+                items.add(KernelCapabilityItem("GPU Driver Subsistem", if (gpuDirect != "none") gpuDirect else "Generic Linux framebuffer", gpuDirect != "none"))
+                items.add(KernelCapabilityItem("Algoritma Kompresi ZRAM", if (zramDirect.isNotBlank()) zramDirect else "Algoritma ZRAM standar", zramDirect.isNotBlank()))
+                items.add(KernelCapabilityItem("Kernel Same-page Merging (KSM)", if (ksmDirect) "Didukung (/sys/kernel/mm/ksm/run)" else "Tidak dikompilasi di kernel ini", ksmDirect))
+                items.add(KernelCapabilityItem("Multi-Gen LRU (MGLRU)", if (mglruDirect) "Aktif (Linux 6.1+ memory manager)" else "Belum didukung oleh kernel ini", mglruDirect))
+                items.add(KernelCapabilityItem("TCP Congestion Algorithms", if (tcpDirect.isNotBlank()) tcpDirect else "Default Linux", tcpDirect.contains("bbr") || tcpDirect.contains("cubic")))
+                items.add(KernelCapabilityItem("Thermal Management Zones", "$tzCountDirect thermal zones aktif", tzCountDirect > 0))
+                items.add(KernelCapabilityItem("Storage I/O Schedulers", if (ioDirect.isNotBlank()) ioDirect else "Standard queue", ioDirect.isNotBlank()))
+
+                val supportedCount = items.count { it.isSupported }
+                val score = if (items.isNotEmpty()) (supportedCount * 100) / items.size else 0
+                val report = KernelCapabilityReport(scorePercent = score, kernelRelease = relDirect, items = items)
+                cachedReport = report
+                return@withContext report
+            }
+
             val script = """
                 echo "rel:${'$'}(uname -r 2>/dev/null)"
                 eas=0

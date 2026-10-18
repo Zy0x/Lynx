@@ -115,13 +115,14 @@ EOF
             Log.e(TAG, "Failed to create pre-write backup: ${e.message}")
         }
 
-        // 2. Verified Apply Loop
+        // 2. Verified Apply Loop (Single-pass atomic batch transaction)
         var appliedCount = 0
         var failureNode: String? = null
         var failureMsg: String? = null
 
+        val batchResults = NodeWriter.batchWriteVerified(targetWrites)
         for ((path, value) in targetWrites) {
-            val res = NodeWriter.writeVerified(path, value)
+            val res = batchResults[path] ?: WriteResult.Unsupported
             when (res) {
                 is WriteResult.Applied -> {
                     appliedCount++

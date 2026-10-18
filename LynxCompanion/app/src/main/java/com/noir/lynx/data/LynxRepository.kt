@@ -13,6 +13,7 @@ import com.topjohnwu.superuser.Shell
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -62,7 +63,7 @@ object LynxRepository {
             val reader = p.inputStream.bufferedReader()
             val out = reader.readText()
             val exit = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) p.exitValue() else {
+                if (p.waitFor(300, java.util.concurrent.TimeUnit.MILLISECONDS)) p.exitValue() else {
                     p.destroyForcibly()
                     -1
                 }
@@ -135,21 +136,19 @@ object LynxRepository {
                 val test = Shell.cmd("id").exec()
                 if (test.isSuccess && test.out.any { it.contains("uid=0") }) {
                     isRootVerified = true
-                    performOneTimeBootCleanup()
+                    CoroutineScope(Dispatchers.IO).launch { performOneTimeBootCleanup() }
                     return@withContext true
                 }
             }
 
-            // 2. Probe direct su execution first (essential for KernelSU / Rekisuki / APatch)
-            val directSu = canExecuteSuDirectly()
-
-            // 3. Execute root probe via LibSU fresh shell
+            // 2. Execute root probe via LibSU fresh shell first (<50ms fast-path)
             val result = Shell.cmd("id").exec()
-            val available = (result.isSuccess && result.out.any { it.contains("uid=0") }) || directSu
+            val libSuOk = result.isSuccess && result.out.any { it.contains("uid=0") }
+            val available = libSuOk || canExecuteSuDirectly()
 
             if (available) {
                 isRootVerified = true
-                performOneTimeBootCleanup()
+                CoroutineScope(Dispatchers.IO).launch { performOneTimeBootCleanup() }
             }
             available
         } catch (e: Exception) {
@@ -547,6 +546,7 @@ object LynxRepository {
     // ----------------------------------------------------------------
 
     suspend fun readThermalZones(): List<ThermalZoneInfo> = LynxThermalControlRepository.readThermalZones()
+    fun getLastKnownThermalZones(): List<ThermalZoneInfo> = LynxThermalControlRepository.getLastKnownThermalZones()
 
     // ----------------------------------------------------------------
     //  Custom Sysfs Rules & Boot Script Editor (custom_rules.sh)
@@ -776,11 +776,27 @@ object LynxRepository {
         } catch (e: Exception) { "balance" }
     }
 
+    @Volatile
+    var lastActiveProfile: String? = null
+
+    @Volatile
+    private var kgslPermsChecked = false
+
+    fun ensureKgslPermissions() {
+        if (kgslPermsChecked) return
+        kgslPermsChecked = true
+        try {
+            Shell.cmd("chmod 644 /sys/class/kgsl/kgsl-3d0/gpuclk /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage /sys/class/kgsl/kgsl-3d0/devfreq/cur_freq 2>/dev/null").submit()
+        } catch (_: Exception) {}
+    }
+
     fun readCurrentProfileFast(): String {
+        lastActiveProfile?.let { return it }
         return try {
             val direct = Shell.cmd("m=\$(getprop lynx.mode 2>/dev/null); [ -n \"\$m\" ] && echo \"\$m\" || cat /data/adb/lynx/active_profile 2>/dev/null").exec()
             val directProf = direct.out.firstOrNull()?.trim()?.lowercase() ?: ""
             if (directProf in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) {
+                lastActiveProfile = directProf
                 return directProf
             }
             val activePath = runCatching { getLocalConfigPath() }.getOrDefault(LOCAL_CONFIG_PATH_DEBUG)
@@ -789,7 +805,9 @@ object LynxRepository {
             if (text.contains("\"active_profile\"")) {
                 val match = Regex("\"active_profile\"\\s*:\\s*\"([^\"]+)\"").find(text)
                 val p = match?.groupValues?.get(1)?.lowercase() ?: "balance"
-                if (p in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) p else "balance"
+                val valid = if (p in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) p else "balance"
+                lastActiveProfile = valid
+                valid
             } else "balance"
         } catch (e: Exception) { "balance" }
     }
