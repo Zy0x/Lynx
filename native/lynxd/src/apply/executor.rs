@@ -127,9 +127,14 @@ impl ProfileExecutor {
 
         // ── Phase 5: State Persistence (Pre-Commit Guard) ──────────────────
         let vendor_str = plan.vendor.to_string();
-        if let Err(e) = ProfileStateManager::record_pre_commit(&plan.profile_name, &vendor_str, &snapshots) {
-            Logger::warn(if is_english() { format!("Failed to record pre-commit snapshot to disk: {}", e) } else { format!("Gagal merekam snapshot sebelum commit ke penyimpanan: {}", e) });
-        }
+        let prof_name_p5 = plan.profile_name.clone();
+        let vendor_str_p5 = vendor_str.clone();
+        let snapshots_p5 = snapshots.clone();
+        std::thread::spawn(move || {
+            if let Err(e) = ProfileStateManager::record_pre_commit(&prof_name_p5, &vendor_str_p5, &snapshots_p5) {
+                Logger::warn(if is_english() { format!("Failed to record pre-commit snapshot to disk: {}", e) } else { format!("Gagal merekam snapshot sebelum commit ke penyimpanan: {}", e) });
+            }
+        });
 
         // ── Phase 6: Transactional Apply Layer ──────────────────────────────
         let mut committed_count = 0usize;
@@ -246,9 +251,13 @@ impl ProfileExecutor {
         }
 
         // ── Phase 8: Post-Commit Persistence (Clean State) ──────────────────
-        if let Err(e) = ProfileStateManager::record_post_commit(&plan.profile_name, &vendor_str) {
-            Logger::warn(if is_english() { format!("Failed to record post-commit state: {}", e) } else { format!("Gagal merekam status setelah commit: {}", e) });
-        }
+        let prof_name_p8 = plan.profile_name.clone();
+        let vendor_str_p8 = vendor_str.clone();
+        std::thread::spawn(move || {
+            if let Err(e) = ProfileStateManager::record_post_commit(&prof_name_p8, &vendor_str_p8) {
+                Logger::warn(if is_english() { format!("Failed to record post-commit state: {}", e) } else { format!("Gagal merekam status setelah commit: {}", e) });
+            }
+        });
 
         let desc = match plan.base_profile {
             "extreme" => "[ Extreme Mode Active ] Deity Hybrid Architecture",

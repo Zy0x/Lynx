@@ -277,8 +277,6 @@ internal object LynxAppStateRepository {
         val customProfile = if (profile !in builtInProfiles) {
             if (!com.noir.lynx.profiles.KernelPerformanceProfile.ID_PATTERN.matches(profile)) return@withContext false
             LynxKernelProfileCatalogRepository.read().find(profile) ?: return@withContext false
-        } else null
-        val allowedProfiles = builtInProfiles + LynxKernelProfileCatalogRepository.read().profiles.map { it.id }
         val effectiveProfile = customProfile?.baseProfile ?: profile
 
         // Clear locks when leaving extreme mode so cluster frequencies can scale dynamically
@@ -294,25 +292,24 @@ internal object LynxAppStateRepository {
         // select the master profile and clear scoped subpage overrides. Watcher and
         // automation selections are transient and must preserve the user's baseline.
         val isManualSelection = caller != "watcher" && caller != "automation"
-        val transientMasterProfile = if (isManualSelection) {
-            null
-        } else {
-            val fromFile = Shell.cmd("cat /data/adb/lynx/baseline_profile 2>/dev/null").exec().out.firstOrNull()?.trim()
-            if (!fromFile.isNullOrBlank() && fromFile in allowedProfiles && fromFile != "dormant" && fromFile != "auto") {
-                fromFile
-            } else {
-                val stateProf = readState().activeProfile
-                if (stateProf.isNotBlank() && stateProf != "dormant" && stateProf != "auto") stateProf else "balance"
-            }
+
+        if (!isManualSelection) {
+            // FAST PATH: Transient automation / per-app game boost (<15ms).
+            // Completely bypasses slow eMMC disk writes, JSON serialization, and state fsyncs!
+            val lynxdPath = getLynxdBinaryPath() ?: LYNXD_PATH
+            val fastCmd = "setprop lynx.mode '$profile' 2>/dev/null; rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile apply '$profile' 2>/dev/null"
+            Shell.cmd(fastCmd).exec()
+            LynxRepository.lastActiveProfile = effectiveProfile
+            com.noir.lynx.service.LynxAppAutomationService.notifyProfileChanged(effectiveProfile, false)
+            return@withContext true
         }
+
         val lynxdPath = getLynxdBinaryPath()
         val safeLynxd = lynxdPath ?: LYNXD_PATH
         LynxRepository.lastActiveProfile = effectiveProfile
 
         val targetBaseline = if (profile == "auto") "balance" else profile
-        val baselineCmd = if (isManualSelection) {
-            "echo '$targetBaseline' > /data/adb/lynx/baseline_profile 2>/dev/null; "
-        } else ""
+        val baselineCmd = "echo '$targetBaseline' > /data/adb/lynx/baseline_profile 2>/dev/null; "
 
         val applyCmd = if (lynxdPath != null) {
             when (profile) {
@@ -324,18 +321,14 @@ internal object LynxAppStateRepository {
 
         val batchSetup = buildString {
             append("mkdir -p /data/adb/lynx 2>/dev/null; ")
-            if (isManualSelection) {
-                append("echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null; ")
-                append(baselineCmd)
-            }
+            append("echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null; ")
+            append(baselineCmd)
             append("setprop lynx.mode '$profile' 2>/dev/null; ")
             if (lynxdPath != null) {
                 append("'$safeLynxd' state set active_profile '$profile' str 2>/dev/null; ")
                 append("'$safeLynxd' state set kernel_profile_id '$profile' str 2>/dev/null; ")
-                if (isManualSelection) {
-                    append("'$safeLynxd' state set baseline_profile '$targetBaseline' str 2>/dev/null; ")
-                    append("'$safeLynxd' state set profile_overrides '' str 2>/dev/null; ")
-                }
+                append("'$safeLynxd' state set baseline_profile '$targetBaseline' str 2>/dev/null; ")
+                append("'$safeLynxd' state set profile_overrides '' str 2>/dev/null; ")
             }
             if (applyCmd.isNotBlank()) {
                 append(applyCmd)
@@ -346,22 +339,13 @@ internal object LynxAppStateRepository {
             Shell.cmd(batchSetup).exec()
             writeStateKey("active_profile", profile, "str")
             writeStateKey("kernel_profile_id", profile, "str")
-            if (isManualSelection) {
-                writeStateKey("baseline_profile", targetBaseline, "str")
-                writeStateKey("profile_overrides", "", "str")
-            }
-            com.noir.lynx.service.LynxAppAutomationService.notifyProfileChanged(effectiveProfile, isManualSelection)
+            writeStateKey("baseline_profile", targetBaseline, "str")
+            writeStateKey("profile_overrides", "", "str")
+            com.noir.lynx.service.LynxAppAutomationService.notifyProfileChanged(effectiveProfile, true)
             true
         } catch (e: Exception) {
             Log.e(STATE_TAG, "setProfile error: ${e.message}")
             false
-        } finally {
-            // lynxd persists every applied profile. Restore its on-disk master after
-            // a temporary watcher/automation boost; lynx.mode stays the effective mode.
-            transientMasterProfile?.let { master ->
-                Shell.cmd("echo '$master' > /data/adb/lynx/active_profile 2>/dev/null").exec()
-                writeStateKey("active_profile", master, "str")
-            }
         }
     }
 

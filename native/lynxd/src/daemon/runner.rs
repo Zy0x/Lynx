@@ -250,19 +250,19 @@ impl DaemonRunner {
             let sleep_duration = if is_plugged {
                 match current_screen {
                     ScreenState::Off => Duration::from_secs(15), // Screen off while charging: battery & thermal friendly
-                    _ => Duration::from_secs(3),                // Screen active while charging: responsive yet zero churn
+                    _ => Duration::from_secs(1),                // Screen active while charging: responsive yet zero churn
                 }
             } else {
                 match current_screen {
                     ScreenState::Off => Duration::from_secs(20), // Deep Sleep Shield: 20 seconds
-                    _ => Duration::from_secs(5),                // Active screen: 5 seconds
+                    _ => Duration::from_secs(1),                // Active screen: 1 second for instant responsiveness
                 }
             };
 
             // Dynamic sleep chunking:
             // - While plugged in: 500ms chunks for sub-500ms disconnect detection.
             // - While unplugged & screen off: undisturbed deep sleep without sysfs polling wakeups.
-            // - While unplugged & screen active: 1s chunks to detect plug-in promptly.
+            // - While unplugged & screen active: 250ms chunks to detect events promptly.
             if is_plugged {
                 let chunks = (sleep_duration.as_millis() / 500) as usize;
                 for idx in 0..chunks {
@@ -300,8 +300,8 @@ impl DaemonRunner {
                     sleep(Duration::from_secs(5));
                 }
             } else {
-                // Active screen (unplugged): normal 5s sleep in 1s chunks checking lifecycle and charger plug-in
-                let chunks = sleep_duration.as_secs().max(1);
+                // Active screen (unplugged): 1s sleep in 250ms chunks checking lifecycle and charger plug-in
+                let chunks = (sleep_duration.as_millis() / 250).max(1);
                 for _ in 0..chunks {
                     if !DaemonLifecycle::is_running() {
                         break;
@@ -311,7 +311,7 @@ impl DaemonRunner {
                         // Cable plugged in while screen is active: break sleep loop immediately
                         break;
                     }
-                    sleep(Duration::from_secs(1));
+                    sleep(Duration::from_millis(250));
                 }
             }
         }
@@ -423,49 +423,53 @@ impl DaemonRunner {
                 _ => ("⚖️", "BALANCE"),
             };
             let short_reason = if reason.len() > 60 {
-                &reason[..60]
+                reason[..60].to_string()
             } else {
-                reason
+                reason.to_string()
             };
             let notif_text = format!("{} [{}] Mode Aktif • {}", emoji, mode_label, short_reason);
+            let profile_owned = profile.to_string();
 
-            // 1. Post native Android System Notification (100% independent of companion APK)
-            let _ = std::process::Command::new("/system/bin/cmd")
-                .args(&[
-                    "notification",
-                    "post",
-                    "-t",
-                    "Lynx Universal",
-                    "lynx_mode",
-                    &notif_text,
-                ])
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status();
-
-            // 2. Broadcast intent for Lynx Companion APK (unless status_bar only)
-            if feedback_style != "status_bar" {
-                let _ = std::process::Command::new("/system/bin/am")
+            // Run system notifications and broadcast asynchronously so main transition thread is NEVER blocked by Java VM startup
+            std::thread::spawn(move || {
+                // 1. Post native Android System Notification (100% independent of companion APK)
+                let _ = std::process::Command::new("/system/bin/cmd")
                     .args(&[
-                        "broadcast",
-                        "-a",
-                        "com.noir.lynx.PROFILE_CHANGED",
-                        "-n",
-                        "com.noir.lynx/.receiver.LynxProfileReceiver",
-                        "-f",
-                        "0x10000000",
-                        "--include-stopped-packages",
-                        "-e",
-                        "profile",
-                        profile,
-                        "-e",
-                        "reason",
-                        short_reason,
+                        "notification",
+                        "post",
+                        "-t",
+                        "Lynx Universal",
+                        "lynx_mode",
+                        &notif_text,
                     ])
                     .stdout(std::process::Stdio::null())
                     .stderr(std::process::Stdio::null())
                     .status();
-            }
+
+                // 2. Broadcast intent for Lynx Companion APK (unless status_bar only)
+                if feedback_style != "status_bar" {
+                    let _ = std::process::Command::new("/system/bin/am")
+                        .args(&[
+                            "broadcast",
+                            "-a",
+                            "com.noir.lynx.PROFILE_CHANGED",
+                            "-n",
+                            "com.noir.lynx/.receiver.LynxProfileReceiver",
+                            "-f",
+                            "0x10000000",
+                            "--include-stopped-packages",
+                            "-e",
+                            "profile",
+                            &profile_owned,
+                            "-e",
+                            "reason",
+                            &short_reason,
+                        ])
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .status();
+                }
+            });
         }
         #[cfg(not(target_os = "android"))]
         {
