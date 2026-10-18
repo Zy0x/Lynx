@@ -14,3 +14,19 @@ vendor.gralloc.enable_fb_ubwc=1
 persist.hwc.mdpcomp.enable=true
 persist.vendor.qti.core_ctl_min_cpu=4
 
+# SurfaceFlinger Zero-Latency Latching & HWC Protection
+debug.sf.latch_unsignaled=1
+debug.sf.disable_backpressure=1
+debug.sf.enable_hwc_vds=1
+
+# Hardware Skia Renderer & Threaded RenderEngine
+debug.hwui.renderer=skiagl
+debug.renderengine.backend=skiaglthreaded
+debug.hwui.use_buffer_age=false
+
+# 64MB Multi-Threaded Shader Disk Blob Cache (Anti Shader-Freeze)
+ro.egl.blobcache.max_size=67108864
+ro.egl.blobcache.multifile=true
+
+# Low-Latency Fast Sockets
+net.ipv4.tcp_fastopen=3

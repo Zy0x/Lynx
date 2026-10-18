@@ -521,7 +521,15 @@ impl HardwareTranslator {
                 Self::push_op(&mut ops, "Qualcomm", "Qualcomm CPU7 Prime core_ctl busy_up_thres", format!("{}/busy_up_thres", QcomHardware::CORE_CTL_DIR_CPU7), c7_up, false);
                 Self::push_op(&mut ops, "Qualcomm", "Qualcomm CPU7 Prime core_ctl busy_down_thres", format!("{}/busy_down_thres", QcomHardware::CORE_CTL_DIR_CPU7), c7_down, false);
 
-                // ── D. Qualcomm Adreno KGSL GPU Acceleration ────────────────
+                // ── D. Qualcomm GPU Bandwidth & Memlat DDR Scaling ──────────
+                if is_perf_or_ext {
+                    Self::push_op(&mut ops, "GPUBW", "Qualcomm GPU bus bandwidth governor", QcomHardware::QCOM_GPUBW_GOV, "performance", false);
+                    Self::push_op(&mut ops, "MEMLAT", "Qualcomm LPDDR bus bandwidth boost", format!("{}/governor", QcomHardware::QCOM_LLCC_DDR_BW), "performance", false);
+                } else if is_powersave {
+                    Self::push_op(&mut ops, "GPUBW", "Qualcomm GPU bus bandwidth governor", QcomHardware::QCOM_GPUBW_GOV, "powersave", false);
+                }
+
+                // ── E. Qualcomm Adreno KGSL GPU Acceleration ────────────────
                 if cap.gpu.driver == GpuDriver::QcomKgsl {
                     let max_idx = cap.gpu.num_pwrlevels.saturating_sub(1);
                     let target_max_pwr = match profile.name {
@@ -739,6 +747,13 @@ impl HardwareTranslator {
         Self::push_op(&mut ops, "Memory", "VM swappiness (RAM-proportional)", "/proc/sys/vm/swappiness", swappiness, false);
         Self::push_op(&mut ops, "Memory", "VM vfs_cache_pressure", "/proc/sys/vm/vfs_cache_pressure", vfs_pressure, false);
 
+        // Universal ZRAM Latency Eliminator (page-cluster = 0 reads 1 page instead of 8, cutting swap latency)
+        Self::push_op(&mut ops, "Memory", "ZRAM single-page read latency fix (page-cluster 0)", "/proc/sys/vm/page-cluster", "0", false);
+
+        // KSM (Kernel Samepage Merging) scanning suppression during gaming
+        let ksm_run = if is_perf_or_ext { "0" } else { "1" };
+        Self::push_op(&mut ops, "Memory", "KSM background memory scanning control", "/sys/kernel/mm/ksm/run", ksm_run, false);
+
         // Global writeback and filesystem durability remain under the OEM policy.
 
         // ── 5. Media-aware Storage Policy (Shared Across All Profiles) ─────
@@ -763,6 +778,11 @@ impl HardwareTranslator {
             if Path::new(&q_dir).is_dir() {
                 Self::push_op(&mut ops, "Storage", format!("Block {} {}KB read-ahead", block_name, ra_kb), PathBuf::from(format!("{}/read_ahead_kb", q_dir)), ra_kb, false);
                 Self::push_op(&mut ops, "Storage", format!("Block {} {} scheduler", block_name, sched), PathBuf::from(format!("{}/scheduler", q_dir)), sched, false);
+                Self::push_op(&mut ops, "Storage", format!("Block {} rq_affinity (CPU cache affinity)", block_name), PathBuf::from(format!("{}/rq_affinity", q_dir)), "2", false);
+                Self::push_op(&mut ops, "Storage", format!("Block {} disable random entropy overhead", block_name), PathBuf::from(format!("{}/add_random", q_dir)), "0", false);
+                if is_extreme {
+                    Self::push_op(&mut ops, "Storage", format!("Block {} disable iostats overhead", block_name), PathBuf::from(format!("{}/iostats", q_dir)), "0", false);
+                }
                 let read_exp_path = PathBuf::from(format!("{}/iosched/read_expire", q_dir));
                 if read_exp_path.exists() {
                     Self::push_op(&mut ops, "Storage", format!("Block {} read expire", block_name), read_exp_path, read_exp, false);
@@ -779,6 +799,12 @@ impl HardwareTranslator {
                 Self::push_op(&mut ops, "Storage", format!("Block {} SD prefetch ceiling", dev.name),
                     dev.queue_path.join("read_ahead_kb"), target.to_string(), false);
             }
+        }
+
+        // Dynamic Fsync (Dyn_Fsync) suspend during gaming
+        let dyn_fsync = if is_perf_or_ext { "0" } else { "1" };
+        for fsync_node in &["/sys/kernel/dyn_fsync/Dyn_fsync_active", "/sys/class/misc/fsynccontrol/fsync_enabled"] {
+            Self::push_op(&mut ops, "Storage", "Dynamic Fsync storage barrier suspend", *fsync_node, dyn_fsync, false);
         }
 
         // ── 6. Network & Low-Latency TCP Stack ──────────────────────────────
@@ -809,6 +835,14 @@ impl HardwareTranslator {
             "3",
             false,
         );
+        Self::push_op(
+            &mut ops,
+            "Network",
+            "TCP time-wait socket reuse",
+            "/proc/sys/net/ipv4/tcp_tw_reuse",
+            "1",
+            false,
+        );
 
         // ── 7. Display & Touch Game Mode ────────────────────────────────────
         let touch_val = if is_perf_or_ext { "1" } else { "0" };
@@ -826,6 +860,24 @@ impl HardwareTranslator {
                 touch_val,
                 false,
             );
+        }
+
+        // ── 8. Hardware IRQ Affinity Steering (Unchoke CPU0) ────────────────
+        let irqs = crate::subsystems::IrqController::scan_interrupts();
+        if is_perf_or_ext {
+            if let Some(&touch_irq) = irqs.get("touchscreen") {
+                Self::push_op(&mut ops, "IRQ", "Touchscreen interrupt affinity (Core 1)", format!("/proc/irq/{}/smp_affinity_list", touch_irq), "1", false);
+            }
+            if let Some(&wifi_irq) = irqs.get("wifi") {
+                Self::push_op(&mut ops, "IRQ", "Wi-Fi interrupt affinity (Core 2)", format!("/proc/irq/{}/smp_affinity_list", wifi_irq), "2", false);
+            }
+            if let Some(&gpu_irq) = irqs.get("gpu") {
+                Self::push_op(&mut ops, "IRQ", "GPU interrupt affinity (Big Cluster)", format!("/proc/irq/{}/smp_affinity_list", gpu_irq), "4-7", false);
+            }
+        } else {
+            for (_, &irq) in irqs.iter() {
+                Self::push_op(&mut ops, "IRQ", "Restore universal IRQ affinity", format!("/proc/irq/{}/smp_affinity_list", irq), "0-7", false);
+            }
         }
 
         // ── 8. Power-Efficient Workqueue (Battery Saver & Balanced) ─────────

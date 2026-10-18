@@ -145,7 +145,7 @@ fun GpuDisplayTabRow(
 fun PerAppGraphicsHubCard(
     rules: List<PerAppGraphicsRule>,
     installedApps: List<AppInfo>,
-    supportedRates: List<Int> = listOf(60, 90, 120),
+    supportedRates: List<Int> = listOf(60),
     isAngleSupported: Boolean = true,
     onSaveRule: (PerAppGraphicsRule) -> Unit,
     onDeleteRule: (String) -> Unit,

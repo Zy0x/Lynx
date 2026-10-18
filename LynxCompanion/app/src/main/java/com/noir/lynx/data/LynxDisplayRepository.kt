@@ -378,22 +378,31 @@ internal object LynxDisplayRepository {
 
     suspend fun readSupportedRefreshRates(): List<Int> = withContext(Dispatchers.IO) {
         try {
-            val script = """
-                # Method 1: parse dumpsys display DisplayMode entries & fps values
-                rates=${'$'}(dumpsys display 2>/dev/null | grep -oE "([0-9]{2,3})\.0+ fps" | awk '{print int(${'$'}1)}' | sort -nu)
-                # Method 2: parse fps= entries in display configs
-                if [ -z "${'$'}rates" ]; then
-                    rates=${'$'}(dumpsys display 2>/dev/null | grep -oE "fps=[0-9]+" | cut -d= -f2 | sort -nu)
-                fi
-                # Method 3: parse SurfaceFlinger Refresh Rate Map
-                if [ -z "${'$'}rates" ]; then
-                    rates=${'$'}(dumpsys SurfaceFlinger 2>/dev/null | grep -oE "(refreshRate|fps)=[0-9]+" | cut -d= -f2 | sort -nu)
-                fi
-                # Method 4: check system peak rate
-                peak=${'$'}(settings get system peak_refresh_rate 2>/dev/null | tr -d '
-' | cut -d. -f1)
-                [ -n "${'$'}peak" ] && [ "${'$'}peak" -gt 0 ] 2>/dev/null && rates="${'$'}rates ${'$'}peak"
+            // 1. Android Framework Display.supportedModes (Absolute Ground Truth API)
+            val context = LynxApp.instance
+            val frameworkModes = try {
+                val display = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    val dm = context.getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+                    dm?.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+                } else {
+                    @Suppress("DEPRECATION")
+                    (context.getSystemService(Context.WINDOW_SERVICE) as? android.view.WindowManager)?.defaultDisplay
+                }
+                display?.supportedModes?.map { kotlin.math.round(it.refreshRate).toInt() }?.distinct()?.filter { it in 48..240 }?.sorted()
+            } catch (_: Exception) { null }
 
+            if (!frameworkModes.isNullOrEmpty()) {
+                return@withContext frameworkModes
+            }
+
+            // 2. Shell fallback: parse physical modes from dumpsys display
+            val script = """
+                # Method 1: parse supportedModes in dumpsys display
+                rates=${'$'}(dumpsys display 2>/dev/null | grep -i "supportedModes" | grep -oE "fps=[0-9]+(\.[0-9]+)?" | cut -d= -f2 | awk '{print int(${'$'}1 + 0.5)}' | sort -nu)
+                # Method 2: parse SurfaceFlinger physical refresh rates
+                if [ -z "${'$'}rates" ]; then
+                    rates=${'$'}(dumpsys SurfaceFlinger 2>/dev/null | grep -E "id=[0-9]+.*refreshRate=" | grep -oE "refreshRate=[0-9]+(\.[0-9]+)?" | cut -d= -f2 | awk '{print int(${'$'}1 + 0.5)}' | sort -nu)
+                fi
                 if [ -n "${'$'}rates" ]; then
                     echo "${'$'}rates"
                 fi
@@ -403,9 +412,15 @@ internal object LynxDisplayRepository {
                 line.trim().split(Regex("[\\s,]+")).mapNotNull { it.toIntOrNull() }
             }.distinct().filter { it in 48..240 }.sorted()
 
-            if (detected.isNotEmpty()) detected else listOf(60, 90, 120)
+            if (detected.isNotEmpty()) {
+                detected
+            } else {
+                val active = readDisplayRefreshRate()
+                listOf(if (active > 0) active else 60)
+            }
         } catch (e: Exception) {
-            listOf(60, 90, 120)
+            val active = try { readDisplayRefreshRate() } catch (_: Exception) { 60 }
+            listOf(if (active > 0) active else 60)
         }
     }
 

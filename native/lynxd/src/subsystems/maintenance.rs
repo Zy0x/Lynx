@@ -135,7 +135,55 @@ impl MaintenanceController {
         optimized
     }
 
-    /// Executes complete system maintenance: clutter prune, flash storage TRIM, SQLite vacuum, and RAM compaction.
+    /// Ahead-of-Time (AOT) Dexopt compilation for high-frequency game packages.
+    pub fn compile_game_packages() -> usize {
+        let candidates = [
+            "/data/adb/modules/Lynx/core/applist_perf.txt",
+            "/data/local/tmp/applist_perf.txt",
+        ];
+        let applist_path = candidates.iter().find(|&&p| Path::new(p).exists());
+        let path = match applist_path {
+            Some(&p) => p,
+            None => return 0,
+        };
+
+        let content = match fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(_) => return 0,
+        };
+
+        let mut compiled = 0;
+        for line in content.lines() {
+            let pkg = line.trim();
+            if pkg.is_empty() || pkg.starts_with('#') {
+                continue;
+            }
+            let status = Command::new("cmd")
+                .args(["package", "compile", "-m", "speed-profile", "-p", pkg])
+                .status();
+            if status.map(|s| s.success()).unwrap_or(false) {
+                compiled += 1;
+            }
+        }
+        compiled
+    }
+
+    /// Triggers aggressive F2FS background GC defragmentation during night maintenance.
+    pub fn defrag_f2fs_segments() -> bool {
+        let mut success = false;
+        if let Ok(entries) = fs::read_dir("/sys/fs/f2fs") {
+            for entry in entries.flatten() {
+                let gc_urgent_node = entry.path().join("gc_urgent");
+                if gc_urgent_node.exists() {
+                    let _ = SysfsWriter::write(&gc_urgent_node, "1", WriteMode::ForcePermission);
+                    success = true;
+                }
+            }
+        }
+        success
+    }
+
+    /// Executes complete system maintenance: clutter prune, flash storage TRIM, SQLite vacuum, RAM compaction, AOT dexopt, and F2FS GC.
     pub fn run(force: bool) -> String {
         if !force && Self::is_device_busy() {
             return "{\"status\":\"skipped\",\"reason\":\"Device is currently busy (game active or screen is ON).\"}".to_string();
@@ -145,13 +193,17 @@ impl MaintenanceController {
         let trim_reports = Self::trim_flash_storage();
         let ram_compacted = Self::compact_memory();
         let dbs_vacuumed = Self::vacuum_sqlite_databases();
+        let aot_compiled = Self::compile_game_packages();
+        let f2fs_defragged = Self::defrag_f2fs_segments();
 
         format!(
-            "{{\"status\":\"success\",\"clutter_removed\":{},\"trim_reports\":[{}],\"ram_compacted\":{},\"databases_vacuumed\":{}}}",
+            "{{\"status\":\"success\",\"clutter_removed\":{},\"trim_reports\":[{}],\"ram_compacted\":{},\"databases_vacuumed\":{},\"aot_compiled\":{},\"f2fs_defragged\":{}}}",
             clutter_removed,
             trim_reports.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(","),
             ram_compacted,
-            dbs_vacuumed
+            dbs_vacuumed,
+            aot_compiled,
+            f2fs_defragged
         )
     }
 }

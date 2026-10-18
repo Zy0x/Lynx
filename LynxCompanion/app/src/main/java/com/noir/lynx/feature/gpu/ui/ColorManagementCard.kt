@@ -100,6 +100,11 @@ fun ColorManagementCard(
     // KCAL State
     var kcalEnabled by remember { mutableStateOf(displayCalibration.kcalEnabled) }
     var kcalSat by remember { mutableIntStateOf(displayCalibration.saturation) }
+    var kcalCont by remember { mutableIntStateOf(displayCalibration.contrast) }
+    var kcalVal by remember { mutableIntStateOf(displayCalibration.value) }
+    var kcalR by remember { mutableIntStateOf(displayCalibration.red) }
+    var kcalG by remember { mutableIntStateOf(displayCalibration.green) }
+    var kcalB by remember { mutableIntStateOf(displayCalibration.blue) }
     var lastKcalInteraction by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(displayCalibration) {
@@ -107,6 +112,11 @@ fun ColorManagementCard(
         if (!isDraggingSlider && (now - lastKcalInteraction > 3500L)) {
             kcalEnabled = displayCalibration.kcalEnabled
             kcalSat = displayCalibration.saturation
+            kcalCont = displayCalibration.contrast
+            kcalVal = displayCalibration.value
+            kcalR = displayCalibration.red
+            kcalG = displayCalibration.green
+            kcalB = displayCalibration.blue
         }
     }
 
@@ -631,28 +641,62 @@ fun ColorManagementCard(
             HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
             LynxSwitch(
                 label = "Kernel KCAL Hardware Engine",
-                subLabel = "Koreksi warna pada tingkat kernel driver panel",
+                subLabel = "Koreksi warna pada tingkat kernel driver panel fisik",
                 checked = kcalEnabled,
                 onCheckedChange = {
                     kcalEnabled = it
                     lastKcalInteraction = System.currentTimeMillis()
-                    onSetKcal(
-                        it,
-                        displayCalibration.red,
-                        displayCalibration.green,
-                        displayCalibration.blue,
-                        kcalSat,
-                        displayCalibration.value,
-                        displayCalibration.contrast,
-                        displayCalibration.hue
-                    )
+                    onSetKcal(it, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
                 }
             )
 
             if (kcalEnabled) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
+                // 1-Click KCAL Presets
+                Text("Preset KCAL Cepat:", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val presets = listOf(
+                        Triple("Vivid OLED", Triple(280, 265, 256), Triple(256, 256, 256)),
+                        Triple("Cinematic D65", Triple(256, 256, 256), Triple(256, 248, 240)),
+                        Triple("Outdoor Boost", Triple(270, 280, 280), Triple(256, 256, 256)),
+                        Triple("Default Flat", Triple(256, 256, 256), Triple(256, 256, 256))
+                    )
+                    presets.forEach { (name, satContVal, rgb) ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = BgElevated,
+                            border = BorderStroke(1.dp, BorderGlass),
+                            modifier = Modifier.clickable {
+                                kcalSat = satContVal.first
+                                kcalCont = satContVal.second
+                                kcalVal = satContVal.third
+                                kcalR = rgb.first
+                                kcalG = rgb.second
+                                kcalB = rgb.third
+                                lastKcalInteraction = System.currentTimeMillis()
+                                onSetKcal(true, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
+                            }
+                        ) {
+                            Text(
+                                text = name,
+                                color = cardAccent,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+                // Saturation Slider
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("KCAL Saturation: $kcalSat", color = AccentPurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Saturasi Hardware: $kcalSat", color = AccentPurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Normal: 256", color = TextTertiary, fontSize = 10.sp)
                 }
                 Slider(
                     value = kcalSat.toFloat(),
@@ -664,19 +708,52 @@ fun ColorManagementCard(
                     onValueChangeFinished = {
                         isDraggingSlider = false
                         lastKcalInteraction = System.currentTimeMillis()
-                        onSetKcal(
-                            kcalEnabled,
-                            displayCalibration.red,
-                            displayCalibration.green,
-                            displayCalibration.blue,
-                            kcalSat,
-                            displayCalibration.value,
-                            displayCalibration.contrast,
-                            displayCalibration.hue
-                        )
+                        onSetKcal(true, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
                     },
                     valueRange = 128f..384f,
                     colors = SliderDefaults.colors(thumbColor = AccentPurple, activeTrackColor = AccentPurple)
+                )
+
+                // Contrast Slider
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Kontras Hardware: $kcalCont", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Normal: 256", color = TextTertiary, fontSize = 10.sp)
+                }
+                Slider(
+                    value = kcalCont.toFloat(),
+                    onValueChange = {
+                        isDraggingSlider = true
+                        lastKcalInteraction = System.currentTimeMillis()
+                        kcalCont = it.toInt()
+                    },
+                    onValueChangeFinished = {
+                        isDraggingSlider = false
+                        lastKcalInteraction = System.currentTimeMillis()
+                        onSetKcal(true, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
+                    },
+                    valueRange = 128f..384f,
+                    colors = SliderDefaults.colors(thumbColor = AccentCyan, activeTrackColor = AccentCyan)
+                )
+
+                // Value / Brightness Slider
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Kecerahan Value: $kcalVal", color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Normal: 256", color = TextTertiary, fontSize = 10.sp)
+                }
+                Slider(
+                    value = kcalVal.toFloat(),
+                    onValueChange = {
+                        isDraggingSlider = true
+                        lastKcalInteraction = System.currentTimeMillis()
+                        kcalVal = it.toInt()
+                    },
+                    onValueChangeFinished = {
+                        isDraggingSlider = false
+                        lastKcalInteraction = System.currentTimeMillis()
+                        onSetKcal(true, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
+                    },
+                    valueRange = 128f..384f,
+                    colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
                 )
             }
         }

@@ -41,10 +41,12 @@ fun DisplayRefreshRateTouchCard(
     isAuto: Boolean,
     supportedRates: List<Int>,
     touchBoost: Boolean,
+    touchIrqSteering: Boolean = false,
     dcDimmingSupported: Boolean,
     dcDimmingEnabled: Boolean,
     onSetRefreshRate: (hz: Int, isAuto: Boolean) -> Unit,
     onSetTouchBoost: (Boolean) -> Unit,
+    onSetTouchIrqSteering: ((Boolean) -> Unit)? = null,
     onSetDcDimming: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -130,7 +132,7 @@ fun DisplayRefreshRateTouchCard(
 
         // Dynamic Refresh Rate Chip Selector: Auto + Fixed Rates
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 12.dp),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             // Auto Chip
@@ -184,6 +186,29 @@ fun DisplayRefreshRateTouchCard(
             }
         }
 
+        if (supportedRates.size <= 1) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = BgElevated,
+                border = BorderStroke(1.dp, BorderGlass),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(Icons.Default.Verified, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(13.dp))
+                    Text(
+                        "Panel Fisik Terverifikasi: ${supportedRates.firstOrNull() ?: 60}Hz Native (Mode Tunggal HWC)",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
         // TouchBoost Switch
         LynxSwitch(
             label = "TouchBoost & Responsivitas Sentuh",
@@ -191,6 +216,16 @@ fun DisplayRefreshRateTouchCard(
             checked = touchBoost,
             onCheckedChange = { onSetTouchBoost(it) }
         )
+
+        // Hardware IRQ Touch Steering
+        if (onSetTouchIrqSteering != null) {
+            LynxSwitch(
+                label = "Hardware IRQ Touch Steering (Bebaskan CPU0)",
+                subLabel = "Arahkan interrupt digitizer sentuhan ke CPU1 untuk menghilangkan micro-stutter ksoftirqd",
+                checked = touchIrqSteering,
+                onCheckedChange = { onSetTouchIrqSteering(it) }
+            )
+        }
 
         // DC Dimming Switch if supported
         if (dcDimmingSupported) {

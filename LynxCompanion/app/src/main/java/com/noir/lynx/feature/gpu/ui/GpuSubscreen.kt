@@ -115,19 +115,19 @@ fun LazyListScope.tuningGpuCategoryItems(
                 PerAppGraphicsHubCard(
                     rules = uiState.perAppGraphicsRules,
                     installedApps = uiState.installedAppList,
-                    supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(60, 90, 120) },
+                    supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(uiState.displayRefreshRate.takeIf { it > 0 } ?: 60) },
                     isAngleSupported = graphics.isAngleSupported,
                     onSaveRule = { rule -> viewModel.savePerAppGraphicsRule(rule, context) },
                     onDeleteRule = { pkg -> viewModel.deletePerAppGraphicsRule(pkg, context) }
                 )
             }
 
-            // 3. Display Refresh Rate & Touch Card (4-Way Chips: Auto + 60/90/120Hz)
+            // 3. Display Refresh Rate & Touch Card (Ground Truth Hardware Supported Modes)
             item(key = "gpu_display_refresh") {
                 DisplayRefreshRateTouchCard(
                     currentHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60,
                     isAuto = uiState.isAutoRefreshRate,
-                    supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(60, 90, 120) },
+                    supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(uiState.displayRefreshRate.takeIf { it > 0 } ?: 60) },
                     touchBoost = state.displayTouch.touchboost,
                     dcDimmingSupported = graphics.isDcDimmingSupported,
                     dcDimmingEnabled = graphics.dcDimmingEnabled,

@@ -73,6 +73,7 @@ impl NetworkController {
         let _ = Self::apply_universal();
         let _ = Command::new("cmd").args(["wifi", "set-power-save-mode", "0"]).status();
         let _ = Command::new("cmd").args(["wifi", "force-low-latency-mode", "enabled"]).status();
+        let _ = Command::new("iw").args(["dev", "wlan0", "set", "power_save", "off"]).status();
 
         for node in &[
             "/sys/module/wlan/parameters/power_save",
@@ -92,6 +93,7 @@ impl NetworkController {
     pub fn apply_balance() -> String {
         let _ = Command::new("cmd").args(["wifi", "set-power-save-mode", "1"]).status();
         let _ = Command::new("cmd").args(["wifi", "force-low-latency-mode", "disabled"]).status();
+        let _ = Command::new("iw").args(["dev", "wlan0", "set", "power_save", "on"]).status();
 
         Self::write_opt("/sys/module/wlan/parameters/power_save", "1");
         Self::write_opt("/proc/sys/net/ipv4/tcp_low_latency", "0");

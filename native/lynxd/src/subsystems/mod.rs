@@ -1,5 +1,6 @@
 pub mod adb;
 pub mod applist;
+pub mod circuit_breaker;
 pub mod cluster;
 pub mod cpuidle;
 pub mod cpuset;
@@ -8,13 +9,17 @@ pub mod flasher;
 pub mod game;
 pub mod gpu;
 pub mod io;
+pub mod irq;
+pub mod kcal;
 pub mod lifecycle_hooks;
 pub mod maintenance;
 pub mod media;
 mod media_catalog;
 mod media_transaction;
+pub mod memlat;
 pub mod memory;
 pub mod network;
+pub mod power_shift;
 pub mod swap;
 pub mod system;
 pub mod thermal;
@@ -23,6 +28,7 @@ pub mod zram;
 
 pub use adb::AdbController;
 pub use applist::ApplistController;
+pub use circuit_breaker::CircuitBreaker;
 pub use cluster::ClusterController;
 pub use cpuidle::CpuIdleController;
 pub use cpuset::CpusetController;
@@ -31,14 +37,15 @@ pub use flasher::FlasherController;
 pub use game::GameController;
 pub use gpu::GpuController;
 pub use io::IoController;
+pub use irq::IrqController;
+pub use kcal::KcalController;
 pub use lifecycle_hooks::LifecycleHooks;
 pub use maintenance::MaintenanceController;
+pub use memlat::MemlatController;
 pub use memory::MemoryController;
 pub use network::NetworkController;
+pub use power_shift::PowerShiftController;
 pub use swap::SwapController;
 pub use system::SystemController;
 pub use thermal::ThermalController;
 pub use tui::TuiController;
-
-
-
