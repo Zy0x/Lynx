@@ -970,7 +970,7 @@ fun ProfilesAutomationScreen(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item(key = "auto_top_spacer") {
             Spacer(Modifier.height(4.dp))
@@ -2102,77 +2102,151 @@ fun AppRuleBentoCard(
 
     Surface(
         onClick = onRowClick,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(13.dp),
         color = BgElevated,
         border = BorderStroke(
-            if (rule.enabled) 1.dp else 0.8.dp,
+            if (rule.enabled) 0.8.dp else 0.5.dp,
             if (rule.enabled) AccentCyan.copy(alpha = 0.35f) else BorderSubtle
         ),
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Upper Row: App Icon + App Name & Package + Master Switch
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // App Icon (Compact 38dp)
+            AppIconImage(
+                packageName = rule.packageName,
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(9.dp))
+            )
+
+            Spacer(Modifier.width(11.dp))
+
+            // Center Info (Two lines, perfectly aligned)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.5.dp)
             ) {
-                // Crisp 42dp App Icon
-                AppIconImage(
-                    packageName = rule.packageName,
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                )
+                // Line 1: App Name + [GAME] Badge
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = rule.appName,
+                        color = if (rule.enabled) TextPrimary else TextSecondary.copy(alpha = 0.65f),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.5.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (rule.isGame) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = AccentOrange.copy(alpha = 0.16f),
+                            border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.45f))
+                        ) {
+                            Text(
+                                text = "GAME",
+                                color = AccentOrange,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.4.sp,
+                                modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 1.5.dp)
+                            )
+                        }
+                    }
+                }
 
-                Spacer(Modifier.width(12.dp))
-
-                // Middle Info
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                // Line 2: Mode Pill + Refresh Rate + HUD + Package Name
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    // Target Profile Mode Pill
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = BgDeepOled,
+                        border = BorderStroke(0.7.dp, profDotColor.copy(alpha = 0.45f))
                     ) {
-                        Text(
-                            text = rule.appName,
-                            color = if (rule.enabled) TextPrimary else TextSecondary.copy(alpha = 0.65f),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.5.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        if (rule.isGame) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.5.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.5.dp)
+                        ) {
                             Surface(
-                                shape = RoundedCornerShape(5.dp),
-                                color = AccentOrange.copy(alpha = 0.16f),
-                                border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.45f))
-                            ) {
-                                Text(
-                                    text = "GAME",
-                                    color = AccentOrange,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 0.5.sp,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                )
-                            }
+                                shape = CircleShape,
+                                color = profDotColor,
+                                modifier = Modifier.size(5.dp)
+                            ) {}
+                            Text(
+                                text = profLabel,
+                                color = TextPrimary,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                            )
                         }
                     }
 
-                    Spacer(Modifier.height(2.dp))
+                    // Optional Target Refresh Rate Badge
+                    if (rule.targetRefreshRate != null) {
+                        Surface(
+                            shape = RoundedCornerShape(5.dp),
+                            color = BgDeepOled,
+                            border = BorderStroke(0.5.dp, BorderGlass)
+                        ) {
+                            Text(
+                                text = "${rule.targetRefreshRate} Hz",
+                                color = TextSecondary,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
 
+                    // Optional Floating HUD Badge
+                    if (rule.autoFloatingHud) {
+                        Surface(
+                            shape = RoundedCornerShape(5.dp),
+                            color = AccentCyan.copy(alpha = 0.12f),
+                            border = BorderStroke(0.5.dp, AccentCyan.copy(alpha = 0.35f))
+                        ) {
+                            Text(
+                                text = "HUD",
+                                color = AccentCyan,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    // Package Name subtitle (ellipsis)
                     Text(
                         text = rule.packageName,
-                        color = TextSecondary.copy(alpha = 0.6f),
-                        fontSize = 11.5.sp,
+                        color = TextSecondary.copy(alpha = 0.45f),
+                        fontSize = 10.sp,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                 }
+            }
 
-                Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(8.dp))
 
-                // Master Switch for this rule
+            // Right: Master Switch + Chevron affordance
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
                 Switch(
                     checked = rule.enabled,
                     onCheckedChange = onToggle,
@@ -2183,103 +2257,14 @@ fun AppRuleBentoCard(
                         uncheckedTrackColor = BgElevated,
                         uncheckedBorderColor = BorderGlass
                     ),
-                    modifier = Modifier.scale(0.85f)
+                    modifier = Modifier.scale(0.8f)
                 )
-            }
-
-            Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = BorderGlass.copy(alpha = 0.3f), thickness = 0.6.dp)
-            Spacer(Modifier.height(10.dp))
-
-            // Lower Row: Interactive Target Profile Cycle Pill + Telemetry Tags + Edit Hint
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    // Target Profile Mode Badge (Opens customization overlay)
-                    Surface(
-                        onClick = onRowClick,
-                        shape = RoundedCornerShape(8.dp),
-                        color = BgDeepOled,
-                        border = BorderStroke(0.8.dp, profDotColor.copy(alpha = 0.45f))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = profDotColor,
-                                modifier = Modifier.size(6.dp)
-                            ) {}
-                            Text(
-                                text = profLabel,
-                                color = TextPrimary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                            )
-                        }
-                    }
-
-                    // Optional Target Refresh Rate Badge
-                    if (rule.targetRefreshRate != null) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = BgDeepOled,
-                            border = BorderStroke(0.6.dp, BorderGlass)
-                        ) {
-                            Text(
-                                text = "${rule.targetRefreshRate} Hz",
-                                color = TextSecondary,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-
-                    // Optional Floating HUD Badge
-                    if (rule.autoFloatingHud) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = AccentCyan.copy(alpha = 0.12f),
-                            border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f))
-                        ) {
-                            Text(
-                                text = "HUD ON",
-                                color = AccentCyan,
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Edit Affordance Chevron
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = "Kustomisasi",
-                        color = TextSecondary.copy(alpha = 0.55f),
-                        fontSize = 10.5.sp
-                    )
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "Edit Aturan",
-                        tint = TextSecondary.copy(alpha = 0.45f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = "Kustomisasi",
+                    tint = TextSecondary.copy(alpha = 0.35f),
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }

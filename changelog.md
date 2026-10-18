@@ -1,3 +1,30 @@
+# Lynx Universal [Compact App Automation Bento Cards & Fluid Screen Utilization Architecture] 7.0.0-RC91
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC91** (Lynx Kernel Manager v3.1.43): **Redesain Menyeluruh App Rule Bento Card Menjadi Format Ultra-Compact (~58dp vs Sebelumnya ~135dp), Penghematan Ruang Vertikal >50% Memungkinkan 7–8 Kartu Aplikasi Terlihat Sekaligus dalam Satu Layar, Eliminasi Divider Statis dan Spacer Berlebih Tanpa Mengorbankan Kelengkapan Tag & Telemetri, Pengetatan Spacing Virtualized LazyColumn (8dp), Serta Interaktivitas Penuh Tap-to-Customize Dialog Overlay**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC91)
+
+### 1. 📐 Format Ultra-Compact Bento Card (`AppRuleBentoCard`)
+- **Reduksi Tinggi Vertikal >50%**: Mengubah tata letak kartu aturan aplikasi dari format 2-zona bertingkat dengan divider statis (~135dp) menjadi kartu horizontal kompak (~58dp) dengan padding ergonomis (`horizontal = 12.dp, vertical = 9.dp`) dan radius sudut `RoundedCornerShape(13.dp)`.
+- **Optimalisasi Ruang Layar Fisik**: Pengguna perangkat smartphone (rasio 20:9 dan 21:9) kini dapat memantau 7 hingga 8 aturan game/aplikasi secara simultan dalam satu viewport tanpa perlu scrolling konstan.
+
+### 2. 🎴 Harmonisasi Informasi & Zero Data Loss
+Meskipun tinggi kartu dipadatkan secara signifikan, tidak ada satu pun informasi fungsional yang dikorbankan:
+- **Ikon Aplikasi**: Berukuran 38dp rounded (`clip(RoundedCornerShape(9.dp))`) dengan visual tajam.
+- **Baris 1**: Nama aplikasi tebal (13.5sp) disertai badge neon `[GAME]` (jika teridentifikasi sebagai game) yang terlindung dari pemotongan teks.
+- **Baris 2**:
+  - Badge Mode Profil Kapsul (`● Performa`, `● Seimbang`, `● Ekstrem`, `● Hemat Daya`) dengan status dot semantik.
+  - Badge Target Refresh Rate (misal `90 Hz`, `120 Hz`).
+  - Badge Floating HUD (`HUD`).
+  - Subtitle nama paket aplikasi dengan elipsis otomatis.
+- **Sisi Kanan**: Master Switch aktif/nonaktif (scale 0.8f) dan ikon subtle Chevron Right `>` sebagai penanda affordance sentuhan.
+
+### 3. 🎯 Navigasi Kustomisasi Intuitif & Pengetatan Spacing LazyColumn
+- **Akses Cepat Tap-to-Customize**: Mengetuk area mana pun pada kartu langsung membuka Overlay Floating Dialog Kustomisasi Aturan Aplikasi secara instan dengan feedback sentuh ripple modern.
+- **Pengetatan Spacing Antar Item**: Mengatur `verticalArrangement = Arrangement.spacedBy(8.dp)` pada LazyColumn untuk ritme visual yang lebih padat, rapi, dan seimbang.
+
+---
+
 # Lynx Universal [Deterministic Alphabetical App Rule Ordering & Overlay-Guided Profile Configuration] 7.0.0-RC90
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC90** (Lynx Kernel Manager v3.1.42): **Pengurutan Deterministik Alfabetis Aturan Aplikasi (A-Z Case-Insensitive) di Seluruh Lapisan State & Repository, Eliminasi Bug Mutasi Urutan Daftar saat Konfigurasi Aplikasi Berurutan, Transformasi Profile Mode Badge Menjadi Pemicu Overlay Dialog Kustomisasi Aman (Pencegahan Miss-Touch & Cycling Langsung yang Membingungkan), Serta Isolasi State Dialog Berbasis Rule Signature**.
