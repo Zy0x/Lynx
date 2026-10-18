@@ -395,6 +395,6 @@ fun GameHudSubscreen(
             }
         }
 
-        Spacer(Modifier.height(80.dp).navigationBarsPadding())
+        Spacer(Modifier.height(8.dp))
     }
 }

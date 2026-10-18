@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -251,16 +252,20 @@ fun ProfileGrid(
                         }
 
                         Box {
-                            IconButton(
+                            Surface(
                                 onClick = { cardMenuExpanded = true },
-                                modifier = Modifier.size(36.dp)
+                                shape = CircleShape,
+                                color = if (cardMenuExpanded) Color(0x22FFFFFF) else Color.Transparent,
+                                modifier = Modifier.size(44.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "Opsi",
-                                    tint = TextSecondary,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "Opsi",
+                                        tint = if (cardMenuExpanded) AccentCyan else TextSecondary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
 
                             MaterialTheme(
@@ -875,6 +880,14 @@ private data class SubsystemDomainItem(
     val color: Color
 )
 
+private data class PresetOption(
+    val id: String,
+    val label: String,
+    val desc: String,
+    val icon: ImageVector,
+    val color: Color
+)
+
 @Composable
 private fun ProfileEditorDialog(
     source: KernelPerformanceProfile,
@@ -930,8 +943,7 @@ private fun ProfileEditorDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.94f)
-                .fillMaxHeight(0.85f)
-                .wrapContentHeight()
+                .fillMaxHeight(0.88f)
                 .padding(vertical = 12.dp),
             shape = RoundedCornerShape(24.dp),
             color = Color(0xFF10131B),
@@ -943,7 +955,7 @@ private fun ProfileEditorDialog(
             ),
             shadowElevation = 24.dp
         ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 // ── 1. Floating Header ───────────────────────────────────
                 Row(
                     modifier = Modifier
@@ -1033,7 +1045,8 @@ private fun ProfileEditorDialog(
                 // ── 2. Scrollable Bento Body ─────────────────────────────
                 Column(
                     modifier = Modifier
-                        .weight(1f, fill = false)
+                        .weight(1f)
+                        .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 20.dp, vertical = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1131,10 +1144,10 @@ private fun ProfileEditorDialog(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 listOf(
-                                    Triple("powersave", "Powersave", Color(0xFF00E676)),
-                                    Triple("balance", "Balance", AccentBlue),
+                                    Triple("powersave", "Hemat Daya", Color(0xFF00E676)),
+                                    Triple("balance", "Seimbang", AccentBlue),
                                     Triple("performance", "Performa", AccentOrange),
-                                    Triple("extreme", "Extreme", AccentRed)
+                                    Triple("extreme", "Ekstrem", AccentRed)
                                 ).forEach { (id, label, chipColor) ->
                                     val isSelected = base.lowercase() == id
                                     Surface(
@@ -1174,113 +1187,95 @@ private fun ProfileEditorDialog(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                // CPU Selector
-                                Box(modifier = Modifier.weight(1f)) {
-                                    Surface(
-                                        onClick = { presetMenu = "cpu" },
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = BgElevated,
-                                        border = BorderStroke(0.8.dp, BorderGlass),
-                                        modifier = Modifier.fillMaxWidth()
+                                // CPU Selector Trigger
+                                Surface(
+                                    onClick = { presetMenu = "cpu" },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = BgElevated,
+                                    border = BorderStroke(0.8.dp, BorderGlass),
+                                    modifier = Modifier.weight(1f).height(48.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Default.Memory, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
-                                                Spacer(Modifier.width(6.dp))
-                                                Column {
-                                                    Text("CPU PRESET", color = TextSecondary, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-                                                    Text(
-                                                        text = cpu.uppercase(),
-                                                        color = TextPrimary,
-                                                        fontSize = 11.5.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                    )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = AccentCyan.copy(alpha = 0.15f),
+                                                modifier = Modifier.size(26.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(Icons.Default.Memory, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
                                                 }
                                             }
-                                            Icon(Icons.Default.ArrowDropDown, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Column {
+                                                Text("CPU PRESET", color = TextSecondary, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                                                Text(
+                                                    text = when (cpu.lowercase()) {
+                                                        "powersave" -> "Hemat Daya"
+                                                        "balance" -> "Seimbang"
+                                                        "performance" -> "Performa"
+                                                        "extreme" -> "Ekstrem"
+                                                        else -> cpu.uppercase()
+                                                    },
+                                                    color = TextPrimary,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                )
+                                            }
                                         }
-                                    }
-                                    DropdownMenu(
-                                        expanded = presetMenu == "cpu",
-                                        onDismissRequest = { presetMenu = "" },
-                                        modifier = Modifier
-                                            .background(Color(0xFF141720), RoundedCornerShape(12.dp))
-                                            .border(0.8.dp, BorderGlass, RoundedCornerShape(12.dp))
-                                    ) {
-                                        listOf("powersave", "balance", "performance", "extreme").forEach { id ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Text(
-                                                        id.uppercase(),
-                                                        fontSize = 12.sp,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = if (cpu == id) AccentCyan else TextPrimary,
-                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                    )
-                                                },
-                                                onClick = { cpu = id; presetMenu = "" }
-                                            )
-                                        }
+                                        Icon(Icons.Default.ArrowDropDown, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
                                     }
                                 }
 
-                                // GPU Selector
-                                Box(modifier = Modifier.weight(1f)) {
-                                    Surface(
-                                        onClick = { presetMenu = "gpu" },
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = BgElevated,
-                                        border = BorderStroke(0.8.dp, BorderGlass),
-                                        modifier = Modifier.fillMaxWidth()
+                                // GPU Selector Trigger
+                                Surface(
+                                    onClick = { presetMenu = "gpu" },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = BgElevated,
+                                    border = BorderStroke(0.8.dp, BorderGlass),
+                                    modifier = Modifier.weight(1f).height(48.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Default.SportsEsports, null, tint = AccentOrange, modifier = Modifier.size(15.dp))
-                                                Spacer(Modifier.width(6.dp))
-                                                Column {
-                                                    Text("GPU PRESET", color = TextSecondary, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-                                                    Text(
-                                                        text = gpu.uppercase(),
-                                                        color = TextPrimary,
-                                                        fontSize = 11.5.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                    )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = AccentOrange.copy(alpha = 0.15f),
+                                                modifier = Modifier.size(26.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(Icons.Default.SportsEsports, null, tint = AccentOrange, modifier = Modifier.size(15.dp))
                                                 }
                                             }
-                                            Icon(Icons.Default.ArrowDropDown, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Column {
+                                                Text("GPU PRESET", color = TextSecondary, fontSize = 7.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                                                Text(
+                                                    text = when (gpu.lowercase()) {
+                                                        "battery" -> "Hemat Baterai"
+                                                        "balanced" -> "Seimbang"
+                                                        "esports" -> "Esports"
+                                                        "extreme" -> "Ekstrem"
+                                                        else -> gpu.uppercase()
+                                                    },
+                                                    color = TextPrimary,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                )
+                                            }
                                         }
-                                    }
-                                    DropdownMenu(
-                                        expanded = presetMenu == "gpu",
-                                        onDismissRequest = { presetMenu = "" },
-                                        modifier = Modifier
-                                            .background(Color(0xFF141720), RoundedCornerShape(12.dp))
-                                            .border(0.8.dp, BorderGlass, RoundedCornerShape(12.dp))
-                                    ) {
-                                        listOf("battery", "balanced", "esports", "extreme").forEach { id ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Text(
-                                                        id.uppercase(),
-                                                        fontSize = 12.sp,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = if (gpu == id) AccentOrange else TextPrimary,
-                                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                    )
-                                                },
-                                                onClick = { gpu = id; presetMenu = "" }
-                                            )
-                                        }
+                                        Icon(Icons.Default.ArrowDropDown, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
                                     }
                                 }
                             }
@@ -1370,7 +1365,7 @@ private fun ProfileEditorDialog(
                                             uncheckedTrackColor = BgElevated,
                                             uncheckedBorderColor = BorderGlass
                                         ),
-                                        modifier = Modifier.height(26.dp)
+                                        modifier = Modifier.scale(0.85f)
                                     )
                                 }
                             }
@@ -1414,7 +1409,7 @@ private fun ProfileEditorDialog(
                                         uncheckedTrackColor = BgElevated,
                                         uncheckedBorderColor = BorderGlass
                                     ),
-                                    modifier = Modifier.height(26.dp)
+                                    modifier = Modifier.scale(0.85f)
                                 )
                             }
 
@@ -1457,7 +1452,7 @@ private fun ProfileEditorDialog(
                                         uncheckedTrackColor = BgElevated,
                                         uncheckedBorderColor = BorderGlass
                                     ),
-                                    modifier = Modifier.height(26.dp)
+                                    modifier = Modifier.scale(0.85f)
                                 )
                             }
                         }
@@ -1562,6 +1557,169 @@ private fun ProfileEditorDialog(
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (presetMenu.isNotBlank()) {
+        val isCpu = presetMenu == "cpu"
+        val title = if (isCpu) "PILIH PRESET CPU" else "PILIH PRESET GPU"
+        val subtitle = if (isCpu) "Tentukan profil frekuensi & alokasi core CPU" else "Tentukan perilaku clock & scaling governor GPU"
+        val headerColor = if (isCpu) AccentBlue else AccentOrange
+        val headerIcon = if (isCpu) Icons.Default.Memory else Icons.Default.SportsEsports
+
+        val options = if (isCpu) {
+            listOf(
+                PresetOption("powersave", "Hemat Daya", "Mode hemat konsumsi daya, batas frekuensi rendah", Icons.Default.BatteryChargingFull, Color(0xFF00E676)),
+                PresetOption("balance", "Seimbang", "Rasio efisiensi & respon standar harian", Icons.Default.Tune, AccentBlue),
+                PresetOption("performance", "Performa", "Respon instan, frekuensi tinggi untuk multitasking", Icons.Default.Bolt, AccentOrange),
+                PresetOption("extreme", "Ekstrem", "Frekuensi maksimum tanpa batasan clock CPU", Icons.Default.LocalFireDepartment, AccentRed)
+            )
+        } else {
+            listOf(
+                PresetOption("battery", "Hemat Baterai", "Clock GPU minimal, efisiensi termal maksimal", Icons.Default.BatteryChargingFull, Color(0xFF00E676)),
+                PresetOption("balanced", "Seimbang", "Skala dinamis seimbang sesuai beban grafis", Icons.Default.Tune, AccentBlue),
+                PresetOption("esports", "Esports", "Clock GPU menengah-tinggi untuk frame rate stabil", Icons.Default.SportsEsports, AccentOrange),
+                PresetOption("extreme", "Ekstrem", "Clock GPU maksimum terkunci tanpa downclock", Icons.Default.LocalFireDepartment, AccentRed)
+            )
+        }
+        val currentSelection = if (isCpu) cpu.lowercase() else gpu.lowercase()
+
+        Dialog(
+            onDismissRequest = { presetMenu = "" },
+            properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = true)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .wrapContentHeight()
+                    .padding(vertical = 16.dp),
+                shape = RoundedCornerShape(22.dp),
+                color = Color(0xFF10131B),
+                border = BorderStroke(1.dp, Brush.verticalGradient(listOf(headerColor.copy(alpha = 0.5f), BorderGlass.copy(alpha = 0.35f)))),
+                shadowElevation = 24.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = headerColor.copy(alpha = 0.15f),
+                                border = BorderStroke(1.dp, headerColor.copy(alpha = 0.3f)),
+                                modifier = Modifier.size(38.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(headerIcon, null, tint = headerColor, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = title,
+                                    color = headerColor,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.8.sp
+                                )
+                                Text(
+                                    text = subtitle,
+                                    color = TextSecondary,
+                                    fontSize = 10.5.sp,
+                                    lineHeight = 13.5.sp
+                                )
+                            }
+                        }
+                        Surface(
+                            onClick = { presetMenu = "" },
+                            shape = CircleShape,
+                            color = Color(0x18FFFFFF),
+                            modifier = Modifier.size(30.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Close, "Tutup", tint = TextSecondary, modifier = Modifier.size(15.dp))
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        options.forEach { opt ->
+                            val isSelected = currentSelection == opt.id
+                            Surface(
+                                onClick = {
+                                    if (isCpu) cpu = opt.id else gpu = opt.id
+                                    presetMenu = ""
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) opt.color.copy(alpha = 0.14f) else BgDeepOled,
+                                border = BorderStroke(
+                                    if (isSelected) 1.2.dp else 0.8.dp,
+                                    if (isSelected) opt.color.copy(alpha = 0.8f) else BorderGlass
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 14.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = opt.color.copy(alpha = 0.15f),
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(opt.icon, null, tint = opt.color, modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+                                        Spacer(Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = opt.label,
+                                                color = if (isSelected) opt.color else TextPrimary,
+                                                fontSize = 12.5.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = opt.desc,
+                                                color = TextSecondary,
+                                                fontSize = 9.5.sp,
+                                                lineHeight = 12.5.sp
+                                            )
+                                        }
+                                    }
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = "Terpilih",
+                                            tint = opt.color,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
