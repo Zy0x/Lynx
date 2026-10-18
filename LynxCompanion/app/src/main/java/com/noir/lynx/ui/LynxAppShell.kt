@@ -165,7 +165,7 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
     ) {
         when {
             uiState.isLoading -> LoadingScreen()
-            !uiState.isRootAvailable -> ErrorScreen(uiState)
+            !uiState.isRootAvailable -> ErrorScreen(uiState = uiState, onRetry = { viewModel.retryRootCheck() })
             else -> MainDashboard(
                 uiState = uiState,
                 viewModel = viewModel,
@@ -249,7 +249,15 @@ fun LoadingScreen() {
 // ============================================================
 
 @Composable
-fun ErrorScreen(uiState: LynxUiState) {
+fun ErrorScreen(uiState: LynxUiState, onRetry: () -> Unit = {}) {
+    // Auto-detect root permission as soon as user returns or grants root
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(2000L)
+            onRetry()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -295,6 +303,32 @@ fun ErrorScreen(uiState: LynxUiState) {
                     lineHeight = 18.sp,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
+                Spacer(Modifier.height(20.dp))
+                Surface(
+                    onClick = onRetry,
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(17.dp)
+                        )
+                        Text(
+                            text = "Periksa Ulang Izin Root",
+                            color = AccentCyan,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
     }

@@ -57,6 +57,15 @@ object LynxRepository {
 
     suspend fun isRootAvailable(): Boolean = withContext(Dispatchers.IO) {
         try {
+            // Close any stale non-root cached shell so LibSU performs fresh su invocation
+            try {
+                Shell.getCachedShell()?.let { cached ->
+                    if (!cached.isRoot) {
+                        cached.close()
+                    }
+                }
+            } catch (_: Exception) {}
+
             val result = Shell.cmd("id").exec()
             val available = result.isSuccess && result.out.any { it.contains("uid=0") }
             if (available) {

@@ -1,3 +1,21 @@
+# Lynx Universal [Automated Root Lifecycle Recovery & Instant Permission Sync] 7.0.0-RC95
+Released on: 2026-10-18
+> **Lynx Universal v7.0.0-RC95** (Lynx Kernel Manager v3.1.47): **Pemulihan Otomatis Akses Superuser Saat Kembali ke Aplikasi (*Auto Root Foreground Resume*), Penutupan Shell Non-Root Kadaluarsa di LibSU, Loop Polling Cerdas 2 Detik di ErrorScreen, Serta Tombol Interaktif "Periksa Ulang Izin Root"**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC95)
+
+### 1. 🔄 Pemulihan Otomatis Status Root Saat Aplikasi Kembali ke Foreground (`setAppForeground`)
+- **Masalah**: Pengguna membuka Lynx untuk pertama kali saat izin root belum diberikan (atau dialog konfirmasi Magisk/KernelSU/APatch masih pending). Setelah berpindah ke manajer root dan memberikan izin lalu kembali ke Lynx, aplikasi tetap tertahan di layar *Akses Superuser Diperlukan* tanpa memeriksa ulang.
+- **Solusi**:
+  - `setAppForeground(true)` kini secara proaktif mendeteksi jika `isRootAvailable == false`. Bila pengguna kembali dari manajer root dan izin telah aktif, sistem langsung menjalankan `initializeApp()` secara otomatis tanpa perlu restart aplikasi.
+  - LibSU kini secara eksplisit menutup instance shell non-root usang (`Shell.getCached()?.close()`) agar instansiasi `su` baru dieksekusi secara segar (*fresh spawn*).
+
+### 2. 🛡️ Tombol Interaktif & Auto-Retry Loop pada `ErrorScreen`
+- Menambahkan tombol interaktif `[ 🔄 Periksa Ulang Izin Root ]` dengan desain Cyberpunk Dark.
+- Menambahkan auto-retry loop berbasis coroutine (`LaunchedEffect` interval 2 detik) yang terus memantau status grant root secara mulus di latar belakang layar error.
+
+---
+
 # Lynx Universal [Elegant Notification & Feedback Bottom Sheet Redesign] 7.0.0-RC94
 Released on: 2026-10-18
 > **Lynx Universal v7.0.0-RC94** (Lynx Kernel Manager v3.1.46): **Redesain Elegan Komponen Notifikasi & Feedback — Tombol Bel Header Ghost/Minimal (Tanpa Fill Cyan Terang), Bottom Sheet Dark Minimal dengan Drag Handle Ramping, Header Ikon Low-Alpha, Option Card Compact, Radio Indicator 2-Layer Presisi, Divider Halus, Switch Morpher Rapi, dan Tombol Live Test Subtle**.

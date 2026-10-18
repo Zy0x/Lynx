@@ -355,9 +355,22 @@ class LynxViewModel : ViewModel() {
         cpuMonitorStreamJob = null
     }
 
+    fun retryRootCheck() {
+        initializeApp()
+    }
+
     fun setAppForeground(foreground: Boolean) {
         isForeground = foreground
         if (foreground) {
+            if (!_uiState.value.isRootAvailable) {
+                viewModelScope.launch {
+                    val rootNow = LynxRepository.isRootAvailable()
+                    if (rootNow) {
+                        initializeApp()
+                    }
+                }
+                return
+            }
             refreshState()
             refreshClusters()
             if (_uiState.value.adbKeepAliveEnabled) {
