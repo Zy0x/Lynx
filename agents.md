@@ -18,6 +18,10 @@ Untuk menjaga kompatibilitas ekosistem OTA update, riwayat modul, dan transparan
   - Pada perangkat MediaTek: `name=Lʏɴx - Deity (MediaTek)`
 - **Author**: `ɴᴏɪʀ` (dengan atribusi kontributor pada dokumentasi).
 - **Deskripsi Dinamis**: Diperbarui secara *real-time* oleh daemon pengontrol sesuai profil aktif (contoh: `[ ⚡ Auto (AI) Mode ]`, `[ 🚀 Performance Mode ]`, `[ ⚖️ Balance Mode ]`, `[ 🔥 Extreme Mode ]`).
+- **Tata Kelola Versi V7 & Siklus RC Tanpa Batas (Uncapped RC1000+)**:
+  - Versi modul dikunci pada **Generasi V7** (format: `7.0.0-RC<N>`).
+  - Nomor Release Candidate (`RC`) berjalan secara kontinu, berurutan, dan diizinkan melampaui angka 1000 (`RC1000+`).
+  - **Dilarang Keras** menaikkan versi basis dari V7 ke V8 tanpa perintah eksplisit dan tertulis langsung dari pengguna.
 
 ---
 
@@ -327,9 +331,8 @@ Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman oper
      2. Kompilasi APK varian Release (`tools/build_apk.ps1` atau `./gradlew :app:assembleRelease`).
      3. Pasang langsung ke perangkat uji aktif Infinix X698 via ADB (`adb -s <X698_SERIAL> install -r LynxKernelManager.apk`).
      4. Jalankan pengujian fungsionalitas, rendering UI Compose, dan respon hardware langsung pada perangkat fisik.
-2. **Local-First Staging (No Unsolicited Commits)**:
-   - Dilarang melakukan `git commit` atau `git push` kecuali jika pengguna secara eksplisit memberikan perintah untuk commit/push.
-   - Seluruh perubahan, restrukturisasi, dan pengujian file harus dilakukan pada *local working tree*.
+2. **Mandat Commit & Push Otomatis Pasca-Perubahan (Rule 16 Compliant)**:
+   - Setelah setiap siklus perubahan, perbaikan, atau pengujian selesai divalidasi pada *local working tree*, agen **WAJIB** secara langsung melakukan `git commit` dan `git push` ke repositori GitHub tanpa menunggu perintah tambahan, dengan pesan commit yang deskriptif dan mencantumkan konteks perubahan (mematuhi Global Rule 16).
 3. **Pengujian Nyata via ADB & Dynamic Connection Protocol (Dual-Device Laboratory Matrix)**:
    - Laboratorium pengembangan memiliki **2 perangkat fisik** dengan otoritas yang **berbeda secara mutlak**:
      1. **Perangkat Uji Utama (Active Read-Write Test Device)**: **Infinix Note 11S (`X698`, MediaTek Helio G96 / `mt6781`, Android 14, Magisk Root)** pada port tetap **`5555`**. Satu-satunya perangkat yang diizinkan menerima instalasi APK uji, penulisan sysfs live, dan penyimpanan berkas di `/storage/emulated/0/Debug/`.
@@ -396,14 +399,26 @@ Untuk memverifikasi stabilitas dan fungsionalitas Lynx Companion pada **Infinix 
 5. **Dormant Background Daemons**: Fitur otomasi latar belakang yang bergantung pada modul (seperti Smart-AI foreground watcher dan Charging AutoCut) berstatus *Standby/Non-Aktif*.
 6. **Penyimpanan Berkas Uji & Protokol Zero-Trace**: Seluruh berkas diagnostik, log, dump UI, dan tangkapan layar pengujian disimpan secara eksklusif di `/storage/emulated/0/Debug/` dan **WAJIB LANGSUNG DIHAPUS** seketika setelah ditarik (`adb pull`), tanpa pernah meninggalkan jejak di internal storage maupun `/data/local/tmp/`.
 
-### 9.2 Freeze Versioning — Penghentian Kenaikan Versi Otomatis (Mandatory)
-Sesuai arahan pengguna, siklus penomoran versi Lynx Universal saat ini **DIBEKUKAN (FROZEN)** pada versi:
-- **Module Version**: `3.0.9`
-- **Version Code**: `20261002`
+### 9.2 Tata Kelola Versi V7 & Siklus Release Candidate Tanpa Batas (Uncapped RC1000+ Protocol)
 
-**Ketentuan Operasional Agent**:
-1. **Dilarang Menaikkan Nomor Versi**: Agen dilarang keras mengubah atau menaikkan nomor versi pada berkas apapun (`module.prop`, `LynxCompanion/app/build.gradle.kts`, `changelog.md`, maupun WebUI), kecuali jika pengguna memberikan instruksi eksplisit tertulis untuk menaikkan versi.
-2. **Commit & Push Saja**: Seluruh perbaikan bug, penyempurnaan fitur, refactoring, atau tuning hardware tetap diuji dan di-commit ke Git serta di-push ke GitHub tanpa mengubah versi (version bump).
+Sesuai instruksi dan ketetapan mutlak pemilik proyek, arsitektur penomoran versi Lynx Universal menerapkan aturan:
+
+1. **Penguncian Generasi V7 (Strict Ban on V7 to V8 Transition)**:
+   - Versi modul dan rilis resmi **DIKUNCI PADA GENERASI V7** (format: `7.0.0-RC<N>`).
+   - **DILARANG KERAS** mengubah, memperbarui, atau menaikkan versi basis dari **V7 ke V8** (misalnya menjadi `8.0.0`, `v8.0.0`, `8.0.0-RC1`, atau variasi generasi berikutnya), **KECUALI** jika pengguna secara EKSPLISIT dan TERTULIS memberikan perintah langsung untuk migrasi ke V8.
+   - Selama tidak ada instruksi eksplisit tersebut, seluruh siklus rilis dan iterasi perbaikan wajib tetap berada di bawah payung generasi V7 (`7.0.0-RC...`).
+
+2. **Siklus Release Candidate Tak Terbatas (Uncapped RC Beyond 1000)**:
+   - Penomoran Release Candidate (`RC`) berjalan secara kontinu, berurutan, bertahap, dan **dibiarkan melebihi 1000** (`7.0.0-RC94`, `7.0.0-RC95`, ..., `7.0.0-RC999`, `7.0.0-RC1000`, `7.0.0-RC1001`, dst.).
+   - Agen AI, pengembang, maupun skrip build otomatis **DILARANG** membatasi (*capping*), memotong, mereset kembali ke angka kecil, atau melompatkan nomor versi ke versi major baru hanya karena angka RC mencapai atau melewati 100, 999, atau 1000.
+   - Setiap rilis baru meningkatkan nomor RC secara linear (`RC<N+1>`), dengan `versionCode` pada `module.prop` yang ikut bertambah selaras.
+
+3. **Sinkronisasi Metadata Versi & Changelog**:
+   - Setiap rilis atau pembaruan yang mengubah kode/fitur wajib menyelaraskan metadata:
+     - `module.prop`: `version=7.0.0-RC<N>`, `versionCode=<N>`
+     - `changelog.md`: `# Lynx Universal [...] 7.0.0-RC<N>`
+     - `LynxCompanion/app/build.gradle.kts`: `versionName` dan `versionCode` disesuaikan secara proporsional.
+   - Penulisan commit message mengikuti format konvensional dengan mencantumkan tag versi V7 yang relevan (contoh: `feat(...): ... (v7.0.0-RC95)`).
 
 ### 9.3 Matriks Perangkat Laboratorium & Protokol Proteksi Mutlak Redmi Note 7 (Strict Read-Only Daily Driver)
 
