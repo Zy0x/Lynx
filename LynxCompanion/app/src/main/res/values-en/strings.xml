@@ -412,7 +412,7 @@
     <string name="legacy_ui_26baaf43b12d30" formatted="false">HARDWARE INSTRUCTIONS (ISA EXTENSIONS)</string>
     <string name="legacy_ui_9c0b16d7f7e6d9" formatted="false">INTERCONNECT / MEMORY BUS</string>
     <string name="legacy_ui_c414eb3c60eb8f" formatted="false">Spoofed Identity (Userspace)</string>
-    <string name="legacy_ui_88b6482669a59a" formatted="false">Follow Parent</string>
+    <string name="legacy_ui_88b6482669a59a" formatted="false">Follow Global</string>
     <string name="legacy_ui_0dd43dadc4ac6b" formatted="false">Display-over-other-apps permission is required for the HUD overlay to appear during gameplay.</string>
     <string name="legacy_ui_752d23148d61fd" formatted="false">Run (Root)</string>
     <string name="legacy_ui_280d51a5874040" formatted="false">Run at Boot</string>
@@ -504,7 +504,7 @@
     <string name="legacy_ui_3bd46607616397" formatted="false">Permissive</string>
     <string name="legacy_ui_dc5f3c751f8cbf" formatted="false">Frame Time Percentiles (p50 / p95 / p99)</string>
     <string name="legacy_ui_7c0989eabecd55" formatted="false">Keep</string>
-    <string name="legacy_ui_101ac389806a01" formatted="false">Keep local overrides when changing the parent profile, or clear them so every domain follows the new profile?</string>
+    <string name="legacy_ui_101ac389806a01" formatted="false">Keep subsystem overrides when changing the global profile, or reset all subsystems to follow the new profile?</string>
     <string name="legacy_ui_510dd3ed16c46b" formatted="false">Select App / Game</string>
     <string name="legacy_ui_a1f467daf2f5f6" formatted="false">Choose an instant thermal configuration for your use:</string>
     <string name="legacy_ui_238acf483e0341" formatted="false">Choose how the on-screen overlay appears while a game or app is open:</string>
@@ -999,7 +999,7 @@
     <string name="legacy_ui_f00653079849b0" formatted="false">ring_pulse</string>
     <string name="legacy_ui_4f8865abeddbfa" formatted="false">•</string>
     <string name="legacy_ui_aefacda3d03efa" formatted="false">⚡ BYPASS CHARGING</string>
-    <string name="profile_override_status">%1$s override: %2$s · parent %3$s</string>
+    <string name="profile_override_status">%1$s override: %2$s · Global: %3$s</string>
     <string name="reset_section_title">Reset %1$s</string>
     <string name="reset_section_message">Restore all %1$s parameters to OEM defaults?</string>
     <string name="ksm_saved_memory">Merge identical memory pages, saving %1$s MB RAM</string>
@@ -1015,7 +1015,7 @@
     <string name="dynamic_profile_overwrite_confirmation">You can overwrite %1$s or save the changes as a new profile.</string>
     <string name="dynamic_profile_active">Active Custom Profile: %1$s</string>
     <string name="dynamic_profile_base_description">Base: %1$s • %2$s</string>
-    <string name="dynamic_profile_parent_overrides">Parent %1$s · %2$s local overrides</string>
+    <string name="dynamic_profile_parent_overrides">Global %1$s · %2$s overrides</string>
     <string name="dynamic_mode_active">%1$s Mode Active</string>
     <string name="dynamic_backup_restore_confirmation">Are you sure you want to restore the partition from backup &quot;%1$s&quot;?</string>
     <string name="dynamic_cpu_cluster_summary">%1$s Cores (%2$s) • %3$s–%4$s MHz</string>

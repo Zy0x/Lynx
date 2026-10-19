@@ -32,6 +32,7 @@ private val dynamicUiTextResources = listOf(
     DynamicUiText(Regex("^Anda dapat menimpa (.+) atau menyimpan perubahan sebagai profil baru\\.$"), R.string.dynamic_profile_overwrite_confirmation),
     DynamicUiText(Regex("^Profil Kustom Aktif: (.+)$"), R.string.dynamic_profile_active),
     DynamicUiText(Regex("^Basis: (.+) • (.+)$"), R.string.dynamic_profile_base_description),
+    DynamicUiText(Regex("^Profil Global (.+) · kustomisasi (.+)$"), R.string.dynamic_profile_parent_overrides),
     DynamicUiText(Regex("^Induk (.+) · override lokal (.+)$"), R.string.dynamic_profile_parent_overrides),
     DynamicUiText(Regex("^Mode (.+) Aktif$"), R.string.dynamic_mode_active),
     DynamicUiText(Regex("^Apakah Anda yakin ingin memulihkan partisi dari backup '(.+)'\\?$"), R.string.dynamic_backup_restore_confirmation),

@@ -750,6 +750,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                         currentProfile = state.activeProfile,
                         hasOverrides = state.profileOverrides.isNotEmpty(),
                         gpuPlatform = uiState.gpuInfo.platform,
+                        state = state,
                         onProfileSelected = { id, clearOverrides ->
                             val colorHex = when (id.lowercase()) {
                                 "powersave" -> 0xFF00E676L

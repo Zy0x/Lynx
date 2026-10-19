@@ -66,7 +66,7 @@ fun CpuSubscreen(
                         modifier = Modifier.weight(1f)
                     )
                     TextButton(onClick = { viewModel.resetCpuToActiveProfile(context) }) {
-                        Text("Ikuti induk", fontSize = 10.sp)
+                        Text("Ikuti Global", fontSize = 10.sp)
                     }
                 }
             }
@@ -228,7 +228,7 @@ fun androidx.compose.foundation.lazy.LazyListScope.tuningCpuCategoryItems(
                         modifier = Modifier.weight(1f)
                     )
                     TextButton(onClick = { viewModel.resetCpuToActiveProfile(context) }) {
-                        Text("Ikuti induk", fontSize = 10.sp)
+                        Text("Ikuti Global", fontSize = 10.sp)
                     }
                 }
             }

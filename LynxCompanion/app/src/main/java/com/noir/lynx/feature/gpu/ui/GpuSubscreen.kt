@@ -59,7 +59,7 @@ fun LazyListScope.tuningGpuCategoryItems(
                                 modifier = Modifier.weight(1f)
                             )
                             TextButton(onClick = { viewModel.resetGpuProfileToMaster(context) }) {
-                                Text("Ikuti induk", fontSize = 10.sp)
+                                Text("Ikuti Global", fontSize = 10.sp)
                             }
                         }
                     }

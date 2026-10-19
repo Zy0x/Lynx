@@ -1,3 +1,41 @@
+# Lynx Universal [Harmonized Compute Presets & Subsystem Value Transparency] 7.0.0-RC114
+Released on: 2026-10-19
+> **Lynx Universal v7.0.0-RC114** (Lynx Kernel Manager v3.1.60): **Redesain Menyeluruh Konsep Kustomisasi Profil; Eliminasi Total Label Paradoksal "Profil Induk" pada Profil Bawaan Sistem; Implementasi "Kebijakan Komputasi Harmonik" (CPU & GPU) dengan Sakelar Pemisah Presisi (*Decouple Toggle*); Transformasi "Templat Acuan (Base Template)" pada Profil Kustom; Transparansi Nilai Nyata (*Live Parameter Badges*) pada Sinkronisasi Subsistem Hardware (ZRAM MB, Swappiness %, Algoritma Kompresi, MGLRU, Refresh Rate, TouchBoost, TCP Congestion, MMAP, Mode Termal, dan Batas Arus Pengisian); serta Purifikasi Terminologi Global ("Ikuti Global", "Profil Global", dan "Kustomisasi Subsistem")**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC114)
+
+### 1. 🎯 Eliminasi Paradoks "Profil Induk" pada Profil Bawaan Sistem
+- **Akar Masalah**:
+  Saat pengguna mengedit profil bawaan Lynx (seperti *Balance*, *Performance*, *Extreme*, *Powersave*), dialog kustomisasi sebelumnya menampilkan pemilih bertuliskan `"PROFIL INDUK (BASE PROFILE)"` dengan 4 pilihan (*Hemat Daya, Seimbang, Performa, Ekstrem*). Hal ini menimbulkan kebingungan konseptual besar bagi pengguna: profil bawaan adalah entitas master/induk itu sendiri, sehingga keberadaan pemilih induk memberi kesan seolah profil bawaan memiliki induk lain atau mengubahnya akan mengubah profil dasar menjadi profil lain secara tidak terduga.
+- **Solusi**:
+  - **Pembedaan Konseptual Tegas**:
+    - **Untuk Profil Bawaan (`builtIn = true`)**: Label "PROFIL INDUK" dihapus total. Bagian ini diganti menjadi **"KEBIJAKAN KOMPUTASI (CPU & GPU)"** dengan subjudul edukatif *"Penyelarasan frekuensi inti untuk profil [Nama Profil]"*. Nilai `baseProfile` dikunci secara permanen dan mutlak ke identitas aslinya, menjamin penyimpanan kustomisasi tidak dapat merusak hierarki kernel.
+    - **Untuk Profil Kustom (`builtIn = false`)**: Direformulasi secara lugas menjadi **"TEMPLAT ACUAN (BASE TEMPLATE)"** dengan deskripsi *"Profil dasar acuan untuk kebijakan kernel & termal"*.
+  - **Harmonized 1-Click Compute Presets**: Menghadirkan 4 chip harmonik terpadu (*Hemat Daya, Seimbang, Performa, Ekstrem*) yang secara cerdas menyelaraskan kebijakan frekuensi CPU dan profil grafis GPU dalam satu sentuhan cepat.
+  - **Sakelar Pemisah Mandiri (*Decouple Switch*)**: Menyediakan toggle *"Kustomisasi preset CPU & GPU secara terpisah"*. Jika diaktifkan, menu pemilihan individual CPU dan GPU akan muncul secara mulus via `AnimatedVisibility`, memberikan kebebasan penuh bagi *power user* yang ingin mengombinasikan CPU Performance dengan GPU Balanced tanpa membingungkan pengguna umum.
+
+### 2. 🔍 Transparansi Nilai Nyata Subsistem Hardware (*Live Parameter Badges*)
+- **Akar Masalah**:
+  Sebelumnya, fitur "Sinkronisasi Subsistem Hardware" hanya berupa sakelar ON/OFF generik (*blind snapshot*). Pengguna tidak mengetahui pengaturan atau nilai apa sebenarnya yang tersimpan dan akan dieksekusi ke kernel saat profil aktif.
+- **Solusi**:
+  - Mengintegrasikan pembacaan parameter aktif real-time dari `currentState` (`LynxState`) serta preferensi snapshot tersimpan:
+    - **Memori & ZRAM**: Menampilkan badge transparan kapasitas ZRAM (MB), rasio Swappiness (%), algoritma kompresi (LZ4/ZSTD), serta status proteksi MGLRU.
+    - **Layar & Sentuhan**: Menampilkan status TouchBoost, frekuensi Refresh Rate terkunci (Hz), dan rendering Skia Vulkan.
+    - **Wi-Fi & Jaringan**: Menampilkan algoritma kongesti TCP (Cubic/BBR/Westwood), status Wi-Fi Ping Stabilizer, dan antrean paket FQ-CoDel.
+    - **Sound DAC**: Menampilkan status MMAP Low-Latency, Direct DAC Offload, dan FastTrack audio.
+    - **Kebijakan Termal**: Menampilkan mode throttling aktif (STABLE, PERFORMANCE, HARDWARE SAFETY) dan limit ambang suhu custom limit (°C).
+    - **Batas Pengisian Baterai**: Menampilkan persentase batas pengisian daya (%), batas arus pengisian (mA), dan proteksi Smart Tapering.
+  - Setiap kali sakelar subsistem diaktifkan, baris badge nilai muncul secara elegan dalam kontainer *horizontal scrollable row*, memberikan kepastian visual penuh kepada pengguna sebelum menyimpan profil.
+
+### 3. 🌐 Purifikasi Terminologi Global ("Ikuti Global" & "Kustomisasi Subsistem")
+- **Pembersihan Kosakata Usang**:
+  - Mengganti istilah membingungkan `"Ikuti induk"` pada subscreen frekuensi CPU dan profil grafis GPU menjadi **"Ikuti Global"** (Bahasa Inggris: *"Follow Global"*).
+  - Mengganti dialog konfirmasi beralih profil menjadi: *"Pertahankan kustomisasi subsistem saat mengganti profil global, atau reset semua subsistem mengikuti profil baru?"*.
+  - Mengganti format teks status override pada daftar profil menjadi: *"Profil Global [Nama] · kustomisasi [Subsistem]"*.
+  - Menyinkronkan seluruh kamus terjemahan di `strings.xml`, `values-id/strings.xml`, `values-en/strings.xml`, dan pustaka penerjemah reaktif `LegacyUiTextResources.kt`.
+
+---
+
 # Lynx Universal [Controlled Switch Interception & Comprehensive Hardware Guidance] 7.0.0-RC113
 Released on: 2026-10-19
 > **Lynx Universal v7.0.0-RC113** (Lynx Kernel Manager v3.1.59): **Pemberantasan Tuntas Bug Prematur Switch Toggle ("Switch Langsung Aktif Padahal Belum Dikonfirmasi"); Implementasi Mode `optimistic = false` pada `LynxSwitch` untuk Sakelar Berdialog Konfirmasi; Desain Dialog Panduan Komprehensif Perbedaan Arsitektur Hardware Pengisian Daya (Dual-Path PMIC vs Single-Path PMIC); Rekomendasi Solusi Flapping Mati-Nyala saat Ponsel Aktif Digunakan (AutoCut 100% Layar Mati & Cool Charging Mode untuk Gaming); serta Scrollable Dialog Box untuk Tampilan Multi-Perangkat Bebas Overflow**.

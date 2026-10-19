@@ -436,7 +436,7 @@
     <string name="legacy_ui_26baaf43b12d30" formatted="false">INSTRUKSI HARDWARE (ISA EXTENSIONS)</string>
     <string name="legacy_ui_9c0b16d7f7e6d9" formatted="false">INTERCONNECT / MEMORY BUS</string>
     <string name="legacy_ui_c414eb3c60eb8f" formatted="false">Identitas Tiruan (Userspace)</string>
-    <string name="legacy_ui_88b6482669a59a" formatted="false">Ikuti induk</string>
+    <string name="legacy_ui_88b6482669a59a" formatted="false">Ikuti Global</string>
     <string name="legacy_ui_0dd43dadc4ac6b" formatted="false">Izin Tampilkan di Atas Aplikasi Lain diperlukan agar overlay HUD dapat muncul saat Anda bermain game.</string>
     <string name="legacy_ui_752d23148d61fd" formatted="false">Jalankan (Root)</string>
     <string name="legacy_ui_280d51a5874040" formatted="false">Jalankan Saat Boot</string>
@@ -528,7 +528,7 @@
     <string name="legacy_ui_3bd46607616397" formatted="false">Permissive</string>
     <string name="legacy_ui_dc5f3c751f8cbf" formatted="false">Persentil Frame Time (p50 / p95 / p99)</string>
     <string name="legacy_ui_7c0989eabecd55" formatted="false">Pertahankan</string>
-    <string name="legacy_ui_101ac389806a01" formatted="false">Pertahankan override lokal saat mengganti profil induk, atau hapus agar semua domain mengikuti profil baru?</string>
+    <string name="legacy_ui_101ac389806a01" formatted="false">Pertahankan kustomisasi subsistem saat mengganti profil global, atau reset semua subsistem mengikuti profil baru?</string>
     <string name="legacy_ui_510dd3ed16c46b" formatted="false">Pilih Aplikasi / Game</string>
     <string name="legacy_ui_a1f467daf2f5f6" formatted="false">Pilih konfigurasi termal instan sesuai kebutuhan penggunaan:</string>
     <string name="legacy_ui_238acf483e0341" formatted="false">Pilih mekanisme tampilan overlay di layar saat game atau aplikasi dibuka:</string>
@@ -1023,7 +1023,7 @@
     <string name="legacy_ui_f00653079849b0" formatted="false">ring_pulse</string>
     <string name="legacy_ui_4f8865abeddbfa" formatted="false">•</string>
     <string name="legacy_ui_aefacda3d03efa" formatted="false">⚡ BYPASS CHARGING</string>
-    <string name="profile_override_status">Override %1$s: %2$s · profil induk %3$s</string>
+    <string name="profile_override_status">Override %1$s: %2$s · Profil Global: %3$s</string>
     <string name="reset_section_title">Reset %1$s</string>
     <string name="reset_section_message">Kembalikan seluruh parameter %1$s ke pengaturan default OEM?</string>
     <string name="ksm_saved_memory">Gabung halaman memori identik, hemat %1$s MB RAM</string>
@@ -1039,7 +1039,7 @@
     <string name="dynamic_profile_overwrite_confirmation">Anda dapat menimpa %1$s atau menyimpan perubahan sebagai profil baru.</string>
     <string name="dynamic_profile_active">Profil Kustom Aktif: %1$s</string>
     <string name="dynamic_profile_base_description">Basis: %1$s • %2$s</string>
-    <string name="dynamic_profile_parent_overrides">Induk %1$s · override lokal %2$s</string>
+    <string name="dynamic_profile_parent_overrides">Profil Global %1$s · kustomisasi %2$s</string>
     <string name="dynamic_mode_active">Mode %1$s Aktif</string>
     <string name="dynamic_backup_restore_confirmation">Apakah Anda yakin ingin memulihkan partisi dari backup &quot;%1$s&quot;?</string>
     <string name="dynamic_cpu_cluster_summary">%1$s Inti (%2$s) • %3$s-%4$s MHz</string>
