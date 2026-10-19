@@ -127,14 +127,14 @@ class LynxProfileReceiver : BroadcastReceiver() {
     }
 
     private fun showSystemToast(context: Context, profile: String) {
-        val (emoji, profileName) = when (profile.lowercase()) {
+        val (emoji, rawName) = when (profile.lowercase()) {
             "extreme" -> "🔥" to AppLocale.getString(context, R.string.profile_extreme)
             "performance" -> "⚡" to AppLocale.getString(context, R.string.profile_performance)
             "powersave" -> "🍃" to AppLocale.getString(context, R.string.profile_powersave)
             else -> "⚖️" to AppLocale.getString(context, R.string.profile_balance)
         }
-        val label = AppLocale.getString(context, R.string.profile_mode_name_format, profileName)
-        val text = "$emoji Lynx: $label"
+        val cleanName = rawName.replace(Regex("\\s*\\([^)]*\\)"), "").trim()
+        val text = "$emoji Mode $cleanName Aktif"
         Handler(Looper.getMainLooper()).post {
             try {
                 Toast.makeText(context.applicationContext, text, Toast.LENGTH_SHORT).show()

@@ -31,6 +31,10 @@ import com.noir.lynx.data.ModeToastData
 import com.noir.lynx.data.ToastType
 import com.noir.lynx.designsystem.theme.TextPrimary
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import com.noir.lynx.designsystem.theme.TextSecondary
+
 internal val ToastBgObsidian = Color(0xFF090D14)
 
 @Composable
@@ -40,13 +44,25 @@ fun LynxModeToastHud(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val isModeToast = toastData?.type == ToastType.MODE
-    // Mode transitions only show in HUD if jewel_top or jewel_bottom is selected.
-    // Non-mode toasts (ACTION, ERROR, SUCCESS, INFO) are ALWAYS visible to provide user feedback.
+
+    // ── Dispatch System Toast reliably when feedbackStyle is "system_toast" ──
+    LaunchedEffect(toastData?.timestamp) {
+        if (toastData != null && feedbackStyle == "system_toast") {
+            val cleanText = formatCleanSystemToast(toastData)
+            android.widget.Toast.makeText(context, cleanText, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ── Determine visual Compose HUD visibility ──
+    // If feedbackStyle == "system_toast", visual Compose HUD is suppressed (OS Toast handles it).
+    // Non-mode toasts (ACTION, ERROR, SUCCESS, INFO) are ALWAYS visible in HUD unless system_toast is active.
     val isVisible = toastData != null && when {
+        feedbackStyle == "system_toast" -> false
         !isModeToast -> true
         feedbackStyle == "jewel_top" || feedbackStyle == "jewel_bottom" -> true
-        else -> false // system_toast, status_bar, disabled, header_morph
+        else -> false // status_bar, disabled, header_morph
     }
 
     val isBottom = feedbackStyle == "jewel_bottom"
@@ -99,6 +115,9 @@ fun LynxModeToastHud(
     }
 }
 
+/**
+ * JewelToastPill — Adaptive Cyberpunk Jewel Island (Auto-morphing Compact Capsule & Expanded Glass Card).
+ */
 @Composable
 internal fun JewelToastPill(
     toastData: ModeToastData,
@@ -107,18 +126,24 @@ internal fun JewelToastPill(
 ) {
     val accentColor by animateColorAsState(
         targetValue = Color(toastData.accentColorHex),
-        animationSpec = tween(200),
+        animationSpec = tween(220),
         label = "ToastAccentColor"
     )
 
+    // Determine if toast is a concise label or a detailed/long message
+    val isLongMessage = toastData.modeLabel.length > 28 || toastData.modeLabel.contains("\n")
+    val pillShape = if (isLongMessage) RoundedCornerShape(16.dp) else CircleShape
+
     Surface(
-        shape = CircleShape,
+        shape = pillShape,
         color = ToastBgObsidian,
-        border = BorderStroke(0.85.dp, accentColor.copy(alpha = 0.55f)),
-        shadowElevation = 8.dp,
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.55f)),
+        shadowElevation = 10.dp,
         modifier = Modifier
-            .defaultMinSize(minHeight = if (isCompactMini) 26.dp else 28.dp)
-            .clip(CircleShape)
+            .animateContentSize(animationSpec = spring(dampingRatio = 0.8f, stiffness = 420f))
+            .defaultMinSize(minHeight = if (isCompactMini) 30.dp else 34.dp)
+            .widthIn(min = if (isLongMessage) 240.dp else 140.dp, max = 340.dp)
+            .clip(pillShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -136,57 +161,153 @@ internal fun JewelToastPill(
             val currentAccent = Color(currentToast.accentColorHex)
             val currentIcon = resolveToastIcon(currentToast)
             val currentTag = currentToast.statusTag.ifBlank { "AKTIF" }
+            val itemIsLong = currentToast.modeLabel.length > 28 || currentToast.modeLabel.contains("\n")
 
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = if (isCompactMini) 3.5.dp else 4.5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.5.dp)
-            ) {
-                // Glowing Jewel Dot
-                Box(
+            if (itemIsLong) {
+                // === EXPANDED DYNAMIC ISLAND BENTO (For detailed notifications / errors / long text) ===
+                Column(
                     modifier = Modifier
-                        .size(5.dp)
-                        .background(currentAccent, CircleShape)
-                        .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = currentAccent, spotColor = currentAccent)
-                )
-
-                // Micro Mode / Action Icon
-                Icon(
-                    imageVector = currentIcon,
-                    contentDescription = null,
-                    tint = currentAccent,
-                    modifier = Modifier.size(12.dp)
-                )
-
-                // Toast Message / Label
-                Text(
-                    text = currentToast.modeLabel,
-                    color = TextPrimary,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0"),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 240.dp)
-                )
-
-                // Status Tag Chip
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = currentAccent.copy(alpha = 0.16f),
-                    border = BorderStroke(0.5.dp, currentAccent.copy(alpha = 0.4f))
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
+                    // Header Bar: Glow Dot, Micro Icon, Tag, Spacer, Dismiss affordance
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        // Glowing Jewel Dot
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(currentAccent, CircleShape)
+                                .shadow(elevation = 5.dp, shape = CircleShape, ambientColor = currentAccent, spotColor = currentAccent)
+                        )
+
+                        // Micro Icon
+                        Icon(
+                            imageVector = currentIcon,
+                            contentDescription = null,
+                            tint = currentAccent,
+                            modifier = Modifier.size(13.dp)
+                        )
+
+                        // Category / Status Tag Chip
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = currentAccent.copy(alpha = 0.16f),
+                            border = BorderStroke(0.6.dp, currentAccent.copy(alpha = 0.45f))
+                        ) {
+                            Text(
+                                text = currentTag,
+                                color = currentAccent,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.4.sp,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                            )
+                        }
+
+                        Spacer(Modifier.weight(1f))
+
+                        // Dismiss cross
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Tutup",
+                            tint = TextSecondary.copy(alpha = 0.6f),
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+
+                    // Body: Full detailed message without awkward truncation
                     Text(
-                        text = currentTag,
-                        color = currentAccent,
-                        fontSize = 8.5.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.3.sp,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        text = currentToast.modeLabel,
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = 16.5.sp,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis
                     )
+                }
+            } else {
+                // === COMPACT SLEEK JEWEL CAPSULE (For quick mode transitions & short statuses) ===
+                Row(
+                    modifier = Modifier.padding(horizontal = 13.dp, vertical = if (isCompactMini) 4.dp else 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    // Glowing Jewel Dot
+                    Box(
+                        modifier = Modifier
+                            .size(5.5.dp)
+                            .background(currentAccent, CircleShape)
+                            .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = currentAccent, spotColor = currentAccent)
+                    )
+
+                    // Micro Mode / Action Icon
+                    Icon(
+                        imageVector = currentIcon,
+                        contentDescription = null,
+                        tint = currentAccent,
+                        modifier = Modifier.size(13.dp)
+                    )
+
+                    // Toast Message / Label
+                    Text(
+                        text = currentToast.modeLabel,
+                        color = TextPrimary,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    // Status Tag Chip
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = currentAccent.copy(alpha = 0.16f),
+                        border = BorderStroke(0.5.dp, currentAccent.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = currentTag,
+                            color = currentAccent,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.3.sp,
+                            modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 1.dp)
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * Formats toast content into a clean, modern, non-repetitive Android OS Toast string.
+ */
+internal fun formatCleanSystemToast(toast: ModeToastData): String {
+    val cleanLabel = toast.modeLabel
+        .replace(Regex("\\s*\\([^)]*\\)"), "") // remove redundant "(Powersave)", "(Extreme)", etc.
+        .trim()
+
+    return when (toast.type) {
+        ToastType.MODE -> {
+            val emoji = when (toast.modeId.lowercase()) {
+                "powersave" -> "🍃"
+                "balance" -> "⚖️"
+                "performance" -> "⚡"
+                "extreme" -> "🔥"
+                else -> "⚡"
+            }
+            "$emoji Mode $cleanLabel Aktif"
+        }
+        ToastType.SUCCESS -> "✓ $cleanLabel"
+        ToastType.ERROR -> "⚠ $cleanLabel"
+        else -> cleanLabel
     }
 }
 

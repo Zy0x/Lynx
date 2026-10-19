@@ -1,3 +1,38 @@
+# Lynx Universal [Adaptive Dynamic Island Architecture & Reliable Toast Redesign] 7.0.0-RC118
+Released on: 2026-10-20
+> **Lynx Universal v7.0.0-RC118** (Lynx Kernel Manager v3.1.64): **Redesain Komprehensif Arsitektur Lynx Dynamic Island & Sistem Feedback Toast (/redesign-existing-projects): Arsitektur Adaptif Cerdas (Kapsul Ramping untuk Pesan Singkat vs Bento Glass Squircle 2-Tier untuk Notifikasi Panjang & Error); Eliminasi Total Pemotongan Teks Canggung & Distorsi Bentuk Kapsul (`animateContentSize` + `maxLines = 4` Terbaca Sempurna); Pengiriman Otomatis & Terjamin untuk Native System Toast Android (`LaunchedEffect` Dispatcher Mencegah Kerancuhan Notifikasi Hilang); Modernisasi Format Teks Toast Sistem Tanpa Duplikasi Polusi Teks; serta Pencegahan Penelanan Pesan Berhasil (`successMessage` Fallback Guard)**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC118)
+
+### 1. 🏝️ Arsitektur Adaptif Dynamic Island (`LynxModeToastHud.kt`)
+- **Akar Masalah**:
+  Sebelumnya `JewelToastPill` dikunci pada satu baris horizontal dengan `maxLines = 1` dan `widthIn(max = 240.dp)`. Jika pesan notifikasi panjang (misal: pesan sukses kustomisasi profil, penjelasan galat kernel, atau status sistem), teks terpotong secara canggung menjadi `Kustomisasi pada Profil B...`, atau jika teks membungkus, bentuk kapsul `CircleShape` menjadi terdistorsi dan rusak.
+- **Solusi (Adaptive Morphing)**:
+  - **Mode Ramping (Pesan Singkat $\le 28$ Karakter)**: Tetap mempertahankan kapsul horizontal ultra-ramping (`CircleShape`, tinggi 30–34dp) dengan glowing jewel dot, ikon mikro, dan badge status.
+  - **Mode Bento Melebar (Pesan Panjang / Error $> 28$ Karakter)**: Secara otomatis bermetamorfosis menjadi **Bento Glass Card** (`RoundedCornerShape(16.dp)`, lebar maks 340dp) dengan Tier 1 (Dot + Ikon + Chip Kategori + Tombol Tutup) dan Tier 2 (Teks lengkap berjarak baris 16.5sp hingga 4 baris terbaca utuh tanpa terpotong).
+  - Mengintegrasikan modifier `.animateContentSize()` dengan spring physics lembut agar transisi antara mode ringkas dan melebar mengalir dinamis tanpa hentakan visual.
+
+### 2. 🚀 Penjaminan Eksekusi Native System Toast (Anti Notifikasi Hilang)
+- **Akar Masalah**:
+  Saat pengguna memilih gaya feedback *"System Toast (OS Text)"*, HUD Compose dinonaktifkan (benar), namun `triggerModeFeedback` dan peralihan profil sebelumnya tidak pernah memanggil `Toast.makeText` dari dalam aplikasi. Akibatnya, setiap kali profil berganti, layar diam total tanpa notifikasi apa pun, memicu kerancuhan pengguna.
+- **Solusi**:
+  Menyematkan listener reaktif `LaunchedEffect(toastData?.timestamp)` di dalam `LynxModeToastHud`. Ketika mode `system_toast` aktif dan ada data toast yang masuk (baik pergantian mode profil, sukses, info, maupun galat), sistem secara otomatis dan andal mengeksekusi `android.widget.Toast.makeText(...)`.
+
+### 3. 🧼 Pembersihan Format Teks Toast Sistem (Anti Format Aneh)
+- **Akar Masalah**:
+  Pada Android 12+, sistem operasi secara otomatis menyertakan ikon aplikasi Lynx di samping teks Toast. Format lama yang mengirim string `[App Icon] 🔥 Lynx: Mode Ekstrem (Extreme)` terlihat kotor, repetitif, dan aneh bagi pengguna.
+- **Solusi**:
+  Membuat parser `formatCleanSystemToast` yang menyaring teks redundan:
+  - Mode Profil: `🔥 Mode Ekstrem Aktif` / `⚖️ Mode Seimbang Aktif`
+  - Pesan Sukses: `✓ Profil Berhasil Disimpan`
+  - Pesan Galat: `⚠ Gagal Menulis Node Kernel`
+  Hasilnya tampak bersih, profesional, dan selaras dengan standar antarmuka Android modern.
+
+### 4. 🛡️ Perlindungan Penelanan Notifikasi Sukses (`LynxAppShell.kt`)
+- Memperbaiki pengkondisian `uiState.successMessage` agar jika pesan bertuliskan profil/mode diterapkan namun `activeModeToast` belum terpasang, pesan tetap diarahkan ke Universal Toast HUD tanpa tertelan atau hilang.
+
+---
+
 # Lynx Universal [Dynamic Island Rapid-Click Polish & Single-Source HUD Feedback] 7.0.0-RC117
 Released on: 2026-10-19
 > **Lynx Universal v7.0.0-RC117** (Lynx Kernel Manager v3.1.63): **Perbaikan Komprehensif Notifikasi Lynx Island & Feedback HUD: Eliminasi Total Tumpang Tindih Ganda (Dual Overlay Collision WindowManager vs Compose); Penegakan Logika Visibilitas Mode-Aware pada `LynxModeToastHud` (Mode Disabled, Status Bar, & System Toast Tidak Lagi Memicu Dynamic Island Secara Liar); Transisi Animasi Halus Tanpa Flicker (`AnimatedContent` + `animateColorAsState` pada Rapid-Click); Tombol Live Test Cerdas Sesuai Mode Pilihan Aktif; Debounce Persistensi Konfigurasi Root Daemon; serta Target Sentuh Opsi Feedback Terstandardisasi ≥48dp**.
