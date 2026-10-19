@@ -792,6 +792,7 @@ class LynxViewModel : ViewModel() {
     // ----------------------------------------------------------------
 
     internal var modeToastJob: Job? = null
+    internal var feedbackStyleSaveJob: Job? = null
 
     fun triggerModeFeedback(modeId: String, modeLabel: String, accentColorHex: Long, iconType: String = "") {
         modeToastJob?.cancel()

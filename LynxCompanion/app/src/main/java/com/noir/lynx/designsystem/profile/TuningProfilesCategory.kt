@@ -197,26 +197,43 @@ fun ProfilesFeedbackBottomSheet(
                 Triple("disabled", "Nonaktifkan Feedback", "Hening total — tanpa notifikasi atau pop-up visual")
             )
 
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 feedbackOptions.forEach { (key, title, subtitle) ->
                     val isSelected = uiState.modeFeedbackStyle == key
                     Surface(
                         onClick = {
                             viewModel.setModeFeedbackStyle(context, key)
-                            viewModel.triggerModeFeedback("balance", "Seimbang", 0xFF00A3FFL)
+                            when (key) {
+                                "jewel_top", "jewel_bottom" -> {
+                                    viewModel.triggerModeFeedback("balance", "Seimbang", 0xFF00A3FFL)
+                                }
+                                "system_toast" -> {
+                                    viewModel.dismissModeFeedback()
+                                    android.widget.Toast.makeText(context, "⚖️ Lynx: Mode Seimbang", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                                "status_bar" -> {
+                                    viewModel.dismissModeFeedback()
+                                    viewModel.triggerUniversalToast("Status Bar Saja (0 MB RAM)", statusTag = "HENING", type = com.noir.lynx.data.ToastType.INFO, accentColorHex = 0xFF00E5FF, durationMs = 1500L)
+                                }
+                                "disabled" -> {
+                                    viewModel.dismissModeFeedback()
+                                }
+                            }
                         },
-                        shape = RoundedCornerShape(11.dp),
+                        shape = RoundedCornerShape(12.dp),
                         color = if (isSelected) AccentCyan.copy(alpha = 0.09f) else BgElevated,
                         border = BorderStroke(
                             if (isSelected) 1.dp else 0.6.dp,
                             if (isSelected) AccentCyan.copy(alpha = 0.7f) else BorderSubtle
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 13.dp, vertical = 9.dp),
+                                .padding(horizontal = 14.dp, vertical = 11.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -318,42 +335,70 @@ fun ProfilesFeedbackBottomSheet(
                         lineHeight = 13.sp
                     )
                 }
-                Switch(
-                    checked = uiState.modeFeedbackDualMorph,
-                    onCheckedChange = { viewModel.setModeFeedbackDualMorph(context, it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BgDeepOled,
-                        checkedTrackColor = AccentCyan,
-                        uncheckedThumbColor = TextSecondary,
-                        uncheckedTrackColor = BgElevated,
-                        uncheckedBorderColor = BorderSubtle
+                Box(
+                    modifier = Modifier.size(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Switch(
+                        checked = uiState.modeFeedbackDualMorph,
+                        onCheckedChange = { viewModel.setModeFeedbackDualMorph(context, it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = BgDeepOled,
+                            checkedTrackColor = AccentCyan,
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = BgElevated,
+                            uncheckedBorderColor = BorderSubtle
+                        )
                     )
-                )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
 
-            // ── Live Test Button ──────────────────────────────────────────────────────
+            // ── Live Test Button (Mode-Aware Feedback Tester) ─────────────────────────
             Surface(
                 onClick = {
                     val sampleModes = listOf(
                         Triple("powersave", "Hemat", 0xFF00E676L),
                         Triple("balance", "Seimbang", 0xFF00A3FFL),
                         Triple("performance", "Performa", 0xFFFF9100L),
-                        Triple("extreme", "Extreme", 0xFFFF3D00L)
+                        Triple("extreme", "Ekstrem", 0xFFFF3D00L)
                     )
                     val randomSample = sampleModes.random()
-                    viewModel.triggerModeFeedback(randomSample.first, randomSample.second, randomSample.third)
+
+                    when (uiState.modeFeedbackStyle) {
+                        "jewel_top", "jewel_bottom" -> {
+                            viewModel.triggerModeFeedback(randomSample.first, randomSample.second, randomSample.third)
+                        }
+                        "system_toast" -> {
+                            val emoji = when (randomSample.first) {
+                                "powersave" -> "🍃"
+                                "balance" -> "⚖️"
+                                "performance" -> "⚡"
+                                "extreme" -> "🔥"
+                                else -> "⚖️"
+                            }
+                            android.widget.Toast.makeText(context, "$emoji Lynx: Mode ${randomSample.second}", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        "status_bar" -> {
+                            viewModel.triggerUniversalToast("Status Bar Saja (Hening)", statusTag = "HENING", type = com.noir.lynx.data.ToastType.INFO, accentColorHex = 0xFF00E5FF, durationMs = 1500L)
+                        }
+                        "disabled" -> {
+                            viewModel.triggerUniversalToast("Feedback Dinonaktifkan (Hening Total)", statusTag = "OFF", type = com.noir.lynx.data.ToastType.INFO, accentColorHex = 0xFF888888, durationMs = 1500L)
+                        }
+                    }
                 },
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = BgElevated,
-                border = BorderStroke(0.7.dp, AccentCyan.copy(alpha = 0.35f)),
-                modifier = Modifier.fillMaxWidth()
+                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.45f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
             ) {
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -361,13 +406,13 @@ fun ProfilesFeedbackBottomSheet(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = null,
                         tint = AccentCyan,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(17.dp)
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
                         text = "Uji Coba Animasi Toast (Live Test)",
                         color = AccentCyan,
-                        fontSize = 12.sp,
+                        fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }

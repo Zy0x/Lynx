@@ -109,6 +109,14 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
 
         toastDataFlow.value = toastData
 
+        if (floatView != null && style != currentStyle) {
+            try {
+                windowManager.removeView(floatView)
+            } catch (_: Exception) {}
+            floatView = null
+        }
+        currentStyle = style
+
         if (floatView == null) {
             createOverlayWindow(style)
         }

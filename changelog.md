@@ -1,3 +1,36 @@
+# Lynx Universal [Dynamic Island Rapid-Click Polish & Single-Source HUD Feedback] 7.0.0-RC117
+Released on: 2026-10-19
+> **Lynx Universal v7.0.0-RC117** (Lynx Kernel Manager v3.1.63): **Perbaikan Komprehensif Notifikasi Lynx Island & Feedback HUD: Eliminasi Total Tumpang Tindih Ganda (Dual Overlay Collision WindowManager vs Compose); Penegakan Logika Visibilitas Mode-Aware pada `LynxModeToastHud` (Mode Disabled, Status Bar, & System Toast Tidak Lagi Memicu Dynamic Island Secara Liar); Transisi Animasi Halus Tanpa Flicker (`AnimatedContent` + `animateColorAsState` pada Rapid-Click); Tombol Live Test Cerdas Sesuai Mode Pilihan Aktif; Debounce Persistensi Konfigurasi Root Daemon; serta Target Sentuh Opsi Feedback Terstandardisasi ≥48dp**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC117)
+
+### 1. 🏝️ Eliminasi Tumpang Tindih Ganda (*Dual Overlay Collision*)
+- **Akar Masalah**:
+  Saat pengguna mengetuk opsi gaya feedback di dalam aplikasi, fungsi `setModeFeedbackStyle` mengirim broadcast Intent OS yang memicu `LynxToastOverlayService` (menempelkan WindowManager System Overlay), sementara UI juga memicu `triggerModeFeedback` (menampilkan Compose HUD in-app). Kedua overlay saling bertumpuk di piksel yang sama, membuat teks tampak kabur/tebal dan bayangan berantakan.
+- **Solusi**:
+  Menghilangkan broadcast `previewIntent` internal di dalam `setModeFeedbackStyle`. Preview di dalam aplikasi murni ditangani oleh Compose In-App HUD, sementara `LynxToastOverlayService` direservasi khusus untuk transisi latar belakang (saat bermain game atau perubahan dari daemon root `lynxd`).
+
+### 2. 🎯 Logika Visibilitas Mode-Aware (`LynxModeToastHud.kt`)
+- **Akar Masalah**:
+  Sebelumnya composable `LynxModeToastHud` menggunakan `when (feedbackStyle)` yang memasukkan seluruh gaya selain `jewel_bottom` ke blok `else`, sehingga mode `system_toast`, `status_bar`, dan bahkan `disabled` tetap memunculkan Jewel Dynamic Island di atas layar.
+- **Solusi**:
+  Menegakkan aturan seleksi ketat: mode profil (`ToastType.MODE`) hanya memicu HUD visual jika style adalah `jewel_top` atau `jewel_bottom`. Pilihan `disabled` dan `status_bar` hening total dari HUD, sedangkan `system_toast` memicu gelembung teks OS native.
+
+### 3. ✨ Transisi Halus pada Penekanan Cepat (*Rapid-Click Morphing*)
+- **Akar Masalah**:
+  Saat pengguna menekan tombol mode secara cepat berulang-ulang, Compose `AnimatedVisibility` tidak merestart animasi masuk karena visibilitas tetap bernilai true, menyebabkan teks dan warna berganti seketika secara patah atau berkedip liar (*flicker*).
+- **Solusi**:
+  Membungkus elemen isi kapsul (`JewelToastPill`) dalam `AnimatedContent` dengan transisi `fadeIn + scaleIn` dan `fadeOut + scaleOut`, serta menginterpolasi warna aksen menggunakan `animateColorAsState(tween(200))`. Seluruh perpindahan status saat penekanan cepat kini bertransisi dengan mulus seperti air mengalir.
+
+### 4. 🧪 Tombol "Live Test" Cerdas Sesuai Mode Pilihan
+- Menghubungkan tombol *"Uji Coba Animasi Toast (Live Test)"* dengan mode yang sedang aktif. Jika pengguna memilih *System Toast*, tombol akan memunculkan Toast native Android lengkap dengan emoji; jika *Jewel Top/Bottom*, memicu Dynamic Island; dan jika *Disabled*, mengonfirmasi status hening.
+
+### 5. ⚡ Debouncing Root Shell & Peningkatan Target Sentuh
+- Operasi penulisan shell root ke `/data/adb/lynx/feedback_style` kini di-debounce sebesar 350ms guna mencegah banjir antrean proses root saat pengguna beralih mode dengan cepat.
+- Seluruh kartu opsi feedback di `ProfilesFeedbackBottomSheet` ditingkatkan ke tinggi sentuh minimal **48dp**, switch dual morph dibungkus dalam kontainer **48x48dp**, dan tombol Live Test berdimensi **48dp** (kepatuhan penuh Rule 1).
+
+---
+
 # Lynx Universal [Touch-First Bento Architecture & Kernel Profiles Redesign] 7.0.0-RC116
 Released on: 2026-10-19
 > **Lynx Universal v7.0.0-RC116** (Lynx Kernel Manager v3.1.62): **Redesain Menyeluruh Antarmuka Profil Performa Kernel Berbasis Arsitektur Bento 2-Tier; Peningkatan Target Sentuh Ergonomis Penuh (≥44–48dp Sesuai Standar Rule 1 & Touch-First); Segmented Cooldown Bar Nothing OS Berdimensi 46dp (40dp Active Tap Pill); Tombol Tambah 44dp & Overflow 44x44dp; Harmonisasi Tipografi & Token Desain Resmi (BgElevated, BgDeepOled, BorderSubtle, BorderGlass); serta Tombol CTA "Simpan Profil Kustom" 52dp**.

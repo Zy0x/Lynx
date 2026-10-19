@@ -94,17 +94,12 @@ import kotlinx.coroutines.flow.update
             .apply()
         _uiState.update { it.copy(modeFeedbackStyle = style) }
 
-        // Persist to root daemon configuration space
-        com.topjohnwu.superuser.Shell.cmd("echo '$style' > /data/adb/lynx/feedback_style 2>/dev/null").submit()
-
-        // Send preview broadcast so receiver shows user's selection immediately
-        val previewIntent = android.content.Intent("com.noir.lynx.PROFILE_CHANGED").apply {
-            setPackage(context.packageName)
-            putExtra("profile", "balance")
-            putExtra("style", style)
-            putExtra("reason", "Pratinjau Mode Feedback")
+        // Debounce root daemon configuration write so rapid tapping doesn't flood shell tasks
+        feedbackStyleSaveJob?.cancel()
+        feedbackStyleSaveJob = viewModelScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(350L)
+            com.topjohnwu.superuser.Shell.cmd("echo '$style' > /data/adb/lynx/feedback_style 2>/dev/null").submit()
         }
-        context.sendBroadcast(previewIntent)
     }
 
     fun LynxViewModel.setModeFeedbackDualMorph(context: android.content.Context, enabled: Boolean) {

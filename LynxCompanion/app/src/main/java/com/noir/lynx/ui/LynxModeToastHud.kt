@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,59 +40,60 @@ fun LynxModeToastHud(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Mode transitions can be absorbed by Header Morph; Action/Error/Preset toasts are ALWAYS visible
-    val isVisible = toastData != null && (feedbackStyle != "header_morph" || toastData.type != ToastType.MODE)
+    val isModeToast = toastData?.type == ToastType.MODE
+    // Mode transitions only show in HUD if jewel_top or jewel_bottom is selected.
+    // Non-mode toasts (ACTION, ERROR, SUCCESS, INFO) are ALWAYS visible to provide user feedback.
+    val isVisible = toastData != null && when {
+        !isModeToast -> true
+        feedbackStyle == "jewel_top" || feedbackStyle == "jewel_bottom" -> true
+        else -> false // system_toast, status_bar, disabled, header_morph
+    }
 
-    when (feedbackStyle) {
-        "jewel_bottom" -> {
-            Box(
-                modifier = modifier
-                    .fillMaxSize()
-                    .navigationBarsPadding()
-                    .padding(bottom = 96.dp),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = slideInVertically(
-                        initialOffsetY = { it / 2 },
-                        animationSpec = spring(dampingRatio = 0.78f, stiffness = 400f)
-                    ) + fadeIn(animationSpec = tween(150)),
-                    exit = slideOutVertically(
-                        targetOffsetY = { it / 2 },
-                        animationSpec = tween(150)
-                    ) + fadeOut(animationSpec = tween(120))
-                ) {
-                    if (toastData != null) {
-                        JewelToastPill(toastData = toastData, onDismiss = onDismiss, isCompactMini = true)
-                    }
+    val isBottom = feedbackStyle == "jewel_bottom"
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .then(
+                if (isBottom) {
+                    Modifier
+                        .navigationBarsPadding()
+                        .padding(bottom = 96.dp)
+                } else {
+                    Modifier
+                        .statusBarsPadding()
+                        .padding(top = 4.dp)
                 }
+            ),
+        contentAlignment = if (isBottom) Alignment.BottomCenter else Alignment.TopCenter
+    ) {
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = if (isBottom) {
+                slideInVertically(
+                    initialOffsetY = { it / 2 },
+                    animationSpec = spring(dampingRatio = 0.78f, stiffness = 400f)
+                ) + fadeIn(animationSpec = tween(150))
+            } else {
+                slideInVertically(
+                    initialOffsetY = { -it },
+                    animationSpec = spring(dampingRatio = 0.75f, stiffness = 420f)
+                ) + fadeIn(animationSpec = tween(140))
+            },
+            exit = if (isBottom) {
+                slideOutVertically(
+                    targetOffsetY = { it / 2 },
+                    animationSpec = tween(150)
+                ) + fadeOut(animationSpec = tween(120))
+            } else {
+                slideOutVertically(
+                    targetOffsetY = { -it },
+                    animationSpec = tween(160)
+                ) + fadeOut(animationSpec = tween(120))
             }
-        }
-        else -> {
-            // Default: "jewel_top" (Jewel Dynamic Island)
-            Box(
-                modifier = modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(top = 4.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                AnimatedVisibility(
-                    visible = isVisible,
-                    enter = slideInVertically(
-                        initialOffsetY = { -it },
-                        animationSpec = spring(dampingRatio = 0.75f, stiffness = 420f)
-                    ) + fadeIn(animationSpec = tween(140)),
-                    exit = slideOutVertically(
-                        targetOffsetY = { -it },
-                        animationSpec = tween(160)
-                    ) + fadeOut(animationSpec = tween(120))
-                ) {
-                    if (toastData != null) {
-                        JewelToastPill(toastData = toastData, onDismiss = onDismiss, isCompactMini = false)
-                    }
-                }
+        ) {
+            if (toastData != null) {
+                JewelToastPill(toastData = toastData, onDismiss = onDismiss, isCompactMini = isBottom)
             }
         }
     }
@@ -103,9 +105,11 @@ internal fun JewelToastPill(
     onDismiss: () -> Unit,
     isCompactMini: Boolean
 ) {
-    val accentColor = Color(toastData.accentColorHex)
-    val icon = resolveToastIcon(toastData)
-    val statusTag = toastData.statusTag.ifBlank { "AKTIF" }
+    val accentColor by animateColorAsState(
+        targetValue = Color(toastData.accentColorHex),
+        animationSpec = tween(200),
+        label = "ToastAccentColor"
+    )
 
     Surface(
         shape = CircleShape,
@@ -121,53 +125,66 @@ internal fun JewelToastPill(
                 onClick = onDismiss
             )
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = if (isCompactMini) 3.5.dp else 4.5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.5.dp)
-        ) {
-            // Glowing Jewel Dot
-            Box(
-                modifier = Modifier
-                    .size(5.dp)
-                    .background(accentColor, CircleShape)
-                    .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = accentColor, spotColor = accentColor)
-            )
+        AnimatedContent(
+            targetState = toastData,
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(160)) + scaleIn(initialScale = 0.94f, animationSpec = tween(160)))
+                    .togetherWith(fadeOut(animationSpec = tween(120)) + scaleOut(targetScale = 0.94f, animationSpec = tween(120)))
+            },
+            label = "JewelToastContentTransition"
+        ) { currentToast ->
+            val currentAccent = Color(currentToast.accentColorHex)
+            val currentIcon = resolveToastIcon(currentToast)
+            val currentTag = currentToast.statusTag.ifBlank { "AKTIF" }
 
-            // Micro Mode / Action Icon
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = accentColor,
-                modifier = Modifier.size(12.dp)
-            )
-
-            // Toast Message / Label
-            Text(
-                text = toastData.modeLabel,
-                color = TextPrimary,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Bold,
-                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0"),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 240.dp)
-            )
-
-            // Status Tag Chip
-            Surface(
-                shape = RoundedCornerShape(4.dp),
-                color = accentColor.copy(alpha = 0.16f),
-                border = BorderStroke(0.5.dp, accentColor.copy(alpha = 0.4f))
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = if (isCompactMini) 3.5.dp else 4.5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.5.dp)
             ) {
-                Text(
-                    text = statusTag,
-                    color = accentColor,
-                    fontSize = 8.5.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 0.3.sp,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                // Glowing Jewel Dot
+                Box(
+                    modifier = Modifier
+                        .size(5.dp)
+                        .background(currentAccent, CircleShape)
+                        .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = currentAccent, spotColor = currentAccent)
                 )
+
+                // Micro Mode / Action Icon
+                Icon(
+                    imageVector = currentIcon,
+                    contentDescription = null,
+                    tint = currentAccent,
+                    modifier = Modifier.size(12.dp)
+                )
+
+                // Toast Message / Label
+                Text(
+                    text = currentToast.modeLabel,
+                    color = TextPrimary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0"),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 240.dp)
+                )
+
+                // Status Tag Chip
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = currentAccent.copy(alpha = 0.16f),
+                    border = BorderStroke(0.5.dp, currentAccent.copy(alpha = 0.4f))
+                ) {
+                    Text(
+                        text = currentTag,
+                        color = currentAccent,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.3.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                    )
+                }
             }
         }
     }
