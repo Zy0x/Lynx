@@ -64,17 +64,20 @@ while true; do
 
     if ! is_screen_on; then
         if [ "$CURRENT_ACTIVE_APP" != "SCREEN_OFF" ]; then
-            sh "$APPLY_SCRIPT" "powersave" watcher "" >/dev/null 2>&1
+            if [ -n "$CURRENT_ACTIVE_APP" ]; then
+                sh "$APPLY_SCRIPT" "$BASELINE_PROFILE" watcher "" >/dev/null 2>&1
+            fi
             CURRENT_ACTIVE_APP="SCREEN_OFF"
             COOLDOWN_REMAINING=0
         fi
-        sleep 15
+        sleep 2
         continue
     fi
 
     if [ "$CURRENT_ACTIVE_APP" = "SCREEN_OFF" ]; then
         CURRENT_ACTIVE_APP=""
         sh "$APPLY_SCRIPT" "$BASELINE_PROFILE" watcher "" >/dev/null 2>&1
+        (/data/adb/modules/Lynx/system/bin/lynxd system wakeup-boost 2000 >/dev/null 2>&1 || (echo 1 > /proc/sys/kernel/sched_boost 2>/dev/null; chmod 644 /dev/cpuset/top-app/cpus 2>/dev/null; echo 0-7 > /dev/cpuset/top-app/cpus 2>/dev/null; sleep 2; echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null)) &
     fi
 
     top_app=$(get_top_app)

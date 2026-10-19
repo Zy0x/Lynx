@@ -168,6 +168,19 @@ impl DecisionEngine {
             DecisionAction::MaintainCurrent
         } else {
             // Non-target application (Normal, System, Media, or None)
+            if self.current_profile == "powersave" && self.baseline_profile != "powersave" {
+                let fallback: &'static str = match self.baseline_profile.as_str() {
+                    "performance" => "performance",
+                    "extreme" => "extreme",
+                    _ => "balance",
+                };
+                self.adaptive.reset();
+                return DecisionAction::ApplyProfile {
+                    target_profile: fallback,
+                    reason: "Screen active: Reverting powersave back to baseline profile for instant responsiveness"
+                        .to_string(),
+                };
+            }
             if self.current_profile == "performance" || self.current_profile == "extreme" {
                 // User left target app: enter or evaluate hysteresis cooldown
                 let fallback = match self.baseline_profile.as_str() {
@@ -372,6 +385,23 @@ mod tests {
                 assert_eq!(modifier, ModifierLevel::None);
             }
             _ => panic!("Expected ApplyModifier None"),
+        }
+    }
+
+    #[test]
+    fn test_decision_screen_on_powersave_reverts_to_baseline() {
+        let mut engine = DecisionEngine::new("powersave", 5);
+        // User's baseline is balance, but engine had powersave applied
+        engine.baseline_profile = "balance".to_string();
+        let telemetry = make_test_telemetry();
+
+        let action = engine.evaluate(None, ScreenState::On, &telemetry, 100);
+        match action {
+            DecisionAction::ApplyProfile { target_profile, reason } => {
+                assert_eq!(target_profile, "balance");
+                assert!(reason.contains("Reverting powersave back to baseline"));
+            }
+            _ => panic!("Expected ApplyProfile balance when screen is ON and current profile is powersave"),
         }
     }
 }

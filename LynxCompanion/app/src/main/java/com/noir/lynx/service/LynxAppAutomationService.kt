@@ -59,18 +59,41 @@ class LynxAppAutomationService : Service() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    Log.i(TAG, "Screen OFF detected: Pausing app automation polling and applying powersave for deep sleep")
+                    Log.i(TAG, "Screen OFF detected: Pausing app automation polling")
                     isScreenOn = false
-                    serviceScope.launch(Dispatchers.IO) {
-                        LynxRepository.setProfile("powersave", caller = "watcher")
+                    cooldownJob?.cancel()
+                    cooldownJob = null
+                    if (activeCustomPkg != null) {
+                        if (autoStartedHud) {
+                            try {
+                                val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
+                                    action = LynxFloatingHudService.ACTION_STOP
+                                }
+                                startService(hudIntent)
+                                stopService(hudIntent)
+                            } catch (_: Exception) {}
+                            autoStartedHud = false
+                        }
+                        activeCustomPkg = null
+                        val base = if (baselineProfile.isBlank() || baselineProfile == "dormant" || baselineProfile == "powersave") "balance" else baselineProfile
+                        serviceScope.launch(Dispatchers.IO) {
+                            LynxRepository.setProfile(base, caller = "watcher")
+                        }
                     }
+                    // NEVER FORCE POWERSAVE ON SCREEN OFF!
+                    // Keeping baselineProfile allows kernel cpuidle/C-states to sleep at 0mA
+                    // without throttling frequencies or parking Big cores upon wakeup.
                 }
-                Intent.ACTION_SCREEN_ON -> {
-                    Log.i(TAG, "Screen ON detected: Resuming app automation polling")
+                Intent.ACTION_SCREEN_ON,
+                Intent.ACTION_USER_PRESENT -> {
+                    Log.i(TAG, "Screen ON / Wakeup detected: Resuming app automation and triggering instant Wakeup Boost")
                     isScreenOn = true
                     serviceScope.launch(Dispatchers.IO) {
-                        val base = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
-                        LynxRepository.setProfile(base, caller = "watcher")
+                        val base = if (baselineProfile.isBlank() || baselineProfile == "dormant" || baselineProfile == "powersave") "balance" else baselineProfile
+                        if (LynxRepository.lastActiveProfile == "powersave") {
+                            LynxRepository.setProfile(base, caller = "watcher")
+                        }
+                        triggerWakeupBoost()
                         val (pct, tempC) = getLiveBatteryTelemetry()
                         withContext(Dispatchers.Main) {
                             updateNotification(formatModeTitle(base), getStandbySubtitle(base, pct, tempC), base)
@@ -79,6 +102,22 @@ class LynxAppAutomationService : Service() {
                 }
             }
         }
+    }
+
+    private fun triggerWakeupBoost() {
+        try {
+            val lynxdPath = LynxRepository.getLynxdPath()
+            Shell.cmd(
+                "'$lynxdPath' system wakeup-boost 2000 2>/dev/null || " +
+                "(echo 1 > /proc/sys/kernel/sched_boost 2>/dev/null; " +
+                "chmod 644 /dev/cpuset/top-app/cpus 2>/dev/null; " +
+                "echo 0-7 > /dev/cpuset/top-app/cpus 2>/dev/null; " +
+                "echo 2 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus 2>/dev/null; " +
+                "sleep 2; " +
+                "echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null; " +
+                "echo 1 > /sys/devices/system/cpu/cpu4/core_ctl/min_cpus 2>/dev/null) &"
+            ).exec()
+        } catch (_: Exception) {}
     }
 
     private var lastPowerConnectedTime = 0L
@@ -188,8 +227,11 @@ class LynxAppAutomationService : Service() {
             val initialProfile = LynxRepository.readBaselineProfile().ifBlank {
                 LynxRepository.readState().activeProfile
             }.ifBlank { "balance" }
-            val safeProfile = if (initialProfile.isBlank() || initialProfile == "dormant") "balance" else initialProfile
+            val safeProfile = if (initialProfile.isBlank() || initialProfile == "dormant" || initialProfile == "powersave") "balance" else initialProfile
             baselineProfile = safeProfile
+            if (initialProfile == "powersave" || LynxRepository.lastActiveProfile == "powersave") {
+                LynxRepository.setProfile(safeProfile, caller = "watcher")
+            }
             val (pct, tempC) = getLiveBatteryTelemetry()
             withContext(Dispatchers.Main) {
                 updateNotification(formatModeTitle(safeProfile), getStandbySubtitle(safeProfile, pct, tempC), safeProfile)
@@ -199,6 +241,7 @@ class LynxAppAutomationService : Service() {
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
         }
         registerReceiver(screenReceiver, filter)
 

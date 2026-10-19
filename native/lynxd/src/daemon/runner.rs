@@ -290,14 +290,24 @@ impl DaemonRunner {
                     sleep(Duration::from_millis(500));
                 }
             } else if current_screen == ScreenState::Off {
-                // Deep Sleep Shield: When unplugged and screen is off, preserve undisturbed deep sleep.
-                // Do NOT poll sysfs every 500ms. Sleep in 5s increments checking only DaemonLifecycle.
-                let chunks = (sleep_duration.as_secs() / 5).max(1);
-                for _ in 0..chunks {
+                // Deep Sleep Shield: When unplugged and screen is off, sleep in 500ms intervals
+                // checking for instant screen ON edge trigger to break out immediately (<500ms).
+                let total_chunks = (sleep_duration.as_millis() / 500).max(1);
+                for _ in 0..total_chunks {
                     if !DaemonLifecycle::is_running() {
                         break;
                     }
-                    sleep(Duration::from_secs(5));
+                    sleep(Duration::from_millis(500));
+                    if screen.detect() == ScreenState::On {
+                        // Instant wakeup: Screen turned on! Trigger native wakeup boost and resume immediately!
+                        Logger::info(if is_english() {
+                            "[DAEMON] Screen turned ON from sleep! Aborting deep sleep wait and triggering Wakeup Boost..."
+                        } else {
+                            "[DAEMON] Layar menyala dari tidur! Menghentikan sleep deep-sleep dan memicu Wakeup Boost..."
+                        });
+                        crate::subsystems::SystemController::wakeup_boost(2000);
+                        break;
+                    }
                 }
             } else {
                 // Active screen (unplugged): 1s sleep in 250ms chunks checking lifecycle and charger plug-in

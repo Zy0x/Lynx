@@ -141,6 +141,11 @@ class LynxViewModel : ViewModel() {
 
                     // Stage 2: Staged background hydration of secondary subsystem metadata (Zero-Jank Dispatchers.IO)
                     viewModelScope.launch(Dispatchers.IO) {
+                        val baseline = LynxRepository.readBaselineProfile().ifBlank { "balance" }
+                        if (baseline != "powersave" && (clusters.any { it.curGov == "powersave" } || state.activeProfile == "powersave")) {
+                            val targetHeal = if (baseline == "dormant" || baseline == "auto") "balance" else baseline
+                            LynxRepository.setProfile(targetHeal, caller = "watcher")
+                        }
                         if (nativeStatus?.daemonRunning != true) {
                             LynxRepository.ensureDaemonRunning()
                         }

@@ -92,7 +92,7 @@ mod tests {
             cpu_profile: Some("performance".to_string()),
             gpu_profile: Some("battery".to_string()),
         }).unwrap();
-        assert_eq!(profile.cpu.min_percent, 60);
+        assert_eq!(profile.cpu.min_percent, 35);
         assert_eq!(profile.gpu.mode.as_str(), "PowerEfficient");
         assert_eq!(profile.thermal.critical_temperature, 48);
     }

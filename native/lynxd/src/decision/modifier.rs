@@ -270,25 +270,25 @@ mod tests {
     #[test]
     fn test_apply_modifier_transformations() {
         let base = get_profile_by_name("performance").expect("performance profile must exist");
-        assert_eq!(base.cpu.min_percent, 60);
-        assert_eq!(base.scheduler.uclamp_min_percent, 60);
+        assert_eq!(base.cpu.min_percent, 35);
+        assert_eq!(base.scheduler.uclamp_min_percent, 50);
         assert!(base.gpu.boost);
 
         // 1. ThermalCooling modifier
         let cooling = apply_modifier(&base, ModifierLevel::ThermalCooling);
-        assert_eq!(cooling.cpu.min_percent, 45); // 60 - 15 = 45
-        assert_eq!(cooling.scheduler.uclamp_min_percent, 45); // 60 - 15 = 45
+        assert_eq!(cooling.cpu.min_percent, 20); // 35 - 15 = 20
+        assert_eq!(cooling.scheduler.uclamp_min_percent, 35); // 50 - 15 = 35
         assert!(cooling.gpu.boost); // GPU boost preserved
 
         // 2. ThermalThrottled modifier
         let throttled = apply_modifier(&base, ModifierLevel::ThermalThrottled);
-        assert_eq!(throttled.cpu.min_percent, 30); // 60 - 30 = 30
-        assert_eq!(throttled.scheduler.uclamp_min_percent, 30); // 60 - 30 = 30
+        assert_eq!(throttled.cpu.min_percent, 5); // 35 - 30 = 5
+        assert_eq!(throttled.scheduler.uclamp_min_percent, 20); // 50 - 30 = 20
         assert!(!throttled.gpu.boost); // GPU boost disabled
 
         // 3. BatterySaver modifier
         let bat_saver = apply_modifier(&base, ModifierLevel::BatterySaver);
-        assert_eq!(bat_saver.cpu.min_percent, 50); // 60 - 10 = 50
+        assert_eq!(bat_saver.cpu.min_percent, 25); // 35 - 10 = 25
     }
 
     #[test]

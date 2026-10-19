@@ -87,7 +87,7 @@ fn print_usage() {
         println!("  cpuidle info|apply|set-state");
         println!("  swap info|set|enable|disable|remove");
         println!("  maintenance run|status");
-        println!("  system apply|boeffla-status|doze-info|set-doze|set-selinux|set-printk|top-wakelocks|log-export");
+        println!("  system apply|wakeup-boost|boeffla-status|doze-info|set-doze|set-selinux|set-printk|top-wakelocks|log-export");
         println!("  applist list|add|remove|check     Kelola basis data aplikasi game dan target performa");
         println!("  cluster topology|set-freq|lock|unlock|set-gov|set-schedutil-preset");
         println!("  gpu info|set-freq|set-gov|set-boost");
@@ -131,7 +131,7 @@ fn print_usage() {
     println!("  cpuidle info|apply|set-state");
     println!("  swap info|set|enable|disable|remove");
     println!("  maintenance run|status");
-    println!("  system apply|boeffla-status|doze-info|set-doze|set-selinux|set-printk|top-wakelocks|log-export");
+    println!("  system apply|wakeup-boost|boeffla-status|doze-info|set-doze|set-selinux|set-printk|top-wakelocks|log-export");
     println!("  applist list|add|remove|check     Manage game & performance target app database");
     println!("  cluster topology|set-freq|lock|unlock|set-gov|set-schedutil-preset");
     println!("  gpu info|set-freq|set-gov|set-boost");
@@ -907,6 +907,10 @@ fn handle_system(args: &[String]) {
             }
             "log-export" | "export-log" => {
                 println!("{}", SystemController::export_diagnostic_zip());
+            }
+            "wakeup-boost" | "wakeup" => {
+                let duration_ms = args.get(3).and_then(|s| s.parse::<u64>().ok()).unwrap_or(2000);
+                println!("{}", SystemController::wakeup_boost(duration_ms));
             }
             other => {
                 log_error!("Subcommand system tidak dikenal: '{}'", "Unknown system subcommand: '{}'", other);

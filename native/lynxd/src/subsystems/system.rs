@@ -271,6 +271,75 @@ impl SystemController {
         String::new()
     }
 
+    /// Triggers an instantaneous, hardware-level Wakeup Boost (1.5 - 2.5s) to eliminate deep sleep wakeup stutter / freeze.
+    pub fn wakeup_boost(duration_ms: u64) -> String {
+        Logger::info(ui(
+            "[WAKEUP-BOOST] Memicu lonjakan CPU sementara untuk menyerap beban bangun tidur (thundering herd)...",
+            "[WAKEUP-BOOST] Triggering transient CPU boost to absorb wakeup thundering herd..."
+        ));
+
+        let dur = if duration_ms == 0 { 2000 } else { duration_ms };
+
+        // 1. Immediately ensure top-app and foreground have access to all cores
+        let (vendor, _) = crate::hardware::detector::ScoreBoard::evaluate();
+        let total_cores = std::fs::read_to_string("/sys/devices/system/cpu/online")
+            .unwrap_or_default()
+            .trim()
+            .split('-')
+            .last()
+            .and_then(|s| s.parse::<usize>().ok())
+            .map(|m| m + 1)
+            .unwrap_or(8);
+
+        let max_core_idx = total_cores.saturating_sub(1);
+        let all_cores_str = format!("0-{}", max_core_idx);
+
+        Self::write_opt("/dev/cpuset/top-app/cpus", &all_cores_str);
+        Self::write_opt("/dev/cpuset/foreground/cpus", &all_cores_str);
+        Self::write_opt("/sys/fs/cgroup/cpuset/top-app/cpus", &all_cores_str);
+        Self::write_opt("/sys/fs/cgroup/cpuset/foreground/cpus", &all_cores_str);
+
+        match vendor {
+            crate::hardware::detector::Vendor::Qualcomm => {
+                // Qualcomm WALT Sched Boost
+                Self::write_opt(crate::hardware::QcomHardware::SCHED_BOOST, "1");
+                // Unpark Big Cores (Core Control: at least 2 big cores active)
+                Self::write_opt(crate::hardware::QcomHardware::CORE_CTL_MIN_CPUS_CPU4, "2");
+                // Touch/Input Boost
+                Self::write_opt(crate::hardware::QcomHardware::CPU_BOOST_INPUT_MS, "120");
+                Self::write_opt(crate::hardware::QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT, "1");
+            }
+            crate::hardware::detector::Vendor::MediaTek => {
+                Self::write_opt("/proc/perfmgr/boost_ta/req_boost", "1");
+                Self::write_opt("/proc/perfmgr/syslimiter/syslimiter_force_disable", "1");
+            }
+            crate::hardware::detector::Vendor::Generic => {}
+        }
+
+        // Spawn background thread to gracefully decay boost back to baseline after duration_ms
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(dur));
+            match vendor {
+                crate::hardware::detector::Vendor::Qualcomm => {
+                    Self::write_opt(crate::hardware::QcomHardware::SCHED_BOOST, "0");
+                    Self::write_opt(crate::hardware::QcomHardware::CORE_CTL_MIN_CPUS_CPU4, "1");
+                    Self::write_opt(crate::hardware::QcomHardware::CPU_BOOST_INPUT_MS, "40");
+                    Self::write_opt(crate::hardware::QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT, "0");
+                }
+                crate::hardware::detector::Vendor::MediaTek => {
+                    Self::write_opt("/proc/perfmgr/boost_ta/req_boost", "0");
+                }
+                crate::hardware::detector::Vendor::Generic => {}
+            }
+            Logger::info(ui(
+                "[WAKEUP-BOOST] Lonjakan bangun tidur selesai, ritme seimbang normal dipulihkan.",
+                "[WAKEUP-BOOST] Wakeup surge completed, restored to normal balanced rhythm."
+            ));
+        });
+
+        format!("Wakeup boost triggered for {}ms (All cpus unparked, sched_boost=1).", dur)
+    }
+
     /// Bundles system diagnostics into a timestamped archive on /sdcard/Lynx/.
     pub fn export_diagnostic_zip() -> String {
         let export_dir = Path::new("/sdcard/Lynx");
