@@ -102,11 +102,29 @@ impl HardwareTranslator {
             } else {
                 let gov_str = profile.cpu.governor.as_str();
                 let picked_gov = if pol.available_governors.iter().any(|g| g == gov_str) {
+                    // Exact governor match: use what the profile requests.
                     gov_str
-                } else {
-                    // Dynamic priority chain: walt -> sugov_ext -> schedutil -> interactive -> first available
+                } else if is_powersave {
+                    // Powersave intent: prefer power-conservative governors before resorting to schedutil.
+                    // NEVER fall back to walt/performance for powersave — it defeats the battery objective.
                     let mut picked = gov_str;
-                    for candidate in &["walt", "sugov_ext", "schedutil", "energy_step", "interactive", "ondemand"] {
+                    for candidate in &["conservative", "powersave", "schedutil", "energy_step", "interactive", "ondemand"] {
+                        if pol.available_governors.iter().any(|g| g == candidate) {
+                            picked = candidate;
+                            break;
+                        }
+                    }
+                    if !pol.available_governors.iter().any(|g| g == picked) {
+                        if let Some(first) = pol.available_governors.first() {
+                            picked = first.as_str();
+                        }
+                    }
+                    picked
+                } else {
+                    // Performance / Balanced intent: prefer EAS-aware responsive governors.
+                    // Dynamic priority chain: walt → sugov_ext → schedutil → energy_step → conservative → interactive → ondemand → first available
+                    let mut picked = gov_str;
+                    for candidate in &["walt", "sugov_ext", "schedutil", "energy_step", "conservative", "interactive", "ondemand"] {
                         if pol.available_governors.iter().any(|g| g == candidate) {
                             picked = candidate;
                             break;

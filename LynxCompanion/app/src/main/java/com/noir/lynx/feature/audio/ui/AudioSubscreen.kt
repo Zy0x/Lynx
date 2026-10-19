@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.controls.LynxSwitch
+import com.noir.lynx.designsystem.controls.SafeSlider as Slider
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.ui.*
 
@@ -179,46 +180,101 @@ fun AudioSubscreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
+                var hpGain by remember(soundCtrl.headphoneGainL) { mutableFloatStateOf(soundCtrl.headphoneGainL.toFloat()) }
+                var spkGain by remember(soundCtrl.speakerGain) { mutableFloatStateOf(soundCtrl.speakerGain.toFloat()) }
+                var isDraggingSound by remember { mutableStateOf(false) }
+                var lastSoundInteraction by remember { mutableLongStateOf(0L) }
+
+                LaunchedEffect(soundCtrl.headphoneGainL, soundCtrl.speakerGain) {
+                    val now = System.currentTimeMillis()
+                    if (!isDraggingSound && (now - lastSoundInteraction > 3500L)) {
+                        hpGain = soundCtrl.headphoneGainL.toFloat()
+                        spkGain = soundCtrl.speakerGain.toFloat()
+                    }
+                }
+
                 // Headphone L/R
-                Text(
-                    "Headphone Gain: ${soundCtrl.headphoneGainL} dB (L) / ${soundCtrl.headphoneGainR} dB (R)",
-                    color = TextPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Headphone Gain (L/R)",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        "${hpGain.toInt()} dB",
+                        color = AccentPurple,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Slider(
-                    value = soundCtrl.headphoneGainL.toFloat(),
+                    value = hpGain,
                     onValueChange = { gain ->
-                        viewModel.setSoundGain(gain.toInt(), gain.toInt(), soundCtrl.speakerGain, soundCtrl.micGain, soundCtrl.highPerfMode)
+                        isDraggingSound = true
+                        lastSoundInteraction = System.currentTimeMillis()
+                        hpGain = gain
+                    },
+                    onValueChangeFinished = {
+                        isDraggingSound = false
+                        lastSoundInteraction = System.currentTimeMillis()
+                        viewModel.setSoundGain(hpGain.toInt(), hpGain.toInt(), spkGain.toInt(), soundCtrl.micGain, soundCtrl.highPerfMode)
                     },
                     valueRange = -20f..20f,
                     steps = 40,
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                Spacer(Modifier.height(4.dp))
+
                 // Speaker Gain
-                Text(
-                    "Speaker Gain: ${soundCtrl.speakerGain} dB",
-                    color = TextPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Speaker Gain",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        "${spkGain.toInt()} dB",
+                        color = AccentPurple,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Slider(
-                    value = soundCtrl.speakerGain.toFloat(),
+                    value = spkGain,
                     onValueChange = { gain ->
-                        viewModel.setSoundGain(soundCtrl.headphoneGainL, soundCtrl.headphoneGainR, gain.toInt(), soundCtrl.micGain, soundCtrl.highPerfMode)
+                        isDraggingSound = true
+                        lastSoundInteraction = System.currentTimeMillis()
+                        spkGain = gain
+                    },
+                    onValueChangeFinished = {
+                        isDraggingSound = false
+                        lastSoundInteraction = System.currentTimeMillis()
+                        viewModel.setSoundGain(hpGain.toInt(), hpGain.toInt(), spkGain.toInt(), soundCtrl.micGain, soundCtrl.highPerfMode)
                     },
                     valueRange = -20f..20f,
                     steps = 40,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                Spacer(Modifier.height(4.dp))
 
                 LynxSwitch(
                     label = "High-Performance DAC Mode",
                     subLabel = "Mengaktifkan class-AB high power mode pada internal codec DAC",
                     checked = soundCtrl.highPerfMode,
                     onCheckedChange = { hp ->
-                        viewModel.setSoundGain(soundCtrl.headphoneGainL, soundCtrl.headphoneGainR, soundCtrl.speakerGain, soundCtrl.micGain, hp)
+                        viewModel.setSoundGain(hpGain.toInt(), hpGain.toInt(), spkGain.toInt(), soundCtrl.micGain, hp)
                     }
                 )
             } else {

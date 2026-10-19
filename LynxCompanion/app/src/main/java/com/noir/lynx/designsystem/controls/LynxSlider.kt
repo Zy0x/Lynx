@@ -68,7 +68,13 @@ fun LynxSlider(
         }
     }
 
-    val activeDisplay = formatDisplay?.invoke(localValue) ?: displayValue
+    val activeDisplay = if (formatDisplay != null) {
+        formatDisplay.invoke(localValue)
+    } else if (isDragging) {
+        formatDynamicDisplay(localValue, displayValue)
+    } else {
+        displayValue
+    }
 
     val effectiveAccent = if (enabled) accentColor else TextSecondary.copy(alpha = 0.5f)
 
@@ -123,3 +129,22 @@ fun LynxSlider(
         )
     }
 }
+
+internal fun formatDynamicDisplay(value: Float, template: String): String {
+    val firstDigitIdx = template.indexOfFirst { it.isDigit() || it == '-' || it == '+' }
+    if (firstDigitIdx == -1) return template
+
+    val prefix = template.substring(0, firstDigitIdx)
+    val afterPrefix = template.substring(firstDigitIdx)
+    val numberEndIdx = afterPrefix.indexOfFirst { !it.isDigit() && it != '.' && it != '-' && it != '+' }
+    val suffix = if (numberEndIdx != -1) afterPrefix.substring(numberEndIdx) else ""
+    val numberPart = if (numberEndIdx != -1) afterPrefix.substring(0, numberEndIdx) else afterPrefix
+
+    return if (numberPart.contains('.')) {
+        val decimals = numberPart.substringAfter('.').length.coerceIn(1, 2)
+        "$prefix${String.format(java.util.Locale.US, "%.${decimals}f", value)}$suffix"
+    } else {
+        "$prefix${kotlin.math.round(value).toInt()}$suffix"
+    }
+}
+

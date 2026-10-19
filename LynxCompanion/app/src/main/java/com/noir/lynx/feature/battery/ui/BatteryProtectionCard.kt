@@ -3,7 +3,9 @@ import com.noir.lynx.ui.*
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
@@ -55,6 +57,7 @@ fun BatteryProtectionCard(
             label = stringResource(R.string.battery_bypass_switch),
             subLabel = stringResource(R.string.battery_bypass_desc),
             checked = state.charging.bypassEnabled,
+            optimistic = false,
             onCheckedChange = { checked ->
                 if (checked) {
                     showBypassWarningDialog = true
@@ -71,6 +74,7 @@ fun BatteryProtectionCard(
             label = stringResource(R.string.battery_smart_charge_limit),
             subLabel = stringResource(R.string.battery_smart_limit_switch_desc),
             checked = state.charging.autoCutEnabled,
+            optimistic = false,
             onCheckedChange = { checked ->
                 if (checked) {
                     showSmartLimitWarningDialog = true
@@ -190,12 +194,19 @@ fun BatteryProtectionCard(
                 )
             },
             text = {
-                Text(
-                    text = stringResource(R.string.battery_smart_limit_dialog_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
-                    lineHeight = 20.sp
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = stringResource(R.string.battery_smart_limit_dialog_desc),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        lineHeight = 20.sp
+                    )
+                }
             },
             confirmButton = {
                 Button(
@@ -233,12 +244,19 @@ fun BatteryProtectionCard(
                 )
             },
             text = {
-                Text(
-                    text = stringResource(R.string.battery_bypass_dialog_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
-                    lineHeight = 20.sp
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = stringResource(R.string.battery_bypass_dialog_desc),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        lineHeight = 20.sp
+                    )
+                }
             },
             confirmButton = {
                 Button(

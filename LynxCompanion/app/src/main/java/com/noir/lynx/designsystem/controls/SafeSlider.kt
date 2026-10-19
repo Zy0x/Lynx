@@ -91,6 +91,7 @@ fun SafeSlider(
                     val session = SliderGestureSession(currentValue, min, max, safeSteps,
                         (size.width - 20.dp.toPx()).coerceAtLeast(1f), viewConfiguration.touchSlop, rtl)
                     var released: Float? = null
+                    var wasDragged = false
                     try {
                         while (true) {
                             val event = awaitPointerEvent(PointerEventPass.Main)
@@ -108,6 +109,8 @@ fun SafeSlider(
                             val delta = pointer.position - down.position
                             if (session.move(delta.x, delta.y)) {
                                 preview = session.preview
+                                wasDragged = true
+                                change(session.preview)
                                 pointer.consume()
                             } else if (session.direction == SliderGestureSession.Direction.Rejected) {
                                 break // Leave vertical/diagonal movement untouched for parent scroll.
@@ -121,6 +124,9 @@ fun SafeSlider(
                         }
                     } finally {
                         preview = null // Also runs on ACTION_CANCEL, lifecycle disposal and key changes.
+                        if (released == null && wasDragged) {
+                            change(session.startValue)
+                        }
                     }
                     released?.let { next -> change(next); finished?.invoke() }
                 }

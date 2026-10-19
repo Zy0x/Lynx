@@ -229,11 +229,19 @@ fun LynxTweakSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(stringResource(R.string.manual_precision_tuning), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                Text(
-                    text = "${config.formatDisplay(config.valueRange.start)} — ${config.formatDisplay(config.valueRange.endInclusive)}",
-                    fontSize = 9.5.sp,
-                    color = TextTertiary
-                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        text = config.formatDisplay(sliderValue),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentCyan,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
             }
             Spacer(Modifier.height(4.dp))
 

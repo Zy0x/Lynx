@@ -52,8 +52,9 @@ fun LynxSwitch(
     subLabel: String? = null,
     enabled: Boolean = true,
     onInfoClick: (() -> Unit)? = null,
+    optimistic: Boolean = true,
 ) {
-    var localChecked by remember { mutableStateOf(checked) }
+    var localChecked by remember(checked) { mutableStateOf(checked) }
     var lastInteractionTime by remember { mutableLongStateOf(0L) }
     var lastClickTime by remember { mutableLongStateOf(0L) }
 
@@ -62,10 +63,22 @@ fun LynxSwitch(
         val now = System.currentTimeMillis()
         if (checked == localChecked) {
             lastInteractionTime = 0L
-        } else if (now - lastInteractionTime > 300L) {
+        } else if (!optimistic || (now - lastInteractionTime > 300L)) {
             localChecked = checked
         }
     }
+
+    // Safety fallback: if optimistic toggle hasn't been confirmed by caller within 2s, resync with caller
+    if (optimistic) {
+        LaunchedEffect(localChecked) {
+            if (localChecked != checked) {
+                delay(2000L)
+                localChecked = checked
+            }
+        }
+    }
+
+    val displayChecked = if (optimistic) localChecked else checked
 
     Row(
         modifier = modifier
@@ -76,11 +89,13 @@ fun LynxSwitch(
                     onInfoClick()
                 } else {
                     val now = System.currentTimeMillis()
-                    if (now - lastClickTime >= 50L) {
+                    if (now - lastClickTime >= 150L) {
                         lastClickTime = now
                         lastInteractionTime = now
-                        val next = !localChecked
-                        localChecked = next
+                        val next = !displayChecked
+                        if (optimistic) {
+                            localChecked = next
+                        }
                         onCheckedChange(next)
                     }
                 }
@@ -122,13 +137,15 @@ fun LynxSwitch(
             }
         }
         Switch(
-            checked = localChecked,
+            checked = displayChecked,
             onCheckedChange = { newChecked ->
                 val now = System.currentTimeMillis()
-                if (now - lastClickTime >= 50L) {
+                if (now - lastClickTime >= 150L) {
                     lastClickTime = now
                     lastInteractionTime = now
-                    localChecked = newChecked
+                    if (optimistic) {
+                        localChecked = newChecked
+                    }
                     onCheckedChange(newChecked)
                 }
             },

@@ -1,3 +1,43 @@
+# Lynx Universal [Controlled Switch Interception & Comprehensive Hardware Guidance] 7.0.0-RC113
+Released on: 2026-10-19
+> **Lynx Universal v7.0.0-RC113** (Lynx Kernel Manager v3.1.59): **Pemberantasan Tuntas Bug Prematur Switch Toggle ("Switch Langsung Aktif Padahal Belum Dikonfirmasi"); Implementasi Mode `optimistic = false` pada `LynxSwitch` untuk Sakelar Berdialog Konfirmasi; Desain Dialog Panduan Komprehensif Perbedaan Arsitektur Hardware Pengisian Daya (Dual-Path PMIC vs Single-Path PMIC); Rekomendasi Solusi Flapping Mati-Nyala saat Ponsel Aktif Digunakan (AutoCut 100% Layar Mati & Cool Charging Mode untuk Gaming); serta Scrollable Dialog Box untuk Tampilan Multi-Perangkat Bebas Overflow**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC113)
+
+### 1. 🛡️ Eliminasi Total Bug Prematur Switch Toggle (`optimistic = false` Latch)
+- **Akar Masalah**:
+  Pada komponen `LynxSwitch`, saat baris atau sakelar ditekan, status internal `localChecked` langsung diubah secara optimis menjadi `true` (`localChecked = next`) sebelum callback `onCheckedChange` memunculkan dialog konfirmasi. Akibatnya, sakelar di belakang dialog sudah terlihat menyala hijau (ON) meskipun pengguna belum menekan tombol "Pahami & Aktifkan". Jika pengguna membatalkan dialog, sakelar tetap terlihat aktif.
+- **Solusi**:
+  - Memperkenalkan parameter `optimistic: Boolean = true` pada komponen `LynxSwitch`.
+  - Pada sakelar yang mewajibkan konfirmasi pengguna terlebih dahulu (`Motherboard Bypass` dan `Batas Pengisian Cerdas`), parameter diatur ke `optimistic = false`.
+  - Pada mode terkontrol (`optimistic = false`), sakelar murni mencerminkan status `checked` dari ViewModel/State dan **TIDAK PERNAH** membalik statusnya secara optimis sebelum dialog dikonfirmasi oleh pengguna.
+  - Jika pengguna menekan "Batal" atau menyentuh luar dialog, sakelar tetap berada dalam kondisi **OFF** tanpa efek samping.
+
+### 2. ⚡ Penyesuaian Dialog Edukasi & Rekomendasi Kompatibilitas Hardware
+- **Analisis Hardware**:
+  - **Perangkat Dual-Path (Dedicated Bypass IC)**: (ROG Phone, Infinix Bypass, Black Shark, Sony) memiliki saklar hardware terpisah yang mengalirkan arus adaptor langsung ke motherboard tanpa melewati sel baterai (0 mA, baterai tidak terkuras sama sekali).
+  - **Perangkat Single-Path (Redmi Note 7, Xiaomi/POCO standar, & mayoritas ponsel)**: Jalur charger dan beban sistem menyatu pada satu PMIC tanpa saklar fisik bypass.
+  - **Celah Flapping saat Ponsel Aktif**: Pada perangkat Single-Path, jika batas pengisian diatur di bawah 100% (misal 80%) saat ponsel aktif dipakai (layar menyala/game), beban konsumsi mesin (350–700mA) melebihi arus input yang dibatasi. Sel baterai tetap tekor tersedot, persentase baterai turun, lalu charger aktif kembali (siklus histeresis mati-nyala berulang).
+- **Panduan & Rekomendasi Resmi**:
+  - Dialog peringatan diperbarui secara detail dalam bahasa Indonesia dan Inggris.
+  - Untuk cas semalaman/saat tidur: Disarankan menggunakan batas **100% (AutoCut)** agar pemutusan arus terjadi secara alami dan aman saat kondisi layar mati (standby) tanpa flapping.
+  - Untuk bermain game sambil cas: Disarankan beralih ke **Mode Dingin (~1200–1500mA)** pada tab Mode Pengisian Cepat agar suhu perangkat terjaga adem tanpa membuat baterai tekor.
+
+### 3. 📱 Pengalaman Pengguna Responsif & Anti-Overflow
+- Menambahkan kontainer `Box` dengan `Modifier.verticalScroll(rememberScrollState())` pada isi dialog `AlertDialog` di `BatteryProtectionCard`.
+- Memastikan teks panduan lengkap dapat dibaca dan digulir dengan nyaman di berbagai rasio layar, resolusi non-reguler, mode portrait, maupun landscape sesuai standar Rule 1.
+
+### 4. 🎚️ Real-Time Continuous Value & Step Tracking pada Seluruh Slider Aplikasi
+- **Akar Masalah**:
+  Komponen `SafeSlider` (yang menaungi seluruh slider kustom maupun Material di dalam Lynx Companion) sebelumnya menahan pemanggilan `onValueChange` selama gestur *drag* berlangsung dan hanya memanggilnya satu kali saat jari dilepas (`released`). Akibatnya, seluruh slider di seluruh aplikasi (ZRAM, Swappiness, VM Dirty Ratio, VFS Cache Pressure, KSM, Read-Ahead Buffer, Uclamp Boost, Color Temp, Saturation, Contrast, RGB Gains, KCAL Saturation, Sound Gain, Deep Tunables, Voltage Offset, hingga Manual Precision Slider pada TweakSheet) tampak bergerak namun angka/parameter pada teks dan badge tidak pernah berubah selama digeser, sehingga pengguna tidak mengetahui nilai dan step yang sedang dituju sebelum mengangkat jari.
+- **Solusi**:
+  1. **Continuous Real-Time Dispatch pada `SafeSlider`**: Memanggil `change(session.preview)` secara kontinu pada setiap pergerakan pointer horizontal, dan menambahkan rollback otomatis ke `session.startValue` jika gestur terputus/dibatalkan sebelum rilis.
+  2. **Perbaikan Release Logic pada `SliderGestureSession`**: Memastikan `releasedValue()` mengembalikan nilai pratinjau saat arah gestur horizontal tanpa mensyaratkan `it != startValue`, sehingga rilis kembali pada nilai awal tetap memicu `onValueChangeFinished`.
+  3. **Zero-Delay Dynamic Display Formatter pada `LynxSlider`**: Mengintegrasikan `formatDynamicDisplay(localValue, displayValue)` yang mengekstrak unit dan format teks (`MB`, `%`, `s`, `pages`, `KB`, dsb.) secara sinkron pada frame yang sama saat `isDragging`, menjamin badge nilai bergerak seketika mengikuti ibu jari pengguna tanpa lag.
+  4. **Live Badge & Reactive State pada Seluruh Subscreen**: Menambahkan badge nilai dinamis langsung di atas slider manual `LynxTweakSheet`, serta menyempurnakan `AudioSubscreen` dengan *local state* reaktif dan pemisahan eksekusi root hardware hanya pada `onValueChangeFinished`.
+
+---
+
 # Lynx Universal [Zero-Bouncing Switch Latch & Instant Profile Script Acceleration] 7.0.0-RC112
 Released on: 2026-10-19
 > **Lynx Universal v7.0.0-RC112** (Lynx Kernel Manager v3.1.58): **Pemberantasan Tuntas Bug Bouncing Switch ("Tombol yang Dinonaktifkan Balik Menjadi Aktif Sesaat"); Implementasi Sistem Pengunci Niat Pengguna (`activeSettingIntents`) Anti-Stale-Read eMMC pada Seluruh Pengaturan LynxState; Eliminasi Timer Revert Prematur 650ms pada `LynxSwitch`; Akselerasi Super Cepat Deteksi Aplikasi Foreground Android 8–15 via FocusedApp Window (<25ms); Penghapusan Total Pemblokiran Mutex AMS Global saat Membuka Aplikasi dengan Telemetri Baterai Asinkron; serta Batch Atomic Update `lynxd state set` (1 Kali Eksekusi vs 8 Kali Tulis Sinkron)**.

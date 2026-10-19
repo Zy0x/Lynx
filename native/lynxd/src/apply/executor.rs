@@ -212,18 +212,28 @@ impl ProfileExecutor {
             "extreme" => {
                 crate::subsystems::thermal::ThermalController::set_mode("extreme");
                 crate::subsystems::cpuset::CpusetController::apply_preset("gaming");
+                // Extreme: disable deep C-states (states 2–9) for zero-latency gaming
+                crate::subsystems::cpuidle::CpuIdleController::apply_preset("gaming");
             }
             "performance" => {
                 crate::subsystems::thermal::ThermalController::set_mode("gaming");
                 crate::subsystems::cpuset::CpusetController::apply_preset("gaming");
+                // Performance: keep deep C-states active so CPU idles properly between
+                // frames and during game loading — critical for thermal limit compliance.
+                // The governor (WALT/schedutil) + Anti-Heat Shield handles responsiveness.
+                crate::subsystems::cpuidle::CpuIdleController::apply_preset("balanced");
             }
             "powersave" => {
                 crate::subsystems::thermal::ThermalController::set_mode("conservative");
                 crate::subsystems::cpuset::CpusetController::apply_preset("battery");
+                // Powersave: all C-states enabled, deepest possible sleep
+                crate::subsystems::cpuidle::CpuIdleController::apply_preset("battery");
             }
             _ => {
+                // Balance (default): full C-states, all cores available
                 crate::subsystems::thermal::ThermalController::set_mode("balanced");
                 crate::subsystems::cpuset::CpusetController::apply_preset("balanced");
+                crate::subsystems::cpuidle::CpuIdleController::apply_preset("balanced");
             }
         }
 

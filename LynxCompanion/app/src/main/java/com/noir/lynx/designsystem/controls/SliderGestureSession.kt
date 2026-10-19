@@ -5,7 +5,7 @@ import kotlin.math.round
 
 /** One pointer owns one gesture. No caller/hardware changes until a valid release. */
 internal class SliderGestureSession(
-    private val startValue: Float,
+    val startValue: Float,
     private val min: Float,
     private val max: Float,
     private val steps: Int,
@@ -38,7 +38,7 @@ internal class SliderGestureSession(
     fun cancel() { direction = Direction.Rejected; preview = startValue }
 
     fun releasedValue(): Float? =
-        preview.takeIf { direction == Direction.Horizontal && it != startValue }
+        preview.takeIf { direction == Direction.Horizontal }
 }
 
 internal fun snapSliderValue(value: Float, min: Float, max: Float, steps: Int): Float {
