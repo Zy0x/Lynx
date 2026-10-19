@@ -452,7 +452,7 @@ impl HardwareTranslator {
                     "extreme" => "120",
                     "performance" => "80",
                     "powersave" => "0",
-                    _ => "40",
+                    _ => "60",
                 };
                 let target_sched_boost_input = if is_perf_or_ext || profile.cpu.boost { "1" } else { "0" };
 
@@ -742,28 +742,36 @@ impl HardwareTranslator {
             );
         }
 
-        // Dynamic RAM-proportional VM parameters
+        // Dynamic RAM-proportional VM parameters (Anti-ZRAM Thrashing on 3GB-4GB RAM devices)
         let ram_mb = cap.memory.total_ram_mb;
         let (swappiness, vfs_pressure) = if is_extreme {
             ("30", "50")
         } else if is_perf_or_ext {
             if ram_mb <= 4500 {
-                ("100", "80")
+                ("60", "100")
             } else if ram_mb <= 6500 {
-                ("85", "70")
+                ("60", "80")
             } else {
-                ("60", "50")
+                ("50", "50")
             }
         } else if is_powersave {
-            ("100", "100")
+            ("80", "120")
         } else if ram_mb <= 4500 {
-            ("90", "100")
+            // Balance on <= 4GB RAM: prevent kswapd0 from thrashing anonymous app heaps into ZRAM;
+            // reclaim stale VFS/dentry/inode file caches first so WhatsApp/UI stay resident in RAM.
+            ("60", "120")
         } else {
-            ("75", "85")
+            ("60", "90")
         };
 
         Self::push_op(&mut ops, "Memory", "VM swappiness (RAM-proportional)", "/proc/sys/vm/swappiness", swappiness, false);
         Self::push_op(&mut ops, "Memory", "VM vfs_cache_pressure", "/proc/sys/vm/vfs_cache_pressure", vfs_pressure, false);
+
+        // Prevent massive 45MB+ dirty writeback waves from choking half-duplex eMMC 5.1 & blk_crypto_wq
+        let (dirty_bg, dirty_fg) = if is_perf_or_ext { ("5", "15") } else { ("5", "12") };
+        Self::push_op(&mut ops, "Memory", "VM dirty_background_ratio (smooth writeback)", "/proc/sys/vm/dirty_background_ratio", dirty_bg, false);
+        Self::push_op(&mut ops, "Memory", "VM dirty_ratio ceiling", "/proc/sys/vm/dirty_ratio", dirty_fg, false);
+        Self::push_op(&mut ops, "Memory", "VM watermark_scale_factor (anti-kswapd storm)", "/proc/sys/vm/watermark_scale_factor", "15", false);
 
         // Universal ZRAM Latency Eliminator (page-cluster = 0 reads 1 page instead of 8, cutting swap latency)
         Self::push_op(&mut ops, "Memory", "ZRAM single-page read latency fix (page-cluster 0)", "/proc/sys/vm/page-cluster", "0", false);
@@ -772,32 +780,75 @@ impl HardwareTranslator {
         let ksm_run = if is_perf_or_ext { "0" } else { "1" };
         Self::push_op(&mut ops, "Memory", "KSM background memory scanning control", "/sys/kernel/mm/ksm/run", ksm_run, false);
 
-        // Global writeback and filesystem durability remain under the OEM policy.
+        // ── 5. EAS Schedtune, CFS CPU Shares & Media-Aware Storage Policy ───
 
-        // ── 5. Media-aware Storage Policy (Shared Across All Profiles) ─────
-
+        // A. EAS Schedtune (/dev/stune) for 4.9 / 4.14 / 4.19 Kernels (e.g., SDM660)
         let stune_top = Path::new("/dev/stune/top-app");
         if stune_top.is_dir() {
-            let (s_boost, s_min) = if is_perf_or_ext { ("50", "30") } else { ("0", "0") };
+            let (s_boost, s_min, s_idle, s_high_cap) = match profile.name {
+                "extreme" => ("50", "30", "1", "1"),
+                "performance" => ("35", "25", "1", "1"),
+                "powersave" => ("0", "0", "0", "0"),
+                _ => ("15", "10", "1", "0"), // Balance: 15% EAS margin for snappy UI & app launch
+            };
             Self::push_op(&mut ops, "Scheduler", "Schedtune top-app boost", stune_top.join("schedtune.boost"), s_boost, false);
             Self::push_op(&mut ops, "Scheduler", "Schedtune top-app util min", stune_top.join("schedtune.util.min"), s_min, false);
+            Self::push_op(&mut ops, "Scheduler", "Schedtune top-app prefer_idle", stune_top.join("schedtune.prefer_idle"), s_idle, false);
+            Self::push_op(&mut ops, "Scheduler", "Schedtune top-app prefer_high_cap", stune_top.join("schedtune.prefer_high_cap"), s_high_cap, false);
         }
 
-        let (ra_kb, sched, read_exp, writes_starv) = match profile.name {
-            "extreme" => ("2048", "deadline", "100", "4"),
-            "performance" => ("1024", "deadline", "100", "4"),
-            "powersave" => ("256", "deadline", "500", "2"),
-            _ => ("512", "deadline", "250", "3"), // Balance: responsive & smooth 512KB for daily use
+        let stune_fg = Path::new("/dev/stune/foreground");
+        if stune_fg.is_dir() {
+            let (fg_boost, fg_idle) = match profile.name {
+                "extreme" | "performance" => ("15", "1"),
+                "powersave" => ("0", "0"),
+                _ => ("5", "1"),
+            };
+            Self::push_op(&mut ops, "Scheduler", "Schedtune foreground boost", stune_fg.join("schedtune.boost"), fg_boost, false);
+            Self::push_op(&mut ops, "Scheduler", "Schedtune foreground prefer_idle", stune_fg.join("schedtune.prefer_idle"), fg_idle, false);
+        }
+
+        let stune_bg = Path::new("/dev/stune/background");
+        if stune_bg.is_dir() {
+            Self::push_op(&mut ops, "Scheduler", "Schedtune background boost clamp", stune_bg.join("schedtune.boost"), "0", false);
+            Self::push_op(&mut ops, "Scheduler", "Schedtune background prefer_idle clamp", stune_bg.join("schedtune.prefer_idle"), "0", false);
+            Self::push_op(&mut ops, "Scheduler", "Schedtune background prefer_high_cap clamp", stune_bg.join("schedtune.prefer_high_cap"), "0", false);
+        }
+
+        // B. CFS CPU Controller Shares (/dev/cpuctl) — Prevent background apps from starving top-app
+        let cpuctl = Path::new("/dev/cpuctl");
+        if cpuctl.is_dir() {
+            let top_shares = if is_perf_or_ext { "4096" } else if is_powersave { "1024" } else { "2048" };
+            let bg_shares = if is_perf_or_ext { "64" } else { "128" };
+            Self::push_op(&mut ops, "Scheduler", "CFS top-app cpu.shares priority", cpuctl.join("top-app/cpu.shares"), top_shares, false);
+            Self::push_op(&mut ops, "Scheduler", "CFS foreground cpu.shares priority", cpuctl.join("foreground/cpu.shares"), "1024", false);
+            Self::push_op(&mut ops, "Scheduler", "CFS system cpu.shares priority", cpuctl.join("system/cpu.shares"), "1024", false);
+            Self::push_op(&mut ops, "Scheduler", "CFS system-background cpu.shares clamp", cpuctl.join("system-background/cpu.shares"), "256", false);
+            Self::push_op(&mut ops, "Scheduler", "CFS background cpu.shares clamp", cpuctl.join("background/cpu.shares"), bg_shares, false);
+            Self::push_op(&mut ops, "Scheduler", "CFS dex2oat cpu.shares clamp", cpuctl.join("dex2oat/cpu.shares"), "128", false);
+        }
+
+        // C. Media-Aware Block Queue & Read-Ahead Tuning (UFS vs eMMC 5.1)
+        let (ufs_ra_kb, emmc_ra_kb, sched, read_exp, writes_starv, emmc_nr_req) = match profile.name {
+            "extreme" => ("2048", "512", "deadline", "64", "6", "128"),
+            "performance" => ("1024", "256", "deadline", "80", "6", "128"),
+            "powersave" => ("256", "128", "deadline", "350", "2", "64"),
+            _ => ("512", "128", "deadline", "125", "4", "64"), // Balance: 128KB on eMMC eliminates blk_crypto_wq & random I/O choke
         };
 
         for block_name in &["sda", "sdb", "sdc", "mmcblk0", "mmcblk1"] {
             let dev_dir = format!("/sys/block/{}", block_name);
             let q_dir = format!("{}/queue", dev_dir);
             if Path::new(&q_dir).is_dir() {
-                Self::push_op(&mut ops, "Storage", format!("Block {} {}KB read-ahead", block_name, ra_kb), PathBuf::from(format!("{}/read_ahead_kb", q_dir)), ra_kb, false);
+                let is_mmc = block_name.starts_with("mmcblk");
+                let target_ra = if is_mmc { emmc_ra_kb } else { ufs_ra_kb };
+                Self::push_op(&mut ops, "Storage", format!("Block {} {}KB read-ahead", block_name, target_ra), PathBuf::from(format!("{}/read_ahead_kb", q_dir)), target_ra, false);
                 Self::push_op(&mut ops, "Storage", format!("Block {} {} scheduler", block_name, sched), PathBuf::from(format!("{}/scheduler", q_dir)), sched, false);
                 Self::push_op(&mut ops, "Storage", format!("Block {} rq_affinity (CPU cache affinity)", block_name), PathBuf::from(format!("{}/rq_affinity", q_dir)), "2", false);
                 Self::push_op(&mut ops, "Storage", format!("Block {} disable random entropy overhead", block_name), PathBuf::from(format!("{}/add_random", q_dir)), "0", false);
+                if is_mmc {
+                    Self::push_op(&mut ops, "Storage", format!("Block {} eMMC anti-bufferbloat nr_requests", block_name), PathBuf::from(format!("{}/nr_requests", q_dir)), emmc_nr_req, false);
+                }
                 if is_extreme {
                     Self::push_op(&mut ops, "Storage", format!("Block {} disable iostats overhead", block_name), PathBuf::from(format!("{}/iostats", q_dir)), "0", false);
                 }

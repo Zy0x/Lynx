@@ -299,6 +299,29 @@ impl SystemController {
         Self::write_opt("/sys/fs/cgroup/cpuset/top-app/cpus", &all_cores_str);
         Self::write_opt("/sys/fs/cgroup/cpuset/foreground/cpus", &all_cores_str);
 
+        // 2. Universal EAS Schedtune & CFS CPU Shares Surge (for 4.9/4.14/4.19 EAS kernels like SDM660)
+        Self::write_opt("/dev/stune/top-app/schedtune.boost", "50");
+        Self::write_opt("/dev/stune/top-app/schedtune.prefer_idle", "1");
+        Self::write_opt("/dev/stune/top-app/schedtune.prefer_high_cap", "1");
+        Self::write_opt("/dev/cpuctl/top-app/cpu.shares", "4096");
+        Self::write_opt("/dev/cpuctl/background/cpu.shares", "128");
+        Self::write_opt("/dev/cpuctl/system-background/cpu.shares", "256");
+        Self::write_opt("/sys/devices/system/cpu/cpufreq/policy0/schedutil/up_rate_limit_us", "0");
+        Self::write_opt("/sys/devices/system/cpu/cpufreq/policy4/schedutil/up_rate_limit_us", "0");
+
+        // 3. Low-RAM Emergency Relief: if MemFree < 80 MB, drop clean pagecache (1) so kswapd0 doesn't stall wakeup/launch
+        if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
+            let mem_free_kb = meminfo
+                .lines()
+                .find(|l| l.starts_with("MemFree:"))
+                .and_then(|l| l.split_whitespace().nth(1))
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(500_000);
+            if mem_free_kb < 80_000 {
+                Self::write_opt("/proc/sys/vm/drop_caches", "1");
+            }
+        }
+
         match vendor {
             crate::hardware::detector::Vendor::Qualcomm => {
                 // Qualcomm WALT Sched Boost
@@ -319,11 +342,16 @@ impl SystemController {
         // Spawn background thread to gracefully decay boost back to baseline after duration_ms
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(dur));
+            Self::write_opt("/dev/stune/top-app/schedtune.boost", "15");
+            Self::write_opt("/dev/stune/top-app/schedtune.prefer_high_cap", "0");
+            Self::write_opt("/dev/cpuctl/top-app/cpu.shares", "2048");
+            Self::write_opt("/sys/devices/system/cpu/cpufreq/policy0/schedutil/up_rate_limit_us", "500");
+            Self::write_opt("/sys/devices/system/cpu/cpufreq/policy4/schedutil/up_rate_limit_us", "500");
             match vendor {
                 crate::hardware::detector::Vendor::Qualcomm => {
                     Self::write_opt(crate::hardware::QcomHardware::SCHED_BOOST, "0");
                     Self::write_opt(crate::hardware::QcomHardware::CORE_CTL_MIN_CPUS_CPU4, "1");
-                    Self::write_opt(crate::hardware::QcomHardware::CPU_BOOST_INPUT_MS, "40");
+                    Self::write_opt(crate::hardware::QcomHardware::CPU_BOOST_INPUT_MS, "60");
                     Self::write_opt(crate::hardware::QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT, "0");
                 }
                 crate::hardware::detector::Vendor::MediaTek => {
@@ -337,7 +365,7 @@ impl SystemController {
             ));
         });
 
-        format!("Wakeup boost triggered for {}ms (All cpus unparked, sched_boost=1).", dur)
+        format!("Wakeup boost triggered for {}ms (All cpus unparked, schedtune.boost=50, sched_boost=1).", dur)
     }
 
     /// Bundles system diagnostics into a timestamped archive on /sdcard/Lynx/.

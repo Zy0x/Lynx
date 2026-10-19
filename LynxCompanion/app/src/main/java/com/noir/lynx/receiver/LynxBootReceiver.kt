@@ -20,15 +20,27 @@ class LynxBootReceiver : BroadcastReceiver() {
 
         if (action == Intent.ACTION_BOOT_COMPLETED ||
             action == Intent.ACTION_LOCKED_BOOT_COMPLETED ||
+            action == Intent.ACTION_MY_PACKAGE_REPLACED ||
             action == "android.intent.action.QUICKBOOT_POWERON"
         ) {
-            Log.i("LynxBootReceiver", "Boot broadcast received: $action")
+            Log.i("LynxBootReceiver", "System/Package broadcast received: $action")
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    LynxRepository.ensureDaemonRunning()
                     val baseline = LynxRepository.readBaselineProfile()
-                    Log.i("LynxBootReceiver", "Restoring baseline profile on boot: $baseline")
+                    Log.i("LynxBootReceiver", "Restoring baseline profile on boot/update: $baseline")
                     LynxRepository.setProfile(baseline, "boot")
+
+                    // Low-RAM Anti-Lag Relief: if MemFree < 150 MB, trim cached background bloat & clean pagecache
+                    Shell.cmd("""
+                        mem_free=${'$'}(awk '/^MemFree:/ {print ${'$'}2}' /proc/meminfo 2>/dev/null)
+                        if [ -n "${'$'}mem_free" ] && [ "${'$'}mem_free" -lt 150000 ] 2>/dev/null; then
+                            sync
+                            echo 1 > /proc/sys/vm/drop_caches 2>/dev/null
+                            am kill-all >/dev/null 2>&1
+                        fi
+                    """.trimIndent()).exec()
 
                     // Restore custom kernel scheduler / HMP / EAS settings if apply_on_boot is enabled
                     LynxRepository.applySavedSchedulerConfig(context)

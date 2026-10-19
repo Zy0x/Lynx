@@ -172,6 +172,8 @@ object LynxRepository {
                 kill -9 12492 2>/dev/null
                 killall -CONT thermal-engine thermal-engine-v2 2>/dev/null
                 if [ -f /data/local/tmp/lynxd_new ]; then
+                    pkill -9 -f "lynxd daemon" 2>/dev/null
+                    rm -f /data/local/tmp/lynxd /data/adb/modules/Lynx/system/bin/lynxd 2>/dev/null
                     cp -af /data/local/tmp/lynxd_new /data/local/tmp/lynxd 2>/dev/null
                     cp -af /data/local/tmp/lynxd_new /data/adb/modules/Lynx/system/bin/lynxd 2>/dev/null
                     chmod 755 /data/local/tmp/lynxd /data/adb/modules/Lynx/system/bin/lynxd 2>/dev/null
@@ -344,12 +346,16 @@ object LynxRepository {
         return "/data/local/tmp/lynxd"
     }
 
+    @Volatile
+    private var lynxdBinarySyncedThisSession: Boolean = false
+
     suspend fun ensureDaemonRunning(): Boolean = withContext(Dispatchers.IO) {
         if (!isRootAvailable()) return@withContext false
         val path = getLynxdPath()
         val exists = Shell.cmd("[ -f '$path' ] && [ -x '$path' ] && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
-        if (!exists) {
-            // Extract embedded lynxd from assets to /data/local/tmp/lynxd and module dir
+        if (!exists || !lynxdBinarySyncedThisSession) {
+            lynxdBinarySyncedThisSession = true
+            // Extract embedded lynxd from assets and replace installed binary if updated
             try {
                 val ctx = appContext ?: com.noir.lynx.LynxApp.instance
                 ctx.assets.open("bin/lynxd").use { input ->
@@ -358,10 +364,15 @@ object LynxRepository {
                     tmpAppFile.setReadable(true, false)
                     tmpAppFile.setExecutable(true, false)
                     Shell.cmd("""
-                        cp '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd && chmod 755 /data/local/tmp/lynxd && chcon u:object_r:system_file:s0 /data/local/tmp/lynxd 2>/dev/null
-                        if [ -d "$MODULE_DIR" ]; then
-                            mkdir -p "$MODULE_DIR/system/bin" 2>/dev/null
-                            cp '${tmpAppFile.absolutePath}' "$MODULE_DIR/system/bin/lynxd" && chmod 755 "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
+                        if ! cmp -s '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd 2>/dev/null || ( [ -d "$MODULE_DIR" ] && ! cmp -s '${tmpAppFile.absolutePath}' "$MODULE_DIR/system/bin/lynxd" 2>/dev/null ); then
+                            pkill -9 -f "lynxd daemon" 2>/dev/null
+                            rm -f /data/local/tmp/lynxd 2>/dev/null
+                            cp '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd && chmod 755 /data/local/tmp/lynxd && chcon u:object_r:system_file:s0 /data/local/tmp/lynxd 2>/dev/null
+                            if [ -d "$MODULE_DIR" ]; then
+                                mkdir -p "$MODULE_DIR/system/bin" 2>/dev/null
+                                rm -f "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
+                                cp '${tmpAppFile.absolutePath}' "$MODULE_DIR/system/bin/lynxd" && chmod 755 "$MODULE_DIR/system/bin/lynxd" && chcon u:object_r:system_file:s0 "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
+                            fi
                         fi
                     """.trimIndent()).exec()
                     tmpAppFile.delete()
