@@ -371,6 +371,9 @@ fun ThermalSubscreen(
             }
         }
 
+        // ── 4.5 Studio Konfigurasi Thermal Vendor (Magic Mount) ──
+        VendorThermalStudioCard()
+
         // ── 5. Quick thermal profiles ──────────────────────────
         LynxCard(
             title = "Preset Termal Cepat",

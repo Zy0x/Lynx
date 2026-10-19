@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -64,7 +65,7 @@ fun ProfilesCategoryTabRow(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(48.dp),
+            .height(52.dp),
         shape = RoundedCornerShape(14.dp),
         color = BgElevated,
         border = BorderStroke(0.8.dp, BorderSubtle)
@@ -96,13 +97,13 @@ fun ProfilesCategoryTabRow(
                             imageVector = icon,
                             contentDescription = title,
                             tint = if (isSelected) tabAccent else TextSecondary,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
                             text = title,
                             color = if (isSelected) TextPrimary else TextSecondary,
-                            fontSize = 12.sp,
+                            fontSize = 12.5.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     }
@@ -125,7 +126,7 @@ fun ProfilesFeedbackBottomSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF0E1118),
+        containerColor = BgElevated,
         scrimColor = Color.Black.copy(alpha = 0.72f),
         shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
         dragHandle = {
@@ -136,7 +137,7 @@ fun ProfilesFeedbackBottomSheet(
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
-                    color = Color(0xFF2A2E38),
+                    color = BorderGlass,
                     shape = RoundedCornerShape(3.dp),
                     modifier = Modifier.size(width = 36.dp, height = 3.dp)
                 ) {}
@@ -205,10 +206,10 @@ fun ProfilesFeedbackBottomSheet(
                             viewModel.triggerModeFeedback("balance", "Seimbang", 0xFF00A3FFL)
                         },
                         shape = RoundedCornerShape(11.dp),
-                        color = if (isSelected) AccentCyan.copy(alpha = 0.09f) else Color(0xFF141820),
+                        color = if (isSelected) AccentCyan.copy(alpha = 0.09f) else BgElevated,
                         border = BorderStroke(
                             if (isSelected) 1.dp else 0.6.dp,
-                            if (isSelected) AccentCyan.copy(alpha = 0.7f) else Color(0xFF252830)
+                            if (isSelected) AccentCyan.copy(alpha = 0.7f) else BorderSubtle
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -279,7 +280,7 @@ fun ProfilesFeedbackBottomSheet(
                                     Surface(
                                         shape = CircleShape,
                                         color = Color.Transparent,
-                                        border = BorderStroke(1.dp, Color(0xFF3A3E4A)),
+                                        border = BorderStroke(1.dp, BorderGlass),
                                         modifier = Modifier.size(18.dp)
                                     ) {}
                                 }
@@ -291,7 +292,7 @@ fun ProfilesFeedbackBottomSheet(
 
             // ── Divider ───────────────────────────────────────────────────────────────
             HorizontalDivider(
-                color = Color(0xFF1E222C),
+                color = BorderSubtle,
                 thickness = 0.7.dp,
                 modifier = Modifier.padding(vertical = 14.dp)
             )
@@ -323,9 +324,9 @@ fun ProfilesFeedbackBottomSheet(
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = BgDeepOled,
                         checkedTrackColor = AccentCyan,
-                        uncheckedThumbColor = Color(0xFF4A4E5A),
-                        uncheckedTrackColor = Color(0xFF141820),
-                        uncheckedBorderColor = Color(0xFF252830)
+                        uncheckedThumbColor = TextSecondary,
+                        uncheckedTrackColor = BgElevated,
+                        uncheckedBorderColor = BorderSubtle
                     )
                 )
             }
@@ -345,7 +346,7 @@ fun ProfilesFeedbackBottomSheet(
                     viewModel.triggerModeFeedback(randomSample.first, randomSample.second, randomSample.third)
                 },
                 shape = RoundedCornerShape(10.dp),
-                color = Color(0xFF141820),
+                color = BgElevated,
                 border = BorderStroke(0.7.dp, AccentCyan.copy(alpha = 0.35f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -406,7 +407,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
             item(key = "tab0_hero_active_card") {
                 val activeProfileId = state.activeProfile
                 val activeColor = when (activeProfileId.lowercase()) {
-                    "powersave" -> Color(0xFF00E676)
+                    "powersave" -> AccentGreen
                     "balance" -> AccentBlue
                     "performance" -> AccentOrange
                     "extreme" -> AccentRed
@@ -472,8 +473,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                         color = activeColor,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.ExtraBold,
-                                        letterSpacing = 0.8.sp,
-                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                        letterSpacing = 0.8.sp
                                     )
                                 }
 
@@ -498,8 +498,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                                     text = "OTOMASI AKTIF",
                                                     color = AccentGreen,
                                                     fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                    fontWeight = FontWeight.Bold
                                                 )
                                             }
                                         }
@@ -518,8 +517,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                                 color = AccentOrange,
                                                 fontSize = 9.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                                             )
                                         }
                                     }
@@ -537,7 +535,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                     shape = RoundedCornerShape(14.dp),
                                     color = activeColor.copy(alpha = 0.14f),
                                     border = BorderStroke(1.dp, activeColor.copy(alpha = 0.35f)),
-                                    modifier = Modifier.size(46.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
@@ -553,21 +551,20 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                     Text(
                                         text = activeTitle,
                                         color = TextPrimary,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                        fontSize = 16.5.sp,
+                                        fontWeight = FontWeight.Bold
                                     )
                                     Spacer(Modifier.height(2.dp))
                                     Text(
                                         text = activeDesc,
                                         color = TextSecondary,
-                                        fontSize = 11.5.sp,
-                                        lineHeight = 15.sp
+                                        fontSize = 12.sp,
+                                        lineHeight = 16.sp
                                     )
                                 }
                             }
 
-                            // Subsystem telemetry badges
+                            // Subsystem telemetry badges (Equal 3-column Bento mini cards)
                             Spacer(Modifier.height(12.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -588,7 +585,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                     "Thermal: $thermalMode"
                                 ).forEach { metric ->
                                     Surface(
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(8.dp),
                                         color = BgDeepOled,
                                         border = BorderStroke(0.6.dp, BorderGlass),
                                         modifier = Modifier.weight(1f)
@@ -596,12 +593,12 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                         Text(
                                             text = metric,
                                             color = TextSecondary,
-                                            fontSize = 9.5.sp,
-                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
                                             textAlign = TextAlign.Center,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 2.dp)
+                                            modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp)
                                         )
                                     }
                                 }
@@ -640,16 +637,14 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                             Text(
                                                 text = "Profil Dasar Pemulihan:",
                                                 color = TextSecondary,
-                                                fontSize = 10.5.sp,
-                                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                                fontSize = 11.sp
                                             )
                                         }
                                         Text(
                                             text = baselineDisplayName,
                                             color = AccentCyan,
-                                            fontSize = 10.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
@@ -677,25 +672,27 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                         onClick = {
                                             viewModel.selectKernelPerformanceProfile(activeProfileId, context, true)
                                         },
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(8.dp),
                                         color = AccentOrange.copy(alpha = 0.12f),
-                                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
+                                        border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.45f)),
+                                        modifier = Modifier.height(36.dp)
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                            modifier = Modifier.padding(horizontal = 10.dp),
+                                            horizontalArrangement = Arrangement.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.RestartAlt,
                                                 contentDescription = null,
                                                 tint = AccentOrange,
-                                                modifier = Modifier.size(12.dp)
+                                                modifier = Modifier.size(13.dp)
                                             )
-                                            Spacer(Modifier.width(4.dp))
+                                            Spacer(Modifier.width(5.dp))
                                             Text(
                                                 text = "Reset Override",
                                                 color = AccentOrange,
-                                                fontSize = 10.sp,
+                                                fontSize = 10.5.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -885,7 +882,9 @@ fun ProfilesAutomationScreen(
             },
             text = {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -965,7 +964,7 @@ fun ProfilesAutomationScreen(
                     shape = RoundedCornerShape(10.dp),
                     color = AccentRed.copy(alpha = 0.18f),
                     border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.6f)),
-                    modifier = Modifier.height(40.dp)
+                    modifier = Modifier.height(44.dp)
                 ) {
                     Box(
                         modifier = Modifier.padding(horizontal = 16.dp),
@@ -986,7 +985,7 @@ fun ProfilesAutomationScreen(
                     shape = RoundedCornerShape(10.dp),
                     color = BgDeepOled,
                     border = BorderStroke(0.8.dp, BorderGlass),
-                    modifier = Modifier.height(40.dp)
+                    modifier = Modifier.height(44.dp)
                 ) {
                     Box(
                         modifier = Modifier.padding(horizontal = 16.dp),
@@ -1191,7 +1190,9 @@ fun AutomationHeroServiceCard(
             },
             text = {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
@@ -1293,7 +1294,7 @@ fun AutomationHeroServiceCard(
                     shape = RoundedCornerShape(10.dp),
                     color = AccentCyan.copy(alpha = 0.18f),
                     border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f)),
-                    modifier = Modifier.height(40.dp)
+                    modifier = Modifier.height(44.dp)
                 ) {
                     Box(
                         modifier = Modifier.padding(horizontal = 16.dp),
@@ -1314,7 +1315,7 @@ fun AutomationHeroServiceCard(
                     shape = RoundedCornerShape(10.dp),
                     color = BgDeepOled,
                     border = BorderStroke(0.8.dp, BorderGlass),
-                    modifier = Modifier.height(40.dp)
+                    modifier = Modifier.height(44.dp)
                 ) {
                     Box(
                         modifier = Modifier.padding(horizontal = 16.dp),
@@ -1385,8 +1386,7 @@ fun AutomationHeroServiceCard(
                             color = if (isAutomationRunning) AccentCyan else TextSecondary,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 0.8.sp,
-                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                            letterSpacing = 0.8.sp
                         )
                     }
                 }
@@ -1408,8 +1408,7 @@ fun AutomationHeroServiceCard(
                                 text = if (activeGameName != null) "OVERRIDE: ${activeGameName.take(16)}" else "OVERRIDE AKTIF",
                                 color = AccentOrange,
                                 fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -1418,7 +1417,7 @@ fun AutomationHeroServiceCard(
 
             Spacer(Modifier.height(14.dp))
 
-            // Row 2: Title, Subtitle & Master Switch
+            // Row 2: Title, Subtitle & Master Switch (with 48dp touch-box container)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1463,28 +1462,33 @@ fun AutomationHeroServiceCard(
                         )
                     }
                 }
-                Switch(
-                    checked = uiState.isAppAutomationActive,
-                    onCheckedChange = { enable ->
-                        if (enable) {
-                            if (isSuppressed) {
-                                viewModel.toggleAppAutomation(context, true)
+                Box(
+                    modifier = Modifier.size(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Switch(
+                        checked = uiState.isAppAutomationActive,
+                        onCheckedChange = { enable ->
+                            if (enable) {
+                                if (isSuppressed) {
+                                    viewModel.toggleAppAutomation(context, true)
+                                } else {
+                                    showActivationDialog = true
+                                }
                             } else {
-                                showActivationDialog = true
+                                viewModel.toggleAppAutomation(context, false)
                             }
-                        } else {
-                            viewModel.toggleAppAutomation(context, false)
-                        }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BgDeepOled,
-                        checkedTrackColor = AccentCyan,
-                        uncheckedThumbColor = TextSecondary,
-                        uncheckedTrackColor = BgElevated,
-                        uncheckedBorderColor = BorderGlass
-                    ),
-                    modifier = Modifier.scale(0.88f)
-                )
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = BgDeepOled,
+                            checkedTrackColor = AccentCyan,
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = BgElevated,
+                            uncheckedBorderColor = BorderGlass
+                        ),
+                        modifier = Modifier.scale(0.88f)
+                    )
+                }
             }
 
             Spacer(Modifier.height(14.dp))
@@ -1512,16 +1516,14 @@ fun AutomationHeroServiceCard(
                         Text(
                             text = "Profil Dasar Pemulihan:",
                             color = TextSecondary,
-                            fontSize = 11.sp,
-                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                            fontSize = 11.sp
                         )
                         Spacer(Modifier.width(5.dp))
                         Text(
                             text = baselineDisplayName,
                             color = AccentCyan,
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                            fontWeight = FontWeight.Bold
                         )
                     }
 
@@ -1546,7 +1548,7 @@ fun AutomationHeroServiceCard(
             HorizontalDivider(color = BorderGlass.copy(alpha = 0.4f), thickness = 0.7.dp)
             Spacer(Modifier.height(12.dp))
 
-            // Row 4: Cooldown Slider
+            // Row 4: Cooldown Slider & Nothing OS Segmented Bar
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1576,11 +1578,12 @@ fun AutomationHeroServiceCard(
                 0 to "Tetap"
             )
 
+            // Nothing OS Style High-Touch Segmented Capsule (Height 46dp, Touch target 40dp)
             Surface(
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = BgDeepOled.copy(alpha = 0.8f),
                 border = BorderStroke(0.8.dp, BorderGlass),
-                modifier = Modifier.fillMaxWidth().height(38.dp)
+                modifier = Modifier.fillMaxWidth().height(46.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxSize().padding(3.dp),
@@ -1591,9 +1594,9 @@ fun AutomationHeroServiceCard(
                         val isSelected = uiState.appAutomationCooldownSeconds == sec
                         Surface(
                             onClick = { viewModel.setAppAutomationCooldownSeconds(context, sec) },
-                            shape = RoundedCornerShape(7.dp),
+                            shape = RoundedCornerShape(9.dp),
                             color = if (isSelected) AccentCyan.copy(alpha = 0.22f) else Color.Transparent,
-                            border = if (isSelected) BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.55f)) else null,
+                            border = if (isSelected) BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f)) else null,
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -1601,7 +1604,7 @@ fun AutomationHeroServiceCard(
                                     text = label,
                                     color = if (isSelected) AccentCyan else TextSecondary,
                                     fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
                         }
@@ -1697,16 +1700,16 @@ fun AutomationSectionHeader(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Minimal Cyberpunk Add Button (Height 36dp, touch target min 48dp)
+            // Minimal Cyberpunk Add Button (Height 44dp touch target)
             Surface(
                 onClick = onAddAppClick,
                 shape = RoundedCornerShape(10.dp),
                 color = AccentCyan.copy(alpha = 0.14f),
                 border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.45f)),
-                modifier = Modifier.height(36.dp)
+                modifier = Modifier.height(44.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -1715,24 +1718,24 @@ fun AutomationSectionHeader(
                         tint = AccentCyan,
                         modifier = Modifier.size(16.dp)
                     )
-                    Spacer(Modifier.width(5.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text(
                         text = "Tambah",
                         color = AccentCyan,
-                        fontSize = 12.sp,
+                        fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            // Overflow Menu Button (⋮)
+            // Overflow Menu Button (⋮, 44x44dp touch target)
             Box {
                 Surface(
                     onClick = onOpenOverflowMenu,
                     shape = RoundedCornerShape(10.dp),
                     color = BgElevated,
                     border = BorderStroke(0.8.dp, BorderGlass),
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(44.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         if (uiState.isScanningInstalledGames) {
@@ -2242,12 +2245,12 @@ fun AppRuleBentoCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Crisp 38dp App Icon
+                // Crisp 40dp App Icon
                 AppIconImage(
                     packageName = rule.packageName,
                     modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(9.dp))
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
                 )
 
                 Spacer(Modifier.width(12.dp))
@@ -2299,19 +2302,24 @@ fun AppRuleBentoCard(
 
                 Spacer(Modifier.width(8.dp))
 
-                // Master Switch for this rule
-                Switch(
-                    checked = rule.enabled,
-                    onCheckedChange = onToggle,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BgDeepOled,
-                        checkedTrackColor = AccentCyan,
-                        uncheckedThumbColor = TextSecondary,
-                        uncheckedTrackColor = BgElevated,
-                        uncheckedBorderColor = BorderGlass
-                    ),
-                    modifier = Modifier.scale(0.82f)
-                )
+                // Master Switch for this rule (48dp touch-box container)
+                Box(
+                    modifier = Modifier.size(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Switch(
+                        checked = rule.enabled,
+                        onCheckedChange = onToggle,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = BgDeepOled,
+                            checkedTrackColor = AccentCyan,
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = BgElevated,
+                            uncheckedBorderColor = BorderGlass
+                        ),
+                        modifier = Modifier.scale(0.85f)
+                    )
+                }
             }
 
             Spacer(Modifier.height(5.dp))
@@ -2349,8 +2357,7 @@ fun AppRuleBentoCard(
                                 text = profLabel,
                                 color = TextPrimary,
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -2393,18 +2400,19 @@ fun AppRuleBentoCard(
                 // Right: Edit Affordance Chevron
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(1.dp)
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
                         text = "Kustomisasi",
-                        color = TextSecondary.copy(alpha = 0.45f),
-                        fontSize = 10.sp
+                        color = TextSecondary.copy(alpha = 0.65f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
                     )
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
                         contentDescription = "Kustomisasi",
-                        tint = TextSecondary.copy(alpha = 0.35f),
-                        modifier = Modifier.size(14.dp)
+                        tint = TextSecondary.copy(alpha = 0.60f),
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }

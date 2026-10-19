@@ -132,34 +132,38 @@ fun ProfileGrid(
                 border = BorderStroke(if (isSelected) 1.2.dp else 0.8.dp, animatedBorder),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 14.dp, vertical = 13.dp)
                 ) {
-                    // 1. Squircle Icon Badge
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = item.color.copy(alpha = 0.16f),
-                        border = BorderStroke(0.8.dp, item.color.copy(alpha = 0.35f)),
-                        modifier = Modifier.size(42.dp)
+                    // === TIER 1: Header Row (Icon + Title & Badges + Active Pill + 48dp Menu Button) ===
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = null,
-                                tint = item.color,
-                                modifier = Modifier.size(21.dp)
-                            )
+                        // 1. Squircle Icon Badge
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = item.color.copy(alpha = 0.16f),
+                            border = BorderStroke(0.8.dp, item.color.copy(alpha = 0.35f)),
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = null,
+                                    tint = item.color,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
                         }
-                    }
 
-                    Spacer(Modifier.width(12.dp))
+                        Spacer(Modifier.width(12.dp))
 
-                    // 2. Middle Content (Name, Badges, Subtitle, Tags)
-                    Column(modifier = Modifier.weight(1f)) {
+                        // 2. Middle Content (Name & Custom Badges)
                         Row(
+                            modifier = Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
@@ -167,10 +171,9 @@ fun ProfileGrid(
                                 text = item.name,
                                 color = if (isSelected) item.color else TextPrimary,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
+                                fontSize = 15.sp,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                                overflow = TextOverflow.Ellipsis
                             )
 
                             if (isModified) {
@@ -182,9 +185,9 @@ fun ProfileGrid(
                                     Text(
                                         text = "Tersuai",
                                         color = AccentOrange,
-                                        fontSize = 8.5.sp,
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                     )
                                 }
                             }
@@ -198,57 +201,17 @@ fun ProfileGrid(
                                     Text(
                                         text = "Kustom",
                                         color = AccentCyan,
-                                        fontSize = 8.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(2.5.dp))
-
-                        Text(
-                            text = shortDesc,
-                            color = TextSecondary,
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                        )
-
-                        Spacer(Modifier.height(5.dp))
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            tags.forEach { tag ->
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = BgDeepOled.copy(alpha = 0.6f),
-                                    border = BorderStroke(0.5.dp, BorderSubtle)
-                                ) {
-                                    Text(
-                                        text = tag,
-                                        color = TextSecondary.copy(alpha = 0.85f),
                                         fontSize = 9.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                     )
                                 }
                             }
                         }
-                    }
 
-                    Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(8.dp))
 
-                    // 3. Right Status & Actions
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
+                        // 3. Right Status & Actions (Active Pill + 48dp Menu Button)
                         if (isSelected) {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
@@ -275,6 +238,7 @@ fun ProfileGrid(
                                     )
                                 }
                             }
+                            Spacer(Modifier.width(4.dp))
                         }
 
                         Box {
@@ -282,7 +246,7 @@ fun ProfileGrid(
                                 onClick = { cardMenuExpanded = true },
                                 shape = CircleShape,
                                 color = if (cardMenuExpanded) Color(0x22FFFFFF) else Color.Transparent,
-                                modifier = Modifier.size(44.dp)
+                                modifier = Modifier.size(48.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
@@ -587,20 +551,56 @@ fun ProfileGrid(
                         }
                     }
                     }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // === TIER 2: Description & Subsystem Tags ===
+                    Text(
+                        text = shortDesc,
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.5.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        tags.forEach { tag ->
+                            Surface(
+                                shape = RoundedCornerShape(5.dp),
+                                color = BgDeepOled.copy(alpha = 0.65f),
+                                border = BorderStroke(0.5.dp, BorderSubtle)
+                            ) {
+                                Text(
+                                    text = tag,
+                                    color = TextSecondary.copy(alpha = 0.9f),
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
 
         // Action CTA: Create / Save Current Profile (Symmetrical Cyberpunk Button)
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(6.dp))
         Surface(
             onClick = { creating = true },
             shape = RoundedCornerShape(14.dp),
             color = BgElevated,
-            border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.5f)),
+            border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.5f)),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(52.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
@@ -611,13 +611,13 @@ fun ProfileGrid(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
                     tint = AccentOrange,
-                    modifier = Modifier.size(17.dp)
+                    modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "Simpan Kondisi Saat Ini sebagai Profil Kustom",
+                    text = "Simpan Profil Kustom",
                     color = AccentOrange,
-                    fontSize = 12.5.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
             }

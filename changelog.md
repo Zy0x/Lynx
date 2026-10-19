@@ -1,3 +1,35 @@
+# Lynx Universal [Touch-First Bento Architecture & Kernel Profiles Redesign] 7.0.0-RC116
+Released on: 2026-10-19
+> **Lynx Universal v7.0.0-RC116** (Lynx Kernel Manager v3.1.62): **Redesain Menyeluruh Antarmuka Profil Performa Kernel Berbasis Arsitektur Bento 2-Tier; Peningkatan Target Sentuh Ergonomis Penuh (≥44–48dp Sesuai Standar Rule 1 & Touch-First); Segmented Cooldown Bar Nothing OS Berdimensi 46dp (40dp Active Tap Pill); Tombol Tambah 44dp & Overflow 44x44dp; Harmonisasi Tipografi & Token Desain Resmi (BgElevated, BgDeepOled, BorderSubtle, BorderGlass); serta Tombol CTA "Simpan Profil Kustom" 52dp**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC116)
+
+### 1. 🍱 Arsitektur Kartu Bento 2-Tier pada Profil Performa Kernel (`ProfileGrid.kt`)
+- **Akar Masalah**:
+  Seluruh elemen kartu profil (ikon 42dp, judul, deskripsi 2 baris, tags subsistem, badge status [AKTIF], dan tombol menu) sebelumnya berdesakan dalam satu baris horizontal, memicu pemotongan teks (*truncation*) dan distorsi visual pada layar beresolusi non-reguler, layar kecil, atau DPI tinggi.
+- **Solusi**:
+  - **Tier 1 (Header Bar)**: Ikon squircle 44dp, nama profil 15sp Bold, badge status ("Tersuai" / "Kustom"), badge status aktif [✓ AKTIF], dan tombol menu opsi 48dp terpusat dalam baris mandiri.
+  - **Tier 2 (Body & Subsystem Tags)**: Teks deskripsi profil 12sp (line-height 16.5sp) membentang selebar kartu tanpa terpotong, disertai baris horizontal chip spesifikasi hardware kernel (*Dynamic Devfreq, Schedutil, Gaming, dll.*).
+  - **Tombol CTA Simpan Profil Kustom 52dp**: Ditingkatkan ke tinggi 52dp dengan teks ringkas dan tegas *"Simpan Profil Kustom"*.
+
+### 2. 📱 Peningkatan Target Sentuh Ergonomis & Touch-First (Rule 1 Compliance)
+- **Tombol Tambah Aturan & Overflow (`TuningProfilesCategory.kt`)**:
+  Tombol `+ Tambah` ditingkatkan dari 36dp ke **44dp**, dan tombol menu overflow `⋮` ditingkatkan ke **44x44dp**.
+- **Master Switch & App Rule Switch**:
+  Dibungkus dalam kontainer touch-box **48x48dp** untuk menjamin respons sentuhan jari satu tangan tanpa risiko salah sentuh (*miss-touch*).
+- **Tombol Menu Profil**:
+  Ukuran tombol menu overflow pada masing-masing kartu profil ditingkatkan dari 44dp ke **48dp**.
+- **Tab Row Segmented Capsule**:
+  Tinggi bar navigasi tab (`ProfilesCategoryTabRow`) ditingkatkan dari 48dp ke **52dp** (pil tab aktif otomatis menjadi 44dp touch-compliant).
+
+### 3. ⏱️ Segmented Cooldown Capsule Gaya Nothing OS
+- **Peningkatan Dimensi Taktil**:
+  Bar pilihan masa penahanan cooldown aplikasi (`5s`, `30s`, `1m`, `3m`, `Tetap`) ditingkatkan dari 38dp ke **46dp** (`RoundedCornerShape(12.dp)`), dengan tinggi efektif masing-masing pil opsi sebesar **40dp** dan aksen neon Cyan 60%.
+- **Scrollabilitas Dialog**:
+  Menambahkan `Modifier.verticalScroll(rememberScrollState())` pada dialog konfirmasi otomasi dan hapus aturan aplikasi guna mencegah pemotongan konten pada layar landscape atau skala teks besar.
+
+---
+
 # Lynx Universal [Intuitive Profile Customization & Direct Hardware Control] 7.0.0-RC115
 Released on: 2026-10-19
 > **Lynx Universal v7.0.0-RC115** (Lynx Kernel Manager v3.1.61): **Pemberantasan Total Paradoks Identitas Komputasi pada Profil Bawaan ("Seimbang di dalam Seimbang"); Penguncian Mutlak Komputasi Inti Profil Bawaan Sistem; Transformasi "Templat Acuan" Khusus untuk Profil Kustom; Revolusi Saklar Subsistem Kosong Menjadi Pilihan Parameter Konkret (*Direct Option Chips* untuk Kunci Refresh Rate 60/90/120Hz, TouchBoost, Mode & Batas Suhu Termal, AutoCut Baterai, Swappiness, MGLRU, TCP Congestion, dan MMAP Audio); Kejelasan Status Subsistem Non-Aktif ("Mengikuti Setelan Sistem Saat Ini"); serta Penegakan Prioritas Persistensi `profile.settings` pada ViewModel**.
