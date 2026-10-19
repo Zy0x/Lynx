@@ -950,14 +950,62 @@ fun ProfileGrid(
     }
 }
 
-private data class SubsystemDomainItem(
-    val domain: ProfileDomain,
-    val title: String,
-    val subtitle: String,
-    val icon: ImageVector,
-    val color: Color,
-    val badges: List<String> = emptyList()
-)
+@Composable
+private fun SettingOptionChips(
+    title: String,
+    currentValue: String,
+    options: List<Pair<String, String>>,
+    accentColor: Color,
+    onSelect: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, bottom = 2.dp)
+    ) {
+        Text(
+            text = title,
+            color = TextSecondary,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp,
+            modifier = Modifier.padding(bottom = 3.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            options.forEach { (valKey, label) ->
+                val selected = currentValue.equals(valKey, ignoreCase = true)
+                Surface(
+                    onClick = { onSelect(valKey) },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (selected) accentColor.copy(alpha = 0.18f) else BgElevated,
+                    border = BorderStroke(
+                        if (selected) 1.dp else 0.6.dp,
+                        if (selected) accentColor else BorderGlass
+                    ),
+                    modifier = Modifier.height(30.dp)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.padding(horizontal = 9.dp)
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (selected) accentColor else TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 private data class PresetOption(
     val id: String,
@@ -992,11 +1040,53 @@ private fun ProfileEditorDialog(
     var separateCpuGpu by remember(source.id) { mutableStateOf(initialUnified == null && (cpu != base || gpu != "balanced")) }
 
     var presetMenu by remember { mutableStateOf("") }
-    var includeThermal by remember(source.id) { mutableStateOf("thermal.mode" in source.includedSensitiveSettings) }
-    var includeBattery by remember(source.id) { mutableStateOf("charging.max_battery_percent" in source.includedSensitiveSettings) }
+    var includeThermal by remember(source.id) { mutableStateOf("thermal.mode" in source.includedSensitiveSettings || ProfileDomain.THERMAL in source.includedDomains) }
+    var includeBattery by remember(source.id) { mutableStateOf("charging.max_battery_percent" in source.includedSensitiveSettings || ProfileDomain.BATTERY in source.includedDomains) }
     var includedDomains by remember(source.id) { mutableStateOf(source.includedDomains) }
     var replaceMenu by remember { mutableStateOf(false) }
     var replaceBuiltIn by remember { mutableStateOf(false) }
+
+    val customSettings = remember(source.id) {
+        androidx.compose.runtime.mutableStateMapOf<String, String>().apply {
+            putAll(source.settings)
+            if (!containsKey("display_touch.refresh_rate_lock")) {
+                put("display_touch.refresh_rate_lock", currentState.displayTouch.refreshRateLock.toString())
+            }
+            if (!containsKey("display_touch.touchboost")) {
+                put("display_touch.touchboost", currentState.displayTouch.touchboost.toString())
+            }
+            if (!containsKey("thermal.mode")) {
+                put("thermal.mode", currentState.thermal.mode)
+            }
+            if (!containsKey("thermal.custom_temp_limit_c")) {
+                put("thermal.custom_temp_limit_c", currentState.thermal.customTempLimitC.toString())
+            }
+            if (!containsKey("charging.max_battery_percent")) {
+                put("charging.max_battery_percent", currentState.charging.maxBatteryPercent.toString())
+            }
+            if (!containsKey("charging.smart_tapering_enabled")) {
+                put("charging.smart_tapering_enabled", currentState.charging.smartTaperingEnabled.toString())
+            }
+            if (!containsKey("memory.swappiness")) {
+                put("memory.swappiness", currentState.memory.swappiness.toString())
+            }
+            if (!containsKey("memory.mglru_enabled")) {
+                put("memory.mglru_enabled", currentState.memory.mglruEnabled.toString())
+            }
+            if (!containsKey("network.tcp_congestion")) {
+                put("network.tcp_congestion", currentState.network.tcpCongestion)
+            }
+            if (!containsKey("network.wifi_ping_stabilizer")) {
+                put("network.wifi_ping_stabilizer", currentState.network.wifiPingStabilizer.toString())
+            }
+            if (!containsKey("audio.low_latency_mmap")) {
+                put("audio.low_latency_mmap", currentState.audio.lowLatencyMmap.toString())
+            }
+            if (!containsKey("audio.bt_crackle_guard")) {
+                put("audio.bt_crackle_guard", currentState.audio.btCrackleGuard.toString())
+            }
+        }
+    }
 
     val accentColor = if (source.builtIn) {
         when (source.id.lowercase()) {
@@ -1138,14 +1228,14 @@ private fun ProfileEditorDialog(
                         onClick = onDismiss,
                         shape = CircleShape,
                         color = Color(0x18FFFFFF),
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Tutup",
                                 tint = TextSecondary,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
@@ -1162,7 +1252,7 @@ private fun ProfileEditorDialog(
                         .padding(horizontal = 20.dp, vertical = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Section 1: Name / Info
+                    // Section 1: Name (Custom Profiles Only)
                     if (!source.builtIn) {
                         OutlinedTextField(
                             value = name,
@@ -1186,47 +1276,9 @@ private fun ProfileEditorDialog(
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
-                    } else {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = BgDeepOled,
-                            border = BorderStroke(0.8.dp, BorderGlass),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = accentColor.copy(alpha = 0.12f),
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Default.Tune, null, tint = accentColor, modifier = Modifier.size(16.dp))
-                                    }
-                                }
-                                Spacer(Modifier.width(10.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Templat Bawaan: ${source.name}",
-                                        color = TextPrimary,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                    )
-                                    Text(
-                                        text = "Kustomisasi ini menyesuaikan parameter eksekusi tanpa mengubah berkas inti sistem.",
-                                        color = TextSecondary,
-                                        fontSize = 10.5.sp,
-                                        lineHeight = 14.sp
-                                    )
-                                }
-                            }
-                        }
                     }
 
-                    // Section 2: Compute Presets / Base Template (Bento)
+                    // Section 2: Core Compute Policy (CPU & GPU)
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = BgDeepOled,
@@ -1243,60 +1295,55 @@ private fun ProfileEditorDialog(
                                     Spacer(Modifier.width(8.dp))
                                     Column {
                                         Text(
-                                            text = "KEBIJAKAN KOMPUTASI (CPU & GPU)",
+                                            text = "KOMPUTASI INTI BAKU",
                                             color = TextSecondary,
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
                                             letterSpacing = 0.8.sp
                                         )
                                         Text(
-                                            text = "Penyelarasan frekuensi inti untuk profil ${source.name}",
+                                            text = "Basis profil terkunci pada identitas ${source.name}",
                                             color = TextSecondary.copy(alpha = 0.7f),
                                             fontSize = 9.5.sp
                                         )
                                     }
                                 }
 
-                                // 4 Harmonized Chips for Built-in Compute Presets
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = accentColor.copy(alpha = 0.12f),
+                                    border = BorderStroke(0.8.dp, accentColor.copy(alpha = 0.35f)),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    listOf(
-                                        Triple("powersave", "Hemat Daya", Color(0xFF00E676)),
-                                        Triple("balance", "Seimbang", AccentBlue),
-                                        Triple("performance", "Performa", AccentOrange),
-                                        Triple("extreme", "Ekstrem", AccentRed)
-                                    ).forEach { (id, label, chipColor) ->
-                                        val isSelected = !separateCpuGpu && (unifiedPreset == id)
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Surface(
-                                            onClick = {
-                                                unifiedPreset = id
-                                                cpu = id
-                                                gpu = when (id) {
-                                                    "powersave" -> "battery"
-                                                    "performance" -> "esports"
-                                                    "balance" -> "balanced"
-                                                    else -> id
-                                                }
-                                            },
-                                            shape = RoundedCornerShape(10.dp),
-                                            color = if (isSelected) chipColor.copy(alpha = 0.16f) else BgElevated,
-                                            border = BorderStroke(
-                                                if (isSelected) 1.2.dp else 0.6.dp,
-                                                if (isSelected) chipColor else BorderGlass
-                                            ),
-                                            modifier = Modifier.weight(1f).height(38.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Text(
-                                                    text = label,
-                                                    color = if (isSelected) chipColor else TextSecondary,
-                                                    fontSize = 10.5.sp,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                                                )
+                                            shape = CircleShape,
+                                            color = accentColor,
+                                            modifier = Modifier.size(8.dp)
+                                        ) {}
+                                        Spacer(Modifier.width(10.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "${source.name} (Terkunci)",
+                                                color = TextPrimary,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            val desc = when (source.baseProfile.lowercase()) {
+                                                "powersave" -> "Governor hemat daya, batas frekuensi rendah & efisiensi termal."
+                                                "performance" -> "Governor performa, frekuensi menengah-tinggi untuk gaming & beban berat."
+                                                "extreme" -> "Governor maksimum tanpa batasan clock atau throttling OEM."
+                                                else -> "Governor adaptif Schedutil untuk keseimbangan daya & performa harian."
                                             }
+                                            Text(
+                                                text = desc,
+                                                color = TextSecondary,
+                                                fontSize = 10.sp,
+                                                lineHeight = 13.5.sp
+                                            )
                                         }
                                     }
                                 }
@@ -1507,43 +1554,7 @@ private fun ProfileEditorDialog(
                         }
                     }
 
-                    // Section 3: Hardware Domain Synchronization (Bento)
-                    val memoryBadges = listOfNotNull(
-                        (source.settings["memory.zram_size_mb"]?.let { "$it MB" } ?: "${currentState.memory.zramSizeMb} MB").let { "ZRAM: $it" },
-                        (source.settings["memory.swappiness"]?.let { "$it%" } ?: "${currentState.memory.swappiness}%").let { "Swappiness: $it" },
-                        (source.settings["memory.comp_algorithm"] ?: currentState.memory.compAlgorithm).let { "Algo: ${it.uppercase()}" },
-                        (source.settings["memory.mglru_enabled"]?.toBoolean() ?: currentState.memory.mglruEnabled).let { "MGLRU: ${if (it) "Aktif" else "Off"}" }
-                    )
-
-                    val displayBadges = listOfNotNull(
-                        (source.settings["display_touch.touchboost"]?.toBoolean() ?: currentState.displayTouch.touchboost).let { "TouchBoost: ${if (it) "Aktif" else "Off"}" },
-                        (source.settings["display_touch.refresh_rate_lock"]?.let { "$it Hz" } ?: "${currentState.displayTouch.refreshRateLock} Hz").let { "Lock: $it" },
-                        (source.settings["display_touch.skia_vulkan_enabled"]?.toBoolean() ?: currentState.displayTouch.skiaVulkanEnabled).let { if (it) "Skia Vulkan" else null }
-                    )
-
-                    val networkBadges = listOfNotNull(
-                        (source.settings["network.tcp_congestion"] ?: currentState.network.tcpCongestion).let { "TCP: $it" },
-                        (source.settings["network.wifi_ping_stabilizer"]?.toBoolean() ?: currentState.network.wifiPingStabilizer).let { "Ping Stabilizer: ${if (it) "Aktif" else "Off"}" },
-                        (source.settings["network.fq_codel_enabled"]?.toBoolean() ?: currentState.network.fqCodelEnabled).let { if (it) "FQ-CoDel" else null }
-                    )
-
-                    val audioBadges = listOfNotNull(
-                        (source.settings["audio.low_latency_mmap"]?.toBoolean() ?: currentState.audio.lowLatencyMmap).let { "MMAP: ${if (it) "Aktif" else "Off"}" },
-                        (source.settings["audio.direct_dac_offload"]?.toBoolean() ?: currentState.audio.directDacOffload).let { "DAC Offload: ${if (it) "Aktif" else "Off"}" },
-                        (source.settings["audio.fast_track_enabled"]?.toBoolean() ?: currentState.audio.fastTrackEnabled).let { if (it) "FastTrack" else null }
-                    )
-
-                    val thermalBadges = listOfNotNull(
-                        (source.settings["thermal.mode"] ?: currentState.thermal.mode).let { "Mode: ${it.uppercase()}" },
-                        (source.settings["thermal.custom_temp_limit_c"]?.let { "$it°C" } ?: "${currentState.thermal.customTempLimitC}°C").let { "Batas: $it" }
-                    )
-
-                    val batteryBadges = listOfNotNull(
-                        (source.settings["charging.max_battery_percent"]?.let { "$it%" } ?: "${currentState.charging.maxBatteryPercent}%").let { "Batas: $it" },
-                        (source.settings["charging.limit_current_ma"]?.let { "$it mA" } ?: "${currentState.charging.limitCurrentMa} mA").let { "Arus: $it" },
-                        (source.settings["charging.smart_tapering_enabled"]?.toBoolean() ?: currentState.charging.smartTaperingEnabled).let { if (it) "Smart Tapering" else null }
-                    )
-
+                    // Section 3: Subsystem Overrides & Real Value Controls (Bento)
                     Surface(
                         shape = RoundedCornerShape(14.dp),
                         color = BgDeepOled,
@@ -1552,21 +1563,21 @@ private fun ProfileEditorDialog(
                     ) {
                         Column(
                             modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Tune, null, tint = accentColor, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Column {
                                     Text(
-                                        text = "SINKRONISASI SUBSISTEM HARDWARE",
+                                        text = "PARAMETER SUBSISTEM TAMBAHAN",
                                         color = TextSecondary,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 0.8.sp
                                     )
                                     Text(
-                                        text = "Terapkan setelan subsistem saat profil ini beralih",
+                                        text = "Tentukan setelan spesifik yang diterapkan saat profil ini aktif",
                                         color = TextSecondary.copy(alpha = 0.7f),
                                         fontSize = 9.5.sp
                                     )
@@ -1575,114 +1586,206 @@ private fun ProfileEditorDialog(
 
                             HorizontalDivider(color = BorderGlass.copy(alpha = 0.4f), modifier = Modifier.padding(vertical = 2.dp))
 
-                            val domainItems = listOf(
-                                SubsystemDomainItem(ProfileDomain.MEMORY, "Memori & ZRAM", "ZRAM ratio, Swappiness & LMK thrashing guard", Icons.Default.Storage, AccentCyan, memoryBadges),
-                                SubsystemDomainItem(ProfileDomain.DISPLAY, "Layar & Sentuhan", "SurfaceFlinger offset & lock refresh rate", Icons.Default.Smartphone, AccentBlue, displayBadges),
-                                SubsystemDomainItem(ProfileDomain.NETWORK, "Wi-Fi & Jaringan", "Wi-Fi ping stabilizer & TCP congestion window", Icons.Default.Wifi, AccentGreen, networkBadges),
-                                SubsystemDomainItem(ProfileDomain.AUDIO, "Sound & Audio DAC", "Low-latency MMAP & Direct DAC offload", Icons.AutoMirrored.Filled.VolumeUp, AccentCyan, audioBadges)
-                            )
-
-                            domainItems.forEach { item ->
-                                val isChecked = item.domain in includedDomains
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(if (isChecked) item.color.copy(alpha = 0.05f) else Color.Transparent)
-                                        .padding(horizontal = 4.dp, vertical = 4.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                includedDomains = if (isChecked) includedDomains - item.domain else includedDomains + item.domain
-                                            }
-                                            .padding(vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.weight(1f).padding(end = 10.dp)
-                                        ) {
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = item.color.copy(alpha = 0.12f),
-                                                modifier = Modifier.size(30.dp)
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(item.icon, null, tint = item.color, modifier = Modifier.size(15.dp))
-                                                }
-                                            }
-                                            Spacer(Modifier.width(10.dp))
-                                            Column {
-                                                Text(item.title, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                                Text(item.subtitle, color = TextSecondary, fontSize = 9.5.sp, lineHeight = 12.5.sp)
-                                            }
-                                        }
-                                        Switch(
-                                            checked = isChecked,
-                                            onCheckedChange = { checked ->
-                                                includedDomains = if (checked) includedDomains + item.domain else includedDomains - item.domain
-                                            },
-                                            colors = SwitchDefaults.colors(
-                                                checkedThumbColor = BgDeepOled,
-                                                checkedTrackColor = accentColor,
-                                                uncheckedThumbColor = TextSecondary,
-                                                uncheckedTrackColor = BgElevated,
-                                                uncheckedBorderColor = BorderGlass
-                                            ),
-                                            modifier = Modifier.scale(0.85f)
-                                        )
-                                    }
-
-                                    AnimatedVisibility(visible = isChecked && item.badges.isNotEmpty()) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(start = 40.dp, bottom = 4.dp)
-                                                .horizontalScroll(rememberScrollState()),
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            item.badges.forEach { badge ->
-                                                Surface(
-                                                    shape = RoundedCornerShape(6.dp),
-                                                    color = item.color.copy(alpha = 0.12f),
-                                                    border = BorderStroke(0.6.dp, item.color.copy(alpha = 0.35f))
-                                                ) {
-                                                    Text(
-                                                        text = badge,
-                                                        color = item.color,
-                                                        fontSize = 9.sp,
-                                                        fontWeight = FontWeight.Medium,
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Sensitive Domain: Thermal
+                            // 1. Memori & ZRAM
+                            val memChecked = ProfileDomain.MEMORY in includedDomains
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(if (includeThermal) AccentRed.copy(alpha = 0.05f) else Color.Transparent)
-                                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                                    .background(if (memChecked) AccentCyan.copy(alpha = 0.05f) else Color.Transparent)
+                                    .padding(horizontal = 6.dp, vertical = 6.dp)
                             ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable { includeThermal = !includeThermal }
-                                        .padding(vertical = 4.dp),
+                                        .clickable {
+                                            includedDomains = if (memChecked) includedDomains - ProfileDomain.MEMORY else includedDomains + ProfileDomain.MEMORY
+                                        }
+                                        .padding(vertical = 2.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f).padding(end = 10.dp)
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = AccentCyan.copy(alpha = 0.12f),
+                                            modifier = Modifier.size(30.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Default.Storage, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
+                                            }
+                                        }
+                                        Spacer(Modifier.width(10.dp))
+                                        Column {
+                                            Text("Memori & ZRAM", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                if (memChecked) "Terapkan rasio swap & MGLRU kustom" else "Mengikuti setelan sistem saat ini (tidak diubah)",
+                                                color = if (memChecked) AccentCyan else TextSecondary,
+                                                fontSize = 9.5.sp,
+                                                lineHeight = 12.5.sp
+                                            )
+                                        }
+                                    }
+                                    Switch(
+                                        checked = memChecked,
+                                        onCheckedChange = { checked ->
+                                            includedDomains = if (checked) includedDomains + ProfileDomain.MEMORY else includedDomains - ProfileDomain.MEMORY
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = BgDeepOled,
+                                            checkedTrackColor = AccentCyan,
+                                            uncheckedThumbColor = TextSecondary,
+                                            uncheckedTrackColor = BgElevated,
+                                            uncheckedBorderColor = BorderGlass
+                                        ),
+                                        modifier = Modifier.scale(0.85f)
+                                    )
+                                }
+
+                                AnimatedVisibility(visible = memChecked) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(start = 40.dp, top = 6.dp, bottom = 4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        SettingOptionChips(
+                                            title = "RASIO SWAPPINESS",
+                                            currentValue = customSettings["memory.swappiness"] ?: "100",
+                                            options = listOf(
+                                                "60" to "60% (Hemat)",
+                                                "100" to "100% (Standar)",
+                                                "130" to "130% (Agresif)",
+                                                "160" to "160% (Game)",
+                                                "200" to "200% (Maks)"
+                                            ),
+                                            accentColor = AccentCyan,
+                                            onSelect = { customSettings["memory.swappiness"] = it }
+                                        )
+                                        SettingOptionChips(
+                                            title = "MULTI-GEN LRU (MGLRU)",
+                                            currentValue = customSettings["memory.mglru_enabled"] ?: "true",
+                                            options = listOf(
+                                                "true" to "Aktif (Disarankan)",
+                                                "false" to "Nonaktif"
+                                            ),
+                                            accentColor = AccentCyan,
+                                            onSelect = { customSettings["memory.mglru_enabled"] = it }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 2. Layar & Sentuhan
+                            val dispChecked = ProfileDomain.DISPLAY in includedDomains
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (dispChecked) AccentBlue.copy(alpha = 0.05f) else Color.Transparent)
+                                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            includedDomains = if (dispChecked) includedDomains - ProfileDomain.DISPLAY else includedDomains + ProfileDomain.DISPLAY
+                                        }
+                                        .padding(vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = AccentBlue.copy(alpha = 0.12f),
+                                            modifier = Modifier.size(30.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Default.Smartphone, null, tint = AccentBlue, modifier = Modifier.size(15.dp))
+                                            }
+                                        }
+                                        Spacer(Modifier.width(10.dp))
+                                        Column {
+                                            Text("Layar & Sentuhan", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                if (dispChecked) "Kunci refresh rate & respon sentuhan kustom" else "Mengikuti setelan sistem saat ini (tidak diubah)",
+                                                color = if (dispChecked) AccentBlue else TextSecondary,
+                                                fontSize = 9.5.sp,
+                                                lineHeight = 12.5.sp
+                                            )
+                                        }
+                                    }
+                                    Switch(
+                                        checked = dispChecked,
+                                        onCheckedChange = { checked ->
+                                            includedDomains = if (checked) includedDomains + ProfileDomain.DISPLAY else includedDomains - ProfileDomain.DISPLAY
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = BgDeepOled,
+                                            checkedTrackColor = AccentBlue,
+                                            uncheckedThumbColor = TextSecondary,
+                                            uncheckedTrackColor = BgElevated,
+                                            uncheckedBorderColor = BorderGlass
+                                        ),
+                                        modifier = Modifier.scale(0.85f)
+                                    )
+                                }
+
+                                AnimatedVisibility(visible = dispChecked) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(start = 40.dp, top = 6.dp, bottom = 4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        SettingOptionChips(
+                                            title = "KUNCI REFRESH RATE",
+                                            currentValue = customSettings["display_touch.refresh_rate_lock"] ?: "0",
+                                            options = listOf(
+                                                "0" to "Bebas / Auto",
+                                                "60" to "60 Hz",
+                                                "90" to "90 Hz",
+                                                "120" to "120 Hz"
+                                            ),
+                                            accentColor = AccentBlue,
+                                            onSelect = { customSettings["display_touch.refresh_rate_lock"] = it }
+                                        )
+                                        SettingOptionChips(
+                                            title = "RESPON SENTUHAN (TOUCHBOOST)",
+                                            currentValue = customSettings["display_touch.touchboost"] ?: "false",
+                                            options = listOf(
+                                                "true" to "TouchBoost Aktif",
+                                                "false" to "Standar (Off)"
+                                            ),
+                                            accentColor = AccentBlue,
+                                            onSelect = { customSettings["display_touch.touchboost"] = it }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 3. Kebijakan Termal
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (includeThermal) AccentRed.copy(alpha = 0.05f) else Color.Transparent)
+                                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { includeThermal = !includeThermal }
+                                        .padding(vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
                                     ) {
                                         Surface(
                                             shape = RoundedCornerShape(8.dp),
@@ -1696,7 +1799,12 @@ private fun ProfileEditorDialog(
                                         Spacer(Modifier.width(10.dp))
                                         Column {
                                             Text("Kebijakan Termal", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                            Text("Sinkronisasi trip points & batasan suhu saat ini", color = TextSecondary, fontSize = 9.5.sp, lineHeight = 12.5.sp)
+                                            Text(
+                                                if (includeThermal) "Terapkan profil mitigasi suhu kustom" else "Mengikuti kebijakan OEM/sistem saat ini",
+                                                color = if (includeThermal) AccentRed else TextSecondary,
+                                                fontSize = 9.5.sp,
+                                                lineHeight = 12.5.sp
+                                            )
                                         }
                                     }
                                     Switch(
@@ -1704,7 +1812,7 @@ private fun ProfileEditorDialog(
                                         onCheckedChange = { includeThermal = it },
                                         colors = SwitchDefaults.colors(
                                             checkedThumbColor = BgDeepOled,
-                                            checkedTrackColor = accentColor,
+                                            checkedTrackColor = AccentRed,
                                             uncheckedThumbColor = TextSecondary,
                                             uncheckedTrackColor = BgElevated,
                                             uncheckedBorderColor = BorderGlass
@@ -1713,52 +1821,58 @@ private fun ProfileEditorDialog(
                                     )
                                 }
 
-                                AnimatedVisibility(visible = includeThermal && thermalBadges.isNotEmpty()) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(start = 40.dp, bottom = 4.dp)
-                                            .horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                AnimatedVisibility(visible = includeThermal) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(start = 40.dp, top = 6.dp, bottom = 4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        thermalBadges.forEach { badge ->
-                                            Surface(
-                                                shape = RoundedCornerShape(6.dp),
-                                                color = AccentRed.copy(alpha = 0.12f),
-                                                border = BorderStroke(0.6.dp, AccentRed.copy(alpha = 0.35f))
-                                            ) {
-                                                Text(
-                                                    text = badge,
-                                                    color = AccentRed,
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Medium,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
-                                                )
-                                            }
-                                        }
+                                        SettingOptionChips(
+                                            title = "MODE MITIGASI TERMAL",
+                                            currentValue = customSettings["thermal.mode"] ?: "default",
+                                            options = listOf(
+                                                "default" to "Standar OEM",
+                                                "stable" to "Stabil Dingin",
+                                                "performance" to "Performa Tinggi"
+                                            ),
+                                            accentColor = AccentRed,
+                                            onSelect = { customSettings["thermal.mode"] = it }
+                                        )
+                                        SettingOptionChips(
+                                            title = "BATAS SUHU MAKSIMUM",
+                                            currentValue = customSettings["thermal.custom_temp_limit_c"] ?: "45",
+                                            options = listOf(
+                                                "40" to "40°C",
+                                                "45" to "45°C (Aman)",
+                                                "48" to "48°C",
+                                                "50" to "50°C (Game)",
+                                                "55" to "55°C (Ekstrem)"
+                                            ),
+                                            accentColor = AccentRed,
+                                            onSelect = { customSettings["thermal.custom_temp_limit_c"] = it }
+                                        )
                                     }
                                 }
                             }
 
-                            // Sensitive Domain: Charging / Battery
+                            // 4. Batas Pengisian Baterai
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(if (includeBattery) AccentGreen.copy(alpha = 0.05f) else Color.Transparent)
-                                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                                    .padding(horizontal = 6.dp, vertical = 6.dp)
                             ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable { includeBattery = !includeBattery }
-                                        .padding(vertical = 4.dp),
+                                        .padding(vertical = 2.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f).padding(end = 10.dp)
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
                                     ) {
                                         Surface(
                                             shape = RoundedCornerShape(8.dp),
@@ -1772,7 +1886,12 @@ private fun ProfileEditorDialog(
                                         Spacer(Modifier.width(10.dp))
                                         Column {
                                             Text("Batas Pengisian Baterai", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                            Text("Sinkronisasi batas kapasitas & arus pengisian saat ini", color = TextSecondary, fontSize = 9.5.sp, lineHeight = 12.5.sp)
+                                            Text(
+                                                if (includeBattery) "Terapkan batas AutoCut & tapering kustom" else "Mengikuti setelan pengisian sistem saat ini",
+                                                color = if (includeBattery) AccentGreen else TextSecondary,
+                                                fontSize = 9.5.sp,
+                                                lineHeight = 12.5.sp
+                                            )
                                         }
                                     }
                                     Switch(
@@ -1780,7 +1899,7 @@ private fun ProfileEditorDialog(
                                         onCheckedChange = { includeBattery = it },
                                         colors = SwitchDefaults.colors(
                                             checkedThumbColor = BgDeepOled,
-                                            checkedTrackColor = accentColor,
+                                            checkedTrackColor = AccentGreen,
                                             uncheckedThumbColor = TextSecondary,
                                             uncheckedTrackColor = BgElevated,
                                             uncheckedBorderColor = BorderGlass
@@ -1789,29 +1908,211 @@ private fun ProfileEditorDialog(
                                     )
                                 }
 
-                                AnimatedVisibility(visible = includeBattery && batteryBadges.isNotEmpty()) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(start = 40.dp, bottom = 4.dp)
-                                            .horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                AnimatedVisibility(visible = includeBattery) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(start = 40.dp, top = 6.dp, bottom = 4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        batteryBadges.forEach { badge ->
-                                            Surface(
-                                                shape = RoundedCornerShape(6.dp),
-                                                color = AccentGreen.copy(alpha = 0.12f),
-                                                border = BorderStroke(0.6.dp, AccentGreen.copy(alpha = 0.35f))
-                                            ) {
-                                                Text(
-                                                    text = badge,
-                                                    color = AccentGreen,
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Medium,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
-                                                )
+                                        SettingOptionChips(
+                                            title = "BATAS KAPASITAS AUTOCUT",
+                                            currentValue = customSettings["charging.max_battery_percent"] ?: "80",
+                                            options = listOf(
+                                                "70" to "70%",
+                                                "80" to "80% (Awet)",
+                                                "85" to "85%",
+                                                "90" to "90%",
+                                                "100" to "100% (Penuh)"
+                                            ),
+                                            accentColor = AccentGreen,
+                                            onSelect = { customSettings["charging.max_battery_percent"] = it }
+                                        )
+                                        SettingOptionChips(
+                                            title = "SMART TAPERING ARUS",
+                                            currentValue = customSettings["charging.smart_tapering_enabled"] ?: "true",
+                                            options = listOf(
+                                                "true" to "Smart Tapering Aktif",
+                                                "false" to "Standar"
+                                            ),
+                                            accentColor = AccentGreen,
+                                            onSelect = { customSettings["charging.smart_tapering_enabled"] = it }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 5. Wi-Fi & Jaringan
+                            val netChecked = ProfileDomain.NETWORK in includedDomains
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (netChecked) AccentGreen.copy(alpha = 0.05f) else Color.Transparent)
+                                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            includedDomains = if (netChecked) includedDomains - ProfileDomain.NETWORK else includedDomains + ProfileDomain.NETWORK
+                                        }
+                                        .padding(vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = AccentGreen.copy(alpha = 0.12f),
+                                            modifier = Modifier.size(30.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Default.Wifi, null, tint = AccentGreen, modifier = Modifier.size(15.dp))
                                             }
                                         }
+                                        Spacer(Modifier.width(10.dp))
+                                        Column {
+                                            Text("Wi-Fi & Jaringan", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                if (netChecked) "Terapkan algoritma TCP & stabilizer kustom" else "Mengikuti konfigurasi sistem saat ini (tidak diubah)",
+                                                color = if (netChecked) AccentGreen else TextSecondary,
+                                                fontSize = 9.5.sp,
+                                                lineHeight = 12.5.sp
+                                            )
+                                        }
+                                    }
+                                    Switch(
+                                        checked = netChecked,
+                                        onCheckedChange = { checked ->
+                                            includedDomains = if (checked) includedDomains + ProfileDomain.NETWORK else includedDomains - ProfileDomain.NETWORK
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = BgDeepOled,
+                                            checkedTrackColor = AccentGreen,
+                                            uncheckedThumbColor = TextSecondary,
+                                            uncheckedTrackColor = BgElevated,
+                                            uncheckedBorderColor = BorderGlass
+                                        ),
+                                        modifier = Modifier.scale(0.85f)
+                                    )
+                                }
+
+                                AnimatedVisibility(visible = netChecked) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(start = 40.dp, top = 6.dp, bottom = 4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        SettingOptionChips(
+                                            title = "ALGORITMA TCP CONGESTION",
+                                            currentValue = customSettings["network.tcp_congestion"] ?: "bbr",
+                                            options = listOf(
+                                                "bbr" to "BBR (Low-Latency)",
+                                                "cubic" to "Cubic (Standar)",
+                                                "westwood" to "Westwood"
+                                            ),
+                                            accentColor = AccentGreen,
+                                            onSelect = { customSettings["network.tcp_congestion"] = it }
+                                        )
+                                        SettingOptionChips(
+                                            title = "WI-FI PING STABILIZER",
+                                            currentValue = customSettings["network.wifi_ping_stabilizer"] ?: "true",
+                                            options = listOf(
+                                                "true" to "Stabilizer Aktif",
+                                                "false" to "Nonaktif"
+                                            ),
+                                            accentColor = AccentGreen,
+                                            onSelect = { customSettings["network.wifi_ping_stabilizer"] = it }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 6. Sound & Audio DAC
+                            val audChecked = ProfileDomain.AUDIO in includedDomains
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (audChecked) AccentCyan.copy(alpha = 0.05f) else Color.Transparent)
+                                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            includedDomains = if (audChecked) includedDomains - ProfileDomain.AUDIO else includedDomains + ProfileDomain.AUDIO
+                                        }
+                                        .padding(vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = AccentCyan.copy(alpha = 0.12f),
+                                            modifier = Modifier.size(30.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(Icons.AutoMirrored.Filled.VolumeUp, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
+                                            }
+                                        }
+                                        Spacer(Modifier.width(10.dp))
+                                        Column {
+                                            Text("Sound & Audio DAC", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                if (audChecked) "Terapkan bypass buffer MMAP & proteksi kustom" else "Mengikuti konfigurasi sistem saat ini (tidak diubah)",
+                                                color = if (audChecked) AccentCyan else TextSecondary,
+                                                fontSize = 9.5.sp,
+                                                lineHeight = 12.5.sp
+                                            )
+                                        }
+                                    }
+                                    Switch(
+                                        checked = audChecked,
+                                        onCheckedChange = { checked ->
+                                            includedDomains = if (checked) includedDomains + ProfileDomain.AUDIO else includedDomains - ProfileDomain.AUDIO
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = BgDeepOled,
+                                            checkedTrackColor = AccentCyan,
+                                            uncheckedThumbColor = TextSecondary,
+                                            uncheckedTrackColor = BgElevated,
+                                            uncheckedBorderColor = BorderGlass
+                                        ),
+                                        modifier = Modifier.scale(0.85f)
+                                    )
+                                }
+
+                                AnimatedVisibility(visible = audChecked) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(start = 40.dp, top = 6.dp, bottom = 4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        SettingOptionChips(
+                                            title = "LOW-LATENCY MMAP AUDIO",
+                                            currentValue = customSettings["audio.low_latency_mmap"] ?: "true",
+                                            options = listOf(
+                                                "true" to "MMAP Bypass Aktif",
+                                                "false" to "Standar"
+                                            ),
+                                            accentColor = AccentCyan,
+                                            onSelect = { customSettings["audio.low_latency_mmap"] = it }
+                                        )
+                                        SettingOptionChips(
+                                            title = "DIRECT DAC OFFLOAD / BT GUARD",
+                                            currentValue = customSettings["audio.bt_crackle_guard"] ?: "true",
+                                            options = listOf(
+                                                "true" to "Proteksi Aktif",
+                                                "false" to "Standar"
+                                            ),
+                                            accentColor = AccentCyan,
+                                            onSelect = { customSettings["audio.bt_crackle_guard"] = it }
+                                        )
                                     }
                                 }
                             }
@@ -1890,6 +2191,7 @@ private fun ProfileEditorDialog(
                                 baseProfile = targetBase,
                                 domainProfiles = source.domainProfiles + mapOf(ProfileDomain.CPU to cpu, ProfileDomain.GPU to gpu),
                                 includedDomains = selectedDomains,
+                                settings = customSettings.toMap(),
                                 includedSensitiveSettings = selectedSensitive
                             )
                             if (replacingBuiltIn && !replaceBuiltIn) replaceMenu = true else onSave(chosen, replaceBuiltIn, allowExistingCustom)
@@ -1930,7 +2232,7 @@ private fun ProfileEditorDialog(
         val title = if (isCpu) "PILIH PRESET CPU" else "PILIH PRESET GPU"
         val subtitle = if (isCpu) "Tentukan profil frekuensi & alokasi core CPU" else "Tentukan perilaku clock & scaling governor GPU"
         val headerColor = if (isCpu) AccentBlue else AccentOrange
-        val headerIcon = if (isCpu) Icons.Default.Memory else Icons.Default.SportsEsports
+        val presetHeaderIcon = if (isCpu) Icons.Default.Memory else Icons.Default.SportsEsports
 
         val options = if (isCpu) {
             listOf(
@@ -1983,7 +2285,7 @@ private fun ProfileEditorDialog(
                                 modifier = Modifier.size(38.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(headerIcon, null, tint = headerColor, modifier = Modifier.size(20.dp))
+                                    Icon(presetHeaderIcon, null, tint = headerColor, modifier = Modifier.size(20.dp))
                                 }
                             }
                             Spacer(Modifier.width(12.dp))

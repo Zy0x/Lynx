@@ -1,3 +1,35 @@
+# Lynx Universal [Intuitive Profile Customization & Direct Hardware Control] 7.0.0-RC115
+Released on: 2026-10-19
+> **Lynx Universal v7.0.0-RC115** (Lynx Kernel Manager v3.1.61): **Pemberantasan Total Paradoks Identitas Komputasi pada Profil Bawaan ("Seimbang di dalam Seimbang"); Penguncian Mutlak Komputasi Inti Profil Bawaan Sistem; Transformasi "Templat Acuan" Khusus untuk Profil Kustom; Revolusi Saklar Subsistem Kosong Menjadi Pilihan Parameter Konkret (*Direct Option Chips* untuk Kunci Refresh Rate 60/90/120Hz, TouchBoost, Mode & Batas Suhu Termal, AutoCut Baterai, Swappiness, MGLRU, TCP Congestion, dan MMAP Audio); Kejelasan Status Subsistem Non-Aktif ("Mengikuti Setelan Sistem Saat Ini"); serta Penegakan Prioritas Persistensi `profile.settings` pada ViewModel**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC115)
+
+### 1. 🎯 Eliminasi Paradoks Identitas Komputasi pada Profil Bawaan
+- **Akar Masalah**:
+  Saat pengguna mengedit profil bawaan (seperti *Seimbang*), antarmuka sebelumnya tetap menyajikan 4 tombol mode (`Hemat Daya`, `Seimbang`, `Performa`, `Ekstrem`). Hal ini memicu kebingungan psikologis besar bagi pengguna (*"Jika saya memilih Ekstrem di dalam profil Seimbang, profil ini sebenarnya Seimbang atau Ekstrem?"*).
+- **Solusi**:
+  - **Identitas Komputasi Terkunci**: Menghapus seluruh tombol 4 mode komputasi saat mengustomisasi profil bawaan. Komputasi inti dikunci secara permanen pada profil aslinya.
+  - **Kartu Komputasi Inti Informatif**: Menyajikan kartu status ringkas berlatar OLED dengan penjelasan governor CPU dan clock GPU bawaan Lynx.
+  - **Sakelar Pemisah Mandiri (*Decouple Switch*)**: Opsi kustomisasi terpisah CPU & GPU tetap disediakan bagi *power user* yang ingin memodifikasi governor atau preset grafis spesifik secara sengaja.
+
+### 2. 🎛️ Revolusi Saklar Kosong Menjadi Pilihan Parameter Konkret (*Direct Option Chips*)
+- **Akar Masalah**:
+  Sebelumnya, subsistem hardware hanya berupa sakelar toggle ON/OFF generik tanpa nilai yang bisa diubah (*blind snapshot*). Pengguna bingung apakah mematikan saklar berarti mematikan ZRAM di HP mereka, dan tidak tahu di mana mereka bisa mengatur refresh rate atau batas baterai.
+- **Solusi**:
+  - **Kontrol Nilai Nyata**: Setiap kali sakelar subsistem diaktifkan, panel interaktif `AnimatedVisibility` terbuka dan menampilkan chip pilihan nilai langsung:
+    - **Layar & Sentuhan**: Kunci Refresh Rate (`Bebas / Auto`, `60 Hz`, `90 Hz`, `120 Hz`) dan Respon Sentuhan TouchBoost (`Aktif`, `Standar`).
+    - **Kebijakan Termal**: Mode Mitigasi (`Standar OEM`, `Stabil Dingin`, `Performa Tinggi`) dan Batas Suhu Maksimum (`40°C`, `45°C`, `48°C`, `50°C`, `55°C`).
+    - **Batas Pengisian Baterai**: Batas Kapasitas AutoCut (`70%`, `80%`, `85%`, `90%`, `100%`) dan Smart Tapering Arus (`Aktif`, `Standar`).
+    - **Memori & ZRAM**: Rasio Swappiness (`60%`, `100%`, `130%`, `160%`, `200%`) dan Multi-Gen LRU (`Aktif`, `Nonaktif`).
+    - **Wi-Fi & Jaringan**: Algoritma TCP Congestion (`BBR`, `Cubic`, `Westwood`) dan Wi-Fi Ping Stabilizer (`Aktif`, `Nonaktif`).
+    - **Sound & Audio DAC**: Low-Latency MMAP Audio (`Aktif`, `Standar`) dan Direct DAC Offload / BT Crackle Guard (`Aktif`, `Standar`).
+  - **Kejelasan Status Non-Aktif**: Saat sakelar OFF, teks status secara transparan menegaskan: *"Mengikuti setelan sistem saat ini (tidak diubah)"*, menghilangkan keraguan pengguna.
+
+### 3. 💾 Penegakan Prioritas Persistensi Setelan Kernel (`profile.settings` Priority Guard)
+- Memperbarui `saveKernelPerformanceProfile` pada `LynxViewModelKernelProfiles.kt` agar memprioritaskan nilai konfigurasi eksplisit dari `profile.settings` yang dipilih oleh pengguna di dialog sebelum mengambil nilai fallback dari kondisi hardware aktif (`state.*`).
+
+---
+
 # Lynx Universal [Harmonized Compute Presets & Subsystem Value Transparency] 7.0.0-RC114
 Released on: 2026-10-19
 > **Lynx Universal v7.0.0-RC114** (Lynx Kernel Manager v3.1.60): **Redesain Menyeluruh Konsep Kustomisasi Profil; Eliminasi Total Label Paradoksal "Profil Induk" pada Profil Bawaan Sistem; Implementasi "Kebijakan Komputasi Harmonik" (CPU & GPU) dengan Sakelar Pemisah Presisi (*Decouple Toggle*); Transformasi "Templat Acuan (Base Template)" pada Profil Kustom; Transparansi Nilai Nyata (*Live Parameter Badges*) pada Sinkronisasi Subsistem Hardware (ZRAM MB, Swappiness %, Algoritma Kompresi, MGLRU, Refresh Rate, TouchBoost, TCP Congestion, MMAP, Mode Termal, dan Batas Arus Pengisian); serta Purifikasi Terminologi Global ("Ikuti Global", "Profil Global", dan "Kustomisasi Subsistem")**.

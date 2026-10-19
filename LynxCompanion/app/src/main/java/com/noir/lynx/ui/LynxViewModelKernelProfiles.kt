@@ -81,41 +81,41 @@ internal fun LynxViewModel.saveKernelPerformanceProfile(profile: KernelPerforman
             }
         }
         val values = linkedMapOf(
-            "memory.zram_size_mb" to state.memory.zramSizeMb.toString(),
-            "memory.swappiness" to state.memory.swappiness.toString(),
-            "memory.mglru_enabled" to state.memory.mglruEnabled.toString(),
-            "memory.comp_algorithm" to state.memory.compAlgorithm,
+            "memory.zram_size_mb" to (profile.settings["memory.zram_size_mb"] ?: state.memory.zramSizeMb.toString()),
+            "memory.swappiness" to (profile.settings["memory.swappiness"] ?: state.memory.swappiness.toString()),
+            "memory.mglru_enabled" to (profile.settings["memory.mglru_enabled"] ?: state.memory.mglruEnabled.toString()),
+            "memory.comp_algorithm" to (profile.settings["memory.comp_algorithm"] ?: state.memory.compAlgorithm),
             "uclamp.game_min_ratio" to state.uclamp.gameMinRatio.toString(),
             "uclamp.game_max_ratio" to state.uclamp.gameMaxRatio.toString(),
             "uclamp.balance_min_ratio" to state.uclamp.balanceMinRatio.toString(),
             "uclamp.schedutil_up_rate_us" to state.uclamp.schedutilUpRateUs.toString(),
             "uclamp.schedutil_down_rate_us" to state.uclamp.schedutilDownRateUs.toString(),
-            "display_touch.touchboost" to state.displayTouch.touchboost.toString(),
-            "display_touch.refresh_rate_lock" to state.displayTouch.refreshRateLock.toString(),
+            "display_touch.touchboost" to (profile.settings["display_touch.touchboost"] ?: state.displayTouch.touchboost.toString()),
+            "display_touch.refresh_rate_lock" to (profile.settings["display_touch.refresh_rate_lock"] ?: state.displayTouch.refreshRateLock.toString()),
             "display_touch.surfaceflinger_offset_ns" to state.displayTouch.surfaceFlingerOffsetNs.toString(),
-            "display_touch.skia_vulkan_enabled" to state.displayTouch.skiaVulkanEnabled.toString(),
-            "network.wifi_ping_stabilizer" to state.network.wifiPingStabilizer.toString(),
-            "network.tcp_congestion" to state.network.tcpCongestion,
-            "network.fq_codel_enabled" to state.network.fqCodelEnabled.toString(),
+            "display_touch.skia_vulkan_enabled" to (profile.settings["display_touch.skia_vulkan_enabled"] ?: state.displayTouch.skiaVulkanEnabled.toString()),
+            "network.wifi_ping_stabilizer" to (profile.settings["network.wifi_ping_stabilizer"] ?: state.network.wifiPingStabilizer.toString()),
+            "network.tcp_congestion" to (profile.settings["network.tcp_congestion"] ?: state.network.tcpCongestion),
+            "network.fq_codel_enabled" to (profile.settings["network.fq_codel_enabled"] ?: state.network.fqCodelEnabled.toString()),
             "network.wifi_power_save_in_game" to state.network.wifiPowerSaveInGame.toString(),
             "network.tcp_buffers_16m" to state.network.tcpBuffers16m.toString(),
             "network.tcp_fast_open" to state.network.tcpFastOpen.toString(),
             "network.anti_jitter_scan" to state.network.antiJitterScan.toString(),
             "network.mtk_hw_aggregation" to state.network.mtkHardwareAggregation.toString(),
-            "audio.low_latency_mmap" to state.audio.lowLatencyMmap.toString(),
+            "audio.low_latency_mmap" to (profile.settings["audio.low_latency_mmap"] ?: state.audio.lowLatencyMmap.toString()),
             "audio.fast_track_enabled" to state.audio.fastTrackEnabled.toString(),
-            "audio.bt_crackle_guard" to state.audio.btCrackleGuard.toString(),
+            "audio.bt_crackle_guard" to (profile.settings["audio.bt_crackle_guard"] ?: state.audio.btCrackleGuard.toString()),
         ).toMutableMap()
         profile.includedSensitiveSettings.forEach { key ->
             when (key) {
-                "charging.max_battery_percent" -> values[key] = state.charging.maxBatteryPercent.toString()
-                "charging.high_current_target_percent" -> values[key] = state.charging.highCurrentTargetPercent.toString()
-                "charging.smart_tapering_enabled" -> values[key] = state.charging.smartTaperingEnabled.toString()
-                "charging.emergency_temp_guard_enabled" -> values[key] = state.charging.emergencyTempGuardEnabled.toString()
-                "thermal.mode" -> values[key] = state.thermal.mode
-                "thermal.custom_temp_limit_c" -> values[key] = state.thermal.customTempLimitC.toString()
-                "thermal.trip_point_override_c" -> values[key] = state.thermal.tripPointOverrideC.toString()
-                "thermal.hardware_safety_dominant" -> values[key] = state.thermal.hardwareSafetyDominant.toString()
+                "charging.max_battery_percent" -> values[key] = (profile.settings[key] ?: state.charging.maxBatteryPercent.toString())
+                "charging.high_current_target_percent" -> values[key] = (profile.settings[key] ?: state.charging.highCurrentTargetPercent.toString())
+                "charging.smart_tapering_enabled" -> values[key] = (profile.settings[key] ?: state.charging.smartTaperingEnabled.toString())
+                "charging.emergency_temp_guard_enabled" -> values[key] = (profile.settings[key] ?: state.charging.emergencyTempGuardEnabled.toString())
+                "thermal.mode" -> values[key] = (profile.settings[key] ?: state.thermal.mode)
+                "thermal.custom_temp_limit_c" -> values[key] = (profile.settings[key] ?: state.thermal.customTempLimitC.toString())
+                "thermal.trip_point_override_c" -> values[key] = (profile.settings[key] ?: state.thermal.tripPointOverrideC.toString())
+                "thermal.hardware_safety_dominant" -> values[key] = (profile.settings[key] ?: state.thermal.hardwareSafetyDominant.toString())
             }
         }
         val snapshotDomains = mapOf(
