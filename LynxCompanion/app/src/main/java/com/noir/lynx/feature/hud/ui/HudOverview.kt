@@ -59,7 +59,7 @@ internal fun HudOverview(snapshot: HudSnapshot, action: HudActionState, onProfil
 @Composable
 private fun Gauge(label: String, load: HudReading, clock: HudReading, modifier: Modifier, compact: Boolean) {
     val sweep by animateFloatAsState(targetValue = load.value?.takeIf { load.status == "valid" }?.toFloat()?.coerceIn(0f,100f) ?: 0f,
-        animationSpec = tween(200), label = "hud_gauge_sweep")
+        animationSpec = tween(200), label = label)
     Surface(modifier, shape = RoundedCornerShape(14.dp), color = HudCard) {
         Column(Modifier.padding(if (compact) 4.dp else 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Box(Modifier.size(if (compact) 60.dp else 80.dp), contentAlignment = Alignment.Center) {

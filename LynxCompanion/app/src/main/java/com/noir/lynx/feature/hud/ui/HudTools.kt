@@ -22,10 +22,10 @@ internal fun HudTools(prefs: HudPreferences, store: HudPreferencesStore, rates: 
         if (rates.isEmpty()) Text(hudString(R.string.hud_unsupported), color = HudMuted, fontSize = 12.sp)
         rates.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                row.forEach { hz -> HudAction(hudString(R.string.hud_value,"%.1f".format(hz),"Hz"), !action.busy, { onHz(hz) }, Modifier.weight(1f)) }
+                row.forEach { hz -> HudAction(hudString(R.string.hud_value,HudReading(hz.toDouble(),"Hz",status = "valid").text(),"Hz"), !action.busy, { onHz(hz) }, Modifier.weight(1f)) }
             }
         }
-        action.requestedHz?.let { Text(hudString(R.string.hud_requested_hz,"%.1f".format(it)), fontSize = 12.sp, color = HudMuted) }
+        action.requestedHz?.let { Text(hudString(R.string.hud_requested_hz,HudReading(it.toDouble(),"Hz",status = "valid").text()), fontSize = 12.sp, color = HudMuted) }
         Text(hudString(R.string.hud_mode_active), color = HudMuted, fontSize = 12.sp)
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(hudString(R.string.hud_pin), Modifier.weight(1f), fontSize = 14.sp)

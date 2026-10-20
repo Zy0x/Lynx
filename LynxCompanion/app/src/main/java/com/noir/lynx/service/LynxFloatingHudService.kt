@@ -63,11 +63,12 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         const val ACTION_SET_PIN_FPS = "com.noir.lynx.service.SET_PIN_FPS"
         const val EXTRA_PIN_FPS = "extra_pin_fps"
         private const val CHANNEL = "lynx_game_hud_channel"
+        private const val WINDOW_TITLE = "LynxFloatingHud"
     }
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            interactive.value = (getSystemService(POWER_SERVICE) as PowerManager).isInteractive
+            interactive.value = intent?.action != Intent.ACTION_SCREEN_OFF && (getSystemService(POWER_SERVICE) as PowerManager).isInteractive
             if (!interactive.value) open.value = false
         }
     }
@@ -199,7 +200,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         p.y = p.y.coerceIn(safeTop,(safeTop+safeHeight-v.height).coerceAtLeast(safeTop))
         runCatching { windows.updateViewLayout(v,p) }
         val key = if (viewport.value.landscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
-        getSharedPreferences("lynx_hud_prefs",MODE_PRIVATE).edit().putFloat(key,(p.y-safeTop).toFloat()/safeHeight.coerceAtLeast(1)).apply()
+        getSharedPreferences("lynx_hud_prefs",MODE_PRIVATE).edit().putFloat(key,(p.y-safeTop).toFloat()/safeHeight.coerceAtLeast(1)).putInt("hud_x",p.x).apply()
     }
 
     private fun createOverlay() {
@@ -210,8 +211,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply {
-            title = "LynxFloatingHud"
-            gravity = Gravity.TOP or Gravity.LEFT; x = safeLeft; y = safeTop+(safeHeight*initial).toInt()
+            title = WINDOW_TITLE
+            gravity = Gravity.TOP or Gravity.LEFT
+            x = if (activeModeFlow.value == 0) safeLeft else pref.getInt("hud_x",safeLeft)
+            y = safeTop+(safeHeight*initial).toInt()
         }
         val host = ComposeView(this)
         host.setViewTreeLifecycleOwner(this)
@@ -236,7 +239,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 onApp = controller::launch,onStop = { stopSelf() })
             else FloatingHudContent(telemetry = HudLegacyAdapter.project(sample),hudMode = 1,activeStyle = style,pinMiniFps = pinned,
                 currentRefreshRate = sample[HudMetric.DISPLAY_HZ].value?.roundToInt() ?: 0,isExpanded = expanded,
-                onToggleExpand = { open.value = !open.value },onSelectMode = { activeModeFlow.value = it; open.value = false },
+                onToggleExpand = { open.value = !open.value },onSelectMode = { activeModeFlow.value = it; open.value = false; pref.edit().putInt("hud_mode",it).apply() },
                 onSelectStyle = { activeStyleFlow.value = it; pref.edit().putInt("hud_style",it).apply() },onTogglePinMiniFps = { preferences.pin(!pinned) },
                 onClose = { stopSelf() },onProfileSelect = { profile ->
                     if (profile == "extreme") { activeModeFlow.value = 0; open.value = true } else controller.profile(profile)

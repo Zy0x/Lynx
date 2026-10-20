@@ -41,7 +41,12 @@ data class HudReading(
         if (status == "valid" && (now < atMs || now - atMs > interval * 3)) copy(value = null, status = "stale") else this
 
     fun text(): String = value?.takeIf { status == "valid" && it.isFinite() }?.let {
-        val decimals = if (unit in setOf("ms", "GiB", "W", "°C", "Hz")) 1 else 0
+        val decimals = when {
+            unit == "Hz" -> if (kotlin.math.abs(it-it.toLong()) > 0.001) 2 else 0
+            unit == "MHz" -> if (kotlin.math.abs(it-it.toLong()) > 0.001) 1 else 0
+            unit in setOf("ms", "GiB", "W", "°C") -> 1
+            else -> 0
+        }
         String.format(Locale.getDefault(), "%.${decimals}f", it)
     } ?: "—"
 }
