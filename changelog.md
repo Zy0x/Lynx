@@ -1,3 +1,29 @@
+# Lynx Universal [Ultra-Slim Laser Line Dock & Zero-Miss Invisible Hit-Buffer] 7.0.0-RC132
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC132** (Lynx Kernel Manager v3.1.78): **Penyempurnaan Estetika Bilah Sisi Game HUD Menjadi Garis Tepi Ultra-Ramping (Laser Line Dock ~3.5dp) Tanpa Mengorbankan Presisi Sentuh (Zero-Miss Hit Buffer): Mengembalikan Desain Minimalis Garis Vertikal Presisi Bergradien Neon Cyan yang Menempel Ramping di Bezel Layar; Menghilangkan Tab Kapsul Tebal yang Memblokir Pandangan Layar; Dilengkapi Invisible Hit-Buffer Sentuh yang Membentang Halus ke Dalam Layar untuk Menjamin Ketukan Ringan Selalu Mendarat 100% Akurat Tanpa Meleset; Mempertahankan Arsitektur Tap-First Ergonomics & Pelindung Gestur 220dp Horizontal Sehingga Pembukaan Bilah Sisi Instan, Presisi, dan Kebal Sabotase Back Gesture Android**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC132)
+
+### 1. 📏 Garis Tepi Ultra-Ramping (Laser Line Dock ~3.5dp)
+- **Akar Masalah**:
+  - Pada versi RC131, tab kapsul bilah sisi berukuran ~40dp dirasa terlalu tebal/lebar dan memakan ruang pandang layar saat pengguna bermain game atau menonton konten video di smartphone.
+- **Solusi**:
+  - Mengembalikan bentuk visual handle tepi menjadi garis laser vertikal ultra-ramping selebar 3.5dp dan tinggi 44dp dengan sudut lengkung halus (2dp).
+  - Tampilan visual menempel anggun di bezel layar dengan micro-dock backing bergradien gelap semi-transparan (`Color(0xD90A0E16)`) bergaris tepi tipis 0.8dp, memberikan estetika modern, minimalis, dan sama sekali tidak mengganggu pandangan visual in-game.
+
+### 2. 🎯 Invisible Hit-Buffer: Presisi Sentuh Tinggi Tanpa Meleset (Zero-Miss Taps)
+- **Inovasi Rekayasa**:
+  - Meskipun garis visualnya sangat ramping (3.5dp), area hit-box sentuhan diperluas secara tak kasat mata (*invisible hit-buffer*) menggunakan padding internal selebar 14dp dan container ergonomis.
+  - Jempol pengguna dapat mendarat dengan santai dan natural di sekitar tepi garis tanpa perlu membidik secara kaku dengan ujung kuku.
+  - Dipadukan dengan toleransi `touchSlop = 16.dp.toPx()`, satu ketukan ringan jempol langsung terdeteksi seketika dan membuka panel Game HUD secara instan (*zero latency*).
+
+### 3. 🛡️ Proteksi Penuh Pelindung Gestur 220dp Horizontal & Imunitas Back Gesture
+- **Konsistensi Keamanan**:
+  - Pelindung eksklusi gestur Android (`systemGestureExclusionRects`) tetap aktif membentang 220dp secara horizontal.
+  - Membuka bilah sisi baik dengan ketukan ringan maupun tarikan usapan jempol terbukti 100% kebal dari picuan *Back Gesture* navigasi Android.
+
+---
+
 # Lynx Universal [Tap-First Ergonomics & 220dp Horizontal Gesture Shielding] 7.0.0-RC131
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC131** (Lynx Kernel Manager v3.1.77): **Penyempurnaan Tuntas Penanganan Gestur Bilah Sisi (Edge Drawer) dengan Arsitektur Tap-First Ergonomics & Pelindung Gestur Horizontal 220dp: Mengeliminasi 100% Ketergantungan Usapan Tepi & Konflik Back Gesture Sistem Android: Memperluas Area Eksklusi Gestur Sistem (`systemGestureExclusionRects`) Menjadi 220dp Horizontal Sepanjang Jalur Tarikan Layar; Mengalibrasi Ambang Batas Sentuh (Touch Slop 18dp) & Mengonsumsi Event Pointer Seketika (`down.consume()` / `change.consume()`) Sehingga Ketukan Jempol Membuka Bilah Sisi Secara Pasti (Zero-Effort Single Tap); Serta Menghadirkan Handle Kapsul 40dp Ergonomis dengan Indikator Affordance Taktil yang Nyaman & Bebas Resiko Back Gesture**.

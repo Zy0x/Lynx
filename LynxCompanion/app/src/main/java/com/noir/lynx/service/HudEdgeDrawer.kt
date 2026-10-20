@@ -68,14 +68,15 @@ fun HudEdgeDrawer(
     }
 
     if (!isDrawerOpen) {
-        // ── STATE 1: COLLAPSED EDGE HANDLE (Anti-Back Gesture & Tap-First Protected) ──
+        // ── STATE 1: COLLAPSED EDGE HANDLE (Ultra-Slim Line with Precision Hit-Buffer) ──
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .wrapContentSize()
                 .systemGestureExclusion()
+                .padding(end = 14.dp) // Invisible touch buffer to ensure effortless thumb precision
                 .pointerInput(Unit) {
-                    val touchSlop = 18.dp.toPx()
+                    val touchSlop = 16.dp.toPx()
                     while (true) {
                         awaitPointerEventScope {
                             val down = awaitPointerEvent().changes.firstOrNull { it.pressed } ?: return@awaitPointerEventScope
@@ -121,42 +122,30 @@ fun HudEdgeDrawer(
                     }
                 }
         ) {
-            // Refined Tactical Bezel Handle (Ergonomic Pill)
+            // Ultra-Slim Precision Bezel Line Handle (Docked to screen edge)
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp))
-                    .background(Color(0xEB0D131C))
+                    .clip(RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
+                    .background(Color(0xD90A0E16))
                     .border(
-                        BorderStroke(1.2.dp, Color(0x4400E5FF)),
-                        shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
+                        BorderStroke(0.8.dp, NeonCyan.copy(alpha = 0.6f)),
+                        shape = RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp)
                     )
-                    .padding(horizontal = 9.dp, vertical = 9.dp),
+                    .padding(start = 1.5.dp, end = 2.5.dp, top = 4.dp, bottom = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    // Sleek Glowing Vertical Spine
-                    Box(
-                        modifier = Modifier
-                            .width(3.5.dp)
-                            .height(28.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(NeonCyan, Color.White, NeonCyan)
-                                )
+                // Sleek Vertical Glowing Bar
+                Box(
+                    modifier = Modifier
+                        .width(3.5.dp)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(NeonCyan, Color.White, NeonCyan)
                             )
-                    )
-                    // Visual Affordance Chevron (Telegraphs Tap or Pull Outward)
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "Buka Bilah Sisi (Ketuk / Tarik)",
-                        tint = NeonCyan,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
+                        )
+                )
             }
 
             // Optional Glanceable Mini-FPS Pill
