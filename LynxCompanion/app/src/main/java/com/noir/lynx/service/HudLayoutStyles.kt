@@ -162,8 +162,9 @@ fun HudVerticalPillar(
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.width(42.dp)
                     )
+                    val gpuTempStr = if (telemetry.gpuTempC > 0f) "${telemetry.gpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
                     Text(
-                        "58°C · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W",
+                        "$gpuTempStr · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W",
                         color = TextSlate,
                         fontSize = 9.5.sp,
                         fontFamily = FontFamily.Monospace,
@@ -191,8 +192,9 @@ fun HudVerticalPillar(
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.width(42.dp)
                     )
+                    val cpuTempStr = if (telemetry.cpuTempC > 0f) "${telemetry.cpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
                     Text(
-                        "${telemetry.battTempC.toInt() + 15}°C",
+                        cpuTempStr,
                         color = TextSlate,
                         fontSize = 9.5.sp,
                         fontFamily = FontFamily.Monospace,
@@ -515,13 +517,15 @@ fun HudDualBlock(
                     }
                 }
                 HorizontalDivider(color = Color(0x22FFFFFF), thickness = 1.dp, modifier = Modifier.padding(vertical = 3.dp))
+                val gpuTempStr = if (telemetry.gpuTempC > 0f) "${telemetry.gpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
+                val cpuTempStr = if (telemetry.cpuTempC > 0f) "${telemetry.cpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("GPU ${telemetry.gpuFreqMhz}M", color = NeonMagenta, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("${telemetry.gpuLoadPct}% · 58°C", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    Text("${telemetry.gpuLoadPct}% · $gpuTempStr", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("CPU ${telemetry.cpuFreqMhz}M", color = NeonCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("${telemetry.cpuLoadPct}% · ${telemetry.battTempC.toInt() + 15}°C", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    Text("${telemetry.cpuLoadPct}% · $cpuTempStr", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("RAM ${telemetry.ramUsedGb}G", color = NeonGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -590,7 +594,8 @@ fun HudQuadTiles(
                 Column(Modifier.padding(5.dp)) {
                     Text("GPU ENGINE", color = NeonMagenta, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                     Text("${telemetry.gpuLoadPct}%", color = NeonMagenta, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                    Text("${telemetry.gpuFreqMhz}M · 58°C", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                    val gpuTempStr = if (telemetry.gpuTempC > 0f) "${telemetry.gpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
+                    Text("${telemetry.gpuFreqMhz}M · $gpuTempStr", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
                 }
             }
         }

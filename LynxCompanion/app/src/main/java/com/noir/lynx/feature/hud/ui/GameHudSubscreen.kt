@@ -1,6 +1,9 @@
 package com.noir.lynx.feature.hud.ui
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -18,6 +21,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,7 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewModelScope
 import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.data.LynxRepository
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.ui.LynxViewModel
@@ -41,6 +47,8 @@ import com.noir.lynx.ui.setHudMode
 import com.noir.lynx.ui.setHudPinMiniFps
 import com.noir.lynx.ui.setHudStyle
 import com.noir.lynx.ui.toggleGameHud
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * GameHudSubscreen — Zen-Minimalist Floating Game HUD & Real-time OSD Overlay.
@@ -49,6 +57,7 @@ import com.noir.lynx.ui.toggleGameHud
  * - Unified Hero Master Controller merging status, master switch, and benchmark shortcut.
  * - Symmetrical, tactile interaction mode selector (Edge Drawer vs Floating Window).
  * - Anti-overlap 6-tile bento catalog for OSD telemetry layout presets.
+ * - Explicit overlay permission watchdog with direct root-grant & system settings bridge.
  * - Concise, professional copywriting completely free from AI brochure slop.
  */
 @Composable
@@ -59,6 +68,9 @@ fun GameHudSubscreen(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    val hasOverlayPermission = remember(uiState) {
+        Settings.canDrawOverlays(context)
+    }
 
     Column(
         modifier = modifier
@@ -66,6 +78,27 @@ fun GameHudSubscreen(
             .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // ── 0. Overlay Permission Watchdog Card ─────────────────
+        if (!hasOverlayPermission) {
+            HudOverlayPermissionCard(
+                onGrant = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    viewModel.viewModelScope.launch(Dispatchers.IO) {
+                        val granted = LynxRepository.grantOverlayPermission()
+                        if (!granted || !Settings.canDrawOverlays(context)) {
+                            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            try {
+                                context.startActivity(intent)
+                            } catch (_: Exception) {}
+                        }
+                    }
+                }
+            )
+        }
+
         // ── 1. Unified Hero Master Controller ───────────────────
         HudHeroMasterCard(
             isActive = uiState.isGameHudActive,
@@ -104,6 +137,76 @@ fun GameHudSubscreen(
         )
 
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+/**
+ * HudOverlayPermissionCard — Explanatory alert card shown when overlay permission is revoked or missing.
+ */
+@Composable
+private fun HudOverlayPermissionCard(
+    onGrant: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF191410),
+        border = BorderStroke(1.dp, Color(0x66FFB300)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0x33FFB300),
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFFFFB300),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Izin Overlay Belum Aktif",
+                        color = Color(0xFFFFB300),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Aktifkan izin 'Tampilkan di atas aplikasi lain' agar HUD dapat muncul di layar game",
+                        color = TextSecondary.copy(alpha = 0.85f),
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                onClick = onGrant,
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0x28FFB300),
+                border = BorderStroke(0.8.dp, Color(0x88FFB300)),
+                modifier = Modifier.fillMaxWidth().height(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Beri Izin Overlay",
+                        color = Color(0xFFFFB300),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
     }
 }
 

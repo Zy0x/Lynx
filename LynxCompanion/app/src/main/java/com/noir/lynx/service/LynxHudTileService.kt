@@ -34,9 +34,11 @@ class LynxHudTileService : TileService() {
         }
 
         val isRunning = LynxFloatingHudService.isRunning
-        val intent = Intent(this, LynxFloatingHudService::class.java)
+        val intent = Intent(this, LynxFloatingHudService::class.java).apply {
+            action = if (isRunning) LynxFloatingHudService.ACTION_STOP else LynxFloatingHudService.ACTION_START
+        }
         if (isRunning) {
-            stopService(intent)
+            startService(intent)
         } else {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(intent)

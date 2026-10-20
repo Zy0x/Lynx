@@ -419,8 +419,9 @@ fun HudEdgeDrawer(
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.width(36.dp)
                                 )
+                                val gpuTempStr = if (telemetry.gpuTempC > 0f) "${telemetry.gpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
                                 Text(
-                                    "58°C · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W",
+                                    "$gpuTempStr · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W",
                                     color = TextSlate,
                                     fontSize = 8.5.sp,
                                     fontFamily = FontFamily.Monospace,
@@ -448,8 +449,9 @@ fun HudEdgeDrawer(
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.width(36.dp)
                                 )
+                                val cpuTempStr = if (telemetry.cpuTempC > 0f) "${telemetry.cpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
                                 Text(
-                                    "${telemetry.battTempC.toInt() + 15}°C",
+                                    cpuTempStr,
                                     color = TextSlate,
                                     fontSize = 8.5.sp,
                                     fontFamily = FontFamily.Monospace,

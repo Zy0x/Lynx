@@ -1,3 +1,58 @@
+# Lynx Universal [Game HUD Subsystem & Overlay Engine Bug Overhaul] 7.0.0-RC129
+Released on: 2026-10-20
+> **Lynx Universal v7.0.0-RC129** (Lynx Kernel Manager v3.1.75): **Perombakan Menyeluruh Sub-Sistem Floating Game HUD, OSD Telemetri, & Window Overlay Engine untuk Menutup Seluruh Celah Logika & Menumpas Bug Kritis: Eliminasi Nilai Hardcoded/Mock Suhu (Hardcoded 58°C & Rumus Palsu +15) Digantikan dengan Pembacaan Asli Zona Termal Kernel Linux (`cpu`, `soc`, `gpu`, `mali`, `kgsl`, `tsens`); Sinkronisasi Status Reaktif Penuh Dua Arah via `isRunningFlow` Antara Quick Settings Tile, Notification Action, Automation Watcher, Floating Close Button, dan UI Switch; Perbaikan Bug Dislokasi Mid-Air pada Mode Tampilan Layar (Bilah Sisi vs Jendela Bebas); Mekanisme Penjaga Orientasi Layar (Screen Rotation Auto-Clamping) Mencegah HUD Hilang di Luar Layar Saat Masuk Game Landscape; Pelindung Tidur Layar (Screen-State Power-Awareness & Sleep Shield) Menghentikan Total Polling Telemetri Saat Layar Mati (0% CPU Wake Lock); Optimasi Buffer I/O SharedPreferences dengan Debounce 300ms Saat Drag; Serta Watchdog Izin Overlay Cerdas dengan Deteksi Otomatis & Pemulihan Instan**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC129)
+
+### 1. 🌡️ Eliminasi Total Mocking Suhu Palsu & Pembacaan Nyata Zona Termal Kernel
+- **Akar Masalah**:
+  - Pada implementasi sebelumnya, suhu GPU di-hardcode mati bernilai `58°C` pada 5 berkas tata letak HUD (`HudEdgeDrawer.kt`, `HudLayoutStyles.kt`, dan `HudDeckAndTelemetryStyles.kt`).
+  - Suhu CPU dimanipulasi dengan rumus matematika tiruan `battTempC + 15°C` yang tidak merefleksikan temperatur silikon sebenarnya.
+- **Solusi**:
+  - Menambahkan pembacaan langsung tipe sensor kernel dari `/sys/class/thermal/thermal_zone*/type` dan `/sys/class/thermal/thermal_zone*/temp` pada `LynxHudTelemetryRepository.kt` untuk arsitektur Qualcomm, MediaTek, dan Generic Linux.
+  - Menambahkan field resmi `cpuTempC: Float` dan `gpuTempC: Float` pada model data `FloatingHudTelemetry`.
+  - Mengonfigurasi fallback berjenjang yang aman tanpa pernah menampilkan angka statis atau palsu.
+
+### 2. 🔄 Sinkronisasi Status Reaktif Penuh (`isRunningFlow`)
+- **Akar Masalah**:
+  - `LynxFloatingHudService.isRunning` sebelumnya berstatus private Boolean biasa tanpa flow observer. Ketika HUD dimatikan dari tombol notifikasi, tombol "X" overlay, Quick Tile, atau watcher otomasi, switch di `GameHudSubscreen.kt` tetap menyala (desync).
+- **Solusi**:
+  - Mengubah status HUD menjadi `val isRunningFlow = MutableStateFlow(false)`.
+  - `LynxViewModel` mengoleksi flow ini secara asinkron sehingga sakelar HUD di aplikasi selalu 100% akurat dan sinkron dengan status foreground service.
+
+### 3. 🎯 Perbaikan Bug Dislokasi Posisi Mode Mid-Air (Bilah Sisi vs Jendela Bebas)
+- **Akar Masalah**:
+  - Ketika pengguna mengubah mode tampilan layar di `GameHudSubscreen.kt`, intent `ACTION_SET_MODE` hanya mengubah nilai internal flow tanpa memperbarui koordinat WindowManager. Akibatnya, Bilah Sisi (Edge Drawer) melayang canggung di tengah layar (misal x = 400).
+- **Solusi**:
+  - Mengimplementasikan `updateModePosition(mode: Int)` pada `LynxFloatingHudService.kt` yang secara otomatis mengunci `layoutParams.x = 0` saat beralih ke Mode Bilah Sisi dan merestorasi koordinat tersimpan yang aman saat beralih ke Mode Jendela Bebas.
+
+### 4. 📱 Penjaga Orientasi Layar (Rotation Auto-Clamping) & Anti-Off-Screen Loss
+- **Akar Masalah**:
+  - `LynxFloatingHudService` sebelumnya tidak meng-override `onConfigurationChanged`. Ketika ponsel diputar ke orientasi Landscape saat bermain game (2400x1080) dari Portrait (1080x2400), koordinat Y jendela terlempar ke luar layar tanpa bisa dijangkau pengguna.
+- **Solusi**:
+  - Mengimplementasikan listener rotasi konfigurasi dengan fungsi `clampHudPositionToScreen()`.
+  - Seluruh pergeseran jendela (drag gesture) dibatasi ketat dalam batas aman layar (`metrics.widthPixels` dan `metrics.heightPixels`) dengan margin safe-area.
+
+### 5. 🛡️ Screen-State Sleep Shield (Zero CPU Wake Lock Saat Layar Mati)
+- **Akar Masalah**:
+  - Loop polling telemetri berjalan tanpa henti setiap 500ms bahkan saat layar ponsel dimatikan dan dimasukkan ke saku celana, memicu perintah root shell dan dumpsys berkala yang mencegah kernel masuk ke C-states (Deep Sleep).
+- **Solusi**:
+  - Mendaftarkan receiver `Intent.ACTION_SCREEN_OFF` dan `ACTION_SCREEN_ON`.
+  - Polling telemetri ditidurkan sepenuhnya saat layar mati dan seketika dibangunkan tanpa latensi saat layar kembali aktif.
+
+### 6. ⚡ Optimasi SharedPreferences I/O Anti-Jank (Debounce 300ms)
+- **Akar Masalah**:
+  - Operasi penulisan SharedPreferences (`putInt("hud_y", ...).apply()`) dieksekusi pada setiap piksel gerakan geser, membanjiri antrean commit disk I/O dan memicu micro-stutter pada UI gesture.
+- **Solusi**:
+  - Menerapkan fungsi `debouncedSavePosition` dengan jeda tunda 300ms setelah gestur berhenti, menjaga responsivitas sentuhan 120 FPS tanpa overhead disk.
+
+### 7. 🛡️ Watchdog Izin Overlay Cerdas & UI Explanatory Banner
+- **Solusi**:
+  - Menyediakan kartu peringatan `HudOverlayPermissionCard` yang tampil jika izin overlay belum aktif, lengkap dengan tombol langsung untuk mencoba grant root otomatis atau membuka pengaturan sistem `Settings.ACTION_MANAGE_OVERLAY_PERMISSION`.
+  - Memvalidasi izin sebelum menjalankan service untuk mencegah crash `BadTokenException` atau status zombie notification.
+
+---
+
 # Lynx Universal [Smart Thermal Presets, Video Decode & Multitasking Balanced Tuning] 7.0.0-RC128
 Released on: 2026-10-20
 > **Lynx Universal v7.0.0-RC128** (Lynx Kernel Manager v3.1.74): **Optimalisasi Menyeluruh Profil Global Balanced untuk Kelancaran Pemutaran Video (YouTube 1080p60/4K, TikTok, Reels) & Multitasking Harian pada Seluruh Tingkatan Perangkat (Low-End, Mid-End, & Flagship): Eliminasi Ceiling 75% Menjadi Dynamic 0-100% Burst Schedutil pada Native Daemon Rust (`balanced.rs`) Agar Perangkat Low-End Tidak Mengalami Frame-Drop; Penyetelan Presisi VM Memory (`vfs_cache_pressure = 80`, `swappiness = 70`, `watermark_boost_factor = 0`) Guna Menghilangkan Stutter kswapd & Mencegah Reload Aplikasi Latar Belakang; 4 Smart Thermal Presets 1-Klik pada Vendor Thermal Studio (Multimedia & Video Lancar, Harian Seimbang Pro, Sustained Gaming, Dingin Tropis); Sakelar Cepat Anti-Dimming 54°C & Headroom CPU/GPU +4°C; Serta Badge & Penjelasan Ramah Pemula untuk Seluruh Seksi Kernel**.

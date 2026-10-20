@@ -12,10 +12,31 @@ import kotlinx.coroutines.flow.update
 
     fun LynxViewModel.toggleGameHud(context: android.content.Context, enable: Boolean) {
         recordStateMutation()
-        _uiState.update { it.copy(isGameHudActive = enable) }
         viewModelScope.launch(Dispatchers.IO) {
             if (enable) {
-                LynxRepository.grantOverlayPermission()
+                var canDraw = android.provider.Settings.canDrawOverlays(context)
+                if (!canDraw) {
+                    LynxRepository.grantOverlayPermission()
+                    canDraw = android.provider.Settings.canDrawOverlays(context)
+                }
+                if (!canDraw) {
+                    _uiState.update {
+                        it.copy(
+                            isGameHudActive = false,
+                            errorMessage = "Izin 'Tampilkan di atas aplikasi lain' diperlukan."
+                        )
+                    }
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                        data = android.net.Uri.parse("package:${context.packageName}")
+                        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: Exception) {}
+                    return@launch
+                }
+
+                _uiState.update { it.copy(isGameHudActive = true) }
                 val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
                     action = com.noir.lynx.service.LynxFloatingHudService.ACTION_START
                 }
@@ -26,10 +47,11 @@ import kotlinx.coroutines.flow.update
                 }
                 _uiState.update { it.copy(successMessage = "Floating Game HUD Diaktifkan") }
             } else {
+                _uiState.update { it.copy(isGameHudActive = false) }
                 val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
                     action = com.noir.lynx.service.LynxFloatingHudService.ACTION_STOP
                 }
-                context.stopService(intent)
+                context.startService(intent)
                 _uiState.update { it.copy(successMessage = "Floating Game HUD Dinonaktifkan") }
             }
         }
@@ -71,18 +93,20 @@ import kotlinx.coroutines.flow.update
 
     fun LynxViewModel.syncHudPrefs(context: android.content.Context) {
         val prefs = context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
-        val style = prefs.getInt("hud_style", 1)
-        val mode = prefs.getInt("hud_mode", 0)
+        val style = prefs.getInt("hud_style", 1).coerceIn(1, 6)
+        val mode = prefs.getInt("hud_mode", 0).coerceIn(0, 1)
         val pin = prefs.getBoolean("pin_mini_fps", false)
         val feedbackStyle = prefs.getString("mode_feedback_style", "jewel_top") ?: "jewel_top"
         val feedbackDual = prefs.getBoolean("mode_feedback_dual", true)
+        val isRunning = com.noir.lynx.service.LynxFloatingHudService.isRunning
         _uiState.update {
             it.copy(
                 hudStyle = style,
                 hudMode = mode,
                 hudPinMiniFps = pin,
                 modeFeedbackStyle = feedbackStyle,
-                modeFeedbackDualMorph = feedbackDual
+                modeFeedbackDualMorph = feedbackDual,
+                isGameHudActive = isRunning
             )
         }
     }

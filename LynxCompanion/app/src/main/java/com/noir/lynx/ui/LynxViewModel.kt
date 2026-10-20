@@ -123,6 +123,13 @@ class LynxViewModel : ViewModel() {
                     startPeriodicSync()
                     startTelemetryPolling()
 
+                    // Reactive sync with floating Game HUD daemon state
+                    viewModelScope.launch {
+                        com.noir.lynx.service.LynxFloatingHudService.isRunningFlow.collect { running ->
+                            _uiState.update { it.copy(isGameHudActive = running) }
+                        }
+                    }
+
                     // Concurrently load app automation profile rules immediately (<30ms, zero lag)
                     viewModelScope.launch(Dispatchers.IO) {
                         try {

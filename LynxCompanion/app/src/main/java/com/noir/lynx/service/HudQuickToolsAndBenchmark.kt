@@ -78,6 +78,7 @@ internal fun ColumnScope.HudQuickToolsAndBenchmark(
 ) {
     var isBoosting by remember { mutableStateOf(false) }
     var boostFeedback by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
                 // 4. Quick Gaming Tools
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
@@ -104,7 +105,7 @@ internal fun ColumnScope.HudQuickToolsAndBenchmark(
                                         boostFeedback = "..."
                                         onBoostRam()
                                         onInteraction()
-                                        kotlinx.coroutines.GlobalScope.launch(Dispatchers.Main) {
+                                        coroutineScope.launch {
                                             delay(1200L)
                                             isBoosting = false
                                             boostFeedback = null

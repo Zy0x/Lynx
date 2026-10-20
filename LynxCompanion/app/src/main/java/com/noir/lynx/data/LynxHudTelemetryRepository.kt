@@ -14,6 +14,27 @@ object LynxHudTelemetryRepository {
     private val fpsWindow = ArrayDeque<Int>()
     private val ftHistoryWindow = ArrayDeque<Float>()
 
+    @Synchronized
+    fun reset() {
+        lastTotalFrames = 0L
+        lastFrameTimestampMs = 0L
+        lastCalculatedRenderFps = 0
+        lastCpuTotal = 0L
+        lastCpuIdle = 0L
+        fpsWindow.clear()
+        ftHistoryWindow.clear()
+    }
+
+    private fun normalizeTemp(raw: Long, fallback: Float = 0f): Float {
+        if (raw <= 0L) return fallback
+        return when {
+            raw > 10_000L -> (raw / 1000f)
+            raw > 1_000L -> (raw / 100f)
+            raw > 100L -> (raw / 10f)
+            else -> raw.toFloat()
+        }
+    }
+
     suspend fun readFloatingHudTelemetry(displayHz: Int = 60): LynxRepository.FloatingHudTelemetry = withContext(Dispatchers.IO) {
         try {
             // Blistering sub-20ms atomic multi-sensor query
@@ -38,9 +59,12 @@ object LynxHudTelemetryRepository {
                 fi
                 [ -z "${'$'}fps" ] && fps=0
 
-                # 3. Universal SurfaceFlinger Frame Counter
-                tot_frames=${'$'}(dumpsys SurfaceFlinger --timestats -dump 2>/dev/null | grep -m1 totalFrames | tr -cd '0-9')
-                [ -z "${'$'}tot_frames" ] && tot_frames=0
+                # 3. Universal SurfaceFlinger Frame Counter (Only fallback if HW FPS == 0)
+                tot_frames=0
+                if [ "${'$'}fps" -eq 0 ]; then
+                    tot_frames=${'$'}(dumpsys SurfaceFlinger --timestats -dump 2>/dev/null | grep -m1 totalFrames | tr -cd '0-9')
+                    [ -z "${'$'}tot_frames" ] && tot_frames=0
+                fi
 
                 cpufreq=${'$'}(cat /sys/devices/system/cpu/cpufreq/policy*/scaling_cur_freq 2>/dev/null | sort -nr | head -n1)
                 cpumhz=0
@@ -80,18 +104,44 @@ object LynxHudTelemetryRepository {
                 [ -z "${'$'}gpumhz" ] && gpumhz=0
                 [ -z "${'$'}gpuload" ] && gpuload=0
 
-                btemp=${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null | awk '{print ${'$'}1/10}')
-                bvolt=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null || echo 0)
-                bcurr=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null || echo 0)
+                # 4. Genuine CPU/SoC & GPU Temperatures
+                cputemp=0
+                gputemp=0
+                for tz in /sys/class/thermal/thermal_zone*; do
+                    [ -d "${'$'}tz" ] || continue
+                    type_str=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                    if [ "${'$'}cputemp" -eq 0 ] && [ -f "${'$'}tz/temp" ]; then
+                        case "${'$'}type_str" in
+                            *cpu*|*soc*|*mtktscpu*|*tsens_tz_sensor*|*apc*|*core*)
+                                raw_c=${'$'}(cat "${'$'}tz/temp" 2>/dev/null | tr -cd '0-9')
+                                [ -n "${'$'}raw_c" ] && cputemp=${'$'}raw_c
+                                ;;
+                        esac
+                    fi
+                    if [ "${'$'}gputemp" -eq 0 ] && [ -f "${'$'}tz/temp" ]; then
+                        case "${'$'}type_str" in
+                            *gpu*|*mali*|*kgsl*|*mtktsgpu*|*g3d*)
+                                raw_g=${'$'}(cat "${'$'}tz/temp" 2>/dev/null | tr -cd '0-9')
+                                [ -n "${'$'}raw_g" ] && gputemp=${'$'}raw_g
+                                ;;
+                        esac
+                    fi
+                    [ "${'$'}cputemp" -gt 0 ] && [ "${'$'}gputemp" -gt 0 ] && break
+                done
+
+                raw_btemp=${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null | tr -cd '0-9')
+                [ -z "${'$'}raw_btemp" ] && raw_btemp=0
+                bvolt=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null | tr -cd '0-9' || echo 0)
+                bcurr=${'$'}(cat /sys/class/power_supply/battery/current_now 2>/dev/null | tr -cd -- '-0-9' || echo 0)
                 bstat=${'$'}(cat /sys/class/power_supply/battery/status 2>/dev/null || echo Discharging)
-                blevel=${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 0)
+                blevel=${'$'}(cat /sys/class/power_supply/battery/capacity 2>/dev/null | tr -cd '0-9' || echo 0)
                 cur_prof=${'$'}(getprop lynx.mode 2>/dev/null)
                 [ -z "${'$'}cur_prof" ] && cur_prof=${'$'}(cat /data/adb/lynx/active_profile 2>/dev/null || echo balance)
 
                 cpuline=${'$'}(head -n1 /proc/stat 2>/dev/null)
                 meminfo=${'$'}(awk '/MemTotal/ {t=${'$'}2} /MemAvailable/ {a=${'$'}2} /SwapTotal/ {st=${'$'}2} /SwapFree/ {sf=${'$'}2} END {print t-a, t, st-sf, st}' /proc/meminfo 2>/dev/null)
 
-                echo "${'$'}fps|${'$'}cpumhz|${'$'}gpumhz|${'$'}gpuload|${'$'}btemp|${'$'}bcurr|${'$'}blevel|${'$'}tot_frames|${'$'}bvolt|${'$'}bstat|${'$'}cur_prof|${'$'}cpuline|${'$'}meminfo"
+                echo "${'$'}fps|${'$'}cpumhz|${'$'}gpumhz|${'$'}gpuload|${'$'}raw_btemp|${'$'}bcurr|${'$'}blevel|${'$'}tot_frames|${'$'}bvolt|${'$'}bstat|${'$'}cur_prof|${'$'}cpuline|${'$'}meminfo|${'$'}cputemp|${'$'}gputemp"
             """.trimIndent()
 
             val res = Shell.cmd(script).exec()
@@ -101,12 +151,19 @@ object LynxHudTelemetryRepository {
             val cpumhz = parts.getOrNull(1)?.toIntOrNull() ?: 0
             val gpumhz = parts.getOrNull(2)?.toIntOrNull() ?: 0
             val gpuload = parts.getOrNull(3)?.toIntOrNull() ?: 0
-            val btemp = parts.getOrNull(4)?.toFloatOrNull() ?: 0f
+            val rawBtempLong = parts.getOrNull(4)?.toLongOrNull() ?: 0L
             val rawBcurr = parts.getOrNull(5)?.toIntOrNull() ?: 0
             val blevel = parts.getOrNull(6)?.toIntOrNull() ?: 0
             val totFrames = parts.getOrNull(7)?.toLongOrNull() ?: 0L
             val rawVolt = parts.getOrNull(8)?.toLongOrNull() ?: 0L
             val bstat = parts.getOrNull(9)?.trim() ?: "Discharging"
+
+            val btemp = normalizeTemp(rawBtempLong, fallback = 35f)
+            val rawCpuTemp = parts.getOrNull(13)?.toLongOrNull() ?: 0L
+            val rawGpuTemp = parts.getOrNull(14)?.toLongOrNull() ?: 0L
+
+            val normCpuTemp = normalizeTemp(rawCpuTemp, fallback = if (btemp > 0f) btemp + 3f else 0f)
+            val normGpuTemp = normalizeTemp(rawGpuTemp, fallback = if (normCpuTemp > 0f) normCpuTemp else btemp)
 
             val voltMv = if (rawVolt > 100_000L) (rawVolt / 1000L).toInt() else rawVolt.toInt()
             val bcurr = if (Math.abs(rawBcurr) > 10_000) (rawBcurr / 1000) else rawBcurr
@@ -191,25 +248,29 @@ object LynxHudTelemetryRepository {
                 }
             }
 
-            // Real-time FPS & Frametime Ring Buffer
-            if (calculatedRenderFps > 0) {
-                if (fpsWindow.size >= 60) fpsWindow.removeFirst()
-                fpsWindow.addLast(calculatedRenderFps)
-            }
-            val avgFps = if (fpsWindow.isNotEmpty()) fpsWindow.average().toFloat() else calculatedRenderFps.toFloat()
-            val sortedFps = fpsWindow.sorted()
-            val fps1PercentLow = if (sortedFps.isNotEmpty()) {
-                val idx = (sortedFps.size * 0.05).toInt().coerceIn(0, sortedFps.size - 1)
-                sortedFps[idx].toFloat()
-            } else calculatedRenderFps.toFloat()
+            // Real-time FPS & Frametime Ring Buffer (Thread-safe)
+            val (avgFps, fps1PercentLow, liveFt, avgFt, ftJitter, ftHistoryList) = synchronized(this) {
+                if (calculatedRenderFps > 0) {
+                    if (fpsWindow.size >= 60) fpsWindow.removeFirst()
+                    fpsWindow.addLast(calculatedRenderFps)
+                }
+                val avg = if (fpsWindow.isNotEmpty()) fpsWindow.average().toFloat() else calculatedRenderFps.toFloat()
+                val sorted = fpsWindow.sorted()
+                val onePctLow = if (sorted.isNotEmpty()) {
+                    val idx = (sorted.size * 0.05).toInt().coerceIn(0, sorted.size - 1)
+                    sorted[idx].toFloat()
+                } else calculatedRenderFps.toFloat()
 
-            val liveFt = if (calculatedRenderFps > 0) 1000f / calculatedRenderFps else 0f
-            if (liveFt > 0f) {
-                if (ftHistoryWindow.size >= 40) ftHistoryWindow.removeFirst()
-                ftHistoryWindow.addLast(liveFt)
+                val ft = if (calculatedRenderFps > 0) 1000f / calculatedRenderFps else 0f
+                if (ft > 0f) {
+                    if (ftHistoryWindow.size >= 40) ftHistoryWindow.removeFirst()
+                    ftHistoryWindow.addLast(ft)
+                }
+                val avgFrametime = if (ftHistoryWindow.isNotEmpty()) ftHistoryWindow.average().toFloat() else ft
+                val jitter = if (ftHistoryWindow.size > 1) Math.abs(ft - avgFrametime) else 0f
+
+                Tuple6(avg, onePctLow, ft, avgFrametime, jitter, ftHistoryWindow.toList())
             }
-            val avgFt = if (ftHistoryWindow.isNotEmpty()) ftHistoryWindow.average().toFloat() else liveFt
-            val ftJitter = if (ftHistoryWindow.size > 1) Math.abs(liveFt - avgFt) else 0f
 
             LynxRepository.FloatingHudTelemetry(
                 renderFps = calculatedRenderFps,
@@ -220,12 +281,14 @@ object LynxHudTelemetryRepository {
                 frametimeMs = Math.round(liveFt * 10f) / 10f,
                 avgFrametimeMs = Math.round(avgFt * 10f) / 10f,
                 frametimeJitterMs = Math.round(ftJitter * 10f) / 10f,
-                frametimeHistory = ftHistoryWindow.toList(),
+                frametimeHistory = ftHistoryList,
                 cpuFreqMhz = cpumhz,
                 cpuLoadPct = calculatedCpuLoad,
                 cpuCoresSummary = if (cpumhz > 0) "${String.format(java.util.Locale.US, "%.2f", cpumhz / 1000f)} GHz" else "--",
+                cpuTempC = Math.round(normCpuTemp * 10f) / 10f,
                 gpuFreqMhz = gpumhz,
                 gpuLoadPct = gpuload,
+                gpuTempC = Math.round(normGpuTemp * 10f) / 10f,
                 ramUsedGb = ramUsedGb,
                 ramTotalGb = ramTotalGb,
                 ramPct = ramPct,
@@ -243,5 +306,7 @@ object LynxHudTelemetryRepository {
         }
     }
 
-
+    private data class Tuple6<A, B, C, D, E, F>(
+        val a: A, val b: B, val c: C, val d: D, val e: E, val f: F
+    )
 }
