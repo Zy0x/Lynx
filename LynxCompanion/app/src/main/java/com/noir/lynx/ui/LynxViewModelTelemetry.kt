@@ -207,7 +207,7 @@ import kotlinx.coroutines.launch
 
 
     internal fun LynxViewModel.refreshState() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 if (System.currentTimeMillis() - lastStateMutationTime < 6000L) {
                     return@launch
@@ -243,13 +243,13 @@ import kotlinx.coroutines.launch
                     )
                 }
             } catch (e: Exception) {
-                // Silent refresh failure â€” don't show error for background syncs
+                // Silent refresh failure — don't show error for background syncs
             }
         }
     }
 
     internal fun LynxViewModel.refreshClusters() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val clusters = LynxRepository.readClusters()
                 val freshSets = safeReadCpuSetsInfo()

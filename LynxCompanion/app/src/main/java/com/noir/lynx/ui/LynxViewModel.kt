@@ -62,6 +62,7 @@ class LynxViewModel : ViewModel() {
 
             if (rootAvailable) {
                 try {
+                    LynxRepository.ensureDaemonRunning()
                     LynxRepository.ensureKgslPermissions()
 
                     // Stage 1: Ultra-fast parallelized core state hydration (<120ms via concurrent IO)

@@ -44,7 +44,7 @@ fun LynxViewModel.setBypassCharging(enabled: Boolean) {
         )
     }
     setKey("charging.bypass_enabled", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val chg = _uiState.value.state.charging
         val isLaptop = _uiState.value.batteryDetails?.isLaptopPort == true
         LynxRepository.applyChargingMode(
@@ -102,7 +102,7 @@ fun LynxViewModel.setExtremeCharging(enabled: Boolean) {
         )
     }
     setKey("charging.extreme_charging_enabled", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val chg = _uiState.value.state.charging
         val isLaptop = _uiState.value.batteryDetails?.isLaptopPort == true
         LynxRepository.applyChargingMode(
@@ -303,7 +303,7 @@ fun LynxViewModel.setNightSleepGuard(enabled: Boolean) {
         )
     }
     setKey("charging.night_sleep_guard_enabled", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setNightSleepGuard(enabled)
         _uiState.update {
             it.copy(
@@ -323,7 +323,7 @@ fun LynxViewModel.setDualCellMultiplier(multiplier: Int) {
         )
     }
     setKey("charging.dual_cell_multiplier", multiplier.toString(), "val")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setDualCellMultiplier(multiplier)
         refreshBatteryDetails()
         _uiState.update {
@@ -337,7 +337,7 @@ fun LynxViewModel.setDualCellMultiplier(multiplier: Int) {
 fun LynxViewModel.runCableQualityBenchmark() {
     if (_uiState.value.isCableBenchmarkRunning) return
     _uiState.update { it.copy(isCableBenchmarkRunning = true) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         try {
             val mult = _uiState.value.state.charging.dualCellMultiplier
             val res = LynxRepository.runCableQualityBenchmark(multiplier = mult)
@@ -358,7 +358,7 @@ fun LynxViewModel.runCableQualityBenchmark() {
 fun LynxViewModel.calibrateBatteryStats() {
     if (_uiState.value.isCalibratingBattery) return
     _uiState.update { it.copy(isCalibratingBattery = true) }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.calibrateBatteryStats()
         delay(1200)
         _uiState.update { current ->
@@ -386,7 +386,7 @@ fun LynxViewModel.forceMaxSuperCharge() {
             )
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.forceMaxSuperCharge()
         LynxRepository.reapplyExtremeChargingLock()
         val details = LynxRepository.readBatteryDetails()
@@ -406,7 +406,7 @@ fun LynxViewModel.setHighCurrentTarget(percent: Int) {
         )
     }
     setKey("charging.high_current_target_percent", percent.toString(), "val")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val chg = _uiState.value.state.charging
         LynxRepository.applyChargingMode(
             bypass = chg.bypassEnabled,
@@ -442,7 +442,7 @@ fun LynxViewModel.setThermalLockoutBypass(enabled: Boolean) {
             )
         )
     }
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setThermalLockoutBypass(false)
         val chg = _uiState.value.state.charging
         LynxRepository.applyChargingMode(
@@ -467,7 +467,7 @@ fun LynxViewModel.setSmartTapering(enabled: Boolean) {
         )
     }
     setKey("charging.smart_tapering_enabled", enabled.toString(), "bool")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.setSmartTapering(enabled)
     }
 }
@@ -494,7 +494,7 @@ fun LynxViewModel.setChargeCurrentLimit(ma: Int) {
         )
     }
     setKey("charging.limit_current_ma", ma.toString(), "val")
-    viewModelScope.launch {
+    viewModelScope.launch(Dispatchers.IO) {
         val chg = _uiState.value.state.charging
         LynxRepository.applyChargingMode(
             bypass = chg.bypassEnabled,

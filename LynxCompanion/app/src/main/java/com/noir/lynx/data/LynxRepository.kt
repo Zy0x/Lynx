@@ -197,19 +197,8 @@ object LynxRepository {
                         esac
                     fi
                 done
-                for p in /proc/[0-9]*; do
-                    pid=${'$'}{p##*/}
-                    [ "${'$'}pid" = "${'$'}${'$'}" ] && continue
-                    [ "${'$'}pid" = "1" ] && continue
-                    cmd=${'$'}(cat ${'$'}p/cmdline 2>/dev/null | tr '\0' ' ')
-                    if [ "${'$'}cmd" = "/system/bin/sh " ] || [ "${'$'}cmd" = "sh " ]; then
-                        ppid=${'$'}(awk '{print ${'$'}4}' ${'$'}p/stat 2>/dev/null)
-                        if [ "${'$'}ppid" = "1" ]; then
-                            kill -9 ${'$'}pid 2>/dev/null
-                        fi
-                    fi
-                done
-            """.trimIndent()).exec()
+                pkill -9 -f "/data/adb/modules/Lynx" 2>/dev/null
+            """.trimIndent()).submit()
 
             // Preserve and safely disable any legacy Lynx module (v4/v5/v6)
             // Note: Only migrate if it was an ACTUAL installed module (has module.prop).
@@ -227,7 +216,7 @@ object LynxRepository {
                 if [ -d "/data/adb/modules/Lynx_legacy" ] && [ ! -f "/data/adb/modules/Lynx_legacy/module.prop" ]; then
                     rm -rf /data/adb/modules/Lynx_legacy 2>/dev/null
                 fi
-            """.trimIndent()).exec()
+            """.trimIndent()).submit()
         } catch (_: Exception) {}
     }
 
@@ -341,15 +330,26 @@ object LynxRepository {
     fun getLynxdPath(): String {
         resolvedLynxdPath?.let { return it }
         try {
-            val resMod = Shell.cmd("[ -f '$MODULE_DIR/system/bin/lynxd' ] && [ -x '$MODULE_DIR/system/bin/lynxd' ] && echo 1 || echo 0").exec()
-            if (resMod.out.firstOrNull()?.trim() == "1") {
-                resolvedLynxdPath = "$MODULE_DIR/system/bin/lynxd"
-                return "$MODULE_DIR/system/bin/lynxd"
-            }
-            val resTmp = Shell.cmd("[ -f '/data/local/tmp/lynxd' ] && [ -x '/data/local/tmp/lynxd' ] && echo 1 || echo 0").exec()
-            if (resTmp.out.firstOrNull()?.trim() == "1") {
-                resolvedLynxdPath = "/data/local/tmp/lynxd"
-                return "/data/local/tmp/lynxd"
+            val res = Shell.cmd("""
+                if [ -x '$MODULE_DIR/system/bin/lynxd' ]; then
+                    echo "mod"
+                elif [ -x '/data/local/tmp/lynxd' ]; then
+                    echo "tmp"
+                else
+                    echo "none"
+                fi
+            """.trimIndent()).exec()
+            when (res.out.firstOrNull()?.trim()) {
+                "mod" -> {
+                    val p = "$MODULE_DIR/system/bin/lynxd"
+                    resolvedLynxdPath = p
+                    return p
+                }
+                "tmp" -> {
+                    val p = "/data/local/tmp/lynxd"
+                    resolvedLynxdPath = p
+                    return p
+                }
             }
         } catch (_: Exception) {}
         return "/data/local/tmp/lynxd"
@@ -360,39 +360,44 @@ object LynxRepository {
 
     suspend fun ensureDaemonRunning(): Boolean = withContext(Dispatchers.IO) {
         if (!isRootAvailable()) return@withContext false
-        val path = getLynxdPath()
-        val exists = Shell.cmd("[ -f '$path' ] && [ -x '$path' ] && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
-        if (!exists || !lynxdBinarySyncedThisSession) {
-            lynxdBinarySyncedThisSession = true
-            // Extract embedded lynxd from assets and replace installed binary if updated
-            try {
-                val ctx = appContext ?: com.noir.lynx.LynxApp.instance
-                ctx.assets.open("bin/lynxd").use { input ->
-                    val tmpAppFile = File(ctx.cacheDir, "lynxd_tmp")
-                    tmpAppFile.outputStream().use { out -> input.copyTo(out) }
-                    tmpAppFile.setReadable(true, false)
-                    tmpAppFile.setExecutable(true, false)
-                    Shell.cmd("""
-                        if ! cmp -s '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd 2>/dev/null || ( [ -d "$MODULE_DIR" ] && ! cmp -s '${tmpAppFile.absolutePath}' "$MODULE_DIR/system/bin/lynxd" 2>/dev/null ); then
-                            pkill -9 -f "lynxd daemon" 2>/dev/null
-                            rm -f /data/local/tmp/lynxd 2>/dev/null
-                            cp '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd && chmod 755 /data/local/tmp/lynxd && chcon u:object_r:system_file:s0 /data/local/tmp/lynxd 2>/dev/null
-                            if [ -d "$MODULE_DIR" ]; then
-                                mkdir -p "$MODULE_DIR/system/bin" 2>/dev/null
-                                rm -f "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
-                                cp '${tmpAppFile.absolutePath}' "$MODULE_DIR/system/bin/lynxd" && chmod 755 "$MODULE_DIR/system/bin/lynxd" && chcon u:object_r:system_file:s0 "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
+        try {
+            val path = getLynxdPath()
+            val exists = resolvedLynxdPath != null || Shell.cmd("[ -f '$path' ] && [ -x '$path' ] && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
+            if (!exists || !lynxdBinarySyncedThisSession) {
+                lynxdBinarySyncedThisSession = true
+                // Extract embedded lynxd from assets and replace installed binary if updated
+                try {
+                    val ctx = appContext ?: com.noir.lynx.LynxApp.instance
+                    ctx.assets.open("bin/lynxd").use { input ->
+                        val tmpAppFile = File(ctx.cacheDir, "lynxd_tmp")
+                        tmpAppFile.outputStream().use { out -> input.copyTo(out) }
+                        tmpAppFile.setReadable(true, false)
+                        tmpAppFile.setExecutable(true, false)
+                        Shell.cmd("""
+                            if ! cmp -s '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd 2>/dev/null || ( [ -d "$MODULE_DIR" ] && ! cmp -s '${tmpAppFile.absolutePath}' "$MODULE_DIR/system/bin/lynxd" 2>/dev/null ); then
+                                pkill -9 -f "lynxd daemon" 2>/dev/null
+                                rm -f /data/local/tmp/lynxd 2>/dev/null
+                                cp '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd && chmod 755 /data/local/tmp/lynxd && chcon u:object_r:system_file:s0 /data/local/tmp/lynxd 2>/dev/null
+                                if [ -d "$MODULE_DIR" ]; then
+                                    mkdir -p "$MODULE_DIR/system/bin" 2>/dev/null
+                                    rm -f "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
+                                    cp '${tmpAppFile.absolutePath}' "$MODULE_DIR/system/bin/lynxd" && chmod 755 "$MODULE_DIR/system/bin/lynxd" && chcon u:object_r:system_file:s0 "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
+                                fi
                             fi
-                        fi
-                    """.trimIndent()).exec()
-                    tmpAppFile.delete()
-                    resolvedLynxdPath = null
+                        """.trimIndent()).exec()
+                        tmpAppFile.delete()
+                        resolvedLynxdPath = null
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed extracting embedded lynxd asset", e)
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed extracting embedded lynxd asset", e)
             }
+            val targetPath = getLynxdPath()
+            Shell.cmd("[ -x '$targetPath' ] && '$targetPath' daemon start >/dev/null 2>&1").exec().isSuccess
+        } catch (e: Exception) {
+            Log.w(TAG, "ensureDaemonRunning exception: ${e.message}")
+            false
         }
-        val targetPath = getLynxdPath()
-        Shell.cmd("[ -x '$targetPath' ] && '$targetPath' daemon start >/dev/null 2>&1").exec().isSuccess
     }
 
     val lockedClusterBounds = java.util.concurrent.ConcurrentHashMap<Int, Pair<Long, Long>>()

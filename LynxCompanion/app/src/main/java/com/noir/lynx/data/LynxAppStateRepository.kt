@@ -124,14 +124,41 @@ internal object LynxAppStateRepository {
             }
             val baseProf = LynxRepository.readCurrentProfileFast()
             if (raw.isBlank() || raw.contains('\u0000') || !raw.trim().startsWith("{")) {
-                Log.w(STATE_TAG, "Config corrupted or invalid, attempting self-heal via lynxd...")
-                val healed = Shell.cmd("'$LYNXD_PATH' state list 2>/dev/null").exec().out.joinToString("\n")
-                if (healed.isNotBlank() && healed.trim().startsWith("{") && !healed.contains('\u0000')) {
-                    val parsedHealed = LynxStateParser.parseStateJson(healed, readTargetSocFile(), baseProf)
-                    LynxRepository.lastActiveProfile = parsedHealed.activeProfile
-                    return@withContext parsedHealed
+                Log.w(STATE_TAG, "Config not found or invalid, initializing clean state...")
+                val lynxdBin = getLynxdBinaryPath()
+                if (lynxdBin != null) {
+                    try {
+                        val healed = Shell.cmd("'$lynxdBin' state list 2>/dev/null").exec().out.joinToString("\n")
+                        if (healed.isNotBlank() && healed.trim().startsWith("{") && !healed.contains('\u0000')) {
+                            val parsedHealed = LynxStateParser.parseStateJson(healed, readTargetSocFile(), baseProf)
+                            LynxRepository.lastActiveProfile = parsedHealed.activeProfile
+                            writeTextToFileSafely(path, healed)
+                            return@withContext parsedHealed
+                        }
+                    } catch (_: Exception) {}
                 }
-                return@withContext LynxState(activeProfile = baseProf)
+                // Generate and save default clean config immediately on initial install
+                val targetSoc = readTargetSocFile()
+                val defaultJson = """
+                    {
+                      "module_version": "7.0.0",
+                      "release_type": "release",
+                      "active_profile": "$baseProf",
+                      "target_soc": "$targetSoc",
+                      "memory": { "mglru_enabled": true, "swappiness": 80 },
+                      "charging": { "charging_mode": "standard", "bypass_enabled": false },
+                      "uclamp": { "game_min_ratio": 70, "game_max_ratio": 100, "balance_min_ratio": 20 },
+                      "display_touch": { "touchboost": true, "refresh_rate_lock": 120 },
+                      "network": { "wifi_ping_stabilizer": true, "tcp_congestion": "cubic", "fq_codel_enabled": true },
+                      "audio": { "low_latency_mmap": true, "fast_track_enabled": true },
+                      "oem_neutralizer": { "joyose_neutralize": true, "gos_neutralize": true },
+                      "thermal": { "full_bypass": false, "custom_temp_limit_c": 50 }
+                    }
+                """.trimIndent()
+                writeTextToFileSafely(path, defaultJson)
+                val defaultParsed = LynxStateParser.parseStateJson(defaultJson, targetSoc, baseProf)
+                LynxRepository.lastActiveProfile = defaultParsed.activeProfile
+                return@withContext defaultParsed
             }
 
             val parsed = LynxStateParser.parseStateJson(raw, readTargetSocFile(), baseProf)
