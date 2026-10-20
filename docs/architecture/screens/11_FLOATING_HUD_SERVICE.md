@@ -20,6 +20,8 @@ This collector does not launch the tuning daemon, deploy files under the install
 
 SCREEN_OFF cancels collection, closes the owning pipes, collapses the panel, and invalidates readings. SCREEN_ON restarts a new collector with fresh CPU/frame baselines. No wakelock is held. Stopping the service or closing stdin ends the native collector; broken stdout also ends it. A disconnected stream becomes unavailable rather than retaining a live-looking last value. Startup hydration no longer heals profiles or deploys a daemon merely because the Companion was opened.
 
+APK replacement does not dispatch the boot restorer: MY_PACKAGE_REPLACED is absent from both its manifest filter and its accepted actions. Installing an update therefore does not itself start the tuning daemon or restore a profile. Cold-boot restoration remains separate.
+
 The NDJSON v1 snapshot carries package/layer identity, profile selection, charging status, named metrics, per-policy CPU readings, frame history, collection time, and a monotonic sample timestamp. Each metric carries nullable value, unit, source, at_ms, and one of valid / warming_up / stale / unsupported / permission_denied. At three source intervals without a fresh sample the value becomes unavailable. Display mode is supplied by the attached display and DisplayListener, separately from the native frame source.
 
 Metric age uses CLOCK_BOOTTIME, matching Android elapsedRealtime including suspend. SurfaceFlinger presentation comparisons use CLOCK_MONOTONIC instead, so deep sleep does not introduce a permanent clock-offset error.

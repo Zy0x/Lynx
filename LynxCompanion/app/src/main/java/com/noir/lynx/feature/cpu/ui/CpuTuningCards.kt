@@ -71,7 +71,6 @@ fun CpuUnifiedPerformanceCard(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
-    var isAdvancedExpanded by remember { mutableStateOf(false) }
     var showExtremeConfirmDialog by remember { mutableStateOf(false) }
     var showDeveloperDrawer by remember { mutableStateOf(false) }
     val currentProfile = uiState.cpuComprehensiveProfile.lowercase()
@@ -348,150 +347,22 @@ fun CpuUnifiedPerformanceCard(
             }
         }
 
-        // ── 5. Pengaturan Lanjutan (Advanced Settings) ─────────────
-        Surface(
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                isAdvancedExpanded = !isAdvancedExpanded
-            },
-            shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF10141F),
-            border = BorderStroke(
-                0.8.dp,
-                if (isAdvancedExpanded) AccentCyan.copy(alpha = 0.35f) else Color(0x18FFFFFF)
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .defaultMinSize(minHeight = 52.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = AccentCyan.copy(alpha = 0.12f),
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Tune,
-                                contentDescription = null,
-                                tint = AccentCyan,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Pengaturan Lanjutan",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = if (isAdvancedExpanded) "Tutup pengaturan terperinci" else "Hardware engine & verifikasi pengembang",
-                            fontSize = 10.sp,
-                            color = TextSecondary.copy(alpha = 0.75f)
-                        )
-                    }
-                }
-
-                Icon(
-                    imageVector = if (isAdvancedExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = AccentCyan,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-
-        // ── 6. Advanced Area: Platform Hardware Engine & Sysfs Drawer ─
-        AnimatedVisibility(
-            visible = isAdvancedExpanded,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (schedInfo.isPpmSupported || schedInfo.isMtkCciSupported || schedInfo.isMtkPowerModeSupported || schedInfo.isQcomBoostSupported || schedInfo.isQcomDevfreqBusSupported || schedInfo.ddrAvailFreqsMhz.isNotEmpty()) {
-                    PlatformHardwareEngineCard(
-                        schedInfo = schedInfo,
-                        onPpmPolicyChange = onPpmPolicyChange,
-                        onQcomTouchboostChange = onQcomTouchboostChange,
-                        onQcomInputBoostChange = onQcomInputBoostChange,
-                        onMtkInterconnectBoostChange = onMtkInterconnectBoostChange,
-                        onMtkCpuPowerModeChange = onMtkCpuPowerModeChange,
-                        onMtkDlptBypassChange = onMtkDlptBypassChange,
-                        onQcomDevfreqBusBoostChange = onQcomDevfreqBusBoostChange,
-                        onUniversalBusProfileChange = onUniversalBusProfileChange,
-                        onUniversalTouchBoostChange = onUniversalTouchBoostChange,
-                        onUniversalAntiThrottlingGuardChange = onUniversalAntiThrottlingGuardChange,
-                        onShowSwitchInfo = onShowSwitchInfo
-                    )
-                }
-
-                Surface(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        showDeveloperDrawer = true
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFF10141F),
-                    border = BorderStroke(0.8.dp, Color(0x18FFFFFF)),
-                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = AccentCyan.copy(alpha = 0.12f),
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.Terminal,
-                                        contentDescription = null,
-                                        tint = AccentCyan,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "Verifikasi Pengembang (Sysfs)",
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextPrimary
-                                )
-                                Text(
-                                    text = "Status keaslian node kernel & perizinan hardware",
-                                    fontSize = 10.sp,
-                                    color = TextSecondary.copy(alpha = 0.75f)
-                                )
-                            }
-                        }
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = TextSecondary.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-        }
+        // ── 5. Pengaturan Lanjutan (Advanced Hardware Settings) ──
+        PlatformHardwareEngineCard(
+            schedInfo = schedInfo,
+            onPpmPolicyChange = onPpmPolicyChange,
+            onQcomTouchboostChange = onQcomTouchboostChange,
+            onQcomInputBoostChange = onQcomInputBoostChange,
+            onMtkInterconnectBoostChange = onMtkInterconnectBoostChange,
+            onMtkCpuPowerModeChange = onMtkCpuPowerModeChange,
+            onMtkDlptBypassChange = onMtkDlptBypassChange,
+            onQcomDevfreqBusBoostChange = onQcomDevfreqBusBoostChange,
+            onUniversalBusProfileChange = onUniversalBusProfileChange,
+            onUniversalTouchBoostChange = onUniversalTouchBoostChange,
+            onUniversalAntiThrottlingGuardChange = onUniversalAntiThrottlingGuardChange,
+            onShowSwitchInfo = onShowSwitchInfo,
+            onOpenDeveloperVerification = { showDeveloperDrawer = true }
+        )
     }
 
     // Extreme Mode Confirmation Dialog
