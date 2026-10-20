@@ -108,6 +108,7 @@ fun MainDashboard(
 ) {
     val state = uiState.state
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val dashboardLazyState = rememberLazyListState()
     val toolsLazyState = rememberLazyListState()
     val tuningHubLazyState = rememberLazyListState()
@@ -195,8 +196,6 @@ fun MainDashboard(
         val isExistingRule = remember(rule, uiState.appProfileRules) {
             uiState.appProfileRules.any { it.packageName == rule.packageName }
         }
-
-        val haptic = LocalHapticFeedback.current
 
         Dialog(
             onDismissRequest = { editingRule = null },
