@@ -51,6 +51,8 @@ import com.noir.lynx.ui.AppIconImage
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 
 /**
  * ProfilesCategoryTabRow — High-performance Segmented Tab Pill Row for Kernel Performance Profiles.
@@ -893,12 +895,14 @@ fun LazyListScope.tuningProfilesCategoryItems(
 
 /**
  * ProfilesAutomationScreen — Dedicated Two-Zone Screen for Kernel Performance App Automation.
+ * Redesigned for psychological calm, transparent system reassurance, zero-friction controls,
+ * and unified obsidian cyberpunk aesthetics.
  *
- * Zone 1 (Top / Pinned): Modular Service Toggle & Nothing OS Segmented Cooldown Slider Card.
- * Stays stationary so controls are always accessible without scrolling.
+ * Zone 1 (Top / Pinned): Modular Service Toggle, Dual-Pillar Zen Safety Ribbon, and Hysteresis Cooldown Capsule.
+ * Stays stationary or flows seamlessly in LazyColumn so controls are accessible without cognitive stress.
  *
- * Zone 2 (Bottom / Weight 1f): In-Place Scrollable Rules Bento Card.
- * Contains pinned Search & Filter toolbar, and an internal virtualized LazyColumn of app rules.
+ * Zone 2 (Bottom / Flow): In-Place Scrollable App Rules Bento Cards.
+ * Features mode-harmonic borders, one-tap quick profile cycle pills, and transparent status feedback.
  */
 @Composable
 fun ProfilesAutomationScreen(
@@ -909,6 +913,7 @@ fun ProfilesAutomationScreen(
     onEditRuleClick: (AppProfileRule) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     var showClearAllDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -933,7 +938,7 @@ fun ProfilesAutomationScreen(
     if (showClearAllDialog) {
         AlertDialog(
             onDismissRequest = { showClearAllDialog = false },
-            containerColor = BgElevated,
+            containerColor = Color(0xFF10141F),
             shape = RoundedCornerShape(20.dp),
             icon = {
                 Surface(
@@ -972,8 +977,8 @@ fun ProfilesAutomationScreen(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = BgDeepOled,
-                        border = BorderStroke(0.8.dp, BorderGlass),
+                        color = Color(0xFF0C0F17),
+                        border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -983,8 +988,9 @@ fun ProfilesAutomationScreen(
                         ) {
                             Text(
                                 text = "Total Aturan Terdaftar",
-                                color = TextSecondary,
-                                fontSize = 12.sp
+                                color = TextSecondary.copy(alpha = 0.85f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
                             )
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
@@ -1003,10 +1009,10 @@ fun ProfilesAutomationScreen(
                     }
 
                     Text(
-                        text = "Tindakan ini akan menghapus seluruh konfigurasi profil performa, target refresh rate, dan floating HUD untuk semua game & aplikasi.",
-                        color = TextSecondary,
+                        text = "Tindakan ini akan menghapus seluruh konfigurasi profil khusus aplikasi. Anda dapat memindai ulang game terpasang kapan saja dengan 1 ketukan.",
+                        color = TextSecondary.copy(alpha = 0.8f),
                         fontSize = 12.sp,
-                        lineHeight = 16.5.sp,
+                        lineHeight = 16.sp,
                         textAlign = TextAlign.Center
                     )
 
@@ -1028,7 +1034,7 @@ fun ProfilesAutomationScreen(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "Anda dapat memindai ulang game terpasang secara otomatis kapan saja dengan tombol Pindai.",
+                                text = "Pengaturan Profil Sistem di Tab Katalog tidak akan terpengaruh.",
                                 color = TextPrimary.copy(alpha = 0.85f),
                                 fontSize = 11.sp,
                                 lineHeight = 14.5.sp
@@ -1040,6 +1046,7 @@ fun ProfilesAutomationScreen(
             confirmButton = {
                 Surface(
                     onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         showClearAllDialog = false
                         viewModel.clearAllAppProfileRules(context)
                     },
@@ -1063,10 +1070,13 @@ fun ProfilesAutomationScreen(
             },
             dismissButton = {
                 Surface(
-                    onClick = { showClearAllDialog = false },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showClearAllDialog = false
+                    },
                     shape = RoundedCornerShape(10.dp),
-                    color = BgDeepOled,
-                    border = BorderStroke(0.8.dp, BorderGlass),
+                    color = Color(0xFF0C0F17),
+                    border = BorderStroke(0.8.dp, Color(0x18FFFFFF)),
                     modifier = Modifier.height(44.dp)
                 ) {
                     Box(
@@ -1074,7 +1084,7 @@ fun ProfilesAutomationScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Batal",
+                            text = "Batalkan",
                             color = TextSecondary,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.5.sp
@@ -1156,7 +1166,7 @@ fun ProfilesAutomationScreen(
                 item(key = "auto_loading_rules_card") {
                     Surface(
                         shape = RoundedCornerShape(16.dp),
-                        color = BgElevated,
+                        color = Color(0xFF10141F),
                         border = BorderStroke(0.8.dp, BorderSubtle),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
                     ) {
@@ -1222,9 +1232,9 @@ fun ProfilesAutomationScreen(
 }
 
 /**
- * AutomationHeroServiceCard — High-presence Hero Bento Card for Kernel Performance App Automation.
- * Features live status badge, active override badge, baseline restoration target, master switch,
- * and Nothing OS segmented cooldown capsule.
+ * AutomationHeroServiceCard — High-presence Zen Hero Bento Card for Kernel Performance App Automation.
+ * Features living Zen pulse indicator, reassuring dual-pillar safety ribbon (Baseline Recovery + Deep Sleep Guard),
+ * tactile master switch, and Nothing OS segmented anti-stutter cooldown capsule.
  */
 @Composable
 fun AutomationHeroServiceCard(
@@ -1233,15 +1243,29 @@ fun AutomationHeroServiceCard(
     context: Context,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     var showActivationDialog by remember { mutableStateOf(false) }
     var dontShowAgain by remember { mutableStateOf(false) }
     val prefs = remember { context.getSharedPreferences("lynx_automation_prefs", Context.MODE_PRIVATE) }
     val isSuppressed = remember { prefs.getBoolean("suppress_automation_confirm_dialog", false) }
 
+    val isAutomationRunning = uiState.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning
+    val activeGamePkg = com.noir.lynx.service.LynxAppAutomationService.activeGamePackage
+    val activeGameName = com.noir.lynx.service.LynxAppAutomationService.activeGameName
+    val hasOverride = uiState.state.profileOverrides.isNotEmpty() || activeGamePkg != null
+
+    val baselineId = com.noir.lynx.service.LynxAppAutomationService.currentBaseline
+    val baselineDisplayName = when (baselineId.lowercase().trim()) {
+        "performance" -> "Performa Tinggi"
+        "extreme" -> "Ekstrem"
+        "powersave" -> "Hemat Daya"
+        else -> "Seimbang"
+    }
+
     if (showActivationDialog) {
         AlertDialog(
             onDismissRequest = { showActivationDialog = false },
-            containerColor = BgElevated,
+            containerColor = Color(0xFF10141F),
             shape = RoundedCornerShape(20.dp),
             icon = {
                 Surface(
@@ -1252,7 +1276,7 @@ fun AutomationHeroServiceCard(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Default.SportsEsports,
+                            imageVector = Icons.Default.AutoMode,
                             contentDescription = null,
                             tint = AccentCyan,
                             modifier = Modifier.size(26.dp)
@@ -1278,8 +1302,8 @@ fun AutomationHeroServiceCard(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Layanan ini memantau game dan aplikasi terdaftar secara cerdas untuk menerapkan profil performa secara dinamis.",
-                        color = TextSecondary,
+                        text = "Layanan ini memantau aplikasi aktif secara cerdas dengan overhead minimal untuk kenyamanan maksimal Anda.",
+                        color = TextSecondary.copy(alpha = 0.85f),
                         fontSize = 12.sp,
                         lineHeight = 16.5.sp,
                         textAlign = TextAlign.Center
@@ -1287,7 +1311,7 @@ fun AutomationHeroServiceCard(
 
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = BgDeepOled.copy(alpha = 0.7f),
+                        color = Color(0xFF0C0F17),
                         border = BorderStroke(0.8.dp, BorderGlass),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -1300,13 +1324,13 @@ fun AutomationHeroServiceCard(
                                 Spacer(Modifier.width(8.dp))
                                 Column {
                                     Text(
-                                        text = "Penimpaan Profil Sementara",
+                                        text = "Performa Terarah Saat Game Aktif",
                                         color = TextPrimary,
                                         fontSize = 11.5.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = "Saat game dibuka, parameter kernel (CPU/GPU/FPS) otomatis disesuaikan dengan aturan game tersebut.",
+                                        text = "Kernel CPU & GPU otomatis didongkrak hanya saat game terbuka di layar depan.",
                                         color = TextSecondary.copy(alpha = 0.8f),
                                         fontSize = 10.5.sp,
                                         lineHeight = 14.sp
@@ -1314,20 +1338,41 @@ fun AutomationHeroServiceCard(
                                 }
                             }
 
-                            HorizontalDivider(color = BorderGlass.copy(alpha = 0.3f), thickness = 0.6.dp)
+                            HorizontalDivider(color = Color(0x15FFFFFF), thickness = 0.6.dp)
 
                             Row(verticalAlignment = Alignment.Top) {
                                 Text("🛡️", fontSize = 13.sp)
                                 Spacer(Modifier.width(8.dp))
                                 Column {
                                     Text(
-                                        text = "Pemulihan Otomatis ke Profil Dasar",
+                                        text = "Pemulihan Otomatis ke $baselineDisplayName",
                                         color = TextPrimary,
                                         fontSize = 11.5.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = "Saat keluar dari game, sistem aman kembali ke Profil Dasar Anda setelah masa cooldown berakhir.",
+                                        text = "Saat keluar dari game, perangkat segera kembali dingin & sejuk ke profil dasar yang aman.",
+                                        color = TextSecondary.copy(alpha = 0.8f),
+                                        fontSize = 10.5.sp,
+                                        lineHeight = 14.sp
+                                    )
+                                }
+                            }
+
+                            HorizontalDivider(color = Color(0x15FFFFFF), thickness = 0.6.dp)
+
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text("🌙", fontSize = 13.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "Zero Wake Lock (Deep Sleep Terjaga)",
+                                        color = TextPrimary,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Daemon tidur lelap saat layar mati, menjamin 0% pemborosan baterai di saku Anda.",
                                         color = TextSecondary.copy(alpha = 0.8f),
                                         fontSize = 10.5.sp,
                                         lineHeight = 14.sp
@@ -1341,13 +1386,19 @@ fun AutomationHeroServiceCard(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { dontShowAgain = !dontShowAgain }
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                dontShowAgain = !dontShowAgain
+                            }
                             .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
                             checked = dontShowAgain,
-                            onCheckedChange = { dontShowAgain = it },
+                            onCheckedChange = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                dontShowAgain = it
+                            },
                             colors = CheckboxDefaults.colors(
                                 checkedColor = AccentCyan,
                                 checkmarkColor = BgDeepOled,
@@ -1367,6 +1418,7 @@ fun AutomationHeroServiceCard(
             confirmButton = {
                 Surface(
                     onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         if (dontShowAgain) {
                             prefs.edit().putBoolean("suppress_automation_confirm_dialog", true).apply()
                         }
@@ -1393,9 +1445,12 @@ fun AutomationHeroServiceCard(
             },
             dismissButton = {
                 Surface(
-                    onClick = { showActivationDialog = false },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showActivationDialog = false
+                    },
                     shape = RoundedCornerShape(10.dp),
-                    color = BgDeepOled,
+                    color = Color(0xFF0C0F17),
                     border = BorderStroke(0.8.dp, BorderGlass),
                     modifier = Modifier.height(44.dp)
                 ) {
@@ -1415,135 +1470,141 @@ fun AutomationHeroServiceCard(
         )
     }
 
-    val isAutomationRunning = uiState.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning
-    val activeGamePkg = com.noir.lynx.service.LynxAppAutomationService.activeGamePackage
-    val activeGameName = com.noir.lynx.service.LynxAppAutomationService.activeGameName
-    val hasOverride = uiState.state.profileOverrides.isNotEmpty() || activeGamePkg != null
-
-    val baselineId = com.noir.lynx.service.LynxAppAutomationService.currentBaseline
-    val baselineDisplayName = when (baselineId.lowercase().trim()) {
-        "performance" -> "Performa Tinggi"
-        "extreme" -> "Ekstrem"
-        "powersave" -> "Hemat Daya"
-        else -> "Seimbang"
-    }
-
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF10141E),
+        color = Color(0xFF10141F),
         border = BorderStroke(
             0.8.dp,
-            if (isAutomationRunning) AccentCyan.copy(alpha = 0.30f) else BorderSubtle
+            Brush.verticalGradient(
+                listOf(
+                    (if (isAutomationRunning) AccentCyan else Color(0xFF94A3B8)).copy(alpha = if (isAutomationRunning) 0.32f else 0.15f),
+                    Color(0x12FFFFFF)
+                )
+            )
         ),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Row 1: Status Pill Badge & Active Override Pill
+            // Row 1: Zen Reassurance Status Bar & Badges
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left: Automation Status Indicator
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isAutomationRunning) AccentCyan.copy(alpha = 0.10f) else BgDeepOled.copy(alpha = 0.6f),
-                    border = BorderStroke(
-                        0.6.dp,
-                        if (isAutomationRunning) AccentCyan.copy(alpha = 0.25f) else BorderGlass
-                    )
+                // Left: Subtle Zen Pulse Indicator
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Surface(
+                            shape = CircleShape,
+                            color = (if (isAutomationRunning) AccentCyan else TextSecondary).copy(alpha = 0.18f),
+                            modifier = Modifier.size(12.dp)
+                        ) {}
                         Surface(
                             shape = CircleShape,
                             color = if (isAutomationRunning) AccentCyan else TextSecondary.copy(alpha = 0.5f),
                             modifier = Modifier.size(6.dp)
                         ) {}
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = if (isAutomationRunning) "Otomasi Aktif" else "Otomasi Nonaktif",
-                            color = if (isAutomationRunning) AccentCyan else TextSecondary,
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 0.2.sp
-                        )
                     }
+                    Text(
+                        text = if (isAutomationRunning) "Mesin Otomasi Adaptif" else "Mode Otomasi Siaga",
+                        color = TextSecondary.copy(alpha = 0.85f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
 
-                // Right: Active Override Badge if a game is active
-                if (hasOverride) {
+                // Right: Status Badges (Active & Override)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = AccentOrange.copy(alpha = 0.12f),
-                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.35f))
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (isAutomationRunning) Color(0x1400E676) else Color(0x1294A3B8),
+                        border = BorderStroke(
+                            0.5.dp,
+                            if (isAutomationRunning) Color(0x2800E676) else Color(0x18FFFFFF)
+                        )
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Text(
+                            text = if (isAutomationRunning) "Otomasi Aktif" else "Siaga",
+                            color = if (isAutomationRunning) AccentGreen.copy(alpha = 0.9f) else TextSecondary.copy(alpha = 0.7f),
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
+                        )
+                    }
+
+                    if (hasOverride) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0x18FF9100),
+                            border = BorderStroke(0.5.dp, Color(0x35FF9100))
                         ) {
-                            Surface(shape = CircleShape, color = AccentOrange, modifier = Modifier.size(5.dp)) {}
-                            Spacer(Modifier.width(5.dp))
                             Text(
-                                text = if (activeGameName != null) "Override: ${activeGameName.take(16)}" else "Override Aktif",
-                                color = AccentOrange,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold
+                                text = if (activeGameName != null) "🎮 ${activeGameName.take(14)}" else "🎮 Override Aktif",
+                                color = AccentOrange.copy(alpha = 0.95f),
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
                             )
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(13.dp))
 
-            // Row 2: Title, Subtitle & Master Switch (with 48dp touch-box container)
+            // Row 2: Master Service Presence Row (Icon + Title & Calm Subtext + 48dp Switch)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.weight(1f).padding(end = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isAutomationRunning) AccentCyan.copy(alpha = 0.12f) else Color(0xFF141824),
+                    border = BorderStroke(
+                        0.6.dp,
+                        if (isAutomationRunning) AccentCyan.copy(alpha = 0.28f) else Color(0x18FFFFFF)
+                    ),
+                    modifier = Modifier.size(44.dp)
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = if (isAutomationRunning) AccentCyan.copy(alpha = 0.14f) else BgDeepOled.copy(alpha = 0.6f),
-                        border = BorderStroke(
-                            1.dp,
-                            if (isAutomationRunning) AccentCyan.copy(alpha = 0.35f) else BorderGlass
-                        ),
-                        modifier = Modifier.size(46.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.SportsEsports,
-                                contentDescription = null,
-                                tint = if (isAutomationRunning) AccentCyan else TextSecondary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Layanan Otomasi Profil",
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.5.sp
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = "Terapkan profil dinamis saat game dibuka dan pulihkan ke profil dasar saat keluar",
-                            color = TextSecondary,
-                            fontSize = 11.5.sp,
-                            lineHeight = 15.sp
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.AutoMode,
+                            contentDescription = null,
+                            tint = if (isAutomationRunning) AccentCyan else TextSecondary.copy(alpha = 0.7f),
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text(
+                        text = "Layanan Otomasi Profil",
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.2).sp
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = if (isAutomationRunning) {
+                            "Mendeteksi game cerdas — mendongkrak performa saat bermain dan kembali sejuk saat selesai."
+                        } else {
+                            "Layanan siaga tanpa beban memori. Mengikuti profil sistem yang dipilih di Tab Katalog."
+                        },
+                        color = TextSecondary.copy(alpha = 0.75f),
+                        fontSize = 11.5.sp,
+                        lineHeight = 15.sp
+                    )
+                }
+
                 Box(
                     modifier = Modifier.size(48.dp),
                     contentAlignment = Alignment.Center
@@ -1551,6 +1612,7 @@ fun AutomationHeroServiceCard(
                     Switch(
                         checked = uiState.isAppAutomationActive,
                         onCheckedChange = { enable ->
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             if (enable) {
                                 if (isSuppressed) {
                                     viewModel.toggleAppAutomation(context, true)
@@ -1564,8 +1626,8 @@ fun AutomationHeroServiceCard(
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = BgDeepOled,
                             checkedTrackColor = AccentCyan,
-                            uncheckedThumbColor = TextSecondary,
-                            uncheckedTrackColor = BgElevated,
+                            uncheckedThumbColor = TextSecondary.copy(alpha = 0.6f),
+                            uncheckedTrackColor = Color(0xFF141824),
                             uncheckedBorderColor = BorderGlass
                         ),
                         modifier = Modifier.scale(0.88f)
@@ -1573,82 +1635,122 @@ fun AutomationHeroServiceCard(
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(13.dp))
 
-            // Row 3: Baseline Recovery & Active Rules Counter Capsule
+            // Row 3: Subsystem Telemetry Specs (Calm Unified Zen Ribbon - Matching Tab 0)
             Surface(
                 shape = RoundedCornerShape(10.dp),
-                color = BgDeepOled,
-                border = BorderStroke(0.7.dp, BorderGlass),
+                color = Color(0xFF0C0F17),
+                border = BorderStroke(0.5.dp, Color(0x15FFFFFF)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Restore,
                             contentDescription = null,
-                            tint = AccentCyan,
-                            modifier = Modifier.size(15.dp)
+                            tint = AccentCyan.copy(alpha = 0.85f),
+                            modifier = Modifier.size(13.dp)
                         )
-                        Spacer(Modifier.width(7.dp))
                         Text(
-                            text = "Profil Dasar Pemulihan:",
-                            color = TextSecondary,
-                            fontSize = 11.sp
+                            text = "Pemulihan:",
+                            color = TextSecondary.copy(alpha = 0.55f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
                         )
-                        Spacer(Modifier.width(5.dp))
                         Text(
-                            text = baselineDisplayName,
-                            color = AccentCyan,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "$baselineDisplayName (Sejuk)",
+                            color = AccentCyan.copy(alpha = 0.95f),
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
 
-                    val activeRulesCount = uiState.appProfileRules.count { it.enabled }
-                    Surface(
-                        shape = RoundedCornerShape(5.dp),
-                        color = if (activeRulesCount > 0) AccentGreen.copy(alpha = 0.15f) else BgElevated,
-                        border = BorderStroke(0.5.dp, if (activeRulesCount > 0) AccentGreen.copy(alpha = 0.4f) else BorderGlass)
+                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = AccentGreen.copy(alpha = 0.85f),
+                            modifier = Modifier.size(13.dp)
+                        )
                         Text(
-                            text = "$activeRulesCount Aktif",
-                            color = if (activeRulesCount > 0) AccentGreen else TextSecondary,
+                            text = "Baterai:",
+                            color = TextSecondary.copy(alpha = 0.55f),
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Deep Sleep Aman (0% Drain)",
+                            color = AccentGreen.copy(alpha = 0.95f),
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
-            HorizontalDivider(color = BorderGlass.copy(alpha = 0.4f), thickness = 0.7.dp)
             Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = Color(0x12FFFFFF), thickness = 0.6.dp)
+            Spacer(Modifier.height(10.dp))
 
-            // Row 4: Cooldown Slider & Nothing OS Segmented Bar
+            // Row 4: Buffer Transisi Anti-Jank (Hysteresis Cooldown)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Penahanan Mode (Cooldown)",
-                    color = TextPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp
-                )
-                Text(
-                    text = if (uiState.appAutomationCooldownSeconds == 0) "Terkunci" else "${uiState.appAutomationCooldownSeconds}s",
-                    color = AccentCyan,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.5.sp
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Buffer Transisi (Hysteresis)",
+                        color = TextSecondary.copy(alpha = 0.9f),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        letterSpacing = 0.1.sp
+                    )
+                }
+
+                val cooldownPillText = when (uiState.appAutomationCooldownSeconds) {
+                    30 -> "30s • Rekomendasi"
+                    0 -> "Terkunci"
+                    else -> "${uiState.appAutomationCooldownSeconds}s Buffer"
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f))
+                ) {
+                    Text(
+                        text = cooldownPillText,
+                        color = AccentCyan,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                    )
+                }
             }
+
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Menahan profil saat beralih aplikasi sejenak agar chatting tidak memicu drop FPS atau lonjakan clock.",
+                color = TextSecondary.copy(alpha = 0.65f),
+                fontSize = 11.sp,
+                lineHeight = 14.5.sp
+            )
 
             Spacer(Modifier.height(8.dp))
 
@@ -1657,15 +1759,15 @@ fun AutomationHeroServiceCard(
                 30 to "30s",
                 60 to "1m",
                 180 to "3m",
-                0 to "Tetap"
+                0 to "Kunci"
             )
 
-            // Nothing OS Style High-Touch Segmented Capsule (Height 46dp, Touch target 40dp)
+            // High-Touch Segmented Capsule (Height 42dp, Touch target 44dp+)
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = BgDeepOled.copy(alpha = 0.8f),
-                border = BorderStroke(0.8.dp, BorderGlass),
-                modifier = Modifier.fillMaxWidth().height(46.dp)
+                color = Color(0xFF0C0F17),
+                border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
+                modifier = Modifier.fillMaxWidth().height(42.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxSize().padding(3.dp),
@@ -1674,18 +1776,34 @@ fun AutomationHeroServiceCard(
                 ) {
                     cooldownOptions.forEach { (sec, label) ->
                         val isSelected = uiState.appAutomationCooldownSeconds == sec
+                        val animBg by animateColorAsState(
+                            targetValue = if (isSelected) AccentCyan.copy(alpha = 0.20f) else Color.Transparent,
+                            animationSpec = tween(180),
+                            label = "cd_bg_$sec"
+                        )
+                        val animText by animateColorAsState(
+                            targetValue = if (isSelected) AccentCyan else TextSecondary.copy(alpha = 0.75f),
+                            animationSpec = tween(180),
+                            label = "cd_txt_$sec"
+                        )
+
                         Surface(
-                            onClick = { viewModel.setAppAutomationCooldownSeconds(context, sec) },
+                            onClick = {
+                                if (!isSelected) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    viewModel.setAppAutomationCooldownSeconds(context, sec)
+                                }
+                            },
                             shape = RoundedCornerShape(9.dp),
-                            color = if (isSelected) AccentCyan.copy(alpha = 0.22f) else Color.Transparent,
-                            border = if (isSelected) BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f)) else null,
+                            color = animBg,
+                            border = if (isSelected) BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.55f)) else null,
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
                                     text = label,
-                                    color = if (isSelected) AccentCyan else TextSecondary,
-                                    fontSize = 12.sp,
+                                    color = animText,
+                                    fontSize = 11.5.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
@@ -1694,17 +1812,18 @@ fun AutomationHeroServiceCard(
                 }
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(7.dp))
+            val reassuranceNote = when (uiState.appAutomationCooldownSeconds) {
+                30 -> "✓ Rekomendasi: 30 detik menahan profil saat keluar sementara agar game bebas stutter."
+                5 -> "⚡ Pemulihan cepat: Kembali ke $baselineDisplayName dalam 5 detik setelah keluar game."
+                0 -> "🔒 Profil terkunci: Mode game bertahan stabil hingga Anda memilih profil lain secara manual."
+                else -> "⏳ Buffer pendinginan: ${uiState.appAutomationCooldownSeconds} detik toleransi jeda sebelum kembali ke $baselineDisplayName."
+            }
             Text(
-                text = if (uiState.appAutomationCooldownSeconds == 30) {
-                    "✓ Rekomendasi: 30 detik menahan profil saat keluar sementara"
-                } else if (uiState.appAutomationCooldownSeconds == 0) {
-                    "⚡ Profil terkunci aktif hingga manual diubah"
-                } else {
-                    "Buffer pendinginan: ${uiState.appAutomationCooldownSeconds} detik sebelum kembali ke $baselineDisplayName"
-                },
-                color = TextSecondary.copy(alpha = 0.7f),
-                fontSize = 11.sp
+                text = reassuranceNote,
+                color = TextSecondary.copy(alpha = 0.70f),
+                fontSize = 10.5.sp,
+                lineHeight = 14.sp
             )
         }
     }
@@ -1730,8 +1849,8 @@ fun AutomationServiceTopSection(
 
 /**
  * AutomationSectionHeader — Harmonized Section Header for App Rules.
- * Matches Tab 0 section header ("DAFTAR ATURAN APLIKASI"), rule count badge,
- * minimal Cyan "Tambah" button, and overflow dropdown menu (without M3 white corners).
+ * Matches Tab 0 section header ("Daftar Aturan Aplikasi"), rule count badge,
+ * high-utility "Pindai" button, Cyan "Tambah" button, and overflow dropdown menu (without M3 white corners).
  */
 @Composable
 fun AutomationSectionHeader(
@@ -1745,10 +1864,12 @@ fun AutomationSectionHeader(
     context: Context,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 2.dp),
+            .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1769,7 +1890,7 @@ fun AutomationSectionHeader(
                 border = BorderStroke(0.5.dp, Color(0x18FFFFFF))
             ) {
                 Text(
-                    text = "${uiState.appProfileRules.size} Aturan",
+                    text = "${uiState.appProfileRules.size} Terdaftar",
                     color = TextSecondary.copy(alpha = 0.75f),
                     fontSize = 9.5.sp,
                     fontWeight = FontWeight.Medium,
@@ -1779,77 +1900,122 @@ fun AutomationSectionHeader(
         }
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Minimal Cyberpunk Add Button (Height 44dp touch target)
+            // Quick Action: Pindai Game Terpasang (Instant 1-Tap Utility)
             Surface(
-                onClick = onAddAppClick,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    viewModel.autoDetectAndSyncInstalledRules(context)
+                },
+                enabled = !uiState.isScanningInstalledGames,
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFF141824),
+                border = BorderStroke(0.6.dp, Color(0x20FFFFFF)),
+                modifier = Modifier.height(42.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (uiState.isScanningInstalledGames) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            color = AccentCyan,
+                            strokeWidth = 1.8.dp
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = "Memindai...",
+                            color = AccentCyan,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = null,
+                            tint = TextSecondary.copy(alpha = 0.85f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = "Pindai",
+                            color = TextSecondary.copy(alpha = 0.9f),
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            // Minimal Cyan Add Button (Height 42dp touch target)
+            Surface(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onAddAppClick()
+                },
                 shape = RoundedCornerShape(10.dp),
                 color = AccentCyan.copy(alpha = 0.14f),
                 border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.45f)),
-                modifier = Modifier.height(44.dp)
+                modifier = Modifier.height(42.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 14.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = null,
                         tint = AccentCyan,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(15.dp)
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(5.dp))
                     Text(
                         text = "Tambah",
                         color = AccentCyan,
-                        fontSize = 12.5.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            // Overflow Menu Button (⋮, 44x44dp touch target)
+            // Overflow Menu Button (⋮, 42x42dp touch target)
             Box {
                 Surface(
-                    onClick = onOpenOverflowMenu,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onOpenOverflowMenu()
+                    },
                     shape = RoundedCornerShape(10.dp),
-                    color = BgElevated,
-                    border = BorderStroke(0.8.dp, BorderGlass),
-                    modifier = Modifier.size(44.dp)
+                    color = Color(0xFF141824),
+                    border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
+                    modifier = Modifier.size(42.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        if (uiState.isScanningInstalledGames) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = AccentCyan,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "Opsi Lainnya",
-                                tint = TextSecondary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Opsi Lainnya",
+                            tint = TextSecondary.copy(alpha = 0.85f),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
 
                 // DropdownMenu with containerColor and shape to completely prevent white corner glitch
                 MaterialTheme(
                     colorScheme = MaterialTheme.colorScheme.copy(
-                        surface = BgElevated,
-                        surfaceContainer = BgElevated,
-                        surfaceContainerHigh = BgElevated
+                        surface = Color(0xFF141824),
+                        surfaceContainer = Color(0xFF141824),
+                        surfaceContainerHigh = Color(0xFF141824)
                     )
                 ) {
                     DropdownMenu(
                         expanded = showOverflowMenu,
                         onDismissRequest = onOverflowMenuDismiss,
                         modifier = Modifier
-                            .background(BgElevated, RoundedCornerShape(14.dp))
+                            .background(Color(0xFF141824), RoundedCornerShape(14.dp))
                             .border(1.dp, BorderGlass.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
                             .clip(RoundedCornerShape(14.dp))
                             .padding(vertical = 4.dp)
@@ -1858,6 +2024,7 @@ fun AutomationSectionHeader(
                         Surface(
                             onClick = {
                                 onOverflowMenuDismiss()
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 viewModel.autoDetectAndSyncInstalledRules(context)
                             },
                             enabled = !uiState.isScanningInstalledGames,
@@ -1880,40 +2047,33 @@ fun AutomationSectionHeader(
                                     modifier = Modifier.size(32.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        if (uiState.isScanningInstalledGames) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(16.dp),
-                                                color = AccentCyan,
-                                                strokeWidth = 2.dp
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Default.Refresh,
-                                                contentDescription = null,
-                                                tint = AccentCyan,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = null,
+                                            tint = AccentCyan,
+                                            modifier = Modifier.size(16.dp)
+                                        )
                                     }
                                 }
                                 Spacer(Modifier.width(12.dp))
                                 Text(
-                                    text = if (uiState.isScanningInstalledGames) "Memindai Game..." else "Pindai Game Terpasang",
-                                    color = if (uiState.isScanningInstalledGames) AccentCyan else TextPrimary,
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.Bold
+                                    text = "Pindai Ulang Seluruh Game",
+                                    color = TextPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
 
                         if (uiState.appProfileRules.isNotEmpty()) {
                             HorizontalDivider(
-                                color = BorderGlass.copy(alpha = 0.4f),
+                                color = Color(0x18FFFFFF),
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                             Surface(
                                 onClick = {
                                     onOverflowMenuDismiss()
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     onClearAllClick()
                                 },
                                 shape = RoundedCornerShape(10.dp),
@@ -1947,8 +2107,8 @@ fun AutomationSectionHeader(
                                     Text(
                                         text = "Hapus Semua Aturan",
                                         color = AccentRed,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
@@ -1962,6 +2122,7 @@ fun AutomationSectionHeader(
 
 /**
  * AutomationSearchFilterBar — Cyberpunk Search Bar & Filter Chips.
+ * Clean, tranquil surfaces with smooth animated active state and haptic feedback.
  */
 @Composable
 fun AutomationSearchFilterBar(
@@ -1974,6 +2135,8 @@ fun AutomationSearchFilterBar(
     activeCount: Int,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1981,10 +2144,10 @@ fun AutomationSearchFilterBar(
         // Full-Width Search Input
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = BgElevated,
+            color = Color(0xFF10141E),
             border = BorderStroke(
-                0.8.dp,
-                if (searchQuery.isNotEmpty()) AccentCyan.copy(alpha = 0.55f) else BorderGlass
+                0.7.dp,
+                if (searchQuery.isNotEmpty()) AccentCyan.copy(alpha = 0.55f) else Color(0x18FFFFFF)
             ),
             modifier = Modifier.fillMaxWidth().height(42.dp)
         ) {
@@ -2022,7 +2185,10 @@ fun AutomationSearchFilterBar(
                 }
                 if (searchQuery.isNotEmpty()) {
                     IconButton(
-                        onClick = { onSearchQueryChange("") },
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSearchQueryChange("")
+                        },
                         modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
@@ -2036,7 +2202,7 @@ fun AutomationSearchFilterBar(
             }
         }
 
-        // Minimal Filter Chips (Height 32dp)
+        // Minimal Segmented Filter Chips (Height 32dp)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -2048,14 +2214,27 @@ fun AutomationSearchFilterBar(
             )
             filterOptions.forEach { (filterKey, label, count) ->
                 val isSelected = selectedFilter == filterKey
+                val animBg by animateColorAsState(
+                    targetValue = if (isSelected) AccentCyan.copy(alpha = 0.16f) else Color(0xFF10141E),
+                    animationSpec = tween(180),
+                    label = "filter_bg_$filterKey"
+                )
+                val animBorder by animateColorAsState(
+                    targetValue = if (isSelected) AccentCyan.copy(alpha = 0.55f) else Color(0x18FFFFFF),
+                    animationSpec = tween(180),
+                    label = "filter_border_$filterKey"
+                )
+
                 Surface(
-                    onClick = { onSelectFilter(filterKey) },
+                    onClick = {
+                        if (!isSelected) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelectFilter(filterKey)
+                        }
+                    },
                     shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) AccentCyan.copy(alpha = 0.16f) else BgElevated,
-                    border = BorderStroke(
-                        0.8.dp,
-                        if (isSelected) AccentCyan.copy(alpha = 0.6f) else BorderGlass
-                    ),
+                    color = animBg,
+                    border = BorderStroke(0.8.dp, animBorder),
                     modifier = Modifier.height(32.dp)
                 ) {
                     Row(
@@ -2065,22 +2244,22 @@ fun AutomationSearchFilterBar(
                     ) {
                         Text(
                             text = label,
-                            color = if (isSelected) AccentCyan else TextSecondary,
+                            color = if (isSelected) AccentCyan else TextSecondary.copy(alpha = 0.85f),
                             fontSize = 11.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                         Spacer(Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = if (isSelected) AccentCyan.copy(alpha = 0.25f) else BgDeepOled.copy(alpha = 0.8f),
+                            color = if (isSelected) AccentCyan.copy(alpha = 0.25f) else Color(0xFF0C0F17),
                             border = BorderStroke(
                                 0.5.dp,
-                                if (isSelected) AccentCyan.copy(alpha = 0.5f) else BorderGlass.copy(alpha = 0.5f)
+                                if (isSelected) AccentCyan.copy(alpha = 0.45f) else Color(0x18FFFFFF)
                             )
                         ) {
                             Text(
                                 text = "$count",
-                                color = if (isSelected) AccentCyan else TextSecondary.copy(alpha = 0.8f),
+                                color = if (isSelected) AccentCyan else TextSecondary.copy(alpha = 0.75f),
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 1.dp)
@@ -2094,7 +2273,8 @@ fun AutomationSearchFilterBar(
 }
 
 /**
- * AutomationEmptyRulesCard — Clean Empty State when no rules are configured.
+ * AutomationEmptyRulesCard — Clean, Welcoming Empty State when no rules are configured.
+ * Reassures the user and presents clear, accessible onboarding paths.
  */
 @Composable
 fun AutomationEmptyRulesCard(
@@ -2104,9 +2284,11 @@ fun AutomationEmptyRulesCard(
     onAddAppClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
+
     Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = BgElevated,
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF10141F),
         border = BorderStroke(0.8.dp, BorderSubtle),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -2132,7 +2314,7 @@ fun AutomationEmptyRulesCard(
             }
             Spacer(Modifier.height(14.dp))
             Text(
-                text = "Belum Ada Game / Aplikasi Terdaftar",
+                text = "Ruang Otomasi Siaga",
                 color = TextPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
@@ -2140,8 +2322,8 @@ fun AutomationEmptyRulesCard(
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Pindai otomatis seluruh game terpasang di perangkat Anda atau daftarkan aplikasi secara manual.",
-                color = TextSecondary,
+                text = "Lynx siap memantau performa game Anda secara otomatis. Clock tinggi hanya aktif saat game berjalan dan aman kembali sejuk ke profil dasar saat ditutup.",
+                color = TextSecondary.copy(alpha = 0.8f),
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 lineHeight = 16.5.sp,
@@ -2153,7 +2335,10 @@ fun AutomationEmptyRulesCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    onClick = { viewModel.autoDetectAndSyncInstalledRules(context) },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.autoDetectAndSyncInstalledRules(context)
+                    },
                     enabled = !uiState.isScanningInstalledGames,
                     shape = RoundedCornerShape(10.dp),
                     color = AccentCyan.copy(alpha = 0.18f),
@@ -2174,7 +2359,7 @@ fun AutomationEmptyRulesCard(
                             Text(
                                 text = "Memindai Game...",
                                 color = AccentCyan,
-                                fontSize = 12.5.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         } else {
@@ -2188,7 +2373,7 @@ fun AutomationEmptyRulesCard(
                             Text(
                                 text = "Pindai Game Terpasang",
                                 color = AccentCyan,
-                                fontSize = 12.5.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -2196,10 +2381,13 @@ fun AutomationEmptyRulesCard(
                 }
 
                 Surface(
-                    onClick = onAddAppClick,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onAddAppClick()
+                    },
                     shape = RoundedCornerShape(10.dp),
-                    color = BgDeepOled,
-                    border = BorderStroke(1.dp, BorderGlass),
+                    color = Color(0xFF0C0F17),
+                    border = BorderStroke(1.dp, Color(0x18FFFFFF)),
                     modifier = Modifier.height(42.dp)
                 ) {
                     Row(
@@ -2216,7 +2404,7 @@ fun AutomationEmptyRulesCard(
                         Text(
                             text = "Tambah Manual",
                             color = TextSecondary,
-                            fontSize = 12.5.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -2234,9 +2422,11 @@ fun AutomationEmptySearchCard(
     onReset: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
+
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = BgElevated,
+        color = Color(0xFF10141F),
         border = BorderStroke(0.8.dp, BorderSubtle),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -2261,14 +2451,17 @@ fun AutomationEmptySearchCard(
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "Coba kata kunci pencarian lain atau ubah filter yang dipilih.",
-                color = TextSecondary,
+                color = TextSecondary.copy(alpha = 0.8f),
                 fontSize = 11.5.sp,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(12.dp))
-            TextButton(onClick = onReset) {
+            TextButton(onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onReset()
+            }) {
                 Text(
-                    text = "Reset Filter",
+                    text = "Reset Pencarian",
                     color = AccentCyan,
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.Bold
@@ -2279,9 +2472,9 @@ fun AutomationEmptySearchCard(
 }
 
 /**
- * AppRuleBentoCard — Luxury Cyberpunk Bento Card for Individual App Profile Rule.
- * Features 42dp rounded app icon, prominent title with [GAME] tag, full package name,
- * target profile cycle pill with glowing status dot, telemetry tags (Hz, OSD), and master switch.
+ * AppRuleBentoCard — Luxury Obsidian Cyberpunk Bento Card for Individual App Profile Rule.
+ * Features mode-harmonic border & aura, prominent title with [GAME] squircle,
+ * emotional reassurance subtext, tactile 1-tap quick profile cycle pill, and master switch.
  */
 @Composable
 fun AppRuleBentoCard(
@@ -2291,53 +2484,62 @@ fun AppRuleBentoCard(
     onEditRuleClick: (AppProfileRule) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val profDotColor = when (rule.targetProfile.lowercase()) {
+    val haptic = LocalHapticFeedback.current
+
+    val profDotColor = when (rule.targetProfile.lowercase().trim()) {
         "extreme" -> AccentRed
         "performance" -> AccentOrange
         "powersave" -> AccentGreen
         else -> AccentCyan
     }
-    val profLabel = when (rule.targetProfile.lowercase()) {
+
+    val profLabel = when (rule.targetProfile.lowercase().trim()) {
         "extreme" -> context.getString(com.noir.lynx.R.string.audit_mode_extreme)
         "performance" -> context.getString(com.noir.lynx.R.string.audit_mode_performance)
         "powersave" -> context.getString(com.noir.lynx.R.string.audit_mode_powersave)
         else -> context.getString(com.noir.lynx.R.string.audit_mode_balance)
     }
 
+    val targetBg = if (rule.enabled) Color(0xFF10141F) else Color(0xFF12141D).copy(alpha = 0.65f)
+    val targetBorder = if (rule.enabled) profDotColor.copy(alpha = 0.32f) else BorderSubtle
+
+    val animatedBg by animateColorAsState(targetBg, animationSpec = tween(180), label = "rule_bg_${rule.packageName}")
+    val animatedBorder by animateColorAsState(targetBorder, animationSpec = tween(180), label = "rule_border_${rule.packageName}")
+
     val onRowClick = remember(rule) { { onEditRuleClick(rule) } }
     val onToggle = remember(rule.packageName) {
-        { enabled: Boolean -> viewModel.toggleAppProfileRule(context, rule.packageName, enabled) }
+        { enabled: Boolean ->
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            viewModel.toggleAppProfileRule(context, rule.packageName, enabled)
+        }
     }
 
     Surface(
         onClick = onRowClick,
-        shape = RoundedCornerShape(14.dp),
-        color = BgElevated,
-        border = BorderStroke(
-            if (rule.enabled) 0.8.dp else 0.5.dp,
-            if (rule.enabled) AccentCyan.copy(alpha = 0.35f) else BorderSubtle
-        ),
+        shape = RoundedCornerShape(16.dp),
+        color = animatedBg,
+        border = BorderStroke(if (rule.enabled) 1.dp else 0.6.dp, animatedBorder),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 9.dp, bottom = 5.dp)
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 8.dp)
         ) {
-            // Upper Row: App Icon + (App Name & Package Name) + Master Switch
+            // Upper Row: App Icon + App Name & Subtext + Master Switch
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Crisp 40dp App Icon
+                // Crisp 42dp App Icon
                 AppIconImage(
                     packageName = rule.packageName,
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(42.dp)
                         .clip(RoundedCornerShape(10.dp))
                 )
 
                 Spacer(Modifier.width(12.dp))
 
-                // Middle Info: Line 1 (Name + Game Tag), Line 2 (Package Name)
+                // Middle Info: Name + [GAME] Tag, Subtitle & Reassurance Line
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -2350,7 +2552,7 @@ fun AppRuleBentoCard(
                             text = rule.appName,
                             color = if (rule.enabled) TextPrimary else TextSecondary.copy(alpha = 0.65f),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
+                            fontSize = 14.5.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
@@ -2373,10 +2575,25 @@ fun AppRuleBentoCard(
                         }
                     }
 
+                    // Package name in compact format
                     Text(
                         text = rule.packageName,
-                        color = TextSecondary.copy(alpha = 0.55f),
-                        fontSize = 11.5.sp,
+                        color = TextSecondary.copy(alpha = 0.5f),
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    // Human-centric emotional reassurance subtext
+                    Text(
+                        text = if (rule.enabled) {
+                            "⚡ Target: $profLabel • Siaga saat dibuka"
+                        } else {
+                            "⏸️ Ditangguhkan • Mengikuti profil sistem"
+                        },
+                        color = if (rule.enabled) profDotColor.copy(alpha = 0.85f) else TextSecondary.copy(alpha = 0.5f),
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -2394,9 +2611,9 @@ fun AppRuleBentoCard(
                         onCheckedChange = onToggle,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = BgDeepOled,
-                            checkedTrackColor = AccentCyan,
-                            uncheckedThumbColor = TextSecondary,
-                            uncheckedTrackColor = BgElevated,
+                            checkedTrackColor = profDotColor,
+                            uncheckedThumbColor = TextSecondary.copy(alpha = 0.6f),
+                            uncheckedTrackColor = Color(0xFF141824),
                             uncheckedBorderColor = BorderGlass
                         ),
                         modifier = Modifier.scale(0.85f)
@@ -2404,98 +2621,132 @@ fun AppRuleBentoCard(
                 }
             }
 
-            Spacer(Modifier.height(5.dp))
-            HorizontalDivider(color = BorderGlass.copy(alpha = 0.2f), thickness = 0.5.dp)
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = Color(0x12FFFFFF), thickness = 0.5.dp)
+            Spacer(Modifier.height(6.dp))
 
-            // Lower Row (Baris Baru di Bawah): Mode-mode + FPS/Hz + HUD + Kustomisasi (Compact Height)
+            // Lower Row: 1-Tap Quick Cycle Mode Pill + Badges (Hz, HUD) + Kustomisasi Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Left: Badges (Mode, Refresh Rate, HUD)
+                // Left: Badges (Mode Pill with 1-Tap Cycle + Hz + HUD)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // Target Profile Mode Pill (low-profile height)
+                    // 1-Tap Interactive Quick Profile Cycle Pill
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = BgDeepOled,
-                        border = BorderStroke(0.7.dp, profDotColor.copy(alpha = 0.45f))
+                        onClick = {
+                            val nextProfile = when (rule.targetProfile.lowercase().trim()) {
+                                "powersave" -> "balance"
+                                "balance" -> "performance"
+                                "performance" -> "extreme"
+                                "extreme" -> "powersave"
+                                else -> "performance"
+                            }
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            val updated = rule.copy(targetProfile = nextProfile)
+                            viewModel.addOrUpdateAppProfileRule(context, updated)
+                        },
+                        shape = RoundedCornerShape(7.dp),
+                        color = Color(0xFF0C0F17),
+                        border = BorderStroke(0.7.dp, profDotColor.copy(alpha = if (rule.enabled) 0.5f else 0.25f))
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 6.5.dp, vertical = 1.5.dp),
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.5.dp)
                         ) {
                             Surface(
                                 shape = CircleShape,
                                 color = profDotColor,
-                                modifier = Modifier.size(4.5.dp)
+                                modifier = Modifier.size(5.dp)
                             ) {}
                             Text(
                                 text = profLabel,
-                                color = TextPrimary,
-                                fontSize = 10.sp,
+                                color = if (rule.enabled) TextPrimary else TextSecondary.copy(alpha = 0.6f),
+                                fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Bold
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = "Ganti Profil Cepat",
+                                tint = profDotColor.copy(alpha = 0.75f),
+                                modifier = Modifier.size(11.dp)
                             )
                         }
                     }
 
-                    // Optional Target Refresh Rate Badge (FPS / Hz)
+                    // Optional Target Refresh Rate Badge (Hz)
                     if (rule.targetRefreshRate != null) {
                         Surface(
-                            shape = RoundedCornerShape(5.dp),
-                            color = BgDeepOled,
-                            border = BorderStroke(0.5.dp, BorderGlass)
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF0C0F17),
+                            border = BorderStroke(0.5.dp, Color(0x18FFFFFF))
                         ) {
-                            Text(
-                                text = "${rule.targetRefreshRate} Hz",
-                                color = TextSecondary,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Text(
+                                    text = "${rule.targetRefreshRate} Hz",
+                                    color = TextSecondary.copy(alpha = 0.85f),
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
 
                     // Optional Floating HUD Badge
                     if (rule.autoFloatingHud) {
                         Surface(
-                            shape = RoundedCornerShape(5.dp),
+                            shape = RoundedCornerShape(6.dp),
                             color = AccentCyan.copy(alpha = 0.12f),
                             border = BorderStroke(0.5.dp, AccentCyan.copy(alpha = 0.35f))
                         ) {
                             Text(
-                                text = "HUD ON",
+                                text = "OSD AKTIF",
                                 color = AccentCyan,
-                                fontSize = 8.5.sp,
+                                fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 1.5.dp)
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.5.dp)
                             )
                         }
                     }
                 }
 
-                // Right: Edit Affordance Chevron
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                // Right: Dedicated Kustomisasi Affordance Pill
+                Surface(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onEditRuleClick(rule)
+                    },
+                    shape = RoundedCornerShape(7.dp),
+                    color = Color.Transparent,
+                    modifier = Modifier.height(32.dp)
                 ) {
-                    Text(
-                        text = "Kustomisasi",
-                        color = TextSecondary.copy(alpha = 0.65f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "Kustomisasi",
-                        tint = TextSecondary.copy(alpha = 0.60f),
-                        modifier = Modifier.size(15.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            text = "Kustomisasi",
+                            color = TextSecondary.copy(alpha = 0.75f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = "Kustomisasi",
+                            tint = TextSecondary.copy(alpha = 0.65f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
                 }
             }
         }

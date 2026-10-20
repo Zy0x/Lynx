@@ -196,14 +196,24 @@ fun MainDashboard(
             uiState.appProfileRules.any { it.packageName == rule.packageName }
         }
 
+        val haptic = LocalHapticFeedback.current
+
         Dialog(
             onDismissRequest = { editingRule = null },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             Surface(
-                shape = RoundedCornerShape(22.dp),
-                color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderGlass),
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF10141F),
+                border = BorderStroke(
+                    0.8.dp,
+                    Brush.verticalGradient(
+                        listOf(
+                            Color(0x30FFFFFF),
+                            Color(0x12FFFFFF)
+                        )
+                    )
+                ),
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
                     .heightIn(max = 660.dp)
@@ -279,11 +289,14 @@ fun MainDashboard(
                         }
 
                         Surface(
-                            onClick = { editingRule = null },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                editingRule = null
+                            },
                             shape = CircleShape,
-                            color = BgDeepOled.copy(alpha = 0.7f),
-                            border = BorderStroke(0.8.dp, BorderGlass),
-                            modifier = Modifier.size(32.dp)
+                            color = Color(0xFF141824),
+                            border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
+                            modifier = Modifier.size(34.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
@@ -309,8 +322,8 @@ fun MainDashboard(
                         // 1. Status Otomasi Aplikasi
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = BgDeepOled.copy(alpha = 0.6f),
-                            border = BorderStroke(0.8.dp, BorderGlass),
+                            color = Color(0xFF0C0F17),
+                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -334,25 +347,30 @@ fun MainDashboard(
                                         fontSize = 10.5.sp
                                     )
                                 }
-                                Switch(
-                                    checked = isRuleEnabled,
-                                    onCheckedChange = { isRuleEnabled = it },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = BgDeepOled,
-                                        checkedTrackColor = AccentCyan,
-                                        uncheckedThumbColor = TextSecondary.copy(alpha = 0.5f),
-                                        uncheckedTrackColor = BgElevated
-                                    ),
-                                    modifier = Modifier.scale(0.85f)
-                                )
+                                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                                    Switch(
+                                        checked = isRuleEnabled,
+                                        onCheckedChange = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            isRuleEnabled = it
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = BgDeepOled,
+                                            checkedTrackColor = AccentCyan,
+                                            uncheckedThumbColor = TextSecondary.copy(alpha = 0.5f),
+                                            uncheckedTrackColor = Color(0xFF141824)
+                                        ),
+                                        modifier = Modifier.scale(0.85f)
+                                    )
+                                }
                             }
                         }
 
                         // 2. Profil Performa Kernel
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = BgDeepOled.copy(alpha = 0.6f),
-                            border = BorderStroke(0.8.dp, BorderGlass),
+                            color = Color(0xFF0C0F17),
+                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(
@@ -377,11 +395,11 @@ fun MainDashboard(
 
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = BgElevated.copy(alpha = 0.7f),
-                                    border = BorderStroke(0.6.dp, BorderGlass.copy(alpha = 0.5f)),
+                                    color = Color(0xFF10141E),
+                                    border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(36.dp)
+                                        .height(38.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -399,9 +417,12 @@ fun MainDashboard(
                                             val isSel = targetProf.equals(prof, ignoreCase = true)
                                             val accentColor = meta.second
                                             Surface(
-                                                onClick = { targetProf = prof },
+                                                onClick = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    targetProf = prof
+                                                },
                                                 shape = RoundedCornerShape(6.dp),
-                                                color = if (isSel) accentColor.copy(alpha = 0.22f) else Color.Transparent,
+                                                color = if (isSel) accentColor.copy(alpha = 0.20f) else Color.Transparent,
                                                 border = if (isSel) BorderStroke(0.8.dp, accentColor.copy(alpha = 0.6f)) else null,
                                                 modifier = Modifier.weight(1f).fillMaxHeight()
                                             ) {
@@ -424,8 +445,8 @@ fun MainDashboard(
                         // 3. Kunci Refresh Rate Layar
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = BgDeepOled.copy(alpha = 0.6f),
-                            border = BorderStroke(0.8.dp, BorderGlass),
+                            color = Color(0xFF0C0F17),
+                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(
@@ -449,11 +470,11 @@ fun MainDashboard(
 
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = BgElevated.copy(alpha = 0.7f),
-                                    border = BorderStroke(0.6.dp, BorderGlass.copy(alpha = 0.5f)),
+                                    color = Color(0xFF10141E),
+                                    border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(36.dp)
+                                        .height(38.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier
@@ -470,9 +491,12 @@ fun MainDashboard(
                                         ).forEach { (hz, label) ->
                                             val isSel = targetHz == hz
                                             Surface(
-                                                onClick = { targetHz = hz },
+                                                onClick = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    targetHz = hz
+                                                },
                                                 shape = RoundedCornerShape(6.dp),
-                                                color = if (isSel) AccentPurple.copy(alpha = 0.22f) else Color.Transparent,
+                                                color = if (isSel) AccentPurple.copy(alpha = 0.20f) else Color.Transparent,
                                                 border = if (isSel) BorderStroke(0.8.dp, AccentPurple.copy(alpha = 0.6f)) else null,
                                                 modifier = Modifier.weight(1f).fillMaxHeight()
                                             ) {
@@ -494,8 +518,8 @@ fun MainDashboard(
                         // 4. Floating Game HUD (OSD) Toggle
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = BgDeepOled.copy(alpha = 0.6f),
-                            border = BorderStroke(0.8.dp, BorderGlass),
+                            color = Color(0xFF0C0F17),
+                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -519,17 +543,22 @@ fun MainDashboard(
                                         fontSize = 10.5.sp
                                     )
                                 }
-                                Switch(
-                                    checked = autoHud,
-                                    onCheckedChange = { autoHud = it },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = BgDeepOled,
-                                        checkedTrackColor = AccentCyan,
-                                        uncheckedThumbColor = TextSecondary.copy(alpha = 0.5f),
-                                        uncheckedTrackColor = BgElevated
-                                    ),
-                                    modifier = Modifier.scale(0.85f)
-                                )
+                                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                                    Switch(
+                                        checked = autoHud,
+                                        onCheckedChange = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            autoHud = it
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = BgDeepOled,
+                                            checkedTrackColor = AccentCyan,
+                                            uncheckedThumbColor = TextSecondary.copy(alpha = 0.5f),
+                                            uncheckedTrackColor = Color(0xFF141824)
+                                        ),
+                                        modifier = Modifier.scale(0.85f)
+                                    )
+                                }
                             }
                         }
                     }
@@ -545,6 +574,7 @@ fun MainDashboard(
                         if (isExistingRule) {
                             Surface(
                                 onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     viewModel.deleteAppProfileRule(context, rule.packageName)
                                     viewModel.removeAppFromPerf(rule.packageName)
                                     editingRule = null
@@ -554,7 +584,7 @@ fun MainDashboard(
                                 border = BorderStroke(0.8.dp, AccentRed.copy(alpha = 0.45f)),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(42.dp)
+                                    .height(44.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Row(
@@ -580,6 +610,7 @@ fun MainDashboard(
 
                         Surface(
                             onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 val updated = rule.copy(
                                     targetProfile = targetProf,
                                     targetRefreshRate = targetHz,
@@ -594,7 +625,7 @@ fun MainDashboard(
                             border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.65f)),
                             modifier = Modifier
                                 .weight(if (isExistingRule) 1.35f else 1f)
-                                .height(42.dp)
+                                .height(44.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Row(
@@ -611,7 +642,7 @@ fun MainDashboard(
                                         text = "Simpan Konfigurasi",
                                         color = AccentCyan,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
+                                        fontSize = 12.5.sp
                                     )
                                 }
                             }
@@ -658,9 +689,17 @@ fun MainDashboard(
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             Surface(
-                shape = RoundedCornerShape(22.dp),
-                color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderGlass),
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF10141F),
+                border = BorderStroke(
+                    0.8.dp,
+                    Brush.verticalGradient(
+                        listOf(
+                            Color(0x30FFFFFF),
+                            Color(0x12FFFFFF)
+                        )
+                    )
+                ),
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
                     .fillMaxHeight(0.82f)
@@ -683,8 +722,8 @@ fun MainDashboard(
                         ) {
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = BgDeepOled.copy(alpha = 0.7f),
-                                border = BorderStroke(0.8.dp, BorderGlass),
+                                color = Color(0xFF141824),
+                                border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
@@ -710,8 +749,8 @@ fun MainDashboard(
                                     if (availableApps.isNotEmpty()) {
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
-                                            color = BgDeepOled.copy(alpha = 0.8f),
-                                            border = BorderStroke(0.6.dp, BorderGlass)
+                                            color = Color(0xFF0C0F17),
+                                            border = BorderStroke(0.6.dp, Color(0x18FFFFFF))
                                         ) {
                                             Text(
                                                 text = "${filteredApps.size}",
@@ -735,11 +774,14 @@ fun MainDashboard(
                         }
 
                         Surface(
-                            onClick = { showAddAppDialog = false },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                showAddAppDialog = false
+                            },
                             shape = CircleShape,
-                            color = BgDeepOled.copy(alpha = 0.7f),
-                            border = BorderStroke(0.8.dp, BorderGlass),
-                            modifier = Modifier.size(32.dp)
+                            color = Color(0xFF141824),
+                            border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
+                            modifier = Modifier.size(34.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
