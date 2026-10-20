@@ -1,3 +1,37 @@
+# Lynx Universal [Smart Thermal Presets, Video Decode & Multitasking Balanced Tuning] 7.0.0-RC128
+Released on: 2026-10-20
+> **Lynx Universal v7.0.0-RC128** (Lynx Kernel Manager v3.1.74): **Optimalisasi Menyeluruh Profil Global Balanced untuk Kelancaran Pemutaran Video (YouTube 1080p60/4K, TikTok, Reels) & Multitasking Harian pada Seluruh Tingkatan Perangkat (Low-End, Mid-End, & Flagship): Eliminasi Ceiling 75% Menjadi Dynamic 0-100% Burst Schedutil pada Native Daemon Rust (`balanced.rs`) Agar Perangkat Low-End Tidak Mengalami Frame-Drop; Penyetelan Presisi VM Memory (`vfs_cache_pressure = 80`, `swappiness = 70`, `watermark_boost_factor = 0`) Guna Menghilangkan Stutter kswapd & Mencegah Reload Aplikasi Latar Belakang; 4 Smart Thermal Presets 1-Klik pada Vendor Thermal Studio (Multimedia & Video Lancar, Harian Seimbang Pro, Sustained Gaming, Dingin Tropis); Sakelar Cepat Anti-Dimming 54°C & Headroom CPU/GPU +4°C; Serta Badge & Penjelasan Ramah Pemula untuk Seluruh Seksi Kernel**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC128)
+
+### 1. 🎬 Penyetelan Profil Global Balanced Khusus Video Streaming & Multitasking
+- **Akar Masalah**:
+  - Pada perangkat kelas pemula (low-end) dan menengah (mid-end), pembatasan frekuensi maksimum 75% pada profil balanced memangkas clock CPU menjadi terlalu rendah (~1.35GHz - 1.5GHz). Ketika memutar video beresolusi tinggi 1080p60 atau 4K sambil multitasking, proses decoding video hardware (Venus/VIDC) dan SurfaceFlinger kekurangan kapasitas burst, memicu *frame-drop* dan audio desync.
+  - Selain itu, nilai `vfs_cache_pressure = 100` dan lonjakan `watermark_boost_factor` memicu pembersihan cache direktori secara agresif, menyebabkan aplikasi seperti WhatsApp dan peramban web harus reload ulang saat berpindah aplikasi.
+- **Solusi**:
+  - Membuka limit frekuensi CPU pada `native/lynxd/src/profile/balanced.rs` menjadi dinamis 0–100%. Schedutil tetap bekerja efisien di frekuensi terendah saat idle, namun memiliki akses kapasitas 100% instan untuk lonjakan komputasi decoding frame dan perpindahan aplikasi.
+  - Menyetel `uclamp_min_percent = 12%` sebagai batas bawah responsivitas UI untuk memastikan SurfaceFlinger berjalan mulus tanpa micro-stall.
+  - Mengonfigurasi `vfs_cache_pressure = 80` dan `watermark_boost_factor = 0` pada `native/lynxd/src/subsystems/memory.rs` untuk mempertahankan cache aplikasi dan mencegah kswapd menginterupsi pemutaran video.
+
+### 2. 🎛️ 4 Preset Termal Cerdas 1-Klik (*Smart Thermal Presets*)
+- **Solusi**:
+  - Menambahkan baris kartu bento interaktif dengan 4 preset kurasi:
+    1. **🎬 Multimedia & Video Lancar**: Melonggarkan trip point `[LCD_MANAGEMENT]` dan trip sensor video ke 52°C/56°C, menjaga refresh rate layar 60Hz/90Hz/120Hz tetap stabil tanpa frame drop saat menonton YouTube/Reels.
+    2. **⚖️ Harian Seimbang Pro (Default)**: Penyetelan harian optimal anti-dimming 50°C/54°C dan tangga pengisian daya sejuk.
+    3. **🚀 Sustained Gaming (Anti-Lag)**: Memberikan headroom termal $+4^\circ\text{C}$ pada seluruh cluster CPU Silver/Gold dan GPU agar tidak terjadi penurunan FPS mendadak setelah 5 menit bermain.
+    4. **❄️ Dingin Tropis & Baterai Awet**: Pendinginan dini untuk melindungi baterai dari panas berlebih di lingkungan tropis.
+
+### 3. 📱 Sakelar Cepat Makro (*Anti-Dimming 54°C & CPU Headroom*)
+- **Solusi**:
+  - Sakelar 1-klik untuk mencegah layar otomatis meredup sendiri di bawah sinar matahari.
+  - Sakelar 1-klik untuk melonggarkan batas throttling CPU/GPU tanpa harus mengedit parameter manual.
+
+### 4. 🏷️ Badge & Deskripsi Ramah Pengguna pada Setiap Seksi
+- **Solusi**:
+  - Mengonversi nama seksi daemon teknis (`[SS-MSM-THERM-SILVER]`, `[SS-GPU]`, `[LCD_MANAGEMENT]`) menjadi bahasa yang mudah dimengerti lengkap dengan penjelasan fungsinya.
+
+---
+
 # Lynx Universal [Dynamic Vendor Thermal Studio, Zero-Hardcode INI Parser & Live Bind Mount] 7.0.0-RC125
 Released on: 2026-10-20
 > **Lynx Universal v7.0.0-RC125** (Lynx Kernel Manager v3.1.71): **Perombakan Menyeluruh Studio Konfigurasi Thermal Vendor (`thermal-engine.conf` Qualcomm & `.tp/thermal.conf` MediaTek) Menjadi 100% Dinamis Tanpa Asumsi Hardcoded: Parser Dokumen Dua Arah Universal (`ThermalIniDocument` & `ThermalIniSection`) yang Mendukung Separator Whitespace Maupun Key-Value; Pemilih Seksi Dinamis (Section Selector) untuk Seluruh Seksi yang Terdeteksi pada Berkas Bawaan Pabrik Maupun Kustom; Hybrid Parameter Tuner (Input Teks Presisi Langsung + Slider Taktil Multi-Trip & Stepper per Trip Point untuk Ambang Batas Suhu); Chip Rekomendasi Sensor Kernel Nyata dari `/sys/class/thermal/thermal_zone*/type`; Mode Raw Editor Monospace untuk Pengguna Tingkat Lanjut; Fitur Pemulihan Bertingkat (Reset per Seksi & Reset Seluruh File ke Baseline OEM); Serta Pengujian Instan Tanpa Reboot Melalui Linux Runtime Bind Mount & Deployment Permanen via Magisk Magic Mount Overlay**.
