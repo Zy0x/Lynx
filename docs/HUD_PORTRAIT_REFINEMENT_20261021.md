@@ -2,7 +2,7 @@
 
 ## Source and boundaries
 
-The implementation was isolated from shared CPU/slider/navigation edits in a separate worktree based on `c808e66`. It retains that revision's version metadata, preference keys, native collector, sampling/statistics, and hardware controller. WebUI and all six classic floating styles are unchanged.
+The implementation was isolated from shared CPU/slider/navigation edits in a separate worktree based on `c808e66`. HUD commits do not change version metadata, preference keys, the native collector, sampling/statistics, or the hardware controller. WebUI and all six classic floating styles are unchanged.
 
 The user's portrait reference establishes a labeled left rail, top application dock, compact instrumentation, and profile controls. The selected width remains min(80% of safe width, 336 dp), with a maximum portrait height of 70%. Landscape retains min(44%, 384 dp) and safe-height limits.
 
@@ -27,3 +27,29 @@ Auto-discovery returned no X698. The reference connector verified that Redmi is 
 The initial isolated `:app:assembleRelease` passed lint, R8, shrinking, signing, and packaging on the unchanged `3.1.85` baseline. All 13 targeted Release tests passed (4 layout policy, 4 snapshot, 2 display-session, 3 locale), including the expanded narrow-landscape geometry matrix. The collector SHA-256 is unchanged: `6d9549cab44d66a57bf17a7d3476f2c98d30750b693e01040921f331dc16b5cc`.
 
 Before installation, read-only package inspection found that another workstream had already updated Redmi to `3.1.86` / `20261230`. The older baseline artifact was not installed. Integration therefore uses a snapshot of the latest shared CPU/pager working changes and existing version metadata, followed by another Release build. Those external working changes are excluded from HUD commits.
+
+## Final Release and installation evidence
+
+The integration artifact combines HUD commit `3058d1c` with the captured shared CPU/pager changes and their existing `3.1.86` / `20261230` metadata. Its shared working-diff SHA-256 is `5f52c4ab35828dcfc6b10b90823cb9edb190b89dffde0e555978053a3612087e`; that patch and hashes of the two additional pager source files are retained locally outside Git. Later edits in the shared workspace do not change this captured build input.
+
+| Check | Result |
+| --- | --- |
+| Targeted `:app:testReleaseUnitTest` on the integrated snapshot | 13 passed; no failures |
+| `:app:assembleRelease` on the integrated snapshot | Passed, including lint, R8, shrinking, signing, and packaging |
+| Repository-wide locale validator | Still fails on findings outside HUD |
+| Scoped HUD locale findings | 0 |
+| New/maintained HUD source files | All below 400 lines |
+| `git diff --check` for HUD changes | Passed |
+| Packaged launch/debug guard | No MY_PACKAGE_REPLACED filter; no debuggable flag |
+| Redmi identity readback | `lavender` / `sdm660` |
+| Streamed `adb install -r` | Success, without downgrade or activity launch |
+| Installed version readback | `3.1.86` / `20261230`, lastUpdateTime 2026-10-21 06:10:09 |
+| Installed base.apk hash | Exactly matches the Release artifact below |
+| Process after update | `pidof com.noir.lynx` returned no process |
+
+- APK size: 5,563,575 bytes.
+- APK SHA-256: `37d703348dd6a5c19f1c8f5957ebd6b904a0d6f0f649fbf84d8fc68d9c00fbe2`.
+- Matching Release mapping SHA-256: `f4dfce0c7bbce30c70814cfd7b776418441b42de21b3dd3e0334b8c6409a2d45`.
+- APK, matching mapping, and final test XML are archived on the PC outside Git. The native collector bytes remain unchanged from the initial HUD artifact.
+
+This HUD session issued no activity launch, UI automation, root tuning, rotation-setting write, module deployment, or remote test-file creation. Physical layout and gesture cases listed above remain deferred to X698; successful local tests and installation do not establish those results.
