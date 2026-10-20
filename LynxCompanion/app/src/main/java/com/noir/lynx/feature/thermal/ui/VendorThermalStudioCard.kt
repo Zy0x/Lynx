@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.designsystem.card.LynxCard
+import com.noir.lynx.designsystem.controls.LynxSwitch
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.hardware.*
 import com.topjohnwu.superuser.Shell
@@ -38,9 +39,14 @@ import kotlinx.coroutines.launch
 
 /**
  * VendorThermalStudioCard — 100% Dynamic, Non-Hardcoded Vendor Thermal Config Studio.
- * Allows users to inspect, select, and customize ANY section and key of vendor thermal files
- * (Qualcomm thermal-engine.conf / MediaTek .tp/thermal.conf) with tactile sliders, direct text inputs,
- * real sensor recommendation chips, full raw INI editor, live bind mount testing, and Magisk Magic Mount overlay.
+ * Optimized for low-end, mid-end, and flagship devices:
+ * - 4 Curated Smart Thermal Presets (Multimedia & Video Lancar, Daily Balanced Pro, Gaming Anti-Lag, Super Cool)
+ * - Human-Friendly Section Badges & Explanations (Translates kernel daemon sections to clear Indonesian)
+ * - Macro Quick Toggles (Anti-Dimming 54°C, Sustained CPU/GPU Headroom)
+ * - Dynamic Section Selector & Hybrid Parameter Tuner (Direct text input + tactile sliders & steppers)
+ * - Real-time kernel sensor recommendation chips
+ * - Raw Monospace INI Editor for power users
+ * - Instant Live Bind Mount without reboot & permanent Magisk Magic Mount overlay
  */
 @Composable
 fun VendorThermalStudioCard(
@@ -58,6 +64,7 @@ fun VendorThermalStudioCard(
     var selectedSectionName by remember { mutableStateOf("") }
     var isRawEditorMode by remember { mutableStateOf(false) }
     var rawEditorText by remember { mutableStateOf("") }
+    var activePresetId by remember { mutableStateOf<String?>(null) }
 
     // Dialogs
     var showAddSectionDialog by remember { mutableStateOf(false) }
@@ -100,6 +107,17 @@ fun VendorThermalStudioCard(
     val isExtremeHot = batteryThresholdsStr.split("\\s+".toRegex())
         .mapNotNull { it.toIntOrNull() }
         .any { it >= 46000 }
+
+    // Detect Macro Toggles State
+    val lcdSec = activeDoc.getSection("LCD_MANAGEMENT")
+    val isAntiDimmingActive = lcdSec?.getProperty("thresholds")?.let { thresh ->
+        thresh.split("\\s+".toRegex()).mapNotNull { it.toIntOrNull() }.any { it >= 50000 }
+    } ?: false
+
+    val isCpuHeadroomActive = activeDoc.sections.any {
+        it.name.startsWith("SS-MSM-THERM", ignoreCase = true) &&
+                (it.getProperty("set_point")?.toIntOrNull() ?: 0) >= 48000
+    }
 
     LynxCard(
         title = "Studio Konfigurasi Thermal Vendor (Universal)",
@@ -279,7 +297,186 @@ fun VendorThermalStudioCard(
             }
         }
 
-        // ── 3. Mode Toggle: Visual Wizard vs Raw INI Editor ───────────
+        // ── 3. Preset Termal Pintar (1-Klik Otomatis) ─────────────────
+        Text(
+            text = "PRESET TERMAL PINTAR (1-KLIK OTOMATIS)",
+            color = TextSecondary,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+        ) {
+            items(VendorThermalPreset.values()) { preset ->
+                val isSelected = activePresetId == preset.id
+                val presetColor = when (preset) {
+                    VendorThermalPreset.MULTIMEDIA -> AccentCyan
+                    VendorThermalPreset.BALANCED -> AccentGreen
+                    VendorThermalPreset.GAMING -> AccentOrange
+                    VendorThermalPreset.SUPER_COOL -> AccentPurple
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isSelected) presetColor.copy(alpha = 0.16f) else BgElevated,
+                    border = BorderStroke(if (isSelected) 1.2.dp else 0.8.dp, if (isSelected) presetColor else BorderSubtle),
+                    modifier = Modifier
+                        .width(220.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            activePresetId = preset.id
+                            val newDoc = VendorThermalPresets.applyPreset(activeDoc, preset)
+                            activeDoc = newDoc
+                            rawEditorText = newDoc.toIniString()
+                            actionMessage = "Preset '${preset.title}' diterapkan! Klik Uji Coba Instan atau Simpan Permanen."
+                        }
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = preset.title,
+                                color = if (isSelected) presetColor else TextPrimary,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = presetColor.copy(alpha = 0.2f),
+                                border = BorderStroke(0.5.dp, presetColor)
+                            ) {
+                                Text(
+                                    text = preset.tag,
+                                    color = presetColor,
+                                    fontSize = 7.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = preset.subtitle,
+                            color = TextSecondary,
+                            fontSize = 9.sp,
+                            lineHeight = 12.sp,
+                            maxLines = 3
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── 4. Sakelar Cepat Makro (Anti-Dimming & CPU Headroom) ────────
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = BgElevated,
+            border = BorderStroke(0.8.dp, BorderSubtle),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+        ) {
+            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        Text(
+                            text = "📱 Cegah Layar Meredup (Anti-Dimming 54°C)",
+                            color = TextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Menjaga kecerahan layar tetap stabil di bawah sinar matahari dan saat ponsel hangat.",
+                            color = TextSecondary,
+                            fontSize = 9.sp,
+                            lineHeight = 12.sp
+                        )
+                    }
+                    Switch(
+                        checked = isAntiDimmingActive,
+                        onCheckedChange = { enable ->
+                            val lcd = activeDoc.getOrCreateSection("LCD_MANAGEMENT")
+                            if (enable) {
+                                lcd.setProperty("thresholds", "54000 58000")
+                                lcd.setProperty("thresholds_clr", "52000 56000")
+                            } else {
+                                val stockLcd = state.stockDoc.getSection("LCD_MANAGEMENT")
+                                if (stockLcd != null) {
+                                    lcd.setProperty("thresholds", stockLcd.getProperty("thresholds") ?: "43000 45000")
+                                    lcd.setProperty("thresholds_clr", stockLcd.getProperty("thresholds_clr") ?: "41000 43000")
+                                }
+                            }
+                            activeDoc = activeDoc.deepCopy()
+                            rawEditorText = activeDoc.toIniString()
+                            actionMessage = if (enable) "Anti-dimming diaktifkan (54°C/58°C)." else "Anti-dimming dinonaktifkan."
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = AccentCyan,
+                            checkedTrackColor = AccentCyan.copy(alpha = 0.3f),
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = BgDeepOled
+                        )
+                    )
+                }
+
+                HorizontalDivider(color = BorderSubtle, thickness = 0.6.dp)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        Text(
+                            text = "⚡ Headroom Termal Sustained (+4°C)",
+                            color = TextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Melonggarkan batas throttling CPU Silver/Gold & GPU Adreno/Mali agar multitasking dan video 60fps tidak lag.",
+                            color = TextSecondary,
+                            fontSize = 9.sp,
+                            lineHeight = 12.sp
+                        )
+                    }
+                    Switch(
+                        checked = isCpuHeadroomActive,
+                        onCheckedChange = { enable ->
+                            for (sec in activeDoc.sections) {
+                                if (sec.name.startsWith("SS-MSM-THERM", ignoreCase = true) ||
+                                    sec.name.contains("CLUSTER", ignoreCase = true)) {
+                                    val stockSec = state.stockDoc.getSection(sec.name)
+                                    val baseSp = stockSec?.getProperty("set_point")?.toIntOrNull() ?: 45000
+                                    val targetSp = if (enable) baseSp + 4000 else baseSp
+                                    sec.setProperty("set_point", targetSp.toString())
+                                    sec.setProperty("set_point_clr", (targetSp - 2000).toString())
+                                }
+                            }
+                            activeDoc = activeDoc.deepCopy()
+                            rawEditorText = activeDoc.toIniString()
+                            actionMessage = if (enable) "Headroom termal +4°C diterapkan ke seluruh cluster." else "Headroom termal dikembalikan ke stock."
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = AccentOrange,
+                            checkedTrackColor = AccentOrange.copy(alpha = 0.3f),
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = BgDeepOled
+                        )
+                    )
+                }
+            }
+        }
+
+        // ── 5. Mode Toggle: Visual Wizard vs Raw INI Editor ───────────
         Surface(
             shape = RoundedCornerShape(10.dp),
             color = BgDeepOled,
@@ -298,7 +495,6 @@ fun VendorThermalStudioCard(
                         .clip(RoundedCornerShape(8.dp))
                         .clickable {
                             if (isRawEditorMode) {
-                                // Sync back from raw text to activeDoc
                                 activeDoc = ThermalIniDocument.parse(rawEditorText)
                                 isRawEditorMode = false
                             }
@@ -364,7 +560,7 @@ fun VendorThermalStudioCard(
             }
         }
 
-        // ── 4. Konten Sesuai Mode ────────────────────────────────────
+        // ── 6. Konten Sesuai Mode ────────────────────────────────────
         if (isRawEditorMode) {
             // ── RAW INI TEXT EDITOR ──────────────────────────────────
             Text(
@@ -472,6 +668,7 @@ fun VendorThermalStudioCard(
             ) {
                 items(activeDoc.sections) { sec ->
                     val isSelected = sec.name.equals(selectedSectionName, ignoreCase = true)
+                    val meta = VendorThermalPresets.getSectionMeta(sec.name)
                     val chipAccent = when {
                         sec.name.contains("BATTERY", ignoreCase = true) -> AccentGreen
                         sec.name.contains("LCD", ignoreCase = true) -> AccentCyan
@@ -485,7 +682,7 @@ fun VendorThermalStudioCard(
                         color = if (isSelected) chipAccent.copy(alpha = 0.2f) else BgElevated,
                         border = BorderStroke(if (isSelected) 1.2.dp else 0.6.dp, if (isSelected) chipAccent else BorderSubtle),
                         modifier = Modifier
-                            .height(36.dp)
+                            .height(38.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .clickable { selectedSectionName = sec.name }
                     ) {
@@ -500,12 +697,20 @@ fun VendorThermalStudioCard(
                                     .clip(CircleShape)
                                     .background(if (isSelected) chipAccent else TextSecondary.copy(alpha = 0.5f))
                             )
-                            Text(
-                                text = "[${sec.name}]",
-                                color = if (isSelected) chipAccent else TextSecondary,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                            )
+                            Column {
+                                Text(
+                                    text = meta.badge,
+                                    color = if (isSelected) chipAccent else TextPrimary,
+                                    fontSize = 10.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                                Text(
+                                    text = "[${sec.name}]",
+                                    color = TextSecondary.copy(alpha = 0.7f),
+                                    fontSize = 8.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                         }
                     }
                 }
@@ -517,7 +722,7 @@ fun VendorThermalStudioCard(
                         color = BgElevated,
                         border = BorderStroke(0.6.dp, BorderSubtle),
                         modifier = Modifier
-                            .height(36.dp)
+                            .height(38.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .clickable { showAddSectionDialog = true }
                     ) {
@@ -535,6 +740,8 @@ fun VendorThermalStudioCard(
 
             // Render Selected Section
             if (currentSection != null) {
+                val secMeta = VendorThermalPresets.getSectionMeta(currentSection.name)
+
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = BgElevated,
@@ -548,17 +755,37 @@ fun VendorThermalStudioCard(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = secMeta.badge,
+                                        color = AccentCyan,
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = BgDeepOled,
+                                        border = BorderStroke(0.5.dp, BorderSubtle)
+                                    ) {
+                                        Text(
+                                            text = "[${currentSection.name}]",
+                                            color = TextSecondary,
+                                            fontSize = 9.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
+                                    }
+                                }
                                 Text(
-                                    text = "[${currentSection.name}]",
-                                    color = TextPrimary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                                Text(
-                                    text = "${currentSection.properties.size} Parameter Terkonfigurasi",
+                                    text = secMeta.description,
                                     color = TextSecondary,
-                                    fontSize = 9.5.sp
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp,
+                                    modifier = Modifier.padding(top = 2.dp)
                                 )
                             }
 
@@ -633,7 +860,6 @@ fun VendorThermalStudioCard(
                                     activeDoc = activeDoc.deepCopy()
                                 },
                                 onSyncHysteresis = {
-                                    // Calculate -2000 mC (-2°C) clearance
                                     if (prop.key.equals("thresholds", ignoreCase = true)) {
                                         val tokens = prop.value.split("\\s+".toRegex()).mapNotNull { it.toIntOrNull() }
                                         val clrTokens = tokens.map { (it - 2000).coerceAtLeast(30000) }
@@ -681,7 +907,7 @@ fun VendorThermalStudioCard(
             }
         }
 
-        // ── 5. Cautionary Banner for Extreme Temperatures ────────────
+        // ── 7. Cautionary Banner for Extreme Temperatures ────────────
         if (isExtremeHot) {
             Surface(
                 shape = RoundedCornerShape(10.dp),
@@ -723,7 +949,7 @@ fun VendorThermalStudioCard(
             }
         }
 
-        // ── 6. Baris Tombol Aksi Utama (Touch-First >= 48dp) ──────────
+        // ── 8. Baris Tombol Aksi Utama (Touch-First >= 48dp) ──────────
         Column(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -884,7 +1110,7 @@ fun VendorThermalStudioCard(
         }
     }
 
-    // ── 7. Dialogs: Add Section, Add Property, Reboot ───────────────
+    // ── 9. Dialogs: Add Section, Add Property, Reboot ───────────────
 
     // Dialog: Tambah Seksi Baru
     if (showAddSectionDialog) {

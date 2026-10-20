@@ -238,14 +238,16 @@ impl MemoryController {
             "balanced" | "balance" => {
                 Self::write_opt("/proc/sys/vm/dirty_ratio", "20");
                 Self::write_opt("/proc/sys/vm/dirty_background_ratio", "10");
-                Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "100");
-                Self::write_opt("/proc/sys/vm/swappiness", "80");
+                Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "80");
+                Self::write_opt("/proc/sys/vm/swappiness", "70");
                 Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "500");
                 Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "200");
                 Self::write_opt("/proc/sys/vm/stat_interval", "1");
+                Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
+                Self::write_opt("/proc/sys/vm/compaction_proactiveness", "20");
                 Ok(ui(
-                    "Preset VM diterapkan: Balanced (proporsi bawaan Linux, paging seimbang).",
-                    "VM preset applied: Balanced (Stock Linux proportions, balanced paging).",
+                    "Preset VM diterapkan: Balanced (proporsi optimal multitasking & streaming video).",
+                    "VM preset applied: Balanced (Optimized for fluid multitasking & video playback).",
                 )
                 .to_string())
             }

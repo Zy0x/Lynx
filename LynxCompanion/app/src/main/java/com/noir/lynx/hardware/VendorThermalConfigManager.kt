@@ -598,3 +598,175 @@ EOF
         return if (res.isSuccess) res.out.joinToString("\n") else ""
     }
 }
+
+/**
+ * 4 Curated Smart Presets for Vendor Thermal Studio
+ */
+enum class VendorThermalPreset(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val tag: String
+) {
+    MULTIMEDIA(
+        id = "multimedia",
+        title = "Multimedia & Video Lancar",
+        subtitle = "Anti-stutter video 1080p/4K YouTube, Reels & TikTok. Menjaga refresh rate 60/90Hz dan stabilisasi decoder.",
+        tag = "ANTI-STUTTER"
+    ),
+    BALANCED(
+        id = "balanced",
+        title = "Harian Seimbang Pro (Default)",
+        subtitle = "Daily driver multitasking responsif, anti-dimming 52°C, pengisian daya cerdas dan adem di saku.",
+        tag = "REKOMENDASI"
+    ),
+    GAMING(
+        id = "gaming",
+        title = "Sustained Gaming (Anti-Lag)",
+        subtitle = "+4°C headroom pada CPU Silver/Gold & GPU set_point mencegah FPS drop mendadak saat sesi game panjang.",
+        tag = "ANTI-FRAME DROP"
+    ),
+    SUPER_COOL(
+        id = "super_cool",
+        title = "Dingin Tropis & Baterai Awet",
+        subtitle = "Pendinginan dini & proteksi degradasi baterai di iklim terik tropis.",
+        tag = "BATERAI AWET"
+    )
+}
+
+/**
+ * Human-friendly metadata for thermal sections.
+ */
+data class SectionMeta(
+    val badge: String,
+    val description: String
+)
+
+object VendorThermalPresets {
+    fun getSectionMeta(sectionName: String): SectionMeta {
+        val upper = sectionName.uppercase()
+        return when {
+            upper.contains("BATTERY_CHARGING") -> SectionMeta(
+                badge = "🔋 Pengisian Baterai",
+                description = "Arus fast charging & mitigasi panas baterai"
+            )
+            upper.contains("LCD_MANAGEMENT") -> SectionMeta(
+                badge = "📱 Layar & Anti-Dimming",
+                description = "Mencegah layar meredup otomatis saat ponsel hangat"
+            )
+            upper.contains("LCD_MONITOR") -> SectionMeta(
+                badge = "🖥️ Monitor Layar",
+                description = "Pemantauan batas termal panel display"
+            )
+            upper.contains("SS-GPU") || upper.contains("GPU") -> SectionMeta(
+                badge = "🎮 Throttling GPU Grafis",
+                description = "Menjaga kelancaran render game & animasi UI"
+            )
+            upper.contains("SILVER") || upper.contains("CLUSTER0") -> SectionMeta(
+                badge = "⚙️ CPU Little (Efisiensi)",
+                description = "Kelancaran multitasking dasar & efisiensi baterai"
+            )
+            upper.contains("GOLD") || upper.contains("CLUSTER1") -> SectionMeta(
+                badge = "⚡ CPU Big (Performa)",
+                description = "Daya komputasi berat, app launch & gaming"
+            )
+            upper.contains("SKIN-SHUTDOWN") -> SectionMeta(
+                badge = "🛡️ Proteksi Darurat",
+                description = "Batas cut-off darurat agar hardware tetap aman"
+            )
+            upper.contains("VIRTUAL") -> SectionMeta(
+                badge = "🧠 Virtual Governor",
+                description = "Algoritma virtual governor penyeimbang beban core"
+            )
+            upper.contains("SPEAKER") -> SectionMeta(
+                badge = "🔊 Kalibrasi Audio",
+                description = "Proteksi termal amplifier speaker"
+            )
+            upper.contains("THROTTLING-NOTIFY") -> SectionMeta(
+                badge = "🔔 Notifikasi Termal",
+                description = "Pelaporan status panas ke Android framework"
+            )
+            else -> SectionMeta(
+                badge = "⚙️ Parameter Kustom",
+                description = "Konfigurasi daemon termal vendor"
+            )
+        }
+    }
+
+    fun applyPreset(doc: ThermalIniDocument, preset: VendorThermalPreset): ThermalIniDocument {
+        val newDoc = doc.deepCopy()
+        when (preset) {
+            VendorThermalPreset.MULTIMEDIA -> {
+                newDoc.getSection("LCD_MANAGEMENT")?.let { sec ->
+                    sec.setProperty("thresholds", "52000 56000")
+                    sec.setProperty("thresholds_clr", "50000 54000")
+                }
+                newDoc.getSection("BATTERY_CHARGING_CTL")?.let { sec ->
+                    sec.setProperty("thresholds", "38000 41000 43000 46000 49000")
+                    sec.setProperty("thresholds_clr", "36000 39000 41000 44000 47000")
+                }
+                for (sec in newDoc.sections) {
+                    if (sec.name.contains("VIDEO", ignoreCase = true) ||
+                        sec.name.contains("LCD_MONITOR", ignoreCase = true) ||
+                        sec.name.contains("CAMERA", ignoreCase = true)) {
+                        val currThresh = sec.getProperty("thresholds")
+                        if (currThresh != null) {
+                            val bumped = currThresh.split("\\s+".toRegex()).mapNotNull { it.toIntOrNull() }.map { (it + 4000).coerceAtMost(80000) }
+                            if (bumped.isNotEmpty()) {
+                                sec.setProperty("thresholds", bumped.joinToString(" "))
+                                sec.setProperty("thresholds_clr", bumped.map { (it - 2000).coerceAtLeast(30000) }.joinToString(" "))
+                            }
+                        }
+                    }
+                }
+            }
+            VendorThermalPreset.BALANCED -> {
+                newDoc.getSection("BATTERY_CHARGING_CTL")?.let { sec ->
+                    sec.setProperty("thresholds", "38000 40000 42000 45000 49000")
+                    sec.setProperty("thresholds_clr", "36000 38000 40000 43000 47000")
+                }
+                newDoc.getSection("LCD_MANAGEMENT")?.let { sec ->
+                    sec.setProperty("thresholds", "50000 54000")
+                    sec.setProperty("thresholds_clr", "48000 52000")
+                }
+            }
+            VendorThermalPreset.GAMING -> {
+                newDoc.getSection("BATTERY_CHARGING_CTL")?.let { sec ->
+                    sec.setProperty("thresholds", "40000 42000 45000 48000 52000")
+                    sec.setProperty("thresholds_clr", "38000 40000 43000 46000 50000")
+                }
+                newDoc.getSection("LCD_MANAGEMENT")?.let { sec ->
+                    sec.setProperty("thresholds", "54000 58000")
+                    sec.setProperty("thresholds_clr", "52000 56000")
+                }
+                for (sec in newDoc.sections) {
+                    if (sec.name.startsWith("SS-MSM-THERM", ignoreCase = true) ||
+                        sec.name.contains("CLUSTER", ignoreCase = true)) {
+                        val sp = sec.getProperty("set_point")?.toIntOrNull()
+                        if (sp != null && sp < 70000) {
+                            sec.setProperty("set_point", (sp + 4000).toString())
+                            sec.setProperty("set_point_clr", (sp + 2000).toString())
+                        }
+                    }
+                    if (sec.name.equals("SS-GPU", ignoreCase = true)) {
+                        val sp = sec.getProperty("set_point")?.toIntOrNull()
+                        if (sp != null && sp < 98000) {
+                            sec.setProperty("set_point", (sp + 3000).coerceAtMost(98000).toString())
+                        }
+                    }
+                }
+            }
+            VendorThermalPreset.SUPER_COOL -> {
+                newDoc.getSection("BATTERY_CHARGING_CTL")?.let { sec ->
+                    sec.setProperty("thresholds", "36000 38000 40000 42000 44000")
+                    sec.setProperty("thresholds_clr", "34000 36000 38000 40000 42000")
+                }
+                newDoc.getSection("LCD_MANAGEMENT")?.let { sec ->
+                    sec.setProperty("thresholds", "45000 48000")
+                    sec.setProperty("thresholds_clr", "43000 46000")
+                }
+            }
+        }
+        return newDoc
+    }
+}
