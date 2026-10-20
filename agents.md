@@ -456,6 +456,49 @@ Sesuai instruksi dan ketetapan mutlak pemilik proyek, arsitektur penomoran versi
    - Sebelum mengeksekusi skrip pengujian (Read-Write) apapun via ADB, agen **WAJIB** memastikan target bukan Redmi Note 7 (`ro.product.device != lavender` dan `ro.board.platform != sdm660`).
    - Skrip `tools/connect_device.ps1` telah dilengkapi pengaman otomatis (*Hardware Identity Interlock*): pemanggilan standar `.\tools\connect_device.cmd` hanya akan mengembalikan serial perangkat uji **Infinix X698** dan secara otomatis mengecualikan **Redmi Note 7** dari target pengujian tulis.
 
+### 9.4 Mandat Kebersihan Repositori Mutlak & Pencegahan Bloat (Zero-Bloat & Strict Git Hygiene)
+
+Untuk menjaga repositori tetap padat, esensial, ringan, dan cepat di-clone, seluruh AI Agent dan pengembang **WAJIB MEMATUHI ATURAN KEBERSIHAN MUTLAK** berikut:
+
+1. **Larangan Keras Men-Track Berkas Biner Rilis & Artefak Kompilasi**:
+   - **DILARANG KERAS** melakukan `git add` atau meng-commit berkas `.zip`, `.apk`, `.aab`, `.kpm`, `.jar`, `.o`, `.bin`, `.so`, dan `dist/*` ke dalam riwayat Git!
+   - Seluruh berkas rilis final (`dist/*.zip`, `LynxKernelManager.apk`) hanya diunggah ke platform hosting rilis (GitHub Releases), BUKAN disimpan di dalam Git tree.
+2. **Larangan Keras Men-Track Tangkapan Layar, UI Dumps, & Lockfiles**:
+   - Dilarang keras meng-commit gambar tangkapan layar (`*.png`, `*.jpg`, `*.webp`), dump hierarki UI (`dump*.xml`), lockfiles (`*.lock`), dan direktori `test-results/`.
+   - File-file ini wajib selalu masuk dalam `.gitignore` dan langsung dibersihkan dari disk lokal pasca-analisis.
+3. **Isolasi Skrip Pengujian Satu Kali Pakai (One-Off Probes)**:
+   - Skrip tes ad-hoc, dump DTB, inspeksi kallsyms, atau pencarian string kernel sementara dilarang berserakan di folder `tools/` atau root.
+   - Skrip pengujian sementara wajib diisolasi di `tools/probes_archive/` atau `tests/live_probes_archive/` yang secara baku di-ignore oleh Git, sehingga folder `tools/` murni berisi utilitas packaging (`pack_module.ps1`), verifikasi shell (`verify_zero_shell.ps1`), dan skrip helper produksi aktif.
+4. **Audit Sebelum Commit**:
+   - Sebelum mengeksekusi `git add` dan `git commit`, agen **WAJIB** menjalankan `git status -s` untuk memverifikasi bahwa tidak ada file biner, screenshot, atau dump yang tidak sengaja ter-stage.
+
+---
+
+### 9.5 Mandat Dokumentasi Desain Arsitektur Per Halaman / Sub-Halaman (`docs/architecture/screens/`)
+
+Untuk menjamin kejelasan teknis, transparansi penuh, dan kemudahan audit proyek:
+
+1. **Kewajiban Dokumentasi Modular Per-Halaman**:
+   - Setiap halaman utama, sub-halaman (Tuning Subscreens), Bottom Sheet kompleks, dan Floating Overlay Service pada `LynxCompanion` **WAJIB** memiliki dokumen spesifikasi arsitektur terpisah di `docs/architecture/screens/`.
+   - **Dilarang Menyatukan Dokumentasi Menjadi Satu File Monolitik**: Struktur dokumen wajib modular per-domain halaman guna menjaga kerapian dan transparansi.
+2. **Standar Struktur Wajib Setiap Dokumen Halaman**:
+   Setiap berkas di `docs/architecture/screens/` wajib memuat 5 pilar informasi:
+   - **Pilar 1: Identitas & Struktur UI Compose**: File path Kotlin, komponen layout kartu Bento/Material 3, dialog, dan sheet yang digunakan.
+   - **Pilar 2: State ViewModel & Aliran Reaktif**: StateFlow yang diamati, interval polling telemetri, dan method mutasi state.
+   - **Pilar 3: Parameter & Konfigurasi Detail**: Seluruh slider, toggle, chip, dan menu dropdown yang diekspos ke pengguna, lengkap dengan nilai default, batas min/max, dan step increment.
+   - **Pilar 4: Pemetaan Node Kernel & Sysfs Fisik (Ground Truth Mapping)**: Jalur sysfs/procfs nyata yang dimanipulasi di kernel, dengan percabangan arsitektur tegas (Qualcomm Adreno vs MediaTek GED/PPM vs Generic Linux fallback).
+   - **Pilar 5: Protokol Keamanan & Error Boundary**: Validasi slider, verifikasi transaksi pasca-tulis (`VERIFIED_WORKING` vs `READ_ONLY_LOCKED`), perlindungan thermal clamp, dan mitigasi soft-reboot.
+3. **Kewajiban Sinkronisasi Saat Menambah Fitur Baru**:
+   - Jika agen menambahkan layar baru, sub-halaman baru, atau toggle konfigurasi baru pada `LynxCompanion`, agen **WAJIB** memperbarui atau membuat berkas dokumen terkait di `docs/architecture/screens/` sebelum menyelesaikan task.
+
+---
+
+### 9.6 Kepatuhan Mutlak & Disiplin Eksekusi pada Setiap Chat & Perintah (Strict Compliance Mandate)
+
+1. Seluruh pedoman di dalam `AGENTS.md` ini berstatus **HUKUM TERTINGGI PROYEK (NON-NEGOTIABLE)**.
+2. Agen AI **WAJIB** membaca dan mematuhi aturan ini secara konsisten pada setiap chat, perintah, dan interaksi tanpa mengabaikan prinsip Native-First, proteksi Redmi Note 7 (Zero-Touch), Zero-Trace debugging di Infinix X698, serta kebersihan repositori Git.
+3. Kepatuhan terhadap aturan ini dievaluasi secara otomatis pada setiap iterasi pengembangan.
+
 ---
 
 ## 🧠 10. "Kecerdasan Tingkat Tinggi" — Protokol Penemuan Kapabilitas Dinamis
