@@ -4,14 +4,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
 import android.util.Log
-import android.widget.Toast
-import com.noir.lynx.R
-import com.noir.lynx.core.locale.AppLocale
 import com.noir.lynx.service.LynxToastOverlayService
+import com.noir.lynx.service.showReliableSystemToast
 import java.io.File
 
 /**
@@ -39,72 +35,77 @@ class LynxProfileReceiver : BroadcastReceiver() {
 
         if (action != ACTION_PROFILE_CHANGED && action != ACTION_SHOW_TOAST) return
 
-        val profile = intent.getStringExtra("profile")
-            ?: intent.getStringExtra("extra_profile")
-            ?: "balance"
-        val reason = intent.getStringExtra("reason")
-            ?: intent.getStringExtra("extra_reason")
-            ?: ""
+        val pendingResult = goAsync()
+        try {
+            val profile = intent.getStringExtra("profile")
+                ?: intent.getStringExtra("extra_profile")
+                ?: "balance"
+            val reason = intent.getStringExtra("reason")
+                ?: intent.getStringExtra("extra_reason")
+                ?: ""
 
-        // Resolve feedback style (Intent > SharedPreferences > /data/adb/lynx/feedback_style > Default)
-        val style = intent.getStringExtra("style")
-            ?: resolveFeedbackStyle(context)
+            // Resolve feedback style (Intent > SharedPreferences > /data/adb/lynx/feedback_style > Default)
+            val style = intent.getStringExtra("style")
+                ?: resolveFeedbackStyle(context)
 
-        Log.i(TAG, "Profile broadcast received: profile=$profile, style=$style, reason=$reason")
+            Log.i(TAG, "Profile broadcast received: profile=$profile, style=$style, reason=$reason")
 
-        when (style) {
-            "jewel_top", "jewel_bottom" -> {
-                if (Settings.canDrawOverlays(context)) {
-                    val serviceIntent = Intent(context, LynxToastOverlayService::class.java).apply {
-                        this.setAction(LynxToastOverlayService.ACTION_SHOW)
-                        putExtra(LynxToastOverlayService.EXTRA_PROFILE, profile)
-                        putExtra(LynxToastOverlayService.EXTRA_REASON, reason)
-                        putExtra(LynxToastOverlayService.EXTRA_STYLE, style)
-                    }
-                    try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            context.startForegroundService(serviceIntent)
-                        } else {
-                            context.startService(serviceIntent)
+            when (style) {
+                "jewel_top", "jewel_bottom" -> {
+                    if (Settings.canDrawOverlays(context)) {
+                        val serviceIntent = Intent(context, LynxToastOverlayService::class.java).apply {
+                            this.setAction(LynxToastOverlayService.ACTION_SHOW)
+                            putExtra(LynxToastOverlayService.EXTRA_PROFILE, profile)
+                            putExtra(LynxToastOverlayService.EXTRA_REASON, reason)
+                            putExtra(LynxToastOverlayService.EXTRA_STYLE, style)
                         }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to start overlay service, falling back to system toast: ${e.message}")
-                        showSystemToast(context, profile)
+                        try {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(serviceIntent)
+                            } else {
+                                context.startService(serviceIntent)
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to start overlay service from background: ${e.message}, falling back to system toast")
+                            showReliableSystemToast(context, profile)
+                        }
+                    } else {
+                        // Fallback to system toast if overlay permission is not granted
+                        showReliableSystemToast(context, profile)
                     }
-                } else {
-                    // Fallback to system toast if overlay permission is not granted
-                    showSystemToast(context, profile)
+                }
+                "system_toast" -> {
+                    showReliableSystemToast(context, profile)
+                }
+                "status_bar", "header_morph", "disabled" -> {
+                    // No on-screen visual overlay/toast
+                    Log.d(TAG, "Feedback style '$style' produces no on-screen popup")
+                }
+                else -> {
+                    // Default fallback
+                    if (Settings.canDrawOverlays(context)) {
+                        val serviceIntent = Intent(context, LynxToastOverlayService::class.java).apply {
+                            this.setAction(LynxToastOverlayService.ACTION_SHOW)
+                            putExtra(LynxToastOverlayService.EXTRA_PROFILE, profile)
+                            putExtra(LynxToastOverlayService.EXTRA_REASON, reason)
+                            putExtra(LynxToastOverlayService.EXTRA_STYLE, "jewel_top")
+                        }
+                        try {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(serviceIntent)
+                            } else {
+                                context.startService(serviceIntent)
+                            }
+                        } catch (_: Exception) {
+                            showReliableSystemToast(context, profile)
+                        }
+                    } else {
+                        showReliableSystemToast(context, profile)
+                    }
                 }
             }
-            "system_toast" -> {
-                showSystemToast(context, profile)
-            }
-            "status_bar", "header_morph", "disabled" -> {
-                // No on-screen visual overlay/toast
-                Log.d(TAG, "Feedback style '$style' produces no on-screen popup")
-            }
-            else -> {
-                // Default fallback
-                if (Settings.canDrawOverlays(context)) {
-                    val serviceIntent = Intent(context, LynxToastOverlayService::class.java).apply {
-                        this.setAction(LynxToastOverlayService.ACTION_SHOW)
-                        putExtra(LynxToastOverlayService.EXTRA_PROFILE, profile)
-                        putExtra(LynxToastOverlayService.EXTRA_REASON, reason)
-                        putExtra(LynxToastOverlayService.EXTRA_STYLE, "jewel_top")
-                    }
-                    try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            context.startForegroundService(serviceIntent)
-                        } else {
-                            context.startService(serviceIntent)
-                        }
-                    } catch (_: Exception) {
-                        showSystemToast(context, profile)
-                    }
-                } else {
-                    showSystemToast(context, profile)
-                }
-            }
+        } finally {
+            pendingResult.finish()
         }
     }
 
@@ -124,23 +125,5 @@ class LynxProfileReceiver : BroadcastReceiver() {
         } catch (_: Exception) {}
 
         return "jewel_top"
-    }
-
-    private fun showSystemToast(context: Context, profile: String) {
-        val (emoji, rawName) = when (profile.lowercase()) {
-            "extreme" -> "🔥" to AppLocale.getString(context, R.string.profile_extreme)
-            "performance" -> "⚡" to AppLocale.getString(context, R.string.profile_performance)
-            "powersave" -> "🍃" to AppLocale.getString(context, R.string.profile_powersave)
-            else -> "⚖️" to AppLocale.getString(context, R.string.profile_balance)
-        }
-        val cleanName = rawName.replace(Regex("\\s*\\([^)]*\\)"), "").trim()
-        val text = "$emoji Mode $cleanName Aktif"
-        Handler(Looper.getMainLooper()).post {
-            try {
-                Toast.makeText(context.applicationContext, text, Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to display system toast: ${e.message}")
-            }
-        }
     }
 }

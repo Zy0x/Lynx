@@ -82,14 +82,32 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
         try {
-            startForeground(NOTIF_ID, buildSilentNotification())
-        } catch (_: Exception) {}
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIF_ID,
+                    buildSilentNotification(),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIF_ID, buildSilentNotification(), 0)
+            } else {
+                startForeground(NOTIF_ID, buildSilentNotification())
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("LynxToastOverlayService", "startForeground failed: ${e.message}")
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val profile = intent?.getStringExtra(EXTRA_PROFILE) ?: "balance"
         val style = intent?.getStringExtra(EXTRA_STYLE) ?: "jewel_top"
         currentStyle = style
+
+        if (style == "system_toast") {
+            showReliableSystemToast(this, profile)
+            cleanUpAndStop()
+            return START_NOT_STICKY
+        }
 
         val (profileName, accentHex) = when (profile.lowercase()) {
             "extreme" -> AppLocale.getString(this, R.string.profile_extreme) to 0xFFFF3366L
@@ -209,7 +227,12 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
         floatView = composeView
         try {
             windowManager.addView(composeView, layoutParams)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            android.util.Log.e("LynxToastOverlayService", "Failed to add floating view: ${e.message}")
+            val profile = toastDataFlow.value?.modeId ?: "balance"
+            showReliableSystemToast(this, profile)
+            cleanUpAndStop()
+        }
     }
 
     private fun cleanUpAndStop() {
@@ -267,5 +290,39 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
             .setSmallIcon(android.R.drawable.ic_notification_overlay)
             .setPriority(Notification.PRIORITY_MIN)
             .build()
+    }
+}
+
+/**
+ * Universal, reliable Android OS system toast dispatcher.
+ * Safely dispatches synchronously on main looper or via handler if on worker thread.
+ */
+fun showReliableSystemToast(context: Context, profile: String) {
+    val (emoji, rawName) = when (profile.lowercase()) {
+        "extreme" -> "🔥" to AppLocale.getString(context, R.string.profile_extreme)
+        "performance" -> "⚡" to AppLocale.getString(context, R.string.profile_performance)
+        "powersave" -> "🍃" to AppLocale.getString(context, R.string.profile_powersave)
+        else -> "⚖️" to AppLocale.getString(context, R.string.profile_balance)
+    }
+    var cleanName = rawName.replace(Regex("\\s*\\([^)]*\\)"), "").trim()
+    if (cleanName.startsWith("Mode ", ignoreCase = true)) {
+        cleanName = cleanName.substring(5).trim()
+    }
+    val text = "$emoji Mode $cleanName Aktif"
+
+    try {
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            android.widget.Toast.makeText(context.applicationContext, text, android.widget.Toast.LENGTH_SHORT).show()
+        } else {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                try {
+                    android.widget.Toast.makeText(context.applicationContext, text, android.widget.Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    android.util.Log.e("LynxToast", "Handler system toast failed: ${e.message}")
+                }
+            }
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("LynxToast", "Direct system toast failed: ${e.message}")
     }
 }

@@ -1,3 +1,34 @@
+# Lynx Universal [Reliable Toast Architecture, Adaptive Bento Island & Background Feedback Engine] 7.0.0-RC123
+Released on: 2026-10-20
+> **Lynx Universal v7.0.0-RC123** (Lynx Kernel Manager v3.1.69): **Arsitektur Umpan Balik Visual & Toast Andal (Tetap Aktif Saat Aplikasi Ditutup / Berjalan di Latar Belakang): Transmisi Aman `goAsync()` pada `LynxProfileReceiver` yang Mencegah OS Membekukan Thread IPC Sebelum Toast Muncul; Sinkronisasi Langsung Toast Sistem Tanpa Tertahan Looper Handler; Penanganan Khusus Android 14 FGS `specialUse` pada `LynxToastOverlayService`; Eliminasi Duplikasi Kata "Mode" pada Notifikasi Sistem (`⚖️ Mode Seimbang Aktif`); Serta Redesain Adaptive Bento Dynamic Island (Ambang Batas Cerdas 18 Karakter, Bobot Lebar Bebas Pemotongan Canggung, & Pelabelan Tag Semantik Berdasarkan Tipe Pesan)**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC123)
+
+### 1. 🛡️ Garansi Toast Tetap Aktif Saat Aplikasi Tertutup (`goAsync` & Bulletproof Fallback)
+- **Akar Masalah**:
+  - Pada Android 12, 13, dan 14, sistem membatasi pemanggilan `startForegroundService` dari latar belakang. Ketika aplikasi Lynx Companion ditutup atau disapu dari daftar Recent Apps, proses penerima siaran (*BroadcastReceiver*) langsung dibekukan (*freezer*) oleh OS, menyebabkan pesan Toast sistem yang dikirim melalui `Handler.post` tertahan atau tidak pernah tampil.
+  - Selain itu, kegagalan `windowManager.addView` sebelumnya ditelan tanpa fallback visual.
+- **Solusi**:
+  - Mengintegrasikan mekanisme `val pendingResult = goAsync()` pada `LynxProfileReceiver`, menjaga siklus hidup proses tetap aktif di prioritas tinggi hingga pengiriman Toast atau Service tuntas.
+  - Mengubah pemanggilan `Toast.makeText().show()` menjadi sinkron seketika (*direct main thread execution*) tanpa penundaan antrean looper.
+  - Menyediakan fallback instan ke Toast Sistem jika `startForegroundService` atau `windowManager.addView` terhalang oleh pembatasan keamanan Android.
+  - Menyelaraskan registrasi FGS Android 14 `ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE` pada `LynxToastOverlayService`.
+
+### 2. 🏝️ Adaptive Bento Dynamic Island & Threshold 18 Karakter
+- **Akar Masalah**:
+  - Ambang batas pesan panjang sebelumnya diatur pada 28 karakter. Akibatnya, kalimat menengah (20–27 karakter) dipaksakan masuk ke dalam kapsul mini 1-baris, menyebabkan teks bertabrakan dengan ikon, terpotong canggung (*ellipsize* di tengah kata), atau mendorong badge status keluar layar.
+- **Solusi**:
+  - Menurunkan ambang batas bento ke 18 karakter: pesan ringkas (< 18 karakter) menggunakan kapsul mini yang ramping dengan `Modifier.weight(1f, fill = false)` agar bebas terpotong; pesan menengah/panjang (> 18 karakter atau baris baru) otomatis bermetamorfosis menjadi kartu *Adaptive Bento Dynamic Island* 2-baris yang lapang dan elegan.
+  - Menyematkan tombol tutup (*close affordance*) yang interaktif dan pelabelan tag dinamis semantik (`GAGAL`, `PERINGATAN`, `SUKSES`, `AKSI`, `AKTIF`) sesuai jenis notifikasi.
+
+### 3. ✨ Eliminasi Duplikasi Kata pada Toast Sistem
+- **Akar Masalah**:
+  - Teks toast sistem sering menampilkan pengulangan kata canggung (contoh: `⚖️ Mode Mode Seimbang Aktif`).
+- **Solusi**:
+  - Menyematkan pembersih string `cleanLabel` yang secara cerdas mendeteksi dan menghapus prefiks kata *"Mode "* ganda sebelum diformat, menghasilkan kalimat notifikasi yang ringkas, bersih, dan natural.
+
+---
+
 # Lynx Universal [Zen-Tech Calm Profile & Harmonized Segmented Tab Studio] 7.0.0-RC122
 Released on: 2026-10-20
 > **Lynx Universal v7.0.0-RC122** (Lynx Kernel Manager v3.1.68): **Redesain Menyeluruh Halaman Profil & Tab Otomasi Berbasis Prinsip *Zen-Tech & Calm Technology* (Menghilangkan "AI Slop", Batas Neon Berlebih, & Tipografi Berteriak): Kapsul Segmented Tab Melayang 46dp dengan Animasi Transisi Halus & Umpan Balik Taktil Haptik (`TextHandleMove`); Kartu Hero Status Aktif yang Tenang dengan Indikator Reassurance Pulse & Pita Spesifikasi Subsistem 1-Baris; Kartu Katalog Profil Berlatar Obsidian Gelap Redup (`0xFF121622`) dengan Batas Alpha Halus (35%) Menggantikan Cahaya Neon Berlebihan (70%); Lencana Status Minimalis (*Aktif* dengan Glowing Dot Reassurance); Serta Tombol Simpan Profil Kustom Bergaya Machined Calm Dark**.

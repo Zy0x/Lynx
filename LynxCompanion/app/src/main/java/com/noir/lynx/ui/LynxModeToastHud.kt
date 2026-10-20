@@ -131,18 +131,18 @@ internal fun JewelToastPill(
     )
 
     // Determine if toast is a concise label or a detailed/long message
-    val isLongMessage = toastData.modeLabel.length > 28 || toastData.modeLabel.contains("\n")
+    val isLongMessage = toastData.modeLabel.length > 18 || toastData.modeLabel.contains("\n")
     val pillShape = if (isLongMessage) RoundedCornerShape(16.dp) else CircleShape
 
     Surface(
         shape = pillShape,
         color = ToastBgObsidian,
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.55f)),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.45f)),
         shadowElevation = 10.dp,
         modifier = Modifier
             .animateContentSize(animationSpec = spring(dampingRatio = 0.8f, stiffness = 420f))
-            .defaultMinSize(minHeight = if (isCompactMini) 30.dp else 34.dp)
-            .widthIn(min = if (isLongMessage) 240.dp else 140.dp, max = 340.dp)
+            .defaultMinSize(minHeight = if (isCompactMini) 32.dp else 36.dp)
+            .widthIn(min = if (isLongMessage) 240.dp else 130.dp, max = 350.dp)
             .clip(pillShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -160,8 +160,15 @@ internal fun JewelToastPill(
         ) { currentToast ->
             val currentAccent = Color(currentToast.accentColorHex)
             val currentIcon = resolveToastIcon(currentToast)
-            val currentTag = currentToast.statusTag.ifBlank { "AKTIF" }
-            val itemIsLong = currentToast.modeLabel.length > 28 || currentToast.modeLabel.contains("\n")
+            val currentTag = when {
+                currentToast.statusTag.isNotBlank() -> currentToast.statusTag
+                currentToast.type == ToastType.ERROR -> "GAGAL"
+                currentToast.type == ToastType.WARNING -> "PERINGATAN"
+                currentToast.type == ToastType.SUCCESS -> "SUKSES"
+                currentToast.type == ToastType.PRESET -> "PRESET"
+                else -> "AKTIF"
+            }
+            val itemIsLong = currentToast.modeLabel.length > 18 || currentToast.modeLabel.contains("\n")
 
             if (itemIsLong) {
                 // === EXPANDED DYNAMIC ISLAND BENTO (For detailed notifications / errors / long text) ===
@@ -215,7 +222,9 @@ internal fun JewelToastPill(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Tutup",
                             tint = TextSecondary.copy(alpha = 0.6f),
-                            modifier = Modifier.size(13.dp)
+                            modifier = Modifier
+                                .size(13.dp)
+                                .clickable(onClick = onDismiss)
                         )
                     }
 
@@ -235,14 +244,14 @@ internal fun JewelToastPill(
             } else {
                 // === COMPACT SLEEK JEWEL CAPSULE (For quick mode transitions & short statuses) ===
                 Row(
-                    modifier = Modifier.padding(horizontal = 13.dp, vertical = if (isCompactMini) 4.dp else 5.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = if (isCompactMini) 4.5.dp else 5.5.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.5.dp)
                 ) {
                     // Glowing Jewel Dot
                     Box(
                         modifier = Modifier
-                            .size(5.5.dp)
+                            .size(5.dp)
                             .background(currentAccent, CircleShape)
                             .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = currentAccent, spotColor = currentAccent)
                     )
@@ -252,32 +261,33 @@ internal fun JewelToastPill(
                         imageVector = currentIcon,
                         contentDescription = null,
                         tint = currentAccent,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(13.5.dp)
                     )
 
-                    // Toast Message / Label
+                    // Toast Message / Label (weight prevents layout truncation / clipping)
                     Text(
                         text = currentToast.modeLabel,
                         color = TextPrimary,
                         fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
 
                     // Status Tag Chip
                     Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = currentAccent.copy(alpha = 0.16f),
-                        border = BorderStroke(0.5.dp, currentAccent.copy(alpha = 0.4f))
+                        color = currentAccent.copy(alpha = 0.14f),
+                        border = BorderStroke(0.5.dp, currentAccent.copy(alpha = 0.35f))
                     ) {
                         Text(
                             text = currentTag,
                             color = currentAccent,
                             fontSize = 8.5.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Bold,
                             letterSpacing = 0.3.sp,
-                            modifier = Modifier.padding(horizontal = 4.5.dp, vertical = 1.dp)
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                         )
                     }
                 }
@@ -290,9 +300,12 @@ internal fun JewelToastPill(
  * Formats toast content into a clean, modern, non-repetitive Android OS Toast string.
  */
 internal fun formatCleanSystemToast(toast: ModeToastData): String {
-    val cleanLabel = toast.modeLabel
+    var cleanLabel = toast.modeLabel
         .replace(Regex("\\s*\\([^)]*\\)"), "") // remove redundant "(Powersave)", "(Extreme)", etc.
         .trim()
+    if (cleanLabel.startsWith("Mode ", ignoreCase = true)) {
+        cleanLabel = cleanLabel.substring(5).trim()
+    }
 
     return when (toast.type) {
         ToastType.MODE -> {
@@ -307,6 +320,7 @@ internal fun formatCleanSystemToast(toast: ModeToastData): String {
         }
         ToastType.SUCCESS -> "✓ $cleanLabel"
         ToastType.ERROR -> "⚠ $cleanLabel"
+        ToastType.WARNING -> "⚠ $cleanLabel"
         else -> cleanLabel
     }
 }
