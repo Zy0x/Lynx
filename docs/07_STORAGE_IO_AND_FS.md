@@ -1,6 +1,7 @@
 # 💾 Module 07: Storage, I/O Scheduler & File System Engine
 > **Subsystem**: Storage & Virtual Memory Compactor (`core/CCleaner.sh`, `core/lib/io.sh`, `core/lib/sqlite.sh`)  
 > **Target Filesystems**: Ext4, F2FS, EROFS, UFS 2.1 – 4.0, eMMC 5.1  
+> **Master Blueprint**: Untuk cetak biru arsitektur lengkap dan spesifikasi teknis mendalam mengenai matriks Tri-Tier (UFS vs eMMC 5.1 vs MicroSD), Device-Mapper tunneling, dan F2FS dynamic IPU, lihat [`15_UNIVERSAL_STORAGE_AND_IO_ARCHITECTURE.md`](./15_UNIVERSAL_STORAGE_AND_IO_ARCHITECTURE.md).
 
 ---
 

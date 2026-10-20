@@ -71,6 +71,7 @@ This documentation suite provides deep engineering specifications, kernel sysfs/
 | **12** | [`12_DYNAMIC_CAPABILITY_DISCOVERY.md`](./12_DYNAMIC_CAPABILITY_DISCOVERY.md) | Zero-hardcode protocol for ZRAM, I/O schedulers, TCP congestion, governors, and dynamic RAM sizing. |
 | **13** | [`13_NATIVE_COMPANION_APP_AND_STATE_SYNC.md`](./13_NATIVE_COMPANION_APP_AND_STATE_SYNC.md) | Kotlin/Compose Native APK companion, libsu universal root, and 2-way atomic JSON state synchronization. |
 | **14** | [`14_CUSTOM_KERNEL_DRIVER_DEVELOPMENT_GUIDE.md`](./14_CUSTOM_KERNEL_DRIVER_DEVELOPMENT_GUIDE.md) | Panduan komprehensif penyediaan driver Sound Control (ALSA codec), Undervolt/Overvolt (VDD table), Overclock (DTS OPP), dan pengemasan AnyKernel3. |
+| **15** | [`15_UNIVERSAL_STORAGE_AND_IO_ARCHITECTURE.md`](./15_UNIVERSAL_STORAGE_AND_IO_ARCHITECTURE.md) | Universal Tri-Tier Storage Matrix (UFS vs eMMC 5.1 vs MicroSD), Device-Mapper encryption tunneling, F2FS dynamic IPU, and multi-vendor host controller tuning. |
 
 ---
 
