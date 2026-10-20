@@ -48,3 +48,23 @@ The first shared-tree build encountered unrelated in-progress CPU compilation er
 - No activity was launched; `pidof com.noir.lynx` returned no process after installation. No UI automation, device test artifacts, module installation, module-directory writes, or live tuning commands were performed.
 
 The installation-only authorization does not change the daily-driver read-only policy for future tests. Actual HUD rendering, telemetry, controls, and overhead remain untested on a physical device. The earlier deferred-test section describes the original HUD validation stage, before this subsequent explicit installation request.
+
+## HUD settings navigation crash repair
+
+The user subsequently reported an immediate crash when opening HUD settings. Read-only crash-buffer inspection and `dumpsys activity exit-info com.noir.lynx` confirmed a foreground Java crash at 05:13:42 on 2026-10-21, PID 13594. The exception was `java.util.UnknownFormatConversionException: Conversion = 'l'`, through `Resources.getString`, `AppLocale.getString`, `hudString`, and `HudMetricSelection`. The `hud_metric_low` label is the literal `1% low` in all three resource catalogs.
+
+`AppLocale` previously always selected the resource formatting overload, even with an empty argument array. The XML `formatted=false` flag does not prevent that runtime formatter call. The shared localization path now reads the raw resource and uses the pure `formatLocalizedString` helper: without arguments it preserves the literal text; with arguments it uses the resource configuration locale and the standard Java formatter. No catalog text, metric selection, profile, or hardware setting was changed by this repair.
+
+Regression coverage exercises all HUD strings without arguments in the default, Indonesian, and English catalogs, explicitly including `1% low`; indexed parameters, escaped percent output, locale-specific decimals, and the existing parameterized catalog checks exercise the same runtime helper. The global locale validator still reports pre-existing repository findings, with no finding in the changed localization files or HUD domain. Thirteen pre-existing Kotlin files remain over the source-size budget; the changed source files remain below 400 lines.
+
+No activity launch or UI automation is authorized for Redmi by this repair session; device diagnostics are read-only. A successful local regression test or APK installation does not establish physical HUD navigation or telemetry accuracy.
+
+Repair validation and installation results:
+
+- `:app:testReleaseUnitTest --tests com.noir.lynx.core.locale.LocaleFormatCatalogTest --tests com.noir.lynx.feature.hud.*`: 9 tests passed (3 locale, 4 snapshot/layout, 2 display session).
+- `:app:assembleRelease`: passed, including Release lint, R8, resource shrinking, signing, and packaging. The existing metadata remains `3.1.85` / `20261229`; this fix makes no version change.
+- Updated the same identity-verified Redmi (`lavender` / `sdm660`) using streamed `adb install -r` under the user's installation/repair request, retaining the no-launch boundary. Installation returned `Success` and installed metadata readback matched.
+- APK size: 5,531,407 bytes. APK SHA-256: `ba56781947b5f9799ca29fa03df3a196b8e15768c95dae6b1cc71e4d33543964`; the installed base.apk hash matched exactly.
+- Matching Release mapping SHA-256: `9ada75f93ba41003f1665c86f59f8e0b2bd26f36cc88f4e08aa5fb239ef486cd`. Matching APK, mapping, and test XML are retained locally outside Git.
+- The packaged manifest retains the no-MY_PACKAGE_REPLACED guard and has no debuggable flag. No activity-launch command was issued; `pidof com.noir.lynx` returned no process after the update.
+- `git diff --check`: passed. No device test files, root commands, module updates, or hardware writes were performed.

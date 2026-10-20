@@ -27,8 +27,14 @@ object AppLocale {
             .apply()
     }
 
-    fun getString(context: Context, @StringRes resourceId: Int, vararg formatArgs: Any): String =
-        wrap(context).getString(resourceId, *formatArgs)
+    fun getString(context: Context, @StringRes resourceId: Int, vararg formatArgs: Any): String {
+        val resources = wrap(context).resources
+        return formatLocalizedString(
+            resources.getString(resourceId),
+            resources.configuration.locales[0] ?: Locale.getDefault(),
+            *formatArgs
+        )
+    }
 
     fun wrap(context: Context): Context {
         val languageTag = selected(context)
