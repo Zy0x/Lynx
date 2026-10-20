@@ -3,6 +3,7 @@ package com.noir.lynx.data
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Looper
 import android.util.Log
 import com.noir.lynx.LynxApp
 import com.noir.lynx.hardware.NodeWriter
@@ -196,6 +197,9 @@ object LynxRepository {
                             *isolate*|*thermal-cpufreq*|battery|*batt*) echo 0 > "${'$'}cd/cur_state" 2>/dev/null ;;
                         esac
                     fi
+                done
+                for orphan_pid in ${'$'}(pgrep -P 1 -x sh 2>/dev/null); do
+                    kill -9 ${'$'}orphan_pid 2>/dev/null
                 done
                 pkill -9 -f "/data/adb/modules/Lynx" 2>/dev/null
             """.trimIndent()).submit()
@@ -842,13 +846,22 @@ object LynxRepository {
         onProgress: (remainingSeconds: Int) -> Unit = {}
     ): LynxBenchmarkResult = LynxBenchmarkRepository.runHardwareBenchmark(durationSeconds, targetPackage, onProgress)
 
+    @Volatile
+    var cachedBaselineProfile: String? = null
+
     fun readCurrentProfile(): String = readCurrentProfileFast()
 
     fun readBaselineProfile(): String {
+        cachedBaselineProfile?.let { return it }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return lastActiveProfile ?: "balance"
+        }
         return try {
             val direct = Shell.cmd("cat /data/adb/lynx/baseline_profile 2>/dev/null").exec()
             val directProf = direct.out.firstOrNull()?.trim()?.lowercase() ?: ""
             if (directProf.isNotBlank() && directProf != "auto" && directProf != "dormant") {
+                cachedBaselineProfile = directProf
+                LynxAppAutomationService.cachedBaseline = directProf
                 return directProf
             }
             val activePath = runCatching { getLocalConfigPath() }.getOrDefault(LOCAL_CONFIG_PATH_DEBUG)
@@ -857,7 +870,10 @@ object LynxRepository {
             if (text.contains("\"active_profile\"")) {
                 val match = Regex("\"active_profile\"\\s*:\\s*\"([^\"]+)\"").find(text)
                 val p = match?.groupValues?.get(1)?.lowercase() ?: "balance"
-                if (p.isNotBlank() && p != "auto" && p != "dormant") p else "balance"
+                val res = if (p.isNotBlank() && p != "auto" && p != "dormant") p else "balance"
+                cachedBaselineProfile = res
+                LynxAppAutomationService.cachedBaseline = res
+                res
             } else "balance"
         } catch (e: Exception) { "balance" }
     }
@@ -882,6 +898,9 @@ object LynxRepository {
 
     fun readCurrentProfileFast(): String {
         lastActiveProfile?.let { return it }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return "balance"
+        }
         return try {
             val direct = Shell.cmd("m=\$(getprop lynx.mode 2>/dev/null); [ -n \"\$m\" ] && echo \"\$m\" || cat /data/adb/lynx/active_profile 2>/dev/null").exec()
             val directProf = direct.out.firstOrNull()?.trim()?.lowercase() ?: ""

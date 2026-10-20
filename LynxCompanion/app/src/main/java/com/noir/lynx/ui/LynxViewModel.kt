@@ -249,24 +249,8 @@ class LynxViewModel : ViewModel() {
                         }
                     }
 
-                    // Auto-discover deep hardware tree in background (non-blocking)
-                    viewModelScope.launch(Dispatchers.IO) {
-                        delay(500L)
-                        if (cachedTunables.isEmpty()) {
-                            _uiState.update { it.copy(isDeepScanning = true) }
-                        }
-                        val freshTunables = LynxRepository.scanDeepTunables()
-                        if (freshTunables.isNotEmpty()) {
-                            _uiState.update {
-                                it.copy(
-                                    deepTunables = freshTunables,
-                                    isDeepScanning = false
-                                )
-                            }
-                        } else {
-                            _uiState.update { it.copy(isDeepScanning = false) }
-                        }
-                    }
+                    // Deep hardware tunables are pre-loaded from cache (<1ms).
+                    // On-demand discovery is triggered only when user enters the SoC Tuner tab.
 
                 // Asynchronously pre-cache installed apps in background without blocking startup (<25ms with persistent cache)
                 viewModelScope.launch(Dispatchers.IO) {

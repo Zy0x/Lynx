@@ -160,7 +160,12 @@ class LynxAppAutomationService : Service() {
         private const val NOTIF_ID = 8802
         private const val TAG = "LynxAppAutomation"
 
+        @Volatile
+        var cachedBaseline: String = "balance"
+
         fun updateBaselineProfile(context: Context, profile: String) {
+            cachedBaseline = profile
+            com.noir.lynx.data.LynxRepository.cachedBaselineProfile = profile
             val inst = currentInstance
             if (inst != null) {
                 inst.onManualProfileChanged(profile)
@@ -178,6 +183,8 @@ class LynxAppAutomationService : Service() {
         }
 
         fun notifyProfileChanged(profile: String, isManual: Boolean = true) {
+            cachedBaseline = profile
+            com.noir.lynx.data.LynxRepository.cachedBaselineProfile = profile
             currentInstance?.onProfileChangedLive(profile, isManual)
         }
 
@@ -198,9 +205,7 @@ class LynxAppAutomationService : Service() {
             get() {
                 val inst = currentInstance?.baselineProfile
                 if (!inst.isNullOrBlank() && inst != "dormant" && inst != "auto") return inst
-                val file = com.noir.lynx.data.LynxRepository.readBaselineProfile()
-                if (file.isNotBlank() && file != "dormant" && file != "auto") return file
-                return "balance"
+                return cachedBaseline
             }
     }
 
@@ -229,6 +234,8 @@ class LynxAppAutomationService : Service() {
             }.ifBlank { "balance" }
             val safeProfile = if (initialProfile.isBlank() || initialProfile == "dormant" || initialProfile == "powersave") "balance" else initialProfile
             baselineProfile = safeProfile
+            cachedBaseline = safeProfile
+            LynxRepository.cachedBaselineProfile = safeProfile
             if (initialProfile == "powersave" || LynxRepository.lastActiveProfile == "powersave") {
                 LynxRepository.setProfile(safeProfile, caller = "watcher")
             }
