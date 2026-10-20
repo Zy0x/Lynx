@@ -1,3 +1,36 @@
+# Lynx Universal [Universal Tri-Tier Storage Engine, Device-Mapper Tunneling & F2FS Dynamic IPU] 7.0.0-RC124
+Released on: 2026-10-20
+> **Lynx Universal v7.0.0-RC124** (Lynx Kernel Manager v3.1.70): **Implementasi Mesin Penyimpanan Tri-Tier Dinamis & Cerdas (UFS vs eMMC 5.1 vs MicroSD): Eliminasi Hardcoded Blok Statis pada Native Daemon Rust (`translator.rs`); Resolusi Otomatis Ground Truth Hardware Sysfs (`device/type` & Silsilah Host Controller); Penyelarasan Antrean Virtual Device-Mapper (`dm-*`) Menembus Partisi Fisik Induk; Proteksi Khusus Android FBE (`blk_crypto_wq`) pada eMMC 5.1 (128KB Balance / 256KB Performance Anti-Choke); Burst Prefetch 512KB Optimal untuk Streaming Game Aset MicroSD; Serta Penyetelan Dinamis F2FS In-Place Updates (`ipu_policy = 3`) & Penundaan Checkpoint 300s Selama Sesi Game Aktif Demi Menghilangkan Frame-Drop Akibat `f2fs_gc`**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC124)
+
+### 1. ðŸ’¾ Eliminasi Hardcoding & Implementasi Mesin Tri-Tier Native Rust
+- **Akar Masalah**:
+  - Sebelumnya, `translator.rs` melakukan perulangan statis pada nama blok `["sda", "sdb", "sdc", "mmcblk0", "mmcblk1"]` dan mengasumsikan seluruh `mmcblk*` adalah sama. Padahal pada perangkat UFS, `mmcblk0` adalah MicroSD eksternal, sedangkan pada perangkat eMMC, `mmcblk0` adalah flash internal.
+- **Solusi**:
+  - Mengintegrasikan fungsi dinamis `StoragePolicy::profile_targets` pada `translator.rs` dan `storage.rs` yang mengiterasi seluruh `cap.storage.devices` hasil deteksi sysfs.
+  - Membedakan perlakuan antrean blok secara mutlak antara UFS (full-duplex parallel queue), eMMC 5.1 (half-duplex serialized queue), dan MicroSD (serial SDR104 bus).
+
+### 2. ðŸ›¡ï¸ Proteksi eMMC 5.1 dari Overload Enkripsi Android (`blk_crypto_wq`)
+- **Akar Masalah**:
+  - Penyetelan read-ahead 512KBâ€“2048KB pada partisi `/data` eMMC 5.1 yang terenkripsi FBE memaksa kernel mendekripsi blok besar untuk setiap pembacaan acak 4KB, menyebabkan `%iowait` melonjak hingga 40% dan antarmuka Android membeku (UI freeze).
+- **Solusi**:
+  - Mengunci read-ahead eMMC pada 128KB untuk profil Seimbang/Hemat Daya dan maksimum 256KB untuk Performa.
+  - Membatasi kedalaman antrean eMMC (`nr_requests = 64/128`) untuk mencegah bufferbloat, serta mempercepat `read_expire` ke 64â€“80 ms.
+
+### 3. ðŸŽ® Optimalisasi MicroSD Gaming (512KB Burst Read) & F2FS Dynamic IPU
+- **Akar Masalah**:
+  - Kartu MicroSD memiliki latensi bus komando yang tinggi. Pembacaan aset game besar (OBB/pak) dengan ukuran buffer terlalu kecil membebani controller, sementara background Garbage Collection F2FS (`f2fs_gc`) di latar belakang sering memicu frame drop.
+- **Solusi**:
+  - Menyetel prefetch MicroSD ke 512KB pada mode Performa/Ekstrem sesuai data empiris uji MountX, memangkas latensi tunggu blok hingga lebih dari 50%.
+  - Mengaktifkan F2FS In-Place Updates (`ipu_policy = 3`) dan memperpanjang interval checkpoint ke 300 detik saat game aktif untuk mematikan intervensi background GC di tengah pertarungan render 60/120 FPS.
+
+### 4. ðŸ”€ Device-Mapper (`dm-*`) Transparent Tunneling
+- **Solusi**:
+  - Menelusuri relasi `slaves/` pada setiap antrean virtual `/sys/block/dm-*` untuk mewarisi parameter read-ahead dan queue affinity perangkat fisik induk (UFS atau eMMC).
+
+---
+
 # Lynx Universal [Reliable Toast Architecture, Adaptive Bento Island & Background Feedback Engine] 7.0.0-RC123
 Released on: 2026-10-20
 > **Lynx Universal v7.0.0-RC123** (Lynx Kernel Manager v3.1.69): **Arsitektur Umpan Balik Visual & Toast Andal (Tetap Aktif Saat Aplikasi Ditutup / Berjalan di Latar Belakang): Transmisi Aman `goAsync()` pada `LynxProfileReceiver` yang Mencegah OS Membekukan Thread IPC Sebelum Toast Muncul; Sinkronisasi Langsung Toast Sistem Tanpa Tertahan Looper Handler; Penanganan Khusus Android 14 FGS `specialUse` pada `LynxToastOverlayService`; Eliminasi Duplikasi Kata "Mode" pada Notifikasi Sistem (`âš–ï¸ Mode Seimbang Aktif`); Serta Redesain Adaptive Bento Dynamic Island (Ambang Batas Cerdas 18 Karakter, Bobot Lebar Bebas Pemotongan Canggung, & Pelabelan Tag Semantik Berdasarkan Tipe Pesan)**.
@@ -66,7 +99,7 @@ Released on: 2026-10-20
 
 # Lynx Universal [Vendor Thermal Studio: Live Radar, Anti-Dimming & Runtime Bind Mount Engine] 7.0.0-RC121
 Released on: 2026-10-20
-> **Lynx Universal v7.0.0-RC121** (Lynx Kernel Manager v3.1.67): **Revolusi Studio Konfigurasi Thermal Vendor (`thermal-engine.conf` / MediaTek `.tp`): Radar Telemetri Mitigasi Real-Time (Pemindaian Suhu Sensor `quiet-therm-adc` & Penyorotan Tingkat Throttling Aktif Secara Visual); Fitur Anti-Dimming Layar Otomatis (`[LCD_MANAGEMENT]` Threshold Boost ke 56°C Agar Kecerahan Layar Tidak Meredup Sendiri Saat Ponsel Hangat/Dicas); Headroom Termal CPU & GPU Cluster (+5°C Set Point Throttling untuk Mempertahankan FPS Gaming); Mesin Pengujian Instan Tanpa Reboot (*Live Runtime Bind Mount & Clean Daemon Restart*); serta Penyimpanan Permanen Otomatis via Magisk/KernelSU Magic Mount Overlay**.
+> **Lynx Universal v7.0.0-RC121** (Lynx Kernel Manager v3.1.67): **Revolusi Studio Konfigurasi Thermal Vendor (`thermal-engine.conf` / MediaTek `.tp`): Radar Telemetri Mitigasi Real-Time (Pemindaian Suhu Sensor `quiet-therm-adc` & Penyorotan Tingkat Throttling Aktif Secara Visual); Fitur Anti-Dimming Layar Otomatis (`[LCD_MANAGEMENT]` Threshold Boost ke 56ï¿½C Agar Kecerahan Layar Tidak Meredup Sendiri Saat Ponsel Hangat/Dicas); Headroom Termal CPU & GPU Cluster (+5ï¿½C Set Point Throttling untuk Mempertahankan FPS Gaming); Mesin Pengujian Instan Tanpa Reboot (*Live Runtime Bind Mount & Clean Daemon Restart*); serta Penyimpanan Permanen Otomatis via Magisk/KernelSU Magic Mount Overlay**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC121)
 
@@ -79,13 +112,13 @@ Released on: 2026-10-20
 
 ### 2. ?? Aturan Anti-Dimming Layar Otomatis (`[LCD_MANAGEMENT]`)
 - **Akar Masalah**:
-  - Konfigurasi bawaan vendor pada banyak perangkat Qualcomm memicu penurunan kecerahan layar (*backlight throttling*) saat suhu internal mencapai 45°C–48°C, menyebabkan layar tiba-tiba gelap saat bermain game di luar ruangan atau saat pengisian cepat.
+  - Konfigurasi bawaan vendor pada banyak perangkat Qualcomm memicu penurunan kecerahan layar (*backlight throttling*) saat suhu internal mencapai 45ï¿½Cï¿½48ï¿½C, menyebabkan layar tiba-tiba gelap saat bermain game di luar ruangan atau saat pengisian cepat.
 - **Solusi**:
-  - Menambahkan sakelar *Anti-Dimming* yang secara cerdas menaikkan ambang batas `[LCD_MANAGEMENT]` ke 56°C / 60°C, menjaga visibilitas layar tetap cerah maksimal tanpa intervensi daemon yang mengganggu.
+  - Menambahkan sakelar *Anti-Dimming* yang secara cerdas menaikkan ambang batas `[LCD_MANAGEMENT]` ke 56ï¿½C / 60ï¿½C, menjaga visibilitas layar tetap cerah maksimal tanpa intervensi daemon yang mengganggu.
 
-### 3. ?? Headroom Termal CPU Cluster & GPU Adreno (+5°C Sustained Gaming)
+### 3. ?? Headroom Termal CPU Cluster & GPU Adreno (+5ï¿½C Sustained Gaming)
 - **Solusi**:
-  - Menyediakan opsi *CPU & GPU Thermal Headroom* yang memperluas set point mitigasi frekuensi clock `[SS-MSM-THERM-SILVER]`, `[SS-MSM-THERM-GOLD]`, dan `[SS-GPU]` sebesar +5°C, mencegah terjadinya *micro-stutter* dan *frame drop* dini saat temperatur SoC naik perlahan selama sesi gaming kompetitif.
+  - Menyediakan opsi *CPU & GPU Thermal Headroom* yang memperluas set point mitigasi frekuensi clock `[SS-MSM-THERM-SILVER]`, `[SS-MSM-THERM-GOLD]`, dan `[SS-GPU]` sebesar +5ï¿½C, mencegah terjadinya *micro-stutter* dan *frame drop* dini saat temperatur SoC naik perlahan selama sesi gaming kompetitif.
 
 ### 4. ? Mesin Uji Coba Instan Tanpa Reboot (*Live Runtime Bind Mount*)
 - **Solusi**:

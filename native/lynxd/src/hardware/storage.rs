@@ -5,6 +5,16 @@ use std::path::{Path, PathBuf};
 use super::capability::{BlockDeviceCapability, BlockDeviceType, StorageCapability};
 use crate::sysfs::SysfsReader;
 
+#[derive(Debug, Clone, Copy)]
+pub struct StorageTuneParams {
+    pub read_ahead_kb: u32,
+    pub scheduler: &'static str,
+    pub nr_requests: Option<u32>,
+    pub read_expire_ms: Option<u32>,
+    pub writes_starved: Option<u32>,
+    pub rq_affinity: u32,
+}
+
 /// A conservative policy, shared by every profile and the explicit I/O commands.
 pub struct StoragePolicy;
 
@@ -77,7 +87,94 @@ impl StoragePolicy {
             return None;
         }
         let _current = SysfsReader::read_int::<u32>(dev.queue_path.join("read_ahead_kb")).ok()?;
-        Some(1024)
+        Some(256)
+    }
+
+    /// Calculate profile-specific tuning parameters based on verified physical media type.
+    pub fn profile_targets(dev: &BlockDeviceCapability, profile_name: &str) -> Option<StorageTuneParams> {
+        let effective_type = if dev.device_type == BlockDeviceType::Virtual && dev.name.starts_with("dm-") {
+            Self::resolve_dm_slave_type(&dev.queue_path)
+        } else {
+            dev.device_type
+        };
+
+        match effective_type {
+            BlockDeviceType::Ufs => {
+                let (ra, nr) = match profile_name {
+                    "extreme" => (2048, 512),
+                    "performance" => (1024, 256),
+                    "powersave" => (256, 64),
+                    _ => (512, 128), // Balance
+                };
+                Some(StorageTuneParams {
+                    read_ahead_kb: ra,
+                    scheduler: "none",
+                    nr_requests: Some(nr),
+                    read_expire_ms: None,
+                    writes_starved: None,
+                    rq_affinity: 2,
+                })
+            }
+            BlockDeviceType::Emmc => {
+                // eMMC 5.1: Half-Duplex with Android File-Based Encryption (FBE).
+                // Bound read-ahead to 128KB (balance/powersave) and 256KB (performance)
+                // to eliminate blk_crypto_wq decrypt choke and UI freezes.
+                let (ra, nr, exp, starv) = match profile_name {
+                    "extreme" => (512, 128, 64, 8),
+                    "performance" => (256, 128, 80, 6),
+                    "powersave" => (128, 64, 350, 2),
+                    _ => (128, 64, 125, 4), // Balance
+                };
+                Some(StorageTuneParams {
+                    read_ahead_kb: ra,
+                    scheduler: "deadline",
+                    nr_requests: Some(nr),
+                    read_expire_ms: Some(exp),
+                    writes_starved: Some(starv),
+                    rq_affinity: 2,
+                })
+            }
+            BlockDeviceType::Sd => {
+                // External MicroSD: High serial command latency on SDR104 bus.
+                // 512KB burst read is optimal for continuous game asset/OBB streaming (Infinix X698 trial).
+                let (ra, nr, exp, starv) = match profile_name {
+                    "extreme" | "performance" => (512, 128, 80, 6),
+                    "powersave" => (128, 64, 350, 2),
+                    _ => (256, 128, 125, 4), // Balance: conservative 256KB
+                };
+                Some(StorageTuneParams {
+                    read_ahead_kb: ra,
+                    scheduler: "deadline",
+                    nr_requests: Some(nr),
+                    read_expire_ms: Some(exp),
+                    writes_starved: Some(starv),
+                    rq_affinity: 2,
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// Resolve underlying physical storage type of a device-mapper (/sys/block/dm-*) device.
+    pub fn resolve_dm_slave_type(dm_queue_path: &Path) -> BlockDeviceType {
+        let dm_block = match dm_queue_path.parent() {
+            Some(p) => p,
+            None => return BlockDeviceType::Virtual,
+        };
+        let slaves_dir = dm_block.join("slaves");
+        if let Ok(entries) = fs::read_dir(slaves_dir) {
+            for entry in entries.flatten() {
+                let slave_path = entry.path();
+                let slave_type = Self::classify(&slave_path);
+                if slave_type != BlockDeviceType::Virtual
+                    && slave_type != BlockDeviceType::Loop
+                    && slave_type != BlockDeviceType::Unknown
+                {
+                    return slave_type;
+                }
+            }
+        }
+        BlockDeviceType::Virtual
     }
 
     /// Resolve partitions and stacked mappings using sysfs relationships, not name slicing.

@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::hardware::capability::{GpuDriver, HardwareCapability};
@@ -828,45 +829,156 @@ impl HardwareTranslator {
             Self::push_op(&mut ops, "Scheduler", "CFS dex2oat cpu.shares clamp", cpuctl.join("dex2oat/cpu.shares"), "128", false);
         }
 
-        // C. Media-Aware Block Queue & Read-Ahead Tuning (UFS vs eMMC 5.1)
-        let (ufs_ra_kb, emmc_ra_kb, sched, read_exp, writes_starv, emmc_nr_req) = match profile.name {
-            "extreme" => ("2048", "512", "deadline", "64", "6", "128"),
-            "performance" => ("1024", "256", "deadline", "80", "6", "128"),
-            "powersave" => ("256", "128", "deadline", "350", "2", "64"),
-            _ => ("512", "128", "deadline", "125", "4", "64"), // Balance: 128KB on eMMC eliminates blk_crypto_wq & random I/O choke
-        };
+        // C. Universal Tri-Tier Block Queue & Storage Engine (Module 15 / AGENTS.md)
+        for dev in &cap.storage.devices {
+            if !dev.queue_path.is_dir() {
+                continue;
+            }
+            let block = match dev.queue_path.parent() {
+                Some(b) => b,
+                None => continue,
+            };
+            // Safety: Skip read-only block devices (e.g., EROFS system partition)
+            if SysfsReader::read_trimmed(block.join("ro")).ok().as_deref() == Some("1") {
+                continue;
+            }
 
-        for block_name in &["sda", "sdb", "sdc", "mmcblk0", "mmcblk1"] {
-            let dev_dir = format!("/sys/block/{}", block_name);
-            let q_dir = format!("{}/queue", dev_dir);
-            if Path::new(&q_dir).is_dir() {
-                let is_mmc = block_name.starts_with("mmcblk");
-                let target_ra = if is_mmc { emmc_ra_kb } else { ufs_ra_kb };
-                Self::push_op(&mut ops, "Storage", format!("Block {} {}KB read-ahead", block_name, target_ra), PathBuf::from(format!("{}/read_ahead_kb", q_dir)), target_ra, false);
-                Self::push_op(&mut ops, "Storage", format!("Block {} {} scheduler", block_name, sched), PathBuf::from(format!("{}/scheduler", q_dir)), sched, false);
-                Self::push_op(&mut ops, "Storage", format!("Block {} rq_affinity (CPU cache affinity)", block_name), PathBuf::from(format!("{}/rq_affinity", q_dir)), "2", false);
-                Self::push_op(&mut ops, "Storage", format!("Block {} disable random entropy overhead", block_name), PathBuf::from(format!("{}/add_random", q_dir)), "0", false);
-                if is_mmc {
-                    Self::push_op(&mut ops, "Storage", format!("Block {} eMMC anti-bufferbloat nr_requests", block_name), PathBuf::from(format!("{}/nr_requests", q_dir)), emmc_nr_req, false);
+            if let Some(params) = StoragePolicy::profile_targets(dev, profile.name) {
+                let q_dir = &dev.queue_path;
+                let target_ra = params.read_ahead_kb.to_string();
+                Self::push_op(
+                    &mut ops,
+                    "Storage",
+                    format!("Block {} ({}): {}KB read-ahead", dev.name, dev.device_type.as_str(), target_ra),
+                    q_dir.join("read_ahead_kb"),
+                    target_ra,
+                    false,
+                );
+
+                // Select preferred scheduler if available, or best fallback
+                let chosen_sched = if dev.available_schedulers.iter().any(|s| s == params.scheduler) {
+                    params.scheduler
+                } else if params.scheduler == "none" && dev.available_schedulers.iter().any(|s| s == "noop") {
+                    "noop"
+                } else if dev.available_schedulers.iter().any(|s| s == "mq-deadline") {
+                    "mq-deadline"
+                } else if dev.available_schedulers.iter().any(|s| s == "deadline") {
+                    "deadline"
+                } else {
+                    ""
+                };
+                if !chosen_sched.is_empty() {
+                    Self::push_op(
+                        &mut ops,
+                        "Storage",
+                        format!("Block {} ({}): {} scheduler", dev.name, dev.device_type.as_str(), chosen_sched),
+                        q_dir.join("scheduler"),
+                        chosen_sched,
+                        false,
+                    );
                 }
+
+                Self::push_op(
+                    &mut ops,
+                    "Storage",
+                    format!("Block {} ({}): rq_affinity", dev.name, dev.device_type.as_str()),
+                    q_dir.join("rq_affinity"),
+                    params.rq_affinity.to_string(),
+                    false,
+                );
+                Self::push_op(
+                    &mut ops,
+                    "Storage",
+                    format!("Block {} ({}): disable add_random entropy", dev.name, dev.device_type.as_str()),
+                    q_dir.join("add_random"),
+                    "0",
+                    false,
+                );
+
+                if let Some(nr) = params.nr_requests {
+                    Self::push_op(
+                        &mut ops,
+                        "Storage",
+                        format!("Block {} ({}): nr_requests queue depth", dev.name, dev.device_type.as_str()),
+                        q_dir.join("nr_requests"),
+                        nr.to_string(),
+                        false,
+                    );
+                }
+
                 if is_extreme {
-                    Self::push_op(&mut ops, "Storage", format!("Block {} disable iostats overhead", block_name), PathBuf::from(format!("{}/iostats", q_dir)), "0", false);
+                    Self::push_op(
+                        &mut ops,
+                        "Storage",
+                        format!("Block {} ({}): disable iostats overhead", dev.name, dev.device_type.as_str()),
+                        q_dir.join("iostats"),
+                        "0",
+                        false,
+                    );
                 }
-                let read_exp_path = PathBuf::from(format!("{}/iosched/read_expire", q_dir));
-                if read_exp_path.exists() {
-                    Self::push_op(&mut ops, "Storage", format!("Block {} read expire", block_name), read_exp_path, read_exp, false);
+
+                if let Some(exp) = params.read_expire_ms {
+                    let p = q_dir.join("iosched/read_expire");
+                    if p.exists() {
+                        Self::push_op(
+                            &mut ops,
+                            "Storage",
+                            format!("Block {} ({}): iosched read_expire", dev.name, dev.device_type.as_str()),
+                            p,
+                            exp.to_string(),
+                            false,
+                        );
+                    }
                 }
-                let writes_starv_path = PathBuf::from(format!("{}/iosched/writes_starved", q_dir));
-                if writes_starv_path.exists() {
-                    Self::push_op(&mut ops, "Storage", format!("Block {} writes starved", block_name), writes_starv_path, writes_starv, false);
+                if let Some(starv) = params.writes_starved {
+                    let p = q_dir.join("iosched/writes_starved");
+                    if p.exists() {
+                        Self::push_op(
+                            &mut ops,
+                            "Storage",
+                            format!("Block {} ({}): iosched writes_starved", dev.name, dev.device_type.as_str()),
+                            p,
+                            starv.to_string(),
+                            false,
+                        );
+                    }
                 }
             }
         }
 
-        for dev in &cap.storage.devices {
-            if let Some(target) = StoragePolicy::read_ahead_target(dev) {
-                Self::push_op(&mut ops, "Storage", format!("Block {} SD prefetch ceiling", dev.name),
-                    dev.queue_path.join("read_ahead_kb"), target.to_string(), false);
+        // D. F2FS Dynamic In-Place Updates (IPU) & Checkpoint Interval (Module 15)
+        let f2fs_dir = Path::new("/sys/fs/f2fs");
+        if f2fs_dir.is_dir() {
+            let ipu_target = if is_perf_or_ext { "3" } else { "0" };
+            let cp_interval_target = if is_perf_or_ext { "300" } else { "60" };
+            if let Ok(entries) = fs::read_dir(f2fs_dir) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.is_dir() {
+                        let ipu_node = p.join("ipu_policy");
+                        if ipu_node.exists() {
+                            Self::push_op(
+                                &mut ops,
+                                "Storage",
+                                format!("F2FS {} in-place updates (anti-gc stutter)", entry.file_name().to_string_lossy()),
+                                ipu_node,
+                                ipu_target,
+                                false,
+                            );
+                        }
+                        let cp_node = p.join("cp_interval");
+                        if cp_node.exists() {
+                            Self::push_op(
+                                &mut ops,
+                                "Storage",
+                                format!("F2FS {} checkpoint interval", entry.file_name().to_string_lossy()),
+                                cp_node,
+                                cp_interval_target,
+                                false,
+                            );
+                        }
+                    }
+                }
             }
         }
 
