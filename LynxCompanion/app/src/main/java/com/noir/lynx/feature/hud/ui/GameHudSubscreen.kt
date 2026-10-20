@@ -1,33 +1,55 @@
 package com.noir.lynx.feature.hud.ui
 
+import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.data.LynxUiState
-import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.theme.*
-import com.noir.lynx.ui.*
+import com.noir.lynx.ui.LynxViewModel
+import com.noir.lynx.ui.openBenchmarkDialog
+import com.noir.lynx.ui.setHudMode
+import com.noir.lynx.ui.setHudPinMiniFps
+import com.noir.lynx.ui.setHudStyle
+import com.noir.lynx.ui.toggleGameHud
 
 /**
- * Subscreen: Floating Game HUD & Real-time OSD Overlay
- * Houses all interactive controls, interaction modes, and visual style presets.
+ * GameHudSubscreen — Zen-Minimalist Floating Game HUD & Real-time OSD Overlay.
+ *
+ * Fully redesigned for psychological calm, zero redundancy, and clean visual hierarchy:
+ * - Unified Hero Master Controller merging status, master switch, and benchmark shortcut.
+ * - Symmetrical, tactile interaction mode selector (Edge Drawer vs Floating Window).
+ * - Anti-overlap 6-tile bento catalog for OSD telemetry layout presets.
+ * - Concise, professional copywriting completely free from AI brochure slop.
  */
 @Composable
 fun GameHudSubscreen(
@@ -36,365 +58,613 @@ fun GameHudSubscreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // ── 1. Descriptive Header Card ─────────────────────────
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = BgElevated,
-            border = BorderStroke(0.8.dp, BorderSubtle),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Visibility,
-                    contentDescription = null,
-                    tint = AccentCyan,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Real-Time Gaming Telemetry & OSD",
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = "Pantau FPS hardware, clock CPU/GPU, daya baterai (Watt), dan pengalih profil instan langsung di atas game Anda.",
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
-                    )
-                }
+        // ── 1. Unified Hero Master Controller ───────────────────
+        HudHeroMasterCard(
+            isActive = uiState.isGameHudActive,
+            hudMode = uiState.hudMode,
+            onToggle = { enable ->
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                viewModel.toggleGameHud(context, enable)
+            },
+            onOpenBenchmark = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                viewModel.openBenchmarkDialog()
             }
-        }
+        )
 
-        // ── 2. Master HUD Controller Card ──────────────────────
-        LynxCard(
-            title = "Master Sakelar Game HUD",
-            icon = Icons.Default.SportsEsports,
-            accentColor = AccentCyan
-        ) {
+        // ── 2. Display & Interaction Mode Card ─────────────────
+        HudInteractionModeCard(
+            currentMode = uiState.hudMode,
+            pinMiniFps = uiState.hudPinMiniFps,
+            onSelectMode = { mode ->
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                viewModel.setHudMode(context, mode)
+            },
+            onTogglePinMiniFps = { pin ->
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                viewModel.setHudPinMiniFps(context, pin)
+            }
+        )
+
+        // ── 3. Visual Layout Style Catalog ─────────────────────
+        HudStyleCatalogCard(
+            selectedStyle = uiState.hudStyle,
+            onSelectStyle = { styleId ->
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                viewModel.setHudStyle(context, styleId)
+            }
+        )
+
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+/**
+ * HudHeroMasterCard — High-presence Zen Master Controller.
+ * Consolidates master toggle, real-time status pulse, contextual hint, and benchmark access.
+ */
+@Composable
+private fun HudHeroMasterCard(
+    isActive: Boolean,
+    hudMode: Int,
+    onToggle: (Boolean) -> Unit,
+    onOpenBenchmark: () -> Unit
+) {
+    val activeColor = if (isActive) AccentCyan else TextSecondary.copy(alpha = 0.5f)
+    val statusBg = if (isActive) Color(0x1800E5FF) else Color(0x10FFFFFF)
+    val statusBorder = if (isActive) Color(0x3500E5FF) else Color(0x15FFFFFF)
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFF10141F),
+        border = BorderStroke(
+            0.8.dp,
+            Brush.verticalGradient(
+                listOf(
+                    if (isActive) AccentCyan.copy(alpha = 0.35f) else Color(0x22FFFFFF),
+                    Color(0x10FFFFFF)
+                )
+            )
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Top Row: Zen Pulse Status & Active Mode Tag
             Row(
-                Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Surface(
+                            shape = CircleShape,
+                            color = activeColor.copy(alpha = 0.20f),
+                            modifier = Modifier.size(12.dp)
+                        ) {}
+                        Surface(
+                            shape = CircleShape,
+                            color = activeColor,
+                            modifier = Modifier.size(6.dp)
+                        ) {}
+                    }
                     Text(
-                        "Overlay Game HUD Real-Time",
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
-                    Text(
-                        if (uiState.isGameHudActive) "HUD sedang berjalan di layar." else "HUD dalam status nonaktif.",
-                        color = if (uiState.isGameHudActive) AccentCyan else TextSecondary,
+                        text = if (isActive) "HUD Aktif di Layar" else "HUD Nonaktif",
+                        color = if (isActive) AccentCyan else TextSecondary.copy(alpha = 0.75f),
                         fontSize = 11.sp,
-                        lineHeight = 15.sp
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
-                Switch(
-                    checked = uiState.isGameHudActive,
-                    onCheckedChange = { viewModel.toggleGameHud(context, it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BgDeepOled,
-                        checkedTrackColor = AccentCyan,
-                        uncheckedThumbColor = TextSecondary,
-                        uncheckedTrackColor = BgElevated,
-                        uncheckedBorderColor = BorderGlass
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = statusBg,
+                    border = BorderStroke(0.5.dp, statusBorder)
+                ) {
+                    Text(
+                        text = if (hudMode == 0) "Bilah Sisi" else "Jendela Bebas",
+                        color = if (isActive) AccentCyan.copy(alpha = 0.9f) else TextSecondary.copy(alpha = 0.6f),
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
                     )
-                )
+                }
             }
 
-            if (uiState.isGameHudActive) {
-                Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(14.dp))
+
+            // Main Row: Icon + Title/Desc + Master Switch
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentCyan.copy(alpha = 0.08f),
-                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.25f)),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.30f)),
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.SportsEsports,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Floating Game HUD",
+                        color = TextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.2).sp
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Overlay real-time FPS, suhu, clock, dan daya saat game aktif",
+                        color = TextSecondary.copy(alpha = 0.70f),
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.sp
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    Switch(
+                        checked = isActive,
+                        onCheckedChange = onToggle,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = BgDeepOled,
+                            checkedTrackColor = AccentCyan,
+                            uncheckedThumbColor = TextSecondary.copy(alpha = 0.5f),
+                            uncheckedTrackColor = Color(0xFF141824)
+                        ),
+                        modifier = Modifier.scale(0.85f)
+                    )
+                }
+            }
+
+            // Bottom Strip: Contextual Hint + Inline Benchmark Shortcut
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = Color(0x15FFFFFF), thickness = 0.5.dp)
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (hudMode == 0) "Geser dari tepi layar untuk membuka kontrol" else "Tahan & geser jendela untuk atur posisi layar",
+                    color = TextSecondary.copy(alpha = 0.60f),
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                )
+
+                Surface(
+                    onClick = onOpenBenchmark,
+                    shape = RoundedCornerShape(8.dp),
+                    color = AccentPurple.copy(alpha = 0.12f),
+                    border = BorderStroke(0.6.dp, AccentPurple.copy(alpha = 0.40f)),
+                    modifier = Modifier.height(30.dp)
                 ) {
                     Row(
-                        Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.padding(horizontal = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Icon(Icons.Default.Info, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.Speed,
+                            contentDescription = null,
+                            tint = AccentPurple,
+                            modifier = Modifier.size(13.dp)
+                        )
                         Text(
-                            "HUD Aktif! Geser bilah samping atau ketuk header HUD untuk interaksi cepat saat berada di dalam game.",
-                            color = TextPrimary,
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp
+                            text = "Uji Pacing",
+                            color = AccentPurple,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 10.sp
                         )
                     }
                 }
             }
         }
+    }
+}
 
-        // ── 3. Interaction Mode Card ───────────────────────────
-        LynxCard(
-            title = "Mode Interaksi OSD",
-            icon = Icons.Default.TouchApp,
-            accentColor = AccentCyan
-        ) {
-            Text(
-                "Pilih mekanisme tampilan overlay di layar saat game atau aplikasi dibuka:",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                lineHeight = 15.sp
-            )
-            Spacer(Modifier.height(10.dp))
+/**
+ * HudInteractionModeCard — Interactive Mechanism Selector.
+ * Offers clean 2-way segmented choices (Edge Drawer vs Floating Window) with progressive pin option.
+ */
+@Composable
+private fun HudInteractionModeCard(
+    currentMode: Int,
+    pinMiniFps: Boolean,
+    onSelectMode: (Int) -> Unit,
+    onTogglePinMiniFps: (Boolean) -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF10141F),
+        border = BorderStroke(0.7.dp, Color(0x18FFFFFF)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Card Header
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF141824),
+                    border = BorderStroke(0.5.dp, Color(0x1AFFFFFF)),
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.TouchApp,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(9.dp))
+                Column {
+                    Text(
+                        text = "Mode Tampilan Layar",
+                        color = TextPrimary,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Mekanisme interaksi overlay saat aplikasi aktif",
+                        color = TextSecondary.copy(alpha = 0.65f),
+                        fontSize = 10.sp
+                    )
+                }
+            }
 
+            Spacer(Modifier.height(12.dp))
+
+            // 2-Way Symmetrical Mode Selector
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Option 1: Edge Drawer
-                val isDrawerSel = (uiState.hudMode == 0)
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isDrawerSel) AccentCyan.copy(alpha = 0.16f) else BgElevated,
-                    border = BorderStroke(1.dp, if (isDrawerSel) AccentCyan else BorderGlass),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { viewModel.setHudMode(context, 0) }
-                ) {
-                    Column(Modifier.padding(10.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(
-                                selected = isDrawerSel,
-                                onClick = { viewModel.setHudMode(context, 0) },
-                                colors = RadioButtonDefaults.colors(selectedColor = AccentCyan),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                "Edge Drawer",
-                                color = if (isDrawerSel) AccentCyan else TextPrimary,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "Tersimpan rapi di tepi layar. Swipe untuk membuka bilah kontrol.",
-                            color = TextSecondary,
-                            fontSize = 9.5.sp,
-                            lineHeight = 13.sp
-                        )
-                    }
-                }
+                // Mode 0: Edge Drawer
+                ModeSelectionTile(
+                    title = "Bilah Sisi",
+                    subtitle = "Tepi layar • Geser buka",
+                    icon = Icons.Default.ViewAgenda,
+                    isSelected = currentMode == 0,
+                    onClick = { onSelectMode(0) },
+                    modifier = Modifier.weight(1f)
+                )
 
-                // Option 2: Floating Window
-                val isFloatSel = (uiState.hudMode == 1)
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isFloatSel) AccentCyan.copy(alpha = 0.16f) else BgElevated,
-                    border = BorderStroke(1.dp, if (isFloatSel) AccentCyan else BorderGlass),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { viewModel.setHudMode(context, 1) }
-                ) {
-                    Column(Modifier.padding(10.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(
-                                selected = isFloatSel,
-                                onClick = { viewModel.setHudMode(context, 1) },
-                                colors = RadioButtonDefaults.colors(selectedColor = AccentCyan),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                "Floating Window",
-                                color = if (isFloatSel) AccentCyan else TextPrimary,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "Jendela melayang bebas di layar dengan koordinat drag & drop bebas.",
-                            color = TextSecondary,
-                            fontSize = 9.5.sp,
-                            lineHeight = 13.sp
-                        )
-                    }
-                }
+                // Mode 1: Floating Window
+                ModeSelectionTile(
+                    title = "Jendela Bebas",
+                    subtitle = "Melayang • Drag bebas",
+                    icon = Icons.Default.Layers,
+                    isSelected = currentMode == 1,
+                    onClick = { onSelectMode(1) },
+                    modifier = Modifier.weight(1f)
+                )
             }
 
-            // Pin Mini FPS option (Only for Edge Drawer)
-            if (uiState.hudMode == 0) {
-                Spacer(Modifier.height(10.dp))
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (uiState.hudPinMiniFps) AccentCyan.copy(alpha = 0.10f) else BgElevated,
-                    border = BorderStroke(1.dp, if (uiState.hudPinMiniFps) AccentCyan.copy(alpha = 0.6f) else BorderGlass),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { viewModel.setHudPinMiniFps(context, !uiState.hudPinMiniFps) }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+            // Progressive Disclosure: Pin Mini FPS (Edge Drawer only)
+            AnimatedVisibility(
+                visible = currentMode == 0,
+                enter = fadeIn(tween(180)) + expandVertically(tween(180)),
+                exit = fadeOut(tween(150)) + shrinkVertically(tween(150))
+            ) {
+                Column {
+                    Spacer(Modifier.height(10.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF0C0F17),
+                        border = BorderStroke(0.5.dp, Color(0x15FFFFFF)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                Icons.Default.PushPin,
-                                null,
-                                tint = if (uiState.hudPinMiniFps) AccentCyan else TextSecondary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    "Pin Mini FPS di Samping Bilah",
-                                    color = if (uiState.hudPinMiniFps) AccentCyan else TextPrimary,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    "Tampilkan tag angka FPS kecil saat bilah samping tertutup",
-                                    color = TextSecondary,
-                                    fontSize = 10.sp
-                                )
-                            }
-                        }
-                        Switch(
-                            checked = uiState.hudPinMiniFps,
-                            onCheckedChange = { viewModel.setHudPinMiniFps(context, it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = AccentCyan,
-                                checkedTrackColor = AccentCyan.copy(alpha = 0.35f)
-                            ),
-                            modifier = Modifier.scale(0.8f)
-                        )
-                    }
-                }
-            }
-        }
-
-        // ── 4. Layout Style Selector Card ──────────────────────
-        LynxCard(
-            title = "Pilihan Gaya Tampilan OSD",
-            icon = Icons.Default.Palette,
-            accentColor = AccentCyan
-        ) {
-            Text(
-                "Pilih salah satu dari 6 preset tata letak grafis telemetri:",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                lineHeight = 15.sp
-            )
-            Spacer(Modifier.height(10.dp))
-
-            val hudStyleOptions = listOf(
-                1 to "1. Vertical Pillar (RTSS)",
-                2 to "2. Top Nano-Ribbon",
-                3 to "3. Dual-Block Esport",
-                4 to "4. Quad-Tiles Modular",
-                5 to "5. Steam Deck Banner",
-                6 to "6. Ghost Text (Frameless)"
-            )
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                hudStyleOptions.chunked(2).forEach { rowStyles ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        rowStyles.forEach { (sId, sLabel) ->
-                            val isSel = (uiState.hudStyle == sId)
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isSel) AccentCyan.copy(alpha = 0.18f) else BgElevated,
-                                border = BorderStroke(1.dp, if (isSel) AccentCyan else BorderGlass),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { viewModel.setHudStyle(context, sId) }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f).padding(end = 8.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(if (isSel) AccentCyan else Color(0x33FFFFFF))
-                                    )
-                                    Spacer(Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.Default.PushPin,
+                                    contentDescription = null,
+                                    tint = if (pinMiniFps) AccentCyan else TextSecondary.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Column {
                                     Text(
-                                        text = sLabel,
-                                        color = if (isSel) AccentCyan else TextPrimary,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                        maxLines = 1
+                                        text = "Pin Mini FPS di Sisi Layar",
+                                        color = if (pinMiniFps) AccentCyan else TextPrimary,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "Tampilkan angka FPS mini saat bilah tertutup",
+                                        color = TextSecondary.copy(alpha = 0.65f),
+                                        fontSize = 9.5.sp
                                     )
                                 }
                             }
-                        }
-                        if (rowStyles.size == 1) {
-                            Spacer(Modifier.weight(1f))
+
+                            Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                                Switch(
+                                    checked = pinMiniFps,
+                                    onCheckedChange = onTogglePinMiniFps,
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = BgDeepOled,
+                                        checkedTrackColor = AccentCyan,
+                                        uncheckedThumbColor = TextSecondary.copy(alpha = 0.5f),
+                                        uncheckedTrackColor = Color(0xFF141824)
+                                    ),
+                                    modifier = Modifier.scale(0.80f)
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
 
-        // ── 5. Live Hardware Benchmark & Frame Profiler Studio Card ─
-        LynxCard(
-            title = "Live Hardware Benchmark & Frame Pacing",
-            icon = Icons.Default.Assessment,
-            accentColor = AccentPurple
+/**
+ * ModeSelectionTile — Ergonomic selection tile for HUD interaction modes.
+ */
+@Composable
+private fun ModeSelectionTile(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val animatedBg by animateColorAsState(
+        targetValue = if (isSelected) AccentCyan.copy(alpha = 0.12f) else Color(0xFF0C0F17),
+        animationSpec = tween(180),
+        label = "mode_tile_bg"
+    )
+    val animatedBorder by animateColorAsState(
+        targetValue = if (isSelected) AccentCyan.copy(alpha = 0.55f) else Color(0x18FFFFFF),
+        animationSpec = tween(180),
+        label = "mode_tile_border"
+    )
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = animatedBg,
+        border = BorderStroke(if (isSelected) 1.dp else 0.6.dp, animatedBorder),
+        modifier = modifier.heightIn(min = 64.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier.size(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Transparent,
+                        border = BorderStroke(1.5.dp, AccentCyan),
+                        modifier = Modifier.size(16.dp)
+                    ) {}
+                    Surface(
+                        shape = CircleShape,
+                        color = AccentCyan,
+                        modifier = Modifier.size(7.dp)
+                    ) {}
+                } else {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Transparent,
+                        border = BorderStroke(1.dp, Color(0x35FFFFFF)),
+                        modifier = Modifier.size(16.dp)
+                    ) {}
+                }
+            }
+
+            Spacer(Modifier.width(9.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = if (isSelected) AccentCyan else TextPrimary,
+                    fontSize = 11.5.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                )
+                Spacer(Modifier.height(1.dp))
+                Text(
+                    text = subtitle,
+                    color = TextSecondary.copy(alpha = 0.65f),
+                    fontSize = 9.sp,
+                    lineHeight = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/**
+ * HudStyleCatalogCard — Bento Grid Catalog for 6 OSD Layout Styles.
+ * Anti-overlap, clean visual typography, and clear selection dots.
+ */
+@Composable
+private fun HudStyleCatalogCard(
+    selectedStyle: Int,
+    onSelectStyle: (Int) -> Unit
+) {
+    val styleOptions = listOf(
+        Triple(1, "Vertikal RTSS", "Kolom ramping"),
+        Triple(2, "Pita Atas", "Baris horizontal"),
+        Triple(3, "Blok Ganda", "Panel FPS & suhu"),
+        Triple(4, "Modular 4", "Empat kuadran"),
+        Triple(5, "Steam Deck", "Banner konsol"),
+        Triple(6, "Ghost Text", "Tanpa latar")
+    )
+
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF10141F),
+        border = BorderStroke(0.7.dp, Color(0x18FFFFFF)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Card Header
             Row(
-                Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF141824),
+                        border = BorderStroke(0.5.dp, Color(0x1AFFFFFF)),
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = null,
+                                tint = AccentCyan,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(9.dp))
+                    Column {
+                        Text(
+                            text = "Gaya Visual Grafis OSD",
+                            color = TextPrimary,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Format tata letak grafik telemetri pada overlay",
+                            color = TextSecondary.copy(alpha = 0.65f),
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFF141824),
+                    border = BorderStroke(0.5.dp, Color(0x18FFFFFF))
+                ) {
                     Text(
-                        "Studio Benchmark & Frametime Jitter",
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
-                    Text(
-                        "Uji kestabilan frame pacing, 1% Low FPS, & hardware presentation timestamp via SurfaceFlinger saat HUD aktif.",
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
+                        text = "Format $selectedStyle",
+                        color = AccentCyan.copy(alpha = 0.85f),
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
-                Button(
-                    onClick = { viewModel.openBenchmarkDialog() },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Uji", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // 2x3 Responsive Bento Grid
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                styleOptions.chunked(2).forEach { rowStyles ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        rowStyles.forEach { (styleId, label, hint) ->
+                            val isSel = selectedStyle == styleId
+                            val animatedBg by animateColorAsState(
+                                targetValue = if (isSel) AccentCyan.copy(alpha = 0.14f) else Color(0xFF0C0F17),
+                                animationSpec = tween(180),
+                                label = "style_bg_$styleId"
+                            )
+                            val animatedBorder by animateColorAsState(
+                                targetValue = if (isSel) AccentCyan.copy(alpha = 0.60f) else Color(0x15FFFFFF),
+                                animationSpec = tween(180),
+                                label = "style_border_$styleId"
+                            )
+
+                            Surface(
+                                onClick = { onSelectStyle(styleId) },
+                                shape = RoundedCornerShape(10.dp),
+                                color = animatedBg,
+                                border = BorderStroke(if (isSel) 1.dp else 0.6.dp, animatedBorder),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Selection Dot
+                                    Box(
+                                        modifier = Modifier
+                                            .size(7.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSel) AccentCyan else Color(0x35FFFFFF))
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = label,
+                                            color = if (isSel) AccentCyan else TextPrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = hint,
+                                            color = TextSecondary.copy(alpha = 0.55f),
+                                            fontSize = 8.5.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-
-        Spacer(Modifier.height(8.dp))
     }
 }
