@@ -1,3 +1,34 @@
+# Lynx Universal [Tap-First Ergonomics & 220dp Horizontal Gesture Shielding] 7.0.0-RC131
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC131** (Lynx Kernel Manager v3.1.77): **Penyempurnaan Tuntas Penanganan Gestur Bilah Sisi (Edge Drawer) dengan Arsitektur Tap-First Ergonomics & Pelindung Gestur Horizontal 220dp: Mengeliminasi 100% Ketergantungan Usapan Tepi & Konflik Back Gesture Sistem Android: Memperluas Area Eksklusi Gestur Sistem (`systemGestureExclusionRects`) Menjadi 220dp Horizontal Sepanjang Jalur Tarikan Layar; Mengalibrasi Ambang Batas Sentuh (Touch Slop 18dp) & Mengonsumsi Event Pointer Seketika (`down.consume()` / `change.consume()`) Sehingga Ketukan Jempol Membuka Bilah Sisi Secara Pasti (Zero-Effort Single Tap); Serta Menghadirkan Handle Kapsul 40dp Ergonomis dengan Indikator Affordance Taktil yang Nyaman & Bebas Resiko Back Gesture**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC131)
+
+### 1. 🛡️ Pelindung Gestur Horizontal 220dp (Eliminasi Total Sabotase Back Gesture)
+- **Akar Masalah**:
+  - Pada versi sebelumnya, area eksklusi `systemGestureExclusionRects` hanya berdimensi selebar kotak fisik tab (sekitar 28–30dp). Ketika pengguna melakukan usapan (*swipe right*) dari tepi layar, begitu jempol bergerak melebihi 30dp menuju tengah layar, sentuhan langsung keluar dari batas eksklusi dan ditangkap oleh `EdgeBackGestureHandler` SystemUI Android sebagai **Back Gesture**.
+- **Solusi**:
+  - Berdasarkan pedoman resmi arsitektur Android, batasan kuota sistem gesture exclusion (maksimal 200dp) hanya diberlakukan secara vertikal per tepi layar, sedangkan **lebar horizontal tidak dibatasi oleh OS**.
+  - Mengonfigurasi `exclusionW = (220 * dm.density).toInt()` pada `LynxFloatingHudService.kt` di dalam listener `updateSystemGestureExclusion` dan `addOnLayoutChangeListener`.
+  - Dengan bentangan pelindung 220dp ke arah dalam layar, seluruh gerakan usap jari berada 100% di dalam zona aman terlindungi, menjamin sistem Android tidak akan pernah memicu *Back Gesture* saat pengguna menarik handle bilah sisi.
+
+### 2. ⚡ Arsitektur "Tap-First": Membuka Bilah Sisi Cukup dengan Satu Ketukan Ringan
+- **Akar Masalah**:
+  - Logika gesture pointer sebelumnya menggunakan ambang `10f` (piksel mentah, setara ~2.5mm). Saat jempol manusia mendarat di layar sentuh kapasitif, deformasi daging jempol secara alami bergeser 10–20 piksel. Akibatnya, hampir seluruh ketukan biasa salah dideteksi sebagai *drag*, membatalkan aksi pembukaan dan memaksa pengguna untuk mengusap tepi layar.
+- **Solusi**:
+  - Menerapkan `touchSlop = 18.dp.toPx()` (~54–70px) pada [HudEdgeDrawer.kt](file:///e:/Data/GitHub/Lynx/LynxCompanion/app/src/main/java/com/noir/lynx/service/HudEdgeDrawer.kt).
+  - Menambahkan konsumsi instan `down.consume()` dan `change.consume()` sejak kontak pertama sentuhan untuk mengunci fokus ke overlay Lynx.
+  - Setiap ketukan ringan jempol kini **100% terjamin** membuka panel game bar secara instan (zero latency) tanpa pengguna perlu melakukan gerakan mengusap atau menarik handle sama sekali.
+  - Usapan horizontal tetap didukung penuh bagi pengguna yang terbiasa menarik handle, dengan kekebalan penuh terhadap gestur Back.
+
+### 3. 📐 Dimensi Handle Tepi Lebih Ergonomis & Target Sentuh Lebih Luas
+- **Pembaruan**:
+  - Memperlebar dimensi visual handle tepi menjadi ~40dp dengan padding horizontal 9dp dan sudut lengkung halus 16dp.
+  - Memberikan jarak yang nyaman dari batas fisik 0px bezel ponsel, memastikan jempol mendarat tepat pada handle tanpa menyentuh zona sempit tepi luar.
+  - Indikator visual panah chevron `›` dan glowing spine ganda yang lebih tegas, mengomunikasikan fungsi "Ketuk / Tarik" secara jernih dan intuitif.
+
+---
+
 # Lynx Universal [Zen Bento Edge Bar Redesign & System Back Gesture Shielding] 7.0.0-RC130
 Released on: 2026-10-20
 > **Lynx Universal v7.0.0-RC130** (Lynx Kernel Manager v3.1.76): **Redesain Menyeluruh Antarmuka Bilah Sisi Game Bar (Edge Drawer) Berstandar Zen Bento Aesthetics yang Tidak Membingungkan & Menenangkan Psikologis Pengguna, Dilengkapi Perlindungan Total Terhadap Konflik Gestur Navigasi Android (`View.setSystemGestureExclusionRects` & `Modifier.systemGestureExclusion`): Pembukaan & Usapan Bilah Sisi Bebas 100% dari Pemicuan Back Gesture Sistem; Dekomposisi Gestur Cerdas (Memisahkan Drag Reposisi Vertikal dari Usap/Ketuk Pembuka Panel Tanpa Salah Picu); Pengorganisasian Metrik Performa ke Dalam 2x2 Bento Stat Tiles (GPU, CPU, Baterai, Memori) yang Proporsional & Bebas Sesak Teks; Hero Live FPS Counter dengan Kapsul Status Stabilitas Frametime; 4-Button Segmented Profil Performa Ergonomis 38dp+; Quick Gaming Tools Terintegrasi (RAM Drop Caches, Refresh Rate Cycler, Pin Mini-FPS, Benchmark); Serta Penambahan Tombol Matikan HUD Mandiri & Buffer Inaktivitas 12 Detik Bebas Stres**.

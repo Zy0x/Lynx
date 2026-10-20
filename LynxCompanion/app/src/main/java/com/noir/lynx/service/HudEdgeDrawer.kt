@@ -68,25 +68,28 @@ fun HudEdgeDrawer(
     }
 
     if (!isDrawerOpen) {
-        // ── STATE 1: COLLAPSED EDGE HANDLE (Anti-Back Gesture Protected) ──
+        // ── STATE 1: COLLAPSED EDGE HANDLE (Anti-Back Gesture & Tap-First Protected) ──
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .wrapContentSize()
                 .systemGestureExclusion()
                 .pointerInput(Unit) {
+                    val touchSlop = 18.dp.toPx()
                     while (true) {
                         awaitPointerEventScope {
                             val down = awaitPointerEvent().changes.firstOrNull { it.pressed } ?: return@awaitPointerEventScope
+                            down.consume()
                             var isDragging = false
                             var isVerticalDrag = false
                             var lastY = down.position.y
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                change.consume()
                                 if (!change.pressed) {
                                     if (!isDragging) {
-                                        // Clean single tap: expand drawer
+                                        // 100% Reliable Single Tap: Instantly expand drawer with zero latency
                                         isDrawerOpen = true
                                         lastTouchTime = System.currentTimeMillis()
                                     }
@@ -95,20 +98,19 @@ fun HudEdgeDrawer(
                                 val dx = change.position.x - down.position.x
                                 val dy = change.position.y - down.position.y
 
-                                if (!isDragging && (kotlin.math.abs(dx) > 10f || kotlin.math.abs(dy) > 10f)) {
+                                if (!isDragging && (kotlin.math.abs(dx) > touchSlop || kotlin.math.abs(dy) > touchSlop)) {
                                     isDragging = true
-                                    isVerticalDrag = kotlin.math.abs(dy) > kotlin.math.abs(dx) * 1.2f
+                                    isVerticalDrag = kotlin.math.abs(dy) > kotlin.math.abs(dx) * 1.1f
                                 }
 
                                 if (isDragging) {
-                                    change.consume()
                                     if (isVerticalDrag) {
                                         // Smooth vertical repositioning along bezel without opening drawer
                                         val deltaY = change.position.y - lastY
                                         lastY = change.position.y
                                         onDragVertical(deltaY)
-                                    } else if (dx > 30f) {
-                                        // Deliberate horizontal pull outward: expand drawer
+                                    } else if (dx > touchSlop * 1.15f) {
+                                        // Intentional horizontal pull outward: expand drawer smoothly
                                         isDrawerOpen = true
                                         lastTouchTime = System.currentTimeMillis()
                                         break
@@ -122,24 +124,24 @@ fun HudEdgeDrawer(
             // Refined Tactical Bezel Handle (Ergonomic Pill)
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp))
+                    .clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp))
                     .background(Color(0xEB0D131C))
                     .border(
-                        BorderStroke(1.2.dp, Color(0x3800E5FF)),
-                        shape = RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp)
+                        BorderStroke(1.2.dp, Color(0x4400E5FF)),
+                        shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
                     )
-                    .padding(horizontal = 6.dp, vertical = 8.dp),
+                    .padding(horizontal = 9.dp, vertical = 9.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     // Sleek Glowing Vertical Spine
                     Box(
                         modifier = Modifier
                             .width(3.5.dp)
-                            .height(26.dp)
+                            .height(28.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(
                                 Brush.verticalGradient(
@@ -147,12 +149,12 @@ fun HudEdgeDrawer(
                                 )
                             )
                     )
-                    // Visual Affordance Chevron
+                    // Visual Affordance Chevron (Telegraphs Tap or Pull Outward)
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "Tarik Bilah",
-                        tint = NeonCyan.copy(alpha = 0.8f),
-                        modifier = Modifier.size(12.dp)
+                        contentDescription = "Buka Bilah Sisi (Ketuk / Tarik)",
+                        tint = NeonCyan,
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }

@@ -229,11 +229,12 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private fun updateSystemGestureExclusion(view: View) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             if (activeModeFlow.value == 0) {
-                val w = view.width
                 val h = view.height
-                if (w > 0 && h > 0) {
-                    val maxH = (200 * resources.displayMetrics.density).toInt()
-                    val exclusionRect = android.graphics.Rect(0, 0, w, h.coerceAtMost(maxH))
+                if (h > 0) {
+                    val dm = resources.displayMetrics
+                    val exclusionW = (220 * dm.density).toInt()
+                    val maxH = (200 * dm.density).toInt()
+                    val exclusionRect = android.graphics.Rect(0, 0, exclusionW, h.coerceAtMost(maxH))
                     view.systemGestureExclusionRects = listOf(exclusionRect)
                 }
             } else {
@@ -355,11 +356,12 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             setViewTreeSavedStateRegistryOwner(this@LynxFloatingHudService)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 addOnLayoutChangeListener { v, left, top, right, bottom, _, _, _, _ ->
-                    val w = right - left
                     val h = bottom - top
-                    if (w > 0 && h > 0 && activeModeFlow.value == 0) {
-                        val maxH = (200 * resources.displayMetrics.density).toInt()
-                        val exclusionRect = android.graphics.Rect(0, 0, w, h.coerceAtMost(maxH))
+                    if (h > 0 && activeModeFlow.value == 0) {
+                        val dm = resources.displayMetrics
+                        val exclusionW = (220 * dm.density).toInt()
+                        val maxH = (200 * dm.density).toInt()
+                        val exclusionRect = android.graphics.Rect(0, 0, exclusionW, h.coerceAtMost(maxH))
                         v.systemGestureExclusionRects = listOf(exclusionRect)
                     } else if (activeModeFlow.value != 0) {
                         v.systemGestureExclusionRects = emptyList()
