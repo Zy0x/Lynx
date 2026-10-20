@@ -1,5 +1,7 @@
 package com.noir.lynx.feature.thermal.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,16 +22,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.designsystem.card.LynxCard
+import com.noir.lynx.designsystem.controls.LynxSwitch
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.hardware.BatteryChargingThresholds
+import com.noir.lynx.hardware.LiveThermalTelemetry
 import com.noir.lynx.hardware.VendorThermalConfigManager
 import com.noir.lynx.hardware.VendorThermalStudioState
+import com.noir.lynx.hardware.VendorThermalTweaks
 import com.topjohnwu.superuser.Shell
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
  * VendorThermalStudioCard — Interactive configuration studio for vendor-level thermal engine files
- * (Qualcomm thermal-engine.conf / MediaTek .tp/thermal.conf) with automated Magisk Magic Mount overlay generation.
+ * (Qualcomm thermal-engine.conf / MediaTek .tp/thermal.conf).
+ * Features real-time mitigation radar, anti-dimming, CPU/GPU headroom, instant live bind mounting,
+ * and permanent Magisk Magic Mount overlay generation.
  */
 @Composable
 fun VendorThermalStudioCard(
@@ -37,6 +46,7 @@ fun VendorThermalStudioCard(
 ) {
     val coroutineScope = rememberCoroutineScope()
     var studioState by remember { mutableStateOf<VendorThermalStudioState?>(null) }
+    var telemetry by remember { mutableStateOf(LiveThermalTelemetry()) }
     var isLoading by remember { mutableStateOf(true) }
     var actionMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
@@ -48,8 +58,11 @@ fun VendorThermalStudioCard(
     var t4 by remember { mutableIntStateOf(46) }
     var t5 by remember { mutableIntStateOf(50) }
 
+    // Tweaks state
+    var antiDimming by remember { mutableStateOf(false) }
+    var cpuGpuHeadroom by remember { mutableStateOf(false) }
+
     fun refreshState() {
-        isLoading = true
         coroutineScope.launch {
             val state = VendorThermalConfigManager.detectState()
             studioState = state
@@ -59,12 +72,21 @@ fun VendorThermalStudioCard(
             t3 = active.t3
             t4 = active.t4
             t5 = active.t5
+            antiDimming = state.tweaks.antiLcdDimming
+            cpuGpuHeadroom = state.tweaks.cpuGpuHeadroom
+            telemetry = state.telemetry
             isLoading = false
         }
     }
 
     LaunchedEffect(Unit) {
         refreshState()
+        // Real-time telemetry radar polling loop (every 2.5 seconds)
+        while (isActive) {
+            delay(2500)
+            val currentThresholds = BatteryChargingThresholds(t1, t2, t3, t4, t5)
+            telemetry = VendorThermalConfigManager.queryLiveTelemetry(currentThresholds)
+        }
     }
 
     val state = studioState ?: return
@@ -75,7 +97,7 @@ fun VendorThermalStudioCard(
     LynxCard(
         title = "Studio Konfigurasi Thermal Vendor (Magic Mount)",
         icon = Icons.Default.Tune,
-        accentColor = if (state.isOverlayActive) AccentOrange else AccentCyan,
+        accentColor = if (state.isLiveBindMounted) AccentCyan else if (state.isOverlayActive) AccentOrange else AccentGreen,
         modifier = modifier
     ) {
         // ── 1. Status Header & Overlay Pill ──────────────────────────
@@ -96,20 +118,32 @@ fun VendorThermalStudioCard(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = if (state.isOverlayActive) {
-                        "Modul Magic Mount Aktif di /system/vendor/etc/"
-                    } else {
-                        "Konfigurasi Pabrik Bawaan ROM Aktif"
+                    text = when {
+                        state.isLiveBindMounted -> "⚡ Live Bind Mount Aktif (Tanpa Reboot)"
+                        state.isOverlayActive -> "Modul Magic Mount Aktif di /system/vendor/etc/"
+                        else -> "Konfigurasi Pabrik Bawaan ROM Aktif"
                     },
-                    color = TextSecondary,
-                    fontSize = 10.sp
+                    color = if (state.isLiveBindMounted) AccentCyan else TextSecondary,
+                    fontSize = 10.sp,
+                    fontWeight = if (state.isLiveBindMounted) FontWeight.SemiBold else FontWeight.Normal
                 )
             }
 
             Surface(
                 shape = RoundedCornerShape(6.dp),
-                color = if (state.isOverlayActive) AccentOrange.copy(alpha = 0.16f) else AccentGreen.copy(alpha = 0.16f),
-                border = BorderStroke(0.8.dp, if (state.isOverlayActive) AccentOrange.copy(alpha = 0.6f) else AccentGreen.copy(alpha = 0.6f))
+                color = when {
+                    state.isLiveBindMounted -> AccentCyan.copy(alpha = 0.16f)
+                    state.isOverlayActive -> AccentOrange.copy(alpha = 0.16f)
+                    else -> AccentGreen.copy(alpha = 0.16f)
+                },
+                border = BorderStroke(
+                    0.8.dp,
+                    when {
+                        state.isLiveBindMounted -> AccentCyan.copy(alpha = 0.6f)
+                        state.isOverlayActive -> AccentOrange.copy(alpha = 0.6f)
+                        else -> AccentGreen.copy(alpha = 0.6f)
+                    }
+                )
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -120,11 +154,25 @@ fun VendorThermalStudioCard(
                         modifier = Modifier
                             .size(6.dp)
                             .clip(CircleShape)
-                            .background(if (state.isOverlayActive) AccentOrange else AccentGreen)
+                            .background(
+                                when {
+                                    state.isLiveBindMounted -> AccentCyan
+                                    state.isOverlayActive -> AccentOrange
+                                    else -> AccentGreen
+                                }
+                            )
                     )
                     Text(
-                        text = if (state.isOverlayActive) "MODUL AKTIF" else "OEM STOCK",
-                        color = if (state.isOverlayActive) AccentOrange else AccentGreen,
+                        text = when {
+                            state.isLiveBindMounted -> "LIVE BIND"
+                            state.isOverlayActive -> "MODUL AKTIF"
+                            else -> "OEM STOCK"
+                        },
+                        color = when {
+                            state.isLiveBindMounted -> AccentCyan
+                            state.isOverlayActive -> AccentOrange
+                            else -> AccentGreen
+                        },
                         fontSize = 9.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
@@ -132,31 +180,102 @@ fun VendorThermalStudioCard(
             }
         }
 
-        // ── 2. Context Explanation ──────────────────────────────────
+        // ── 2. Radar Telemetri Mitigasi Real-Time ───────────────────
+        val currentTempColor = when {
+            telemetry.sensorTempC >= 46f -> AccentRed
+            telemetry.sensorTempC >= 41f -> AccentOrange
+            telemetry.sensorTempC > 0f -> AccentGreen
+            else -> TextSecondary
+        }
+
         Surface(
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(12.dp),
             color = BgElevated,
-            border = BorderStroke(0.8.dp, BorderSubtle),
+            border = BorderStroke(1.dp, currentTempColor.copy(alpha = 0.45f)),
             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
         ) {
-            Row(
-                modifier = Modifier.padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(Icons.Default.Info, null, tint = AccentCyan, modifier = Modifier.size(16.dp))
-                Text(
-                    text = "Sesuaikan tangga suhu proteksi pengisian daya ([BATTERY_CHARGING_CTL]). Nilai akan disimpan ke dalam modul Lynx dan aktif saat booting melalui Magisk Magic Mount.",
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.sp
-                )
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(currentTempColor)
+                        )
+                        Text(
+                            text = "RADAR MITIGASI SUHU REAL-TIME",
+                            color = TextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (telemetry.daemonPid.isNotEmpty()) {
+                        Text(
+                            text = "PID: ${telemetry.daemonPid}",
+                            color = TextSecondary.copy(alpha = 0.6f),
+                            fontSize = 9.sp
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = if (telemetry.sensorTempC > 0f) String.format("%.1f°C", telemetry.sensorTempC) else "Memindai...",
+                            color = currentTempColor,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            text = "Sensor: quiet-therm-adc",
+                            color = TextSecondary,
+                            fontSize = 9.5.sp
+                        )
+                    }
+
+                    Column(horizontalAlignment = Alignment.End) {
+                        val activeLevelText = when (telemetry.activeMitigationLevel) {
+                            0 -> "Full Throttle (~3.200 mA)"
+                            1 -> "Level 1 (~2.500 mA)"
+                            2 -> "Level 2 (~2.000 mA)"
+                            3 -> "Level 3 (~1.500 mA)"
+                            4 -> "Level 4 (~1.000 mA)"
+                            5 -> "Level 5 (Cutoff / 0 mA)"
+                            else -> "Standby"
+                        }
+                        Text(
+                            text = activeLevelText,
+                            color = if (telemetry.activeMitigationLevel > 0) AccentOrange else AccentGreen,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (telemetry.isThrottled) "⚠️ Mitigasi Arus Sedang Aktif" else "⚡ Maksimum (Unthrottled)",
+                            color = if (telemetry.isThrottled) AccentOrange else AccentGreen,
+                            fontSize = 9.5.sp
+                        )
+                    }
+                }
             }
         }
 
-        // ── 3. Interactive Threshold Steps (Touch-First >= 48dp) ─────
+        // ── 3. Tangga Suhu Mitigasi Pengisian Daya ───────────────────
         Text(
-            text = "TANGGA SUHU MITIGASI PENGISIAN DAYA (BATTERY THROTTLING)",
+            text = "TANGGA SUHU PENGISIAN DAYA ([BATTERY_CHARGING_CTL])",
             color = TextSecondary,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
@@ -165,8 +284,9 @@ fun VendorThermalStudioCard(
 
         ThresholdStepperRow(
             label = "Level 1: Fast Charge Ringan",
-            subLabel = "Arus mulai diturunkan ke ~2500mA",
+            subLabel = "Arus diturunkan ke ~2500mA",
             temp = t1,
+            isActive = telemetry.activeMitigationLevel == 1,
             onTempChange = { t1 = it.coerceIn(35, t2 - 1) },
             accent = AccentGreen
         )
@@ -175,6 +295,7 @@ fun VendorThermalStudioCard(
             label = "Level 2: Pengisian Standar",
             subLabel = "Arus diturunkan ke ~2000mA",
             temp = t2,
+            isActive = telemetry.activeMitigationLevel == 2,
             onTempChange = { t2 = it.coerceIn(t1 + 1, t3 - 1) },
             accent = AccentGreen
         )
@@ -183,6 +304,7 @@ fun VendorThermalStudioCard(
             label = "Level 3: Pengisian Moderat",
             subLabel = "Arus diturunkan ke ~1500mA",
             temp = t3,
+            isActive = telemetry.activeMitigationLevel == 3,
             onTempChange = { t3 = it.coerceIn(t2 + 1, t4 - 1) },
             accent = AccentOrange
         )
@@ -191,6 +313,7 @@ fun VendorThermalStudioCard(
             label = "Level 4: Pengisian Darurat Sejuk",
             subLabel = "Arus dibatasi ke ~1000mA",
             temp = t4,
+            isActive = telemetry.activeMitigationLevel == 4,
             onTempChange = { t4 = it.coerceIn(t3 + 1, t5 - 1) },
             accent = AccentOrange
         )
@@ -199,11 +322,12 @@ fun VendorThermalStudioCard(
             label = "Level 5: Batas Pemutusan Penuh (Safety Cut)",
             subLabel = "Trickle float / pengisian daya dihentikan",
             temp = t5,
+            isActive = telemetry.activeMitigationLevel == 5,
             onTempChange = { t5 = it.coerceIn(t4 + 1, 55) },
             accent = if (t5 >= 46) AccentRed else AccentOrange
         )
 
-        // ── 4. Dynamic Hysteresis & Safety Badges ───────────────────
+        // Hysteresis Formula Info
         Surface(
             shape = RoundedCornerShape(8.dp),
             color = BgDeepOled,
@@ -217,7 +341,7 @@ fun VendorThermalStudioCard(
                 ) {
                     Icon(Icons.Default.Autorenew, null, tint = AccentCyan, modifier = Modifier.size(14.dp))
                     Text(
-                        text = "Histeresis Pemulihan Otomatis (-2°C):",
+                        text = "Histeresis Pemulihan Otomatis (-2°C Anti-Flapping):",
                         color = TextPrimary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -247,7 +371,7 @@ fun VendorThermalStudioCard(
                 ) {
                     Icon(Icons.Default.Warning, null, tint = AccentRed, modifier = Modifier.size(18.dp))
                     Text(
-                        text = "Peringatan Suhu Tinggi: Ambang batas Level 5 disetel di $t5°C. Sangat disarankan menggunakan pendingin eksternal (phone cooler / kipas) saat pengisian cepat untuk mencegah baterai kembung.",
+                        text = "Peringatan Suhu Tinggi: Level 5 disetel di $t5°C. Sangat disarankan menggunakan pendingin eksternal (phone cooler / kipas) saat pengisian cepat untuk mencegah baterai kembung.",
                         color = AccentRed,
                         fontSize = 10.5.sp,
                         lineHeight = 14.sp
@@ -255,6 +379,31 @@ fun VendorThermalStudioCard(
                 }
             }
         }
+
+        // ── 4. Aturan Ekstra: Anti-Dimming & CPU/GPU Headroom ─────────
+        Text(
+            text = "ATURAN MITIGASI VENDOR TAMBAHAN",
+            color = TextSecondary,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+        )
+
+        LynxSwitch(
+            label = "Cegah Layar Meredup Otomatis (Anti-Dimming)",
+            subLabel = "Menaikkan ambang batas [LCD_MANAGEMENT] ke 56°C agar kecerahan layar tidak otomatis meredup sendiri saat ponsel hangat atau sedang dicas",
+            checked = antiDimming,
+            onCheckedChange = { antiDimming = it }
+        )
+
+        Spacer(Modifier.height(4.dp))
+
+        LynxSwitch(
+            label = "Headroom Termal CPU & GPU (+5°C Sustained)",
+            subLabel = "Melonggarkan set point throttling CPU cluster Silver/Gold dan GPU Adreno agar clock tidak terpotong terlalu dini saat bermain game berat",
+            checked = cpuGpuHeadroom,
+            onCheckedChange = { cpuGpuHeadroom = it }
+        )
 
         // Action Message
         actionMessage?.let { msg ->
@@ -267,32 +416,70 @@ fun VendorThermalStudioCard(
             )
         }
 
-        // ── 5. Action Buttons (Touch-First >= 48dp) ──────────────────
+        // ── 5. Baris Tombol Aksi (Live Bind Mount & Permanent Mount) ──
         Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Apply CTA Button (Height 52dp)
+            // Live Bind Mount Button (Height 50dp, Instant Reload)
             Surface(
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = if (state.isLiveBindMounted) AccentCyan.copy(alpha = 0.2f) else AccentCyan.copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.8f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        coroutineScope.launch {
+                            val newThresholds = BatteryChargingThresholds(t1, t2, t3, t4, t5)
+                            val tweaks = VendorThermalTweaks(antiLcdDimming = antiDimming, cpuGpuHeadroom = cpuGpuHeadroom)
+                            val res = VendorThermalConfigManager.applyLiveBindMount(newThresholds, tweaks)
+                            if (res.isSuccess) {
+                                actionMessage = "⚡ Live Bind Mount Aktif! Daemon termal dimuat ulang seketika."
+                                refreshState()
+                            } else {
+                                actionMessage = "Gagal Live Mount: ${res.exceptionOrNull()?.message}"
+                            }
+                        }
+                    }
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Bolt, null, tint = AccentCyan, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (state.isLiveBindMounted) "Perbarui Uji Coba Instan (Live Bind)" else "Uji Coba Instan (Tanpa Reboot)",
+                        color = AccentCyan,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
+            // Permanent Magisk Overlay Button (Height 50dp)
+            Surface(
+                shape = RoundedCornerShape(12.dp),
                 color = AccentOrange.copy(alpha = 0.16f),
                 border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.8f)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .height(50.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable {
                         coroutineScope.launch {
-                            val newThresholds = BatteryChargingThresholds(
-                                t1 = t1, t2 = t2, t3 = t3, t4 = t4, t5 = t5
-                            )
-                            val res = VendorThermalConfigManager.applyCustomThresholds(newThresholds)
+                            val newThresholds = BatteryChargingThresholds(t1, t2, t3, t4, t5)
+                            val tweaks = VendorThermalTweaks(antiLcdDimming = antiDimming, cpuGpuHeadroom = cpuGpuHeadroom)
+                            val res = VendorThermalConfigManager.applyCustomThresholds(newThresholds, tweaks)
                             if (res.isSuccess) {
-                                actionMessage = "Overlay berhasil dibuat!"
+                                actionMessage = "Konfigurasi permanen disimpan ke modul Lynx."
                                 showRebootDialog = true
                                 refreshState()
                             } else {
-                                actionMessage = "Gagal: ${res.exceptionOrNull()?.message}"
+                                actionMessage = "Gagal Simpan: ${res.exceptionOrNull()?.message}"
                             }
                         }
                     }
@@ -305,24 +492,61 @@ fun VendorThermalStudioCard(
                     Icon(Icons.Default.Save, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Simpan & Buat Overlay Magisk",
+                        text = "Simpan Permanen ke Modul Magisk",
                         color = AccentOrange,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.5.sp
+                        fontSize = 13.sp
                     )
                 }
             }
 
-            // Reset Button (Height 44dp)
+            // Cancel Live Mount Button (if active)
+            if (state.isLiveBindMounted) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            coroutineScope.launch {
+                                val res = VendorThermalConfigManager.cancelLiveBindMount()
+                                if (res.isSuccess) {
+                                    actionMessage = "Live Bind Mount telah dibatalkan."
+                                    refreshState()
+                                }
+                            }
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Close, null, tint = TextSecondary, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Batalkan Uji Coba Live",
+                            color = TextSecondary,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            // Reset to Stock Button
             if (state.isOverlayActive) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = BgElevated,
                     border = BorderStroke(0.8.dp, BorderSubtle),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .clickable {
                             coroutineScope.launch {
                                 val res = VendorThermalConfigManager.resetToStockBaseline()
@@ -375,7 +599,7 @@ fun VendorThermalStudioCard(
             },
             text = {
                 Text(
-                    text = "Berkas konfigurasi termal vendor telah disimpan ke direktori modul Lynx (/system/vendor/etc/).\n\nAgar partisi sistem memuat konfigurasi ini melalui Magisk Magic Mount, perangkat perlu dimulai ulang (reboot).\n\nApakah Anda ingin memulai ulang sekarang?",
+                    text = "Berkas konfigurasi termal vendor telah disimpan ke direktori modul Lynx (/system/vendor/etc/).\n\nAgar partisi sistem memuat konfigurasi ini secara permanen melalui Magisk Magic Mount, perangkat perlu dimulai ulang (reboot).\n\nApakah Anda ingin memulai ulang sekarang?",
                     color = TextSecondary,
                     fontSize = 12.5.sp,
                     lineHeight = 17.sp
@@ -415,20 +639,26 @@ fun VendorThermalStudioCard(
 }
 
 /**
- * Reusable stepper row with >= 48dp touch targets for precise degree picking.
+ * Reusable stepper row with active status badge and glowing neon highlight.
  */
 @Composable
 private fun ThresholdStepperRow(
     label: String,
     subLabel: String,
     temp: Int,
+    isActive: Boolean,
     onTempChange: (Int) -> Unit,
     accent: Color
 ) {
+    val borderColor by animateColorAsState(
+        targetValue = if (isActive) AccentCyan else BorderSubtle,
+        label = "stepperBorder"
+    )
+
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = BgElevated,
-        border = BorderStroke(0.6.dp, BorderSubtle),
+        color = if (isActive) AccentCyan.copy(alpha = 0.08f) else BgElevated,
+        border = BorderStroke(if (isActive) 1.2.dp else 0.6.dp, borderColor),
         modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
     ) {
         Row(
@@ -437,12 +667,32 @@ private fun ThresholdStepperRow(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                Text(
-                    text = label,
-                    color = TextPrimary,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = label,
+                        color = if (isActive) AccentCyan else TextPrimary,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (isActive) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = AccentCyan.copy(alpha = 0.2f),
+                            border = BorderStroke(0.6.dp, AccentCyan)
+                        ) {
+                            Text(
+                                text = "SEDANG AKTIF",
+                                color = AccentCyan,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
                 Text(
                     text = subLabel,
                     color = TextSecondary.copy(alpha = 0.7f),
@@ -455,7 +705,7 @@ private fun ThresholdStepperRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Minus Button (48dp Touch Box)
+                // Minus Button (44dp Touch Box)
                 Box(
                     modifier = Modifier
                         .size(44.dp)
@@ -485,7 +735,7 @@ private fun ThresholdStepperRow(
                     }
                 }
 
-                // Plus Button (48dp Touch Box)
+                // Plus Button (44dp Touch Box)
                 Box(
                     modifier = Modifier
                         .size(44.dp)

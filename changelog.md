@@ -1,3 +1,65 @@
+# Lynx Universal [Vendor Thermal Studio: Live Radar, Anti-Dimming & Runtime Bind Mount Engine] 7.0.0-RC121
+Released on: 2026-10-20
+> **Lynx Universal v7.0.0-RC121** (Lynx Kernel Manager v3.1.67): **Revolusi Studio Konfigurasi Thermal Vendor (`thermal-engine.conf` / MediaTek `.tp`): Radar Telemetri Mitigasi Real-Time (Pemindaian Suhu Sensor `quiet-therm-adc` & Penyorotan Tingkat Throttling Aktif Secara Visual); Fitur Anti-Dimming Layar Otomatis (`[LCD_MANAGEMENT]` Threshold Boost ke 56°C Agar Kecerahan Layar Tidak Meredup Sendiri Saat Ponsel Hangat/Dicas); Headroom Termal CPU & GPU Cluster (+5°C Set Point Throttling untuk Mempertahankan FPS Gaming); Mesin Pengujian Instan Tanpa Reboot (*Live Runtime Bind Mount & Clean Daemon Restart*); serta Penyimpanan Permanen Otomatis via Magisk/KernelSU Magic Mount Overlay**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC121)
+
+### 1. ?? Radar Telemetri Mitigasi Suhu Real-Time (Live Throttle Inspection)
+- **Akar Masalah**:
+  - Pengguna sering mengalami penurunan arus pengisian baterai (misal dari ~3.200 mA drop ke ~1.500 mA) tanpa mengetahui penyebab pastinya di latar belakang sistem Android.
+- **Solusi**:
+  - Mengintegrasikan radar telemetri real-time di dalam kartu `VendorThermalStudioCard` yang memindai sensor termistor baterai (`quiet-therm-adc` / `battery/temp`) dan *cooling device* secara live setiap 2,5 detik.
+  - Memberikan indikasi visual instan dengan penyorotan tangga suhu aktif (*glowing neon highlight* & badge `[SEDANG AKTIF]`) serta estimasi batas arus yang diizinkan kernel.
+
+### 2. ?? Aturan Anti-Dimming Layar Otomatis (`[LCD_MANAGEMENT]`)
+- **Akar Masalah**:
+  - Konfigurasi bawaan vendor pada banyak perangkat Qualcomm memicu penurunan kecerahan layar (*backlight throttling*) saat suhu internal mencapai 45°C–48°C, menyebabkan layar tiba-tiba gelap saat bermain game di luar ruangan atau saat pengisian cepat.
+- **Solusi**:
+  - Menambahkan sakelar *Anti-Dimming* yang secara cerdas menaikkan ambang batas `[LCD_MANAGEMENT]` ke 56°C / 60°C, menjaga visibilitas layar tetap cerah maksimal tanpa intervensi daemon yang mengganggu.
+
+### 3. ?? Headroom Termal CPU Cluster & GPU Adreno (+5°C Sustained Gaming)
+- **Solusi**:
+  - Menyediakan opsi *CPU & GPU Thermal Headroom* yang memperluas set point mitigasi frekuensi clock `[SS-MSM-THERM-SILVER]`, `[SS-MSM-THERM-GOLD]`, dan `[SS-GPU]` sebesar +5°C, mencegah terjadinya *micro-stutter* dan *frame drop* dini saat temperatur SoC naik perlahan selama sesi gaming kompetitif.
+
+### 4. ? Mesin Uji Coba Instan Tanpa Reboot (*Live Runtime Bind Mount*)
+- **Solusi**:
+  - Mengimplementasikan metode `applyLiveBindMount` pada `VendorThermalConfigManager` yang memanfaatkan *Linux Bind Mount* (`mount -o bind`) dan reload daemon vendor (`vendor.thermal-engine`) secara langsung.
+  - Pengguna kini dapat menguji efek kurva suhu baru secara instan dalam 1 detik tanpa harus menunggu siklus *reboot* perangkat, sementara opsi *Simpan Permanen* tetap tersedia untuk persistensi modul Magisk.
+
+---
+
+# Lynx Universal [UI Smoothness, Anti-ZRAM Thrashing & Fast eMMC Cold-Boot Engine] 7.0.0-RC120
+Released on: 2026-10-20
+> **Lynx Universal v7.0.0-RC120** (Lynx Kernel Manager v3.1.66): **Optimasi Responsivitas UI & Kecepatan *Cold-Boot* Aplikasi (WhatsApp, dll.) untuk Perangkat Low/Mid-End (eMMC 5.1 & RAM 3GBâ€“4GB): Hierarki Prioritas CFS `/dev/cpuctl/cpu.shares` (`top-app=2048/4096` vs `background=128` & `dex2oat=128`) serta EAS `/dev/stune` (`top-app schedtune.boost=15` di Mode Balance) agar Aplikasi Utama Tidak Direbut CPU-nya oleh Layanan Latar Belakang; Pemangkasan `read_ahead_kb` eMMC (`mmcblk0`) dari 512 KB ke 128 KB di Mode Balance (Menghilangkan Kemacetan Dekripsi `blk_crypto_wq` & Antrean *Random Read* 37% `%iow` saat Buka WhatsApp); Penyeimbangan Anti-ZRAM Thrashing (`vm.swappiness=60`, `vfs_cache_pressure=120`, `dirty_background_ratio=5`, `dirty_ratio=12`) untuk Menghentikan `[kswapd0]` Memeras CPU; serta Sinkronisasi Biner `lynxd` & Pemulihan Memori Otomatis di Latar Belakang (`MY_PACKAGE_REPLACED`)**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC120)
+
+### 1. âš¡ Hierarki Prioritas CFS `cpuctl` & EAS `schedtune` (Anti-Starvation Aplikasi Utama)
+- **Akar Masalah Forensik**:
+  - Pada kernel EAS 4.9/4.14/4.19 (seperti Redmi Note 7 Snapdragon 660), node `/sys/module/cpu_boost` dan `/proc/sys/kernel/sched_upmigrate` tidak tersedia; penempatan tugas ke *Big Cluster* sepenuhnya dikendalikan oleh `/dev/stune` (`schedtune`) dan pembagian waktu CPU oleh `/dev/cpuctl` (`cpu.shares`).
+  - Sebelumnya, seluruh grup `/dev/cpuctl/*/cpu.shares` (`top-app`, `foreground`, `background`, `system-background`, `dex2oat`) bernilai sama (`1024`), dan `translator.rs` menyetel `/dev/stune/top-app/schedtune.boost = 0` di mode `Balance`. Akibatnya, saat membuka WhatsApp atau menggulir UI, aplikasi latar belakang berat mendapat bobot CPU yang setara dengan aplikasi di layar utama.
+- **Solusi**:
+  - Mengatur hierarki tegas `/dev/cpuctl/*/cpu.shares`: `top-app = 2048` (`4096` saat Gaming/Extreme), `foreground = 1024`, `system-background = 256`, `background = 128`, dan `dex2oat = 128`.
+  - Mengatur `/dev/stune/top-app/schedtune.boost = 15` (`prefer_idle = 1`) dan `foreground/schedtune.boost = 5` pada mode `Balance`, serta mengunci `background/schedtune.boost = 0` (`prefer_idle = 0`, `prefer_high_cap = 0`).
+
+### 2. ðŸ’¾ Optimasi Antrean I/O eMMC 5.1 (`read_ahead_kb = 128` & `nr_requests = 64`)
+- **Akar Masalah**:
+  - Penyimpanan **eMMC 5.1** bersifat *half-duplex* dan menggunakan dekripsi perangkat lunak (`[kworker/u17:4-blk_crypto_wq]`). Saat `read_ahead_kb` disetel ke `512` KB di mode `Balance`, setiap pembacaan acak 4KB dari database SQLite atau `.odex` WhatsApp memaksa kernel membaca dan mendekripsi 512 KB penuh, memicu **37% I/O Wait (`%iow`)**.
+- **Solusi**:
+  - Memisahkan kebijakan `read_ahead_kb` antara **UFS (`sda`/`sdb`/`sdc`)** dan **eMMC (`mmcblk0`/`mmcblk1`)**: pada eMMC disetel ke **128 KB** di mode `Balance`/`Powersave` (`256 KB` di `Performance`, `512 KB` di `Extreme`) dengan `nr_requests = 64`, `read_expire = 125`, dan `writes_starved = 4` agar pembacaan peluncuran aplikasi selalu diprioritaskan di atas penulisan latar belakang.
+
+### 3. ðŸ§  Penyeimbangan Memori Anti-ZRAM Thrashing (`kswapd0` Relief)
+- **Akar Masalah**:
+  - Pada perangkat RAM $\le 4\text{GB}$, nilai `vm.swappiness = 90` menyebabkan `[kswapd0]` terus-menerus mengompresi memori aktif aplikasi (`AnonPages`) ke ZRAM hingga mencapai 2.39 GB sementara `MemFree` tersisa 46 MB dan `Dirty` menumpuk hingga 46.8 MB.
+- **Solusi**:
+  - Menurunkan `vm.swappiness` ke `60` dan menaikkan `vm.vfs_cache_pressure` ke `120` untuk RAM $\le 4.5\text{GB}$ agar kernel membuang *cache* berkas usang terlebih dahulu daripada melakukan *swap thrashing* pada aplikasi aktif.
+  - Menambahkan `dirty_background_ratio = 5`, `dirty_ratio = 12`, dan `watermark_scale_factor = 15`, serta pembersihan otomatis *clean pagecache* & proses *cached* latar belakang saat `MemFree < 150 MB`.
+
+### 4. ðŸ”„ Sinkronisasi Otomatis Biner `lynxd` & Hot-Reload di Latar Belakang (`MY_PACKAGE_REPLACED`)
+- Memperbarui `LynxRepository.ensureDaemonRunning()` agar selalu membandingkan aset `bin/lynxd` di dalam APK terhadap biner yang terpasang (`cmp -s`) sekali setiap sesi, serta mendaftarkan `ACTION_MY_PACKAGE_REPLACED` pada `LynxBootReceiver` agar setiap pembaruan APK otomatis memperbarui daemon `lynxd` dan menerapkan profil aktif di latar belakang tanpa perlu membuka aplikasi secara manual.
+
+---
+
 # Lynx Universal [Zero-Lag Deep Sleep Wakeup & Instant Wakeup Surge Architecture] 7.0.0-RC119
 Released on: 2026-10-20
 > **Lynx Universal v7.0.0-RC119** (Lynx Kernel Manager v3.1.65): **Perbaikan Kritis Performa Bangun dari Deep Sleep (Zero-Lag Wakeup Architecture): Penghapusan Paksaan Profil `powersave` saat Layar Mati (`ACTION_SCREEN_OFF`) yang Sebelumnya Mengunci CPU ke 633 MHz, Memarkir Seluruh Core Besar (Big Cores), dan Membatasi Cpuset `top-app` Hanya pada Core Kecil (`0-3`); Implementasi Mesin Native `wakeup-boost` (Lonjakan Transien 2 Detik: Unpark Big Cores, `sched_boost=1`, Full Cpuset `0-7`, & Input Boost 120ms untuk Menyerap Badai Tugas Bangun Tidur / *Thundering Herd* dalam $<300\text{ms}$); Pemangkasan Jeda Tidur 20 Detik pada Daemon `lynxd` (`runner.rs` 500ms Screen-ON Edge Trigger); serta Pemulihan Otomatis (*Self-Healing*) pada `decision.rs` dan `LynxViewModel` dari Status `powersave` yang Tertinggal**.
@@ -4595,3 +4657,4 @@ Released on: 2026-09-25
 # Arsip Rilis Sebelumnya (v3.0 Beta)
 Released on: 2025-05-11
 > Rilis awal pengenalan mesin logika Lxcore dan dukungan Android 14/15 Beta.
+
