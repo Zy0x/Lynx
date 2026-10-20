@@ -1,68 +1,30 @@
 package com.noir.lynx.service
-import androidx.compose.foundation.layout.ColumnScope
 
-import android.annotation.SuppressLint
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
-import android.content.Context
-import android.content.Intent
-import android.graphics.PixelFormat
-import android.os.Build
-import android.os.IBinder
-import android.view.Gravity
-import android.view.View
-import android.view.WindowManager
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Style
-import androidx.compose.material3.*
+import androidx.compose.material3.Surface
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.savedstate.SavedStateRegistry
-import androidx.savedstate.SavedStateRegistryController
-import androidx.savedstate.SavedStateRegistryOwner
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.noir.lynx.data.LynxRepository
-import com.noir.lynx.ui.MainActivity
-import com.topjohnwu.superuser.Shell
-import kotlinx.coroutines.*
-import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
+/**
+ * HudQuickToolsAndBenchmark — Infinix Game Space style in-game utility dock.
+ * Provides 1-tap tactile actions: RAM Boost, Display Refresh Rate switch,
+ * Mini FPS Bezel Pin toggle, and 60-second hardware stability benchmark.
+ */
 @Composable
 internal fun ColumnScope.HudQuickToolsAndBenchmark(
     currentRefreshRate: Int,
@@ -74,153 +36,208 @@ internal fun ColumnScope.HudQuickToolsAndBenchmark(
     onCycleRefreshRate: () -> Unit,
     onTogglePinMiniFps: () -> Unit,
     onStartHudBenchmark: () -> Unit,
-    onInteraction: () -> Unit
+    onInteraction: () -> Unit = {}
 ) {
     var isBoosting by remember { mutableStateOf(false) }
-    var boostFeedback by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
-                // 4. Quick Gaming Tools
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = "ALAT GAME",
+            color = InfinixTextSecondary,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.6.sp
+        )
+
+        // 3-Column Squircle Tool Tiles
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            // Tool 1: Boost RAM (Drop Caches)
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (isBoosting) NeonGreen.copy(alpha = 0.22f) else InfinixCard,
+                border = BorderStroke(1.dp, if (isBoosting) NeonGreen else InfinixCardBorder),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        if (!isBoosting) {
+                            isBoosting = true
+                            onBoostRam()
+                            onInteraction()
+                            coroutineScope.launch {
+                                delay(1200L)
+                                isBoosting = false
+                            }
+                        }
+                    }
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
                     Text(
-                        "GAMING TOOLS",
-                        color = TextSlate,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
+                        text = if (isBoosting) "🧹" else "🧹",
+                        fontSize = 12.sp
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        // Boost RAM
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (isBoosting) NeonGreen.copy(alpha = 0.2f) else Color(0x18FFFFFF),
-                            border = BorderStroke(1.dp, if (isBoosting) NeonGreen else Color(0x22FFFFFF)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable {
-                                    if (!isBoosting) {
-                                        isBoosting = true
-                                        boostFeedback = "..."
-                                        onBoostRam()
-                                        onInteraction()
-                                        coroutineScope.launch {
-                                            delay(1200L)
-                                            isBoosting = false
-                                            boostFeedback = null
-                                        }
-                                    }
-                                }
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    if (isBoosting) "Bersih" else "Boost RAM",
-                                    color = if (isBoosting) NeonGreen else NeonCyan,
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
-                                )
-                                Text("Drop Caches", color = TextMuted, fontSize = 7.sp, maxLines = 1)
-                            }
-                        }
+                    Text(
+                        text = if (isBoosting) "Bersih!" else "Boost RAM",
+                        color = if (isBoosting) NeonGreen else InfinixTextPrimary,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = if (isBoosting) "Selesai" else "Drop Cache",
+                        color = if (isBoosting) NeonGreen.copy(alpha = 0.8f) else InfinixTextMuted,
+                        fontSize = 7.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
 
-                        // Lock Refresh Rate
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0x18FFFFFF),
-                            border = BorderStroke(1.dp, Color(0x22FFFFFF)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable {
-                                    onCycleRefreshRate()
-                                    onInteraction()
-                                }
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    "$currentRefreshRate Hz",
-                                    color = NeonGold,
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
-                                )
-                                Text("Ganti Hz", color = TextMuted, fontSize = 7.sp, maxLines = 1)
-                            }
-                        }
+            // Tool 2: Display Hz Cycle
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = InfinixCard,
+                border = BorderStroke(1.dp, InfinixCardBorder),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        onCycleRefreshRate()
+                        onInteraction()
+                    }
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "⚡",
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "$currentRefreshRate Hz",
+                        color = NeonGold,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Ganti Hz",
+                        color = InfinixTextMuted,
+                        fontSize = 7.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
 
-                        // Pin Mini FPS
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (pinMiniFps) NeonGreen.copy(alpha = 0.2f) else Color(0x18FFFFFF),
-                            border = BorderStroke(1.dp, if (pinMiniFps) NeonGreen else Color(0x22FFFFFF)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable {
-                                    onTogglePinMiniFps()
-                                    onInteraction()
-                                }
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    "Pin FPS",
-                                    color = if (pinMiniFps) NeonGreen else TextSlate,
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
-                                )
-                                Text(if (pinMiniFps) "Aktif" else "Off", color = TextMuted, fontSize = 7.sp, maxLines = 1)
-                            }
-                        }
+            // Tool 3: Pin Mini FPS to Bezel
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (pinMiniFps) NeonGreen.copy(alpha = 0.22f) else InfinixCard,
+                border = BorderStroke(1.dp, if (pinMiniFps) NeonGreen else InfinixCardBorder),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        onTogglePinMiniFps()
+                        onInteraction()
+                    }
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "📌",
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "Pin FPS",
+                        color = if (pinMiniFps) NeonGreen else InfinixTextPrimary,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = if (pinMiniFps) "Aktif" else "Mati",
+                        color = if (pinMiniFps) NeonGreen.copy(alpha = 0.8f) else InfinixTextMuted,
+                        fontSize = 7.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        // Benchmark Action Bar
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = if (isHudBenchmarking) NeonMagenta.copy(alpha = 0.2f) else InfinixCard,
+            border = BorderStroke(1.dp, if (isHudBenchmarking) NeonMagenta else InfinixCardBorder),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    if (!isHudBenchmarking) {
+                        onStartHudBenchmark()
+                        onInteraction()
                     }
                 }
-
-                // 5. Live Benchmark Trigger
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (isHudBenchmarking) NeonMagenta.copy(alpha = 0.2f) else Color(0x12FFFFFF),
-                    border = BorderStroke(1.dp, if (isHudBenchmarking) NeonMagenta else Color(0x1AFFFFFF)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            if (!isHudBenchmarking) {
-                                onStartHudBenchmark()
-                                onInteraction()
-                            }
-                        }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    Text("⏱", fontSize = 10.sp)
+                    Text(
+                        text = if (isHudBenchmarking) "Menguji... ${hudBenchmarkCountdown}s" else "Mulai Benchmark 60s",
+                        color = if (isHudBenchmarking) NeonMagenta else InfinixTextPrimary,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                if (hudBenchmarkSummary != null && !isHudBenchmarking) {
+                    val stabPct = (100f - hudBenchmarkSummary.jankyFramesPercent).coerceIn(0f, 100f).toInt()
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = NeonGreen.copy(alpha = 0.15f),
+                        border = BorderStroke(0.6.dp, NeonGreen.copy(alpha = 0.35f))
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("⏱", fontSize = 9.sp)
-                            Text(
-                                if (isHudBenchmarking) "Benchmarking... ${hudBenchmarkCountdown}s" else "Mulai Benchmark 60s",
-                                color = if (isHudBenchmarking) NeonMagenta else TextSlate,
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        if (hudBenchmarkSummary != null && !isHudBenchmarking) {
-                            val stabPct = (100f - hudBenchmarkSummary.jankyFramesPercent).coerceIn(0f, 100f).toInt()
-                            Text(
-                                "Stab $stabPct% · 1%L ${hudBenchmarkSummary.fps1PercentLow.toInt()}",
-                                color = NeonGreen,
-                                fontSize = 8.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
+                        Text(
+                            text = "Stab $stabPct% · 1%L ${hudBenchmarkSummary.fps1PercentLow.toInt()}",
+                            color = NeonGreen,
+                            fontSize = 7.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
+                        )
                     }
-}
+                } else if (!isHudBenchmarking) {
+                    Text(
+                        text = "Uji Pacing ➔",
+                        color = InfinixTextMuted,
+                        fontSize = 7.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
     }
+}

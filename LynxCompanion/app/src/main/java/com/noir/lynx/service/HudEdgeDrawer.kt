@@ -14,7 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
@@ -32,9 +32,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.LynxRepository
-import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
+/**
+ * HudEdgeDrawer — Infinix Game Space inspired Edge Bar overlay.
+ * Docked cleanly to the bezel when collapsed, and expands into a full-featured,
+ * psychologically calming in-game gaming suite with real-time telemetry,
+ * performance profiles, and tactile game tools (RAM Boost, Hz switch, Pin FPS, Benchmark).
+ */
 @Composable
 fun HudEdgeDrawer(
     telemetry: LynxRepository.FloatingHudTelemetry,
@@ -58,7 +65,6 @@ fun HudEdgeDrawer(
 ) {
     var showStylePicker by remember { mutableStateOf(false) }
 
-    // When drawer closes, ensure dropdown picker is dismissed
     LaunchedEffect(isDrawerOpen) {
         if (!isDrawerOpen) {
             showStylePicker = false
@@ -66,15 +72,15 @@ fun HudEdgeDrawer(
     }
 
     if (!isDrawerOpen) {
-        // ── STATE 1: COLLAPSED EDGE HANDLE (Ultra-Slim Line with Precision Hit-Buffer) ──
+        // ── STATE 1: COLLAPSED BEZEL DOCK (Precision Glowing Handle) ──
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .wrapContentSize()
                 .systemGestureExclusion()
-                .padding(end = 14.dp) // Invisible touch buffer to ensure effortless thumb precision
+                .padding(end = 14.dp)
                 .pointerInput(Unit) {
-                    val touchSlop = 16.dp.toPx()
+                    val touchSlop = 14.dp.toPx()
                     while (true) {
                         awaitPointerEventScope {
                             val down = awaitPointerEvent().changes.firstOrNull { it.pressed } ?: return@awaitPointerEventScope
@@ -88,7 +94,6 @@ fun HudEdgeDrawer(
                                 change.consume()
                                 if (!change.pressed) {
                                     if (!isDragging) {
-                                        // 100% Reliable Single Tap: Instantly expand drawer with zero latency
                                         onToggleDrawer(true)
                                     }
                                     break
@@ -103,12 +108,10 @@ fun HudEdgeDrawer(
 
                                 if (isDragging) {
                                     if (isVerticalDrag) {
-                                        // Smooth vertical repositioning along bezel without opening drawer
                                         val deltaY = change.position.y - lastY
                                         lastY = change.position.y
                                         onDragVertical(deltaY)
                                     } else if (dx > touchSlop * 1.15f) {
-                                        // Intentional horizontal pull outward: expand drawer smoothly
                                         onToggleDrawer(true)
                                         break
                                     }
@@ -118,23 +121,22 @@ fun HudEdgeDrawer(
                     }
                 }
         ) {
-            // Ultra-Slim Precision Bezel Line Handle (Docked to screen edge)
+            // Bezel Docked Pill Handle
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp))
-                    .background(Color(0xD90A0E16))
+                    .clip(RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp))
+                    .background(Color(0xE60A0E17))
                     .border(
-                        BorderStroke(0.8.dp, NeonCyan.copy(alpha = 0.6f)),
-                        shape = RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp)
+                        BorderStroke(0.8.dp, NeonCyan.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
                     )
-                    .padding(start = 1.5.dp, end = 2.5.dp, top = 4.dp, bottom = 4.dp),
+                    .padding(start = 2.dp, end = 3.dp, top = 4.dp, bottom = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Sleek Vertical Glowing Bar
                 Box(
                     modifier = Modifier
-                        .width(3.5.dp)
-                        .height(44.dp)
+                        .width(4.dp)
+                        .height(48.dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(
                             Brush.verticalGradient(
@@ -144,7 +146,7 @@ fun HudEdgeDrawer(
                 )
             }
 
-            // Optional Glanceable Mini-FPS Pill
+            // Glanceable Bezel FPS Badge (if Pinned)
             if (pinMiniFps) {
                 Spacer(Modifier.width(4.dp))
                 val fpsVal = telemetry.renderFps
@@ -155,12 +157,10 @@ fun HudEdgeDrawer(
                 }
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xEB0C1118),
-                    border = BorderStroke(1.dp, BorderHud.copy(alpha = 0.5f)),
+                    color = Color(0xEB0A0E17),
+                    border = BorderStroke(0.8.dp, BorderHud.copy(alpha = 0.5f)),
                     shadowElevation = 6.dp,
-                    modifier = Modifier.clickable {
-                        onToggleDrawer(true)
-                    }
+                    modifier = Modifier.clickable { onToggleDrawer(true) }
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
@@ -185,21 +185,20 @@ fun HudEdgeDrawer(
             }
         }
     } else {
-        // ── STATE 2: SLIDE-OUT GAME BAR (Zen Bento Redesign) ──
+        // ── STATE 2: INFINIX GAME SPACE SLIDE-OUT BAR ──
         Surface(
-            shape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
-            color = Color(0xF50B1017),
-            border = BorderStroke(1.dp, Color(0x2800E5FF)),
-            shadowElevation = 18.dp,
+            shape = RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp),
+            color = InfinixBg,
+            border = BorderStroke(1.dp, InfinixCardBorder),
+            shadowElevation = 20.dp,
             modifier = Modifier
-                .width(296.dp)
+                .width(292.dp)
                 .systemGestureExclusion()
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDrag = { change, dragAmount ->
                             change.consume()
-                            // Swiping left closes drawer smoothly
-                            if (dragAmount.x < -20f) {
+                            if (dragAmount.x < -18f) {
                                 onToggleDrawer(false)
                             } else {
                                 onDragVertical(dragAmount.y)
@@ -210,7 +209,7 @@ fun HudEdgeDrawer(
         ) {
             Column(
                 modifier = Modifier
-                    .padding(10.dp)
+                    .padding(11.dp)
                     .clickable(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                         indication = null
@@ -219,12 +218,17 @@ fun HudEdgeDrawer(
                     },
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
-                // 1. Header Bar
+                // 1. Infinix Game Space Top Header (Clock, Battery, Actions)
+                val currentTimeStr = remember(telemetry.renderFps) {
+                    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    // Left Brand & Clock Pod
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -233,22 +237,30 @@ fun HudEdgeDrawer(
                             modifier = Modifier
                                 .size(7.dp)
                                 .clip(CircleShape)
-                                .background(NeonCyan)
+                                .background(InfinixAccent)
                         )
                         Text(
-                            "LYNX DECK",
-                            color = NeonCyan,
-                            fontSize = 11.5.sp,
+                            text = "GAME SPACE",
+                            color = InfinixAccent,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Black,
-                            letterSpacing = 0.8.sp
+                            letterSpacing = 0.6.sp
+                        )
+                        Text(
+                            text = "· $currentTimeStr",
+                            color = InfinixTextSecondary,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
                         )
                     }
 
+                    // Right Controls (Battery, Window, Style, Close)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        // Switch to Classic Floating Window
+                        // Switch to Floating Window Mode
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
@@ -259,10 +271,10 @@ fun HudEdgeDrawer(
                                 }
                                 .padding(horizontal = 6.dp, vertical = 3.dp)
                         ) {
-                            Text("Window", color = TextSlate, fontSize = 8.5.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Jendela", color = InfinixTextSecondary, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
                         }
 
-                        // Style Dropdown Trigger
+                        // Style Dropdown Trigger (S1-S6)
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
@@ -273,13 +285,13 @@ fun HudEdgeDrawer(
                                 }
                                 .padding(horizontal = 6.dp, vertical = 3.dp)
                         ) {
-                            Text("S$activeStyle ▾", color = NeonCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                            Text("S$activeStyle ▾", color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                         }
 
-                        // Complete Shutdown HUD Action
+                        // Power Off Overlay
                         Box(
                             modifier = Modifier
-                                .size(26.dp)
+                                .size(24.dp)
                                 .clip(CircleShape)
                                 .background(Color(0x18FFFFFF))
                                 .clickable {
@@ -291,15 +303,15 @@ fun HudEdgeDrawer(
                             Icon(
                                 Icons.Default.PowerSettingsNew,
                                 contentDescription = "Matikan HUD",
-                                tint = TextSlate,
-                                modifier = Modifier.size(13.dp)
+                                tint = InfinixTextSecondary,
+                                modifier = Modifier.size(12.dp)
                             )
                         }
 
-                        // Prominent, Comfortable Close / Collapse Drawer Button
+                        // Collapse Drawer Button
                         Box(
                             modifier = Modifier
-                                .size(26.dp)
+                                .size(24.dp)
                                 .clip(CircleShape)
                                 .background(Color(0x22FF5252))
                                 .clickable {
@@ -308,16 +320,16 @@ fun HudEdgeDrawer(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                Icons.Default.Close,
+                                Icons.Default.ChevronLeft,
                                 contentDescription = "Tutup Bilah",
                                 tint = NeonRed,
-                                modifier = Modifier.size(13.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                         }
                     }
                 }
 
-                // Style Picker Dropdown
+                // Style Picker Dropdown (when tapped)
                 AnimatedVisibility(
                     visible = showStylePicker,
                     enter = fadeIn(),
@@ -325,7 +337,7 @@ fun HudEdgeDrawer(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xEE121824),
+                        color = Color(0xEE111824),
                         border = BorderStroke(1.dp, BorderHud),
                         modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)
                     ) {
@@ -362,11 +374,11 @@ fun HudEdgeDrawer(
                     }
                 }
 
-                // 2. Hero Performance Card (Live FPS & Frametime)
+                // 2. Hero Performance Pod (FPS & Frametime)
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0x55111923),
-                    border = BorderStroke(1.dp, Color(0x20FFFFFF)),
+                    color = InfinixCard,
+                    border = BorderStroke(1.dp, InfinixCardBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -383,31 +395,40 @@ fun HudEdgeDrawer(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    "${telemetry.renderFps}",
-                                    color = NeonGreen,
+                                    text = "${telemetry.renderFps}",
+                                    color = InfinixAccent,
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.Black,
                                     fontFamily = FontFamily.Monospace
                                 )
                                 Text(
-                                    "FPS",
-                                    color = NeonGreen,
+                                    text = "FPS",
+                                    color = InfinixAccent,
                                     fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(bottom = 2.dp)
                                 )
+                                if (currentRefreshRate > 0) {
+                                    Text(
+                                        text = "· ${currentRefreshRate}Hz",
+                                        color = InfinixTextMuted,
+                                        fontSize = 8.5.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        modifier = Modifier.padding(bottom = 2.dp)
+                                    )
+                                }
                             }
 
                             val stabilityText = if (telemetry.fps1PercentLow >= 50f) "STABIL" else "AKTIF"
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
-                                color = Color(0x1A00E676),
-                                border = BorderStroke(0.6.dp, NeonGreen.copy(alpha = 0.3f))
+                                color = InfinixAccent.copy(alpha = 0.15f),
+                                border = BorderStroke(0.6.dp, InfinixAccent.copy(alpha = 0.35f))
                             ) {
                                 Text(
                                     text = "${String.format(Locale.US, "%.1f", telemetry.frametimeMs)} ms · $stabilityText",
-                                    color = TextSlate,
-                                    fontSize = 8.5.sp,
+                                    color = InfinixAccent,
+                                    fontSize = 8.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
@@ -415,7 +436,7 @@ fun HudEdgeDrawer(
                             }
                         }
 
-                        // Frametime Sparkline
+                        // Smooth Frametime Canvas Sparkline
                         FrametimeSparklineCanvas(
                             history = telemetry.frametimeHistory,
                             heightDp = 12,
@@ -450,7 +471,7 @@ fun HudEdgeDrawer(
                         )
                     }
 
-                    // Row 2: BATERAI & RAM
+                    // Row 2: BATERAI & MEMORI
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(5.dp)
@@ -473,11 +494,11 @@ fun HudEdgeDrawer(
                     }
                 }
 
-                // 4. Kernel Performance Mode Selector
+                // 4. Kernel Performance Profile Switcher (Infinix Game Mode Buttons)
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        "PROFIL PERFORMA",
-                        color = TextSlate,
+                        text = "MODE PERFORMA",
+                        color = InfinixTextSecondary,
                         fontSize = 8.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp
@@ -487,17 +508,17 @@ fun HudEdgeDrawer(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         val profiles = listOf(
+                            "powersave" to "PWR",
                             "balance" to "BAL",
                             "performance" to "PERF",
-                            "extreme" to "EXT",
-                            "powersave" to "PWR"
+                            "extreme" to "EXT"
                         )
                         profiles.forEach { (pKey, pLabel) ->
                             val isSel = telemetry.activeProfile.equals(pKey, ignoreCase = true)
                             Surface(
                                 shape = RoundedCornerShape(7.dp),
-                                color = if (isSel) NeonCyan.copy(alpha = 0.22f) else Color(0x14FFFFFF),
-                                border = BorderStroke(1.dp, if (isSel) NeonCyan else Color(0x1FFFFFFF)),
+                                color = if (isSel) NeonCyan.copy(alpha = 0.22f) else InfinixCard,
+                                border = BorderStroke(1.dp, if (isSel) NeonCyan else InfinixCardBorder),
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable {
@@ -510,7 +531,7 @@ fun HudEdgeDrawer(
                                 ) {
                                     Text(
                                         text = pLabel,
-                                        color = if (isSel) NeonCyan else Color.White,
+                                        color = if (isSel) NeonCyan else InfinixTextPrimary,
                                         fontSize = 9.sp,
                                         fontWeight = if (isSel) FontWeight.ExtraBold else FontWeight.SemiBold
                                     )
@@ -520,7 +541,7 @@ fun HudEdgeDrawer(
                     }
                 }
 
-                // 5. Gaming Quick Tools & Benchmark
+                // 5. Infinix Gaming Tools & Benchmark
                 HudQuickToolsAndBenchmark(
                     currentRefreshRate = currentRefreshRate,
                     pinMiniFps = pinMiniFps,
@@ -548,8 +569,8 @@ private fun HudBentoTile(
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color(0x55111923),
-        border = BorderStroke(1.dp, Color(0x18FFFFFF)),
+        color = InfinixCard,
+        border = BorderStroke(1.dp, InfinixCardBorder),
         modifier = modifier
     ) {
         Column(
@@ -568,7 +589,7 @@ private fun HudBentoTile(
                 )
                 Text(
                     text = label,
-                    color = TextSlate,
+                    color = InfinixTextSecondary,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp
@@ -576,7 +597,7 @@ private fun HudBentoTile(
             }
             Text(
                 text = primaryText,
-                color = Color.White,
+                color = InfinixTextPrimary,
                 fontSize = 9.5.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
@@ -585,7 +606,7 @@ private fun HudBentoTile(
             )
             Text(
                 text = subText,
-                color = TextSlate.copy(alpha = 0.8f),
+                color = InfinixTextMuted,
                 fontSize = 7.5.sp,
                 fontFamily = FontFamily.Monospace,
                 maxLines = 1,

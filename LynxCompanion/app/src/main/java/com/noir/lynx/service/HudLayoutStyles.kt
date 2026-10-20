@@ -1,24 +1,7 @@
 package com.noir.lynx.service
 
-import android.annotation.SuppressLint
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
-import android.content.Context
-import android.content.Intent
-import android.graphics.PixelFormat
-import android.os.Build
-import android.os.IBinder
-import android.view.Gravity
-import android.view.View
-import android.view.WindowManager
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -27,40 +10,27 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Style
-import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import com.noir.lynx.core.locale.LynxText as Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.savedstate.SavedStateRegistry
-import androidx.savedstate.SavedStateRegistryController
-import androidx.savedstate.SavedStateRegistryOwner
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.noir.lynx.data.LynxRepository
-import com.noir.lynx.ui.MainActivity
-import com.topjohnwu.superuser.Shell
-import kotlinx.coroutines.*
-import kotlin.math.roundToInt
+import java.util.Locale
+
+// ────────────────────────────────────────────────────────────
+//  STYLE 1: VERTICAL PILLAR (MODERN SLIM RTSS)
+// ────────────────────────────────────────────────────────────
 
 @Composable
 fun HudVerticalPillar(
@@ -100,7 +70,7 @@ fun HudVerticalPillar(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Icon(Icons.Default.DragHandle, "Geser", tint = Color(0x99FFFFFF), modifier = Modifier.size(14.dp))
                     Text(
-                        "LYNX TELEMETRY",
+                        text = "LYNX TELEMETRY",
                         color = NeonCyan,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
@@ -108,7 +78,6 @@ fun HudVerticalPillar(
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                    // Style switch badge
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
@@ -118,7 +87,6 @@ fun HudVerticalPillar(
                     ) {
                         Text("S1 ▾", color = NeonCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                     }
-                    // Profile badge
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
@@ -147,7 +115,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("GPU", NeonMagenta)
                     Text(
-                        if (telemetry.gpuFreqMhz > 0) "${telemetry.gpuFreqMhz} MHz" else "--",
+                        text = if (telemetry.gpuFreqMhz > 0) "${telemetry.gpuFreqMhz} MHz" else "--",
                         color = Color.White,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -155,7 +123,7 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(70.dp)
                     )
                     Text(
-                        "${telemetry.gpuLoadPct}%",
+                        text = "${telemetry.gpuLoadPct}%",
                         color = NeonMagenta,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -164,7 +132,7 @@ fun HudVerticalPillar(
                     )
                     val gpuTempStr = if (telemetry.gpuTempC > 0f) "${telemetry.gpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
                     Text(
-                        "$gpuTempStr · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W",
+                        text = "$gpuTempStr · ${String.format(Locale.US, "%.1f", telemetry.battWatt)}W",
                         color = TextSlate,
                         fontSize = 9.5.sp,
                         fontFamily = FontFamily.Monospace,
@@ -177,7 +145,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("CPU", NeonCyan)
                     Text(
-                        telemetry.cpuCoresSummary.ifEmpty { if (telemetry.cpuFreqMhz > 0) "${telemetry.cpuFreqMhz} MHz" else "--" },
+                        text = telemetry.cpuCoresSummary.ifEmpty { if (telemetry.cpuFreqMhz > 0) "${telemetry.cpuFreqMhz} MHz" else "--" },
                         color = Color.White,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -185,7 +153,7 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(70.dp)
                     )
                     Text(
-                        "${telemetry.cpuLoadPct}%",
+                        text = "${telemetry.cpuLoadPct}%",
                         color = NeonCyan,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -194,7 +162,7 @@ fun HudVerticalPillar(
                     )
                     val cpuTempStr = if (telemetry.cpuTempC > 0f) "${telemetry.cpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
                     Text(
-                        cpuTempStr,
+                        text = cpuTempStr,
                         color = TextSlate,
                         fontSize = 9.5.sp,
                         fontFamily = FontFamily.Monospace,
@@ -207,7 +175,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("RAM", NeonGold)
                     Text(
-                        if (telemetry.ramUsedGb > 0f) "${telemetry.ramUsedGb} / ${telemetry.ramTotalGb}G" else "--",
+                        text = if (telemetry.ramUsedGb > 0f) "${telemetry.ramUsedGb} / ${telemetry.ramTotalGb}G" else "--",
                         color = Color.White,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -215,7 +183,7 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(70.dp)
                     )
                     Text(
-                        "${telemetry.ramPct}%",
+                        text = "${telemetry.ramPct}%",
                         color = NeonGold,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -223,7 +191,7 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(42.dp)
                     )
                     Text(
-                        "ZRAM ${telemetry.zramUsedGb}G",
+                        text = "ZRAM ${telemetry.zramUsedGb}G",
                         color = TextSlate,
                         fontSize = 9.5.sp,
                         fontFamily = FontFamily.Monospace,
@@ -236,7 +204,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("FPS", NeonGreen)
                     Text(
-                        "${telemetry.renderFps} FPS",
+                        text = "${telemetry.renderFps} FPS",
                         color = NeonGreen,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -244,7 +212,7 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(70.dp)
                     )
                     Text(
-                        "AVG ${telemetry.avgFps.toInt()}",
+                        text = "AVG ${telemetry.avgFps.toInt()}",
                         color = NeonGreen.copy(alpha = 0.85f),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -252,7 +220,7 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(48.dp)
                     )
                     Text(
-                        "1%L ${telemetry.fps1PercentLow.toInt()}",
+                        text = "1%L ${telemetry.fps1PercentLow.toInt()}",
                         color = NeonGold,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -266,7 +234,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("FT", TextSlate)
                     Text(
-                        "${String.format(java.util.Locale.US, "%.1f", telemetry.frametimeMs)} ms",
+                        text = "${String.format(Locale.US, "%.1f", telemetry.frametimeMs)} ms",
                         color = Color.White,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -274,14 +242,14 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(70.dp)
                     )
                     Text(
-                        "AVG ${String.format(java.util.Locale.US, "%.1f", telemetry.avgFrametimeMs)}",
+                        text = "AVG ${String.format(Locale.US, "%.1f", telemetry.avgFrametimeMs)}",
                         color = TextSlate,
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.width(48.dp)
                     )
                     Text(
-                        "±${String.format(java.util.Locale.US, "%.1f", telemetry.frametimeJitterMs)} ms",
+                        text = "±${String.format(Locale.US, "%.1f", telemetry.frametimeJitterMs)} ms",
                         color = TextMuted,
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
@@ -301,7 +269,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("BAT", NeonOrange)
                     Text(
-                        "${telemetry.battTempC}°C",
+                        text = "${telemetry.battTempC}°C",
                         color = if (telemetry.battTempC > 42f) NeonRed else NeonOrange,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -309,14 +277,14 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(55.dp)
                     )
                     Text(
-                        "${telemetry.battCurrentMa} mA",
+                        text = "${telemetry.battCurrentMa} mA",
                         color = if (telemetry.isCharging) NeonGreen else Color.White,
                         fontSize = 9.5.sp,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.width(60.dp)
                     )
                     Text(
-                        "${telemetry.battLevelPct}% · ${if (telemetry.isCharging) "+" else ""}${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W",
+                        text = "${telemetry.battLevelPct}% · ${if (telemetry.isCharging) "+" else ""}${String.format(Locale.US, "%.1f", telemetry.battWatt)}W",
                         color = TextSlate,
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
@@ -480,7 +448,7 @@ fun HudDualBlock(
                     modifier = Modifier.padding(vertical = 1.dp)
                 )
                 Text("AVG: ${telemetry.avgFps.toInt()} · 1%L: ${telemetry.fps1PercentLow.toInt()}", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
-                Text("FT: ${String.format(java.util.Locale.US, "%.1f", telemetry.frametimeMs)}ms", color = TextMuted, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                Text("FT: ${String.format(Locale.US, "%.1f", telemetry.frametimeMs)}ms", color = TextMuted, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                 Spacer(Modifier.height(3.dp))
                 FrametimeSparklineCanvas(history = telemetry.frametimeHistory, heightDp = 14)
             }
@@ -533,7 +501,7 @@ fun HudDualBlock(
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("BAT ${telemetry.battTempC}°C", color = NeonOrange, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("${telemetry.battLevelPct}% · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                    Text("${telemetry.battLevelPct}% · ${String.format(Locale.US, "%.1f", telemetry.battWatt)}W", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                 }
             }
         }
@@ -613,13 +581,9 @@ fun HudQuadTiles(
                 Column(Modifier.padding(5.dp)) {
                     Text("MEM & POWER", color = NeonGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                     Text("${telemetry.ramUsedGb}G", color = NeonGold, fontSize = 16.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                    Text("${telemetry.battTempC}°C · ${String.format(java.util.Locale.US, "%.1f", telemetry.battWatt)}W", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                    Text("${telemetry.battTempC}°C · ${String.format(Locale.US, "%.1f", telemetry.battWatt)}W", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
                 }
             }
         }
     }
 }
-
-// ────────────────────────────────────────────────────────────
-//  STYLE 5: DECK BANNER (STEAM DECK GAMESCOPE)
-// ────────────────────────────────────────────────────────────
